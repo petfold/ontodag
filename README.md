@@ -19,6 +19,8 @@ DAG data structure.
   - During put keep a dictionary of 'done' nodes of the inserted item and all its super categories
   - Insert a link only to nodes which are not 'done'
   - Increment counter only for items which are not 'done'
+- [ ] Save/load data structure into/from file (try PKL)
+- [ ] Load ontology from file (e.g. OWL)
 - [ ] Visualize graph (with python library - Graphviz)
 - [ ] More extensive test cases
 - [ ] Select suitable ontology for importing (to serve as the basis of the DAG)
@@ -26,6 +28,11 @@ DAG data structure.
 - [ ] Sub-class of OntoDAG with weights, i.e. conditional probabilities (for machine learning)
 - [ ] Add and remove intermediate nodes to optimize search in the graph
 - [ ] Implement space and time calculation for graph items (e.g. century, GPS bounding box)
+  - categories for item types, e.g. point in time, time interval, geo coordinates, geo area, url
+  - way to handle non-stored numerical types (time intervals, geo coordinates, areas, numbers, arbitrary types)
+  - way to store and retrieve ordered values (photo with exact time in response to "last week")
+  - ways to define (partial) ordering function
+  - file types (hierarchical, e.g. image, png)
 - [ ] Port implementation to Golang
 - [ ] Implement a REST API for the Golang (or Rust) implementation
 - [ ] Interface with a graph database implementation.
