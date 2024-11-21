@@ -1,7 +1,7 @@
-from ontodag import OntoDAG
+from ontodag import VisualizerOntoDAG
 
 if __name__ == "__main__":
-    ontodag = OntoDAG()
+    ontodag = VisualizerOntoDAG()
     ontodag.put("Animal", [])
     ontodag.put("Mammal", ["Animal"])
     ontodag.put("Bird", ["Animal"])
@@ -19,3 +19,4 @@ if __name__ == "__main__":
     # Query all items that are subcategories of both "Mammal" and "Black"
     print(ontodag.get({"Mammal", "Black"}))  # Expected output: {"Black Dog", "Black Cat"}
 
+    ontodag.visualize("cdag_visualization")
