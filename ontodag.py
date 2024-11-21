@@ -10,7 +10,7 @@ class Item:
         return f"Item({self.name})"
 
 
-class CDAG:
+class OntoDAG:
     def __init__(self):
         self.items = {}
 
@@ -50,7 +50,7 @@ class CDAG:
         descendant_sets = []
         for name in query_names:
             if name not in self.items:
-                raise ValueError(f"Item '{name}' does not exist in CDAG.")
+                raise ValueError(f"Item '{name}' does not exist in OntoDAG.")
             descendant_sets.append(self._get_descendants(self.items[name]))
 
         # Find the intersection of all descendant sets
@@ -58,25 +58,25 @@ class CDAG:
         return {item.name for item in result}
 
     def __repr__(self):
-        return f"CDAG({self.items})"
+        return f"OntoDAG({self.items})"
         
 
 if __name__ == "__main__":
-    cdag = CDAG()
-    cdag.put("Animal", [])
-    cdag.put("Mammal", ["Animal"])
-    cdag.put("Bird", ["Animal"])
-    cdag.put("Dog", ["Mammal"])
-    cdag.put("Cat", ["Mammal"])
-    cdag.put("Parrot", ["Bird"])
-    cdag.put("Has-colour", [])
-    cdag.put("Black", ["Has-colour"])
-    cdag.put("White", ["Has-colour"])
-    cdag.put("Green", ["Has-colour"])
-    cdag.put("Black Dog", ["Dog", "Black"])
-    cdag.put("Black Cat", ["Cat", "Black"])
-    cdag.put("Green Parrot", ["Parrot", "Green"])
+    ontodag = OntoDAG()
+    ontodag.put("Animal", [])
+    ontodag.put("Mammal", ["Animal"])
+    ontodag.put("Bird", ["Animal"])
+    ontodag.put("Dog", ["Mammal"])
+    ontodag.put("Cat", ["Mammal"])
+    ontodag.put("Parrot", ["Bird"])
+    ontodag.put("Has-colour", [])
+    ontodag.put("Black", ["Has-colour"])
+    ontodag.put("White", ["Has-colour"])
+    ontodag.put("Green", ["Has-colour"])
+    ontodag.put("Black Dog", ["Dog", "Black"])
+    ontodag.put("Black Cat", ["Cat", "Black"])
+    ontodag.put("Green Parrot", ["Parrot", "Green"])
 
     # Query all items that are subcategories of both "Mammal" and "Black"
-    print(cdag.get({"Mammal", "Black"}))  # Expected output: {"Black Dog", "Black Cat"}
+    print(ontodag.get({"Mammal", "Black"}))  # Expected output: {"Black Dog", "Black Cat"}
 
