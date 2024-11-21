@@ -1,32 +1,82 @@
-class Node:
+class Item:
     def __init__(self, name):
         self.name = name
-        self.parents = set()   # Set of parent Node objects (supercategories)
-        self.children = set()  # Set of child Node objects (subcategories)
+        self.subcategories = set()
+    
+    def add_subcategory(self, subcategory):
+        self.subcategories.add(subcategory)
 
-class OntoDAG:
+    def __repr__(self):
+        return f"Item({self.name})"
+
+
+class CDAG:
     def __init__(self):
-        self.nodes = {}  # Dictionary to store node name to Node object
+        self.items = {}
 
-    def add_node(self, name):
-        if name in self.nodes:
-            # Node already exists
-            return self.nodes[name]
-        else:
-            node = Node(name)
-            self.nodes[name] = node
-            return node
+    def put(self, name, supercategories):
+        # Check that all supercategories exist
+        for supercat_name in supercategories:
+            if supercat_name not in self.items:
+                raise ValueError(f"Supercategory '{supercat_name}' does not exist.")
+        
+        # Ensure the item exists
+        if name not in self.items:
+            self.items[name] = Item(name)
+        
+        # Add subcategory relationships
+        for supercat_name in supercategories:
+            supercat_item = self.items[supercat_name]
+            supercat_item.add_subcategory(self.items[name])
 
-    def add_edge(self, child_name, parent_name):
-        # Ensure both nodes exist
-        if child_name not in self.nodes:
-            raise ValueError(f"Node '{child_name}' does not exist.")
-        if parent_name not in self.nodes:
-            raise ValueError(f"Node '{parent_name}' does not exist.")
+    def _get_descendants(self, item):
+        """Retrieve all descendants of a given item using DFS."""
+        descendants = set()
+        stack = [item]
+        while stack:
+            current = stack.pop()
+            for sub in current.subcategories:
+                if sub not in descendants:
+                    descendants.add(sub)
+                    stack.append(sub)
+        return descendants
 
-        child_node = self.nodes[child_name]
-        parent_node = self.nodes[parent_name]
+    def get(self, query_names):
+        """Return all items that are subcategories of all items in the query set."""
+        if not query_names:
+            return set()
+        
+        # Retrieve descendants for each item in query
+        descendant_sets = []
+        for name in query_names:
+            if name not in self.items:
+                raise ValueError(f"Item '{name}' does not exist in CDAG.")
+            descendant_sets.append(self._get_descendants(self.items[name]))
 
-        # Add the edge from child to parent
-        child_node.parents.add(parent_node)
-        parent_node.children.add(child_node)
+        # Find the intersection of all descendant sets
+        result = set.intersection(*descendant_sets) if descendant_sets else set()
+        return {item.name for item in result}
+
+    def __repr__(self):
+        return f"CDAG({self.items})"
+        
+
+if __name__ == "__main__":
+    cdag = CDAG()
+    cdag.put("Animal", [])
+    cdag.put("Mammal", ["Animal"])
+    cdag.put("Bird", ["Animal"])
+    cdag.put("Dog", ["Mammal"])
+    cdag.put("Cat", ["Mammal"])
+    cdag.put("Parrot", ["Bird"])
+    cdag.put("Has-colour", [])
+    cdag.put("Black", ["Has-colour"])
+    cdag.put("White", ["Has-colour"])
+    cdag.put("Green", ["Has-colour"])
+    cdag.put("Black Dog", ["Dog", "Black"])
+    cdag.put("Black Cat", ["Cat", "Black"])
+    cdag.put("Green Parrot", ["Parrot", "Green"])
+
+    # Query all items that are subcategories of both "Mammal" and "Black"
+    print(cdag.get({"Mammal", "Black"}))  # Expected output: {"Black Dog", "Black Cat"}
+
