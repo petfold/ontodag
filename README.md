@@ -1,16 +1,10 @@
 # OntoDAG
 
-Associative memory and categories based on a directred acyclic graph data structure
+Associative memory and categories based on a directed acyclic graph data structure
 
 ## Specification
 
-A Directed Acyclic Graph (DAG) associative storage and categorizer in Python. This data
-structure a ontodag. You can store items into a ontodag and recall items from it. Each item will have a name (a string).
-To store or "put" an item into a ontodag, you give it a name and a set of other names of already existing items that are
-its supercategories. Give an error if the given supercategory name does not exist. Insert the new item into the DAG by
-adding edges from all the supercategories specified. To recall or "get", you specify a set of item names, and you should
-get all items that are subcategories of all these items. Can we do this step by step. Let's start by implementing the
-DAG data structure.
+A Directed Acyclic Graph (DAG) associative storage and category manager in Python. You can store items into a ontodag and recall items from it. To store or "put" an item into a ontodag, you give it a name and a set of other names of already existing items that are its supercategories. To recall or "get", you specify a set of item names to get all items that are subcategories of all these items.
 
 ## Roadmap
 
@@ -25,7 +19,7 @@ DAG data structure.
 - [ ] More extensive test cases
 - [ ] Select suitable ontology for importing (to serve as the basis of the DAG)
 - [ ] Sub-class of OntoDAG with counters (for statistics)
-- [ ] Sub-class of OntoDAG with weights, i.e. conditional probabilities (for machine learning)
+- [ ] Optimize retrieval and storage by choosing subsets of query items and finding existing nodes already stored in the DAG.
 - [ ] Add and remove intermediate nodes to optimize search in the graph
 - [ ] Implement space and time calculation for graph items (e.g. century, GPS bounding box)
   - categories for item types, e.g. point in time, time interval, geo coordinates, geo area, url
