@@ -1,0 +1,197 @@
+Name,Larger Region,Type
+Africa,Earth,Continent
+Northern Africa,Africa,Region
+Sub-Saharan Africa,Africa,Region
+Egypt,Northern Africa,Country
+South Africa,Sub-Saharan Africa,Country
+Kenya,Sub-Saharan Africa,Country
+Nigeria,Sub-Saharan Africa,Country
+Morocco,Northern Africa,Country
+Cairo,Egypt,City
+Johannesburg,South Africa,City
+Nairobi,Kenya,City
+Lagos,Nigeria,City
+Casablanca,Morocco,City
+Asia,Earth,Continent
+Eastern Asia,Asia,Region
+Southeast Asia,Asia,Region
+South Asia,Asia,Region
+Central Asia,Asia,Region
+Western Asia,Asia,Region
+China,Eastern Asia,Country
+Japan,Eastern Asia,Country
+South Korea,Eastern Asia,Country
+North Korea,Eastern Asia,Country
+Mongolia,Eastern Asia,Country
+Thailand,Southeast Asia,Country
+Vietnam,Southeast Asia,Country
+Indonesia,Southeast Asia,Country
+Philippines,Southeast Asia,Country
+Malaysia,Southeast Asia,Country
+India,South Asia,Country
+Pakistan,South Asia,Country
+Bangladesh,South Asia,Country
+Nepal,South Asia,Country
+Sri Lanka,South Asia,Country
+Kazakhstan,Central Asia,Country
+Uzbekistan,Central Asia,Country
+Turkmenistan,Central Asia,Country
+Kyrgyzstan,Central Asia,Country
+Tajikistan,Central Asia,Country
+Saudi Arabia,Western Asia,Country
+UAE,Western Asia,Country
+Turkey,Western Asia,Country
+Iran,Western Asia,Country
+Israel,Western Asia,Country
+Beijing,China,City
+Tokyo,Japan,City
+Seoul,South Korea,City
+Pyongyang,North Korea,City
+Ulaanbaatar,Mongolia,City
+Bangkok,Thailand,City
+Hanoi,Vietnam,City
+Jakarta,Indonesia,City
+Manila,Philippines,City
+Kuala Lumpur,Malaysia,City
+New Delhi,India,City
+Islamabad,Pakistan,City
+Dhaka,Bangladesh,City
+Kathmandu,Nepal,City
+Colombo,Sri Lanka,City
+Astana,Kazakhstan,City
+Tashkent,Uzbekistan,City
+Ashgabat,Turkmenistan,City
+Bishkek,Kyrgyzstan,City
+Dushanbe,Tajikistan,City
+Riyadh,Saudi Arabia,City
+Dubai,UAE,City
+Istanbul,Turkey,City
+Tehran,Iran,City
+Tel Aviv,Israel,City
+Europe,Earth,Continent
+Northern Europe,Europe,Region
+Southern Europe,Europe,Region
+Western Europe,Europe,Region
+Eastern Europe,Europe,Region
+Sweden,Northern Europe,Country
+Norway,Northern Europe,Country
+Finland,Northern Europe,Country
+Denmark,Northern Europe,Country
+Iceland,Northern Europe,Country
+Italy,Southern Europe,Country
+Greece,Southern Europe,Country
+Spain,Southern Europe,Country
+Portugal,Southern Europe,Country
+Croatia,Southern Europe,Country
+France,Western Europe,Country
+Germany,Western Europe,Country
+Belgium,Western Europe,Country
+Netherlands,Western Europe,Country
+Luxembourg,Western Europe,Country
+Russia,Eastern Europe,Country
+Ukraine,Eastern Europe,Country
+Poland,Eastern Europe,Country
+Hungary,Eastern Europe,Country
+Romania,Eastern Europe,Country
+Stockholm,Sweden,City
+Oslo,Norway,City
+Helsinki,Finland,City
+Copenhagen,Denmark,City
+Reykjavik,Iceland,City
+Rome,Italy,City
+Athens,Greece,City
+Madrid,Spain,City
+Lisbon,Portugal,City
+Zagreb,Croatia,City
+Paris,France,City
+Berlin,Germany,City
+Brussels,Belgium,City
+Amsterdam,Netherlands,City
+Luxembourg City,Luxembourg,City
+Moscow,Russia,City
+Kyiv,Ukraine,City
+Warsaw,Poland,City
+Budapest,Hungary,City
+Bucharest,Romania,City
+North America,Earth,Continent
+Northern North America,North America,Region
+Central America,North America,Region
+Caribbean,North America,Region
+Canada,Northern North America,Country
+United States,Northern North America,Country
+Mexico,Central America,Country
+Guatemala,Central America,Country
+Honduras,Central America,Country
+El Salvador,Central America,Country
+Costa Rica,Central America,Country
+Cuba,Caribbean,Country
+Jamaica,Caribbean,Country
+Haiti,Caribbean,Country
+Dominican Republic,Caribbean,Country
+Trinidad and Tobago,Caribbean,Country
+Ottawa,Canada,City
+Washington D.C.,United States,City
+Toronto,Canada,City
+New York City,United States,City
+Vancouver,Canada,City
+Mexico City,Mexico,City
+Guatemala City,Guatemala,City
+Tegucigalpa,Honduras,City
+San Salvador,El Salvador,City
+San José,Costa Rica,City
+Havana,Cuba,City
+Kingston,Jamaica,City
+Port-au-Prince,Haiti,City
+Santo Domingo,Dominican Republic,City
+Port of Spain,Trinidad and Tobago,City
+South America,Earth,Continent
+Northern South America,South America,Region
+Southern South America,South America,Region
+Colombia,Northern South America,Country
+Venezuela,Northern South America,Country
+Guyana,Northern South America,Country
+Suriname,Northern South America,Country
+Ecuador,Northern South America,Country
+Brazil,Southern South America,Country
+Argentina,Southern South America,Country
+Chile,Southern South America,Country
+Uruguay,Southern South America,Country
+Paraguay,Southern South America,Country
+Bogotá,Colombia,City
+Caracas,Venezuela,City
+Georgetown,Guyana,City
+Paramaribo,Suriname,City
+Quito,Ecuador,City
+São Paulo,Brazil,City
+Buenos Aires,Argentina,City
+Santiago,Chile,City
+Montevideo,Uruguay,City
+Asunción,Paraguay,City
+Oceania,Earth,Continent
+Australia and New Zealand,Oceania,Region
+Pacific Islands,Oceania,Region
+Australia,Australia and New Zealand,Country
+New Zealand,Australia and New Zealand,Country
+Fiji,Pacific Islands,Country
+Samoa,Pacific Islands,Country
+Papua New Guinea,Pacific Islands,Country
+Tonga,Pacific Islands,Country
+Palau,Pacific Islands,Country
+Sydney,Australia,City
+Melbourne,Australia,City
+Auckland,New Zealand,City
+Wellington,New Zealand,City
+Suva,Fiji,City
+Apia,Samoa,City
+Port Moresby,Papua New Guinea,City
+Nuku'alofa,Tonga,City
+Ngerulmud,Palau,City
+Antarctica,Earth,Continent
+Territorial Claims,Antarctica,Region
+Argentina (Claim),Territorial Claims,Region
+Australia (Claim),Territorial Claims,Region
+Chile (Claim),Territorial Claims,Region
+New Zealand (Claim),Territorial Claims,Region
+Norway (Claim),Territorial Claims,Region
+UK (Claim),Territorial Claims,Region
+McMurdo Station,Antarctica,City
