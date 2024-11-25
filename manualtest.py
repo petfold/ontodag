@@ -19,4 +19,4 @@ if __name__ == "__main__":
     # Query all items that are subcategories of both "Mammal" and "Black"
     print(ontodag.get({"Mammal", "Black"}))  # Expected output: {"Black Dog", "Black Cat"}
 
-    ontodag.visualize("cdag_visualization")
+    ontodag.visualize("ontodag_visualization")
