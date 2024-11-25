@@ -43,6 +43,29 @@ class TestOntoDAG(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.ontodag.put("NewItem", ["Nonexistent"])
 
+    def test_remove_existing_item(self):
+        self.ontodag.remove("Black Dog")
+        result = self.ontodag.get({"Mammal", "Black"})
+        expected = {"Black Cat"}
+        self.assertEqual(result, expected)
+
+    def test_remove_nonexistent_item(self):
+        with self.assertRaises(ValueError):
+            self.ontodag.remove("Nonexistent")
+
+    def test_remove_and_check_counters(self):
+        self.ontodag.remove("Black Dog")
+        self.assertEqual(self.ontodag.items["Dog"].counter, 0)
+        self.assertEqual(self.ontodag.items["Black"].counter, 1)
+        self.assertEqual(self.ontodag.items["Mammal"].counter, 3)
+        self.assertEqual(self.ontodag.items["Has-colour"].counter, 5)
+
+    def test_remove_and_check_subcategories(self):
+        self.ontodag.remove("Black Dog")
+        result = self.ontodag.get({"Dog"})
+        expected = set()
+        self.assertEqual(result, expected)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -58,6 +58,26 @@ class OntoDAG:
                 supercat_item.add_subcategory(self.items[name])
                 supercat_item.increase_counter()  # Increment counter for supercategory only
 
+    def remove(self, name):
+        if name not in self.items:
+            raise ValueError(f"Item '{name}' does not exist in OntoDAG.")
+
+        item_to_remove = self.items[name]
+
+        def decrease_ancestors(item):
+            for parent_item in self.items.values():
+                if item in parent_item.subcategories:
+                    parent_item.decrease_counter()
+                    decrease_ancestors(parent_item)
+
+        decrease_ancestors(item_to_remove)
+
+        for parent_item in self.items.values():
+            if item_to_remove in parent_item.subcategories:
+                parent_item.subcategories.remove(item_to_remove)
+
+        del self.items[name]
+
     @staticmethod
     def _get_descendants(item):
         """Retrieve all descendants of a given item using DFS."""
