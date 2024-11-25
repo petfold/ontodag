@@ -14,7 +14,8 @@ class Item:
         self.counter += 1
 
     def decrease_counter(self):
-        self.counter -= 1
+        if self.counter > 0:
+            self.counter -= 1
 
     def __repr__(self):
         return f"Item({self.name})"
@@ -30,9 +31,11 @@ class OntoDAG:
         def mark_done(item):
             if item.name not in done:
                 done[item.name] = item
-                # Traverse ancestors by finding items that list this item as a subcategory
+                # Traverse ancestors and increase counter only for non-done items
                 for parent_item in self.items.values():
                     if item in parent_item.subcategories:
+                        if parent_item.name not in done:
+                            parent_item.increase_counter()  # Increase counter for non-done parents
                         mark_done(parent_item)
 
         # Check that all supercategories exist
