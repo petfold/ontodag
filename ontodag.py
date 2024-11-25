@@ -26,37 +26,28 @@ class OntoDAG:
         self.items = {}
 
     def put(self, name, supercategories):
-        done = {}
+        if any(supercat_name not in self.items for supercat_name in supercategories):
+            raise ValueError("One or more supercategories do not exist.")
 
-        def mark_done(item):
-            if item.name not in done:
-                done[item.name] = item
-                # Traverse ancestors and increase counter only for non-done items
-                for parent_item in self.items.values():
-                    if item in parent_item.subcategories:
-                        if parent_item.name not in done:
-                            parent_item.increase_counter()  # Increase counter for non-done parents
-                        mark_done(parent_item)
-
-        # Check that all supercategories exist
-        for supercat_name in supercategories:
-            if supercat_name not in self.items:
-                raise ValueError(f"Supercategory '{supercat_name}' does not exist.")
-
-        # Ensure the item exists
         if name not in self.items:
             self.items[name] = Item(name)
 
-        # Mark all supercategories and their ancestors as done
+        done = set()
+
+        def mark_done(item):
+            if item.name not in done:
+                done.add(item.name)
+                for parent_item in self.items.values():
+                    if item in parent_item.subcategories and parent_item.name not in done:
+                        parent_item.increase_counter()
+                        mark_done(parent_item)
+
         for supercat_name in supercategories:
             mark_done(self.items[supercat_name])
-
-        # Add subcategory relationships only if not done
-        for supercat_name in supercategories:
             supercat_item = self.items[supercat_name]
             if name not in done:
                 supercat_item.add_subcategory(self.items[name])
-                supercat_item.increase_counter()  # Increment counter for supercategory only
+                supercat_item.increase_counter()
 
     def remove(self, name):
         if name not in self.items:
@@ -73,8 +64,7 @@ class OntoDAG:
         decrease_ancestors(item_to_remove)
 
         for parent_item in self.items.values():
-            if item_to_remove in parent_item.subcategories:
-                parent_item.subcategories.remove(item_to_remove)
+            parent_item.subcategories.discard(item_to_remove)
 
         del self.items[name]
 
@@ -97,11 +87,14 @@ class OntoDAG:
             return set()
 
         # Retrieve descendants for each item in query
-        descendant_sets = []
-        for name in query_names:
-            if name not in self.items:
-                raise ValueError(f"Item '{name}' does not exist in OntoDAG.")
-            descendant_sets.append(self._get_descendants(self.items[name]))
+        descendant_sets = [
+            self._get_descendants(self.items[name])
+            for name in query_names
+            if name in self.items
+        ]
+
+        if len(descendant_sets) != len(query_names):
+            raise ValueError("One or more items in the query do not exist in OntoDAG.")
 
         # Find the intersection of all descendant sets
         result = set.intersection(*descendant_sets) if descendant_sets else set()
