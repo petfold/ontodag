@@ -66,6 +66,12 @@ class TestOntoDAG(unittest.TestCase):
         expected = set()
         self.assertEqual(result, expected)
 
+    def test_add_root_item(self):
+        root_item = self.ontodag.get_root()
+        self.assertIn(root_item.name, self.ontodag.items)
+        self.assertEqual(self.ontodag.items[root_item.name].name, root_item.name)
+        self.assertEqual(self.ontodag.items[root_item.name].counter, len(self.ontodag.items) - 1)
+
 
 if __name__ == "__main__":
     unittest.main()

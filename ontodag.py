@@ -21,11 +21,22 @@ class Item:
         return f"Item({self.name})"
 
 
-class OntoDAG:
+class Root(Item):
     def __init__(self):
-        self.items = {}
+        super().__init__("*")
+
+
+class OntoDAG:
+    def __init__(self, root_item=None):
+        if root_item is None:
+            root_item = Root()
+        self.items = {root_item.name: root_item}
+        self.root = root_item
 
     def put(self, name, supercategories):
+        if not supercategories:
+            supercategories = [self.root.name]
+
         if any(supercat_name not in self.items for supercat_name in supercategories):
             raise ValueError("One or more supercategories do not exist.")
 
@@ -99,6 +110,9 @@ class OntoDAG:
         # Find the intersection of all descendant sets
         result = set.intersection(*descendant_sets) if descendant_sets else set()
         return {item.name for item in result}
+
+    def get_root(self):
+        return self.root
 
     def __repr__(self):
         return f"OntoDAG({self.items})"
