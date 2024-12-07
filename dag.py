@@ -20,6 +20,10 @@ class DAG:
     def add_edge(self, parent_name, child_name):
         parent = self.add_node(parent_name)
         child = self.add_node(child_name)
+
+        if child in parent.neighbors:
+            return  # Edge already exists
+
         parent.neighbors.append(child)
 
         self._update_descendant_counts(parent)
@@ -71,20 +75,6 @@ class DAG:
             descendants.update(self.get_descendants(neighbor, visited))
         return descendants
 
-    def get_common_subcategories(self, item_names):
-        descendant_sets = []
-        for name in item_names:
-            if name in self.nodes:
-                node = self.nodes[name]
-                descendants = self.get_descendants(node)
-                descendant_sets.append(descendants)
-            else:
-                # Item not found; return empty set
-                return set()
-        # Intersection of all descendant sets
-        common_subcategories = set.intersection(*descendant_sets)
-        return common_subcategories
-
     def topological_sort(self):
         visited = set()
         stack = []
@@ -103,17 +93,49 @@ class DAG:
         return stack  # Nodes in topological order
 
 
+class OntoDAG(DAG):
+    def __init__(self):
+        super().__init__()
+        self.root = Item("*")
+        self.nodes[self.root.name] = self.root
+
+    def get(self, super_categories):
+        """Return all items that are subcategories of all specified super-categories."""
+        descendant_sets = []
+        for name in super_categories:
+            if name in self.nodes:
+                node = self.nodes[name]
+                descendants = self.get_descendants(node)
+                descendant_sets.append(descendants)
+            else:
+                # Item not found; return empty set
+                return set()
+        # Intersection of all descendant sets
+        common_subcategories = set.intersection(*descendant_sets)
+        return common_subcategories
+
+    def put(self, name, super_categories):
+        if any(supercat_name not in self.nodes for supercat_name in super_categories):
+            raise ValueError("One or more super-categories do not exist.")
+
+        if not super_categories:
+            super_categories = [self.root.name]
+
+        for supercat_name in super_categories:
+            self.add_edge(supercat_name, name)
+
+
 # Example usage
-dag = DAG()
-dag.add_edge('A', 'B')
-dag.add_edge('A', 'C')
-dag.add_edge('B', 'D')
-dag.add_edge('C', 'D')
-dag.add_edge('C', 'E')
+dag = OntoDAG()
+dag.put('A', [])
+dag.put('B', 'A')
+dag.put('C', 'A')
+dag.put('D', ['B', 'C'])
+dag.put('E', 'C')
 
 # Query items
-query_items = ['B']
-common_subcategories = dag.get_common_subcategories(query_items)
+query_items = ['B', 'C']  # Expected result: ['D']
+common_subcategories = dag.get(query_items)
 
 # Output the names of the common subcategories
 print("Common subcategories:", [item.name for item in common_subcategories])
@@ -122,3 +144,5 @@ print("Common subcategories:", [item.name for item in common_subcategories])
 for node_name in dag.nodes:
     node = dag.nodes[node_name]
     print(f"Item {node.name} has {node.descendant_count} descendants")
+
+print("Topological sort:", [node.name for node in dag.topological_sort()])
