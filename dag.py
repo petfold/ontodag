@@ -22,6 +22,24 @@ class DAG:
         child = self.add_node(child_name)
         parent.neighbors.append(child)
 
+        self._update_descendant_counts(parent)
+
+    def remove_edge(self, parent_name, child_name):
+        # Verify nodes exist
+        if parent_name not in self.nodes or child_name not in self.nodes:
+            raise ValueError("One or both nodes do not exist in the graph")
+
+        parent = self.nodes[parent_name]
+        child = self.nodes[child_name]
+
+        # Remove child from parent's neighbors
+        if child not in parent.neighbors:
+            raise ValueError("Edge does not exist")
+        parent.neighbors.remove(child)
+
+        self._update_descendant_counts(parent)
+
+    def _update_descendant_counts(self, parent):
         # Reset counts for affected nodes
         affected = set()
         self._get_affected_nodes(parent, affected)
