@@ -75,6 +75,27 @@ class DAG:
             descendants.update(self.get_descendants(neighbor, visited))
         return descendants
 
+    def get_ancestors(self, node, ignore=()):
+        if node.name not in self.nodes:
+            raise ValueError(f"Node {node_name} does not exist in the graph")
+
+        ancestors = set()
+
+        def _get_ancestors_helper(current_node):
+            # Check each node in the graph
+            for potential_parent in self.nodes.values():
+                # If this node has the current node as a neighbor
+                if self.nodes[current_node.name] in potential_parent.neighbors:
+                    # Add it to ancestors if not already present
+                    if potential_parent not in ancestors and potential_parent.name not in ignore:
+                        ancestors.add(potential_parent)
+                        # Recursively check this parent's ancestors
+                        _get_ancestors_helper(potential_parent)
+
+        # Start the recursive search
+        _get_ancestors_helper(node)
+        return ancestors
+
     def topological_sort(self):
         visited = set()
         stack = []
@@ -139,6 +160,7 @@ common_subcategories = dag.get(query_items)
 
 # Output the names of the common subcategories
 print("Common subcategories:", [item.name for item in common_subcategories])
+print("Ancestors of D:", dag.get_ancestors(dag.nodes['D'], dag.root.name))
 
 # Display descendant counts
 for node_name in dag.nodes:
