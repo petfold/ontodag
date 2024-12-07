@@ -21,8 +21,25 @@ class DAG:
         parent = self.add_node(parent_name)
         child = self.add_node(child_name)
         parent.neighbors.append(child)
-        # Recompute descendant counts for all nodes
-        self.recompute_descendant_counts()
+
+        # Reset counts for affected nodes
+        affected = set()
+        self._get_affected_nodes(parent, affected)
+        for node in affected:
+            node.descendant_count = 0
+
+        # Recalculate counts for affected nodes
+        for node in affected:
+            node.descendant_count = len(self.get_descendants(node))
+
+    def _get_affected_nodes(self, node, affected):
+        """Get node and all its ancestors that need count updates"""
+        if node in affected:
+            return
+        affected.add(node)
+        for potential_ancestor in self.nodes.values():
+            if node in potential_ancestor.neighbors:
+                self._get_affected_nodes(potential_ancestor, affected)
 
     def get_descendants(self, node, visited=None):
         if visited is None:
@@ -49,17 +66,6 @@ class DAG:
         # Intersection of all descendant sets
         common_subcategories = set.intersection(*descendant_sets)
         return common_subcategories
-
-    def recompute_descendant_counts(self):
-        # Reset descendant counts
-        for node in self.nodes.values():
-            node.descendant_count = 0
-        # Get nodes in topological order
-        sorted_nodes = self.topological_sort()
-        # Compute descendant counts in reverse order
-        for node in reversed(sorted_nodes):
-            for child in node.neighbors:
-                node.descendant_count += 1 + child.descendant_count
 
     def topological_sort(self):
         visited = set()
