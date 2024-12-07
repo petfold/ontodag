@@ -1,7 +1,8 @@
 class Item:
     def __init__(self, name):
         self.name = name
-        self.neighbors = []  # Subcategories
+        self.neighbors = []  # Subcategories (children)
+        self.descendant_count = 0  # Number of descendants
 
     def __repr__(self):
         return f"Item({self.name})"
@@ -20,6 +21,8 @@ class DAG:
         parent = self.add_node(parent_name)
         child = self.add_node(child_name)
         parent.neighbors.append(child)
+        # Recompute descendant counts for all nodes
+        self.recompute_descendant_counts()
 
     def get_descendants(self, node, visited=None):
         if visited is None:
@@ -47,6 +50,34 @@ class DAG:
         common_subcategories = set.intersection(*descendant_sets)
         return common_subcategories
 
+    def recompute_descendant_counts(self):
+        # Reset descendant counts
+        for node in self.nodes.values():
+            node.descendant_count = 0
+        # Get nodes in topological order
+        sorted_nodes = self.topological_sort()
+        # Compute descendant counts in reverse order
+        for node in reversed(sorted_nodes):
+            for child in node.neighbors:
+                node.descendant_count += 1 + child.descendant_count
+
+    def topological_sort(self):
+        visited = set()
+        stack = []
+
+        def visit(node):
+            if node in visited:
+                return
+            visited.add(node)
+            for neighbor in node.neighbors:
+                visit(neighbor)
+            stack.append(node)
+
+        for node in self.nodes.values():
+            visit(node)
+
+        return stack  # Nodes in topological order
+
 
 # Example usage
 dag = DAG()
@@ -62,3 +93,8 @@ common_subcategories = dag.get_common_subcategories(query_items)
 
 # Output the names of the common subcategories
 print("Common subcategories:", [item.name for item in common_subcategories])
+
+# Display descendant counts
+for node_name in dag.nodes:
+    node = dag.nodes[node_name]
+    print(f"Item {node.name} has {node.descendant_count} descendants")
