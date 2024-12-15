@@ -138,49 +138,45 @@ class OntoDAG(DAG):
         common_subcategories = set.intersection(*descendant_sets)
         return common_subcategories
 
-    def put(self, name, super_categories):
+    def put(self, name, super_categories, optimized=False):
         if any(supercat_name not in self.nodes for supercat_name in super_categories):
             raise ValueError("One or more super-categories do not exist.")
 
         if not super_categories:
             super_categories = [self.root.name]
 
+        if optimized:
+            def element_set(dag, items):
+                elements = set()
+                for node_name in items:
+                    ancestors = dag.get_ancestors(dag.nodes[node_name], dag.root.name)
+                    elements.update(ancestors)
+                return elements
+
+            def extended_set(dag, nodes):
+                extended_set = nodes.copy()
+                for node in nodes:
+                    down_set = dag.get_descendants(node)
+                    for descendant in down_set:
+                        if all(ancestor in extended_set for ancestor in dag.get_ancestors(descendant, dag.root.name)):
+                            extended_set.add(descendant)
+                return extended_set
+
+            def bottom_set(nodes):
+                filtered = [node for node in DAG(nodes).topological_sort() if node in nodes]
+
+                def has_no_neighbors(node):
+                    return len(node.neighbors) == 0
+
+                return list(filter(has_no_neighbors, filtered))
+
+            elements = element_set(self, super_categories)
+            extended = extended_set(self, elements)
+            bottom = bottom_set(extended)
+            super_categories = [node.name for node in bottom]
+
         for supercat_name in super_categories:
             self.add_edge(supercat_name, name)
-
-    def put_optimized(self, name, super_categories):
-
-        def element_set(dag, items):
-            elements = set()
-            for node_name in items:
-                ancestors = dag.get_ancestors(dag.nodes[node_name], dag.root.name)
-                elements.update(ancestors)
-            return elements
-
-        def extended_set(dag, nodes):
-            extended_set = nodes.copy()
-            for node in nodes:
-                down_set = dag.get_descendants(node)
-                for descendant in down_set:
-                    # Check if all ancestors of the down set node are in the extended set
-                    if all(ancestor in extended_set for ancestor in dag.get_ancestors(descendant, dag.root.name)):
-                        extended_set.add(descendant)
-            return extended_set
-
-        def bottom_set(nodes):
-            filtered = [node for node in DAG(nodes).topological_sort() if node in nodes]
-
-            def has_no_neighbors(node):
-                return len(node.neighbors) == 0
-
-            return list(filter(has_no_neighbors, filtered))
-
-        element_set = element_set(dag, super_categories)
-        extended_set = extended_set(dag, element_set)
-        bottom_set = bottom_set(extended_set)
-
-        for supercat in bottom_set:
-            self.add_edge(supercat.name, name)
 
 
 # Example usage
@@ -207,7 +203,7 @@ print("Common subcategories:", [item.name for item in common_subcategories])
 print("Ancestors of D:", dag.get_ancestors(dag.nodes['D'], dag.root.name))
 
 element_set_query = ['AB', 'CD']
-dag.put_optimized('E', element_set_query)
+dag.put('E', element_set_query, optimized=True)
 
 # Display descendant counts
 for node_name in dag.nodes:
