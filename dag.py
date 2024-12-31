@@ -178,6 +178,30 @@ class OntoDAG(DAG):
         for supercat_name in super_categories:
             self.add_edge(supercat_name, name)
 
+    def remove(self, name):
+        if name not in self.nodes:
+            raise ValueError(f"Item {name} does not exist")
+
+        node_to_remove = self.nodes[name]
+        super_categories = {node for node in self.nodes.values() if node_to_remove in node.neighbors}
+        subcategories = set(node_to_remove.neighbors)
+
+        # Remove edges pointing from the removed node
+        for subcategory in subcategories:
+            self.remove_edge(name, subcategory.name)
+
+        # Remove edges pointing to the removed node
+        for super_category in super_categories:
+            self.remove_edge(super_category.name, name)
+
+        del self.nodes[name]
+
+        # Add edges from all super-categories of the removed node to all its subcategories
+        for super_category in super_categories:
+            for subcategory in subcategories:
+                self.add_edge(super_category.name, subcategory.name)
+            self._update_descendant_counts(super_category)
+
 
 # Example usage
 dag = OntoDAG()
@@ -195,7 +219,7 @@ dag.put('ABF', ['AB', 'AF'])
 dag.put('CD', ['C', 'D'])
 
 # Query items
-query_items = ['B', 'C']  # Expected result: ['D']
+query_items = ['B', 'C']
 common_subcategories = dag.get(query_items)
 
 # Output the names of the common subcategories
@@ -211,3 +235,6 @@ for node_name in dag.nodes:
     print(f"Item {node.name} has {node.descendant_count} descendants")
 
 print("Topological sort:", [node.name for node in dag.topological_sort()])
+
+dag.remove('ABC')
+print("Topological sort (after removing 'ABC'):", [node.name for node in dag.topological_sort()])
