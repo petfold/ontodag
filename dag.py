@@ -1,3 +1,6 @@
+from graphviz import Digraph
+
+
 class Item:
     def __init__(self, name):
         self.name = name
@@ -203,6 +206,28 @@ class OntoDAG(DAG):
             self._update_descendant_counts(super_category)
 
 
+class OntoDAGVisualizer:
+    def __init__(self, format="png", layout="TB"):
+        self.format = format
+        self.layout = layout
+
+    def visualize(self, dag, filename="ontodag_vis"):
+        dag_type = dag.__class__.__name__
+        graph = Digraph(comment=dag_type, format=self.format)
+        graph.attr(rankdir=self.layout)
+
+        for node in dag.nodes.values():
+            # Add nodes
+            graph.node(node.name, f'{node.name}: {node.descendant_count}')
+            # Add edges for each super-category-to-subcategory relationship
+            for subcategory in node.neighbors:
+                graph.edge(node.name, subcategory.name)
+
+        # Render the graph to a file
+        output_path = graph.render(filename)
+        print(f"{dag_type} visualization saved as: {output_path}")
+
+
 # Example usage
 dag = OntoDAG()
 dag.put('A', [])
@@ -224,7 +249,7 @@ common_subcategories = dag.get(query_items)
 
 # Output the names of the common subcategories
 print("Common subcategories:", [item.name for item in common_subcategories])
-print("Ancestors of D:", dag.get_ancestors(dag.nodes['D'], dag.root.name))
+print("Ancestors of AF:", dag.get_ancestors(dag.nodes['AF'], dag.root.name))
 
 element_set_query = ['AB', 'CD']
 dag.put('E', element_set_query, optimized=True)
