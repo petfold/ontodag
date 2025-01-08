@@ -1,6 +1,7 @@
-from owlready2 import get_ontology, ObjectProperty, Thing
+import types
 
-from dag import OntoDAG
+from dag import OntoDAG, OntoDAGVisualizer
+from owlready2 import get_ontology, Thing, AnnotationProperty
 
 
 class OWLOntology:
@@ -9,15 +10,23 @@ class OWLOntology:
 
     def export_dag(self, dag, file_name="new_ontology.owl"):
         with self.ontology:
-            class super_category_of(ObjectProperty):
+            class super_category_of(AnnotationProperty):
                 domain = [Thing]
                 range = [Thing]
 
+            classes = {}
+            # Create classes for each DAG node
             for node in dag.nodes.values():
-                if node.name != dag.root.name:
-                    owl_node = Thing(node.name)
-                    subcategories = [Thing(neighbor.name) for neighbor in node.neighbors]
-                    owl_node.super_category_of = subcategories
+                classes[node.name] = types.new_class(node.name, (Thing,))
+
+            # Define is_a relationships (subclasses) for each node's neighbors (subcategories)
+            for node in dag.nodes.values():
+                super_cls = classes[node.name]
+                for neighbor in node.neighbors:
+                    sub_cls = classes[neighbor.name]
+                    sub_cls.is_a.append(super_cls)
+                    # Annotate with super-category relationship
+                    super_cls.super_category_of.append(sub_cls)
 
         self.ontology.save(file=file_name)
 
@@ -27,12 +36,14 @@ class OWLOntology:
         self.ontology.load(file_name)
 
         dag = OntoDAG()
-        things = list(self.ontology.individuals())
-        for thing in things:
-            dag.add_node(thing.name)
-        for thing in things:
-            for subcategory in [neighbor.name for neighbor in thing.super_category_of]:
-                dag.add_edge(thing.name, subcategory)
+        classes = list(self.ontology.classes())
+        for cls in classes:
+            dag.add_node(cls.name)
+        for cls in classes:
+            for super_cls in cls.is_a:
+                # Prevent default parent 'Thing' from appearing in the DAG
+                if super_cls is not Thing:
+                    dag.add_edge(super_cls.name, cls.name)
 
         return dag
 
@@ -55,4 +66,8 @@ element_set_query = ['AB', 'CD']
 dag.put('E', element_set_query, optimized=True)
 
 owl = OWLOntology("http://example.org/new_ontology.owl")
-owl.export_dag(dag, "new_ontology.owl")
+owl.export_dag(dag, "new_ontology_classes.owl")
+
+imported_dag = owl.import_dag("new_ontology_classes.owl")
+visualizer = OntoDAGVisualizer()
+visualizer.visualize(imported_dag, "owl_test_vis_classes")
