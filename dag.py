@@ -83,7 +83,7 @@ class DAG:
 
     def get_ancestors(self, node, ignore=()):
         if node.name not in self.nodes:
-            raise ValueError(f"Node {node_name} does not exist in the graph")
+            raise ValueError(f"Node {node.name} does not exist in the graph")
 
         ancestors = set()
 
@@ -226,40 +226,3 @@ class OntoDAGVisualizer:
         # Render the graph to a file
         output_path = graph.render(filename)
         print(f"{dag_type} visualization saved as: {output_path}")
-
-
-# Example usage
-dag = OntoDAG()
-dag.put('A', [])
-dag.put('B', [])
-dag.put('C', [])
-dag.put('D', [])
-dag.put('F', [])
-dag.put('G', [])
-dag.put('AF', ['A', 'F'])
-dag.put('AB', ['A', 'B'])
-dag.put('BC', ['B', 'C'])
-dag.put('ABC', ['AB', 'BC'])
-dag.put('ABF', ['AB', 'AF'])
-dag.put('CD', ['C', 'D'])
-
-# Query items
-query_items = ['B', 'C']
-common_subcategories = dag.get(query_items)
-
-# Output the names of the common subcategories
-print("Common subcategories:", [item.name for item in common_subcategories])
-print("Ancestors of AF:", dag.get_ancestors(dag.nodes['AF'], dag.root.name))
-
-element_set_query = ['AB', 'CD']
-dag.put('E', element_set_query, optimized=True)
-
-# Display descendant counts
-for node_name in dag.nodes:
-    node = dag.nodes[node_name]
-    print(f"Item {node.name} has {node.descendant_count} descendants")
-
-print("Topological sort:", [node.name for node in dag.topological_sort()])
-
-dag.remove('ABC')
-print("Topological sort (after removing 'ABC'):", [node.name for node in dag.topological_sort()])
