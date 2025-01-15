@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>OntoDAG</title>
+    <link rel="stylesheet" type="text/css" href="/static/styles.css">
+  </head>
+  <body>
+    <form id="add-item-form">
+      <input type="text" id="subcategory" placeholder="Subcategory" />
+      <input type="text" id="super-categories" placeholder="Super-categories (comma-separated)" />
+      <button type="submit">Add Item</button>
+      <button type="button" id="remove-item-button">Remove Item</button>
+    </form>
+    <img id="dag-image" class="dag-visual" src="/dag/image" alt="DAG Visualization" />
+    <div id="dag"></div>
+    <script>
+      async function loadDAG() {
+        const response = await fetch("/dag");
+        const { nodes } = await response.json();
+        const dagElement = document.getElementById("dag");
+        dagElement.innerHTML = "";
+        nodes.forEach(node => {
+          const nodeElement = document.createElement("div");
+         nodeElement.className = "node";
+          nodeElement.innerHTML = `<span class="node-name">${node.name}</span>
+                <span class="node-subcat">Subcat: ${node.neighbors.length ? node.neighbors.join(", ") : "-"}</span>`;
+          dagElement.appendChild(nodeElement);
+        });
+      }
+
+      document.getElementById("add-item-form").addEventListener("submit", async (evt) => {
+        evt.preventDefault();
+        const subcategory = document.getElementById("subcategory").value;
+        const superCats = document.getElementById("super-categories").value.split(",").map(cat => cat.trim());
+        await fetch("/dag", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ subcategory, super_categories: superCats })
+        });
+        await loadDAG();
+        // Force-reload the image by appending a timestamp
+        document.getElementById("dag-image").src = "/dag/image?" + Date.now();
+      });
+
+      document.getElementById("remove-item-button").addEventListener("click", async () => {
+        const subcategory = document.getElementById("subcategory").value;
+        await fetch("/dag", {
+          method: "DELETE",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ subcategory })
+        });
+        await loadDAG();
+        // Force-reload the image by appending a timestamp
+        document.getElementById("dag-image").src = "/dag/image?" + Date.now();
+      });
+
+      window.onload = loadDAG;
+    </script>
+  </body>
+</html>

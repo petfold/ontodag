@@ -1,0 +1,24 @@
+.node {
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin: 5px;
+    border-radius: 5px;
+    max-width: 25%;
+    background-color: #f9f9f9;
+}
+
+.node-name {
+    font-weight: bold;
+    font-size: 20px;
+    color: #333;
+}
+
+.node-subcat {
+    font-size: 14px;
+    color: #666;
+    margin-left: 10px;
+}
+
+.dag-visual {
+    margin: 25px;
+}

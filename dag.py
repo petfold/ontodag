@@ -1,6 +1,3 @@
-from graphviz import Digraph
-
-
 class Item:
     _instances = {}  # Class-level cache of instances
 
@@ -29,8 +26,14 @@ class Item:
         return hash(self.name)
 
     def __repr__(self):
-        return f"Item({self.name})"
+        return f"Item({self.name}, [{', '.join(neighbor.name for neighbor in self.neighbors)}]))"
 
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "neighbors": [neighbor.name for neighbor in self.neighbors],
+            "descendant_count": self.descendant_count
+        }
 
 class DAG:
     def __init__(self, nodes=None):
@@ -232,6 +235,7 @@ class OntoDAGVisualizer:
         self.layout = layout
 
     def visualize(self, dag, filename="ontodag_vis"):
+        from graphviz import Digraph
         dag_type = dag.__class__.__name__
         graph = Digraph(comment=dag_type, format=self.format)
         graph.attr(rankdir=self.layout)
@@ -246,3 +250,22 @@ class OntoDAGVisualizer:
         # Render the graph to a file
         output_path = graph.render(filename)
         print(f"{dag_type} visualization saved as: {output_path}")
+
+    def generate_image(self, dag):
+        from graphviz import Digraph
+        from io import BytesIO
+        from PIL import Image
+
+        dag_type = dag.__class__.__name__
+        graph = Digraph(comment=dag_type, format=self.format)
+        graph.attr(rankdir=self.layout)
+
+        for node in dag.nodes:
+            # Add nodes
+            graph.node(node.name, f'{node.name}: {node.descendant_count}')
+            # Add edges for each super-category-to-subcategory relationship
+            for subcategory in node.neighbors:
+                graph.edge(node.name, subcategory.name)
+
+        png_data = graph.pipe(format="png")
+        return Image.open(BytesIO(png_data))
