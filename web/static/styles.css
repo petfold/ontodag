@@ -1,9 +1,15 @@
+.container {
+    display: inline-block;
+    margin-left: 20px;
+    vertical-align: top;
+}
+
 .node {
     border: 1px solid #ccc;
     padding: 10px;
     margin: 5px;
     border-radius: 5px;
-    max-width: 25%;
+    max-width: 50%;
     background-color: #f9f9f9;
 }
 
@@ -21,4 +27,5 @@
 
 .dag-visual {
     margin: 25px;
+    max-width: 950px;
 }
