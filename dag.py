@@ -224,6 +224,9 @@ class OntoDAG(DAG):
 
         # Add edges from all super-categories of the removed node to all its subcategories
         for super_category in super_categories:
+            # If the node has any super-category other than the root, an edge from the root is not needed
+            if super_category is self.root and any(super_cat != self.root for super_cat in super_categories):
+                continue
             for subcategory in subcategories:
                 self.add_edge(super_category, subcategory)
             self._update_descendant_counts(super_category)
