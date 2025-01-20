@@ -26,7 +26,7 @@ class Item:
         return hash(self.name)
 
     def __repr__(self):
-        return f"Item({self.name}, [{', '.join(neighbor.name for neighbor in self.neighbors)}]))"
+        return f"Item({self.name}, [{', '.join(neighbor.name for neighbor in self.neighbors)}])"
 
     def to_dict(self):
         return {

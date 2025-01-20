@@ -35,7 +35,7 @@ class TestItem(unittest.TestCase):
 
     def test_repr(self):
         item = Item("A")
-        self.assertEqual(repr(item), "Item(A)")
+        self.assertEqual(repr(item), "Item(A, [])")
 
 
 if __name__ == '__main__':

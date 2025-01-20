@@ -4,6 +4,14 @@
     vertical-align: top;
 }
 
+.dag-container {
+    max-width: 65%;
+}
+
+.query-container {
+    max-width: 30%;
+}
+
 .node {
     border: 1px solid #ccc;
     padding: 10px;
@@ -15,7 +23,7 @@
 
 .node-name {
     font-weight: bold;
-    font-size: 20px;
+    font-size: 18px;
     color: #333;
 }
 
@@ -26,6 +34,10 @@
 }
 
 .dag-visual {
-    margin: 25px;
-    max-width: 950px;
+    margin: 20px;
+    max-width: 100%;
+}
+
+form {
+    margin-bottom: 10px;
 }

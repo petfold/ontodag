@@ -1,11 +1,21 @@
-from io import BytesIO
-
-from flask import Flask, request, jsonify, render_template, send_file
 from dag import DAG, OntoDAG, Item, OntoDAGVisualizer
+from flask import Flask, request, jsonify, render_template, send_file
+from io import BytesIO
+from owl import OWLOntology
 
 app = Flask(__name__)
 my_dag = OntoDAG()
 visualizer = OntoDAGVisualizer()
+visualizer_LR = OntoDAGVisualizer(layout="LR")
+
+
+@app.route("/dag", methods=["POST"])
+def create_dag():
+    global my_dag
+    my_dag = OntoDAG()
+    my_dag.root.neighbors = set()
+    my_dag.root.descendant_count = 0
+    return jsonify({"message": "New OntoDAG created."}), 201
 
 
 @app.route("/dag", methods=["GET"])
@@ -63,11 +73,28 @@ def get_query_dag_image():
 
     result_nodes = my_dag.get(super_categories)
 
-    img = visualizer.generate_image(DAG(result_nodes))
+    img = visualizer_LR.generate_image(DAG(result_nodes))
     buf = BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
     return send_file(buf, mimetype="image/png")
+
+
+@app.route("/dag/import", methods=["POST"])
+def import_dag():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    file_content = BytesIO(file.read())
+
+    owl = OWLOntology(file.filename)
+    global my_dag
+    my_dag = owl.import_dag(file_content=file_content)
+
+    return jsonify({"message": "File imported and DAG created."}), 201
 
 
 @app.route("/")

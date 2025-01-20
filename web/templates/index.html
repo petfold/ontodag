@@ -5,7 +5,13 @@
     <link rel="stylesheet" type="text/css" href="/static/styles.css">
   </head>
   <body>
-    <div class="container">
+    <div class="dag-container container">
+      <form id="import-file-form" enctype="multipart/form-data">
+        <button type="button" id="new-dag-button">New DAG</button>
+        or
+        <input type="file" id="file-input" name="file" />
+        <button type="submit">Import File</button>
+      </form>
       <form id="add-item-form">
         <input type="text" id="subcategory" placeholder="Subcategory" size="12"/>
         <input type="text" id="super-categories" placeholder="Super-categories (comma-separated)" size="30"/>
@@ -15,7 +21,7 @@
       <img id="dag-image" class="dag-visual" src="/dag/image" alt="DAG Visualization" />
       <div id="dag"></div>
     </div>
-    <div class="container">
+    <div class="query-container container">
       <form id="query-form">
         <input type="text" id="query-categories" placeholder="Super-categories (comma-separated)" size="30"/>
         <button type="submit">Query</button>
@@ -77,6 +83,16 @@
         document.getElementById("dag-image").src = "/dag/image?" + Date.now();
       });
 
+      document.getElementById("new-dag-button").addEventListener("click", async () => {
+        await fetch("/dag", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+        });
+        await loadDAG();
+        // Force-reload the image by appending a timestamp
+        document.getElementById("dag-image").src = "/dag/image?" + Date.now();
+      });
+
       document.getElementById("query-form").addEventListener("submit", async (evt) => {
         evt.preventDefault();
         const superCats = document.getElementById("query-categories").value.split(",").map(cat => cat.trim());
@@ -89,6 +105,22 @@
         await queryDAG(nodes);
         // Force-reload the image by appending a timestamp
         document.getElementById("dag-query-image").src = "/dag/query/image?cat="+ params +"&" + Date.now();
+      });
+
+      document.getElementById("import-file-form").addEventListener("submit", async (evt) => {
+        evt.preventDefault();
+        const formData = new FormData();
+        const fileInput = document.getElementById("file-input");
+        formData.append("file", fileInput.files[0]);
+
+        await fetch("/dag/import", {
+          method: "POST",
+          body: formData
+        });
+
+        await loadDAG();
+        // Force-reload the image by appending a timestamp
+        document.getElementById("dag-image").src = "/dag/image?" + Date.now();
       });
 
       window.onload = loadDAG;
