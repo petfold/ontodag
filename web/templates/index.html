@@ -29,6 +29,10 @@
       <img id="dag-query-image" class="dag-visual" src="/dag/query/image?cat=*" alt="DAG Visualization" />
       <div id="dag-query"></div>
     </div>
+    <!-- Hidden image overlay for full-size image -->
+    <div id="image-overlay" class="overlay">
+      <img id="full-size-dag-image" src="" alt="Full Size DAG Visualization" />
+    </div>
 
     <script>
       async function loadDAG() {
@@ -57,6 +61,25 @@
         });
       }
 
+      function reloadDagImage() {
+        dagImage.src = "/dag/image?" + Date.now();
+      }
+
+      const dagImage = document.getElementById("dag-image");
+      const fullSizeDagImage = document.getElementById("full-size-dag-image");
+      const overlay = document.getElementById("image-overlay");
+
+      dagImage.addEventListener("click", () => {
+        fullSizeDagImage.src = dagImage.src;
+        overlay.style.display = "flex";
+      });
+
+      overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+          overlay.style.display = "none";
+        }
+      });
+
       document.getElementById("add-item-form").addEventListener("submit", async (evt) => {
         evt.preventDefault();
         const subcategory = document.getElementById("subcategory").value;
@@ -67,8 +90,7 @@
           body: JSON.stringify({ subcategory, super_categories: superCats })
         });
         await loadDAG();
-        // Force-reload the image by appending a timestamp
-        document.getElementById("dag-image").src = "/dag/image?" + Date.now();
+        reloadDagImage();
       });
 
       document.getElementById("remove-item-button").addEventListener("click", async () => {
@@ -79,8 +101,7 @@
           body: JSON.stringify({ subcategory })
         });
         await loadDAG();
-        // Force-reload the image by appending a timestamp
-        document.getElementById("dag-image").src = "/dag/image?" + Date.now();
+        reloadDagImage();
       });
 
       document.getElementById("new-dag-button").addEventListener("click", async () => {
@@ -89,8 +110,7 @@
           headers: {"Content-Type": "application/json"},
         });
         await loadDAG();
-        // Force-reload the image by appending a timestamp
-        document.getElementById("dag-image").src = "/dag/image?" + Date.now();
+        reloadDagImage();
       });
 
       document.getElementById("query-form").addEventListener("submit", async (evt) => {
@@ -119,8 +139,7 @@
         });
 
         await loadDAG();
-        // Force-reload the image by appending a timestamp
-        document.getElementById("dag-image").src = "/dag/image?" + Date.now();
+        reloadDagImage();
       });
 
       window.onload = loadDAG;
