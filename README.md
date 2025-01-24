@@ -8,17 +8,17 @@ A Directed Acyclic Graph (DAG) associative storage and category manager in Pytho
 
 ## Roadmap
 
-- [ ] Implement the basic DAG data structure (put, remove)
-- [ ] Simplify definitions not to include unnecessary links (e.g. bird under animal, animal is not needed)
+- [x] Implement the basic DAG data structure (put, remove)
+- [x] Simplify definitions not to include unnecessary links (e.g. bird under animal, animal is not needed)
   - During put keep a dictionary of 'done' nodes of the inserted item and all its super categories
   - Insert a link only to nodes which are not 'done'
   - Increment counter only for items which are not 'done'
-- [ ] Save/load data structure into/from file (try PKL)
-- [ ] Load ontology from file (e.g. OWL)
-- [ ] Visualize graph (with python library - Graphviz)
-- [ ] More extensive test cases
+- [x] Save/load data structure into/from file (try PKL)
+- [x] Load ontology from file (e.g. OWL)
+- [x] Visualize graph (with python library - Graphviz)
+- [x] More extensive test cases
 - [ ] Select suitable ontology for importing (to serve as the basis of the DAG)
-- [ ] Sub-class of OntoDAG with counters (for statistics)
+- [x] Sub-class of OntoDAG with counters (for statistics)
 - [ ] Optimize retrieval and storage by choosing subsets of query items and finding existing nodes already stored in the DAG.
 - [ ] Add and remove intermediate nodes to optimize search in the graph
 - [ ] Implement space and time calculation for graph items (e.g. century, GPS bounding box)
@@ -33,3 +33,11 @@ A Directed Acyclic Graph (DAG) associative storage and category manager in Pytho
 - [ ] Implement a web interface for the REST API & host it on a website with user profiles
 - [ ] Implement a limited functionality (DAG-only) graph database for Ethereum Swarm
 - [ ] Design a plugin for Ethereum Swarm to store the DAG in a decentralized way
+
+## Potential Applications
+* Using the ontology graph for content categorization instead of folders
+* Replace content tags with a more structured ontology
+* Access control (ACT) groups
+* Memberships in organizations and gate content based on membership
+* Communication channel groups defined by the ontology
+* Fostering deals within a universal marketplace for services and goods
