@@ -97,6 +97,14 @@ def import_dag():
     return jsonify({"message": "File imported and DAG created."}), 201
 
 
+@app.route("/dag/export", methods=["GET"])
+def export_dag():
+    filename = "ontodag_export.owl"
+    owl = OWLOntology(filename)
+    owl.export_dag(my_dag, filename)
+    return send_file(filename, as_attachment=True)
+
+
 @app.route("/")
 def index():
     return render_template("index.html")

@@ -11,6 +11,7 @@
         or
         <input type="file" id="file-input" name="file" />
         <button type="submit">Import File</button>
+        <button type="button" id="export-dag-button">Export DAG</button>
       </form>
       <form id="add-item-form">
         <input type="text" id="subcategory" placeholder="Subcategory" size="12"/>
@@ -140,6 +141,10 @@
 
         await loadDAG();
         reloadDagImage();
+      });
+
+      document.getElementById("export-dag-button").addEventListener("click", () => {
+        window.location.href = "/dag/export";
       });
 
       window.onload = loadDAG;
