@@ -3,10 +3,10 @@ from dag import Item
 
 
 class TestItem(unittest.TestCase):
-    def test_single_instance(self):
+    def test_distinct_instances(self):
         item1 = Item("A")
         item2 = Item("A")
-        self.assertIs(item1, item2)
+        self.assertIsNot(item1, item2)
 
     def test_different_instances(self):
         item1 = Item("A")

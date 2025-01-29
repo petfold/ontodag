@@ -1,25 +1,10 @@
 class Item:
-    _instances = {}  # Class-level cache of instances
-
-    def __new__(cls, name):
-        # Return existing instance if name already exists
-        if name in cls._instances:
-            return cls._instances[name]
-        # Create new instance if name doesn't exist
-        instance = super().__new__(cls)
-        cls._instances[name] = instance
-        return instance
-
     def __init__(self, name):
-        # Only initialize if this is a new instance
-        if not hasattr(self, 'name'):
-            self.name = name
-            self.neighbors = set()
-            self.descendant_count = 0
+        self.name = name
+        self.neighbors = set()
+        self.descendant_count = 0
 
     def __eq__(self, other):
-        if not isinstance(other, Item):
-            return False
         return self.name == other.name
 
     def __hash__(self):
@@ -35,20 +20,21 @@ class Item:
             "descendant_count": self.descendant_count
         }
 
+
 class DAG:
     def __init__(self, nodes=None):
-        if nodes is None:
-            self.nodes = set()
-        else:
-            self.nodes = nodes
+        self.nodes = {}
+        if nodes:
+            for node in nodes:
+                self.add_node(node)
 
     def add_node(self, node):
         """Add a node (Item) to the graph."""
-        self.nodes.add(node)
+        self.nodes[node.name] = node
 
     def add_edge(self, from_node, to_node):
         """Add a directed edge between two nodes."""
-        if from_node not in self.nodes or to_node not in self.nodes:
+        if from_node.name not in self.nodes or to_node.name not in self.nodes:
             raise ValueError("Both nodes must exist in the graph")
 
         if from_node == to_node:
@@ -62,7 +48,7 @@ class DAG:
 
     def remove_edge(self, from_node, to_node):
         # Verify nodes exist
-        if from_node not in self.nodes or to_node not in self.nodes:
+        if from_node.name not in self.nodes or to_node.name not in self.nodes:
             raise ValueError("Both nodes must exist in the graph")
 
         # Remove child from parent's neighbors
@@ -88,7 +74,7 @@ class DAG:
         if node in affected:
             return
         affected.add(node)
-        for potential_ancestor in self.nodes:
+        for potential_ancestor in self.nodes.values():
             if node in potential_ancestor.neighbors:
                 self._get_affected_nodes(potential_ancestor, affected)
 
@@ -105,14 +91,14 @@ class DAG:
         return descendants
 
     def get_ancestors(self, node, ignore=()):
-        if node not in self.nodes:
+        if node.name not in self.nodes:
             raise ValueError(f"Node {node.name} does not exist in the graph")
 
         ancestors = set()
 
         def _get_ancestors_helper(current_node):
             # Check each node in the graph
-            for potential_parent in self.nodes:
+            for potential_parent in self.nodes.values():
                 # If this node has the current node as a neighbor
                 if current_node in potential_parent.neighbors:
                     # Add it to ancestors if not already present
@@ -137,7 +123,7 @@ class DAG:
                 visit(neighbor)
             stack.append(node)
 
-        for node in self.nodes:
+        for node in self.nodes.values():
             visit(node)
 
         return stack  # Nodes in topological order
@@ -147,13 +133,13 @@ class OntoDAG(DAG):
     def __init__(self):
         super().__init__()
         self.root = Item("*")
-        self.nodes.add(self.root)
+        self.nodes[self.root.name] = self.root
 
     def get(self, super_categories):
         """Return all items that are subcategories of all specified super-categories."""
         descendant_sets = []
         for super_category in super_categories:
-            if super_category in self.nodes:
+            if super_category.name in self.nodes:
                 descendants = self.get_descendants(super_category)
                 descendant_sets.append(descendants)
             else:
@@ -164,7 +150,7 @@ class OntoDAG(DAG):
         return common_subcategories
 
     def put(self, subcategory, super_categories, optimized=False):
-        if any(super_cat not in self.nodes for super_cat in super_categories):
+        if any(super_cat.name not in self.nodes for super_cat in super_categories):
             raise ValueError("One or more super-categories do not exist.")
 
         self.add_node(subcategory)
@@ -205,10 +191,10 @@ class OntoDAG(DAG):
             self.add_edge(super_cat, subcategory)
 
     def remove(self, node_to_remove):
-        if node_to_remove not in self.nodes:
+        if node_to_remove.name not in self.nodes:
             raise ValueError(f"Item {node_to_remove.name} does not exist")
 
-        super_categories = {node for node in self.nodes if node_to_remove in node.neighbors}
+        super_categories = {node for node in self.nodes.values() if node_to_remove in node.neighbors}
         subcategories = set(node_to_remove.neighbors)
 
         # Remove edges pointing from the removed node
@@ -219,7 +205,7 @@ class OntoDAG(DAG):
         for super_category in super_categories:
             self.remove_edge(super_category, node_to_remove)
 
-        self.nodes.remove(node_to_remove)
+        del self.nodes[node_to_remove.name]
         del node_to_remove
 
         # Add edges from all super-categories of the removed node to all its subcategories
@@ -243,7 +229,7 @@ class OntoDAGVisualizer:
         graph = Digraph(comment=dag_type, format=self.format)
         graph.attr(rankdir=self.layout)
 
-        for node in dag.nodes:
+        for node in dag.nodes.values():
             # Add nodes
             graph.node(node.name, f'{node.name}: {node.descendant_count}')
             # Add edges for each super-category-to-subcategory relationship
@@ -263,7 +249,7 @@ class OntoDAGVisualizer:
         graph = Digraph(comment=dag_type, format=self.format)
         graph.attr(rankdir=self.layout)
 
-        for node in dag.nodes:
+        for node in dag.nodes.values():
             # Add nodes
             graph.node(node.name, f'{node.name}: {node.descendant_count}')
             # Add edges for each super-category-to-subcategory relationship

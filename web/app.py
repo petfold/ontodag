@@ -37,7 +37,7 @@ def get_dag_image():
 def add_dag_item():
     data = request.json
     subcategory = Item(data.get("subcategory"))
-    super_categories = [Item(name) for name in data.get("super_categories", [])]
+    super_categories = [my_dag.nodes[name] for name in data.get("super_categories", [])]
     my_dag.put(subcategory, super_categories)
     return jsonify({"message": "Item inserted."}), 201
 
@@ -45,7 +45,7 @@ def add_dag_item():
 @app.route("/dag/node", methods=["DELETE"])
 def remove_dag_item():
     data = request.json
-    subcategory = Item(data.get("subcategory"))
+    subcategory = my_dag.nodes[data.get("subcategory")]
     my_dag.remove(subcategory)
     return jsonify({"message": "Item removed."}), 200
 
@@ -56,7 +56,7 @@ def get_query():
     if not categories:
         return jsonify({"error": "No categories provided"}), 400
     query = categories.split(",")
-    super_categories = [Item(name) for name in query]
+    super_categories = [my_dag.nodes[name] for name in query]
 
     result_nodes = my_dag.get(super_categories)
 
@@ -69,7 +69,7 @@ def get_query_dag_image():
     if not categories:
         return jsonify({"error": "No categories provided"}), 400
     query = categories.split(",")
-    super_categories = [Item(name) for name in query]
+    super_categories = [my_dag.nodes[name] for name in query]
 
     result_nodes = my_dag.get(super_categories)
 

@@ -12,11 +12,11 @@ class OWLOntology:
         with self.ontology:
             classes = {}
             # Create classes for each DAG node
-            for node in dag.nodes:
+            for node in dag.nodes.values():
                 classes[node.name] = types.new_class(node.name, (Thing,))
 
             # Define is_a relationships (subclasses) for each node's neighbors (subcategories)
-            for node in dag.nodes:
+            for node in dag.nodes.values():
                 super_cls = classes[node.name]
                 for neighbor in node.neighbors:
                     sub_cls = classes[neighbor.name]
@@ -42,6 +42,8 @@ class OWLOntology:
             for super_cls in cls.is_a:
                 # Prevent default parent Thing from appearing in the DAG
                 if super_cls is not Thing:
-                    dag.add_edge(Item(super_cls.name), Item(cls.name))
+                    super_category = dag.nodes[super_cls.name]
+                    subcategory = dag.nodes[cls.name]
+                    dag.add_edge(super_category, subcategory)
 
         return dag
