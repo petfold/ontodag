@@ -59,3 +59,26 @@ form {
     max-width: 98%;
     max-height: 90%;
 }
+
+.modal-content {
+  background-color: #fefefe;
+  margin: 10% auto;
+  padding: 15px;
+  border: 1px solid #888;
+  width: 80%;
+  max-width: 400px;
+  border-radius: 5px;
+  position: relative;
+}
+
+.close {
+  color: #aaa;
+  float: right;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.close:hover {
+  color: black;
+}

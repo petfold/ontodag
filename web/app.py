@@ -37,17 +37,27 @@ def get_dag_image():
 def add_dag_item():
     data = request.json
     subcategory = Item(data.get("subcategory"))
-    super_categories = [my_dag.nodes[name] for name in data.get("super_categories", [])]
-    my_dag.put(subcategory, super_categories)
-    return jsonify({"message": "Item inserted."}), 201
+    try:
+        super_categories = [my_dag.nodes[name] for name in data.get("super_categories", [])]
+        my_dag.put(subcategory, super_categories)
+        return jsonify({"message": "Item inserted."}), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except KeyError:
+        return jsonify({"error": "Super-categories do not exist."}), 400
 
 
 @app.route("/dag/node", methods=["DELETE"])
 def remove_dag_item():
     data = request.json
-    subcategory = my_dag.nodes[data.get("subcategory")]
-    my_dag.remove(subcategory)
-    return jsonify({"message": "Item removed."}), 200
+    try:
+        subcategory = my_dag.nodes[data.get("subcategory")]
+        my_dag.remove(subcategory)
+        return jsonify({"message": "Item removed."}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except KeyError:
+        return jsonify({"error": "Item to remove does not exist."}), 400
 
 
 @app.route("/dag/query", methods=["GET"])
@@ -83,18 +93,20 @@ def get_query_dag_image():
 @app.route("/dag/import", methods=["POST"])
 def import_dag():
     if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
+        return jsonify({"error": "No file part."}), 400
     file = request.files['file']
     if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
+        return jsonify({"error": "No selected file."}), 400
 
     file_content = BytesIO(file.read())
 
     owl = OWLOntology(file.filename)
     global my_dag
-    my_dag = owl.import_dag(file_content=file_content)
-
-    return jsonify({"message": "File imported and DAG created."}), 201
+    try:
+        my_dag = owl.import_dag(file_content=file_content)
+        return jsonify({"message": "File imported and DAG created."}), 201
+    except Exception:
+        return jsonify({"error": "Error importing file."}), 400
 
 
 @app.route("/dag/export", methods=["GET"])

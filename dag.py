@@ -35,7 +35,7 @@ class DAG:
     def add_edge(self, from_node, to_node):
         """Add a directed edge between two nodes."""
         if from_node.name not in self.nodes or to_node.name not in self.nodes:
-            raise ValueError("Both nodes must exist in the graph")
+            raise ValueError("Both nodes must exist in the graph.")
 
         if from_node == to_node:
             return
@@ -49,11 +49,11 @@ class DAG:
     def remove_edge(self, from_node, to_node):
         # Verify nodes exist
         if from_node.name not in self.nodes or to_node.name not in self.nodes:
-            raise ValueError("Both nodes must exist in the graph")
+            raise ValueError("Both nodes must exist in the graph.")
 
         # Remove child from parent's neighbors
         if to_node not in from_node.neighbors:
-            raise ValueError("Edge does not exist")
+            raise ValueError("Edge does not exist.")
         from_node.neighbors.remove(to_node)
 
         self._update_descendant_counts(from_node)
@@ -92,7 +92,7 @@ class DAG:
 
     def get_ancestors(self, node, ignore=()):
         if node.name not in self.nodes:
-            raise ValueError(f"Node {node.name} does not exist in the graph")
+            raise ValueError(f"Node {node.name} does not exist in the graph.")
 
         ancestors = set()
 
@@ -152,6 +152,8 @@ class OntoDAG(DAG):
     def put(self, subcategory, super_categories, optimized=False):
         if any(super_cat.name not in self.nodes for super_cat in super_categories):
             raise ValueError("One or more super-categories do not exist.")
+        if subcategory.name == self.root.name and self.root.name in self.nodes:
+            raise ValueError("Already exists as root.")
 
         self.add_node(subcategory)
         if not super_categories:
@@ -192,7 +194,9 @@ class OntoDAG(DAG):
 
     def remove(self, node_to_remove):
         if node_to_remove.name not in self.nodes:
-            raise ValueError(f"Item {node_to_remove.name} does not exist")
+            raise ValueError(f"Item {node_to_remove.name} does not exist.")
+        if node_to_remove.name == self.root.name:
+            raise ValueError("Cannot remove the root.")
 
         super_categories = {node for node in self.nodes.values() if node_to_remove in node.neighbors}
         subcategories = set(node_to_remove.neighbors)
