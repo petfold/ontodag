@@ -189,19 +189,22 @@ class OntoDAG(DAG):
         # Intersection of all descendant sets
         common_descendants = set.intersection(*descendant_sets)
 
-        # Inside get_as_dag, around the loop where common_descendants are added:
-        for desc_node in common_descendants:
+        for node in common_descendants:
             # Gather super_categories that are not ancestors of another super_category
-            chosen_supers = []
+            node_ancestors = self.get_ancestors(node)
+
+            chosen_super_categories = []
             for cat in valid_super_cats:
                 # Skip cat if it is an ancestor of any other super_category in valid_super_cats
                 if any(cat in self.get_ancestors(self.nodes[other.name])
                        for other in valid_super_cats if other != cat):
                     continue
-                chosen_supers.append(new_dag.nodes[cat.name])
+                # Only add cat if node is not already a descendant of another common descendant
+                if not node_ancestors.intersection(common_descendants):
+                    chosen_super_categories.append(new_dag.nodes[cat.name])
 
-            # Add the descendant item with chosen_supers as parents
-            new_dag.put(desc_node, chosen_supers)
+            # Add the descendant item with chosen super-categories as parents
+            new_dag.put(node, chosen_super_categories)
 
         new_dag._remove_duplicate_root_edges()
 
@@ -217,7 +220,6 @@ class OntoDAG(DAG):
 
         for root_neighbor in edges_to_remove:
             self.remove_edge(root, root_neighbor)
-
 
     def put(self, subcategory, super_categories, optimized=False):
         if any(super_cat.name not in self.nodes for super_cat in super_categories):
