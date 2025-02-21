@@ -5,6 +5,7 @@ from owl import OWLOntology
 
 app = Flask(__name__)
 my_dag = OntoDAG()
+query_result_dag = None
 visualizer = OntoDAGVisualizer()
 
 
@@ -80,9 +81,10 @@ def get_query_dag_image():
     query = categories.split(",")
     super_categories = [my_dag.nodes[name] for name in query]
 
-    result_nodes = my_dag.get_as_dag(super_categories)
+    global query_result_dag
+    query_result_dag = my_dag.get_as_dag(super_categories)
 
-    img = visualizer.generate_image(result_nodes)
+    img = visualizer.generate_image(query_result_dag)
     buf = BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
@@ -114,6 +116,14 @@ def export_dag():
     filename = "ontodag_export.owl"
     owl = OWLOntology(filename)
     owl.export_dag(my_dag, filename)
+    return send_file(filename, as_attachment=True)
+
+
+@app.route("/dag/query/export", methods=["GET"])
+def export_query_dag():
+    filename = "ontodag_query_export.owl"
+    owl = OWLOntology(filename)
+    owl.export_dag(query_result_dag, filename)
     return send_file(filename, as_attachment=True)
 
 

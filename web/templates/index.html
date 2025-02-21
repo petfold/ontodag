@@ -36,6 +36,11 @@
         <input type="text" id="query-categories" placeholder="Super-categories (comma-separated)" size="30"/>
         <button type="submit">Query</button>
       </form>
+      <form id="query-import-file-form" enctype="multipart/form-data">
+       <input type="file" id="query-file-input" name="file" />
+        <button type="submit">Import File</button>
+        <button type="button" id="export-query-dag-button">Export DAG</button>
+      </form>
       <img id="dag-query-image" class="dag-visual" src="/dag/query/image?cat=*" alt="DAG Visualization" />
       <div id="dag-query"></div>
     </div>
@@ -177,6 +182,10 @@
 
       document.getElementById("export-dag-button").addEventListener("click", () => {
         window.location.href = "/dag/export";
+      });
+
+      document.getElementById("export-query-dag-button").addEventListener("click", () => {
+        window.location.href = "/dag/query/export";
       });
 
       window.onload = loadDAG;
