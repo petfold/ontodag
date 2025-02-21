@@ -149,13 +149,87 @@ class OntoDAG(DAG):
         common_subcategories = set.intersection(*descendant_sets)
         return common_subcategories
 
+    def get_as_dag(self, super_categories):
+        """
+        Return a new OntoDAG containing the common descendants of the given super_categories.
+        The super_categories themselves are added under the root, and their common descendants
+        are added under the respective super_categories.
+        """
+        # Create a new OntoDAG
+        new_dag = OntoDAG()
+
+        # Ensure super_categories exist and add them to new DAG
+        valid_super_cats = []
+        for cat in super_categories:
+            if cat.name not in self.nodes:
+                # If a super_category doesn't exist in the original DAG, ignore it
+                continue
+            new_dag.put(Item(cat.name), [new_dag.root])
+            valid_super_cats.append(cat)
+
+        if not valid_super_cats:
+            return new_dag
+
+        # **Preserve any ancestry found between the valid super\-categories**
+        # TODO: Simplify this logic
+        for i in range(len(valid_super_cats)):
+            for j in range(i + 1, len(valid_super_cats)):
+                if valid_super_cats[j] in self.get_ancestors(self.nodes[valid_super_cats[i].name]):
+                    new_dag.add_edge(new_dag.nodes[valid_super_cats[j].name],
+                                     new_dag.nodes[valid_super_cats[i].name])
+                if valid_super_cats[i] in self.get_ancestors(self.nodes[valid_super_cats[j].name]):
+                    new_dag.add_edge(new_dag.nodes[valid_super_cats[i].name],
+                                     new_dag.nodes[valid_super_cats[j].name])
+
+        # Gather descendants for each valid super_category
+        descendant_sets = []
+        for cat in valid_super_cats:
+            descendant_sets.append(self.get_descendants(self.nodes[cat.name]))
+
+        # Intersection of all descendant sets
+        common_descendants = set.intersection(*descendant_sets)
+
+        # Inside get_as_dag, around the loop where common_descendants are added:
+        for desc_node in common_descendants:
+            # Gather super_categories that are not ancestors of another super_category
+            chosen_supers = []
+            for cat in valid_super_cats:
+                # Skip cat if it is an ancestor of any other super_category in valid_super_cats
+                if any(cat in self.get_ancestors(self.nodes[other.name])
+                       for other in valid_super_cats if other != cat):
+                    continue
+                chosen_supers.append(new_dag.nodes[cat.name])
+
+            # Add the descendant item with chosen_supers as parents
+            new_dag.put(desc_node, chosen_supers)
+
+        new_dag._remove_duplicate_root_edges()
+
+        return new_dag
+
+    def _remove_duplicate_root_edges(self):
+        edges_to_remove = set()
+        root = self.root
+        for root_neighbor in root.neighbors:
+            ancestors = self.get_ancestors(root_neighbor, ignore={root})
+            if any(ancestor in root.neighbors for ancestor in ancestors):
+                edges_to_remove.add(root_neighbor)
+
+        for root_neighbor in edges_to_remove:
+            self.remove_edge(root, root_neighbor)
+
+
     def put(self, subcategory, super_categories, optimized=False):
         if any(super_cat.name not in self.nodes for super_cat in super_categories):
             raise ValueError("One or more super-categories do not exist.")
         if subcategory.name == self.root.name and self.root.name in self.nodes:
             raise ValueError("Already exists as root.")
 
-        self.add_node(subcategory)
+        if subcategory.name in self.nodes:
+            subcategory = self.nodes[subcategory.name]
+        else:
+            self.add_node(subcategory)
+
         if not super_categories:
             super_categories = [self.root]
 
@@ -220,6 +294,32 @@ class OntoDAG(DAG):
             for subcategory in subcategories:
                 self.add_edge(super_category, subcategory)
             self._update_descendant_counts(super_category)
+
+    def merge(self, other_dag):
+        """Merge another OntoDAG into this one.
+
+        Args:
+            other_dag (OntoDAG): The DAG to merge into this one.
+        """
+        if not isinstance(other_dag, OntoDAG):
+            raise ValueError("Can only merge with another OntoDAG instance.")
+
+        # Process all nodes from other DAG
+        for node_name, other_node in other_dag.nodes.items():
+            if node_name in self.nodes:
+                # Update existing node's neighbors
+                self.nodes[node_name].neighbors.update(other_node.neighbors)
+            else:
+                # Add new node
+                new_node = Item(node_name)
+                new_node.neighbors = other_node.neighbors.copy()
+                self.add_node(new_node)
+
+        self._remove_duplicate_root_edges()
+
+        # Update descendant counts
+        for node in self.nodes.values():
+            self._update_descendant_counts(node)
 
 
 class OntoDAGVisualizer:

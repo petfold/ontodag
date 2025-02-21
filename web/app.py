@@ -6,7 +6,6 @@ from owl import OWLOntology
 app = Flask(__name__)
 my_dag = OntoDAG()
 visualizer = OntoDAGVisualizer()
-visualizer_LR = OntoDAGVisualizer(layout="LR")
 
 
 @app.route("/dag", methods=["POST"])
@@ -81,9 +80,9 @@ def get_query_dag_image():
     query = categories.split(",")
     super_categories = [my_dag.nodes[name] for name in query]
 
-    result_nodes = my_dag.get(super_categories)
+    result_nodes = my_dag.get_as_dag(super_categories)
 
-    img = visualizer_LR.generate_image(DAG(result_nodes))
+    img = visualizer.generate_image(result_nodes)
     buf = BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
@@ -103,10 +102,11 @@ def import_dag():
     owl = OWLOntology(file.filename)
     global my_dag
     try:
-        my_dag = owl.import_dag(file_content=file_content)
+        imported_dag = owl.import_dag(file_content=file_content)
+        my_dag.merge(imported_dag)
         return jsonify({"message": "File imported and DAG created."}), 201
-    except Exception:
-        return jsonify({"error": "Error importing file."}), 400
+    except Exception as e:
+        return jsonify({"error": "Error importing file. Reason: " + str(e)}), 400
 
 
 @app.route("/dag/export", methods=["GET"])
