@@ -110,6 +110,41 @@ def import_dag():
     except Exception as e:
         return jsonify({"error": "Error importing file. Reason: " + str(e)}), 400
 
+@app.route("/dag/query/import", methods=["POST"])
+def import_query_dag():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part."}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file."}), 400
+
+    file_content = BytesIO(file.read())
+
+    owl = OWLOntology(file.filename)
+    global my_dag, query_result_dag
+    try:
+        imported_query_dag = owl.import_dag(file_content=file_content)
+        intersected_dag = my_dag.intersection_dag(imported_query_dag)
+        print(intersected_dag.nodes)
+        to_copy = set()
+        for node_name, node in intersected_dag.nodes.items():
+            if node.name == intersected_dag.root.name:
+                to_copy.add(node)
+            if node_name in my_dag.nodes:
+                to_copy.add(my_dag.nodes[node_name])
+        # TODO: Remove the need for the to_copy set
+        copy_dag = my_dag.copy_subdag(to_copy)
+        copy_dag.prune_to_common_descendants(list(intersected_dag.nodes.values()))
+        query_result_dag = copy_dag
+        my_dag = copy_dag
+
+        img = visualizer.generate_image(query_result_dag)
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        return send_file(buf, mimetype="image/png")
+    except Exception as e:
+        return jsonify({"error": "Error importing file. Reason: " + str(e)}), 400
 
 @app.route("/dag/export", methods=["GET"])
 def export_dag():

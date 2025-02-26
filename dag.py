@@ -1,8 +1,9 @@
 class Item:
-    def __init__(self, name):
+    def __init__(self, name, comparator=None):
         self.name = name
         self.neighbors = set()
         self.descendant_count = 0
+        self.comparator = comparator
 
     def __eq__(self, other):
         return self.name == other.name
@@ -110,6 +111,23 @@ class DAG:
         # Start the recursive search
         _get_ancestors_helper(node)
         return ancestors
+
+    def intersection_dag(self, other_dag):
+        intersecting_dag = OntoDAG()
+
+        # Add nodes that exist in both DAGs
+        for node in self.nodes.values():
+            if node.name is intersecting_dag.root.name:
+                continue
+            if node.name in other_dag.nodes:
+                intersecting_dag.add_node(node)
+        # Add edges between intersecting nodes
+        for node in other_dag.nodes.values():
+            # TODO: Check if this is needed
+            if node.name is intersecting_dag.root.name:
+                continue
+            intersecting_dag.root.neighbors.add(self.nodes[node.name])
+        return intersecting_dag
 
     def topological_sort(self):
         visited = set()
@@ -322,6 +340,102 @@ class OntoDAG(DAG):
         # Update descendant counts
         for node in self.nodes.values():
             self._update_descendant_counts(node)
+
+    def prune_to_common_descendants(self, interesting_nodes):
+        # Gather each node's descendants in a list of sets
+        sets_of_descendants = []
+        for node in interesting_nodes:
+            if node.name in self.nodes:
+                sets_of_descendants.append(self.get_descendants(self.nodes[node.name]))
+            else:
+                sets_of_descendants = []
+                break
+
+        # If any interesting node is missing or there's nothing to keep, remove all but root
+        if not sets_of_descendants:
+            for n in list(self.nodes.values()):
+                if getattr(self, 'root', None) and n is not self.root:
+                    self.remove(n)
+            return
+
+        # Find the intersection of all descendant sets
+        common_descendants = set.intersection(*sets_of_descendants)
+        only_common_descendants = common_descendants.copy()
+
+        # Include the interesting nodes themselves
+        for node in interesting_nodes:
+            if node.name in self.nodes:
+                common_descendants.add(self.nodes[node.name])
+
+        # Remove all other nodes from the DAG
+        for n in list(self.nodes.values()):
+            if n not in common_descendants and getattr(self, 'root', None) and n is not self.root:
+                self.remove(n)
+
+        # Remove duplicate edges between ancestors and lower level sub-categories
+        for n in list(self.nodes.values()):
+            for subcategory in list(n.neighbors):
+                subcategory_ancestors = self.get_ancestors(subcategory, {self.root})
+                for ancestor in subcategory_ancestors:
+                    if ancestor in n.neighbors and subcategory in n.neighbors:
+                        self.remove_edge(n, subcategory)
+                        print(f'Removed edge {n.name} -> {subcategory.name}')
+
+    def copy_subdag(self, nodes_to_copy):
+        # Collect all nodes to copy, including descendants
+        all_nodes_to_copy = set()
+        for node in nodes_to_copy:
+            all_nodes_to_copy.add(node)
+            all_nodes_to_copy.update(self.get_descendants(node))
+
+        new_dag = OntoDAG()
+        mapping = {}
+
+        # Create new items for all relevant nodes
+        for node in all_nodes_to_copy:
+            copy_item = Item(node.name)
+            mapping[node] = copy_item
+            new_dag.add_node(copy_item)
+
+        # Preserve edges among copied nodes
+        for original_node, copy_item in mapping.items():
+            for neighbor in original_node.neighbors:
+                if neighbor in mapping:
+                    copy_item.neighbors.add(mapping[neighbor])
+
+        # Update root if included
+        if self.root in mapping:
+            new_dag.root = mapping[self.root]
+
+        # Recalculate descendant counts
+        for copy_item in new_dag.nodes.values():
+            copy_item.descendant_count = len(new_dag.get_descendants(copy_item))
+
+        return new_dag
+
+    def deepcopy(self):
+        new_dag = OntoDAG()
+        mapping = {}
+
+        # Create new items
+        for original_item in self.nodes.values():
+            copy_item = Item(original_item.name)
+            mapping[original_item] = copy_item
+            new_dag.add_node(copy_item)
+
+        # Connect neighbors
+        for original_item, copy_item in mapping.items():
+            for neighbor in original_item.neighbors:
+                copy_item.neighbors.add(mapping[neighbor])
+
+        # Update the root reference
+        new_dag.root = mapping[self.root]
+
+        # Recalculate descendant counts
+        for node in new_dag.nodes.values():
+            node.descendant_count = len(new_dag.get_descendants(node))
+
+        return new_dag
 
 
 class OntoDAGVisualizer:

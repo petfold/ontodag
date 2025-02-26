@@ -180,6 +180,21 @@
         reloadDagImage();
       });
 
+      document.getElementById("query-import-file-form").addEventListener("submit", async (evt) => {
+        evt.preventDefault();
+        const formData = new FormData();
+        const fileInput = document.getElementById("query-file-input");
+        formData.append("file", fileInput.files[0]);
+
+        await fetch("/dag/query/import", {
+          method: "POST",
+          body: formData
+        }).then(response => handleError(response));
+
+        await loadDAG();
+        reloadDagImage();
+      });
+
       document.getElementById("export-dag-button").addEventListener("click", () => {
         window.location.href = "/dag/export";
       });
