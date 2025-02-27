@@ -1,9 +1,8 @@
 class Item:
-    def __init__(self, name, comparator=None):
+    def __init__(self, name):
         self.name = name
         self.neighbors = set()
         self.descendant_count = 0
-        self.comparator = comparator
 
     def __eq__(self, other):
         return self.name == other.name
@@ -170,6 +169,8 @@ class OntoDAG(DAG):
         """
         Returns a new DAG with a new root, with the nodes that are intersected with the query nodes,
         including their common descendants.
+        The highest level super-categories from the query DAG are added under the root, and their common descendants
+        are added under the respective super-categories.
         """
         intersected_dag = self.intersection_dag(query_dag)
         intersected_dag_nodes = intersected_dag.nodes.values()
@@ -177,67 +178,6 @@ class OntoDAG(DAG):
         copy_dag = self.copy_subdag(intersected_dag_nodes)
         copy_dag.prune_to_common_descendants(intersected_dag_nodes)
         return copy_dag
-
-    def get_as_dag(self, super_categories):
-        """
-        Return a new OntoDAG containing the common descendants of the given super_categories.
-        The super_categories themselves are added under the root, and their common descendants
-        are added under the respective super_categories.
-        """
-        # Create a new OntoDAG
-        new_dag = OntoDAG()
-
-        # Ensure super_categories exist and add them to new DAG
-        valid_super_cats = []
-        for cat in super_categories:
-            if cat.name not in self.nodes:
-                # If a super_category doesn't exist in the original DAG, ignore it
-                continue
-            new_dag.put(Item(cat.name), [new_dag.root])
-            valid_super_cats.append(cat)
-
-        if not valid_super_cats:
-            return new_dag
-
-        # **Preserve any ancestry found between the valid super\-categories**
-        # TODO: Simplify this logic
-        for i in range(len(valid_super_cats)):
-            for j in range(i + 1, len(valid_super_cats)):
-                if valid_super_cats[j] in self.get_ancestors(self.nodes[valid_super_cats[i].name]):
-                    new_dag.add_edge(new_dag.nodes[valid_super_cats[j].name],
-                                     new_dag.nodes[valid_super_cats[i].name])
-                if valid_super_cats[i] in self.get_ancestors(self.nodes[valid_super_cats[j].name]):
-                    new_dag.add_edge(new_dag.nodes[valid_super_cats[i].name],
-                                     new_dag.nodes[valid_super_cats[j].name])
-
-        # Gather descendants for each valid super_category
-        descendant_sets = []
-        for cat in valid_super_cats:
-            descendant_sets.append(self.get_descendants(self.nodes[cat.name]))
-
-        # Intersection of all descendant sets
-        common_descendants = set.intersection(*descendant_sets)
-
-        for node in common_descendants:
-            # Gather super_categories that are not ancestors of another super_category
-            node_ancestors = self.get_ancestors(node)
-
-            chosen_super_categories = []
-            for cat in valid_super_cats:
-                # Skip cat if it is an ancestor of any other super_category in valid_super_cats
-                if any(cat in self.get_ancestors(self.nodes[other.name])
-                       for other in valid_super_cats if other != cat):
-                    continue
-                # Only add cat if node is not already a descendant of another common descendant
-                if not node_ancestors.intersection(common_descendants):
-                    chosen_super_categories.append(new_dag.nodes[cat.name])
-
-            # Add the descendant item with chosen super-categories as parents
-            new_dag.put(node, chosen_super_categories)
-
-        new_dag._remove_duplicate_root_edges()
-
-        return new_dag
 
     def _remove_duplicate_root_edges(self):
         edges_to_remove = set()

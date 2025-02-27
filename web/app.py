@@ -79,10 +79,13 @@ def get_query_dag_image():
     if not categories:
         return jsonify({"error": "No categories provided"}), 400
     query = categories.split(",")
-    super_categories = [my_dag.nodes[name] for name in query]
+
+    query_dag = OntoDAG()
+    for super_category in query:
+        query_dag.put(Item(super_category), [query_dag.root])
 
     global query_result_dag
-    query_result_dag = my_dag.get_as_dag(super_categories)
+    query_result_dag = my_dag.get_by_dag(query_dag)
 
     img = visualizer.generate_image(query_result_dag)
     buf = BytesIO()
