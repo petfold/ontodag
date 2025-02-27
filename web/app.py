@@ -90,6 +90,15 @@ def get_query_dag_image():
     buf.seek(0)
     return send_file(buf, mimetype="image/png")
 
+@app.route("/dag/query/dag/image", methods=["GET"])
+def get_query_as_dag_dag_image():
+    global query_result_dag
+
+    img = visualizer.generate_image(query_result_dag)
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return send_file(buf, mimetype="image/png")
 
 @app.route("/dag/import", methods=["POST"])
 def import_dag():
@@ -121,7 +130,8 @@ def import_query_dag():
     file_content = BytesIO(file.read())
 
     owl = OWLOntology(file.filename)
-    global my_dag, query_result_dag
+    global my_dag
+    global query_result_dag
     try:
         imported_query_dag = owl.import_dag(file_content=file_content)
         intersected_dag = my_dag.intersection_dag(imported_query_dag)
@@ -136,13 +146,8 @@ def import_query_dag():
         copy_dag = my_dag.copy_subdag(to_copy)
         copy_dag.prune_to_common_descendants(list(intersected_dag.nodes.values()))
         query_result_dag = copy_dag
-        my_dag = copy_dag
 
-        img = visualizer.generate_image(query_result_dag)
-        buf = BytesIO()
-        img.save(buf, format="PNG")
-        buf.seek(0)
-        return send_file(buf, mimetype="image/png")
+        return jsonify({"nodes": list([node.to_dict() for node in query_result_dag.nodes.values()])})
     except Exception as e:
         return jsonify({"error": "Error importing file. Reason: " + str(e)}), 400
 

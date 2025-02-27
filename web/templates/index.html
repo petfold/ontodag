@@ -97,6 +97,7 @@
         if (!response.ok) {
             response.json().then(message => showErrorModal(message.error));
         }
+        return response;
       }
 
       function reloadDagImage() {
@@ -189,10 +190,16 @@
         await fetch("/dag/query/import", {
           method: "POST",
           body: formData
-        }).then(response => handleError(response));
+        }).then(response => handleError(response))
+          .then(response => response.json())
+          .then(data => {
+            const { nodes } = data;
+            console.log(nodes);
+            queryDAG(nodes);
+          });
 
-        await loadDAG();
-        reloadDagImage();
+        // Force-reload the image by appending a timestamp
+        document.getElementById("dag-query-image").src = "/dag/query/dag/image";
       });
 
       document.getElementById("export-dag-button").addEventListener("click", () => {
