@@ -41,7 +41,7 @@
         <button type="submit">Import File</button>
         <button type="button" id="export-query-dag-button">Export DAG</button>
       </form>
-      <img id="dag-query-image" class="dag-visual" src="/dag/query/image?cat=*" alt="DAG Visualization" />
+      <img id="dag-query-image" class="dag-visual" alt="DAG Visualization" style="display: none;"/>
       <div id="dag-query"></div>
     </div>
     <!-- Hidden image overlay for full-size image -->
@@ -163,7 +163,9 @@
         const { nodes } = await response.json();
         await queryDAG(nodes);
         // Force-reload the image by appending a timestamp
-        document.getElementById("dag-query-image").src = "/dag/query/image?cat="+ params +"&" + Date.now();
+        const dagQueryImage = document.getElementById("dag-query-image");
+        dagQueryImage.src = "/dag/query/image?cat=" + params + "&" + Date.now();
+        dagQueryImage.style.display = "block";
       });
 
       document.getElementById("import-file-form").addEventListener("submit", async (evt) => {
@@ -198,8 +200,9 @@
             queryDAG(nodes);
           });
 
-        // Force-reload the image by appending a timestamp
-        document.getElementById("dag-query-image").src = "/dag/query/dag/image";
+        const dagQueryImage = document.getElementById("dag-query-image");
+        dagQueryImage.src = "/dag/query/dag/image";
+        dagQueryImage.style.display = "block";
       });
 
       document.getElementById("export-dag-button").addEventListener("click", () => {
