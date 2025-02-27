@@ -38,6 +38,9 @@ class OWLOntology:
         classes = list(self.ontology.classes())
         for cls in classes:
             dag.add_node(Item(cls.name))
+            # Ensure that the default root is replaced with the actual
+            if cls.name is dag.root.name:
+                dag.root = dag.nodes[dag.root.name]
         for cls in classes:
             for super_cls in cls.is_a:
                 # Prevent default parent Thing from appearing in the DAG
