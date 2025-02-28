@@ -34,13 +34,15 @@ def get_dag_image():
 
 
 @app.route("/dag/node", methods=["POST"])
-def add_dag_item():
+def add_dag_items():
     data = request.json
-    subcategory = Item(data.get("subcategory"))
     try:
-        super_categories = [my_dag.nodes[name] for name in data.get("super_categories", [])]
-        my_dag.put(subcategory, super_categories)
-        return jsonify({"message": "Item inserted."}), 201
+        subcategories = [Item(name) for name in data.get("subcategories", [])]
+        super_categories = [my_dag.nodes[name] for name in (data.get("super_categories") or [my_dag.root.name])]
+
+        for subcategory in subcategories:
+            my_dag.put(subcategory, super_categories)
+        return jsonify({"message": "Item(s) inserted."}), 201
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except KeyError:
@@ -48,16 +50,17 @@ def add_dag_item():
 
 
 @app.route("/dag/node", methods=["DELETE"])
-def remove_dag_item():
+def remove_dag_items():
     data = request.json
     try:
-        subcategory = my_dag.nodes[data.get("subcategory")]
-        my_dag.remove(subcategory)
-        return jsonify({"message": "Item removed."}), 200
+        subcategories = [my_dag.nodes[name] for name in data.get("subcategories", [])]
+        for subcategory in subcategories:
+            my_dag.remove(subcategory)
+        return jsonify({"message": "Item(s) removed."}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except KeyError:
-        return jsonify({"error": "Item to remove does not exist."}), 400
+        return jsonify({"error": "An item to remove does not exist."}), 400
 
 
 @app.route("/dag/query", methods=["GET"])

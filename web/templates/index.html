@@ -104,6 +104,10 @@
         dagImage.src = "/dag/image?" + Date.now();
       }
 
+      function to_list(inputString) {
+        return inputString.split(",").map(cat => cat.trim()).filter(cat => cat !== "")
+      }
+
       const dagImage = document.getElementById("dag-image");
       const fullSizeDagImage = document.getElementById("full-size-dag-image");
       const overlay = document.getElementById("image-overlay");
@@ -121,23 +125,23 @@
 
       document.getElementById("add-item-form").addEventListener("submit", async (evt) => {
         evt.preventDefault();
-        const subcategory = document.getElementById("subcategory").value;
-        const superCats = document.getElementById("super-categories").value.split(",").map(cat => cat.trim());
+        const subcategories = to_list(document.getElementById("subcategory").value);
+        const superCats = to_list(document.getElementById("super-categories").value);
         await fetch("/dag/node", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({ subcategory, super_categories: superCats })
+          body: JSON.stringify({ subcategories, super_categories: superCats })
         }).then(response => handleError(response));
         await loadDAG();
         reloadDagImage();
       });
 
       document.getElementById("remove-item-button").addEventListener("click", async () => {
-        const subcategory = document.getElementById("subcategory").value;
+        const subcategories = to_list(document.getElementById("subcategory").value);
         await fetch("/dag/node", {
           method: "DELETE",
           headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({ subcategory })
+          body: JSON.stringify({ subcategories })
         }).then(response => handleError(response));
         await loadDAG();
         reloadDagImage();
@@ -154,7 +158,7 @@
 
       document.getElementById("query-form").addEventListener("submit", async (evt) => {
         evt.preventDefault();
-        const superCats = document.getElementById("query-categories").value.split(",").map(cat => cat.trim());
+        const superCats = to_list(document.getElementById("query-categories").value);
         const params = superCats.join(",");
         const response = await fetch("/dag/query?cat=" + params, {
           method: "GET",
