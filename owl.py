@@ -1,7 +1,7 @@
 import types
 
 from dag import OntoDAG, Item
-from owlready2 import get_ontology, Thing, AnnotationProperty
+from owlready2 import get_ontology, Thing
 
 
 class OWLOntology:
@@ -11,12 +11,13 @@ class OWLOntology:
     def export_dag(self, dag, file_name="new_ontology.owl"):
         with self.ontology:
             classes = {}
+            topological_nodes = dag.topological_sort()
             # Create classes for each DAG node
-            for node in dag.nodes.values():
+            for node in topological_nodes:
                 classes[node.name] = types.new_class(node.name, (Thing,))
 
             # Define is_a relationships (subclasses) for each node's neighbors (subcategories)
-            for node in dag.nodes.values():
+            for node in topological_nodes:
                 super_cls = classes[node.name]
                 for neighbor in node.neighbors:
                     sub_cls = classes[neighbor.name]

@@ -20,7 +20,7 @@ def create_dag():
 
 @app.route("/dag", methods=["GET"])
 def get_dag():
-    nodes = [node.to_dict() for node in reversed(my_dag.topological_sort())]
+    nodes = [node.to_dict() for node in my_dag.topological_sort()]
     return jsonify({"nodes": nodes})
 
 

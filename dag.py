@@ -141,8 +141,8 @@ class DAG:
 
         for node in self.nodes.values():
             visit(node)
-
-        return stack  # Nodes in topological order
+        # Nodes in topological order, with the root first
+        return stack[::-1]
 
 
 class OntoDAG(DAG):
