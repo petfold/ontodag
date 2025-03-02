@@ -1,31 +1,97 @@
-from dag import DAG, OntoDAG, Item, OntoDAGVisualizer
-from flask import Flask, request, jsonify, render_template, send_file
+import os
+import uuid
+
+from dag import OntoDAG, Item, OntoDAGVisualizer
+from datetime import datetime, timedelta
+from flask import Flask, request, jsonify, render_template, send_file, session
+from flask.sessions import SessionInterface, SessionMixin
 from io import BytesIO
 from owl import OWLOntology
 
+
+class InMemorySession(dict, SessionMixin):
+    def __init__(self, session_id=None):
+        super().__init__()
+        self.session_id = session_id
+        self.modified = False
+
+    def __setitem__(self, key, value):
+        self.modified = True
+        super().__setitem__(key, value)
+
+
+class InMemorySessionInterface(SessionInterface):
+    session_class = InMemorySession
+    container = {}  # In-memory storage for sessions
+
+    def generate_sid(self):
+        return str(uuid.uuid4())
+
+    def open_session(self, app, request):
+        sid = request.cookies.get(app.config.get("SESSION_COOKIE_NAME", "session"))
+        lifetime = app.config.get("PERMANENT_SESSION_LIFETIME")
+        now = datetime.now()
+
+        if not sid or sid not in self.container:
+            sid = self.generate_sid()
+            session = self.session_class(session_id=sid)
+            self.container[sid] = session
+            return session
+
+        session = self.container.get(sid)
+        expiry = session.get('expiry')
+
+        # Check if the session has expired
+        if expiry and now > expiry:
+            # Clean up expired session
+            del self.container[sid]
+            # Create a new session
+            sid = self.generate_sid()
+            session = self.session_class(session_id=sid)
+            session['expiry'] = now + lifetime
+            self.container[sid] = session
+
+        return session
+
+    def save_session(self, app, session, response):
+        if not session:
+            return  # Do not save empty sessions
+
+        session_cookie_name = app.config.get("SESSION_COOKIE_NAME", "session")  # ✅ Corrected
+        domain = self.get_cookie_domain(app)
+        expiry = session.get('expiry')
+
+        # Set the cookie with the expiry time
+        response.set_cookie(session_cookie_name, session.session_id, httponly=True, domain=domain, expires=expiry)
+
+
 app = Flask(__name__)
-my_dag = OntoDAG()
-query_result_dag = None
+app.secret_key = os.getenv("FLASK_APP_SECRET_KEY")
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=float(os.getenv("FLASK_SESSION_LIFETIME", 60)))
+app.session_interface = InMemorySessionInterface()
+
 visualizer = OntoDAGVisualizer()
 
 
 @app.route("/dag", methods=["POST"])
 def create_dag():
-    global my_dag
     my_dag = OntoDAG()
     my_dag.root.neighbors = set()
     my_dag.root.descendant_count = 0
+    session["my_dag"] = my_dag
     return jsonify({"message": "New OntoDAG created."}), 201
 
 
 @app.route("/dag", methods=["GET"])
 def get_dag():
+    my_dag = session["my_dag"]
     nodes = [node.to_dict() for node in my_dag.topological_sort()]
     return jsonify({"nodes": nodes})
 
 
 @app.route("/dag/image", methods=["GET"])
 def get_dag_image():
+    my_dag = session["my_dag"]
     img = visualizer.generate_image(my_dag)
     buf = BytesIO()
     img.save(buf, format="PNG")
@@ -36,6 +102,7 @@ def get_dag_image():
 @app.route("/dag/node", methods=["POST"])
 def add_dag_items():
     data = request.json
+    my_dag = session["my_dag"]
     try:
         subcategories = [Item(name) for name in data.get("subcategories", [])]
         super_categories = [my_dag.nodes[name] for name in (data.get("super_categories") or [my_dag.root.name])]
@@ -52,6 +119,7 @@ def add_dag_items():
 @app.route("/dag/node", methods=["DELETE"])
 def remove_dag_items():
     data = request.json
+    my_dag = session["my_dag"]
     try:
         subcategories = [my_dag.nodes[name] for name in data.get("subcategories", [])]
         for subcategory in subcategories:
@@ -69,6 +137,8 @@ def get_query():
     if not categories:
         return jsonify({"error": "No categories provided"}), 400
     query = categories.split(",")
+
+    my_dag = session["my_dag"]
     super_categories = [my_dag.nodes[name] for name in query]
 
     result_nodes = my_dag.get(super_categories)
@@ -83,12 +153,13 @@ def get_query_dag_image():
         return jsonify({"error": "No categories provided"}), 400
     query = categories.split(",")
 
+    my_dag = session["my_dag"]
     query_dag = OntoDAG()
     for super_category in query:
         query_dag.put(Item(super_category), [query_dag.root])
 
-    global query_result_dag
     query_result_dag = my_dag.get_by_dag(query_dag)
+    session["query_result_dag"] = query_result_dag
 
     img = visualizer.generate_image(query_result_dag)
     buf = BytesIO()
@@ -99,7 +170,7 @@ def get_query_dag_image():
 
 @app.route("/dag/query/dag/image", methods=["GET"])
 def get_query_as_dag_dag_image():
-    global query_result_dag
+    query_result_dag = session["query_result_dag"]
 
     img = visualizer.generate_image(query_result_dag)
     buf = BytesIO()
@@ -119,7 +190,7 @@ def import_dag():
     file_content = BytesIO(file.read())
 
     owl = OWLOntology(file.filename)
-    global my_dag
+    my_dag = session["my_dag"]
     try:
         imported_dag = owl.import_dag(file_content=file_content)
         my_dag.merge(imported_dag)
@@ -139,12 +210,12 @@ def import_query_dag():
     file_content = BytesIO(file.read())
 
     owl = OWLOntology(file.filename)
-    global my_dag
-    global query_result_dag
+    my_dag = session["my_dag"]
     try:
         imported_query_dag = owl.import_dag(file_content=file_content)
 
         query_result_dag = my_dag.get_by_dag(imported_query_dag)
+        session["query_result_dag"] = query_result_dag
 
         return jsonify({"nodes": list([node.to_dict() for node in query_result_dag.nodes.values()])})
     except Exception as e:
@@ -153,6 +224,7 @@ def import_query_dag():
 
 @app.route("/dag/export", methods=["GET"])
 def export_dag():
+    my_dag = session["my_dag"]
     filename = "ontodag_export.owl"
     owl = OWLOntology(filename)
     owl.export_dag(my_dag, filename)
@@ -161,6 +233,7 @@ def export_dag():
 
 @app.route("/dag/query/export", methods=["GET"])
 def export_query_dag():
+    query_result_dag = session["query_result_dag"]
     filename = "ontodag_query_export.owl"
     owl = OWLOntology(filename)
     owl.export_dag(query_result_dag, filename)
@@ -169,6 +242,8 @@ def export_query_dag():
 
 @app.route("/")
 def index():
+    if "my_dag" not in session:
+        session["my_dag"] = OntoDAG()
     return render_template("index.html")
 
 
