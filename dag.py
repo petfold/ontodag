@@ -396,28 +396,26 @@ class OntoDAG(DAG):
 
 
 class OntoDAGVisualizer:
-    def __init__(self, format="png", layout="TB"):
+    def __init__(self, format="png", layout="TB", default_color="seashell", root_color="seashell3"):
         self.format = format
         self.layout = layout
+        self.default_color = default_color
+        self.root_color = root_color
 
-    def visualize(self, dag, filename="ontodag_vis"):
+    def visualize(self, dag, filename="ontodag_vis", color_mapping=None):
         from graphviz import Digraph
         dag_type = dag.__class__.__name__
         graph = Digraph(comment=dag_type, format=self.format)
         graph.attr(rankdir=self.layout)
 
         for node in dag.nodes.values():
-            # Add nodes
-            graph.node(node.name, f'{node.name}: {node.descendant_count}')
-            # Add edges for each super-category-to-subcategory relationship
-            for subcategory in node.neighbors:
-                graph.edge(node.name, subcategory.name)
+            self._render_node(graph, node, is_root=node.name == dag.root.name, color_mapping=color_mapping)
 
         # Render the graph to a file
         output_path = graph.render(filename)
         print(f"{dag_type} visualization saved as: {output_path}")
 
-    def generate_image(self, dag):
+    def generate_image(self, dag, color_mapping=None):
         from graphviz import Digraph
         from io import BytesIO
         from PIL import Image
@@ -427,11 +425,18 @@ class OntoDAGVisualizer:
         graph.attr(rankdir=self.layout)
 
         for node in dag.nodes.values():
-            # Add nodes
-            graph.node(node.name, f'{node.name}: {node.descendant_count}')
-            # Add edges for each super-category-to-subcategory relationship
-            for subcategory in node.neighbors:
-                graph.edge(node.name, subcategory.name)
+            self._render_node(graph, node, is_root=node.name == dag.root.name, color_mapping=color_mapping)
 
         png_data = graph.pipe(format="png")
         return Image.open(BytesIO(png_data))
+
+    def _render_node(self, graph, node, is_root=False, color_mapping=None):
+        if color_mapping is None:
+            color = self.root_color if is_root else self.default_color
+        else:
+            color = self.root_color if is_root else color_mapping.get(node, self.default_color)
+        # Add nodes
+        graph.node(node.name, f'{node.name}: {node.descendant_count}', style="filled", fillcolor=color)
+        # Add edges for each super-category-to-subcategory relationship
+        for subcategory in node.neighbors:
+            graph.edge(node.name, subcategory.name)

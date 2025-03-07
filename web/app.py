@@ -70,8 +70,6 @@ app.secret_key = os.getenv("FLASK_APP_SECRET_KEY")
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=float(os.getenv("FLASK_SESSION_LIFETIME", 60)))
 app.session_interface = InMemorySessionInterface()
 
-visualizer = OntoDAGVisualizer()
-
 
 @app.route("/dag", methods=["POST"])
 def create_dag():
@@ -92,6 +90,8 @@ def get_dag():
 @app.route("/dag/image", methods=["GET"])
 def get_dag_image():
     my_dag = session["my_dag"]
+
+    visualizer = session["visualizer"]
     img = visualizer.generate_image(my_dag)
     buf = BytesIO()
     img.save(buf, format="PNG")
@@ -161,7 +161,14 @@ def get_query_dag_image():
     query_result_dag = my_dag.get_by_dag(query_dag)
     session["query_result_dag"] = query_result_dag
 
-    img = visualizer.generate_image(query_result_dag)
+    visualizer = session["visualizer"]
+    # Make query nodes appear with a different color
+    color_mapping = {}
+    for node in query_result_dag.nodes.values():
+        if node.name in query:
+            color_mapping[node] = session["viz_color_query"]
+
+    img = visualizer.generate_image(query_result_dag, color_mapping)
     buf = BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
@@ -171,8 +178,16 @@ def get_query_dag_image():
 @app.route("/dag/query/dag/image", methods=["GET"])
 def get_query_as_dag_dag_image():
     query_result_dag = session["query_result_dag"]
+    query = session["query_dag"]
 
-    img = visualizer.generate_image(query_result_dag)
+    visualizer = session["visualizer"]
+    # Make query nodes appear with a different color
+    color_mapping = {}
+    for node in query_result_dag.nodes.values():
+        if node in query.nodes.values():
+            color_mapping[node] = session["viz_color_query"]
+
+    img = visualizer.generate_image(query_result_dag, color_mapping)
     buf = BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
@@ -213,6 +228,7 @@ def import_query_dag():
     my_dag = session["my_dag"]
     try:
         imported_query_dag = owl.import_dag(file_content=file_content)
+        session["query_dag"] = imported_query_dag
 
         query_result_dag = my_dag.get_by_dag(imported_query_dag)
         session["query_result_dag"] = query_result_dag
@@ -244,6 +260,15 @@ def export_query_dag():
 def index():
     if "my_dag" not in session:
         session["my_dag"] = OntoDAG()
+
+    session["viz_color_default"] = "seashell"
+    session["viz_color_root"] = "seashell3"
+    session["viz_color_query"] = "transparent"
+
+    if "visualizer" not in session:
+        session["visualizer"] = OntoDAGVisualizer(default_color=session["viz_color_default"],
+                                                  root_color=session["viz_color_root"])
+
     return render_template("index.html")
 
 
