@@ -151,6 +151,11 @@ class OntoDAG(DAG):
         self.root = Item("*")
         self.nodes[self.root.name] = self.root
 
+    def add_edge(self, from_node, to_node):
+        """Add a directed edge between two nodes and remove unneeded edges from ancestors."""
+        self._remove_unneeded_edges(from_node, to_node)
+        super().add_edge(from_node, to_node)
+
     def get(self, super_categories):
         """Return all items that are subcategories of all specified super-categories."""
         descendant_sets = []
@@ -189,6 +194,13 @@ class OntoDAG(DAG):
 
         for root_neighbor in edges_to_remove:
             self.remove_edge(root, root_neighbor)
+
+    def _remove_unneeded_edges(self, from_node, to_node):
+        """Remove unneeded edges originating from ancestors."""
+        ancestors = self.get_ancestors(from_node)
+        for ancestor in ancestors:
+            if to_node in ancestor.neighbors:
+                self.remove_edge(ancestor, to_node)
 
     def put(self, subcategory, super_categories, optimized=False):
         if any(super_cat.name not in self.nodes for super_cat in super_categories):
