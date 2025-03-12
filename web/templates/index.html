@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>OntoDAG</title>
+    <link rel="stylesheet" type="text/css" href="/static/styles.css">
+  </head>
+  <body>
+    <!-- Modal for error messages -->
+    <div id="errorModal" class="overlay">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Error</h3>
+        <p id="error-modal-body"></p>
+      </div>
+    </div>
+
+    <div class="dag-container container">
+      <form id="import-file-form" enctype="multipart/form-data">
+        <button type="button" id="new-dag-button">New DAG</button>
+        or
+        <input type="file" id="file-input" name="file" />
+        <button type="submit">Import File</button>
+        <button type="button" id="export-dag-button">Export DAG</button>
+      </form>
+      <form id="add-item-form">
+        <input type="text" id="subcategory" placeholder="Subcategory" size="12"/>
+        <input type="text" id="super-categories" placeholder="Super-categories (comma-separated)" size="30"/>
+        <button type="submit">Add Item</button>
+        <button type="button" id="remove-item-button">Remove Item</button>
+      </form>
+      <img id="dag-image" class="dag-visual" src="/dag/image" alt="DAG Visualization" />
+      <div id="dag"></div>
+    </div>
+    <div class="query-container container">
+      <form id="query-form">
+        <input type="text" id="query-categories" placeholder="Super-categories (comma-separated)" size="30"/>
+        <button type="submit">Query</button>
+      </form>
+      <form id="query-import-file-form" enctype="multipart/form-data">
+       <input type="file" id="query-file-input" name="file" />
+        <button type="submit">Import File</button>
+        <button type="button" id="export-query-dag-button">Export DAG</button>
+      </form>
+      <img id="dag-query-image" class="dag-visual" alt="DAG Visualization" style="display: none;"/>
+      <div id="dag-query"></div>
+    </div>
+    <!-- Hidden image overlay for full-size image -->
+    <div id="image-overlay" class="overlay">
+      <img id="full-size-dag-image" src="" alt="Full Size DAG Visualization" />
+    </div>
+
+    <script>
+      async function loadDAG() {
+        const response = await fetch("/dag");
+        const { nodes } = await response.json();
+        const dagElement = document.getElementById("dag");
+        dagElement.innerHTML = "";
+        nodes.forEach(node => {
+          const nodeElement = document.createElement("div");
+         nodeElement.className = "node";
+          nodeElement.innerHTML = `<span class="node-name">${node.name}</span>
+                <span class="node-subcat">Subcat: ${node.neighbors.length ? node.neighbors.join(", ") : "-"}</span>`;
+          dagElement.appendChild(nodeElement);
+        });
+      }
+
+      async function queryDAG(resultNodes) {
+        const dagElement = document.getElementById("dag-query");
+        dagElement.innerHTML = "";
+        resultNodes.forEach(node => {
+          const nodeElement = document.createElement("div");
+         nodeElement.className = "node";
+          nodeElement.innerHTML = `<span class="node-name">${node.name}</span>
+                <span class="node-subcat">Subcat: ${node.neighbors.length ? node.neighbors.join(", ") : "-"}</span>`;
+          dagElement.appendChild(nodeElement);
+        });
+      }
+
+      function showErrorModal(message) {
+        const modal = document.getElementById("errorModal");
+        const modalBody = document.getElementById("error-modal-body");
+        const closeBtn = modal.querySelector(".close");
+
+        modalBody.textContent = message;
+        modal.style.display = "block";
+
+        closeBtn.onclick = () => modal.style.display = "none";
+        window.onclick = (event) => {
+          if (event.target === modal) {
+            modal.style.display = "none";
+          }
+        };
+      }
+
+      function handleError(response) {
+        console.log(response);
+        if (!response.ok) {
+            response.json().then(message => showErrorModal(message.error));
+        }
+        return response;
+      }
+
+      function reloadDagImage() {
+        dagImage.src = "/dag/image?" + Date.now();
+      }
+
+      function to_list(inputString) {
+        return inputString.split(",").map(cat => cat.trim()).filter(cat => cat !== "")
+      }
+
+      const dagImage = document.getElementById("dag-image");
+      const fullSizeDagImage = document.getElementById("full-size-dag-image");
+      const overlay = document.getElementById("image-overlay");
+
+      dagImage.addEventListener("click", () => {
+        fullSizeDagImage.src = dagImage.src;
+        overlay.style.display = "flex";
+      });
+
+      overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+          overlay.style.display = "none";
+        }
+      });
+
+      document.getElementById("add-item-form").addEventListener("submit", async (evt) => {
+        evt.preventDefault();
+        const subcategories = to_list(document.getElementById("subcategory").value);
+        const superCats = to_list(document.getElementById("super-categories").value);
+        await fetch("/dag/node", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ subcategories, super_categories: superCats })
+        }).then(response => handleError(response));
+        await loadDAG();
+        reloadDagImage();
+      });
+
+      document.getElementById("remove-item-button").addEventListener("click", async () => {
+        const subcategories = to_list(document.getElementById("subcategory").value);
+        await fetch("/dag/node", {
+          method: "DELETE",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ subcategories })
+        }).then(response => handleError(response));
+        await loadDAG();
+        reloadDagImage();
+      });
+
+      document.getElementById("new-dag-button").addEventListener("click", async () => {
+        await fetch("/dag", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+        });
+        await loadDAG();
+        reloadDagImage();
+      });
+
+      document.getElementById("query-form").addEventListener("submit", async (evt) => {
+        evt.preventDefault();
+        const superCats = to_list(document.getElementById("query-categories").value);
+        const params = superCats.join(",");
+        const response = await fetch("/dag/query?cat=" + params, {
+          method: "GET",
+          headers: {"Content-Type": "application/json"},
+        });
+        const { nodes } = await response.json();
+        await queryDAG(nodes);
+        // Force-reload the image by appending a timestamp
+        const dagQueryImage = document.getElementById("dag-query-image");
+        dagQueryImage.src = "/dag/query/image?cat=" + params + "&" + Date.now();
+        dagQueryImage.style.display = "block";
+      });
+
+      document.getElementById("import-file-form").addEventListener("submit", async (evt) => {
+        evt.preventDefault();
+        const formData = new FormData();
+        const fileInput = document.getElementById("file-input");
+        formData.append("file", fileInput.files[0]);
+
+        await fetch("/dag/import", {
+          method: "POST",
+          body: formData
+        }).then(response => handleError(response));
+
+        await loadDAG();
+        reloadDagImage();
+      });
+
+      document.getElementById("query-import-file-form").addEventListener("submit", async (evt) => {
+        evt.preventDefault();
+        const formData = new FormData();
+        const fileInput = document.getElementById("query-file-input");
+        formData.append("file", fileInput.files[0]);
+
+        await fetch("/dag/query/import", {
+          method: "POST",
+          body: formData
+        }).then(response => handleError(response))
+          .then(response => response.json())
+          .then(data => {
+            const { nodes } = data;
+            console.log(nodes);
+            queryDAG(nodes);
+          });
+
+        const dagQueryImage = document.getElementById("dag-query-image");
+        dagQueryImage.src = "/dag/query/dag/image";
+        dagQueryImage.style.display = "block";
+      });
+
+      document.getElementById("export-dag-button").addEventListener("click", () => {
+        window.location.href = "/dag/export";
+      });
+
+      document.getElementById("export-query-dag-button").addEventListener("click", () => {
+        window.location.href = "/dag/query/export";
+      });
+
+      window.onload = loadDAG;
+    </script>
+  </body>
+</html>

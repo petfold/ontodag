@@ -1,41 +1,42 @@
 import unittest
-from ontodag import Item
+from dag import Item
 
 
 class TestItem(unittest.TestCase):
-    def setUp(self):
-        self.item = Item("TestItem")
+    def test_distinct_instances(self):
+        item1 = Item("A")
+        item2 = Item("A")
+        self.assertIsNot(item1, item2)
 
-    def test_initial_counter(self):
-        self.assertEqual(self.item.counter, 0)
+    def test_different_instances(self):
+        item1 = Item("A")
+        item2 = Item("B")
+        self.assertIsNot(item1, item2)
 
-    def test_increase_counter(self):
-        self.item.increase_counter()
-        self.assertEqual(self.item.counter, 1)
-        self.item.increase_counter()
-        self.assertEqual(self.item.counter, 2)
+    def test_instance_attributes(self):
+        item = Item("A")
+        self.assertEqual(item.name, "A")
+        self.assertEqual(item.neighbors, set())
+        self.assertEqual(item.descendant_count, 0)
 
-    def test_decrease_counter(self):
-        self.item.increase_counter()
-        self.item.increase_counter()
-        self.item.decrease_counter()
-        self.assertEqual(self.item.counter, 1)
-        self.item.decrease_counter()
-        self.assertEqual(self.item.counter, 0)
+    def test_equality(self):
+        item1 = Item("A")
+        item2 = Item("A")
+        item3 = Item("B")
+        self.assertEqual(item1, item2)
+        self.assertNotEqual(item1, item3)
 
-    def test_counter_not_below_zero(self):
-        self.item.counter = 0
-        self.item.decrease_counter()
-        self.assertEqual(self.item.counter, 0)
-
-    def test_add_subcategory(self):
-        subcategory = Item("SubItem")
-        self.item.add_subcategory(subcategory)
-        self.assertIn(subcategory, self.item.subcategories)
+    def test_hash(self):
+        item1 = Item("A")
+        item2 = Item("A")
+        item3 = Item("B")
+        self.assertEqual(hash(item1), hash(item2))
+        self.assertNotEqual(hash(item1), hash(item3))
 
     def test_repr(self):
-        self.assertEqual(repr(self.item), "Item(TestItem)")
+        item = Item("A")
+        self.assertEqual(repr(item), "Item(A, [])")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()
