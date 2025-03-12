@@ -250,9 +250,10 @@ def export_dag():
 @app.route("/dag/query/export", methods=["GET"])
 def export_query_dag():
     query_result_dag = session["query_result_dag"]
-    filename = "ontodag_query_export.owl"
+    unique_id = str(uuid.uuid4())
+    filename = f'ontodag_query_export_{unique_id}.owl'
     owl = OWLOntology(filename)
-    owl.export_dag(query_result_dag, filename)
+    owl.export_dag(query_result_dag, filename, unique_id)
     return send_file(filename, as_attachment=True)
 
 
