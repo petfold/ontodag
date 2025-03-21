@@ -21,6 +21,7 @@
         <input type="file" id="file-input" name="file" />
         <button type="submit">Import File</button>
         <button type="button" id="export-dag-button">Export DAG</button>
+        <button type="button" id="export-dag-tex-button">Export TEX</button>
       </form>
       <form id="add-item-form">
         <input type="text" id="subcategory" placeholder="Subcategory" size="12"/>
@@ -40,6 +41,7 @@
        <input type="file" id="query-file-input" name="file" />
         <button type="submit">Import File</button>
         <button type="button" id="export-query-dag-button">Export DAG</button>
+        <button type="button" id="export-query-dag-tex-button">Export TEX</button>
       </form>
       <img id="dag-query-image" class="dag-visual" alt="DAG Visualization" style="display: none;"/>
       <div id="dag-query"></div>
@@ -212,9 +214,15 @@
       document.getElementById("export-dag-button").addEventListener("click", () => {
         window.location.href = "/dag/export";
       });
+      document.getElementById("export-dag-tex-button").addEventListener("click", () => {
+        window.location.href = "/dag/export/tex";
+      });
 
       document.getElementById("export-query-dag-button").addEventListener("click", () => {
         window.location.href = "/dag/query/export";
+      });
+      document.getElementById("export-query-dag-tex-button").addEventListener("click", () => {
+        window.location.href = "/dag/query/export/tex";
       });
 
       window.onload = loadDAG;
