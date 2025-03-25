@@ -1,10 +1,11 @@
 import os
 import uuid
+import random
 
 from dag import OntoDAG, Item, OntoDAGVisualizer
 from datetime import datetime, timedelta
 from dot2tex import dot2tex
-from flask import Flask, request, jsonify, render_template, send_file, session
+from flask import Flask, request, jsonify, render_template, send_file, session, send_from_directory
 from flask.sessions import SessionInterface, SessionMixin
 from io import BytesIO
 from owl import OWLOntology
@@ -326,6 +327,125 @@ def index():
                                                   root_color=session["viz_color_root"])
 
     return render_template("index.html")
+
+
+@app.route("/market")
+def index_cars():
+    if "my_dag" not in session:
+        owl = OWLOntology('http://127.0.0.1:5000/market/dag')
+        owl.ontology.load()
+        dag = owl._process_dag()
+        session['my_dag'] = dag
+
+    if "car_categories_dag" not in session:
+        owl = OWLOntology('http://127.0.0.1:5000/market/dag/categories')
+        owl.ontology.load()
+        dag = owl._process_dag()
+        session['car_categories_dag'] = dag
+
+    if "visualizer" not in session:
+        session["visualizer"] = OntoDAGVisualizer()
+        session["viz_color_query"] = "transparent"
+
+    if "cars" not in session:
+        dag = session['my_dag']
+        super_categories = [dag.nodes['SellerOffer']]
+        results = dag.get(super_categories)
+
+        cars = []
+        for result in results:
+            usd_price = float(round(random.randint(10000, 70000), -3))
+            eth_usd = 4000.0
+            vehicle = {
+                'id': result.name,
+                'mileage': random.randint(2000, 40000),
+                'price': [{"value": usd_price, "currency": "USD"}, {"value": usd_price / eth_usd, "currency": "ETH"}],
+                'year': random.randint(2015, 2025),
+            }
+            cars.append(vehicle)
+        session["cars"] = cars
+
+    return render_template("cars.html")
+
+
+@app.route('/market/dag')
+def get_car_market_dag():
+    return send_from_directory('cars', 'car_market.owl')
+
+
+@app.route('/market/dag/categories')
+def get_car_market_categories():
+    return send_from_directory('cars', 'car_market_props.owl')
+
+
+@app.route('/cars', methods=['GET'])
+def get_cars():
+    return jsonify(session["cars"])
+
+
+@app.route('/cars/query', methods=['GET'])
+def query_cars():
+    categories = request.args.get("q")
+    if not categories:
+        return jsonify({"error": "No categories provided"}), 400
+    query = categories.split(",")
+
+    dag = session['my_dag']
+    super_categories = [dag.nodes[name.strip()] for name in query]
+    super_categories.append(dag.nodes['SellerOffer'])
+    results = dag.get(super_categories)
+
+    car_results = []
+    for result in results:
+        for car in session["cars"]:
+            if car['id'] == result.name:
+                car_results.append(car)
+    return jsonify(car_results)
+
+
+@app.route("/dag/categories/buyer", methods=["GET"])
+def get_categories_for_buyer():
+    categories_dag = session["car_categories_dag"]
+    categories_for_buyer = categories_dag.nodes.get("SearchableForBuyer")
+    if not categories_for_buyer:
+        return jsonify({"error": "SearchableForBuyer category not found"}), 404
+
+    def _create_category(node):
+        return {
+            "name": node.name,
+            "neighbors": [{"name": n.name} for n in node.neighbors]
+        }
+
+    categories = []
+    for neighbor in categories_for_buyer.neighbors:
+        category = _create_category(neighbor)
+        categories.append(category)
+        for sub_neighbor in neighbor.neighbors:
+            sub_category = _create_category(sub_neighbor)
+            if sub_category["neighbors"]:
+                categories.append(sub_category)
+
+    return jsonify(categories)
+
+
+@app.route('/cars/<string:car_id>', methods=['GET'])
+def get_car(car_id):
+    def _find_car(car_id):
+        """Finds a car by ID.  Returns the car (dict) or None if not found."""
+        for car in session["cars"]:
+            if car['id'] == car_id:
+                return car
+        return None
+
+    car = _find_car(car_id)
+    if car:
+        return jsonify(car)
+    return jsonify({'message': 'Car not found'}), 404
+
+
+@app.route('/images/<filename>')
+def get_image(filename):
+    return send_from_directory('cars/images', filename)
 
 
 if __name__ == "__main__":
