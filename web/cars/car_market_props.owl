@@ -22,8 +22,7 @@
 
 <owl:Class rdf:about="#VehicleFeature">
   <rdfs:subClassOf rdf:resource="#Vehicle"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForBuyer"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForSeller"/>
+  <rdfs:subClassOf rdf:resource="#QueryableProperty"/>
 </owl:Class>
 
 <owl:Class rdf:about="#FourWheelDrive">
@@ -91,6 +90,10 @@
   <rdfs:subClassOf rdf:resource="#*"/>
 </owl:Class>
 
+<owl:Class rdf:about="#ActiveOffer">
+  <rdfs:subClassOf rdf:resource="#Offer"/>
+</owl:Class>
+
 <owl:Class rdf:about="#UsedCarOffer">
   <rdfs:subClassOf rdf:resource="#Offer"/>
 </owl:Class>
@@ -107,22 +110,13 @@
   <rdfs:subClassOf rdf:resource="#*"/>
 </owl:Class>
 
-<owl:Class rdf:about="#SearchableProperty">
+<owl:Class rdf:about="#QueryableProperty">
   <rdfs:subClassOf rdf:resource="#Property"/>
-</owl:Class>
-
-<owl:Class rdf:about="#SearchableForBuyer">
-  <rdfs:subClassOf rdf:resource="#SearchableProperty"/>
-</owl:Class>
-
-<owl:Class rdf:about="#SearchableForSeller">
-  <rdfs:subClassOf rdf:resource="#SearchableProperty"/>
 </owl:Class>
 
 <owl:Class rdf:about="#ManufacturingDate">
   <rdfs:subClassOf rdf:resource="#Vehicle"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForBuyer"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForSeller"/>
+  <rdfs:subClassOf rdf:resource="#QueryableProperty"/>
 </owl:Class>
 
 <owl:Class rdf:about="#NewVehicle">
@@ -135,8 +129,7 @@
 
 <owl:Class rdf:about="#VehicleCondition">
   <rdfs:subClassOf rdf:resource="#Vehicle"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForBuyer"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForSeller"/>
+  <rdfs:subClassOf rdf:resource="#QueryableProperty"/>
 </owl:Class>
 
 <owl:Class rdf:about="#ExcellentCondition">
@@ -148,8 +141,7 @@
 </owl:Class>
 
 <owl:Class rdf:about="#Location">
-  <rdfs:subClassOf rdf:resource="#SearchableForBuyer"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForSeller"/>
+  <rdfs:subClassOf rdf:resource="#QueryableProperty"/>
 </owl:Class>
 
 <owl:Class rdf:about="#RegionalLocation">
@@ -162,8 +154,7 @@
 
 <owl:Class rdf:about="#PriceRange">
   <rdfs:subClassOf rdf:resource="#Offer"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForBuyer"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForSeller"/>
+  <rdfs:subClassOf rdf:resource="#QueryableProperty"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Budget">
@@ -178,26 +169,19 @@
   <rdfs:subClassOf rdf:resource="#PriceRange"/>
 </owl:Class>
 
-<owl:Class rdf:about="#User">
-  <rdfs:subClassOf rdf:resource="#*"/>
+<owl:Class rdf:about="#Sedan">
+  <rdfs:subClassOf rdf:resource="#Car"/>
+  <rdfs:subClassOf rdf:resource="#VehicleFeature"/>
 </owl:Class>
 
-<owl:Class rdf:about="#Buyer">
-  <rdfs:subClassOf rdf:resource="#User"/>
+<owl:Class rdf:about="#PickupTruck">
+  <rdfs:subClassOf rdf:resource="#Truck"/>
+  <rdfs:subClassOf rdf:resource="#VehicleFeature"/>
 </owl:Class>
 
-<owl:Class rdf:about="#BuyerOffer">
-  <rdfs:subClassOf rdf:resource="#Offer"/>
-  <rdfs:subClassOf rdf:resource="#Buyer"/>
-</owl:Class>
-
-<owl:Class rdf:about="#Seller">
-  <rdfs:subClassOf rdf:resource="#User"/>
-</owl:Class>
-
-<owl:Class rdf:about="#SellerOffer">
-  <rdfs:subClassOf rdf:resource="#Offer"/>
-  <rdfs:subClassOf rdf:resource="#Seller"/>
+<owl:Class rdf:about="#HeavyDutyTruck">
+  <rdfs:subClassOf rdf:resource="#Truck"/>
+  <rdfs:subClassOf rdf:resource="#VehicleFeature"/>
 </owl:Class>
 
 </rdf:RDF>

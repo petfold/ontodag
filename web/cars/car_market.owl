@@ -22,8 +22,7 @@
 
 <owl:Class rdf:about="#VehicleFeature">
   <rdfs:subClassOf rdf:resource="#Vehicle"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForBuyer"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForSeller"/>
+  <rdfs:subClassOf rdf:resource="#QueryableProperty"/>
 </owl:Class>
 
 <owl:Class rdf:about="#FourWheelDrive">
@@ -33,10 +32,6 @@
 <owl:Class rdf:about="#ElectricVehicle">
   <rdfs:subClassOf rdf:resource="#VehicleFeature"/>
 </owl:Class>
-
-<!-- <owl:Class rdf:about="#Appearance"> -->
-<!--   <rdfs:subClassOf rdf:resource="#VehicleFeature"/> -->
-<!-- </owl:Class> -->
 
 <owl:Class rdf:about="#Color">
   <rdfs:subClassOf rdf:resource="#VehicleFeature"/>
@@ -95,6 +90,10 @@
   <rdfs:subClassOf rdf:resource="#*"/>
 </owl:Class>
 
+<owl:Class rdf:about="#ActiveOffer">
+  <rdfs:subClassOf rdf:resource="#Offer"/>
+</owl:Class>
+
 <owl:Class rdf:about="#UsedCarOffer">
   <rdfs:subClassOf rdf:resource="#Offer"/>
 </owl:Class>
@@ -111,22 +110,17 @@
   <rdfs:subClassOf rdf:resource="#*"/>
 </owl:Class>
 
-<owl:Class rdf:about="#SearchableProperty">
+<owl:Class rdf:about="#QueryableProperty">
   <rdfs:subClassOf rdf:resource="#Property"/>
 </owl:Class>
 
-<owl:Class rdf:about="#SearchableForBuyer">
-  <rdfs:subClassOf rdf:resource="#SearchableProperty"/>
-</owl:Class>
-
-<owl:Class rdf:about="#SearchableForSeller">
-  <rdfs:subClassOf rdf:resource="#SearchableProperty"/>
+<owl:Class rdf:about="#QueryableProperty">
+  <rdfs:subClassOf rdf:resource="#QueryableProperty"/>
 </owl:Class>
 
 <owl:Class rdf:about="#ManufacturingDate">
   <rdfs:subClassOf rdf:resource="#Vehicle"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForBuyer"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForSeller"/>
+  <rdfs:subClassOf rdf:resource="#QueryableProperty"/>
 </owl:Class>
 
 <owl:Class rdf:about="#NewVehicle">
@@ -139,8 +133,7 @@
 
 <owl:Class rdf:about="#VehicleCondition">
   <rdfs:subClassOf rdf:resource="#Vehicle"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForBuyer"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForSeller"/>
+  <rdfs:subClassOf rdf:resource="#QueryableProperty"/>
 </owl:Class>
 
 <owl:Class rdf:about="#ExcellentCondition">
@@ -152,21 +145,11 @@
 </owl:Class>
 
 <owl:Class rdf:about="#Location">
-  <rdfs:subClassOf rdf:resource="#SearchableForBuyer"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForSeller"/>
+  <rdfs:subClassOf rdf:resource="#QueryableProperty"/>
 </owl:Class>
 
 <owl:Class rdf:about="#RegionalLocation">
   <rdfs:subClassOf rdf:resource="#Location"/>
-</owl:Class>
-
-<owl:Class rdf:about="#Offer_NewTruck_Regional_FourWheelDrive">
-  <rdfs:subClassOf rdf:resource="#FourWheelDrive"/>
-  <rdfs:subClassOf rdf:resource="#Truck"/>
-  <rdfs:subClassOf rdf:resource="#NewCarOffer"/>
-  <rdfs:subClassOf rdf:resource="#NewVehicle"/>
-  <rdfs:subClassOf rdf:resource="#RegionalLocation"/>
-  <rdfs:subClassOf rdf:resource="#Gray"/>
 </owl:Class>
 
 <owl:Class rdf:about="#CityLocation">
@@ -175,15 +158,85 @@
 
 <owl:Class rdf:about="#PriceRange">
   <rdfs:subClassOf rdf:resource="#Offer"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForBuyer"/>
-  <rdfs:subClassOf rdf:resource="#SearchableForSeller"/>
+  <rdfs:subClassOf rdf:resource="#QueryableProperty"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Budget">
   <rdfs:subClassOf rdf:resource="#PriceRange"/>
 </owl:Class>
 
+<owl:Class rdf:about="#MidRange">
+  <rdfs:subClassOf rdf:resource="#PriceRange"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Luxury">
+  <rdfs:subClassOf rdf:resource="#PriceRange"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Sedan">
+  <rdfs:subClassOf rdf:resource="#Car"/>
+  <rdfs:subClassOf rdf:resource="#VehicleFeature"/>
+</owl:Class>
+
+<owl:Class rdf:about="#PickupTruck">
+  <rdfs:subClassOf rdf:resource="#Truck"/>
+  <rdfs:subClassOf rdf:resource="#VehicleFeature"/>
+</owl:Class>
+
+<owl:Class rdf:about="#HeavyDutyTruck">
+  <rdfs:subClassOf rdf:resource="#Truck"/>
+  <rdfs:subClassOf rdf:resource="#VehicleFeature"/>
+</owl:Class>
+
+<owl:Class rdf:about="#NewYorkCity">
+  <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#NewYorkState"/>
+</owl:Class>
+
+<owl:Class rdf:about="#LosAngeles">
+  <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#California"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Chicago">
+  <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#Illinois"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Houston">
+  <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#Texas"/>
+</owl:Class>
+
+<owl:Class rdf:about="#NewYorkState">
+  <rdfs:subClassOf rdf:resource="#RegionalLocation"/>
+</owl:Class>
+
+<owl:Class rdf:about="#California">
+  <rdfs:subClassOf rdf:resource="#RegionalLocation"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Illinois">
+  <rdfs:subClassOf rdf:resource="#RegionalLocation"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Texas">
+  <rdfs:subClassOf rdf:resource="#RegionalLocation"/>
+</owl:Class>
+
+<!-- Offers: -->
+<owl:Class rdf:about="#Offer_NewTruck_Regional_FourWheelDrive">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
+  <rdfs:subClassOf rdf:resource="#FourWheelDrive"/>
+  <rdfs:subClassOf rdf:resource="#Truck"/>
+  <rdfs:subClassOf rdf:resource="#NewCarOffer"/>
+  <rdfs:subClassOf rdf:resource="#NewVehicle"/>
+  <rdfs:subClassOf rdf:resource="#RegionalLocation"/>
+  <rdfs:subClassOf rdf:resource="#Gray"/>
+</owl:Class>
+
 <owl:Class rdf:about="#Offer_CPO_BudgetTruck_ExcellentCondition">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
   <rdfs:subClassOf rdf:resource="#Truck"/>
   <rdfs:subClassOf rdf:resource="#CertifiedPreOwned"/>
   <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
@@ -193,6 +246,7 @@
 </owl:Class>
 
 <owl:Class rdf:about="#Offer_UsedMotorcycle_GoodCondition_Budget">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
   <rdfs:subClassOf rdf:resource="#Motorcycle"/>
   <rdfs:subClassOf rdf:resource="#UsedCarOffer"/>
   <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
@@ -201,11 +255,8 @@
   <rdfs:subClassOf rdf:resource="#White"/>
 </owl:Class>
 
-<owl:Class rdf:about="#MidRange">
-  <rdfs:subClassOf rdf:resource="#PriceRange"/>
-</owl:Class>
-
 <owl:Class rdf:about="#Offer_UsedSUV_City_ExcellentCondition_MidRange">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
   <rdfs:subClassOf rdf:resource="#SUV"/>
   <rdfs:subClassOf rdf:resource="#UsedCarOffer"/>
   <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
@@ -216,6 +267,7 @@
 </owl:Class>
 
 <owl:Class rdf:about="#Offer_NewElectricCar_City_MidRange">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
   <rdfs:subClassOf rdf:resource="#ElectricVehicle"/>
   <rdfs:subClassOf rdf:resource="#Car"/>
   <rdfs:subClassOf rdf:resource="#NewCarOffer"/>
@@ -226,6 +278,7 @@
 </owl:Class>
 
 <owl:Class rdf:about="#Offer_UsedMidRangeCar_Regional_GoodCondition">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
   <rdfs:subClassOf rdf:resource="#Car"/>
   <rdfs:subClassOf rdf:resource="#UsedCarOffer"/>
   <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
@@ -235,11 +288,8 @@
   <rdfs:subClassOf rdf:resource="#White"/>
 </owl:Class>
 
-<owl:Class rdf:about="#Luxury">
-  <rdfs:subClassOf rdf:resource="#PriceRange"/>
-</owl:Class>
-
 <owl:Class rdf:about="#Offer_CPO_Car_Regional_Luxury">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
   <rdfs:subClassOf rdf:resource="#Car"/>
   <rdfs:subClassOf rdf:resource="#CertifiedPreOwned"/>
   <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
@@ -249,6 +299,7 @@
 </owl:Class>
 
 <owl:Class rdf:about="#Offer_NewLuxurySUV_City">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
   <rdfs:subClassOf rdf:resource="#FourWheelDrive"/>
   <rdfs:subClassOf rdf:resource="#SUV"/>
   <rdfs:subClassOf rdf:resource="#NewCarOffer"/>
@@ -259,6 +310,7 @@
 </owl:Class>
 
 <owl:Class rdf:about="#Offer_NewElectricSUV_City_Luxury">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
   <rdfs:subClassOf rdf:resource="#ElectricVehicle"/>
   <rdfs:subClassOf rdf:resource="#SUV"/>
   <rdfs:subClassOf rdf:resource="#NewCarOffer"/>
@@ -268,72 +320,101 @@
   <rdfs:subClassOf rdf:resource="#DarkBlue"/>
 </owl:Class>
 
-<owl:Class rdf:about="#User">
-  <rdfs:subClassOf rdf:resource="#*"/>
+<owl:Class rdf:about="#Offer_NewSedan_NewYorkCity_MidRange_Blue">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
+  <rdfs:subClassOf rdf:resource="#Sedan"/>
+  <rdfs:subClassOf rdf:resource="#NewCarOffer"/>
+  <rdfs:subClassOf rdf:resource="#NewVehicle"/>
+  <rdfs:subClassOf rdf:resource="#NewYorkCity"/>
+  <rdfs:subClassOf rdf:resource="#MidRange"/>
+  <rdfs:subClassOf rdf:resource="#Blue"/>
 </owl:Class>
 
-<owl:Class rdf:about="#Buyer">
-  <rdfs:subClassOf rdf:resource="#User"/>
+<owl:Class rdf:about="#Offer_UsedPickupTruck_California_GoodCondition_Budget_White">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
+  <rdfs:subClassOf rdf:resource="#PickupTruck"/>
+  <rdfs:subClassOf rdf:resource="#UsedCarOffer"/>
+  <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
+  <rdfs:subClassOf rdf:resource="#California"/>
+  <rdfs:subClassOf rdf:resource="#GoodCondition"/>
+  <rdfs:subClassOf rdf:resource="#Budget"/>
+  <rdfs:subClassOf rdf:resource="#White"/>
 </owl:Class>
 
-<owl:Class rdf:about="#BuyerOffer">
-  <rdfs:subClassOf rdf:resource="#Offer"/>
-  <rdfs:subClassOf rdf:resource="#Buyer"/>
+<owl:Class rdf:about="#Offer_CPO_Sedan_Chicago_ExcellentCondition_MidRange_Black">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
+  <rdfs:subClassOf rdf:resource="#Sedan"/>
+  <rdfs:subClassOf rdf:resource="#CertifiedPreOwned"/>
+  <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
+  <rdfs:subClassOf rdf:resource="#Chicago"/>
+  <rdfs:subClassOf rdf:resource="#ExcellentCondition"/>
+  <rdfs:subClassOf rdf:resource="#MidRange"/>
+  <rdfs:subClassOf rdf:resource="#Black"/>
 </owl:Class>
 
-<owl:Class rdf:about="#Seller">
-  <rdfs:subClassOf rdf:resource="#User"/>
+<owl:Class rdf:about="#Offer_NewElectricSedan_LosAngeles_Luxury_Red">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
+  <rdfs:subClassOf rdf:resource="#ElectricVehicle"/>
+  <rdfs:subClassOf rdf:resource="#Sedan"/>
+  <rdfs:subClassOf rdf:resource="#NewCarOffer"/>
+  <rdfs:subClassOf rdf:resource="#NewVehicle"/>
+  <rdfs:subClassOf rdf:resource="#LosAngeles"/>
+  <rdfs:subClassOf rdf:resource="#Luxury"/>
+  <rdfs:subClassOf rdf:resource="#Red"/>
 </owl:Class>
 
-<owl:Class rdf:about="#SellerOffer">
-  <rdfs:subClassOf rdf:resource="#Offer"/>
-  <rdfs:subClassOf rdf:resource="#Seller"/>
+<owl:Class rdf:about="#Offer_UsedHeavyDutyTruck_Texas_GoodCondition_MidRange_Gray">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
+  <rdfs:subClassOf rdf:resource="#HeavyDutyTruck"/>
+  <rdfs:subClassOf rdf:resource="#UsedCarOffer"/>
+  <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
+  <rdfs:subClassOf rdf:resource="#Texas"/>
+  <rdfs:subClassOf rdf:resource="#GoodCondition"/>
+  <rdfs:subClassOf rdf:resource="#MidRange"/>
+  <rdfs:subClassOf rdf:resource="#Gray"/>
 </owl:Class>
 
-<owl:Class rdf:about="#Seller_Offer_UsedSUV_City_ExcellentCondition_MidRange">
-  <rdfs:subClassOf rdf:resource="#Offer_UsedSUV_City_ExcellentCondition_MidRange"/>
-  <rdfs:subClassOf rdf:resource="#SellerOffer"/>
+<owl:Class rdf:about="#Offer_NewPickupTruck_Illinois_FourWheelDrive_MidRange_Green">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
+  <rdfs:subClassOf rdf:resource="#PickupTruck"/>
+  <rdfs:subClassOf rdf:resource="#NewCarOffer"/>
+  <rdfs:subClassOf rdf:resource="#NewVehicle"/>
+  <rdfs:subClassOf rdf:resource="#Illinois"/>
+  <rdfs:subClassOf rdf:resource="#FourWheelDrive"/>
+  <rdfs:subClassOf rdf:resource="#MidRange"/>
+  <rdfs:subClassOf rdf:resource="#Green"/>
 </owl:Class>
 
-<owl:Class rdf:about="#Seller_Offer_NewLuxurySUV_City">
-  <rdfs:subClassOf rdf:resource="#Offer_NewLuxurySUV_City"/>
-  <rdfs:subClassOf rdf:resource="#SellerOffer"/>
+<owl:Class rdf:about="#Offer_CPO_SUV_NewYorkState_Luxury_AzureBlue">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
+  <rdfs:subClassOf rdf:resource="#SUV"/>
+  <rdfs:subClassOf rdf:resource="#CertifiedPreOwned"/>
+  <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
+  <rdfs:subClassOf rdf:resource="#NewYorkState"/>
+  <rdfs:subClassOf rdf:resource="#Luxury"/>
+  <rdfs:subClassOf rdf:resource="#AzureBlue"/>
 </owl:Class>
 
-<owl:Class rdf:about="#Seller_Offer_NewElectricSUV_City_Luxury">
-  <rdfs:subClassOf rdf:resource="#Offer_NewElectricSUV_City_Luxury"/>
-  <rdfs:subClassOf rdf:resource="#SellerOffer"/>
+<owl:Class rdf:about="#Offer_UsedElectricCar_Houston_Budget_Turquoise">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
+  <rdfs:subClassOf rdf:resource="#ElectricVehicle"/>
+  <rdfs:subClassOf rdf:resource="#UsedCarOffer"/>
+  <rdfs:subClassOf rdf:resource="#Car"/>
+  <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
+  <rdfs:subClassOf rdf:resource="#Houston"/>
+  <rdfs:subClassOf rdf:resource="#Budget"/>
+  <rdfs:subClassOf rdf:resource="#Turquoise"/>
 </owl:Class>
 
-<owl:Class rdf:about="#Seller_Offer_CPO_Car_Regional_Luxury">
-  <rdfs:subClassOf rdf:resource="#Offer_CPO_Car_Regional_Luxury"/>
-  <rdfs:subClassOf rdf:resource="#SellerOffer"/>
+<owl:Class rdf:about="#Offer_NewSedan_California_FourWheelDrive_Luxury_DarkBlue">
+  <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
+  <rdfs:subClassOf rdf:resource="#Sedan"/>
+  <rdfs:subClassOf rdf:resource="#NewCarOffer"/>
+  <rdfs:subClassOf rdf:resource="#NewVehicle"/>
+  <rdfs:subClassOf rdf:resource="#California"/>
+  <rdfs:subClassOf rdf:resource="#FourWheelDrive"/>
+  <rdfs:subClassOf rdf:resource="#Luxury"/>
+  <rdfs:subClassOf rdf:resource="#DarkBlue"/>
 </owl:Class>
-
-<owl:Class rdf:about="#Seller_Offer_UsedMidRangeCar_Regional_GoodCondition">
-  <rdfs:subClassOf rdf:resource="#Offer_UsedMidRangeCar_Regional_GoodCondition"/>
-  <rdfs:subClassOf rdf:resource="#SellerOffer"/>
-</owl:Class>
-
-<owl:Class rdf:about="#Seller_Offer_UsedMotorcycle_GoodCondition_Budget">
-  <rdfs:subClassOf rdf:resource="#Offer_UsedMotorcycle_GoodCondition_Budget"/>
-  <rdfs:subClassOf rdf:resource="#SellerOffer"/>
-</owl:Class>
-
-<owl:Class rdf:about="#Seller_Offer_NewElectricCar_City_MidRange">
-  <rdfs:subClassOf rdf:resource="#Offer_NewElectricCar_City_MidRange"/>
-  <rdfs:subClassOf rdf:resource="#SellerOffer"/>
-</owl:Class>
-
-<owl:Class rdf:about="#Seller_Offer_NewTruck_Regional_FourWheelDrive">
-  <rdfs:subClassOf rdf:resource="#Offer_NewTruck_Regional_FourWheelDrive"/>
-  <rdfs:subClassOf rdf:resource="#SellerOffer"/>
-</owl:Class>
-
-<owl:Class rdf:about="#Seller_Offer_CPO_BudgetTruck_ExcellentCondition">
-  <rdfs:subClassOf rdf:resource="#Offer_CPO_BudgetTruck_ExcellentCondition"/>
-  <rdfs:subClassOf rdf:resource="#SellerOffer"/>
-</owl:Class>
-
 
 </rdf:RDF>

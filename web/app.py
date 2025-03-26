@@ -349,7 +349,7 @@ def index_cars():
 
     if "cars" not in session:
         dag = session['my_dag']
-        super_categories = [dag.nodes['SellerOffer']]
+        super_categories = [dag.nodes['ActiveOffer']]
         results = dag.get(super_categories)
 
         cars = []
@@ -392,7 +392,7 @@ def query_cars():
 
     dag = session['my_dag']
     super_categories = [dag.nodes[name.strip()] for name in query]
-    super_categories.append(dag.nodes['SellerOffer'])
+    super_categories.append(dag.nodes['Offer'])
     results = dag.get(super_categories)
 
     car_results = []
@@ -406,9 +406,9 @@ def query_cars():
 @app.route("/dag/categories/buyer", methods=["GET"])
 def get_categories_for_buyer():
     categories_dag = session["car_categories_dag"]
-    categories_for_buyer = categories_dag.nodes.get("SearchableForBuyer")
+    categories_for_buyer = categories_dag.nodes.get("QueryableProperty")
     if not categories_for_buyer:
-        return jsonify({"error": "SearchableForBuyer category not found"}), 404
+        return jsonify({"error": "QueryableProperty category not found"}), 404
 
     def _create_category(node):
         return {
