@@ -12,6 +12,39 @@
   <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
 </owl:Class>
 
+<owl:Class rdf:about="#GeographicalArea">
+  <rdfs:subClassOf rdf:resource="#*"/>
+</owl:Class>
+
+<owl:Class rdf:about="#NorthAmerica">
+  <rdfs:subClassOf rdf:resource="#GeographicalArea"/>
+</owl:Class>
+
+<owl:Class rdf:about="#SouthAmerica">
+  <rdfs:subClassOf rdf:resource="#GeographicalArea"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Europe">
+  <rdfs:subClassOf rdf:resource="#GeographicalArea"/>
+</owl:Class>
+
+<owl:Class rdf:about="#AdministrativeRegion">
+  <rdfs:subClassOf rdf:resource="#*"/>
+</owl:Class>
+
+<owl:Class rdf:about="#City">
+  <rdfs:subClassOf rdf:resource="#AdministrativeRegion"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Country">
+  <rdfs:subClassOf rdf:resource="#AdministrativeRegion"/>
+  <rdfs:subClassOf rdf:resource="#QueryableProperty"/>
+</owl:Class>
+
+<owl:Class rdf:about="#State">
+  <rdfs:subClassOf rdf:resource="#AdministrativeRegion"/>
+</owl:Class>
+
 <owl:Class rdf:about="#Vehicle">
   <rdfs:subClassOf rdf:resource="#*"/>
 </owl:Class>
@@ -188,40 +221,101 @@
   <rdfs:subClassOf rdf:resource="#VehicleFeature"/>
 </owl:Class>
 
-<owl:Class rdf:about="#NewYorkCity">
-  <rdfs:subClassOf rdf:resource="#CityLocation"/>
-  <rdfs:subClassOf rdf:resource="#NewYorkState"/>
+<owl:Class rdf:about="#Argentina">
+  <rdfs:subClassOf rdf:resource="#Country"/>
+  <rdfs:subClassOf rdf:resource="#SouthAmerica"/>
 </owl:Class>
 
-<owl:Class rdf:about="#LosAngeles">
+<owl:Class rdf:about="#Canada">
+  <rdfs:subClassOf rdf:resource="#Country"/>
+  <rdfs:subClassOf rdf:resource="#NorthAmerica"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Germany">
+  <rdfs:subClassOf rdf:resource="#Country"/>
+  <rdfs:subClassOf rdf:resource="#Europe"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Hungary">
+  <rdfs:subClassOf rdf:resource="#Country"/>
+  <rdfs:subClassOf rdf:resource="#Europe"/>
+</owl:Class>
+
+<owl:Class rdf:about="#UnitedStates">
+  <rdfs:subClassOf rdf:resource="#Country"/>
+  <rdfs:subClassOf rdf:resource="#NorthAmerica"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Berlin">
   <rdfs:subClassOf rdf:resource="#CityLocation"/>
-  <rdfs:subClassOf rdf:resource="#California"/>
+  <rdfs:subClassOf rdf:resource="#City"/>
+  <rdfs:subClassOf rdf:resource="#Germany"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Budapest">
+  <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#City"/>
+  <rdfs:subClassOf rdf:resource="#Hungary"/>
+</owl:Class>
+
+<owl:Class rdf:about="#BuenosAires">
+  <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#City"/>
+  <rdfs:subClassOf rdf:resource="#Argentina"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Chicago">
   <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#City"/>
   <rdfs:subClassOf rdf:resource="#Illinois"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Houston">
   <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#City"/>
   <rdfs:subClassOf rdf:resource="#Texas"/>
+</owl:Class>
+
+<owl:Class rdf:about="#LosAngeles">
+  <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#City"/>
+  <rdfs:subClassOf rdf:resource="#California"/>
+</owl:Class>
+
+<owl:Class rdf:about="#NewYorkCity">
+  <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#City"/>
+  <rdfs:subClassOf rdf:resource="#NewYorkState"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Toronto">
+  <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#City"/>
+  <rdfs:subClassOf rdf:resource="#Canada"/>
 </owl:Class>
 
 <owl:Class rdf:about="#NewYorkState">
   <rdfs:subClassOf rdf:resource="#RegionalLocation"/>
+  <rdfs:subClassOf rdf:resource="#State"/>
+  <rdfs:subClassOf rdf:resource="#UnitedStates"/>
 </owl:Class>
 
 <owl:Class rdf:about="#California">
   <rdfs:subClassOf rdf:resource="#RegionalLocation"/>
+  <rdfs:subClassOf rdf:resource="#State"/>
+  <rdfs:subClassOf rdf:resource="#UnitedStates"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Illinois">
   <rdfs:subClassOf rdf:resource="#RegionalLocation"/>
+  <rdfs:subClassOf rdf:resource="#State"/>
+  <rdfs:subClassOf rdf:resource="#UnitedStates"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Texas">
   <rdfs:subClassOf rdf:resource="#RegionalLocation"/>
+  <rdfs:subClassOf rdf:resource="#State"/>
+  <rdfs:subClassOf rdf:resource="#UnitedStates"/>
 </owl:Class>
 
 <!-- Offers: -->
@@ -232,15 +326,17 @@
   <rdfs:subClassOf rdf:resource="#NewCarOffer"/>
   <rdfs:subClassOf rdf:resource="#NewVehicle"/>
   <rdfs:subClassOf rdf:resource="#RegionalLocation"/>
+  <rdfs:subClassOf rdf:resource="#Texas"/>
   <rdfs:subClassOf rdf:resource="#Gray"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Offer_CPO_BudgetTruck_ExcellentCondition">
   <rdfs:subClassOf rdf:resource="#ActiveOffer"/>
-  <rdfs:subClassOf rdf:resource="#Truck"/>
+  <rdfs:subClassOf rdf:resource="#PickupTruck"/>
   <rdfs:subClassOf rdf:resource="#CertifiedPreOwned"/>
   <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
   <rdfs:subClassOf rdf:resource="#ExcellentCondition"/>
+  <rdfs:subClassOf rdf:resource="#California"/>
   <rdfs:subClassOf rdf:resource="#Budget"/>
   <rdfs:subClassOf rdf:resource="#Red"/>
 </owl:Class>
@@ -251,6 +347,7 @@
   <rdfs:subClassOf rdf:resource="#UsedCarOffer"/>
   <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
   <rdfs:subClassOf rdf:resource="#GoodCondition"/>
+  <rdfs:subClassOf rdf:resource="#BuenosAires"/>
   <rdfs:subClassOf rdf:resource="#Budget"/>
   <rdfs:subClassOf rdf:resource="#White"/>
 </owl:Class>
@@ -261,7 +358,7 @@
   <rdfs:subClassOf rdf:resource="#UsedCarOffer"/>
   <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
   <rdfs:subClassOf rdf:resource="#ExcellentCondition"/>
-  <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#Toronto"/>
   <rdfs:subClassOf rdf:resource="#MidRange"/>
   <rdfs:subClassOf rdf:resource="#Red"/>
 </owl:Class>
@@ -272,7 +369,8 @@
   <rdfs:subClassOf rdf:resource="#Car"/>
   <rdfs:subClassOf rdf:resource="#NewCarOffer"/>
   <rdfs:subClassOf rdf:resource="#NewVehicle"/>
-  <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#Sedan"/>
+  <rdfs:subClassOf rdf:resource="#Berlin"/>
   <rdfs:subClassOf rdf:resource="#MidRange"/>
   <rdfs:subClassOf rdf:resource="#Turquoise"/>
 </owl:Class>
@@ -283,7 +381,7 @@
   <rdfs:subClassOf rdf:resource="#UsedCarOffer"/>
   <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
   <rdfs:subClassOf rdf:resource="#GoodCondition"/>
-  <rdfs:subClassOf rdf:resource="#RegionalLocation"/>
+  <rdfs:subClassOf rdf:resource="#Budapest"/>
   <rdfs:subClassOf rdf:resource="#MidRange"/>
   <rdfs:subClassOf rdf:resource="#White"/>
 </owl:Class>
@@ -293,7 +391,7 @@
   <rdfs:subClassOf rdf:resource="#Car"/>
   <rdfs:subClassOf rdf:resource="#CertifiedPreOwned"/>
   <rdfs:subClassOf rdf:resource="#UsedVehicle"/>
-  <rdfs:subClassOf rdf:resource="#RegionalLocation"/>
+  <rdfs:subClassOf rdf:resource="#California"/>
   <rdfs:subClassOf rdf:resource="#Luxury"/>
   <rdfs:subClassOf rdf:resource="#Black"/>
 </owl:Class>
@@ -304,7 +402,7 @@
   <rdfs:subClassOf rdf:resource="#SUV"/>
   <rdfs:subClassOf rdf:resource="#NewCarOffer"/>
   <rdfs:subClassOf rdf:resource="#NewVehicle"/>
-  <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#Houston"/>
   <rdfs:subClassOf rdf:resource="#Luxury"/>
   <rdfs:subClassOf rdf:resource="#AzureBlue"/>
 </owl:Class>
@@ -315,7 +413,7 @@
   <rdfs:subClassOf rdf:resource="#SUV"/>
   <rdfs:subClassOf rdf:resource="#NewCarOffer"/>
   <rdfs:subClassOf rdf:resource="#NewVehicle"/>
-  <rdfs:subClassOf rdf:resource="#CityLocation"/>
+  <rdfs:subClassOf rdf:resource="#LosAngeles"/>
   <rdfs:subClassOf rdf:resource="#Luxury"/>
   <rdfs:subClassOf rdf:resource="#DarkBlue"/>
 </owl:Class>

@@ -12,6 +12,56 @@
   <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
 </owl:Class>
 
+<owl:Class rdf:about="#GeographicalArea">
+  <rdfs:subClassOf rdf:resource="#*"/>
+</owl:Class>
+
+<owl:Class rdf:about="#NorthAmerica">
+  <rdfs:subClassOf rdf:resource="#GeographicalArea"/>
+</owl:Class>
+
+<owl:Class rdf:about="#SouthAmerica">
+  <rdfs:subClassOf rdf:resource="#GeographicalArea"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Europe">
+  <rdfs:subClassOf rdf:resource="#GeographicalArea"/>
+</owl:Class>
+
+<owl:Class rdf:about="#AdministrativeRegion">
+  <rdfs:subClassOf rdf:resource="#*"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Country">
+  <rdfs:subClassOf rdf:resource="#AdministrativeRegion"/>
+  <rdfs:subClassOf rdf:resource="#QueryableProperty"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Argentina">
+  <rdfs:subClassOf rdf:resource="#Country"/>
+  <rdfs:subClassOf rdf:resource="#SouthAmerica"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Canada">
+  <rdfs:subClassOf rdf:resource="#Country"/>
+  <rdfs:subClassOf rdf:resource="#NorthAmerica"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Germany">
+  <rdfs:subClassOf rdf:resource="#Country"/>
+  <rdfs:subClassOf rdf:resource="#Europe"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Hungary">
+  <rdfs:subClassOf rdf:resource="#Country"/>
+  <rdfs:subClassOf rdf:resource="#Europe"/>
+</owl:Class>
+
+<owl:Class rdf:about="#UnitedStates">
+  <rdfs:subClassOf rdf:resource="#Country"/>
+  <rdfs:subClassOf rdf:resource="#NorthAmerica"/>
+</owl:Class>
+
 <owl:Class rdf:about="#Vehicle">
   <rdfs:subClassOf rdf:resource="#*"/>
 </owl:Class>
