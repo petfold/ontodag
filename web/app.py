@@ -73,6 +73,16 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=float(os.getenv("FL
 app.session_interface = InMemorySessionInterface()
 
 
+def init_session_visualizer():
+    session["vis_color_root"] = "seashell3"
+    session["vis_color_default"] = "seashell"
+    session["vis_color_query"] = "seashell"
+    session["vis_color_query_result"] = "transparent"
+
+    session["visualizer"] = OntoDAGVisualizer(default_color=session["vis_color_default"],
+                                              root_color=session["vis_color_root"])
+
+
 @app.route("/dag", methods=["POST"])
 def create_dag():
     my_dag = OntoDAG()
@@ -168,7 +178,9 @@ def get_query_dag_image():
     color_mapping = {}
     for node in query_result_dag.nodes.values():
         if node.name in query:
-            color_mapping[node] = session["viz_color_query"]
+            color_mapping[node] = session["vis_color_query"]
+        else:
+            color_mapping[node] = session["vis_color_query_result"]
 
     img = visualizer.generate_image(query_result_dag, color_mapping)
     buf = BytesIO()
@@ -187,7 +199,9 @@ def get_query_as_dag_dag_image():
     color_mapping = {}
     for node in query_result_dag.nodes.values():
         if node in query.nodes.values():
-            color_mapping[node] = session["viz_color_query"]
+            color_mapping[node] = session["vis_color_query"]
+        else:
+            color_mapping[node] = session["vis_color_query_result"]
 
     img = visualizer.generate_image(query_result_dag, color_mapping)
     buf = BytesIO()
@@ -318,13 +332,8 @@ def index():
     if "my_dag" not in session:
         session["my_dag"] = OntoDAG()
 
-    session["viz_color_default"] = "seashell"
-    session["viz_color_root"] = "seashell3"
-    session["viz_color_query"] = "transparent"
-
     if "visualizer" not in session:
-        session["visualizer"] = OntoDAGVisualizer(default_color=session["viz_color_default"],
-                                                  root_color=session["viz_color_root"])
+        init_session_visualizer()
 
     return render_template("index.html")
 
@@ -344,8 +353,7 @@ def index_cars():
         session['car_categories_dag'] = dag
 
     if "visualizer" not in session:
-        session["visualizer"] = OntoDAGVisualizer()
-        session["viz_color_query"] = "transparent"
+        init_session_visualizer()
 
     if "cars" not in session:
         dag = session['my_dag']
