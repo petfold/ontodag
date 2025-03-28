@@ -115,6 +115,7 @@
       }
 
       const dagImage = document.getElementById("dag-image");
+      const dagQueryImage = document.getElementById("dag-query-image");
       const fullSizeDagImage = document.getElementById("full-size-dag-image");
       const overlay = document.getElementById("image-overlay");
 
@@ -122,6 +123,11 @@
         fullSizeDagImage.src = dagImage.src;
         overlay.style.display = "flex";
       });
+
+      dagQueryImage.addEventListener("click", () => {
+            fullSizeDagImage.src = dagQueryImage.src;
+            overlay.style.display = "flex";
+        });
 
       overlay.addEventListener("click", (event) => {
         if (event.target === overlay) {
