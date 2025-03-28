@@ -248,6 +248,19 @@ def export_dag():
     return send_file(filename, as_attachment=True)
 
 
+@app.route("/dag/export/dot", methods=["GET"])
+def export_dag_dot():
+    my_dag = session["my_dag"]
+    visualizer = session["visualizer"]
+    dot_source = visualizer.generate_dot_source(my_dag)
+
+    tex_file = BytesIO(dot_source.encode('utf-8'))
+    tex_file.seek(0)
+    return send_file(tex_file, as_attachment=True,
+                     download_name='ontodag_export.dot',
+                     mimetype='application/x-dot')
+
+
 @app.route("/dag/export/tex", methods=["GET"])
 def export_dag_tex():
     my_dag = session["my_dag"]
@@ -270,6 +283,19 @@ def export_query_dag():
     owl = OWLOntology(filename)
     owl.export_dag(query_result_dag, filename, unique_id)
     return send_file(filename, as_attachment=True)
+
+
+@app.route("/dag/query/export/dot", methods=["GET"])
+def export_query_dag_dot():
+    query_result_dag = session["query_result_dag"]
+    visualizer = session["visualizer"]
+    dot_source = visualizer.generate_dot_source(query_result_dag)
+
+    tex_file = BytesIO(dot_source.encode('utf-8'))
+    tex_file.seek(0)
+    return send_file(tex_file, as_attachment=True,
+                     download_name='ontodag_query_export.dot',
+                     mimetype='application/x-dot')
 
 
 @app.route("/dag/query/export/tex", methods=["GET"])

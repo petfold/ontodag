@@ -20,12 +20,14 @@
         or
         <input type="file" id="file-input" name="file" />
         <button type="submit">Import File</button>
-        <button type="button" id="export-dag-button">Export DAG</button>
-        <button type="button" id="export-dag-tex-button">Export TEX</button>
+        Export
+        <button type="button" id="export-dag-button">DAG</button>
+        <button type="button" id="export-dag-dot-button">DOT</button>
+        <button type="button" id="export-dag-tex-button">TEX</button>
       </form>
       <form id="add-item-form">
-        <input type="text" id="subcategory" placeholder="Subcategory" size="12"/>
-        <input type="text" id="super-categories" placeholder="Super-categories (comma-separated)" size="30"/>
+        <input type="text" id="subcategory" placeholder="Subcategories (comma-separated)" size="30"/>
+        <input type="text" id="super-categories" placeholder="Super-categories (comma-separated)" size="34"/>
         <button type="submit">Add Item</button>
         <button type="button" id="remove-item-button">Remove Item</button>
       </form>
@@ -34,14 +36,16 @@
     </div>
     <div class="query-container container">
       <form id="query-form">
-        <input type="text" id="query-categories" placeholder="Super-categories (comma-separated)" size="30"/>
+        <input type="text" id="query-categories" placeholder="Super-categories (comma-separated)" size="50"/>
         <button type="submit">Query</button>
       </form>
       <form id="query-import-file-form" enctype="multipart/form-data">
        <input type="file" id="query-file-input" name="file" />
         <button type="submit">Import File</button>
-        <button type="button" id="export-query-dag-button">Export DAG</button>
-        <button type="button" id="export-query-dag-tex-button">Export TEX</button>
+        Export
+        <button type="button" id="export-query-dag-button">DAG</button>
+        <button type="button" id="export-query-dag-dot-button">DOT</button>
+        <button type="button" id="export-query-dag-tex-button">TEX</button>
       </form>
       <img id="dag-query-image" class="dag-visual" alt="DAG Visualization" style="display: none;"/>
       <div id="dag-query"></div>
@@ -214,12 +218,18 @@
       document.getElementById("export-dag-button").addEventListener("click", () => {
         window.location.href = "/dag/export";
       });
+      document.getElementById("export-dag-dot-button").addEventListener("click", () => {
+        window.location.href = "/dag/export/dot";
+      });
       document.getElementById("export-dag-tex-button").addEventListener("click", () => {
         window.location.href = "/dag/export/tex";
       });
 
       document.getElementById("export-query-dag-button").addEventListener("click", () => {
         window.location.href = "/dag/query/export";
+      });
+      document.getElementById("export-query-dag-dot-button").addEventListener("click", () => {
+        window.location.href = "/dag/query/export/dot";
       });
       document.getElementById("export-query-dag-tex-button").addEventListener("click", () => {
         window.location.href = "/dag/query/export/tex";
