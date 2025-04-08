@@ -3,6 +3,7 @@ import uuid
 
 from dag import OntoDAG, Item, OntoDAGVisualizer
 from datetime import datetime, timedelta
+from dot2tex import dot2tex
 from flask import Flask, request, jsonify, render_template, send_file, session
 from flask.sessions import SessionInterface, SessionMixin
 from io import BytesIO
@@ -247,6 +248,33 @@ def export_dag():
     return send_file(filename, as_attachment=True)
 
 
+@app.route("/dag/export/dot", methods=["GET"])
+def export_dag_dot():
+    my_dag = session["my_dag"]
+    visualizer = session["visualizer"]
+    dot_source = visualizer.generate_dot_source(my_dag)
+
+    tex_file = BytesIO(dot_source.encode('utf-8'))
+    tex_file.seek(0)
+    return send_file(tex_file, as_attachment=True,
+                     download_name='ontodag_export.dot',
+                     mimetype='application/x-dot')
+
+
+@app.route("/dag/export/tex", methods=["GET"])
+def export_dag_tex():
+    my_dag = session["my_dag"]
+    visualizer = session["visualizer"]
+    dot_source = visualizer.generate_dot_source(my_dag)
+    tex_content = dot2tex(dot_source)
+
+    tex_file = BytesIO(tex_content.encode('utf-8'))
+    tex_file.seek(0)
+    return send_file(tex_file, as_attachment=True,
+                     download_name='ontodag_export.tex',
+                     mimetype='application/x-tex')
+
+
 @app.route("/dag/query/export", methods=["GET"])
 def export_query_dag():
     query_result_dag = session["query_result_dag"]
@@ -255,6 +283,33 @@ def export_query_dag():
     owl = OWLOntology(filename)
     owl.export_dag(query_result_dag, filename, unique_id)
     return send_file(filename, as_attachment=True)
+
+
+@app.route("/dag/query/export/dot", methods=["GET"])
+def export_query_dag_dot():
+    query_result_dag = session["query_result_dag"]
+    visualizer = session["visualizer"]
+    dot_source = visualizer.generate_dot_source(query_result_dag)
+
+    tex_file = BytesIO(dot_source.encode('utf-8'))
+    tex_file.seek(0)
+    return send_file(tex_file, as_attachment=True,
+                     download_name='ontodag_query_export.dot',
+                     mimetype='application/x-dot')
+
+
+@app.route("/dag/query/export/tex", methods=["GET"])
+def export_query_dag_tex():
+    query_result_dag = session["query_result_dag"]
+    visualizer = session["visualizer"]
+    dot_source = visualizer.generate_dot_source(query_result_dag)
+    tex_content = dot2tex(dot_source)
+
+    tex_file = BytesIO(tex_content.encode('utf-8'))
+    tex_file.seek(0)
+    return send_file(tex_file, as_attachment=True,
+                     download_name='ontodag_query_export.tex',
+                     mimetype='application/x-tex')
 
 
 @app.route("/")

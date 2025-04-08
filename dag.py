@@ -427,6 +427,18 @@ class OntoDAGVisualizer:
         output_path = graph.render(filename)
         print(f"{dag_type} visualization saved as: {output_path}")
 
+    def generate_dot_source(self, dag, color_mapping=None):
+        from graphviz import Digraph
+        dag_type = dag.__class__.__name__
+        graph = Digraph(comment=dag_type, format="dot")
+        graph.attr(rankdir=self.layout)
+
+        for node in dag.nodes.values():
+            self._render_node(graph, node, is_root=node.name == dag.root.name, color_mapping=color_mapping)
+
+        # Return the DOT source string
+        return graph.source
+
     def generate_image(self, dag, color_mapping=None):
         from graphviz import Digraph
         from io import BytesIO

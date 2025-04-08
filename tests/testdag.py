@@ -1,6 +1,8 @@
 import os
 import unittest
+
 from dag import OntoDAG, OntoDAGVisualizer, Item
+from dot2tex import dot2tex
 
 
 class TestOntoDAG(unittest.TestCase):
@@ -74,6 +76,13 @@ class TestOntoDAG(unittest.TestCase):
         self.assertTrue(os.path.isfile('ontodag_vis.png'))
         os.remove('ontodag_vis')
         os.remove('ontodag_vis.png')
+
+    def test_generate_dot_source_to_tex(self):
+        visualizer = OntoDAGVisualizer()
+        dot_source = visualizer.generate_dot_source(self.dag)
+        self.assertIsNotNone(dot_source)
+        tex_content = dot2tex(dot_source)
+        self.assertIsNotNone(tex_content)
 
     def test_put_optimized(self):
         element_set_query = [self.ab, self.cd]

@@ -10,7 +10,7 @@ ENV PYTHONPATH=/app
 
 RUN apt-get update && apt-get install -y graphviz
 
-RUN pip install --no-cache-dir flask requests graphviz owlready2 Pillow
+RUN pip install --no-cache-dir flask requests graphviz owlready2 Pillow dot2tex
 
 EXPOSE 5000
 
