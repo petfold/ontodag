@@ -14,7 +14,7 @@
       </div>
     </div>
 
-    <div class="dag-container container">
+    <div class="dag-container base-container">
       <form id="import-file-form" enctype="multipart/form-data">
         <button type="button" id="new-dag-button">New DAG</button>
         or
@@ -34,7 +34,7 @@
       <img id="dag-image" class="dag-visual" src="/dag/image" alt="DAG Visualization" />
       <div id="dag"></div>
     </div>
-    <div class="query-container container">
+    <div class="query-container base-container">
       <form id="query-form">
         <input type="text" id="query-categories" placeholder="Super-categories (comma-separated)" size="50"/>
         <button type="submit">Query</button>
@@ -115,6 +115,7 @@
       }
 
       const dagImage = document.getElementById("dag-image");
+      const dagQueryImage = document.getElementById("dag-query-image");
       const fullSizeDagImage = document.getElementById("full-size-dag-image");
       const overlay = document.getElementById("image-overlay");
 
@@ -122,6 +123,11 @@
         fullSizeDagImage.src = dagImage.src;
         overlay.style.display = "flex";
       });
+
+      dagQueryImage.addEventListener("click", () => {
+            fullSizeDagImage.src = dagQueryImage.src;
+            overlay.style.display = "flex";
+        });
 
       overlay.addEventListener("click", (event) => {
         if (event.target === overlay) {

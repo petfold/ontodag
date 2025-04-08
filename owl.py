@@ -2,6 +2,7 @@ import types
 import uuid
 
 from dag import OntoDAG, Item
+from io import BytesIO
 from owlready2 import get_ontology, Thing
 
 
@@ -40,7 +41,10 @@ class OWLOntology:
     def import_dag(self, file_name=None, file_content=None) -> OntoDAG:
         if not file_name and not file_content:
             raise ValueError("file_name or file_content must be provided")
-        self.ontology.load(file_name, fileobj=file_content)
+        if file_name:
+            with open(file_name, 'rb') as file:
+                file_content = BytesIO(file.read())
+        self.ontology.load(fileobj=file_content)
         return self._process_dag()
 
     def _process_dag(self) -> OntoDAG:

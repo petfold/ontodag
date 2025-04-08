@@ -47,7 +47,9 @@ class TestOWLOntology(unittest.TestCase):
     def test_import_dag(self):
         test_filename = "test_ontology.owl"
         self.owl.export_dag(self.dag, test_filename)
-        imported_dag = self.owl.import_dag(test_filename)
+
+        self.assertTrue(os.path.isfile(test_filename))
+        imported_dag = self.owl.import_dag(file_name=test_filename)
 
         self.assertIsNotNone(imported_dag)
         os.remove(test_filename)

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Marketplace</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+          integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="/static/styles.css">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <a class="navbar-brand" href="#">OntoDAG Car Market</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="loadCars()">Browse Cars <span class="sr-only">(current)</span></a>
+            </li>
+        </ul>
+    </div>
+</nav>
+
+<div class="container mt-4" style="vertical-align: center">
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div id="multi-select-options" class="mb-3">
+                <!-- Dynamic categories and options will be inserted here -->
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="input-group">
+                <input type="text" id="search-query" class="form-control" placeholder="Enter categories">
+                <div class="input-group-append">
+                    <button class="btn btn-primary" onclick="queryCars()">Query</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="content-area">
+        <h5>Welcome to My Car Market!</h5>
+        <p>Use categories to find your dream car or browse all cars and narrow them down.</p>
+    </div>
+    <button class="btn btn-primary" type="button" data-toggle="collapse" data-target="#myCollapse" aria-expanded="false"
+            aria-controls="myCollapse">
+        Display Result DAG
+    </button>
+    <div id="myCollapse" class="collapse">
+        <div class="card card-body">
+            The query results represented as a DAG.
+            <img src="" id="dag-query-image" class="dag-visual" alt="DAG Visualization" style="display: none"/>
+        </div>
+    </div>
+
+    <!-- Hidden image overlay for full-size image -->
+    <div id="image-overlay" class="overlay">
+        <img id="full-size-dag-image" src="" alt="Full Size DAG Visualization"/>
+    </div>
+</div>
+
+<footer class="bg-light text-center py-3">
+    &copy; 2025 OntoDAG Car Market
+</footer>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+        integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"
+        integrity="sha384-eMNCOe7tC1doHpGoJtKh7z7lGz7fuP4F8nfdFvAOA6Gg/z6Y5clB3NpaP8GgA2M1"
+        crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
+        integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV"
+        crossorigin="anonymous"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        fetchCategoriesAndOptions();
+
+        const optionLabels = document.querySelectorAll('#multi-select-options .btn');
+
+        optionLabels.forEach(label => {
+            label.addEventListener('click', function () {
+                this.classList.toggle('active');
+            });
+        });
+
+        const dagImage = document.getElementById("dag-query-image");
+        const fullSizeDagImage = document.getElementById("full-size-dag-image");
+        const overlay = document.getElementById("image-overlay");
+
+        dagImage.addEventListener("click", () => {
+            fullSizeDagImage.src = dagImage.src;
+            overlay.style.display = "flex";
+        });
+
+        overlay.addEventListener("click", (event) => {
+            if (event.target === overlay) {
+                overlay.style.display = "none";
+            }
+        });
+    });
+
+    const searchQueryInput = document.getElementById('search-query');
+    searchQueryInput.addEventListener('input', debounce(queryCars, 500));
+
+    function debounce(func, wait) {
+        let timeout;
+        return function () {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, arguments), wait);
+        };
+    }
+
+    function fetchCategoriesAndOptions() {
+        fetch('/dag/categories/buyer')
+            .then(response => response.json())
+            .then(data => {
+                const multiSelectOptions = document.getElementById('multi-select-options');
+                multiSelectOptions.innerHTML = ''; // Clear previous content
+
+                data.sort((a, b) => a.name.localeCompare(b.name))
+                    .forEach(category => {
+                        const categoryDiv = document.createElement('div');
+                        categoryDiv.classList.add('category');
+                        const categoryTitle = document.createElement('h5');
+                        categoryTitle.textContent = category.name;
+                        categoryDiv.appendChild(categoryTitle);
+
+                        const btnGroup = document.createElement('div');
+                        btnGroup.classList.add('btn-group');
+                        btnGroup.setAttribute('data-toggle', 'buttons');
+                        btnGroup.classList.add('d-flex', 'flex-row');
+
+                        category.neighbors.forEach(option => {
+                            const label = document.createElement('label');
+                            label.classList.add('btn', 'btn-outline-primary');
+                            label.innerHTML = `<input type="checkbox" autocomplete="off" data-value="${option.name}"> ${option.name}`;
+                            btnGroup.appendChild(label);
+                        });
+
+                        categoryDiv.appendChild(btnGroup);
+                        multiSelectOptions.appendChild(categoryDiv);
+                    });
+                addMultiSelectEventListeners();
+            })
+            .catch(error => console.error('Error fetching categories and options:', error));
+    }
+
+    function addMultiSelectEventListeners() {
+        const checkboxes = document.querySelectorAll('#multi-select-options input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                const selectedOptions = Array.from(document.querySelectorAll('#multi-select-options .btn.active'));
+                if (selectedOptions.length === 0) {
+                    document.getElementById('content-area').innerHTML = '<p>No cars found.</p>';
+                } else {
+                    queryCars();
+                }
+            });
+        });
+    }
+
+    function to_list(inputString) {
+        return inputString.split(",").map(cat => cat.trim()).filter(cat => cat !== "");
+    }
+
+    function queryCars() {
+        const selectedOptions = Array.from(document.querySelectorAll('#multi-select-options .btn.active'))
+            .map(label => label.querySelector('input').getAttribute('data-value'));
+        const queryValue = document.getElementById('search-query').value.trim();
+        const queryCategories = to_list(queryValue).concat(selectedOptions);
+
+        if (queryCategories.length === 0 && queryValue === '') {
+            document.getElementById('content-area').innerHTML = '<p>No cars found.</p>';
+            return;
+        }
+
+        const params = queryCategories.join(",");
+        const url = '/cars/query?q=' + encodeURIComponent(params);
+        const img_url = '/dag/query/image?cat=' + encodeURIComponent(params);
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Request failed');
+                }
+                return response.json();
+            })
+            .then(data => {
+                displayCars(data);
+
+                const dagQueryImage = document.getElementById("dag-query-image");
+                dagQueryImage.src = img_url + "&" + Date.now();
+                dagQueryImage.style.display = "block";
+            })
+            .catch(error => {
+                document.getElementById('content-area').innerHTML =
+                    '<p class="alert alert-danger">Error: ' + error.message + '</p>';
+            });
+    }
+
+    function displayCars(cars) {
+        const contentArea = document.getElementById('content-area');
+        contentArea.innerHTML = ''; // Clear previous content
+
+        if (cars.length === 0) {
+            contentArea.innerHTML = '<p>No cars found.</p>';
+            return;
+        }
+
+        const carList = document.createElement('div');
+        carList.classList.add('row'); // Bootstrap row for grid layout
+
+        cars.forEach(car => {
+            const carCard = document.createElement('div');
+            carCard.classList.add('col-md-4', 'mb-3'); // Bootstrap columns, margin-bottom
+
+            carCard.innerHTML = `
+                    <div class="card">
+                        <img src="./images/${car.id}.jpg" class="card-img-top" alt="${car.make} ${car.model}" style="max-height: 200px; object-fit: cover;">
+                        <div class="card-body">
+                            <h6 class="card-title">${car.id}</h6>
+                            <p class="card-text"></p>
+                            <a href="/cars/${car.id}" class="btn btn-primary">View Details</a>
+                        </div>
+                    </div>
+                `;
+            carList.appendChild(carCard);
+        });
+
+        contentArea.appendChild(carList);
+    }
+
+    function loadCars() {
+        fetch('/cars')  // Call your Flask API endpoint
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                displayCars(data); // Display the cars
+            })
+            .catch(error => {
+                console.error('Error fetching cars:', error);
+                document.getElementById('content-area').innerHTML = `<p class="alert alert-danger">Error loading cars: ${error.message}</p>`;
+
+            });
+    }
+</script>
+</body>
+</html>
