@@ -61,10 +61,14 @@ class TestOWLOntology(unittest.TestCase):
         self.assertTrue(os.path.isfile(test_filename))
         with open(test_filename, 'r', encoding='utf-8') as f:
             content = f.read()
+        self.assertIn('Prefix: : <', content)
+        self.assertIn('Prefix: owl: <http://www.w3.org/2002/07/owl#>', content)
         self.assertIn('Ontology:', content)
-        self.assertIn('Class: A', content)
-        self.assertIn('Class: AB', content)
-        self.assertIn('SubClassOf: A', content)
+        self.assertIn('Class: :*', content)
+        self.assertIn('SubClassOf: owl:Thing', content)
+        self.assertIn('Class: :A', content)
+        self.assertIn('Class: :AB', content)
+        self.assertIn('SubClassOf: :A', content)
         os.remove(test_filename)
 
     def test_import_dag_manchester(self):
