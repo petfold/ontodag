@@ -54,6 +54,66 @@ class TestOWLOntology(unittest.TestCase):
         self.assertIsNotNone(imported_dag)
         os.remove(test_filename)
 
+    def test_export_dag_manchester(self):
+        test_filename = "test_ontology.omn"
+        OWLOntology.export_dag_manchester(self.dag, test_filename)
+
+        self.assertTrue(os.path.isfile(test_filename))
+        with open(test_filename, 'r', encoding='utf-8') as f:
+            content = f.read()
+        self.assertIn('Ontology:', content)
+        self.assertIn('Class: A', content)
+        self.assertIn('Class: AB', content)
+        self.assertIn('SubClassOf: A', content)
+        os.remove(test_filename)
+
+    def test_import_dag_manchester(self):
+        test_filename = "test_ontology.omn"
+        OWLOntology.export_dag_manchester(self.dag, test_filename)
+
+        self.assertTrue(os.path.isfile(test_filename))
+        imported_dag = OWLOntology.import_dag_manchester(file_name=test_filename)
+
+        self.assertIsNotNone(imported_dag)
+        # All non-root nodes should be present
+        expected_names = {'A', 'B', 'C', 'D', 'F', 'G', 'AB', 'AF', 'BC', 'CD', 'ABC', 'ABF'}
+        imported_names = set(imported_dag.nodes.keys()) - {imported_dag.root.name}
+        self.assertEqual(imported_names, expected_names)
+        os.remove(test_filename)
+
+    def test_manchester_roundtrip_structure(self):
+        """Verify that SubClassOf relationships survive a Manchester export/import roundtrip."""
+        test_filename = "test_ontology.omn"
+        OWLOntology.export_dag_manchester(self.dag, test_filename)
+        imported_dag = OWLOntology.import_dag_manchester(file_name=test_filename)
+
+        # AB should have A and B as parents (neighbors of A and B point to AB)
+        ab_node = imported_dag.nodes.get('AB')
+        self.assertIsNotNone(ab_node)
+        a_node = imported_dag.nodes.get('A')
+        b_node = imported_dag.nodes.get('B')
+        self.assertIn(ab_node, a_node.neighbors)
+        self.assertIn(ab_node, b_node.neighbors)
+        os.remove(test_filename)
+
+    def test_generate_manchester_content(self):
+        content = OWLOntology.generate_manchester_content(self.dag)
+        self.assertIn('Ontology:', content)
+        # Root "*" should not appear
+        self.assertNotIn('Class: *', content)
+        # Top-level nodes have no SubClassOf
+        lines = content.splitlines()
+        class_lines = [l for l in lines if l.startswith('Class:')]
+        self.assertTrue(len(class_lines) > 0)
+
+    def test_import_dag_manchester_from_bytes(self):
+        content = OWLOntology.generate_manchester_content(self.dag)
+        imported_dag = OWLOntology.import_dag_manchester(file_content=content.encode('utf-8'))
+        self.assertIsNotNone(imported_dag)
+        expected_names = {'A', 'B', 'C', 'D', 'F', 'G', 'AB', 'AF', 'BC', 'CD', 'ABC', 'ABF'}
+        imported_names = set(imported_dag.nodes.keys()) - {imported_dag.root.name}
+        self.assertEqual(imported_names, expected_names)
+
 
 if __name__ == '__main__':
     unittest.main()

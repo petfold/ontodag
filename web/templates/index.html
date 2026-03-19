@@ -21,7 +21,8 @@
         <input type="file" id="file-input" name="file" />
         <button type="submit">Import File</button>
         Export
-        <button type="button" id="export-dag-button">DAG</button>
+        <button type="button" id="export-dag-button">OWL</button>
+        <button type="button" id="export-dag-omn-button">OMN</button>
         <button type="button" id="export-dag-dot-button">DOT</button>
         <button type="button" id="export-dag-tex-button">TEX</button>
       </form>
@@ -43,7 +44,8 @@
        <input type="file" id="query-file-input" name="file" />
         <button type="submit">Import File</button>
         Export
-        <button type="button" id="export-query-dag-button">DAG</button>
+        <button type="button" id="export-query-dag-button">OWL</button>
+        <button type="button" id="export-query-dag-omn-button">OMN</button>
         <button type="button" id="export-query-dag-dot-button">DOT</button>
         <button type="button" id="export-query-dag-tex-button">TEX</button>
       </form>
@@ -224,6 +226,9 @@
       document.getElementById("export-dag-button").addEventListener("click", () => {
         window.location.href = "/dag/export";
       });
+      document.getElementById("export-dag-omn-button").addEventListener("click", () => {
+        window.location.href = "/dag/export/omn";
+      });
       document.getElementById("export-dag-dot-button").addEventListener("click", () => {
         window.location.href = "/dag/export/dot";
       });
@@ -233,6 +238,9 @@
 
       document.getElementById("export-query-dag-button").addEventListener("click", () => {
         window.location.href = "/dag/query/export";
+      });
+      document.getElementById("export-query-dag-omn-button").addEventListener("click", () => {
+        window.location.href = "/dag/query/export/omn";
       });
       document.getElementById("export-query-dag-dot-button").addEventListener("click", () => {
         window.location.href = "/dag/query/export/dot";

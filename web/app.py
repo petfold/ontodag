@@ -219,11 +219,13 @@ def import_dag():
         return jsonify({"error": "No selected file."}), 400
 
     file_content = BytesIO(file.read())
-
-    owl = OWLOntology(file.filename)
     my_dag = session["my_dag"]
     try:
-        imported_dag = owl.import_dag(file_content=file_content)
+        if file.filename.endswith('.omn'):
+            imported_dag = OWLOntology.import_dag_manchester(file_content=file_content)
+        else:
+            owl = OWLOntology(file.filename)
+            imported_dag = owl.import_dag(file_content=file_content)
         my_dag.merge(imported_dag)
         return jsonify({"message": "File imported and DAG created."}), 201
     except Exception as e:
@@ -263,6 +265,16 @@ def export_dag():
     return send_file(filename, as_attachment=True)
 
 
+@app.route("/dag/export/omn", methods=["GET"])
+def export_dag_manchester():
+    my_dag = session["my_dag"]
+    content = OWLOntology.generate_manchester_content(my_dag)
+    buf = BytesIO(content.encode('utf-8'))
+    buf.seek(0)
+    return send_file(buf, as_attachment=True, download_name='ontodag_export.omn',
+                     mimetype='text/plain')
+
+
 @app.route("/dag/export/dot", methods=["GET"])
 def export_dag_dot():
     my_dag = session["my_dag"]
@@ -298,6 +310,18 @@ def export_query_dag():
     owl = OWLOntology(filename)
     owl.export_dag(query_result_dag, filename, unique_id)
     return send_file(filename, as_attachment=True)
+
+
+@app.route("/dag/query/export/omn", methods=["GET"])
+def export_query_dag_manchester():
+    query_result_dag = session["query_result_dag"]
+    unique_id = str(uuid.uuid4())
+    content = OWLOntology.generate_manchester_content(query_result_dag, unique_id)
+    buf = BytesIO(content.encode('utf-8'))
+    buf.seek(0)
+    return send_file(buf, as_attachment=True,
+                     download_name=f'ontodag_query_export_{unique_id}.omn',
+                     mimetype='text/plain')
 
 
 @app.route("/dag/query/export/dot", methods=["GET"])
