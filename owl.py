@@ -46,34 +46,34 @@ class OWLOntology:
 
     @staticmethod
     def generate_manchester_content(dag, unique_id=None) -> str:
-        """Generate Manchester OWL syntax content string from a DAG."""
+        """Generate Manchester OWL syntax content string from a DAG.
+
+        The root node ("*") is omitted; top-level nodes appear as classes with no
+        SubClassOf declaration (implicitly subclasses of owl:Thing).
+        """
         if unique_id is None:
             unique_id = str(uuid.uuid4())
         urn_iri = f'urn:ontodag_{unique_id}'
 
         topological_nodes = dag.topological_sort()
 
-        # Build parent map: child_name -> [parent_name, ...] including root
+        # Build parent map: child_name -> [parent_name, ...] (excluding the root)
         parent_map = {node.name: [] for node in topological_nodes}
         for node in topological_nodes:
+            if node.name == dag.root.name:
+                continue
             for child in node.neighbors:
                 parent_map[child.name].append(node.name)
 
-        lines = [
-            f'Prefix: : <{urn_iri}#>',
-            'Prefix: owl: <http://www.w3.org/2002/07/owl#>',
-            '',
-            f'Ontology: <{urn_iri}>',
-            '',
-        ]
+        lines = [f'Ontology: <{urn_iri}>', '']
 
         for node in topological_nodes:
-            lines.append(f'Class: :{node.name}')
-            parents = parent_map[node.name]
             if node.name == dag.root.name:
-                lines.append('    SubClassOf: owl:Thing')
-            elif parents:
-                lines.append(f'    SubClassOf: {", ".join(":" + p for p in parents)}')
+                continue
+            lines.append(f'Class: {node.name}')
+            parents = parent_map[node.name]
+            if parents:
+                lines.append(f'    SubClassOf: {", ".join(parents)}')
             lines.append('')
 
         return '\n'.join(lines)
@@ -124,10 +124,6 @@ class OWLOntology:
             else:
                 content = file_content
 
-        def _strip_prefix(name):
-            """Strip the local ':' prefix from a class name."""
-            return name[1:] if name.startswith(':') else name
-
         # Parse Class declarations and SubClassOf relationships
         classes = {}  # name -> [parent_name, ...]
         current_class = None
@@ -135,36 +131,24 @@ class OWLOntology:
         for line in content.splitlines():
             stripped = line.strip()
             if stripped.startswith('Class:'):
-                current_class = _strip_prefix(stripped[len('Class:'):].strip())
+                current_class = stripped[len('Class:'):].strip()
                 classes[current_class] = []
             elif stripped.startswith('SubClassOf:') and current_class is not None:
                 parents_str = stripped[len('SubClassOf:'):].strip()
-                parents = [
-                    _strip_prefix(p.strip())
-                    for p in parents_str.split(',')
-                    if p.strip() and p.strip() != 'owl:Thing'
-                ]
+                parents = [p.strip() for p in parents_str.split(',') if p.strip()]
                 classes[current_class].extend(parents)
 
         dag = OntoDAG()
-
-        # If the exported root class ('*') is present, wire it up as the DAG root
-        root_name = dag.root.name
         for name in classes:
-            if name == root_name:
-                continue  # root node already exists in dag
             dag.add_node(Item(name))
 
         for name, parents in classes.items():
-            if name == root_name:
-                continue  # root needs no incoming edges
             child = dag.nodes[name]
-            non_root_parents = [p for p in parents if p != root_name and p in dag.nodes]
-            if non_root_parents:
-                for parent_name in non_root_parents:
-                    dag.add_edge(dag.nodes[parent_name], child)
-            elif not parents or all(p == root_name for p in parents):
-                # parent is root (explicit or implicit)
+            if parents:
+                for parent_name in parents:
+                    if parent_name in dag.nodes:
+                        dag.add_edge(dag.nodes[parent_name], child)
+            else:
                 dag.add_edge(dag.root, child)
 
         return dag
