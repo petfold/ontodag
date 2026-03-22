@@ -106,57 +106,23 @@ class OWLOntology:
     def merge_manchester_into(target_dag: OntoDAG, content: str) -> None:
         """Merge a Manchester syntax string into an existing OntoDAG.
 
-        Unlike import_dag_manchester() followed by merge(), parent references
-        in the content are resolved against target_dag — so a node may declare
-        a supercategory that exists only in the target DAG (not in the input
-        string) and the edge will still be created.
+        Parent references in the content are resolved against target_dag, so a
+        node may declare a super-category that exists only in target_dag (not in
+        the input string) and the edge will still be created.
         """
-        def _strip_prefix(name):
-            return name[1:] if name.startswith(':') else name
-
-        classes: dict[str, list[str]] = {}
-        current_class = None
-        for line in content.splitlines():
-            stripped = line.strip()
-            if stripped.startswith('Class:'):
-                current_class = _strip_prefix(stripped[len('Class:'):].strip())
-                classes[current_class] = []
-            elif stripped.startswith('SubClassOf:') and current_class is not None:
-                parents_str = stripped[len('SubClassOf:'):].strip()
-                for p in parents_str.split(','):
-                    p = p.strip()
-                    if p and p != 'owl:Thing':
-                        classes[current_class].append(_strip_prefix(p))
-
-        root_name = target_dag.root.name
-
-        # Pass 1: add new nodes
-        for name in classes:
-            if name != root_name and name not in target_dag.nodes:
-                target_dag.add_node(Item(name))
-
-        # Pass 2: add edges, resolving all parents against target_dag
-        for name, parents in classes.items():
-            if name == root_name:
-                continue
-            child = target_dag.nodes[name]
-            resolved = [p for p in parents if p != root_name and p in target_dag.nodes]
-            if resolved:
-                for parent_name in resolved:
-                    target_dag.add_edge(target_dag.nodes[parent_name], child)
-            else:
-                target_dag.add_edge(target_dag.root, child)
-
-        target_dag._remove_duplicate_root_edges()
-        for node in target_dag.nodes.values():
-            target_dag._update_descendant_counts(node)
+        other_dag = OWLOntology.import_dag_manchester(file_content=content, context_dag=target_dag)
+        target_dag.merge(other_dag)
 
     @staticmethod
-    def import_dag_manchester(file_name=None, file_content=None) -> OntoDAG:
+    def import_dag_manchester(file_name=None, file_content=None, context_dag=None) -> OntoDAG:
         """Import a DAG from Manchester OWL syntax (.omn) format.
 
         Accepts a file path, or raw bytes/str content.
         Classes with no SubClassOf become direct children of the DAG root.
+
+        context_dag resolves parent references missing from the input (a parsing
+        artifact — valid OntoDAG objects never have dangling references) by
+        injecting matching nodes so their edges can be wired up correctly.
         """
         if file_name is None and file_content is None:
             raise ValueError("file_name or file_content must be provided")
@@ -203,6 +169,14 @@ class OWLOntology:
             if name == root_name:
                 continue  # root node already exists in dag
             dag.add_node(Item(name))
+
+        # Inject cross-DAG parent nodes: parents referenced in the content that
+        # are not defined there but exist in context_dag.
+        if context_dag is not None:
+            for parents in classes.values():
+                for p in parents:
+                    if p != root_name and p not in dag.nodes and p in context_dag.nodes:
+                        dag.add_node(Item(p))
 
         for name, parents in classes.items():
             if name == root_name:

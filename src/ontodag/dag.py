@@ -292,12 +292,13 @@ class OntoDAG(DAG):
             if node_name not in self.nodes:
                 self.add_node(Item(node_name))
 
-        # Pass 2: add edges, remapping other_dag Item objects to self's Item objects
-        for node_name, other_node in other_dag.nodes.items():
-            self_node = self.nodes[node_name]
+        # Pass 2: add edges in topological order (general → specific) using
+        # add_edge so _remove_unneeded_edges prunes redundant edges correctly.
+        for other_node in other_dag.topological_sort():
+            self_node = self.nodes[other_node.name]
             for neighbor in other_node.neighbors:
                 if neighbor.name in self.nodes:
-                    self_node.neighbors.add(self.nodes[neighbor.name])
+                    self.add_edge(self_node, self.nodes[neighbor.name])
 
         self._remove_duplicate_root_edges()
 
