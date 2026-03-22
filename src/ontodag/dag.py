@@ -287,16 +287,17 @@ class OntoDAG(DAG):
         if not isinstance(other_dag, OntoDAG):
             raise ValueError("Can only merge with another OntoDAG instance.")
 
-        # Process all nodes from other DAG
+        # Pass 1: add all missing nodes (no edges yet)
+        for node_name in other_dag.nodes:
+            if node_name not in self.nodes:
+                self.add_node(Item(node_name))
+
+        # Pass 2: add edges, remapping other_dag Item objects to self's Item objects
         for node_name, other_node in other_dag.nodes.items():
-            if node_name in self.nodes:
-                # Update existing node's neighbors
-                self.nodes[node_name].neighbors.update(other_node.neighbors)
-            else:
-                # Add new node
-                new_node = Item(node_name)
-                new_node.neighbors = other_node.neighbors.copy()
-                self.add_node(new_node)
+            self_node = self.nodes[node_name]
+            for neighbor in other_node.neighbors:
+                if neighbor.name in self.nodes:
+                    self_node.neighbors.add(self.nodes[neighbor.name])
 
         self._remove_duplicate_root_edges()
 

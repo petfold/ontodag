@@ -1,5 +1,5 @@
 import unittest
-from dag import Item
+from ontodag.dag import Item
 
 
 class TestItem(unittest.TestCase):

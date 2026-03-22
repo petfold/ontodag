@@ -1,14 +1,17 @@
 import os
+import sys
 import uuid
 import random
 
-from dag import OntoDAG, Item, OntoDAGVisualizer
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+from ontodag.dag import OntoDAG, Item, OntoDAGVisualizer
 from datetime import datetime, timedelta
 from dot2tex import dot2tex
 from flask import Flask, request, jsonify, render_template, send_file, session, send_from_directory
 from flask.sessions import SessionInterface, SessionMixin
 from io import BytesIO
-from owl import OWLOntology
+from ontodag.owl import OWLOntology
 
 
 class InMemorySession(dict, SessionMixin):

@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from dag import OntoDAG, OntoDAGVisualizer, Item
+from ontodag.dag import OntoDAG, OntoDAGVisualizer, Item
 from dot2tex import dot2tex
 
 
