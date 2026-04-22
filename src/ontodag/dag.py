@@ -213,6 +213,8 @@ class OntoDAG(DAG):
         else:
             self.add_node(subcategory)
 
+        super_categories = [self.nodes[sc.name] for sc in super_categories]
+
         if not super_categories:
             super_categories = [self.root]
 
@@ -287,16 +289,18 @@ class OntoDAG(DAG):
         if not isinstance(other_dag, OntoDAG):
             raise ValueError("Can only merge with another OntoDAG instance.")
 
-        # Process all nodes from other DAG
-        for node_name, other_node in other_dag.nodes.items():
-            if node_name in self.nodes:
-                # Update existing node's neighbors
-                self.nodes[node_name].neighbors.update(other_node.neighbors)
-            else:
-                # Add new node
-                new_node = Item(node_name)
-                new_node.neighbors = other_node.neighbors.copy()
-                self.add_node(new_node)
+        # Pass 1: add all missing nodes (no edges yet)
+        for node_name in other_dag.nodes:
+            if node_name not in self.nodes:
+                self.add_node(Item(node_name))
+
+        # Pass 2: add edges in topological order (general → specific) using
+        # add_edge so _remove_unneeded_edges prunes redundant edges correctly.
+        for other_node in other_dag.topological_sort():
+            self_node = self.nodes[other_node.name]
+            for neighbor in other_node.neighbors:
+                if neighbor.name in self.nodes:
+                    self.add_edge(self_node, self.nodes[neighbor.name])
 
         self._remove_duplicate_root_edges()
 

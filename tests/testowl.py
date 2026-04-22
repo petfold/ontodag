@@ -1,8 +1,8 @@
 import os
 import unittest
 
-from dag import OntoDAG, Item
-from owl import OWLOntology
+from ontodag.dag import OntoDAG, Item
+from ontodag.owl import OWLOntology
 
 
 class TestOWLOntology(unittest.TestCase):

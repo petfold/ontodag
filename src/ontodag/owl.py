@@ -3,8 +3,8 @@ import tempfile
 import types
 import uuid
 
-from dag import OntoDAG, Item
-from io import BytesIO
+from ontodag.dag import OntoDAG, Item
+
 try:
     from ontopy import get_ontology
 except ImportError:
@@ -103,11 +103,26 @@ class OWLOntology:
         return self._process_dag()
 
     @staticmethod
-    def import_dag_manchester(file_name=None, file_content=None) -> OntoDAG:
+    def merge_manchester_into(target_dag: OntoDAG, content: str) -> None:
+        """Merge a Manchester syntax string into an existing OntoDAG.
+
+        Parent references in the content are resolved against target_dag, so a
+        node may declare a super-category that exists only in target_dag (not in
+        the input string) and the edge will still be created.
+        """
+        other_dag = OWLOntology.import_dag_manchester(file_content=content, context_dag=target_dag)
+        target_dag.merge(other_dag)
+
+    @staticmethod
+    def import_dag_manchester(file_name=None, file_content=None, context_dag=None) -> OntoDAG:
         """Import a DAG from Manchester OWL syntax (.omn) format.
 
-        Accepts a file path, a BytesIO object, or raw bytes/str content.
+        Accepts a file path, or raw bytes/str content.
         Classes with no SubClassOf become direct children of the DAG root.
+
+        context_dag resolves parent references missing from the input (a parsing
+        artifact — valid OntoDAG objects never have dangling references) by
+        injecting matching nodes so their edges can be wired up correctly.
         """
         if file_name is None and file_content is None:
             raise ValueError("file_name or file_content must be provided")
@@ -154,6 +169,14 @@ class OWLOntology:
             if name == root_name:
                 continue  # root node already exists in dag
             dag.add_node(Item(name))
+
+        # Inject cross-DAG parent nodes: parents referenced in the content that
+        # are not defined there but exist in context_dag.
+        if context_dag is not None:
+            for parents in classes.values():
+                for p in parents:
+                    if p != root_name and p not in dag.nodes and p in context_dag.nodes:
+                        dag.add_node(Item(p))
 
         for name, parents in classes.items():
             if name == root_name:
