@@ -213,6 +213,8 @@ class OntoDAG(DAG):
         else:
             self.add_node(subcategory)
 
+        super_categories = [self.nodes[sc.name] for sc in super_categories]
+
         if not super_categories:
             super_categories = [self.root]
 

@@ -16,5 +16,8 @@ dependencies = [
 [project.optional-dependencies]
 web = ["flask", "dot2tex", "Pillow"]
 
+[project.scripts]
+ontodag = "ontodag.__main__:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
