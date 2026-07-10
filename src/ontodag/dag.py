@@ -131,16 +131,21 @@ class DAG:
     def intersection_dag(self, other_dag):
         intersecting_dag = OntoDAG()
 
-        # Add nodes that exist in both DAGs
+        # Add fresh copies of nodes that exist in both DAGs — never the
+        # source Item objects themselves, so mutating the result cannot
+        # write through to either source (I4).
+        mapping = {}
         for node in self.nodes.values():
-            if node.name is intersecting_dag.root.name:
+            if node.name == intersecting_dag.root.name:
                 continue
             if node.name in other_dag.nodes:
-                intersecting_dag.add_node(node)
+                copy_item = Item(node.name)
+                mapping[node.name] = copy_item
+                intersecting_dag.add_node(copy_item)
 
         for root_subcategory in other_dag.root.neighbors:
             if root_subcategory.name in self.nodes:
-                intersecting_dag.root.neighbors.add(root_subcategory)
+                intersecting_dag.root.neighbors.add(mapping[root_subcategory.name])
 
         return intersecting_dag
 
@@ -384,7 +389,7 @@ class OntoDAG(DAG):
         # Collect all nodes to copy, including descendants
         all_nodes_to_copy = set()
         for node in nodes_to_copy:
-            if node.name is new_dag.root.name:
+            if node.name == new_dag.root.name:
                 root_to_copy = node
                 continue
             original_node = self.nodes[node.name]
