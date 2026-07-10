@@ -90,20 +90,51 @@ Keep both, at different layers:
 
 The graph currently mixes classes and instances as undifferentiated `Item`s (a stored photo and the category `vehicle` are both nodes). The OWL export already assumes every node is a class. Make this explicit — e.g. a `kind` field, or the convention that payload-bearing nodes are instances — before it gets frozen into a persisted encoding.
 
-## Planned Swarm integration (context, not current work)
+## Swarm integration — status and where things live
 
-The medium-term goal (see repo roadmap: "DAG-only graph database for Ethereum Swarm" and "plugin to store the DAG in a decentralized way") is to persist OntoDAG on Ethereum Swarm, a content-addressed immutable chunk store. The intended design:
+The medium-term goal (see repo roadmap: "DAG-only graph database for Ethereum Swarm" and "plugin to store the DAG in a decentralized way") is to persist OntoDAG on Ethereum Swarm, a content-addressed immutable chunk store.
 
-- The whole DAG state is a **mantaray trie** mapping `name → node record`; the trie's 32-byte root reference is the identity of one immutable snapshot/version.
-- A **node record** (small CBOR chunk) holds: `name`, `up` (supercategory names), `down` (subcategory names), `descendant_count`, an optional payload reference (a Swarm hash of actual content — this is what turns OntoDAG into a content-categorization layer), and metadata. Both edge directions are stored — which is why adding `parents` in Python now (#5) matches the persisted shape.
-- A **feed** (Swarm's mutable pointer) points at the latest root; each `put`/`remove` computes a new root and bumps the feed, giving atomic commits, history, and cheap structural diffs for free.
-- **Multi-writer / CRDT:** because the transitive reduction is unique, concurrent edge additions commute — the canonical state is the reduction of the union of asserted edges. Writers post signed operations to a shared address (Swarm GSOC); readers fold them deterministically. `merge`'s commutativity/idempotence (I7) is the in-memory rehearsal of exactly this property, which is why that test matters disproportionately.
+**Full design rationale is in `docs/SWARM_DESIGN.md` — read it before touching `src/recordstore/` or starting the OntoDAG-Swarm adapter.** It covers: why a generic `recordstore` layer exists at all rather than calling Swarm directly (§2), the node record schema for the eventual adapter (§3), why storage is one-record-per-chunk for now and when that should change (§4), the planned multi-writer/CRDT merge mechanism (§5), the performance model and the four caching layers involved (§6), what's tested vs. not (§7), and the recommended sequencing of remaining work (§8). This file (`CLAUDE.md`) has the day-to-day task list; `SWARM_DESIGN.md` has the "why."
 
-Implications for current Python work: every invariant fix above (acyclicity, exact transitive reduction, deterministic ordering, de-aliasing, names-as-identity, instance/class split) is also a precondition for a clean persisted encoding. Hardening the Python semantics first means the Swarm model inherits correct, canonical behavior rather than freezing today's quirks into content-addressed chunks. No Swarm code lives in this repo yet; do not add any unless explicitly asked.
+### What already exists (`src/recordstore/`)
 
-## Definition of done (current task)
+A versioned key→record store over a content-addressed chunk store — the generic substrate `OntoDAG`-on-Swarm will sit on. Implemented and tested:
+- `RecordStore`: staged put/get/delete, `commit() → root`, `RecordStore.at(root)` read-only snapshots, sorted prefix iteration (`keys(prefix)`).
+- A persistent, canonically-encoded compacted radix trie (own implementation, not mantaray — see `SWARM_DESIGN.md` §2 for why compatibility with mantaray was deferred rather than required).
+- `ChunkStore` backends: `MemoryChunkStore` (test double) and `BeeChunkStore` (real Bee node over `/bytes`).
+- `Pointer` backends: `MemoryPointer`, `FilePointer`. `SwarmFeedPointer` is a documented stub — real feed writes need client-side SOC signing (secp256k1), deliberately deferred; see `SWARM_DESIGN.md` §5.
+
+Tests: `tests/test_recordstore.py` (11 unit tests — canonical roots, snapshot isolation, structural sharing, no-aliasing), `tests/test_recordstore_fuzz.py` (model-based fuzz test against a dict oracle, 12 seeded runs × 400 ops, checks the canonical-root property under arbitrary put/delete histories), `tests/test_recordstore_bee.py` (integration test against a live Bee node — **skips automatically unless `BEE_API` is set; run it once before extending `BeeChunkStore` further**):
+
+```bash
+python3 -m pytest tests/test_recordstore.py tests/test_recordstore_fuzz.py -v   # no external deps
+
+# integration test against a real node (do this once before further BeeChunkStore work):
+bee dev --api-addr=127.0.0.1:1633
+BEE_API=http://127.0.0.1:1633 python3 -m pytest tests/test_recordstore_bee.py -v
+```
+
+### What does not exist yet
+
+- `SwarmOntoDAG` adapter (implements `dag.py`'s `put`/`get`/`remove`/`merge` against `RecordStore`, using the schema in `SWARM_DESIGN.md` §3). **Do not start this until the `dag.py` invariant fixes below are merged** — the adapter should inherit correct, canonical semantics rather than freeze today's bugs into a content-addressed encoding.
+- The GSOC-based CRDT merge (`SWARM_DESIGN.md` §5).
+- The real `SwarmFeedPointer` (needs a signing dependency decision — flag this to the user rather than picking a crypto library unilaterally).
+- Leaf-packing / B-tree-style chunk layout (`SWARM_DESIGN.md` §4) — do not implement pre-emptively; it needs real usage data first.
+
+## Definition of done (current task: `dag.py` invariant fixes)
 
 - All tests in `tests/test_invariants.py` pass (12 tests).
 - The existing `tests/testdag.py` and `tests/testitem.py` still pass.
 - No new hard dependency is introduced for the core DAG (the `owlready2`/`graphviz` imports stay optional/lazy).
 - Each fix is a focused commit referencing the invariant (I1–I7) it satisfies.
+
+## Next task after that: the `SwarmOntoDAG` adapter
+
+Once the invariant fixes above are merged: implement `src/ontodag/swarm_adapter.py` (or similar) per `SWARM_DESIGN.md` §3 and §8. It should depend on `src/recordstore` (already built) and the fixed `src/ontodag/dag.py`. Write it test-first against `MemoryChunkStore` (fast, no external dependency); a Bee-backed integration test is a separate, later addition, following the pattern in `tests/test_recordstore_bee.py`.
+
+## Working across sessions
+
+This is a multi-session project. At the start of each session:
+1. Run the full test suite (`testdag.py`, `testitem.py`, `test_invariants.py`, `test_recordstore.py`, `test_recordstore_fuzz.py`) to confirm the starting state matches what this file claims.
+2. Check which of the two current-task sections above is still open, and update this file's "Definition of done" / "What does not exist yet" sections as work completes — this file should always reflect actual repo state, not a stale plan.
+3. Prefer small, focused commits over large multi-concern ones; each should be reviewable against one invariant or one design-doc section.
