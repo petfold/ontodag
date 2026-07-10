@@ -18,13 +18,13 @@ Tests use `pytest` from the repo root; `conftest.py` puts `src/` on the import p
 
 ```bash
 python3 -m pytest tests/testdag.py tests/testitem.py -v    # core DAG logic
-python3 -m pytest tests/test_invariants.py -v              # structural invariant tests (8 intentionally fail — see below)
+python3 -m pytest tests/test_invariants.py -v              # structural invariant tests (all 12 must pass)
 python3 -m pytest tests/test_boundaries.py -v              # dependency-boundary tests (must always pass)
 ```
 
 Expected failures in the local environment (missing optional deps, not regressions): `graphviz` and `dot2tex` are not installed, so the three `testdag.py` tests that render (`test_visualize`, `test_descendant_count_after_put`, `test_generate_dot_source_to_tex`) fail; `owlready2` is not installed, so `tests/testowl.py` fails at collection.
 
-The invariant tests in `tests/test_invariants.py` are deliberately written to fail against the current implementation — each failing test is a bug reproduction (currently 8 of 12 fail: I1×2, I2/I3×2, I4×2, I6×2). Do not treat these failures as regressions. The goal of the current task is to make all of them pass without breaking the existing suite. The helpers in that file (`reach`, `edge_set`) compute reachability independently of the traversal code under test, so they remain a valid oracle even while `dag.py` is being changed.
+All 12 invariant tests pass as of July 2026 (fixes I1–I4, I6 landed; see "Known bugs" below for what remains). The helpers in `tests/test_invariants.py` (`reach`, `edge_set`) compute reachability independently of the traversal code under test, so they remain a valid oracle while `dag.py` is being changed.
 
 ## Architecture
 
@@ -68,19 +68,19 @@ The invariant test file documents seven properties the data structure should uph
 - **B1 The core stays Swarm-free.** The `ontodag` package must remain importable and fully functional with no Swarm, no `recordstore`, no network, and no optional dependency installed (`owlready2`, `graphviz`, `dot2tex`, `flask`). The Swarm layer is an optional persistence backend layered *on top of* the data structure — never a requirement of it. When the `SwarmOntoDAG` adapter lands, it must be reachable only via explicit import (and eventually an `[swarm]` extra in `pyproject.toml`), keeping plain `import ontodag` clean.
 - **B2 `recordstore` never depends on OntoDAG** and keeps its module-level imports stdlib-only (third-party imports like `requests` in `BeeChunkStore` stay lazy inside methods). This is the boundary that keeps a later extraction to its own repo cheap — see `SWARM_DESIGN.md` §2.
 
-## Known bugs and recommended fix order
+## Known bugs and fix status
 
-Line numbers refer to `src/ontodag/dag.py` and may drift as edits land; locate by method name if so. Fix in this order — earlier fixes are preconditions for later tests behaving sensibly.
+Fixed (July 2026), one commit per invariant:
 
-1. **No cycle check in `add_edge` (DAG.add_edge, ~line 35).** Edge insertion never checks reachability, so `put` can create cycles (e.g. `put(A, [])`, `put(B, [A])`, then `put(A, [B])`). Fix: in `add_edge(u, v)`, reject (raise `ValueError`) if `u` is reachable from `v`. Catches I1.
+1. ~~**No cycle check in `add_edge`.**~~ **Fixed (I1)** — `DAG.add_edge` raises `ValueError` when the edge would create a cycle, via the iterative early-exit `DAG._is_reachable`; `OntoDAG.add_edge` performs the check before `_remove_unneeded_edges` so a rejected edge never mutates the graph.
+2. ~~**Transitive reduction incomplete and order-dependent.**~~ **Fixed (I2, I3)** — `OntoDAG.add_edge` skips any edge whose target is already reachable, then prunes ancestor edges as before. Note: `testdag.test_descendant_count_after_remove` had asserted the old non-reduced contraction result and was updated to the reduced expectation.
+3. ~~**`intersection_dag` aliases live nodes.**~~ **Fixed (I4)** — builds fresh `Item`s via a name→copy mapping, mirroring `copy_subdag`; `is` name comparisons replaced with `==`.
+4. ~~**Recursive traversals overflow on deep graphs.**~~ **Fixed (I6)** — `get_descendants`, `get_ancestors`, and `_get_affected_nodes` use explicit frontier stacks.
 
-2. **Transitive reduction is incomplete and order-dependent (`OntoDAG._remove_unneeded_edges` ~line 198, `OntoDAG.add_edge` ~line 154).** `_remove_unneeded_edges` only prunes edges from ancestors of the new parent to the child; it never checks whether the *new* edge `u→v` is itself redundant. With `root→A→B→X`, `put(X, [A])` wrongly adds `A→X`; and `put(X, [B, A])` vs `put(X, [A, B])` give different graphs. Fix: before adding `u→v`, skip if `v` is already reachable from `u`; then prune ancestor edges as now. Catches I2, I3.
+Still open:
 
-3. **`intersection_dag` aliases live nodes (`DAG.intersection_dag` ~line 114).** It inserts the *original* `Item` objects from both source DAGs into the result (unlike `copy_subdag`, which maps to fresh copies), so mutating the intersection mutates the sources. Also uses `is` for name comparison (`node.name is intersecting_dag.root.name`) which only works via CPython string interning — use `==`. Fix: build fresh `Item`s with a name→new-Item mapping, mirroring `copy_subdag`. Catches I4.
-
-4. **Recursive traversals overflow on deep graphs (`DAG.get_descendants` ~line 81, `DAG.get_ancestors` ~line 93).** Both recurse once per level and raise `RecursionError` beyond ~1000 levels. Convert to explicit-stack/queue iteration. Catches I6.
-
-5. **Quadratic structure maintenance (root cause: no reverse adjacency).** `Item` stores children but not parents, so `get_ancestors` and `_get_affected_nodes` scan every node in the graph, and `_update_descendant_counts` (~line 61) fully recomputes descendant sets for the changed node and all ancestors on every edge change. Add a `parents` set maintained symmetrically with `neighbors`. This is also the in-memory form of the `up`-list the Swarm record needs (see below), so doing it now aligns both models. For counts: "number of distinct descendants" is not decomposable over a DAG (cones overlap), so prefer marking counts dirty and recomputing lazily via a memoized topological pass rather than per-edge full recomputation. Improves I5 performance; I5 correctness is already testable.
+5. **Quadratic structure maintenance (root cause: no reverse adjacency).** `Item` stores children but not parents, so `get_ancestors` and `_get_affected_nodes` scan every node in the graph, and `_update_descendant_counts` fully recomputes descendant sets for the changed node and all ancestors on every edge change. Add a `parents` set maintained symmetrically with `neighbors`. This is also the in-memory form of the `up`-list the Swarm record needs (see below), so doing it before the adapter aligns both models. For counts: "number of distinct descendants" is not decomposable over a DAG (cones overlap), so prefer marking counts dirty and recomputing lazily via a memoized topological pass rather than per-edge full recomputation. Improves I5 performance; I5 correctness already passes.
+6. **`topological_sort` is still recursive** (used by `merge` and optimized `put`), so those can still hit the recursion limit on graphs deeper than ~1000 levels; not covered by I6's tests. Convert to iterative post-order when touched next.
 
 ### Secondary cleanups (not blocking the invariant suite)
 - ~~**`__init__.py` forces an `owlready2` dependency.**~~ **Done** — `src/ontodag/__init__.py` now exposes `OWLOntology` via a lazy module `__getattr__`, enforced by `tests/test_boundaries.py`. Still open: `pyproject.toml` lists `graphviz` and `owlready2` as hard dependencies; move them to optional dependency groups (like the existing `[web]` extra).
@@ -125,21 +125,18 @@ BEE_API=http://127.0.0.1:1633 python3 -m pytest tests/test_recordstore_bee.py -v
 
 ### What does not exist yet
 
-- `SwarmOntoDAG` adapter (implements `dag.py`'s `put`/`get`/`remove`/`merge` against `RecordStore`, using the schema in `SWARM_DESIGN.md` §3). **Do not start this until the `dag.py` invariant fixes below are merged** — the adapter should inherit correct, canonical semantics rather than freeze today's bugs into a content-addressed encoding.
+- `SwarmOntoDAG` adapter (implements `dag.py`'s `put`/`get`/`remove`/`merge` against `RecordStore`, using the schema in `SWARM_DESIGN.md` §3). The `dag.py` invariant fixes it depends on are now merged, so this is the current task — the adapter inherits correct, canonical semantics instead of freezing bugs into a content-addressed encoding.
 - The GSOC-based CRDT merge (`SWARM_DESIGN.md` §5).
 - The real `SwarmFeedPointer` (needs a signing dependency decision — flag this to the user rather than picking a crypto library unilaterally).
 - Leaf-packing / B-tree-style chunk layout (`SWARM_DESIGN.md` §4) — do not implement pre-emptively; it needs real usage data first.
 
-## Definition of done (current task: `dag.py` invariant fixes)
+## Previous task — `dag.py` invariant fixes: DONE (July 2026)
 
-- All tests in `tests/test_invariants.py` pass (12 tests).
-- The existing `tests/testdag.py` and `tests/testitem.py` still pass (modulo the graphviz/dot2tex environment failures noted above), and `tests/test_boundaries.py` stays green.
-- No new hard dependency is introduced for the core DAG (the `owlready2`/`graphviz` imports stay optional/lazy).
-- Each fix is a focused commit referencing the invariant (I1–I7) it satisfies.
+All 12 tests in `tests/test_invariants.py` pass; `testdag.py`/`testitem.py`/`test_boundaries.py` stay green (modulo the environment failures noted above); no new hard dependency was introduced; one focused commit per invariant (I1, I2+I3, I4, I6). Remaining `dag.py` work is items 5–6 under "Known bugs" (performance/robustness, not blocking).
 
-## Next task after that: the `SwarmOntoDAG` adapter
+## Current task: the `SwarmOntoDAG` adapter
 
-Once the invariant fixes above are merged: implement `src/ontodag/swarm_adapter.py` (or similar) per `SWARM_DESIGN.md` §3 and §8. It should depend on `src/recordstore` (already built) and the fixed `src/ontodag/dag.py`. Write it test-first against `MemoryChunkStore` (fast, no external dependency); a Bee-backed integration test is a separate, later addition, following the pattern in `tests/test_recordstore_bee.py`.
+The invariant fixes are in, so this is unblocked: implement `src/ontodag/swarm_adapter.py` (or similar) per `SWARM_DESIGN.md` §3 and §8. It should depend on `src/recordstore` (already built) and the fixed `src/ontodag/dag.py`. Write it test-first against `MemoryChunkStore` (fast, no external dependency); a Bee-backed integration test is a separate, later addition, following the pattern in `tests/test_recordstore_bee.py`.
 
 ## Working across sessions
 
