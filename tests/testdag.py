@@ -2,7 +2,6 @@ import os
 import unittest
 
 from ontodag.dag import OntoDAG, OntoDAGVisualizer, Item
-from dot2tex import dot2tex
 
 
 class TestOntoDAG(unittest.TestCase):
@@ -78,6 +77,7 @@ class TestOntoDAG(unittest.TestCase):
         os.remove('ontodag_vis.png')
 
     def test_generate_dot_source_to_tex(self):
+        from dot2tex import dot2tex
         visualizer = OntoDAGVisualizer()
         dot_source = visualizer.generate_dot_source(self.dag)
         self.assertIsNotNone(dot_source)
