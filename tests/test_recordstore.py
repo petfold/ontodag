@@ -14,11 +14,15 @@ depends on:
                                  staged overlay included
   R6  No aliasing              - mutating a returned record never mutates
                                  the store
+  R7  Pointer persistence      - FilePointer survives process restart and
+                                 is updated atomically on commit
 """
 
+import os
+import tempfile
 import unittest
 
-from recordstore import MemoryChunkStore, MemoryPointer, RecordStore
+from recordstore import FilePointer, MemoryChunkStore, MemoryPointer, RecordStore
 
 
 def make(chunks=None, pointer=None):
@@ -158,6 +162,45 @@ class TestPrefixIteration(unittest.TestCase):
                          ["veh:boat", "veh:car", "veh:van"])
         self.assertEqual(list(rs.keys("food:")), ["food:apple"])
         self.assertEqual(list(rs.keys("nope:")), [])
+
+
+class TestFilePointer(unittest.TestCase):
+    def setUp(self):
+        self._dir = tempfile.TemporaryDirectory()
+        self.path = os.path.join(self._dir.name, "root")
+
+    def tearDown(self):
+        self._dir.cleanup()
+
+    def test_missing_file_reads_as_none(self):
+        self.assertIsNone(FilePointer(self.path).get())
+
+    def test_set_get_roundtrip(self):
+        ptr = FilePointer(self.path)
+        ptr.set("abc123")
+        self.assertEqual(ptr.get(), "abc123")
+        self.assertEqual(FilePointer(self.path).get(), "abc123")  # fresh instance
+
+    def test_commit_persists_root_across_restart(self):
+        store = MemoryChunkStore()
+        rs = RecordStore(store, pointer=FilePointer(self.path))
+        rs.put("car", {"up": ["vehicle"]})
+        root = rs.commit()
+        self.assertEqual(FilePointer(self.path).get(), root)
+        # a fresh store + fresh pointer resumes at the committed root
+        again = RecordStore(store, pointer=FilePointer(self.path))
+        self.assertEqual(again.get("car"), {"up": ["vehicle"]})
+
+    def test_second_commit_replaces_root_without_tmp_residue(self):
+        store = MemoryChunkStore()
+        rs = RecordStore(store, pointer=FilePointer(self.path))
+        rs.put("a", 1)
+        first = rs.commit()
+        rs.put("b", 2)
+        second = rs.commit()
+        self.assertNotEqual(first, second)
+        self.assertEqual(FilePointer(self.path).get(), second)
+        self.assertFalse(os.path.exists(self.path + ".tmp"))
 
 
 class TestNoAliasing(unittest.TestCase):
