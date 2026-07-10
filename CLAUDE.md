@@ -77,9 +77,10 @@ Fixed (July 2026), one commit per invariant:
 3. ~~**`intersection_dag` aliases live nodes.**~~ **Fixed (I4)** — builds fresh `Item`s via a name→copy mapping, mirroring `copy_subdag`; `is` name comparisons replaced with `==`.
 4. ~~**Recursive traversals overflow on deep graphs.**~~ **Fixed (I6)** — `get_descendants`, `get_ancestors`, and `_get_affected_nodes` use explicit frontier stacks.
 
+5. ~~**Quadratic structure maintenance.**~~ **Fixed (July 2026)** — `Item` has a `parents` set maintained symmetrically with `neighbors` via `_EdgeSet` (a set subclass that syncs the reverse direction even under direct `neighbors` mutation); `get_ancestors`, `_get_affected_nodes` and `remove` walk `parents` instead of scanning the graph; descendant-count refreshes are batched per public operation (`_batched_count_updates`) instead of per edge. `parents` is the in-memory form of the record schema's `up` list, so the in-memory and persisted shapes now match.
+
 Still open:
 
-5. **Quadratic structure maintenance (root cause: no reverse adjacency).** `Item` stores children but not parents, so `get_ancestors` and `_get_affected_nodes` scan every node in the graph, and `_update_descendant_counts` fully recomputes descendant sets for the changed node and all ancestors on every edge change. Add a `parents` set maintained symmetrically with `neighbors`. This is also the in-memory form of the `up`-list the Swarm record needs (see below), so doing it before the adapter aligns both models. For counts: "number of distinct descendants" is not decomposable over a DAG (cones overlap), so prefer marking counts dirty and recomputing lazily via a memoized topological pass rather than per-edge full recomputation. Improves I5 performance; I5 correctness already passes.
 6. **`topological_sort` is still recursive** (used by `merge` and optimized `put`), so those can still hit the recursion limit on graphs deeper than ~1000 levels; not covered by I6's tests. Convert to iterative post-order when touched next.
 
 ### Secondary cleanups (not blocking the invariant suite)
@@ -123,24 +124,32 @@ bee dev --api-addr=127.0.0.1:1633
 BEE_API=http://127.0.0.1:1633 python3 -m pytest tests/test_recordstore_bee.py -v
 ```
 
+### `SwarmOntoDAG` adapter (`src/ontodag/swarm_adapter.py`) — DONE (July 2026)
+
+An `OntoDAG` subclass persisted through a `RecordStore`, per `SWARM_DESIGN.md` §3/§6: one record per node keyed by name (`up`/`down` sorted, `count`, `kind`, `payload`, `meta`); full hydration into memory on construction; all mutation semantics inherited from `OntoDAG`; `commit()` diffs against the last-synced records and stages only changed nodes. The store is duck-typed — the module imports nothing from `recordstore` (B2), and `ontodag.SwarmOntoDAG` is exposed via the lazy `__getattr__` so `import ontodag` stays clean (B1). `put` accepts optional `kind`/`payload`/`meta` (records default to `kind: "class"` — see "Instance vs class distinction").
+
+Tests: `tests/test_swarm_adapter.py` (13 tests against `MemoryChunkStore`): roundtrip + rehydrated queries, history/put-order-independent canonical roots, idempotent commit, incremental staging, invariants after rehydration, merge convergence to identical roots from either side (the §5 CRDT precondition in persisted form), extras roundtrip, persisted removal.
+
 ### What does not exist yet
 
-- `SwarmOntoDAG` adapter (implements `dag.py`'s `put`/`get`/`remove`/`merge` against `RecordStore`, using the schema in `SWARM_DESIGN.md` §3). The `dag.py` invariant fixes it depends on are now merged, so this is the current task — the adapter inherits correct, canonical semantics instead of freezing bugs into a content-addressed encoding.
+- A Bee-backed `SwarmOntoDAG` integration test (follow the `tests/test_recordstore_bee.py` pattern; needs a live node, same `BEE_API` gate).
 - The GSOC-based CRDT merge (`SWARM_DESIGN.md` §5).
 - The real `SwarmFeedPointer` (needs a signing dependency decision — flag this to the user rather than picking a crypto library unilaterally).
 - Leaf-packing / B-tree-style chunk layout (`SWARM_DESIGN.md` §4) — do not implement pre-emptively; it needs real usage data first.
+- Async/batched `get_many()` chunk fetches (`SWARM_DESIGN.md` §6) — only relevant once partial loading exists; full hydration reads every record once anyway.
 
-## Previous task — `dag.py` invariant fixes: DONE (July 2026)
+## Previous tasks — DONE (July 2026)
 
-All 12 tests in `tests/test_invariants.py` pass; `testdag.py`/`testitem.py`/`test_boundaries.py` stay green (modulo the environment failures noted above); no new hard dependency was introduced; one focused commit per invariant (I1, I2+I3, I4, I6). Remaining `dag.py` work is items 5–6 under "Known bugs" (performance/robustness, not blocking).
+1. **`dag.py` invariant fixes** — all 12 tests in `tests/test_invariants.py` pass; one focused commit per invariant (I1, I2+I3, I4, I6), plus item 5 (reverse adjacency + batched counts). Remaining `dag.py` work: item 6 under "Known bugs".
+2. **`SwarmOntoDAG` adapter** — see above.
 
-## Current task: the `SwarmOntoDAG` adapter
+## Current task: none assigned
 
-The invariant fixes are in, so this is unblocked: implement `src/ontodag/swarm_adapter.py` (or similar) per `SWARM_DESIGN.md` §3 and §8. It should depend on `src/recordstore` (already built) and the fixed `src/ontodag/dag.py`. Write it test-first against `MemoryChunkStore` (fast, no external dependency); a Bee-backed integration test is a separate, later addition, following the pattern in `tests/test_recordstore_bee.py`.
+Next candidates, in the order `SWARM_DESIGN.md` §8 suggests: run the Bee integration tests against a live node (`test_recordstore_bee.py`, then a Bee-backed adapter test), then the GSOC-based merge (§5) / feed pointer — the latter needs a signing-library decision from the user first.
 
 ## Working across sessions
 
 This is a multi-session project. At the start of each session:
-1. Run the full test suite (`testdag.py`, `testitem.py`, `test_invariants.py`, `test_boundaries.py`, `test_recordstore.py`, `test_recordstore_fuzz.py` — the first two must be named explicitly, see "Running tests") to confirm the starting state matches what this file claims.
+1. Run the full test suite (`testdag.py`, `testitem.py`, `test_invariants.py`, `test_boundaries.py`, `test_swarm_adapter.py`, `test_recordstore.py`, `test_recordstore_fuzz.py` — the first two must be named explicitly, see "Running tests") to confirm the starting state matches what this file claims.
 2. Check which of the two current-task sections above is still open, and update this file's "Definition of done" / "What does not exist yet" sections as work completes — this file should always reflect actual repo state, not a stale plan.
 3. Prefer small, focused commits over large multi-concern ones; each should be reviewable against one invariant or one design-doc section.

@@ -1,9 +1,11 @@
 # Swarm Persistence Design for OntoDAG
 
 Status: `recordstore` implemented and tested (in-memory + fuzz; Bee integration
-test written, not yet run against a live node). `SwarmOntoDAG` adapter not yet
-started. This document is the design rationale; `CLAUDE.md` has operational
-instructions and the current task list.
+test written, not yet run against a live node). The `dag.py` invariant fixes
+(I1–I6) and the `SwarmOntoDAG` adapter (§3/§6 design, `src/ontodag/swarm_adapter.py`,
+tested against `MemoryChunkStore`) are done as of July 2026. This document is
+the design rationale; `CLAUDE.md` has operational instructions and the current
+task list.
 
 Read this before making architectural changes to `recordstore` or starting the
 `SwarmOntoDAG` adapter — it explains *why*, which the code comments don't fully
@@ -268,6 +270,16 @@ snapshot isolation over real storage. **Run this once against a `bee dev`
 node before building anything further on `BeeChunkStore`** — see
 `CLAUDE.md` for the exact command.
 
+Tested (`tests/test_swarm_adapter.py`, 13 tests, added July 2026 with the
+adapter): commit/rehydrate roundtrip with queries on the rehydrated graph,
+history- and put-order-independent canonical roots at the *graph* level (not
+just the record level), idempotent commit, incremental staging (a one-node
+addition does not restage untouched subtrees), structural invariants after
+rehydration, merge from either side converging to the identical root — the
+persisted form of I7 and the direct precondition for §5 — and persisted
+removal. All against `MemoryChunkStore`; a Bee-backed adapter test is still
+missing (same `BEE_API` gate as the recordstore one).
+
 Not tested, consciously deferred: concurrent writers to the same pointer
 (single-writer assumed until §5's GSOC/CRDT layer exists), the feed pointer
 itself (stub, see §5).
@@ -276,14 +288,15 @@ itself (stub, see §5).
 
 1. Run `test_recordstore_bee.py` against a real `bee dev` node (§7) — do
    this before writing more code against `BeeChunkStore`.
-2. Fix the `dag.py` invariant bugs in `tests/test_invariants.py` (see
-   `CLAUDE.md` for the exact list and order) — this is a precondition, not
-   parallel work, because the `SwarmOntoDAG` adapter should inherit clean
-   semantics rather than freeze today's bugs into a content-addressed
-   encoding.
-3. Build `SwarmOntoDAG`: a class implementing `put`/`get`/`remove`/`merge`
-   against the `recordstore` interface, using the schema in §3. This is
-   where fixed Python semantics and the store finally meet.
+2. **Done (July 2026).** Fix the `dag.py` invariant bugs in
+   `tests/test_invariants.py` (see `CLAUDE.md` for the exact list and
+   order) — this was a precondition, not parallel work, because the
+   `SwarmOntoDAG` adapter should inherit clean semantics rather than freeze
+   bugs into a content-addressed encoding.
+3. **Done (July 2026).** Build `SwarmOntoDAG`: a class implementing
+   `put`/`get`/`remove`/`merge` against the `recordstore` interface, using
+   the schema in §3 and the hydrate-once/RAM-first pattern in §6
+   (`src/ontodag/swarm_adapter.py`).
 4. Only then: consider leaf-packing (§4), async batched fetches (§6), the
    GSOC-based merge (§5), and the real feed pointer (§5) — each is an
    internal change behind an interface that shouldn't need to move again.
