@@ -1,7 +1,53 @@
+from contextlib import contextmanager
+
+
+class _EdgeSet(set):
+    """A set of child Items that keeps each child's `parents` set in sync.
+
+    Edges are object references in both directions (`neighbors` down,
+    `parents` up). Several call sites — copy routines, tests building deep
+    graphs — mutate `item.neighbors` directly rather than going through
+    DAG.add_edge, so the reverse adjacency is maintained here in the
+    container instead of in DAG methods.
+    """
+
+    def __init__(self, owner):
+        super().__init__()
+        self._owner = owner
+
+    def add(self, item):
+        super().add(item)
+        item.parents.add(self._owner)
+
+    def remove(self, item):
+        super().remove(item)
+        item.parents.discard(self._owner)
+
+    def discard(self, item):
+        if item in self:
+            super().discard(item)
+            item.parents.discard(self._owner)
+
+    def update(self, *iterables):
+        for iterable in iterables:
+            for item in iterable:
+                self.add(item)
+
+    def clear(self):
+        for item in list(self):
+            self.remove(item)
+
+    def pop(self):
+        item = super().pop()
+        item.parents.discard(self._owner)
+        return item
+
+
 class Item:
     def __init__(self, name):
         self.name = name
-        self.neighbors = set()
+        self.parents = set()
+        self.neighbors = _EdgeSet(self)
         self.descendant_count = 0
 
     def __eq__(self, other):
@@ -24,6 +70,7 @@ class Item:
 class DAG:
     def __init__(self, nodes=None):
         self.nodes = {}
+        self._deferred_dirty = None  # a set while inside _batched_count_updates
         if nodes:
             for node in nodes:
                 self.add_node(node)
@@ -76,15 +123,36 @@ class DAG:
         self._update_descendant_counts(from_node)
 
     def _update_descendant_counts(self, parent):
-        # Reset counts for affected nodes
+        if self._deferred_dirty is not None:
+            # Inside a batched operation: record the seed, refresh at the end.
+            self._deferred_dirty.add(parent)
+            return
         affected = set()
         self._get_affected_nodes(parent, affected)
         for node in affected:
-            node.descendant_count = 0
-
-        # Recalculate counts for affected nodes
-        for node in affected:
             node.descendant_count = len(self.get_descendants(node))
+
+    @contextmanager
+    def _batched_count_updates(self):
+        """Defer descendant-count refreshes until the enclosing operation ends.
+
+        A multi-edge operation (put with several supers, remove's
+        contraction, merge) otherwise recomputes counts once per edge.
+        Re-entrant: only the outermost context flushes.
+        """
+        if self._deferred_dirty is not None:
+            yield
+            return
+        self._deferred_dirty = set()
+        try:
+            yield
+        finally:
+            dirty, self._deferred_dirty = self._deferred_dirty, None
+            affected = set()
+            for seed in dirty:
+                self._get_affected_nodes(seed, affected)
+            for node in affected:
+                node.descendant_count = len(self.get_descendants(node))
 
     def _get_affected_nodes(self, node, affected):
         """Get node and all its ancestors that need count updates"""
@@ -94,9 +162,10 @@ class DAG:
             if current in affected:
                 continue
             affected.add(current)
-            for potential_ancestor in self.nodes.values():
-                if current in potential_ancestor.neighbors:
-                    frontier.append(potential_ancestor)
+            for parent in current.parents:
+                # Only follow parents that belong to this DAG instance.
+                if self.nodes.get(parent.name) is parent:
+                    frontier.append(parent)
 
     def get_descendants(self, node, visited=None):
         if visited is None:
@@ -122,12 +191,13 @@ class DAG:
         frontier = [node]
         while frontier:
             current = frontier.pop()
-            # Check each node in the graph for one that has `current` as a neighbor
-            for potential_parent in self.nodes.values():
-                if current in potential_parent.neighbors:
-                    if potential_parent not in ancestors and potential_parent not in ignore:
-                        ancestors.add(potential_parent)
-                        frontier.append(potential_parent)
+            for parent in current.parents:
+                if parent in ancestors or parent in ignore:
+                    continue
+                # Only follow parents that belong to this DAG instance.
+                if self.nodes.get(parent.name) is parent:
+                    ancestors.add(parent)
+                    frontier.append(parent)
         return ancestors
 
     def intersection_dag(self, other_dag):
@@ -284,8 +354,9 @@ class OntoDAG(DAG):
             bottom = bottom_set(extended)
             super_categories = bottom
 
-        for super_cat in super_categories:
-            self.add_edge(super_cat, subcategory)
+        with self._batched_count_updates():
+            for super_cat in super_categories:
+                self.add_edge(super_cat, subcategory)
 
     def remove(self, node_to_remove):
         if node_to_remove.name not in self.nodes:
@@ -293,28 +364,30 @@ class OntoDAG(DAG):
         if node_to_remove.name == self.root.name:
             raise ValueError("Cannot remove the root.")
 
-        super_categories = {node for node in self.nodes.values() if node_to_remove in node.neighbors}
+        super_categories = {parent for parent in node_to_remove.parents
+                            if self.nodes.get(parent.name) is parent}
         subcategories = set(node_to_remove.neighbors)
 
-        # Remove edges pointing from the removed node
-        for subcategory in subcategories:
-            self.remove_edge(node_to_remove, subcategory)
-
-        # Remove edges pointing to the removed node
-        for super_category in super_categories:
-            self.remove_edge(super_category, node_to_remove)
-
-        del self.nodes[node_to_remove.name]
-        del node_to_remove
-
-        # Add edges from all super-categories of the removed node to all its subcategories
-        for super_category in super_categories:
-            # If the node has any super-category other than the root, an edge from the root is not needed
-            if super_category is self.root and any(super_cat != self.root for super_cat in super_categories):
-                continue
+        with self._batched_count_updates():
+            # Remove edges pointing from the removed node
             for subcategory in subcategories:
-                self.add_edge(super_category, subcategory)
-            self._update_descendant_counts(super_category)
+                self.remove_edge(node_to_remove, subcategory)
+
+            # Remove edges pointing to the removed node
+            for super_category in super_categories:
+                self.remove_edge(super_category, node_to_remove)
+
+            del self.nodes[node_to_remove.name]
+            del node_to_remove
+
+            # Add edges from all super-categories of the removed node to all its subcategories
+            for super_category in super_categories:
+                # If the node has any super-category other than the root, an edge from the root is not needed
+                if super_category is self.root and any(super_cat != self.root for super_cat in super_categories):
+                    continue
+                for subcategory in subcategories:
+                    self.add_edge(super_category, subcategory)
+                self._update_descendant_counts(super_category)
 
     def merge(self, other_dag):
         """Merge another OntoDAG into this one.
@@ -325,24 +398,25 @@ class OntoDAG(DAG):
         if not isinstance(other_dag, OntoDAG):
             raise ValueError("Can only merge with another OntoDAG instance.")
 
-        # Pass 1: add all missing nodes (no edges yet)
-        for node_name in other_dag.nodes:
-            if node_name not in self.nodes:
-                self.add_node(Item(node_name))
+        with self._batched_count_updates():
+            # Pass 1: add all missing nodes (no edges yet)
+            for node_name in other_dag.nodes:
+                if node_name not in self.nodes:
+                    self.add_node(Item(node_name))
 
-        # Pass 2: add edges in topological order (general → specific) using
-        # add_edge so _remove_unneeded_edges prunes redundant edges correctly.
-        for other_node in other_dag.topological_sort():
-            self_node = self.nodes[other_node.name]
-            for neighbor in other_node.neighbors:
-                if neighbor.name in self.nodes:
-                    self.add_edge(self_node, self.nodes[neighbor.name])
+            # Pass 2: add edges in topological order (general → specific) using
+            # add_edge so _remove_unneeded_edges prunes redundant edges correctly.
+            for other_node in other_dag.topological_sort():
+                self_node = self.nodes[other_node.name]
+                for neighbor in other_node.neighbors:
+                    if neighbor.name in self.nodes:
+                        self.add_edge(self_node, self.nodes[neighbor.name])
 
-        self._remove_duplicate_root_edges()
+            self._remove_duplicate_root_edges()
 
-        # Update descendant counts
-        for node in self.nodes.values():
-            self._update_descendant_counts(node)
+            # Update descendant counts
+            for node in self.nodes.values():
+                self._update_descendant_counts(node)
 
     def prune_to_common_descendants(self, interesting_nodes):
         # Gather each node's descendants in a list of sets

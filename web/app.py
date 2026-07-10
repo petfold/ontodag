@@ -89,8 +89,6 @@ def init_session_visualizer():
 @app.route("/dag", methods=["POST"])
 def create_dag():
     my_dag = OntoDAG()
-    my_dag.root.neighbors = set()
-    my_dag.root.descendant_count = 0
     session["my_dag"] = my_dag
     return jsonify({"message": "New OntoDAG created."}), 201
 
