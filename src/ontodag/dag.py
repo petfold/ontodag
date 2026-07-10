@@ -88,12 +88,15 @@ class DAG:
 
     def _get_affected_nodes(self, node, affected):
         """Get node and all its ancestors that need count updates"""
-        if node in affected:
-            return
-        affected.add(node)
-        for potential_ancestor in self.nodes.values():
-            if node in potential_ancestor.neighbors:
-                self._get_affected_nodes(potential_ancestor, affected)
+        frontier = [node]
+        while frontier:
+            current = frontier.pop()
+            if current in affected:
+                continue
+            affected.add(current)
+            for potential_ancestor in self.nodes.values():
+                if current in potential_ancestor.neighbors:
+                    frontier.append(potential_ancestor)
 
     def get_descendants(self, node, visited=None):
         if visited is None:
@@ -102,9 +105,13 @@ class DAG:
             return set()
         visited.add(node)
         descendants = set()  # Descendants of the current node
-        for neighbor in node.neighbors:
-            descendants.add(neighbor)
-            descendants.update(self.get_descendants(neighbor, visited))
+        frontier = [node]
+        while frontier:
+            for neighbor in frontier.pop().neighbors:
+                descendants.add(neighbor)
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    frontier.append(neighbor)
         return descendants
 
     def get_ancestors(self, node, ignore=()):
@@ -112,20 +119,15 @@ class DAG:
             raise ValueError(f"Node {node.name} does not exist in the graph.")
 
         ancestors = set()
-
-        def _get_ancestors_helper(current_node):
-            # Check each node in the graph
+        frontier = [node]
+        while frontier:
+            current = frontier.pop()
+            # Check each node in the graph for one that has `current` as a neighbor
             for potential_parent in self.nodes.values():
-                # If this node has the current node as a neighbor
-                if current_node in potential_parent.neighbors:
-                    # Add it to ancestors if not already present
+                if current in potential_parent.neighbors:
                     if potential_parent not in ancestors and potential_parent not in ignore:
                         ancestors.add(potential_parent)
-                        # Recursively check this parent's ancestors
-                        _get_ancestors_helper(potential_parent)
-
-        # Start the recursive search
-        _get_ancestors_helper(node)
+                        frontier.append(potential_parent)
         return ancestors
 
     def intersection_dag(self, other_dag):
