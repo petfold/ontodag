@@ -8,22 +8,30 @@ OntoDAG is a DAG-based associative memory and category manager. Items are placed
 
 Conceptually OntoDAG is a **subsumption-only ontology**: a multi-parent category lattice kept in transitively reduced form, with one query primitive — the intersection of descendant cones ("everything below *all* of these categories"). It sits deliberately between flat tags/folders (no multi-parent subsumption) and full OWL/description-logic stacks (properties, axioms, reasoning). Its distinguishing property is that the **transitive reduction of a DAG is unique**, which gives the structure a canonical form. That canonical form is what later makes it content-addressable, diffable, and mergeable — see "Planned Swarm integration" below. Keeping the invariants exact is therefore not cosmetic: they are the precondition for the persistence and multi-writer story.
 
+## Branch divergence — read this first
+
+The `recordstore` branch (current working tree) forked from `2b898e6`, **before** the five PRs now on `origin/main`: #1 merge-based DAG workflow, #2 DOT/LaTeX export, #3 car-market demo, #4 Manchester-syntax OWL support, #5 restructuring into a `src/ontodag/` package (with CLI entry point, `pyproject.toml`, and a `conftest.py` identical to the one on this branch). Consequences:
+
+- On `origin/main` the active implementation is `src/ontodag/dag.py`, which contains methods this branch's root-level `dag.py` lacks entirely: `intersection_dag`, `merge`, `copy_subdag`, `_remove_unneeded_edges`, `prune_to_common_descendants`.
+- `tests/test_invariants.py` and the "Known bugs" list below were written against `origin/main`'s `src/ontodag/dag.py` — the line numbers match that file exactly, not this branch's `dag.py`. On this branch the invariant tests fail at **collection**: `from ontodag.dag import ...` resolves to the root-level `ontodag.py` module (which imports `graphviz` at import time) instead of a package.
+- **Reconcile this branch with `origin/main` (rebase or merge) before starting the invariant-fix task.** The work that is new on this branch — `src/recordstore/`, its tests, `docs/SWARM_DESIGN.md`, this file — does not overlap with the restructuring, so the reconciliation should be mostly mechanical; the root-level `dag.py`/`ontodag.py`/`owl.py`/`loader.py` on this branch are superseded by `origin/main`'s package.
+
 ## Running tests
 
-Tests use `pytest` from the repo root. The `graphviz` Python package is not installed in the local environment, so tests that call `OntoDAGVisualizer.visualize()` will fail:
+Tests use `pytest` from the repo root; `conftest.py` puts `src/` on the import path, so no `PYTHONPATH` fiddling is needed. The `graphviz` Python package is not installed in the local environment, so tests that call `OntoDAGVisualizer.visualize()` will fail:
 
 ```bash
-python3 -m pytest tests/testdag.py tests/testitem.py -v   # core DAG logic
-python3 -m pytest tests/test_invariants.py -v              # structural invariant tests (several intentionally fail — see below)
+python3 -m pytest tests/testdag.py tests/testitem.py -v   # core DAG logic (2 graphviz-dependent failures expected locally)
+python3 -m pytest tests/test_invariants.py -v             # currently fails at COLLECTION on this branch — see "Branch divergence"
 ```
 
-The invariant tests in `tests/test_invariants.py` are deliberately written to fail against the current implementation — each failing test is a bug reproduction. Do not treat these failures as regressions. The goal of the current work is to make all of them pass without breaking the existing suite. The helpers in that file (`reach`, `edge_set`) compute reachability independently of the traversal code under test, so they remain a valid oracle even while `dag.py` is being changed.
+The invariant tests in `tests/test_invariants.py` are deliberately written to fail against the implementation on `origin/main` — each failing test is a bug reproduction. Do not treat these failures as regressions. The goal of that task is to make all of them pass without breaking the existing suite. The helpers in that file (`reach`, `edge_set`) compute reachability independently of the traversal code under test, so they remain a valid oracle even while `dag.py` is being changed. Note they only *collect* once this branch has `origin/main`'s `src/ontodag/` package layout.
 
 ## Architecture
 
-There are **two separate implementations**; `dag.py` is the active one:
+There are **two separate implementations**; `dag.py` is the active one. On this branch both sit at the repo root; on `origin/main` the active one lives at `src/ontodag/dag.py` (and `ontodag.py`/`loader.py` no longer exist). `src/` on this branch contains only `recordstore/`.
 
-### `dag.py` — active implementation
+### `dag.py` — active implementation (repo root on this branch; `src/ontodag/dag.py` on `origin/main`)
 - `Item`: graph node with `name`, `neighbors` (set of child `Item`s), `descendant_count`
 - `DAG`: base directed graph — `add_node`, `add_edge`, `remove_edge`, `get_descendants`, `get_ancestors`, `topological_sort`; descendant counts are recalculated from scratch on each structural change
 - `OntoDAG(DAG)`: extends DAG with `put(item, super_categories)`, `get(super_categories)`, `remove(item)` and a root node `*`; `put` accepts an optional `optimized=True` flag that prunes redundant supercategory links before inserting
@@ -61,7 +69,7 @@ The invariant test file documents seven properties the data structure should uph
 
 ## Known bugs and recommended fix order
 
-Line numbers refer to `src/ontodag/dag.py` and may drift as edits land; locate by method name if so. Fix in this order — earlier fixes are preconditions for later tests behaving sensibly.
+Line numbers refer to **`origin/main`'s `src/ontodag/dag.py`** (this branch's root `dag.py` is an older version missing the methods bugs 2 and 3 name — see "Branch divergence") and may drift as edits land; locate by method name if so. Fix in this order — earlier fixes are preconditions for later tests behaving sensibly.
 
 1. **No cycle check in `add_edge` (DAG.add_edge, ~line 35).** Edge insertion never checks reachability, so `put` can create cycles (e.g. `put(A, [])`, `put(B, [A])`, then `put(A, [B])`). Fix: in `add_edge(u, v)`, reject (raise `ValueError`) if `u` is reachable from `v`. Catches I1.
 
@@ -74,7 +82,7 @@ Line numbers refer to `src/ontodag/dag.py` and may drift as edits land; locate b
 5. **Quadratic structure maintenance (root cause: no reverse adjacency).** `Item` stores children but not parents, so `get_ancestors` and `_get_affected_nodes` scan every node in the graph, and `_update_descendant_counts` (~line 61) fully recomputes descendant sets for the changed node and all ancestors on every edge change. Add a `parents` set maintained symmetrically with `neighbors`. This is also the in-memory form of the `up`-list the Swarm record needs (see below), so doing it now aligns both models. For counts: "number of distinct descendants" is not decomposable over a DAG (cones overlap), so prefer marking counts dirty and recomputing lazily via a memoized topological pass rather than per-edge full recomputation. Improves I5 performance; I5 correctness is already testable.
 
 ### Secondary cleanups (not blocking the invariant suite)
-- **`__init__.py` forces an `owlready2` dependency.** `src/ontodag/__init__.py` imports `owl.py` unconditionally, so the core DAG cannot be used without `owlready2` installed. Make the `owl` import lazy/optional.
+- **`__init__.py` forces an `owlready2` dependency.** `origin/main`'s `src/ontodag/__init__.py` imports `ontodag.owl` unconditionally (verified), so the core DAG cannot be used without `owlready2` installed; its `pyproject.toml` also lists `graphviz` and `owlready2` as hard dependencies. Make the `owl` import lazy/optional and move both to optional dependency groups.
 - **API takes `Item` objects but re-resolves by name.** `put`/`get` accept `Item`s then immediately do `self.nodes[x.name]`. Accept plain strings at the public boundary and keep `Item` construction internal (see "Identity" below).
 - **Nondeterministic iteration.** `topological_sort`, `merge`, and any serialization iterate Python `set`s, so output order varies across runs. Sort by name at every iteration point — required for a canonical, content-addressable encoding later.
 - **`print()` in `prune_to_common_descendants`** should be `logging`.
@@ -94,7 +102,7 @@ The graph currently mixes classes and instances as undifferentiated `Item`s (a s
 
 The medium-term goal (see repo roadmap: "DAG-only graph database for Ethereum Swarm" and "plugin to store the DAG in a decentralized way") is to persist OntoDAG on Ethereum Swarm, a content-addressed immutable chunk store.
 
-**Full design rationale is in `docs/SWARM_DESIGN.md` — read it before touching `src/recordstore/` or starting the OntoDAG-Swarm adapter.** It covers: why a generic `recordstore` layer exists at all rather than calling Swarm directly (§2), the node record schema for the eventual adapter (§3), why storage is one-record-per-chunk for now and when that should change (§4), the planned multi-writer/CRDT merge mechanism (§5), the performance model and the four caching layers involved (§6), what's tested vs. not (§7), and the recommended sequencing of remaining work (§8). This file (`CLAUDE.md`) has the day-to-day task list; `SWARM_DESIGN.md` has the "why."
+**Full design rationale is in `docs/SWARM_DESIGN.md` — read it before touching `src/recordstore/` or starting the OntoDAG-Swarm adapter.** It covers: why a generic `recordstore` layer exists at all rather than calling Swarm directly, and the decision (deliberately deferred, with split criteria) on moving `recordstore` to its own repo (§2), the node record schema for the eventual adapter (§3), why storage is one-record-per-chunk for now and when that should change (§4), the planned multi-writer/CRDT merge mechanism (§5), the performance model and the four caching layers involved (§6), what's tested vs. not (§7), and the recommended sequencing of remaining work (§8). This file (`CLAUDE.md`) has the day-to-day task list; `SWARM_DESIGN.md` has the "why."
 
 ### What already exists (`src/recordstore/`)
 
@@ -104,7 +112,7 @@ A versioned key→record store over a content-addressed chunk store — the gene
 - `ChunkStore` backends: `MemoryChunkStore` (test double) and `BeeChunkStore` (real Bee node over `/bytes`).
 - `Pointer` backends: `MemoryPointer`, `FilePointer`. `SwarmFeedPointer` is a documented stub — real feed writes need client-side SOC signing (secp256k1), deliberately deferred; see `SWARM_DESIGN.md` §5.
 
-Tests: `tests/test_recordstore.py` (11 unit tests — canonical roots, snapshot isolation, structural sharing, no-aliasing), `tests/test_recordstore_fuzz.py` (model-based fuzz test against a dict oracle, 12 seeded runs × 400 ops, checks the canonical-root property under arbitrary put/delete histories), `tests/test_recordstore_bee.py` (integration test against a live Bee node — **skips automatically unless `BEE_API` is set; run it once before extending `BeeChunkStore` further**):
+Tests: `tests/test_recordstore.py` (15 unit tests — canonical roots, snapshot isolation, structural sharing, no-aliasing, `FilePointer` persistence/atomicity), `tests/test_recordstore_fuzz.py` (model-based fuzz test against a dict oracle, 12 seeded runs × 400 ops, checks the canonical-root property under arbitrary put/delete histories), `tests/test_recordstore_bee.py` (integration test against a live Bee node — **skips automatically unless `BEE_API` is set; run it once before extending `BeeChunkStore` further**):
 
 ```bash
 python3 -m pytest tests/test_recordstore.py tests/test_recordstore_fuzz.py -v   # no external deps
@@ -123,6 +131,7 @@ BEE_API=http://127.0.0.1:1633 python3 -m pytest tests/test_recordstore_bee.py -v
 
 ## Definition of done (current task: `dag.py` invariant fixes)
 
+- Precondition: this branch is reconciled with `origin/main` (see "Branch divergence"), so the invariant tests collect against `src/ontodag/dag.py`.
 - All tests in `tests/test_invariants.py` pass (12 tests).
 - The existing `tests/testdag.py` and `tests/testitem.py` still pass.
 - No new hard dependency is introduced for the core DAG (the `owlready2`/`graphviz` imports stay optional/lazy).

@@ -69,6 +69,32 @@ belong in the OntoDAG layer regardless. If a second client for
 `recordstore` ever appears, a more general structure can be extracted then,
 which is cheaper than speculating about it now.
 
+### Packaging status (decision, July 2026)
+
+`recordstore` is conceptually independent of OntoDAG — it imports only the
+Python standard library, contains no graph semantics, and the dependency is
+strictly one-directional (ontodag → recordstore). The question of whether it
+should live in its own repository was considered and **deliberately
+deferred**, not rejected:
+
+- **Stay in this repo for now.** The `SwarmOntoDAG` adapter (§3, §8) is the
+  first real consumer and will exert pressure on the interface — batching,
+  leaf-packing (§4), the GSOC merge (§5), the real feed pointer. Splitting
+  repos before the first consumer stabilizes the API turns every interface
+  adjustment into a change/release/pin/bump cycle across two repos.
+- **Keep the boundary mechanically clean** so cohabiting costs nothing:
+  `src/recordstore/` must never import from OntoDAG code and stays
+  stdlib-only; it keeps its own self-contained tests. Because the directory
+  is self-contained, `git filter-repo` / `git subtree split` can extract it
+  later with full history — nothing done now forecloses the split.
+- **Split when any of these become true:** the adapter is done and the API
+  has stopped moving; there's a decision to publish it (PyPI / Swarm
+  community — more attractive if the mantaray-compatibility question above
+  is ever resolved in favor of compatibility); or a second consumer appears.
+- **Cheap middle step** available before a full repo split: give
+  `src/recordstore/` its own `pyproject.toml` so it is installable as its
+  own distribution while still living in this repo.
+
 ## 3. Node record schema (for the `SwarmOntoDAG` adapter — not yet built)
 
 One OntoDAG node is one `recordstore` record, keyed by name:
