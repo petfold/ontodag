@@ -172,6 +172,11 @@ class OntoDAG(DAG):
         """Add a directed edge between two nodes and remove unneeded edges from ancestors."""
         if from_node == to_node or to_node in from_node.neighbors:
             return
+        # Skip the edge entirely if to_node is already reachable — adding it
+        # would violate transitive reduction (and made results depend on the
+        # order of super-categories in put).
+        if self._is_reachable(from_node, to_node):
+            return
         # Reject cycles before _remove_unneeded_edges mutates anything.
         if self._is_reachable(to_node, from_node):
             raise ValueError(

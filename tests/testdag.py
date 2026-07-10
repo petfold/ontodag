@@ -66,7 +66,10 @@ class TestOntoDAG(unittest.TestCase):
         descendants_after = self.dag.get_descendants(ancestor_node)
         self.assertEqual(1, len(descendants_after))
         self.assertEqual(['ABF'], [subcategory.name for subcategory in ancestor_node.neighbors])
-        self.assertEqual(['AB', 'ABF'], sorted([subcategory.name for subcategory in self.a.neighbors]))
+        # A -> ABF must NOT be re-added by the contraction: ABF stays reachable
+        # via A -> AB -> ABF, and the graph is kept transitively reduced (I2).
+        self.assertEqual(['AB'], sorted([subcategory.name for subcategory in self.a.neighbors]))
+        self.assertIn(self.abf, self.dag.get_descendants(self.a))
 
     def test_visualize(self):
         visualizer = OntoDAGVisualizer()
