@@ -1,11 +1,12 @@
 # Swarm Persistence Design for OntoDAG
 
 Status: `recordstore` implemented and tested (in-memory + fuzz; Bee integration
-test written, not yet run against a live node). The `dag.py` invariant fixes
-(I1–I6) and the `SwarmOntoDAG` adapter (§3/§6 design, `src/ontodag/swarm_adapter.py`,
-tested against `MemoryChunkStore`) are done as of July 2026. This document is
-the design rationale; `CLAUDE.md` has operational instructions and the current
-task list.
+tests passed once against a `bee dev` 2.7.1 node — HTTP contract only, see the
+label in §7). The `dag.py` invariant fixes (I1–I6) and the `SwarmOntoDAG`
+adapter (§3/§6 design, `src/ontodag/swarm_adapter.py`, tested against
+`MemoryChunkStore` and smoke-tested over the same dev node) are done as of
+July 2026. This document is the design rationale; `CLAUDE.md` has operational
+instructions and the current task list.
 
 Read this before making architectural changes to `recordstore` or starting the
 `SwarmOntoDAG` adapter — it explains *why*, which the code comments don't fully
@@ -261,14 +262,19 @@ exactly, and the root equals a from-scratch rebuild of the same content —
 i.e., the canonical-root property survives arbitrary interleavings of
 put/delete, not just the hand-picked orderings in the unit tests.
 
-Written but **not yet run** (`tests/test_recordstore_bee.py`, skips cleanly
-without `BEE_API` set): roundtrip through a real Bee node's `/bytes` API
-(header handling, real BMT refs instead of the test double's sha256 refs),
-canonical roots under real Bee refs, a 50KB oversized record round-tripping
-through Bee's splitter as one reference (the hub-node case from §3),
-snapshot isolation over real storage. **Run this once against a `bee dev`
-node before building anything further on `BeeChunkStore`** — see
-`CLAUDE.md` for the exact command.
+Run once, July 2026 (`tests/test_recordstore_bee.py`, skips cleanly without
+`BEE_API` set) — all 4 passing against **`bee dev` v2.7.1**: roundtrip
+through a real Bee node's `/bytes` API (header handling, real BMT refs
+instead of the test double's sha256 refs), canonical roots under real Bee
+refs, a 50KB oversized record round-tripping through Bee's splitter as one
+reference (the hub-node case from §3), snapshot isolation over real storage.
+**Label:** this validates the HTTP contract only. Bee v2.8.0 broke protocol
+compatibility with ≤2.7.x (handshake 15.0.0 / hive 2.0.0) and removed dev
+mode, so a dev-mode 2.7.1 node is an isolated API fake, not evidence of
+real-network behavior (push-sync, retrieval, postage validity/expiry, GC).
+Real-network validation needs the same tests against a funded ≥2.8.1 node
+via `BEE_API`/`BEE_BATCH` — still open; see `CLAUDE.md` "Bee integration
+status".
 
 Tested (`tests/test_swarm_adapter.py`, 13 tests, added July 2026 with the
 adapter): commit/rehydrate roundtrip with queries on the rehydrated graph,
@@ -286,8 +292,9 @@ itself (stub, see §5).
 
 ## 8. Sequencing (what comes after `recordstore`)
 
-1. Run `test_recordstore_bee.py` against a real `bee dev` node (§7) — do
-   this before writing more code against `BeeChunkStore`.
+1. **Done in dev-mode form (July 2026, see §7 for the label).** Run
+   `test_recordstore_bee.py` against a live node. The remaining half is
+   real-network validation against a funded Bee ≥2.8.1 node.
 2. **Done (July 2026).** Fix the `dag.py` invariant bugs in
    `tests/test_invariants.py` (see `CLAUDE.md` for the exact list and
    order) — this was a precondition, not parallel work, because the

@@ -114,15 +114,16 @@ A versioned key→record store over a content-addressed chunk store — the gene
 - `ChunkStore` backends: `MemoryChunkStore` (test double) and `BeeChunkStore` (real Bee node over `/bytes`).
 - `Pointer` backends: `MemoryPointer`, `FilePointer`. `SwarmFeedPointer` is a documented stub — real feed writes need client-side SOC signing (secp256k1), deliberately deferred; see `SWARM_DESIGN.md` §5.
 
-Tests: `tests/test_recordstore.py` (15 unit tests — canonical roots, snapshot isolation, structural sharing, no-aliasing, `FilePointer` persistence/atomicity), `tests/test_recordstore_fuzz.py` (model-based fuzz test against a dict oracle, 12 seeded runs × 400 ops, checks the canonical-root property under arbitrary put/delete histories), `tests/test_recordstore_bee.py` (integration test against a live Bee node — **skips automatically unless `BEE_API` is set; run it once before extending `BeeChunkStore` further**):
+Tests: `tests/test_recordstore.py` (15 unit tests — canonical roots, snapshot isolation, structural sharing, no-aliasing, `FilePointer` persistence/atomicity), `tests/test_recordstore_fuzz.py` (model-based fuzz test against a dict oracle, 12 seeded runs × 400 ops, checks the canonical-root property under arbitrary put/delete histories), `tests/test_recordstore_bee.py` (integration test against a live Bee node — skips automatically unless `BEE_API` is set):
 
 ```bash
 python3 -m pytest tests/test_recordstore.py tests/test_recordstore_fuzz.py -v   # no external deps
 
-# integration test against a real node (do this once before further BeeChunkStore work):
-bee dev --api-addr=127.0.0.1:1633
-BEE_API=http://127.0.0.1:1633 python3 -m pytest tests/test_recordstore_bee.py -v
+# integration test against a live node:
+BEE_API=http://<node>:1633 [BEE_BATCH=<batchID>] python3 -m pytest tests/test_recordstore_bee.py -v
 ```
+
+**Bee integration status (run July 2026 — read the label carefully).** All 4 tests passed, plus an ad-hoc `SwarmOntoDAG`-over-`BeeChunkStore` roundtrip, against **`bee dev` v2.7.1** — the last release shipping dev mode. What this validated: the client↔node **HTTP contract only** (`/bytes` upload/download with real BMT references, `/stamps`, Bee's splitter on oversized records). What it deliberately does NOT validate: anything network-level. Bee v2.8.0 was a breaking network upgrade (handshake 15.0.0, hive 2.0.0), so 2.7.x nodes cannot join today's Swarm at all, and 2.8+ removed dev mode without a lightweight local replacement (the community bee-factory rig is dead since 2022). Real-network validation — push-sync/retrieval across nodes, postage validity and expiry, GC/pinning behavior — requires running these same tests with `BEE_API`/`BEE_BATCH` pointed at your own funded Bee ≥2.8.1 light node; that remains open. Re-run the dev-mode check only if `BeeChunkStore`'s encoding changes; don't mistake it for network validation.
 
 ### `SwarmOntoDAG` adapter (`src/ontodag/swarm_adapter.py`) — DONE (July 2026)
 
@@ -132,7 +133,8 @@ Tests: `tests/test_swarm_adapter.py` (13 tests against `MemoryChunkStore`): roun
 
 ### What does not exist yet
 
-- A Bee-backed `SwarmOntoDAG` integration test (follow the `tests/test_recordstore_bee.py` pattern; needs a live node, same `BEE_API` gate).
+- A committed Bee-backed `SwarmOntoDAG` integration test (an ad-hoc roundtrip passed against `bee dev` 2.7.1 in July 2026, but only as a one-off script; follow the `tests/test_recordstore_bee.py` pattern if making it permanent, same `BEE_API` gate and the same dev-mode caveat above).
+- Real-network validation of `BeeChunkStore` (see "Bee integration status" above — needs a funded Bee ≥2.8.1 node).
 - The GSOC-based CRDT merge (`SWARM_DESIGN.md` §5).
 - The real `SwarmFeedPointer` (needs a signing dependency decision — flag this to the user rather than picking a crypto library unilaterally).
 - Leaf-packing / B-tree-style chunk layout (`SWARM_DESIGN.md` §4) — do not implement pre-emptively; it needs real usage data first.
@@ -145,7 +147,7 @@ Tests: `tests/test_swarm_adapter.py` (13 tests against `MemoryChunkStore`): roun
 
 ## Current task: none assigned
 
-Next candidates, in the order `SWARM_DESIGN.md` §8 suggests: run the Bee integration tests against a live node (`test_recordstore_bee.py`, then a Bee-backed adapter test), then the GSOC-based merge (§5) / feed pointer — the latter needs a signing-library decision from the user first.
+Next candidates, in the order `SWARM_DESIGN.md` §8 suggests: real-network validation against a funded Bee ≥2.8.1 node (the dev-mode API-contract check is done — see "Bee integration status"), then the GSOC-based merge (§5) / feed pointer — the latter needs a signing-library decision from the user first.
 
 ## Working across sessions
 
