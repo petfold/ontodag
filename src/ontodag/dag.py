@@ -41,10 +41,27 @@ class DAG:
             return
         if to_node in from_node.neighbors:
             return
+        if self._is_reachable(to_node, from_node):
+            raise ValueError(
+                f"Edge {from_node.name} -> {to_node.name} would create a cycle."
+            )
 
         from_node.neighbors.add(to_node)
 
         self._update_descendant_counts(from_node)
+
+    def _is_reachable(self, start, target):
+        """True if `target` is strictly reachable from `start` (iterative, early exit)."""
+        seen = set()
+        stack = [start]
+        while stack:
+            for neighbor in stack.pop().neighbors:
+                if neighbor == target:
+                    return True
+                if neighbor not in seen:
+                    seen.add(neighbor)
+                    stack.append(neighbor)
+        return False
 
     def remove_edge(self, from_node, to_node):
         # Verify nodes exist
@@ -153,6 +170,13 @@ class OntoDAG(DAG):
 
     def add_edge(self, from_node, to_node):
         """Add a directed edge between two nodes and remove unneeded edges from ancestors."""
+        if from_node == to_node or to_node in from_node.neighbors:
+            return
+        # Reject cycles before _remove_unneeded_edges mutates anything.
+        if self._is_reachable(to_node, from_node):
+            raise ValueError(
+                f"Edge {from_node.name} -> {to_node.name} would create a cycle."
+            )
         self._remove_unneeded_edges(from_node, to_node)
         super().add_edge(from_node, to_node)
 
