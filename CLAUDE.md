@@ -123,7 +123,12 @@ python3 -m pytest tests/test_recordstore.py tests/test_recordstore_fuzz.py -v   
 BEE_API=http://<node>:1633 [BEE_BATCH=<batchID>] python3 -m pytest tests/test_recordstore_bee.py -v
 ```
 
-**Bee integration status (run July 2026 — read the label carefully).** All 4 tests passed, plus an ad-hoc `SwarmOntoDAG`-over-`BeeChunkStore` roundtrip, against **`bee dev` v2.7.1** — the last release shipping dev mode. What this validated: the client↔node **HTTP contract only** (`/bytes` upload/download with real BMT references, `/stamps`, Bee's splitter on oversized records). What it deliberately does NOT validate: anything network-level. Bee v2.8.0 was a breaking network upgrade (handshake 15.0.0, hive 2.0.0), so 2.7.x nodes cannot join today's Swarm at all, and 2.8+ removed dev mode without a lightweight local replacement (the community bee-factory rig is dead since 2022). Real-network validation — push-sync/retrieval across nodes, postage validity and expiry, GC/pinning behavior — requires running these same tests with `BEE_API`/`BEE_BATCH` pointed at your own funded Bee ≥2.8.1 light node; that remains open. Re-run the dev-mode check only if `BeeChunkStore`'s encoding changes; don't mistake it for network validation.
+**Bee integration status (July 2026).** Two runs, different evidence levels:
+
+1. **`bee dev` v2.7.1** (last release shipping dev mode — 2.8.0 removed it and broke protocol compatibility with 2.7.x, and the community bee-factory rig is dead since 2022): all 4 tests passed, plus an ad-hoc `SwarmOntoDAG`-over-`BeeChunkStore` roundtrip. Validates the client↔node HTTP contract only; an isolated API fake, not network evidence. Re-run only if `BeeChunkStore`'s encoding changes.
+2. **Real node, 2026-07-11:** all 4 tests passed against a live **bee v2.8.1 light node on Gnosis mainnet** (Swarm Desktop's node, `localhost:1633`) using a **real purchased postage batch** (depth 17, immutable, ~2-day TTL). Validates the current bee version, real on-chain stamps, and real BMT refs. Two things learned: mainnet rejects batches below ~1 day of validity at the current storage price, so the test's auto-buy default (`/stamps/100000000/20`) fails on a real node — **always set `BEE_BATCH` against a real node** (also avoids surprise spending); and batch purchase → usable took ~65s on-chain.
+
+Still open at the network level: push-sync/retrievability from *other* nodes (`GET /stewardship/{ref}`), postage expiry behavior, GC/pinning — deferred (weak connection at the time); five-minute check on a good connection with the same `BEE_API`/`BEE_BATCH` recipe. The adapter smoke has run against dev-mode only, not yet against the real node.
 
 ### `SwarmOntoDAG` adapter (`src/ontodag/swarm_adapter.py`) — DONE (July 2026)
 
@@ -147,7 +152,7 @@ Tests: `tests/test_swarm_adapter.py` (13 tests against `MemoryChunkStore`): roun
 
 ## Current task: none assigned
 
-Next candidates, in the order `SWARM_DESIGN.md` §8 suggests: real-network validation against a funded Bee ≥2.8.1 node (the dev-mode API-contract check is done — see "Bee integration status"), then the GSOC-based merge (§5) / feed pointer — the latter needs a signing-library decision from the user first.
+Next candidates, in the order `SWARM_DESIGN.md` §8 suggests: finish the network-level checks (stewardship/retrievability + adapter smoke on the real node — see "Bee integration status"; both are quick once on a good connection), then the GSOC-based merge (§5) / feed pointer — the latter needs a signing-library decision from the user first.
 
 ## Working across sessions
 

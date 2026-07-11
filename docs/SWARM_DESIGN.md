@@ -268,13 +268,17 @@ through a real Bee node's `/bytes` API (header handling, real BMT refs
 instead of the test double's sha256 refs), canonical roots under real Bee
 refs, a 50KB oversized record round-tripping through Bee's splitter as one
 reference (the hub-node case from §3), snapshot isolation over real storage.
-**Label:** this validates the HTTP contract only. Bee v2.8.0 broke protocol
-compatibility with ≤2.7.x (handshake 15.0.0 / hive 2.0.0) and removed dev
-mode, so a dev-mode 2.7.1 node is an isolated API fake, not evidence of
-real-network behavior (push-sync, retrieval, postage validity/expiry, GC).
-Real-network validation needs the same tests against a funded ≥2.8.1 node
-via `BEE_API`/`BEE_BATCH` — still open; see `CLAUDE.md` "Bee integration
-status".
+**Label:** the dev-mode run validates the HTTP contract only. Bee v2.8.0
+broke protocol compatibility with ≤2.7.x (handshake 15.0.0 / hive 2.0.0)
+and removed dev mode, so a dev-mode 2.7.1 node is an isolated API fake.
+
+**Real-node run (2026-07-11):** the same 4 tests also passed against a live
+bee v2.8.1 light node on Gnosis mainnet with a real purchased postage batch
+(depth 17, ~2-day TTL) — current version, real stamps, real BMT refs.
+Caveat discovered: mainnet rejects batches under ~1 day of validity, so the
+test's auto-buy default fails on a real node; set `BEE_BATCH` explicitly.
+Still open: retrievability from other nodes (`/stewardship`), postage
+expiry, GC/pinning — see `CLAUDE.md` "Bee integration status".
 
 Tested (`tests/test_swarm_adapter.py`, 13 tests, added July 2026 with the
 adapter): commit/rehydrate roundtrip with queries on the rehydrated graph,
