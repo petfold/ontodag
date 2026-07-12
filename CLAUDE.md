@@ -96,10 +96,6 @@ Keep both, at different layers:
 - **At every boundary** — public API, serialization, and anything crossing *between* DAG instances — identity is the **name string**. `Item.__eq__`/`__hash__` already compare names only, so names are the true identity; pointer identity must never escape a single `DAG` object. Letting pointer identity leak across instances is exactly what caused the `intersection_dag` aliasing bug (#3).
 - Do **not** convert in-memory `neighbors` to sets of strings — that just adds a dict lookup per hop for no benefit.
 
-## Instance vs class distinction
-
-The graph currently mixes classes and instances as undifferentiated `Item`s (a stored photo and the category `vehicle` are both nodes). The OWL export already assumes every node is a class. Make this explicit — e.g. a `kind` field, or the convention that payload-bearing nodes are instances — before it gets frozen into a persisted encoding.
-
 ## Swarm integration — status and where things live
 
 The medium-term goal (see repo roadmap: "DAG-only graph database for Ethereum Swarm" and "plugin to store the DAG in a decentralized way") is to persist OntoDAG on Ethereum Swarm, a content-addressed immutable chunk store.
