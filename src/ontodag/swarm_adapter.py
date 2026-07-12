@@ -3,9 +3,8 @@
 Implements the design in docs/SWARM_DESIGN.md:
 
 - One record per node, keyed by the node name (§3): ``{"up": [...],
-  "down": [...], "count": int, "kind": "class"|"instance",
-  "payload": ref-or-None, "meta": {...}}`` with `up`/`down` sorted so the
-  encoding is deterministic.
+  "down": [...], "count": int, "payload": ref-or-None, "meta": {...}}``
+  with `up`/`down` sorted so the encoding is deterministic.
 - Hydrate the whole graph into memory once, operate in RAM, and push
   changes back through staged puts + ``commit()`` (§6). Mutation semantics
   (acyclicity, transitive reduction, counts) are entirely inherited from
@@ -28,7 +27,6 @@ class SwarmOntoDAG(OntoDAG):
         super().__init__()
         self.store = record_store
         self._synced = {}          # key -> record as of the last commit/hydrate
-        self._kinds = {}           # name -> "instance" (absent means "class")
         self._payloads = {}        # name -> swarm ref
         self._metas = {}           # name -> dict
         self._hydrate()
@@ -55,7 +53,6 @@ class SwarmOntoDAG(OntoDAG):
                          if self.nodes.get(parent.name) is parent),
             "down": sorted(child.name for child in node.neighbors),
             "count": node.descendant_count,
-            "kind": self._kinds.get(node.name, "class"),
             "payload": self._payloads.get(node.name),
             "meta": self._metas.get(node.name, {}),
         }
@@ -74,8 +71,6 @@ class SwarmOntoDAG(OntoDAG):
             for child_name in record["down"]:
                 node.neighbors.add(self.nodes[child_name])
             node.descendant_count = record["count"]
-            if record.get("kind", "class") != "class":
-                self._kinds[name] = record["kind"]
             if record.get("payload") is not None:
                 self._payloads[name] = record["payload"]
             if record.get("meta"):
@@ -85,16 +80,9 @@ class SwarmOntoDAG(OntoDAG):
     # ------------------------------------------------------------- mutations
 
     def put(self, subcategory, super_categories, optimized=False,
-            kind=None, payload=None, meta=None):
+            payload=None, meta=None):
         super().put(subcategory, super_categories, optimized=optimized)
         name = subcategory.name
-        if kind is not None:
-            if kind not in ("class", "instance"):
-                raise ValueError(f"kind must be 'class' or 'instance', got {kind!r}")
-            if kind == "instance":
-                self._kinds[name] = kind
-            else:
-                self._kinds.pop(name, None)
         if payload is not None:
             self._payloads[name] = payload
         if meta is not None:
@@ -102,7 +90,6 @@ class SwarmOntoDAG(OntoDAG):
 
     def remove(self, node_to_remove):
         super().remove(node_to_remove)
-        self._kinds.pop(node_to_remove.name, None)
         self._payloads.pop(node_to_remove.name, None)
         self._metas.pop(node_to_remove.name, None)
 
@@ -110,8 +97,6 @@ class SwarmOntoDAG(OntoDAG):
         super().merge(other_dag)
         # Carry node extras from the other side; ours win on conflict.
         if isinstance(other_dag, SwarmOntoDAG):
-            for name, kind in other_dag._kinds.items():
-                self._kinds.setdefault(name, kind)
             for name, payload in other_dag._payloads.items():
                 self._payloads.setdefault(name, payload)
             for name, meta in other_dag._metas.items():

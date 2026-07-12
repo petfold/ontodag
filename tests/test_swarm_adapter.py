@@ -1,7 +1,7 @@
 """Tests for SwarmOntoDAG — OntoDAG persisted through a RecordStore.
 
 Follows the schema in docs/SWARM_DESIGN.md §3 (one record per node, keyed by
-name: up/down sorted, count, kind, payload, meta) and the usage pattern in §6
+name: up/down sorted, count, payload, meta) and the usage pattern in §6
 (hydrate into memory once, operate in RAM, sync through put/commit).
 
 Properties:
@@ -15,7 +15,7 @@ Properties:
                        and has consistent descendant counts
   S5  Convergence    - merge + commit from either side yields the same root
                        (the CRDT precondition from SWARM_DESIGN §5)
-  S6  Node extras    - kind/payload/meta survive the roundtrip
+  S6  Node extras    - payload/meta survive the roundtrip
   S7  Removal        - removed nodes disappear from the store, not just RAM
 """
 
@@ -222,13 +222,12 @@ class TestConvergence(unittest.TestCase):
 
 
 class TestNodeExtras(unittest.TestCase):
-    def test_kind_payload_meta_roundtrip(self):
+    def test_payload_meta_roundtrip(self):
         chunks = MemoryChunkStore()
         dag = SwarmOntoDAG(RecordStore(chunks))
         dag.put(Item("photos"), [])
         dag.put(
             Item("IMG_1234"), [Item("photos")],
-            kind="instance",
             payload="deadbeef" * 8,
             meta={"Content-Type": "image/jpeg"},
         )
@@ -236,15 +235,13 @@ class TestNodeExtras(unittest.TestCase):
 
         again = SwarmOntoDAG(RecordStore.at(root, chunks))
         record = again.store.get("IMG_1234")
-        self.assertEqual(record["kind"], "instance")
         self.assertEqual(record["payload"], "deadbeef" * 8)
         self.assertEqual(record["meta"], {"Content-Type": "image/jpeg"})
-        self.assertEqual(again.store.get("photos")["kind"], "class")
         # extras survive a second, unrelated commit cycle
         again2 = SwarmOntoDAG(RecordStore(chunks, root=root))
         again2.put(Item("unrelated"), [])
         again3 = SwarmOntoDAG(RecordStore.at(again2.commit(), chunks))
-        self.assertEqual(again3.store.get("IMG_1234")["kind"], "instance")
+        self.assertEqual(again3.store.get("IMG_1234")["payload"], "deadbeef" * 8)
 
 
 class TestRemoval(unittest.TestCase):

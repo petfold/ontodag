@@ -108,11 +108,14 @@ value: {
   "up":    ["<name>", ...],           # supercategories (sorted)
   "down":  ["<name>", ...],           # subcategories (sorted)
   "count": <int>,                     # descendant_count
-  "kind":  "class" | "instance",      # see CLAUDE.md instance/class note
   "payload": "<swarm ref>" | null,    # optional: content this category tags
   "meta":  {...}                      # optional, e.g. Content-Type
 }
 ```
+
+Nodes are deliberately undifferentiated — there is no class/instance
+`kind` field. Everything is one `Item`; a node that tags stored content is
+simply one with a `payload`.
 
 Both edge directions are stored (unlike current `dag.py`, which only stores
 `down`/`neighbors` — adding `parents` in Python, already on the fix list in
