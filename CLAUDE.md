@@ -140,6 +140,7 @@ Tests: `tests/test_swarm_adapter.py` (13 tests against `MemoryChunkStore`): roun
 - The real `SwarmFeedPointer` (needs a signing dependency decision — flag this to the user rather than picking a crypto library unilaterally).
 - Leaf-packing / B-tree-style chunk layout (`SWARM_DESIGN.md` §4) — do not implement pre-emptively; it needs real usage data first.
 - Async/batched `get_many()` chunk fetches (`SWARM_DESIGN.md` §6) — only relevant once partial loading exists; full hydration reads every record once anyway.
+- Node provenance (`asserted`/`derived` origin, `derived_from`, `endorsed`) and the mdl-fca learned-DAG integration / retrieval-aware MDL direction (`SWARM_DESIGN.md` §8) — roadmap only, no schema field or code yet; it's the flag that will later drive eviction (§6) and shared-vs-personal sync (§5).
 
 ## Previous tasks — DONE (July 2026)
 

@@ -80,7 +80,7 @@ strictly one-directional (ontodag → recordstore). The question of whether it
 should live in its own repository was considered and **deliberately
 deferred**, not rejected:
 
-- **Stay in this repo for now.** The `SwarmOntoDAG` adapter (§3, §8) is the
+- **Stay in this repo for now.** The `SwarmOntoDAG` adapter (§3, §9) is the
   first real consumer and will exert pressure on the interface — batching,
   leaf-packing (§4), the GSOC merge (§5), the real feed pointer. Splitting
   repos before the first consumer stabilizes the API turns every interface
@@ -297,7 +297,128 @@ Not tested, consciously deferred: concurrent writers to the same pointer
 (single-writer assumed until §5's GSOC/CRDT layer exists), the feed pointer
 itself (stub, see §5).
 
-## 8. Sequencing (what comes after `recordstore`)
+## 8. Provenance, and its role in a distributed/learned architecture (future work)
+
+Not started; roadmap only. This section records a design direction we want
+pinned down but are deliberately **not** building yet — no schema field, no
+code. It is here because it constrains two mechanisms already described in
+this doc (caching/eviction in §6, multi-writer sync in §5), and getting those
+right later is cheaper if the provenance idea is on the record now.
+
+### Related project: a structure learner producing the same-shaped DAG
+
+There is a companion structure learner, **mdl-fca**
+(https://github.com/petfold/mdl-fca), that learns "good" concept DAGs from
+binary object×attribute data by minimum description length — a
+probabilistic/MDL reworking of Formal Concept Analysis in which a concept
+exists only if it compresses the data enough to pay for its own description.
+Its DAG model is structurally aligned with OntoDAG's (downward-closure
+semantics, multi-parent, acyclic, bidirectional edges), so a learned DAG can
+become an OntoDAG snapshot through a mostly-identity conversion. That
+alignment is what makes the rest of this section a real integration path
+rather than an analogy: a learner can *emit* the same structure this doc
+persists.
+
+### Where the learner sits: separate package, in-memory access
+
+The learner stays **outside the OntoDAG core**, as its own package/repo
+depending on `ontodag` as a library — a strictly one-directional dependency
+`learner → ontodag`, mirroring the existing `ontodag → recordstore` boundary.
+The core must remain importable and fully functional with no learner present
+(the B1-style discipline in `tests/test_boundaries.py`), so a boundary check
+belongs here too. This keeps algorithms swappable — MDL-FCA today, something
+else later — which is not merely convenient: the provenance schema pins
+`learner_version` precisely because learners are expected to be replaceable.
+
+The obvious objection — "a learner needs fast access to the detailed
+structure, not a slow interface" — conflates two independent choices. The slow
+interface in this project is `recordstore`/Swarm (the *persistence* boundary),
+not the module boundary. A learner in a separate package but running
+in-process gets the same object-reference-speed access to `neighbors`/`parents`
+the core enjoys (the Identity decision preserves those pointer hops within a
+DAG instance), following §6's hydrate-once/RAM-first pattern: all hot work
+against the in-memory graph, the slow interface touched only at commit. Note
+too that mdl-fca's hot-path input is the object×attribute matrix and its own
+lattice-under-construction, with the concept DAG as *output* — so it is not
+doing per-operation random reads against the OntoDAG structure anyway, and
+learning is a periodic batch step, not something interleaved with every `put`.
+
+The one thing to fix deliberately is the **in-memory contract** the learner
+may touch: a clean read view plus a `put(..., origin=derived)` write path,
+rather than reaching into private internals — otherwise keeping the seam would
+quietly freeze OntoDAG's representation, defeating the point. Folding the
+learner into the core would only be justified if a boundary crossing *per graph
+operation* were unavoidable, which batch MDL/FCA learning is not.
+
+### Design idea: tag provenance, don't add an instance/class distinction
+
+The tempting move when mixing learned and asserted structure is an ontological
+**instance vs. class** node distinction. Reject it: it is philosophically
+unstable. Any "instance" can later be subdivided into a category — a book → an
+edition → my copy → my copy when new — with no principled place to stop, so
+the boundary can't be drawn once and trusted.
+
+Instead, tag every node with **provenance**, orthogonal to what the node *is*:
+
+- `origin: asserted | derived`
+  - **asserted** — put there by an external act (user, import, observation).
+    Ground truth; not regenerable; losing it is data loss. Must be retained
+    durably.
+  - **derived** — proposed by a learner (e.g. mdl-fca) because it compressed
+    asserted data. A function of the asserted nodes plus the objective;
+    regenerable by re-running the learner; losing it is only a cache miss.
+- `derived_from: (corpus_root, learner_version) | null` — for derived nodes,
+  the exact immutable snapshot + learner version that would regenerate it.
+  Regenerability is only meaningful relative to a fixed corpus and learner, so
+  it must be pinned, not assumed. (The content-addressed `corpus_root` is
+  exactly the kind of immutable snapshot reference §1 makes cheap.)
+- `endorsed: bool` — a user can promote a derived concept to something they
+  rely on. Once endorsed, re-running the learner may propose a replacement but
+  must not silently overwrite it.
+
+### Why this matters for the architecture already in this doc
+
+- **Postage / eviction policy (§6).** The provenance bit is exactly the flag
+  that says which nodes are droppable. Derived nodes are regenerable → keep
+  warm only when retrieval frequency justifies the storage cost, else let
+  postage lapse and recompute on demand. Asserted nodes are not regenerable →
+  retain durably regardless. This is the semantic input the "which chunks do
+  we pin / keep stamped" question in §6's caching layers currently lacks.
+- **Shared base / personal overlay (§5).** Provenance is orthogonal to
+  shared-vs-personal, giving a 2×2. The commonsense base is largely *derived*
+  (learned from a big corpus, so cheap to distribute — a user with the corpus
+  recomputes it and syncs only the diff). Personal *assertions* are the
+  irreplaceable inputs that need durable postage and backup. Personal
+  *derived* concepts are recomputable per-device. So provenance is the routing
+  information for what must sync durably vs. what can be lazily recomputed —
+  directly feeding the multi-writer merge in §5.
+
+### Adjacent research note: retrieval-aware MDL
+
+Related, and equally deferred: mdl-fca's score already fully accounts for
+**activation** frequency (how often a concept helps generate the data, via its
+usage-coding term). It does not — and structurally cannot — account for
+**retrieval** frequency (how often a concept is read by queries after the graph
+is built), because that is a property of the query workload, not the training
+data.
+
+In the metered, separately-queried Swarm setting there is a genuinely
+additional objective term:
+
+```
+L(data | G) + λ · Σ_c retrieval_freq(c) · storage_cost(c)
+```
+
+where `retrieval_freq` comes from the query log. This term is identically zero
+in the in-memory setting (no retrieval cost) and collapses to nothing when the
+query distribution mirrors the data distribution; it only earns its place when
+the workload diverges from the corpus — likely common for a personal tool,
+where users repeatedly query statistically-rare pet categories. This is a
+research direction, not a committed feature; the real design decision to pin
+down before acting on it is the free parameter **λ** (bits per byte-second of
+storage, access-weighted).
+
+## 9. Sequencing (what comes after `recordstore`)
 
 1. **Done in dev-mode form (July 2026, see §7 for the label).** Run
    `test_recordstore_bee.py` against a live node. The remaining half is
