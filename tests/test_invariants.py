@@ -244,6 +244,36 @@ class TestDeepGraphs(unittest.TestCase):
 
 
 # ----------------------------------------------------------------------------
+# Name-identity at the public boundary: traversals must resolve the caller's
+# Item by name, not walk the caller's object (whose edges may be empty).
+# ----------------------------------------------------------------------------
+
+class TestQueriesWithFreshItems(unittest.TestCase):
+    def _dag(self):
+        return build([
+            ("vehicle", []), ("electric", []),
+            ("car", ["vehicle"]), ("ev", ["car", "electric"]),
+        ])
+
+    def test_get_with_fresh_items_matches_live_nodes(self):
+        dag = self._dag()
+        live = dag.get([dag.nodes["vehicle"], dag.nodes["electric"]])
+        fresh = dag.get([Item("vehicle"), Item("electric")])
+        self.assertEqual({i.name for i in fresh}, {i.name for i in live})
+        self.assertEqual({i.name for i in fresh}, {"ev"})
+
+    def test_get_descendants_with_fresh_item(self):
+        dag = self._dag()
+        names = {i.name for i in dag.get_descendants(Item("vehicle"))}
+        self.assertEqual(names, {"car", "ev"})
+
+    def test_get_ancestors_with_fresh_item(self):
+        dag = self._dag()
+        names = {i.name for i in dag.get_ancestors(Item("ev"), {dag.root})}
+        self.assertEqual(names, {"car", "vehicle", "electric"})
+
+
+# ----------------------------------------------------------------------------
 # I7 - merge algebra (the property the multi-writer / CRDT story rests on)
 # ----------------------------------------------------------------------------
 

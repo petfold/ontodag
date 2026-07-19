@@ -111,6 +111,18 @@ class TestRoundtrip(unittest.TestCase):
         result = again.get([again.nodes["vehicle"], again.nodes["electric"]])
         self.assertEqual({"ev", "ebike"}, {item.name for item in result})
 
+    def test_query_after_rehydrate_with_fresh_items(self):
+        # The natural rehydrated-store usage: the caller has no live node
+        # objects, only names. Regression for the 2026-07-19 real-node smoke,
+        # where fresh Items silently returned the empty set.
+        chunks = MemoryChunkStore()
+        dag = build(RecordStore(chunks), VEHICLES)
+        root = dag.commit()
+
+        again = SwarmOntoDAG(RecordStore.at(root, chunks))
+        result = again.get([Item("vehicle"), Item("electric")])
+        self.assertEqual({"ev", "ebike"}, {item.name for item in result})
+
     def test_empty_dag_roundtrip(self):
         chunks = MemoryChunkStore()
         dag = SwarmOntoDAG(RecordStore(chunks))

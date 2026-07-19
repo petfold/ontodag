@@ -168,6 +168,10 @@ class DAG:
                     frontier.append(parent)
 
     def get_descendants(self, node, visited=None):
+        # Identity at the public boundary is the name: traverse this
+        # instance's node, not the caller's object, whose neighbors may be
+        # empty (e.g. a fresh Item used to query a rehydrated DAG).
+        node = self.nodes.get(node.name, node)
         if visited is None:
             visited = set()
         if node in visited:
@@ -186,6 +190,7 @@ class DAG:
     def get_ancestors(self, node, ignore=()):
         if node.name not in self.nodes:
             raise ValueError(f"Node {node.name} does not exist in the graph.")
+        node = self.nodes[node.name]  # traverse our node, not the caller's
 
         ancestors = set()
         frontier = [node]
