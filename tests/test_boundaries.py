@@ -83,7 +83,7 @@ class TestRecordstoreIsOntodagFree(unittest.TestCase):
     def test_recordstore_source_is_stdlib_only(self):
         # The dependency direction is ontodag -> recordstore, never the
         # reverse. Module-level imports must be stdlib-only; third-party
-        # imports are allowed only lazily inside functions (BeeChunkStore
+        # imports are allowed only lazily inside functions (BeeBytesStore
         # imports `requests` this way), and ontodag is banned everywhere.
         import ast
 

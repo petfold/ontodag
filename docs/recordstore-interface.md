@@ -2,7 +2,7 @@
 
 `recordstore` lives in its own repo, [github.com/petfold/recordstore](https://github.com/petfold/recordstore),
 extracted from this repo in July 2026 with history preserved. OntoDAG pins it in
-`pyproject.toml` (`recordstore @ git+https://github.com/petfold/recordstore.git@v0.1.0`).
+`pyproject.toml` (`recordstore @ git+https://github.com/petfold/recordstore.git@v0.2.0`).
 
 **This is a manually-synced reference doc**, not generated and not a submodule: if the
 pinned version changes, re-check this summary against the tagged source.
@@ -51,10 +51,11 @@ encodings.
 Protocol: `put(data: bytes) → ref`, `get(ref) → bytes` (raises `KeyError` if missing).
 
 - `MemoryChunkStore()` — in-memory dict; the test double.
-- `BeeChunkStore(api_url, postage_batch_id, deferred_upload=True)` — a real Bee node
-  over `POST/GET /bytes`. Imports `requests` lazily (install extra: `recordstore[bee]`).
-  Writes need a usable postage batch; against a real node always supply a purchased
-  batch id (see CLAUDE.md "Bee integration status").
+- `BeeBytesStore(api_url, postage_batch_id, deferred_upload=True)` — a real Bee node
+  over `POST/GET /bytes` (Bee's blob endpoint, not the raw `/chunks/{address}` single-chunk
+  primitive — the name reflects that). Imports `requests` lazily (install extra:
+  `recordstore[bee]`). Writes need a usable postage batch; against a real node always
+  supply a purchased batch id (see CLAUDE.md "Bee integration status").
 
 ## `Pointer` backends
 

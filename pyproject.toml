@@ -11,7 +11,7 @@ requires-python = ">=3.8"
 dependencies = [
     "graphviz",
     "owlready2",
-    "recordstore @ git+https://github.com/petfold/recordstore.git@v0.1.0",
+    "recordstore @ git+https://github.com/petfold/recordstore.git@v0.2.0",
 ]
 
 [project.optional-dependencies]

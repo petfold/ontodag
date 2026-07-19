@@ -135,7 +135,7 @@ Both edge directions are stored (unlike current `dag.py`, which only stores
 
 **Hub nodes:** a typical record (~5-10 edges, short names) is 300-500 bytes,
 comfortably inside one 4 KB chunk. A hub node (the root `*`, or a popular
-category) can exceed that. `recordstore`'s `BeeChunkStore` already handles
+category) can exceed that. `recordstore`'s `BeeBytesStore` already handles
 this transparently — Bee's `/bytes` splitter turns any payload, however
 large, into a chunk tree behind one reference — so oversized records work
 from day one with **no special-casing needed in the record codec**. (An
@@ -247,7 +247,7 @@ ephemeral to slowest/most durable:
 4. **HTTP caching downstream of Bee** — `/bytes/{ref}` responses are
    immutable by definition, so `Cache-Control: public, max-age=31536000,
    immutable` is correct if ever fronted by nginx/a browser/another
-   process. Not wired in `BeeChunkStore` yet; low priority.
+   process. Not wired in `BeeBytesStore` yet; low priority.
 
 **Practical consequence:** for anything that fits in memory (a 100k-node
 ontology is a few tens of MB), the fast pattern is *hydrate into the

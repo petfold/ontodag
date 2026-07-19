@@ -41,7 +41,9 @@ The project is a `src/`-layout package (`pyproject.toml`, `pip install -e .` or 
 
 ### `recordstore` — generic versioned record store (external, see "Swarm integration" below)
 
-Extracted to its own repo **github.com/petfold/recordstore** (July 2026, `git subtree split`, history preserved) and pinned in `pyproject.toml` as `recordstore @ git+https://github.com/petfold/recordstore.git@v0.1.0`. Its test suite (`test_recordstore.py`, `test_recordstore_fuzz.py`, `test_recordstore_bee.py`, plus the ported stdlib-only boundary check) lives in that repo as of `v0.1.1`; this repo keeps only its consumer-side checks (`test_boundaries.py` B2, `test_swarm_adapter.py`). Public-API summary (manually synced): `docs/recordstore-interface.md`.
+Extracted to its own repo **github.com/petfold/recordstore** (July 2026, `git subtree split`, history preserved) and pinned in `pyproject.toml` as `recordstore @ git+https://github.com/petfold/recordstore.git@v0.2.0`. Its test suite (`test_recordstore.py`, `test_recordstore_fuzz.py`, `test_recordstore_bee.py`, plus the ported stdlib-only boundary check) lives in that repo as of `v0.1.1`; this repo keeps only its consumer-side checks (`test_boundaries.py` B2, `test_swarm_adapter.py`). Public-API summary (manually synced): `docs/recordstore-interface.md`.
+
+`BeeChunkStore` was renamed to **`BeeBytesStore`** in `v0.2.0` (2026-07-19) — the class wraps Bee's `/bytes` (blob-level) endpoint, not the raw `/chunks/{address}` single-chunk primitive, and the old name implied the latter. The pin above was bumped for this; no OntoDAG source code referenced the old name (only docs/tests, updated in the same pass).
 
 ### `web/`
 Flask REST API + UI wrapping `OntoDAG`, including the car-market demo (`/market`).
@@ -68,7 +70,7 @@ The invariant test file documents seven properties the data structure should uph
 ## Dependency boundaries (from `tests/test_boundaries.py` — must always pass)
 
 - **B1 The core stays Swarm-free.** The `ontodag` package must remain importable and fully functional with no Swarm, no `recordstore`, no network, and no optional dependency installed (`owlready2`, `graphviz`, `dot2tex`, `flask`). The Swarm layer is an optional persistence backend layered *on top of* the data structure — never a requirement of it. When the `SwarmOntoDAG` adapter lands, it must be reachable only via explicit import (and eventually an `[swarm]` extra in `pyproject.toml`), keeping plain `import ontodag` clean.
-- **B2 `recordstore` never depends on OntoDAG** and keeps its module-level imports stdlib-only (third-party imports like `requests` in `BeeChunkStore` stay lazy inside methods). This boundary made the July 2026 extraction to `github.com/petfold/recordstore` cheap — see `SWARM_DESIGN.md` §2; the checks now run against the installed package.
+- **B2 `recordstore` never depends on OntoDAG** and keeps its module-level imports stdlib-only (third-party imports like `requests` in `BeeBytesStore` stay lazy inside methods). This boundary made the July 2026 extraction to `github.com/petfold/recordstore` cheap — see `SWARM_DESIGN.md` §2; the checks now run against the installed package.
 
 ## Known bugs and fix status
 
@@ -104,12 +106,12 @@ The medium-term goal (see repo roadmap: "DAG-only graph database for Ethereum Sw
 
 **Full design rationale is in `docs/SWARM_DESIGN.md` — read it before touching `recordstore` or the OntoDAG-Swarm adapter.** It covers: why a generic `recordstore` layer exists at all rather than calling Swarm directly, and the move of `recordstore` to its own repo (§2 — executed July 2026, see the update note there), the node record schema for the eventual adapter (§3), why storage is one-record-per-chunk for now and when that should change (§4), the planned multi-writer/CRDT merge mechanism (§5), the performance model and the four caching layers involved (§6), what's tested vs. not (§7), and the recommended sequencing of remaining work (§8). This file (`CLAUDE.md`) has the day-to-day task list; `SWARM_DESIGN.md` has the "why."
 
-### What already exists (the `recordstore` package — external repo, pinned v0.1.0)
+### What already exists (the `recordstore` package — external repo, pinned v0.2.0)
 
 A versioned key→record store over a content-addressed chunk store — the generic substrate `OntoDAG`-on-Swarm will sit on. Implemented and tested:
 - `RecordStore`: staged put/get/delete, `commit() → root`, `RecordStore.at(root)` read-only snapshots, sorted prefix iteration (`keys(prefix)`).
 - A persistent, canonically-encoded compacted radix trie (own implementation, not mantaray — see `SWARM_DESIGN.md` §2 for why compatibility with mantaray was deferred rather than required).
-- `ChunkStore` backends: `MemoryChunkStore` (test double) and `BeeChunkStore` (real Bee node over `/bytes`).
+- `ChunkStore` backends: `MemoryChunkStore` (test double) and `BeeBytesStore` (real Bee node over `/bytes`).
 - `Pointer` backends: `MemoryPointer`, `FilePointer`. `SwarmFeedPointer` is a documented stub — real feed writes need client-side SOC signing (secp256k1), deliberately deferred; see `SWARM_DESIGN.md` §5.
 
 Tests (in the recordstore repo since `v0.1.1`, run them from a checkout of that repo): `tests/test_recordstore.py` (15 unit tests — canonical roots, snapshot isolation, structural sharing, no-aliasing, `FilePointer` persistence/atomicity), `tests/test_recordstore_fuzz.py` (model-based fuzz test against a dict oracle, 12 seeded runs × 400 ops, checks the canonical-root property under arbitrary put/delete histories), `tests/test_recordstore_bee.py` (integration test against a live Bee node — skips automatically unless `BEE_API` is set):
@@ -124,12 +126,12 @@ BEE_API=http://<node>:1633 [BEE_BATCH=<batchID>] python3 -m pytest tests/test_re
 
 **Bee integration status (July 2026).** Two runs, different evidence levels:
 
-1. **`bee dev` v2.7.1** (last release shipping dev mode — 2.8.0 removed it and broke protocol compatibility with 2.7.x, and the community bee-factory rig is dead since 2022): all 4 tests passed, plus an ad-hoc `SwarmOntoDAG`-over-`BeeChunkStore` roundtrip. Validates the client↔node HTTP contract only; an isolated API fake, not network evidence. Re-run only if `BeeChunkStore`'s encoding changes.
+1. **`bee dev` v2.7.1** (last release shipping dev mode — 2.8.0 removed it and broke protocol compatibility with 2.7.x, and the community bee-factory rig is dead since 2022): all 4 tests passed, plus an ad-hoc `SwarmOntoDAG`-over-`BeeBytesStore` roundtrip. Validates the client↔node HTTP contract only; an isolated API fake, not network evidence. Re-run only if `BeeBytesStore`'s encoding changes.
 2. **Real node, 2026-07-11:** all 4 tests passed against a live **bee v2.8.1 light node on Gnosis mainnet** (Swarm Desktop's node, `localhost:1633`) using a **real purchased postage batch** (depth 17, immutable, ~2-day TTL). Validates the current bee version, real on-chain stamps, and real BMT refs. Two things learned: mainnet rejects batches below ~1 day of validity at the current storage price, so the test's auto-buy default (`/stamps/100000000/20`) fails on a real node — **always set `BEE_BATCH` against a real node** (also avoids surprise spending); and batch purchase → usable took ~65s on-chain.
 
 3. **Real node, 2026-07-19:** all 4 tests passed again, this time run from the extracted recordstore repo (post-`v0.1.1` move), against Swarm Desktop's bee v2.8.1 light node on Gnosis mainnet with a fresh purchased batch (depth 17, immutable, ~2-day TTL, ≈0.03 xBZZ). Operational notes: the node needed ~8.5 min after launch before `/chainstate`/`/wallet` responded (peers connect much sooner — wait for chainstate, not peers), and batch purchase → usable took ~70s, matching the July observation.
 
-Also done 2026-07-19, same node/batch: **retrievability** — `GET /stewardship/{root}` returned `isRetrievable: true` (push-sync out of the light node works); and the **adapter smoke against the real node** — `SwarmOntoDAG` over `BeeChunkStore` roundtrip (commit → rehydrate in a fresh instance → query → idempotent re-commit), with two independent runs producing the identical root on real BMT refs. That run also surfaced a real API quirk, since fixed: `get_descendants`/`get_ancestors` traversed the caller's `Item` object rather than re-resolving by name, so querying a *rehydrated* DAG with fresh `Item("x")` objects silently returned the empty set. Both now resolve `self.nodes[node.name]` first (regression tests: `TestQueriesWithFreshItems` in `test_invariants.py`, `test_query_after_rehydrate_with_fresh_items` in `test_swarm_adapter.py`).
+Also done 2026-07-19, same node/batch: **retrievability** — `GET /stewardship/{root}` returned `isRetrievable: true` (push-sync out of the light node works); and the **adapter smoke against the real node** — `SwarmOntoDAG` over `BeeBytesStore` roundtrip (commit → rehydrate in a fresh instance → query → idempotent re-commit), with two independent runs producing the identical root on real BMT refs. That run also surfaced a real API quirk, since fixed: `get_descendants`/`get_ancestors` traversed the caller's `Item` object rather than re-resolving by name, so querying a *rehydrated* DAG with fresh `Item("x")` objects silently returned the empty set. Both now resolve `self.nodes[node.name]` first (regression tests: `TestQueriesWithFreshItems` in `test_invariants.py`, `test_query_after_rehydrate_with_fresh_items` in `test_swarm_adapter.py`).
 
 Still open at the network level: postage expiry behavior and GC/pinning.
 
@@ -142,7 +144,7 @@ Tests: `tests/test_swarm_adapter.py` (13 tests against `MemoryChunkStore`): roun
 ### What does not exist yet
 
 - A committed Bee-backed `SwarmOntoDAG` integration test (an ad-hoc roundtrip passed against `bee dev` 2.7.1 in July 2026, but only as a one-off script; follow the pattern of `test_recordstore_bee.py` — now in the recordstore repo — if making it permanent, same `BEE_API` gate and the same dev-mode caveat above).
-- Real-network validation of `BeeChunkStore` (see "Bee integration status" above — needs a funded Bee ≥2.8.1 node).
+- Real-network validation of `BeeBytesStore` (see "Bee integration status" above — needs a funded Bee ≥2.8.1 node).
 - The GSOC-based CRDT merge (`SWARM_DESIGN.md` §5).
 - The real `SwarmFeedPointer` (needs a signing dependency decision — flag this to the user rather than picking a crypto library unilaterally).
 - Leaf-packing / B-tree-style chunk layout (`SWARM_DESIGN.md` §4) — do not implement pre-emptively; it needs real usage data first.
