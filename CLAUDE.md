@@ -28,7 +28,7 @@ All 12 invariant tests pass as of July 2026 (fixes I1–I4, I6 landed; see "Know
 
 ## Architecture
 
-The project is a `src/`-layout package (`pyproject.toml`, `pip install -e .` or run from the repo root via `conftest.py`'s path insert). Two top-level packages, with a strictly one-directional (future) dependency ontodag → recordstore:
+The project is a `src/`-layout package (`pyproject.toml`, `pip install -e .` or run from the repo root via `conftest.py`'s path insert). One top-level package (`ontodag`), plus the external `recordstore` dependency (see below) with a strictly one-directional dependency ontodag → recordstore:
 
 ### `src/ontodag/` — the core data structure
 - `dag.py`:
@@ -39,7 +39,9 @@ The project is a `src/`-layout package (`pyproject.toml`, `pip install -e .` or 
 - `owl.py`: OWL import/export via `owlready2`, including Manchester syntax; reached lazily through `ontodag.OWLOntology` (module `__getattr__` in `__init__.py`), so importing the core never touches `owlready2`
 - `__main__.py`: CLI (`python3 -m ontodag` or the `ontodag` script) for import/export/query on OWL files
 
-### `src/recordstore/` — generic versioned record store (see "Swarm integration" below)
+### `recordstore` — generic versioned record store (external, see "Swarm integration" below)
+
+Extracted to its own repo **github.com/petfold/recordstore** (July 2026, `git subtree split`, history preserved) and pinned in `pyproject.toml` as `recordstore @ git+https://github.com/petfold/recordstore.git@v0.1.0`. Its test suite still lives in this repo (`tests/test_recordstore*.py`) and runs against the installed package. Public-API summary (manually synced): `docs/recordstore-interface.md`.
 
 ### `web/`
 Flask REST API + UI wrapping `OntoDAG`, including the car-market demo (`/market`).
@@ -66,7 +68,7 @@ The invariant test file documents seven properties the data structure should uph
 ## Dependency boundaries (from `tests/test_boundaries.py` — must always pass)
 
 - **B1 The core stays Swarm-free.** The `ontodag` package must remain importable and fully functional with no Swarm, no `recordstore`, no network, and no optional dependency installed (`owlready2`, `graphviz`, `dot2tex`, `flask`). The Swarm layer is an optional persistence backend layered *on top of* the data structure — never a requirement of it. When the `SwarmOntoDAG` adapter lands, it must be reachable only via explicit import (and eventually an `[swarm]` extra in `pyproject.toml`), keeping plain `import ontodag` clean.
-- **B2 `recordstore` never depends on OntoDAG** and keeps its module-level imports stdlib-only (third-party imports like `requests` in `BeeChunkStore` stay lazy inside methods). This is the boundary that keeps a later extraction to its own repo cheap — see `SWARM_DESIGN.md` §2.
+- **B2 `recordstore` never depends on OntoDAG** and keeps its module-level imports stdlib-only (third-party imports like `requests` in `BeeChunkStore` stay lazy inside methods). This boundary made the July 2026 extraction to `github.com/petfold/recordstore` cheap — see `SWARM_DESIGN.md` §2; the checks now run against the installed package.
 
 ## Known bugs and fix status
 
@@ -100,9 +102,9 @@ Keep both, at different layers:
 
 The medium-term goal (see repo roadmap: "DAG-only graph database for Ethereum Swarm" and "plugin to store the DAG in a decentralized way") is to persist OntoDAG on Ethereum Swarm, a content-addressed immutable chunk store.
 
-**Full design rationale is in `docs/SWARM_DESIGN.md` — read it before touching `src/recordstore/` or starting the OntoDAG-Swarm adapter.** It covers: why a generic `recordstore` layer exists at all rather than calling Swarm directly, and the decision (deliberately deferred, with split criteria) on moving `recordstore` to its own repo (§2), the node record schema for the eventual adapter (§3), why storage is one-record-per-chunk for now and when that should change (§4), the planned multi-writer/CRDT merge mechanism (§5), the performance model and the four caching layers involved (§6), what's tested vs. not (§7), and the recommended sequencing of remaining work (§8). This file (`CLAUDE.md`) has the day-to-day task list; `SWARM_DESIGN.md` has the "why."
+**Full design rationale is in `docs/SWARM_DESIGN.md` — read it before touching `recordstore` or the OntoDAG-Swarm adapter.** It covers: why a generic `recordstore` layer exists at all rather than calling Swarm directly, and the move of `recordstore` to its own repo (§2 — executed July 2026, see the update note there), the node record schema for the eventual adapter (§3), why storage is one-record-per-chunk for now and when that should change (§4), the planned multi-writer/CRDT merge mechanism (§5), the performance model and the four caching layers involved (§6), what's tested vs. not (§7), and the recommended sequencing of remaining work (§8). This file (`CLAUDE.md`) has the day-to-day task list; `SWARM_DESIGN.md` has the "why."
 
-### What already exists (`src/recordstore/`)
+### What already exists (the `recordstore` package — external repo, pinned v0.1.0)
 
 A versioned key→record store over a content-addressed chunk store — the generic substrate `OntoDAG`-on-Swarm will sit on. Implemented and tested:
 - `RecordStore`: staged put/get/delete, `commit() → root`, `RecordStore.at(root)` read-only snapshots, sorted prefix iteration (`keys(prefix)`).

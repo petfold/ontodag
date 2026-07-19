@@ -8,7 +8,10 @@ docs/SWARM_DESIGN.md §2):
       (owlready2, graphviz, dot2tex, flask). The Swarm layer is an optional
       persistence backend, not part of the data structure.
   B2  `recordstore` must never depend on OntoDAG — it is a generic record
-      store with no graph semantics — and it stays stdlib-only.
+      store with no graph semantics — and it stays stdlib-only. Since its
+      extraction to github.com/petfold/recordstore (July 2026) it is an
+      installed dependency, so these checks run against the installed
+      package rather than an in-repo source tree.
 
 Import checks run in a fresh subprocess so results are not polluted by
 whatever this test process has already imported.
@@ -91,7 +94,10 @@ class TestRecordstoreIsOntodagFree(unittest.TestCase):
                 return [node.module.split(".")[0]]
             return []                        # relative import or not an import
 
-        pkg_dir = os.path.join(SRC, "recordstore")
+        import importlib.util
+        spec = importlib.util.find_spec("recordstore")
+        self.assertIsNotNone(spec, "recordstore is not installed")
+        pkg_dir = spec.submodule_search_locations[0]
         for fname in sorted(os.listdir(pkg_dir)):
             if not fname.endswith(".py"):
                 continue
