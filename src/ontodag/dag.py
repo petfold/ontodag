@@ -227,19 +227,25 @@ class DAG:
         return intersecting_dag
 
     def topological_sort(self):
+        # Iterative post-order DFS (I6: no recursion, deep graphs would hit
+        # the Python recursion limit).
         visited = set()
         stack = []
-
-        def visit(node):
-            if node in visited:
-                return
-            visited.add(node)
-            for neighbor in node.neighbors:
-                visit(neighbor)
-            stack.append(node)
-
-        for node in self.nodes.values():
-            visit(node)
+        for start in self.nodes.values():
+            if start in visited:
+                continue
+            visited.add(start)
+            path = [(start, iter(start.neighbors))]
+            while path:
+                node, neighbors = path[-1]
+                for neighbor in neighbors:
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        path.append((neighbor, iter(neighbor.neighbors)))
+                        break
+                else:
+                    stack.append(node)
+                    path.pop()
         # Nodes in topological order, with the root first
         return stack[::-1]
 

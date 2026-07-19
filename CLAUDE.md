@@ -81,9 +81,9 @@ Fixed (July 2026), one commit per invariant:
 
 5. ~~**Quadratic structure maintenance.**~~ **Fixed (July 2026)** — `Item` has a `parents` set maintained symmetrically with `neighbors` via `_EdgeSet` (a set subclass that syncs the reverse direction even under direct `neighbors` mutation); `get_ancestors`, `_get_affected_nodes` and `remove` walk `parents` instead of scanning the graph; descendant-count refreshes are batched per public operation (`_batched_count_updates`) instead of per edge. `parents` is the in-memory form of the record schema's `up` list, so the in-memory and persisted shapes now match.
 
-Still open:
+6. ~~**`topological_sort` is still recursive.**~~ **Fixed (July 2026)** — iterative post-order DFS with an explicit `(node, iterator)` path stack, completing I6; covered by `test_topological_sort_is_iterative` (1500-deep chain) and an ordering test in `test_invariants.py`.
 
-6. **`topological_sort` is still recursive** (used by `merge` and optimized `put`), so those can still hit the recursion limit on graphs deeper than ~1000 levels; not covered by I6's tests. Convert to iterative post-order when touched next.
+No known open bugs in `dag.py`; remaining items are the secondary cleanups below.
 
 ### Secondary cleanups (not blocking the invariant suite)
 - ~~**`__init__.py` forces an `owlready2` dependency.**~~ **Done** — `src/ontodag/__init__.py` now exposes `OWLOntology` via a lazy module `__getattr__`, enforced by `tests/test_boundaries.py`. Still open: `pyproject.toml` lists `graphviz` and `owlready2` as hard dependencies; move them to optional dependency groups (like the existing `[web]` extra).

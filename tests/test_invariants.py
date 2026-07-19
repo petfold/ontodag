@@ -242,6 +242,25 @@ class TestDeepGraphs(unittest.TestCase):
         ancestors = dag.get_ancestors(dag.nodes[f"n{self.DEPTH - 1}"])
         self.assertEqual(len(ancestors), self.DEPTH - 1)
 
+    def test_topological_sort_is_iterative(self):
+        dag = self._make_chain()
+        order = dag.topological_sort()
+        self.assertEqual(len(order), self.DEPTH)
+        self.assertEqual(order[0].name, "n0")
+        self.assertEqual(order[-1].name, f"n{self.DEPTH - 1}")
+
+    def test_topological_sort_parents_precede_children(self):
+        dag = build([
+            ("A", []), ("B", []), ("AB", ["A", "B"]),
+            ("C", ["A"]), ("X", ["AB", "C"]),
+        ])
+        position = {node.name: i for i, node in enumerate(dag.topological_sort())}
+        self.assertEqual(len(position), len(dag.nodes))
+        for node in dag.nodes.values():
+            for child in node.neighbors:
+                self.assertLess(position[node.name], position[child.name],
+                                f"{node.name} must come before {child.name}")
+
 
 # ----------------------------------------------------------------------------
 # Name-identity at the public boundary: traversals must resolve the caller's
