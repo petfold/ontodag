@@ -129,7 +129,9 @@ BEE_API=http://<node>:1633 [BEE_BATCH=<batchID>] python3 -m pytest tests/test_re
 
 3. **Real node, 2026-07-19:** all 4 tests passed again, this time run from the extracted recordstore repo (post-`v0.1.1` move), against Swarm Desktop's bee v2.8.1 light node on Gnosis mainnet with a fresh purchased batch (depth 17, immutable, ~2-day TTL, ≈0.03 xBZZ). Operational notes: the node needed ~8.5 min after launch before `/chainstate`/`/wallet` responded (peers connect much sooner — wait for chainstate, not peers), and batch purchase → usable took ~70s, matching the July observation.
 
-Still open at the network level: push-sync/retrievability from *other* nodes (`GET /stewardship/{ref}`), postage expiry behavior, GC/pinning — deferred (weak connection at the time); five-minute check on a good connection with the same `BEE_API`/`BEE_BATCH` recipe. The adapter smoke has run against dev-mode only, not yet against the real node.
+Also done 2026-07-19, same node/batch: **retrievability** — `GET /stewardship/{root}` returned `isRetrievable: true` (push-sync out of the light node works); and the **adapter smoke against the real node** — `SwarmOntoDAG` over `BeeChunkStore` roundtrip (commit → rehydrate in a fresh instance → query → idempotent re-commit), with two independent runs producing the identical root on real BMT refs. That run also surfaced a real API quirk: `get()`/`get_descendants()` traverse the caller's `Item` object rather than re-resolving by name, so querying a *rehydrated* DAG with fresh `Item("x")` objects silently returns the empty set — resolve via `dag.nodes[name]` until the "accept strings at the public boundary" cleanup lands.
+
+Still open at the network level: postage expiry behavior and GC/pinning.
 
 ### `SwarmOntoDAG` adapter (`src/ontodag/swarm_adapter.py`) — DONE (July 2026)
 
