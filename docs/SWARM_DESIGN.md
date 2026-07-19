@@ -78,9 +78,11 @@ which is cheaper than speculating about it now.
 > API has stopped moving" criterion below was met, and `recordstore` was
 > extracted via `git subtree split` (history preserved) to
 > **github.com/petfold/recordstore**, tagged `v0.1.0`, and re-wired into this
-> repo as a pinned git dependency in `pyproject.toml`. Its test suite still
-> lives here for now (`tests/test_recordstore*.py`), exercising the installed
-> package. A summary of the public API is kept (manually synced) in
+> repo as a pinned git dependency in `pyproject.toml`. Its test suite moved
+> to that repo as of its `v0.1.1` (the `tests/test_recordstore*.py` paths in
+> §7 now resolve there); this repo keeps the consumer-side checks
+> (`test_boundaries.py` B2, `test_swarm_adapter.py`).
+> A summary of the public API is kept (manually synced) in
 > `docs/recordstore-interface.md`. The rationale below is preserved as the
 > record of the original decision.
 

@@ -22,7 +22,7 @@ python3 -m pytest tests/test_invariants.py -v              # structural invarian
 python3 -m pytest tests/test_boundaries.py -v              # dependency-boundary tests (must always pass)
 ```
 
-Expected failures in the local environment (missing optional deps, not regressions): `owlready2` is not installed, so `tests/testowl.py` fails at collection. `graphviz` and `dot2tex` were installed in July 2026, so the three rendering tests in `testdag.py` now pass — the full suite above is 59/59 green.
+Expected failures in the local environment (missing optional deps, not regressions): `owlready2` is not installed, so `tests/testowl.py` fails at collection. `graphviz` and `dot2tex` were installed in July 2026, so the three rendering tests in `testdag.py` now pass — the full suite above is 43/43 green (it was 59 before the recordstore tests moved to the recordstore repo).
 
 All 12 invariant tests pass as of July 2026 (fixes I1–I4, I6 landed; see "Known bugs" below for what remains). The helpers in `tests/test_invariants.py` (`reach`, `edge_set`) compute reachability independently of the traversal code under test, so they remain a valid oracle while `dag.py` is being changed.
 
@@ -41,7 +41,7 @@ The project is a `src/`-layout package (`pyproject.toml`, `pip install -e .` or 
 
 ### `recordstore` — generic versioned record store (external, see "Swarm integration" below)
 
-Extracted to its own repo **github.com/petfold/recordstore** (July 2026, `git subtree split`, history preserved) and pinned in `pyproject.toml` as `recordstore @ git+https://github.com/petfold/recordstore.git@v0.1.0`. Its test suite still lives in this repo (`tests/test_recordstore*.py`) and runs against the installed package. Public-API summary (manually synced): `docs/recordstore-interface.md`.
+Extracted to its own repo **github.com/petfold/recordstore** (July 2026, `git subtree split`, history preserved) and pinned in `pyproject.toml` as `recordstore @ git+https://github.com/petfold/recordstore.git@v0.1.0`. Its test suite (`test_recordstore.py`, `test_recordstore_fuzz.py`, `test_recordstore_bee.py`, plus the ported stdlib-only boundary check) lives in that repo as of `v0.1.1`; this repo keeps only its consumer-side checks (`test_boundaries.py` B2, `test_swarm_adapter.py`). Public-API summary (manually synced): `docs/recordstore-interface.md`.
 
 ### `web/`
 Flask REST API + UI wrapping `OntoDAG`, including the car-market demo (`/market`).
@@ -112,10 +112,11 @@ A versioned key→record store over a content-addressed chunk store — the gene
 - `ChunkStore` backends: `MemoryChunkStore` (test double) and `BeeChunkStore` (real Bee node over `/bytes`).
 - `Pointer` backends: `MemoryPointer`, `FilePointer`. `SwarmFeedPointer` is a documented stub — real feed writes need client-side SOC signing (secp256k1), deliberately deferred; see `SWARM_DESIGN.md` §5.
 
-Tests: `tests/test_recordstore.py` (15 unit tests — canonical roots, snapshot isolation, structural sharing, no-aliasing, `FilePointer` persistence/atomicity), `tests/test_recordstore_fuzz.py` (model-based fuzz test against a dict oracle, 12 seeded runs × 400 ops, checks the canonical-root property under arbitrary put/delete histories), `tests/test_recordstore_bee.py` (integration test against a live Bee node — skips automatically unless `BEE_API` is set):
+Tests (in the recordstore repo since `v0.1.1`, run them from a checkout of that repo): `tests/test_recordstore.py` (15 unit tests — canonical roots, snapshot isolation, structural sharing, no-aliasing, `FilePointer` persistence/atomicity), `tests/test_recordstore_fuzz.py` (model-based fuzz test against a dict oracle, 12 seeded runs × 400 ops, checks the canonical-root property under arbitrary put/delete histories), `tests/test_recordstore_bee.py` (integration test against a live Bee node — skips automatically unless `BEE_API` is set):
 
 ```bash
-python3 -m pytest tests/test_recordstore.py tests/test_recordstore_fuzz.py -v   # no external deps
+# from a checkout of github.com/petfold/recordstore:
+python3 -m pytest tests/ -v   # no external deps; Bee tests skip without BEE_API
 
 # integration test against a live node:
 BEE_API=http://<node>:1633 [BEE_BATCH=<batchID>] python3 -m pytest tests/test_recordstore_bee.py -v
@@ -136,7 +137,7 @@ Tests: `tests/test_swarm_adapter.py` (13 tests against `MemoryChunkStore`): roun
 
 ### What does not exist yet
 
-- A committed Bee-backed `SwarmOntoDAG` integration test (an ad-hoc roundtrip passed against `bee dev` 2.7.1 in July 2026, but only as a one-off script; follow the `tests/test_recordstore_bee.py` pattern if making it permanent, same `BEE_API` gate and the same dev-mode caveat above).
+- A committed Bee-backed `SwarmOntoDAG` integration test (an ad-hoc roundtrip passed against `bee dev` 2.7.1 in July 2026, but only as a one-off script; follow the pattern of `test_recordstore_bee.py` — now in the recordstore repo — if making it permanent, same `BEE_API` gate and the same dev-mode caveat above).
 - Real-network validation of `BeeChunkStore` (see "Bee integration status" above — needs a funded Bee ≥2.8.1 node).
 - The GSOC-based CRDT merge (`SWARM_DESIGN.md` §5).
 - The real `SwarmFeedPointer` (needs a signing dependency decision — flag this to the user rather than picking a crypto library unilaterally).
@@ -156,6 +157,6 @@ Next candidates, in the order `SWARM_DESIGN.md` §8 suggests: finish the network
 ## Working across sessions
 
 This is a multi-session project. At the start of each session:
-1. Run the full test suite (`testdag.py`, `testitem.py`, `test_invariants.py`, `test_boundaries.py`, `test_swarm_adapter.py`, `test_recordstore.py`, `test_recordstore_fuzz.py` — the first two must be named explicitly, see "Running tests") to confirm the starting state matches what this file claims.
+1. Run the full test suite (`testdag.py`, `testitem.py`, `test_invariants.py`, `test_boundaries.py`, `test_swarm_adapter.py` — the first two must be named explicitly, see "Running tests"; the recordstore tests live in the recordstore repo since its `v0.1.1`) to confirm the starting state matches what this file claims.
 2. Check which of the two current-task sections above is still open, and update this file's "Definition of done" / "What does not exist yet" sections as work completes — this file should always reflect actual repo state, not a stale plan.
 3. Prefer small, focused commits over large multi-concern ones; each should be reviewable against one invariant or one design-doc section.

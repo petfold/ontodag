@@ -11,8 +11,9 @@ pinned version changes, re-check this summary against the tagged source.
 
 `ontodag.SwarmOntoDAG` persists one JSON record per DAG node through a `RecordStore`
 (duck-typed — the adapter imports nothing from `recordstore`; the concrete store is
-injected by the caller). The recordstore test suite also still lives here
-(`tests/test_recordstore*.py`).
+injected by the caller). The recordstore test suite lives in the recordstore repo
+(since its `v0.1.1`); this repo keeps the consumer-side checks
+(`tests/test_boundaries.py` B2, `tests/test_swarm_adapter.py`).
 
 ## `RecordStore`
 
@@ -38,8 +39,8 @@ Storage is a persistent, canonically-encoded compacted radix trie: **equal conte
 produces equal root references**, regardless of the insertion/deletion history that
 produced it. This is what makes committed states content-addressable, diffable, and
 mergeable — and it is why `SwarmOntoDAG` gets history-independent canonical roots
-(verified by `tests/test_swarm_adapter.py` and the fuzz suite
-`tests/test_recordstore_fuzz.py`).
+(verified by `tests/test_swarm_adapter.py` here and the fuzz suite
+`tests/test_recordstore_fuzz.py` in the recordstore repo).
 
 `canonical_bytes(value)` — the canonical JSON encoding (sorted keys, minimal
 separators, UTF-8) used for records; exported for anything that needs byte-identical
