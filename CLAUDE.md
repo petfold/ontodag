@@ -22,7 +22,7 @@ python3 -m pytest tests/test_invariants.py -v              # structural invarian
 python3 -m pytest tests/test_boundaries.py -v              # dependency-boundary tests (must always pass)
 ```
 
-Expected failures in the local environment (missing optional deps, not regressions): `graphviz` and `dot2tex` are not installed, so the three `testdag.py` tests that render (`test_visualize`, `test_descendant_count_after_put`, `test_generate_dot_source_to_tex`) fail; `owlready2` is not installed, so `tests/testowl.py` fails at collection.
+Expected failures in the local environment (missing optional deps, not regressions): `owlready2` is not installed, so `tests/testowl.py` fails at collection. `graphviz` and `dot2tex` were installed in July 2026, so the three rendering tests in `testdag.py` now pass — the full suite above is 59/59 green.
 
 All 12 invariant tests pass as of July 2026 (fixes I1–I4, I6 landed; see "Known bugs" below for what remains). The helpers in `tests/test_invariants.py` (`reach`, `edge_set`) compute reachability independently of the traversal code under test, so they remain a valid oracle while `dag.py` is being changed.
 
