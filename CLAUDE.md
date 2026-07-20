@@ -41,9 +41,9 @@ The project is a `src/`-layout package (`pyproject.toml`, `pip install -e .` or 
 
 ### `recordstore` — generic versioned record store (external, see "Swarm integration" below)
 
-Extracted to its own repo **github.com/petfold/recordstore** (July 2026, `git subtree split`, history preserved) and pinned in `pyproject.toml` as `recordstore @ git+https://github.com/petfold/recordstore.git@v0.2.0`. Its test suite (`test_recordstore.py`, `test_recordstore_fuzz.py`, `test_recordstore_bee.py`, plus the ported stdlib-only boundary check) lives in that repo as of `v0.1.1`; this repo keeps only its consumer-side checks (`test_boundaries.py` B2, `test_swarm_adapter.py`). Public-API summary (manually synced): `docs/recordstore-interface.md`.
+Extracted to its own repo **github.com/petfold/recordstore** (July 2026, `git subtree split`, history preserved) and pinned in `pyproject.toml` as `recordstore @ git+https://github.com/petfold/recordstore.git@v0.3.0`. Its test suite (`test_recordstore.py`, `test_recordstore_fuzz.py`, `test_recordstore_bee.py`, plus the ported stdlib-only boundary check) lives in that repo as of `v0.1.1`; this repo keeps only its consumer-side checks (`test_boundaries.py` B2, `test_swarm_adapter.py`). Public-API summary (manually synced): `docs/recordstore-interface.md`.
 
-`BeeChunkStore` was renamed to **`BeeBytesStore`** in `v0.2.0` (2026-07-19) — the class wraps Bee's `/bytes` (blob-level) endpoint, not the raw `/chunks/{address}` single-chunk primitive, and the old name implied the latter. The pin above was bumped for this; no OntoDAG source code referenced the old name (only docs/tests, updated in the same pass).
+`BeeChunkStore` was renamed to **`BeeBytesStore`** in `v0.2.0` (2026-07-19) — the class wraps Bee's `/bytes` (blob-level) endpoint, not the raw `/chunks/{address}` single-chunk primitive, and the old name implied the latter. Then in **`v0.3.0`** (2026-07-20) the abstraction itself was renamed `ChunkStore` → **`BytesStore`** and `MemoryChunkStore` → **`MemoryBytesStore`** for the same reason (a recordstore storage unit is a `put(bytes) → ref` blob, not a Swarm chunk), and the `RecordStore` store parameter `chunks` → `bytes_store`. The pin above was bumped for both; no OntoDAG source code referenced the old names — only docs and `tests/test_swarm_adapter.py`, updated in the same pass.
 
 ### `web/`
 Flask REST API + UI wrapping `OntoDAG`, including the car-market demo (`/market`).
@@ -106,12 +106,12 @@ The medium-term goal (see repo roadmap: "DAG-only graph database for Ethereum Sw
 
 **Full design rationale is in `docs/SWARM_DESIGN.md` — read it before touching `recordstore` or the OntoDAG-Swarm adapter.** It covers: why a generic `recordstore` layer exists at all rather than calling Swarm directly, and the move of `recordstore` to its own repo (§2 — executed July 2026, see the update note there), the node record schema for the eventual adapter (§3), why storage is one-record-per-chunk for now and when that should change (§4), the planned multi-writer/CRDT merge mechanism (§5), the performance model and the four caching layers involved (§6), what's tested vs. not (§7), and the recommended sequencing of remaining work (§8). This file (`CLAUDE.md`) has the day-to-day task list; `SWARM_DESIGN.md` has the "why."
 
-### What already exists (the `recordstore` package — external repo, pinned v0.2.0)
+### What already exists (the `recordstore` package — external repo, pinned v0.3.0)
 
 A versioned key→record store over a content-addressed chunk store — the generic substrate `OntoDAG`-on-Swarm will sit on. Implemented and tested:
 - `RecordStore`: staged put/get/delete, `commit() → root`, `RecordStore.at(root)` read-only snapshots, sorted prefix iteration (`keys(prefix)`).
 - A persistent, canonically-encoded compacted radix trie (own implementation, not mantaray — see `SWARM_DESIGN.md` §2 for why compatibility with mantaray was deferred rather than required).
-- `ChunkStore` backends: `MemoryChunkStore` (test double) and `BeeBytesStore` (real Bee node over `/bytes`).
+- `BytesStore` backends: `MemoryBytesStore` (test double) and `BeeBytesStore` (real Bee node over `/bytes`).
 - `Pointer` backends: `MemoryPointer`, `FilePointer`. `SwarmFeedPointer` is a documented stub — real feed writes need client-side SOC signing (secp256k1), deliberately deferred; see `SWARM_DESIGN.md` §5.
 
 Tests (in the recordstore repo since `v0.1.1`, run them from a checkout of that repo): `tests/test_recordstore.py` (15 unit tests — canonical roots, snapshot isolation, structural sharing, no-aliasing, `FilePointer` persistence/atomicity), `tests/test_recordstore_fuzz.py` (model-based fuzz test against a dict oracle, 12 seeded runs × 400 ops, checks the canonical-root property under arbitrary put/delete histories), `tests/test_recordstore_bee.py` (integration test against a live Bee node — skips automatically unless `BEE_API` is set):
@@ -139,7 +139,7 @@ Still open at the network level: postage expiry behavior and GC/pinning.
 
 An `OntoDAG` subclass persisted through a `RecordStore`, per `SWARM_DESIGN.md` §3/§6: one record per node keyed by name (`up`/`down` sorted, `count`, `payload`, `meta`); full hydration into memory on construction; all mutation semantics inherited from `OntoDAG`; `commit()` diffs against the last-synced records and stages only changed nodes. The store is duck-typed — the module imports nothing from `recordstore` (B2), and `ontodag.SwarmOntoDAG` is exposed via the lazy `__getattr__` so `import ontodag` stays clean (B1). `put` accepts optional `payload`/`meta` (nodes are undifferentiated `Item`s — there is deliberately no class/instance distinction).
 
-Tests: `tests/test_swarm_adapter.py` (13 tests against `MemoryChunkStore`): roundtrip + rehydrated queries, history/put-order-independent canonical roots, idempotent commit, incremental staging, invariants after rehydration, merge convergence to identical roots from either side (the §5 CRDT precondition in persisted form), extras roundtrip, persisted removal.
+Tests: `tests/test_swarm_adapter.py` (13 tests against `MemoryBytesStore`): roundtrip + rehydrated queries, history/put-order-independent canonical roots, idempotent commit, incremental staging, invariants after rehydration, merge convergence to identical roots from either side (the §5 CRDT precondition in persisted form), extras roundtrip, persisted removal.
 
 ### What does not exist yet
 

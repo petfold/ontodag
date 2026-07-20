@@ -2,7 +2,7 @@
 
 `recordstore` lives in its own repo, [github.com/petfold/recordstore](https://github.com/petfold/recordstore),
 extracted from this repo in July 2026 with history preserved. OntoDAG pins it in
-`pyproject.toml` (`recordstore @ git+https://github.com/petfold/recordstore.git@v0.2.0`).
+`pyproject.toml` (`recordstore @ git+https://github.com/petfold/recordstore.git@v0.3.0`).
 
 **This is a manually-synced reference doc**, not generated and not a submodule: if the
 pinned version changes, re-check this summary against the tagged source.
@@ -17,19 +17,19 @@ injected by the caller). The recordstore test suite lives in the recordstore rep
 
 ## `RecordStore`
 
-A staged, versioned key→record store over a content-addressed chunk store. Keys are
+A staged, versioned key→record store over a content-addressed bytes store. Keys are
 non-empty strings; values are any JSON-encodable object. Reads are read-your-writes;
 returned records are deep copies (mutating them never mutates the store).
 
-- `RecordStore(chunks, root=None, pointer=None)` — open a store over a `ChunkStore`,
+- `RecordStore(bytes_store, root=None, pointer=None)` — open a store over a `BytesStore`,
   optionally at an existing root or following a `Pointer`.
 - `put(key, value)` / `get(key)` / `delete(key)` / `contains(key)` — staged operations;
   `get`/`delete` raise `KeyError` for missing keys.
 - `keys(prefix="")` — sorted iteration over keys under a prefix, staged overlay included.
 - `commit() → root` — flush staged changes, return the new root reference, and update
-  the pointer (if any). The pointer moves only after every chunk write succeeds, so a
+  the pointer (if any). The pointer moves only after every blob write succeeds, so a
   reader sees all of a commit or none of it.
-- `RecordStore.at(root, chunks)` — read-only snapshot of any committed root
+- `RecordStore.at(root, bytes_store)` — read-only snapshot of any committed root
   (`put`/`delete`/`commit` raise `TypeError`).
 - `.root` — root of the last committed state.
 
@@ -46,11 +46,11 @@ mergeable — and it is why `SwarmOntoDAG` gets history-independent canonical ro
 separators, UTF-8) used for records; exported for anything that needs byte-identical
 encodings.
 
-## `ChunkStore` backends
+## `BytesStore` backends
 
 Protocol: `put(data: bytes) → ref`, `get(ref) → bytes` (raises `KeyError` if missing).
 
-- `MemoryChunkStore()` — in-memory dict; the test double.
+- `MemoryBytesStore()` — in-memory dict; the test double.
 - `BeeBytesStore(api_url, postage_batch_id, deferred_upload=True)` — a real Bee node
   over `POST/GET /bytes` (Bee's blob endpoint, not the raw `/chunks/{address}` single-chunk
   primitive — the name reflects that). Imports `requests` lazily (install extra:

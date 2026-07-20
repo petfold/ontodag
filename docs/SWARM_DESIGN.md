@@ -4,7 +4,7 @@ Status: `recordstore` implemented and tested (in-memory + fuzz; Bee integration
 tests passed once against a `bee dev` 2.7.1 node — HTTP contract only, see the
 label in §7). The `dag.py` invariant fixes (I1–I6) and the `SwarmOntoDAG`
 adapter (§3/§6 design, `src/ontodag/swarm_adapter.py`, tested against
-`MemoryChunkStore` and smoke-tested over the same dev node) are done as of
+`MemoryBytesStore` and smoke-tested over the same dev node) are done as of
 July 2026. This document is the design rationale; `CLAUDE.md` has operational
 instructions and the current task list.
 
@@ -302,7 +302,7 @@ just the record level), idempotent commit, incremental staging (a one-node
 addition does not restage untouched subtrees), structural invariants after
 rehydration, merge from either side converging to the identical root — the
 persisted form of I7 and the direct precondition for §5 — and persisted
-removal. All against `MemoryChunkStore`; a Bee-backed adapter test is still
+removal. All against `MemoryBytesStore`; a Bee-backed adapter test is still
 missing (same `BEE_API` gate as the recordstore one).
 
 Not tested, consciously deferred: concurrent writers to the same pointer

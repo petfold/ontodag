@@ -23,7 +23,7 @@ import unittest
 
 from ontodag.dag import Item
 from ontodag.swarm_adapter import SwarmOntoDAG
-from recordstore import MemoryChunkStore, RecordStore
+from recordstore import MemoryBytesStore, RecordStore
 
 
 def reach(node):
@@ -72,7 +72,7 @@ class RecordingStore:
 
 
 def fresh_store():
-    return RecordStore(MemoryChunkStore())
+    return RecordStore(MemoryBytesStore())
 
 
 def build(dag_or_store, puts):
@@ -92,22 +92,22 @@ VEHICLES = [
 
 class TestRoundtrip(unittest.TestCase):
     def test_commit_and_rehydrate(self):
-        chunks = MemoryChunkStore()
-        dag = build(RecordStore(chunks), VEHICLES)
+        blobs = MemoryBytesStore()
+        dag = build(RecordStore(blobs), VEHICLES)
         root = dag.commit()
         self.assertIsNotNone(root)
 
-        again = SwarmOntoDAG(RecordStore.at(root, chunks))
+        again = SwarmOntoDAG(RecordStore.at(root, blobs))
         self.assertEqual(edge_set(dag), edge_set(again))
         self.assertEqual(counts(dag), counts(again))
         self.assertEqual(sorted(dag.nodes), sorted(again.nodes))
 
     def test_query_after_rehydrate(self):
-        chunks = MemoryChunkStore()
-        dag = build(RecordStore(chunks), VEHICLES)
+        blobs = MemoryBytesStore()
+        dag = build(RecordStore(blobs), VEHICLES)
         root = dag.commit()
 
-        again = SwarmOntoDAG(RecordStore.at(root, chunks))
+        again = SwarmOntoDAG(RecordStore.at(root, blobs))
         result = again.get([again.nodes["vehicle"], again.nodes["electric"]])
         self.assertEqual({"ev", "ebike"}, {item.name for item in result})
 
@@ -115,19 +115,19 @@ class TestRoundtrip(unittest.TestCase):
         # The natural rehydrated-store usage: the caller has no live node
         # objects, only names. Regression for the 2026-07-19 real-node smoke,
         # where fresh Items silently returned the empty set.
-        chunks = MemoryChunkStore()
-        dag = build(RecordStore(chunks), VEHICLES)
+        blobs = MemoryBytesStore()
+        dag = build(RecordStore(blobs), VEHICLES)
         root = dag.commit()
 
-        again = SwarmOntoDAG(RecordStore.at(root, chunks))
+        again = SwarmOntoDAG(RecordStore.at(root, blobs))
         result = again.get([Item("vehicle"), Item("electric")])
         self.assertEqual({"ev", "ebike"}, {item.name for item in result})
 
     def test_empty_dag_roundtrip(self):
-        chunks = MemoryChunkStore()
-        dag = SwarmOntoDAG(RecordStore(chunks))
+        blobs = MemoryBytesStore()
+        dag = SwarmOntoDAG(RecordStore(blobs))
         root = dag.commit()  # just the root node record
-        again = SwarmOntoDAG(RecordStore.at(root, chunks))
+        again = SwarmOntoDAG(RecordStore.at(root, blobs))
         self.assertEqual([again.root.name], list(again.nodes))
 
 
@@ -177,10 +177,10 @@ class TestIncrementalSync(unittest.TestCase):
 
 class TestRehydratedInvariants(unittest.TestCase):
     def test_acyclic_reduced_consistent(self):
-        chunks = MemoryChunkStore()
-        dag = build(RecordStore(chunks), VEHICLES)
+        blobs = MemoryBytesStore()
+        dag = build(RecordStore(blobs), VEHICLES)
         root = dag.commit()
-        again = SwarmOntoDAG(RecordStore.at(root, chunks))
+        again = SwarmOntoDAG(RecordStore.at(root, blobs))
 
         for node in again.nodes.values():
             self.assertNotIn(node, reach(node), "cycle after rehydration")
@@ -198,10 +198,10 @@ class TestRehydratedInvariants(unittest.TestCase):
                         )
 
     def test_mutation_after_rehydrate(self):
-        chunks = MemoryChunkStore()
-        pointer_root = build(RecordStore(chunks), VEHICLES).commit()
+        blobs = MemoryBytesStore()
+        pointer_root = build(RecordStore(blobs), VEHICLES).commit()
 
-        again = SwarmOntoDAG(RecordStore.at(pointer_root, chunks))
+        again = SwarmOntoDAG(RecordStore.at(pointer_root, blobs))
         with self.assertRaises(ValueError):  # invariants still enforced
             again.put(Item("vehicle"), [Item("ev")])  # would create a cycle
 
@@ -235,8 +235,8 @@ class TestConvergence(unittest.TestCase):
 
 class TestNodeExtras(unittest.TestCase):
     def test_payload_meta_roundtrip(self):
-        chunks = MemoryChunkStore()
-        dag = SwarmOntoDAG(RecordStore(chunks))
+        blobs = MemoryBytesStore()
+        dag = SwarmOntoDAG(RecordStore(blobs))
         dag.put(Item("photos"), [])
         dag.put(
             Item("IMG_1234"), [Item("photos")],
@@ -245,26 +245,26 @@ class TestNodeExtras(unittest.TestCase):
         )
         root = dag.commit()
 
-        again = SwarmOntoDAG(RecordStore.at(root, chunks))
+        again = SwarmOntoDAG(RecordStore.at(root, blobs))
         record = again.store.get("IMG_1234")
         self.assertEqual(record["payload"], "deadbeef" * 8)
         self.assertEqual(record["meta"], {"Content-Type": "image/jpeg"})
         # extras survive a second, unrelated commit cycle
-        again2 = SwarmOntoDAG(RecordStore(chunks, root=root))
+        again2 = SwarmOntoDAG(RecordStore(blobs, root=root))
         again2.put(Item("unrelated"), [])
-        again3 = SwarmOntoDAG(RecordStore.at(again2.commit(), chunks))
+        again3 = SwarmOntoDAG(RecordStore.at(again2.commit(), blobs))
         self.assertEqual(again3.store.get("IMG_1234")["payload"], "deadbeef" * 8)
 
 
 class TestRemoval(unittest.TestCase):
     def test_remove_persists(self):
-        chunks = MemoryChunkStore()
-        dag = build(RecordStore(chunks), VEHICLES)
+        blobs = MemoryBytesStore()
+        dag = build(RecordStore(blobs), VEHICLES)
         dag.commit()
         dag.remove(dag.nodes["ev"])
         root = dag.commit()
 
-        again = SwarmOntoDAG(RecordStore.at(root, chunks))
+        again = SwarmOntoDAG(RecordStore.at(root, blobs))
         self.assertNotIn("ev", again.nodes)
         self.assertFalse(again.store.contains("ev"))
         # and the root matches a store that never saw 'ev' at all
