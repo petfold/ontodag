@@ -1,177 +1,547 @@
+"""odag — a Unix-style command line for OntoDAG.
+
+(The command is `odag`, not `od`: `od` is the standard octal-dump utility.)
+
+Design goals (see the module docstring history in CLAUDE.md):
+  * silent on success, errors on stderr with a non-zero exit code;
+  * a persistent default store in ~/.ontodag so `odag put cat` / `odag get cat`
+    work with no file argument;
+  * stdin / stdout / pipes: `odag` with no command reads commands from a pipe,
+    or drops into an interactive prompt on a tty;
+  * `-o FILE` redirects query output; `-f STORE` picks the store for one run;
+  * `set store PATH` changes the persistent default.
+
+The core (`ontodag.dag`) has no heavy dependencies, so the common native-store
+path imports nothing else; OWL/Manchester support and the visualizer are
+imported lazily only when a command actually needs them.
+"""
+
 import argparse
-import sys
 import os
+import shlex
+import sys
 
-from ontodag.dag import OntoDAG, Item, OntoDAGVisualizer
-from ontodag.owl import OWLOntology
+from ontodag.dag import OntoDAG, Item
 
+try:
+    from importlib.metadata import version, PackageNotFoundError
+    try:
+        __version__ = version("ontodag")
+    except PackageNotFoundError:
+        __version__ = "0.1.0"
+except Exception:  # pragma: no cover - importlib.metadata always present on 3.8+
+    __version__ = "0.1.0"
+
+
+# --------------------------------------------------------------------------- #
+# Home directory, config and store resolution
+# --------------------------------------------------------------------------- #
+
+def _home_dir():
+    return os.environ.get("ONTODAG_HOME") or os.path.join(
+        os.path.expanduser("~"), ".ontodag"
+    )
+
+
+def _config_path():
+    return os.path.join(_home_dir(), "config")
+
+
+def _read_config():
+    cfg = {}
+    path = _config_path()
+    if not os.path.exists(path):
+        return cfg
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            cfg[key.strip()] = value.strip()
+    return cfg
+
+
+def _write_config(cfg):
+    os.makedirs(_home_dir(), exist_ok=True)
+    with open(_config_path(), "w") as fh:
+        for key in sorted(cfg):
+            fh.write(f"{key} = {cfg[key]}\n")
+
+
+def _abspath(path):
+    return os.path.abspath(os.path.expanduser(path))
+
+
+def _is_swarm(spec):
+    return spec.startswith("swarm:")
+
+
+def _normalize_spec(spec):
+    """A store spec is either a `swarm:NAME` URI or a filesystem path.
+
+    Swarm specs are kept verbatim; file paths are made absolute so a spec
+    saved to config resolves the same from any working directory."""
+    return spec if _is_swarm(spec) else _abspath(spec)
+
+
+def _resolve_store(override):
+    """Store precedence: -f flag > $ONTODAG_STORE > config > default."""
+    if override:
+        return _normalize_spec(override)
+    env = os.environ.get("ONTODAG_STORE")
+    if env:
+        return _normalize_spec(env)
+    cfg = _read_config()
+    if cfg.get("store"):
+        return _normalize_spec(cfg["store"])
+    return os.path.join(_home_dir(), "store.od")
+
+
+# --------------------------------------------------------------------------- #
+# Serialization: native line format by default, OWL/Manchester by extension
+# --------------------------------------------------------------------------- #
 
 def _detect_format(path):
     ext = os.path.splitext(path)[1].lower()
     if ext == ".omn":
         return "manchester"
-    return "owl"
+    if ext == ".owl":
+        return "owl"
+    return "native"
+
+
+def _load_native(path):
+    """Read the native store: one line per node, `name parent1 parent2 ...`.
+
+    A missing file is an empty DAG (the default store need not exist yet).
+    The format is canonical (nodes and parents sorted on save) and the graph
+    is rebuilt via add_edge, so even a hand-edited, non-reduced file loads as
+    its unique transitive reduction.
+    """
+    dag = OntoDAG()
+    if not os.path.exists(path):
+        return dag
+    edges = []
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            tokens = shlex.split(line)
+            name = tokens[0]
+            if name not in dag.nodes:
+                dag.add_node(Item(name))
+            for parent in tokens[1:]:
+                if parent not in dag.nodes:
+                    dag.add_node(Item(parent))
+                edges.append((parent, name))
+    for parent, child in edges:
+        dag.add_edge(dag.nodes[parent], dag.nodes[child])
+    return dag
+
+
+def _save_native(dag, path):
+    lines = ["# ontodag store v1"]
+    for name in sorted(dag.nodes):
+        if name == dag.root.name:
+            continue
+        node = dag.nodes[name]
+        parents = sorted(
+            p.name for p in node.parents if dag.nodes.get(p.name) is p
+        )
+        lines.append(" ".join(shlex.quote(t) for t in [name] + parents))
+    with open(path, "w") as fh:
+        fh.write("\n".join(lines) + "\n")
 
 
 def _load(path):
-    if _detect_format(path) == "manchester":
+    fmt = _detect_format(path)
+    if fmt == "native":
+        return _load_native(path)
+    from ontodag.owl import OWLOntology
+    if fmt == "manchester":
         return OWLOntology.import_dag_manchester(file_name=path)
-    else:
-        return OWLOntology(f"file://{os.path.abspath(path)}").import_dag(file_name=path)
+    return OWLOntology(f"file://{_abspath(path)}").import_dag(file_name=path)
 
 
 def _save(dag, path):
-    if _detect_format(path) == "manchester":
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    fmt = _detect_format(path)
+    if fmt == "native":
+        _save_native(dag, path)
+        return
+    from ontodag.owl import OWLOntology
+    if fmt == "manchester":
         OWLOntology.export_dag_manchester(dag, path)
     else:
         OWLOntology.export_dag(dag, path)
 
 
-def _print_dag(dag):
-    sorted_nodes = dag.topological_sort()
-    for node in sorted_nodes:
-        parents = [n.name for n in dag.nodes.values() if node in n.neighbors]
-        children = [n.name for n in node.neighbors]
+# --------------------------------------------------------------------------- #
+# Storage backends
+#
+# A backend hides *where* the store lives behind load()/save(dag)/describe().
+# The default is a local file (native/OWL/Manchester by extension). A
+# `swarm:NAME` spec persists through the SwarmOntoDAG adapter over a
+# RecordStore: content blobs on a Bee node, the mutable "latest root" in a
+# local FilePointer (no signing key needed). recordstore and the adapter are
+# imported lazily here, so `import ontodag` and the native path stay
+# dependency-free (tests/test_boundaries.py B1).
+# --------------------------------------------------------------------------- #
+
+class FileBackend:
+    def __init__(self, path):
+        self.path = path
+
+    def load(self):
+        return _load(self.path)
+
+    def save(self, dag):
+        _save(dag, self.path)
+
+    def describe(self):
+        return self.path
+
+
+class SwarmBackend:
+    def __init__(self, name, store_factory=None):
+        if not name:
+            raise ValueError("swarm store needs a name, e.g. swarm:mydag")
+        if os.sep in name or (os.altsep and os.altsep in name) or name == "..":
+            raise ValueError(f"invalid swarm store name: {name!r}")
+        self.name = name
+        # Injection seam: tests pass a factory returning a RecordStore over an
+        # in-memory bytes store, exercising the whole wiring without a node.
+        self._store_factory = store_factory
+
+    def pointer_path(self):
+        return os.path.join(_home_dir(), self.name + ".root")
+
+    def _record_store(self):
+        if self._store_factory is not None:
+            return self._store_factory()
+        from recordstore import RecordStore, BeeBytesStore, FilePointer
+        cfg = _read_config()
+        api = os.environ.get("BEE_API") or cfg.get("bee_api") or "http://localhost:1633"
+        batch = os.environ.get("BEE_BATCH") or cfg.get("bee_batch") or ""
+        os.makedirs(_home_dir(), exist_ok=True)
+        return RecordStore(BeeBytesStore(api, batch),
+                           pointer=FilePointer(self.pointer_path()))
+
+    def load(self):
+        from ontodag.swarm_adapter import SwarmOntoDAG
+        return SwarmOntoDAG(self._record_store())
+
+    def save(self, dag):
+        dag.commit()
+
+    def describe(self):
+        return f"swarm:{self.name}"
+
+
+def _make_backend(spec):
+    if _is_swarm(spec):
+        return SwarmBackend(spec[len("swarm:"):])
+    return FileBackend(spec)
+
+
+# --------------------------------------------------------------------------- #
+# The in-memory session (the loaded store)
+# --------------------------------------------------------------------------- #
+
+class Session:
+    def __init__(self, spec):
+        self.switch(spec)
+
+    def switch(self, spec):
+        self.spec = spec
+        self.backend = _make_backend(spec)
+        self.dag = self.backend.load()
+
+    def save(self):
+        self.backend.save(self.dag)
+
+    def describe(self):
+        return self.backend.describe()
+
+    def import_from(self, incoming):
+        """Replace the store's contents with `incoming`, in place.
+
+        Mutating the live DAG (rather than rebinding self.dag) keeps a
+        SwarmOntoDAG's identity, so its commit() still diffs against what it
+        hydrated. Works for either backend via the public API alone: clearing
+        to the root then merging reproduces `incoming` exactly (remove
+        reconnects children upward, never deletes siblings)."""
+        for name in list(self.dag.nodes):
+            if name != self.dag.root.name and name in self.dag.nodes:
+                self.dag.remove(name)
+        self.dag.merge(incoming)
+        self.save()
+
+
+# --------------------------------------------------------------------------- #
+# Command handlers — (args, session, out); silent on success
+# --------------------------------------------------------------------------- #
+
+def _print_dag(dag, out):
+    for node in dag.topological_sort():
+        children = sorted(n.name for n in node.neighbors)
         if node.name == dag.root.name:
-            print(f"  {node.name}  [root]  -> {children}")
+            print(f"{node.name} [root] -> {' '.join(children)}".rstrip(), file=out)
         else:
-            print(f"  {node.name}  (parents: {parents})  -> {children}")
+            parents = sorted(
+                p.name for p in node.parents if dag.nodes.get(p.name) is p
+            )
+            print(f"{node.name} ({' '.join(parents)}) -> {' '.join(children)}".rstrip(),
+                  file=out)
 
 
-def cmd_show(args):
-    dag = _load(args.file)
-    print(f"OntoDAG loaded from: {args.file}")
-    print(f"Nodes ({len(dag.nodes)}):")
-    _print_dag(dag)
+def cmd_put(args, session, out):
+    session.dag.put(args.item, args.parents, optimized=args.optimized)
+    session.save()
 
 
-def cmd_put(args):
-    dag = _load(args.file)
-    item = Item(args.item)
-    missing = [p for p in args.parents if p not in dag.nodes]
-    if missing:
-        print(f"Error: parent(s) not found in DAG: {', '.join(missing)}", file=sys.stderr)
-        sys.exit(1)
-    parents = [dag.nodes[p] for p in args.parents]
-    dag.put(item, parents, optimized=args.optimized)
-    out = args.output or args.file
-    _save(dag, out)
-    parent_str = ", ".join(args.parents) if args.parents else "*"
-    print(f"Added '{args.item}' under [{parent_str}] -> saved to {out}")
+def cmd_get(args, session, out):
+    for name in sorted(item.name for item in session.dag.get(args.categories)):
+        print(name, file=out)
 
 
-def cmd_get(args):
-    dag = _load(args.file)
-    missing = [p for p in args.parents if p not in dag.nodes]
-    if missing:
-        print(f"Error: category/ies not found in DAG: {', '.join(missing)}", file=sys.stderr)
-        sys.exit(1)
-    categories = [dag.nodes[p] for p in args.parents]
-    results = dag.get(categories)
-    if results:
-        print(f"Subcategories of [{', '.join(args.parents)}]:")
-        for item in sorted(results, key=lambda i: i.name):
-            print(f"  {item.name}")
+def cmd_remove(args, session, out):
+    session.dag.remove(args.item)
+    session.save()
+
+
+def cmd_show(args, session, out):
+    _print_dag(session.dag, out)
+
+
+def cmd_list(args, session, out):
+    for name in sorted(n for n in session.dag.nodes if n != session.dag.root.name):
+        print(name, file=out)
+
+
+def cmd_merge(args, session, out):
+    session.dag.merge(_load(args.file))
+    session.save()
+
+
+def cmd_import(args, session, out):
+    session.import_from(_load(args.file))
+
+
+def cmd_export(args, session, out):
+    _save(session.dag, args.file)
+
+
+def cmd_visualize(args, session, out):
+    from ontodag.dag import OntoDAGVisualizer
+    base = args.out or os.path.splitext(session.path)[0]
+    OntoDAGVisualizer(format=args.format).visualize(session.dag, filename=base)
+
+
+def cmd_set(args, session, out):
+    if not args.key:
+        print(f"store = {session.describe()}", file=out)
+        return
+    if args.key == "store":
+        if not args.value:
+            raise ValueError("usage: set store PATH")
+        spec = _normalize_spec(args.value)
+        cfg = _read_config()
+        cfg["store"] = spec
+        _write_config(cfg)
+        session.switch(spec)
     else:
-        print(f"No subcategories found for [{', '.join(args.parents)}]")
+        raise ValueError(f"unknown setting: {args.key}")
 
 
-def cmd_remove(args):
-    dag = _load(args.file)
-    if args.item not in dag.nodes:
-        print(f"Error: '{args.item}' not found in DAG", file=sys.stderr)
-        sys.exit(1)
-    dag.remove(dag.nodes[args.item])
-    out = args.output or args.file
-    _save(dag, out)
-    print(f"Removed '{args.item}' -> saved to {out}")
+HELP_TEXT = """\
+Usage: odag [-f STORE] <command> [args]
+
+Commands:
+  put SUB [PARENT...]   add SUB under the PARENT categories (or the root)
+  get CAT [CAT...]      print items below all of the CATs, one per line
+  remove ITEM           remove ITEM from the store
+  show                  print the DAG structure
+  list                  print every item name
+  merge FILE            merge FILE into the store
+  import FILE           replace the store with the contents of FILE
+  export FILE           write the store to FILE
+  visualize [--out B]   render the DAG to an image
+  set [store PATH]      show config, or set the default store
+  help                  show this help
+
+With no command odag reads commands from a pipe, or opens an interactive
+prompt on a terminal. Files ending in .owl/.omn use OWL/Manchester syntax;
+any other path is the native line format.
+
+A store may also be `swarm:NAME`, persisted on Ethereum Swarm (content on a
+Bee node, latest root in ~/.ontodag/NAME.root). `set store swarm:NAME` makes
+it the default, so every later command uses Swarm. Configure the node with
+$BEE_API / $BEE_BATCH or `bee_api` / `bee_batch` in ~/.ontodag/config.
+
+Options:
+  -f, --store PATH      use PATH (or swarm:NAME) as the store for this run
+  -o, --output FILE     write output to FILE instead of stdout (get/show/list)
+"""
 
 
-def cmd_merge(args):
-    dag1 = _load(args.file1)
-    dag2 = _load(args.file2)
-    dag1.merge(dag2)
-    out = args.output or args.file1
-    _save(dag1, out)
-    print(f"Merged '{args.file2}' into '{args.file1}' -> saved to {out}")
+def cmd_help(args, session, out):
+    print(HELP_TEXT, file=out, end="")
 
 
-def cmd_export(args):
-    dag = _load(args.file)
-    out = args.output
-    fmt = args.format or _detect_format(out)
-    if fmt == "manchester":
-        OWLOntology.export_dag_manchester(dag, out)
-    else:
-        OWLOntology.export_dag(dag, out)
-    print(f"Exported to {out} (format: {fmt})")
+# --------------------------------------------------------------------------- #
+# Parser
+# --------------------------------------------------------------------------- #
 
-
-def cmd_visualize(args):
-    dag = _load(args.file)
-    out = args.output or os.path.splitext(args.file)[0]
-    viz = OntoDAGVisualizer(format=args.format)
-    viz.visualize(dag, filename=out)
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        prog="ontodag",
-        description="Load and manipulate OntoDAG instances from the terminal.",
-    )
+def build_parser():
+    parser = argparse.ArgumentParser(prog="odag", add_help=False,
+                                     description="Manipulate an OntoDAG store.")
     sub = parser.add_subparsers(dest="command", metavar="<command>")
     sub.required = True
 
-    # show
-    p_show = sub.add_parser("show", help="Display nodes and edges of a DAG file")
-    p_show.add_argument("file", help="OWL (.owl) or Manchester (.omn) file")
-    p_show.set_defaults(func=cmd_show)
+    p = sub.add_parser("put", add_help=True, help="add an item")
+    p.add_argument("item")
+    p.add_argument("parents", nargs="*")
+    p.add_argument("--optimized", action="store_true",
+                   help="infer most-specific parents")
+    p.set_defaults(func=cmd_put)
 
-    # put
-    p_put = sub.add_parser("put", help="Add an item to a DAG")
-    p_put.add_argument("file", help="OWL or Manchester file to modify")
-    p_put.add_argument("item", help="Name of the item to add")
-    p_put.add_argument("parents", nargs="*", help="Parent category names (omit for root)")
-    p_put.add_argument("--optimized", action="store_true", help="Use optimized put (infers most-specific parents)")
-    p_put.add_argument("--output", "-o", help="Output file (default: overwrite input)")
-    p_put.set_defaults(func=cmd_put)
+    p = sub.add_parser("get", add_help=True, help="query common subcategories")
+    p.add_argument("categories", nargs="+")
+    p.add_argument("-o", "--output")
+    p.set_defaults(func=cmd_get, stream_output=True)
 
-    # get
-    p_get = sub.add_parser("get", help="Query common subcategories")
-    p_get.add_argument("file", help="OWL or Manchester file")
-    p_get.add_argument("parents", nargs="+", help="Parent category names to intersect")
-    p_get.set_defaults(func=cmd_get)
+    p = sub.add_parser("remove", add_help=True, help="remove an item")
+    p.add_argument("item")
+    p.set_defaults(func=cmd_remove)
 
-    # remove
-    p_remove = sub.add_parser("remove", help="Remove an item from a DAG")
-    p_remove.add_argument("file", help="OWL or Manchester file to modify")
-    p_remove.add_argument("item", help="Name of the item to remove")
-    p_remove.add_argument("--output", "-o", help="Output file (default: overwrite input)")
-    p_remove.set_defaults(func=cmd_remove)
+    p = sub.add_parser("show", add_help=True, help="print the DAG structure")
+    p.add_argument("-o", "--output")
+    p.set_defaults(func=cmd_show, stream_output=True)
 
-    # merge
-    p_merge = sub.add_parser("merge", help="Merge two DAG files")
-    p_merge.add_argument("file1", help="Base DAG file (modified in place unless --output given)")
-    p_merge.add_argument("file2", help="DAG file to merge into file1")
-    p_merge.add_argument("--output", "-o", help="Output file (default: overwrite file1)")
-    p_merge.set_defaults(func=cmd_merge)
+    p = sub.add_parser("list", add_help=True, help="print all item names")
+    p.add_argument("-o", "--output")
+    p.set_defaults(func=cmd_list, stream_output=True)
 
-    # export
-    p_export = sub.add_parser("export", help="Convert a DAG to a different OWL format")
-    p_export.add_argument("file", help="Source OWL or Manchester file")
-    p_export.add_argument("--output", "-o", required=True, help="Output file path")
-    p_export.add_argument("--format", choices=["owl", "manchester"], help="Output format (inferred from extension if omitted)")
-    p_export.set_defaults(func=cmd_export)
+    p = sub.add_parser("merge", add_help=True, help="merge a file into the store")
+    p.add_argument("file")
+    p.set_defaults(func=cmd_merge)
 
-    # visualize
-    p_vis = sub.add_parser("visualize", help="Render a DAG to an image")
-    p_vis.add_argument("file", help="OWL or Manchester file")
-    p_vis.add_argument("--output", "-o", help="Output filename without extension (default: input filename)")
-    p_vis.add_argument("--format", default="png", choices=["png", "svg", "pdf"], help="Image format (default: png)")
-    p_vis.set_defaults(func=cmd_visualize)
+    p = sub.add_parser("import", add_help=True, help="replace the store with a file")
+    p.add_argument("file")
+    p.set_defaults(func=cmd_import)
 
-    args = parser.parse_args()
-    args.func(args)
+    p = sub.add_parser("export", add_help=True, help="write the store to a file")
+    p.add_argument("file")
+    p.set_defaults(func=cmd_export)
+
+    p = sub.add_parser("visualize", add_help=True, help="render an image")
+    p.add_argument("--out", help="output filename without extension")
+    p.add_argument("--format", default="png", choices=["png", "svg", "pdf"])
+    p.set_defaults(func=cmd_visualize)
+
+    p = sub.add_parser("set", add_help=True, help="show or change config")
+    p.add_argument("key", nargs="?")
+    p.add_argument("value", nargs="?")
+    p.set_defaults(func=cmd_set)
+
+    p = sub.add_parser("help", add_help=True, help="show help")
+    p.set_defaults(func=cmd_help)
+
+    return parser
+
+
+PARSER = build_parser()
+
+
+def dispatch(argv, session):
+    """Parse one command line and run it. Returns a process-style exit code."""
+    try:
+        args = PARSER.parse_args(argv)
+    except SystemExit as exc:  # argparse handled --help or a usage error
+        return exc.code or 0
+
+    out = sys.stdout
+    handle = None
+    outpath = getattr(args, "output", None)
+    try:
+        if outpath and getattr(args, "stream_output", False):
+            handle = open(outpath, "w")
+            out = handle
+        args.func(args, session, out)
+        return 0
+    except (ValueError, OSError) as exc:
+        print(f"odag: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        if handle is not None:
+            handle.close()
+
+
+# --------------------------------------------------------------------------- #
+# Interactive and batch (stdin) modes
+# --------------------------------------------------------------------------- #
+
+def _run_stream(session, stream, interactive):
+    if interactive:
+        print(f"Ontodag {__version__} - type help for help")
+    while True:
+        if interactive:
+            try:
+                line = input("> ")
+            except EOFError:
+                print()
+                break
+        else:
+            line = stream.readline()
+            if not line:
+                break
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        try:
+            tokens = shlex.split(line)
+        except ValueError as exc:
+            print(f"odag: {exc}", file=sys.stderr)
+            continue
+        if tokens[0] in ("quit", "exit"):
+            break
+        dispatch(tokens, session)
+
+
+# --------------------------------------------------------------------------- #
+# Entry point
+# --------------------------------------------------------------------------- #
+
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+
+    store_override = None
+    while argv and argv[0] in ("-f", "--store", "--file"):
+        if len(argv) < 2:
+            print("odag: option requires a path", file=sys.stderr)
+            sys.exit(2)
+        store_override = argv[1]
+        argv = argv[2:]
+
+    if argv and argv[0] in ("-V", "--version"):
+        print(__version__)
+        sys.exit(0)
+    if argv and argv[0] in ("-h", "--help"):
+        sys.stdout.write(HELP_TEXT)
+        sys.exit(0)
+
+    session = Session(_resolve_store(store_override))
+
+    if not argv:
+        _run_stream(session, sys.stdin, interactive=sys.stdin.isatty())
+        sys.exit(0)
+
+    sys.exit(dispatch(argv, session))
 
 
 if __name__ == "__main__":
