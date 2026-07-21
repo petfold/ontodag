@@ -2,6 +2,14 @@
 
 Associative memory and categories based on a directed acyclic graph data structure
 
+## Documentation
+
+- **[User Guide](docs/USER_GUIDE.md)** — installation, tutorial, Python API,
+  command line, web app/REST, file formats, troubleshooting. Start here.
+- **[How It Works Inside](docs/HOW_IT_WORKS.md)** — the design in plain language
+  (canonical form, query planning, content-addressed persistence) and future plans.
+- `docs/SWARM_DESIGN.md`, `docs/SEMANTIC_CODES.md` — engineering design documents.
+
 ## Specification
 
 A Directed Acyclic Graph (DAG) associative storage and category manager in Python. You can store items into a ontodag and recall items from it. To store or "put" an item into a ontodag, you give it a name and a set of other names of already existing items that are its supercategories. To recall or "get", you specify a set of item names to get all items that are subcategories of all these items.
