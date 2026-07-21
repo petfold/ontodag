@@ -95,5 +95,94 @@ class TestOntoDAG(unittest.TestCase):
         self.assertEqual(['E'], [item.name for item in common_subcategories])
 
 
+class TestQueryPlanner(unittest.TestCase):
+    """get() plans queries (term elimination, count-ordered traversal, early
+    exit); every planning step must be result-preserving. These tests pin the
+    results to a brute-force oracle and guard the known unsound "shortcut"
+    (rewriting a query through a meet-named node — see docs/SEMANTIC_CODES.md
+    §10)."""
+
+    def setUp(self):
+        # Same shape as TestOntoDAG's fixture: single letters are top-level
+        # categories; a multi-letter name is a node under those categories
+        # (e.g. AB sits under A and B) — but it is NOT thereby the meet of
+        # its parents: siblings under the same parents may exist.
+        self.items = {name: Item(name) for name in
+                      ['A', 'B', 'C', 'D', 'F', 'G',
+                       'AF', 'AB', 'BC', 'CD', 'ABC', 'ABF']}
+        i = self.items
+        self.dag = OntoDAG()
+        for name in ['A', 'B', 'C', 'D', 'F', 'G']:
+            self.dag.put(i[name], [])
+        self.dag.put(i['AF'], [i['A'], i['F']])
+        self.dag.put(i['AB'], [i['A'], i['B']])
+        self.dag.put(i['BC'], [i['B'], i['C']])
+        self.dag.put(i['ABC'], [i['AB'], i['BC']])
+        self.dag.put(i['ABF'], [i['AB'], i['AF']])
+        self.dag.put(i['CD'], [i['C'], i['D']])
+
+    def _brute_force(self, query):
+        # The pre-planner semantics of get(): fully materialize every cone,
+        # intersect at the end. The oracle the planner must agree with.
+        return set.intersection(
+            *[self.dag.get_descendants(item) for item in query])
+
+    def test_matches_brute_force_on_all_pairs_and_triples(self):
+        from itertools import combinations
+        items = list(self.items.values())
+        for size in (1, 2, 3):
+            for query in combinations(items, size):
+                self.assertEqual(
+                    self._brute_force(query), self.dag.get(list(query)),
+                    f"planner diverged from brute force on {[q.name for q in query]}")
+
+    def test_query_term_order_is_irrelevant(self):
+        i = self.items
+        self.assertEqual(self.dag.get([i['B'], i['C']]),
+                         self.dag.get([i['C'], i['B']]))
+
+    def test_subsumed_terms_are_dropped_without_changing_results(self):
+        i = self.items
+        # A is an ancestor of AB, so it cannot narrow the result.
+        self.assertEqual(self.dag.get([i['AB']]),
+                         self.dag.get([i['A'], i['AB']]))
+        # Chain: A ⊐ AB ⊐ ABC — only ABC's cone matters.
+        self.assertEqual(self.dag.get([i['ABC']]),
+                         self.dag.get([i['A'], i['AB'], i['ABC']]))
+
+    def test_meet_named_node_is_not_the_meet(self):
+        # X is placed directly under A and B: a *sibling* of AB, invisible to
+        # any plan that rewrites get([A, B]) as cone(AB). This test fails
+        # loudly if such a rewrite is ever added without the canonical-
+        # placement invariant (docs/SEMANTIC_CODES.md §10).
+        i = self.items
+        x = Item('X')
+        self.dag.put(x, [i['A'], i['B']])
+        result = {item.name for item in self.dag.get([i['A'], i['B']])}
+        self.assertIn('X', result)
+        self.assertEqual({'AB', 'ABC', 'ABF', 'X'}, result)
+
+    def test_disjoint_cones_yield_empty_result(self):
+        i = self.items
+        # G is a leaf: its cone is empty, so any query containing it is empty
+        # (and the planner's early exit must not change that).
+        self.assertEqual(set(), self.dag.get([i['G'], i['A']]))
+        self.assertEqual(set(), self.dag.get([i['D'], i['F']]))
+
+    def test_duplicate_terms_are_deduplicated(self):
+        i = self.items
+        self.assertEqual(self.dag.get([i['B'], i['C']]),
+                         self.dag.get([i['B'], i['C'], Item('B')]))
+
+    def test_unknown_term_returns_empty_set(self):
+        self.assertEqual(set(), self.dag.get([self.items['A'], Item('nope')]))
+
+    def test_empty_query_raises_type_error(self):
+        # Pre-planner behavior (set.intersection() with no sets) also raised
+        # TypeError; the planner keeps the exception type, with a message.
+        with self.assertRaises(TypeError):
+            self.dag.get([])
+
+
 if __name__ == '__main__':
     unittest.main()

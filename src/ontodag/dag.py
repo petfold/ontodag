@@ -274,17 +274,62 @@ class OntoDAG(DAG):
         super().add_edge(from_node, to_node)
 
     def get(self, super_categories):
-        """Return all items that are subcategories of all specified super-categories."""
-        descendant_sets = []
+        """Return all items that are subcategories of all specified super-categories.
+
+        The result is the intersection of the query terms' descendant cones.
+        The query is planned before anything is traversed; every planning step
+        is result-preserving and only reduces work:
+
+        1. Terms are resolved by name and deduplicated (identity at the public
+           boundary is the name, never the caller's object).
+        2. A term that is an ancestor of another term is dropped: its cone is a
+           superset of the other's, so it cannot narrow the intersection.
+           `descendant_count` supplies a cheap necessary condition — a strict
+           ancestor always has a strictly larger count — so reachability is
+           only checked for pairs the counts don't already rule out.
+        3. The surviving cones are traversed smallest-count-first and
+           intersected incrementally, stopping as soon as the running result
+           is empty, so the largest cones are often never walked at all.
+
+        Note for future optimizers: a node whose parents are exactly {A, B} is
+        NOT the meet of A and B — put(X, [A, B]) creates a *sibling* of such a
+        node, never a child of it — so rewriting a query through "meet-named"
+        nodes (answering get([A, B, C]) as cone(AB) ∩ cone(C)) silently loses
+        results. See docs/SEMANTIC_CODES.md §10 before adding such a rewrite;
+        it is sound only with a canonical-placement invariant on put().
+        """
+        # 1. Resolve and deduplicate; an unknown term has an empty cone.
+        terms = {}
         for super_category in super_categories:
-            if super_category.name in self.nodes:
-                descendants = self.get_descendants(super_category)
-                descendant_sets.append(descendants)
-            else:
-                # Item not found; return empty set
+            node = self.nodes.get(super_category.name)
+            if node is None:
                 return set()
-        # Intersection of all descendant sets
-        common_subcategories = set.intersection(*descendant_sets)
+            terms[node.name] = node
+        if not terms:
+            # Preserves the pre-planner behavior (set.intersection() with no
+            # sets raised TypeError), with an intelligible message.
+            raise TypeError("get() requires at least one super-category")
+
+        # 2. Drop terms subsumed by another term.
+        nodes = list(terms.values())
+        minimal = [
+            node for node in nodes
+            if not any(
+                other is not node
+                and node.descendant_count > other.descendant_count
+                and self._is_reachable(node, other)
+                for other in nodes
+            )
+        ]
+
+        # 3. Smallest cone first, early exit on an empty running result. The
+        # name tiebreak keeps traversal order deterministic across runs.
+        minimal.sort(key=lambda node: (node.descendant_count, node.name))
+        common_subcategories = self.get_descendants(minimal[0])
+        for node in minimal[1:]:
+            if not common_subcategories:
+                break
+            common_subcategories &= self.get_descendants(node)
         return common_subcategories
 
     def get_by_dag(self, query_dag):
