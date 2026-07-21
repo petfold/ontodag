@@ -52,7 +52,7 @@ cd ontodag
 pip install -e .
 ```
 
-This installs the `ontodag` command and the Python library, along with its
+This installs the `odag` command and the Python library, along with its
 dependencies (`graphviz`, `owlready2`, and `recordstore`).
 
 Two optional extras:
@@ -73,9 +73,9 @@ Two optional extras:
 
 > **Running without installing:** if you just cloned the repo and don't want to
 > install anything, prefix commands with `PYTHONPATH=src`, e.g.
-> `PYTHONPATH=src python3 -m ontodag show myfile.omn`. Everything below works
-> either way; we'll write `ontodag` for short, which is the same as
-> `python3 -m ontodag`.
+> `PYTHONPATH=src python3 -m ontodag show`. Everything below works
+> either way; we'll write `odag` for short, which is the same as
+> `PYTHONPATH=src python3 -m ontodag`.
 
 ---
 
@@ -284,141 +284,187 @@ formats open in standard ontology editors like Protégé.
 
 ## 5. The command line
 
-Everything in §4 can be done without writing any Python. The CLI works on ontology
-files: each command **loads a file, does one thing, and saves the result**. If you
-installed with pip you have an `ontodag` command; otherwise use
-`PYTHONPATH=src python3 -m ontodag` from the repository root.
+Everything in §4 can be done without writing any Python. The command is `odag`, and
+it behaves like an ordinary Unix tool: **it works on a persistent store, prints
+nothing on success, sends errors to stderr, and pipes cleanly**. If you installed
+with pip you have the `odag` command; otherwise use `PYTHONPATH=src python3 -m
+ontodag` from the repository root.
 
 ```
-ontodag <command> ...
+odag <command> ...
 
-  show        Display nodes and edges of a DAG file
-  put         Add an item to a DAG
-  get         Query common subcategories
-  remove      Remove an item from a DAG
-  merge       Merge two DAG files
-  export      Convert between .owl and .omn
-  visualize   Render a DAG to an image
+  put SUB [PARENT...]   add SUB under the PARENT categories (or the root)
+  get CAT [CAT...]      print items below all of the CATs, one per line
+  remove ITEM           remove ITEM from the store
+  show                  print the DAG structure
+  list                  print every item name
+  merge FILE            merge FILE into the store
+  import FILE           replace the store with the contents of FILE
+  export FILE           write the store to FILE
+  visualize [--out B]   render the DAG to an image
+  set [store PATH]      show config, or set the default store
+  help                  show this help
 ```
 
-Run `ontodag <command> --help` for the options of each.
+Run `odag <command> --help` for the options of each.
 
-### 5.1 Starting from nothing
+### 5.1 The store
 
-The CLI needs a file to work on. Create one by hand — this is a complete, valid
-starter file. Save it as `petshop.omn`:
+There is no file to create first. `odag` keeps a default store in a hidden directory
+in your home — `~/.ontodag/store.od` — and every command reads and writes it. So
+you can start adding things immediately, and `odag put cat` / `odag get cat` just work.
 
-```
-Prefix: : <urn:ontodag_petshop#>
-Prefix: owl: <http://www.w3.org/2002/07/owl#>
+The store is a canonical, line-oriented text file (one item per line, `name
+parent1 parent2 …`), so it diffs and merges cleanly in git. Point at a different
+store for one command with `-f PATH`, or change the default permanently with
+`set store PATH`:
 
-Ontology: <urn:ontodag_petshop>
-
-Class: :Animal
-
-Class: :Machine
-
-Class: :Pet
-
-Class: :Dog
-    SubClassOf: :Animal, :Pet
-
-Class: :Cat
-    SubClassOf: :Animal, :Pet
-
-Class: :Aibo
-    SubClassOf: :Machine, :Pet
+```console
+$ odag set store ~/work/pets.od      # writes ~/.ontodag/config; silent
+$ odag set                           # show the current store
+store = /home/you/work/pets.od
 ```
 
-The pattern: one `Class:` line per item, and an optional `SubClassOf:` line listing
-its categories (comma-separated, each name prefixed with `:`). A class with no
-`SubClassOf` is top-level. Use names without spaces (CamelCase or underscores).
+Files ending in `.owl` or `.omn` are read and written as OWL / Manchester syntax
+instead of the native format — so `odag -f pets.omn get Animal` works directly on an
+ontology file, and `export`/`import` convert between them.
+
+**Storing on Swarm.** A store can also live on [Ethereum Swarm](https://www.ethswarm.org/)
+instead of a local file. Set it once and it sticks:
+
+```console
+$ odag set store swarm:pets       # every later command now uses Swarm
+$ odag put Animal
+$ odag get Animal
+```
+
+The DAG's content is written to a Bee node (content-addressed, immutable), while
+the pointer to the *latest* version is kept locally at `~/.ontodag/pets.root` — so
+no signing key is needed to get started. Point `odag` at your node with the `BEE_API`
+and `BEE_BATCH` environment variables, or `bee_api` / `bee_batch` lines in
+`~/.ontodag/config`; writes need a funded [postage batch](https://docs.ethswarm.org/docs/develop/access-the-swarm/buy-a-stamp-batch).
+Reading and writing an empty store needs no node, but `put`/`import` (which commit
+to Swarm) do — without one you get a clear `Connection refused` error, and nothing
+is lost. Switch back to a file any time with `odag set store PATH`.
 
 ### 5.2 A complete worked session
 
-```console
-$ ontodag show petshop.omn
-OntoDAG loaded from: petshop.omn
-Nodes (7):
-  *  [root]  -> ['Pet', 'Machine', 'Animal']
-  Animal  (parents: ['*'])  -> ['Dog', 'Cat']
-  Machine  (parents: ['*'])  -> ['Aibo']
-  Pet  (parents: ['*'])  -> ['Dog', 'Cat', 'Aibo']
-  Aibo  (parents: ['Machine', 'Pet'])  -> []
-  Cat  (parents: ['Animal', 'Pet'])  -> []
-  Dog  (parents: ['Animal', 'Pet'])  -> []
-```
-
-Ask which things are both animals and pets:
+Build the pet shop from nothing — each `put` is silent on success:
 
 ```console
-$ ontodag get petshop.omn Animal Pet
-Subcategories of [Animal, Pet]:
-  Cat
-  Dog
+$ odag put Animal
+$ odag put Machine
+$ odag put Pet
+$ odag put Dog Animal Pet
+$ odag put Cat Animal Pet
+$ odag put Aibo Machine Pet
 ```
 
-Add a spaniel under Dog (the file is updated in place; use `-o other.omn` to write
-elsewhere):
+Look at what you have:
 
 ```console
-$ ontodag put petshop.omn Spaniel Dog
-Added 'Spaniel' under [Dog] -> saved to petshop.omn
-
-$ ontodag get petshop.omn Animal
-Subcategories of [Animal]:
-  Cat
-  Dog
-  Spaniel
+$ odag show
+* [root] -> Animal Machine Pet
+Pet (*) -> Aibo Cat Dog
+Machine (*) -> Aibo
+Aibo (Machine Pet) ->
+Animal (*) -> Cat Dog
+Cat (Animal Pet) ->
+Dog (Animal Pet) ->
 ```
 
-Again: nobody typed "Spaniel is an Animal" — being under Dog was enough.
-
-Remove an item (children reconnect to its parents automatically):
+Ask which things are both animals and pets — one name per line, straight to stdout:
 
 ```console
-$ ontodag remove petshop.omn Cat -o petshop-nocat.omn
-Removed 'Cat' -> saved to petshop-nocat.omn
+$ odag get Animal Pet
+Cat
+Dog
 ```
 
-Merge in a second file. Given `gadgets.omn` containing a `Machine` class and a
-`Drone` under it:
+Add a spaniel under Dog; nobody typed "Spaniel is an Animal" — being under Dog was
+enough:
 
 ```console
-$ ontodag merge petshop.omn gadgets.omn -o combined.omn
-Merged 'gadgets.omn' into 'petshop.omn' -> saved to combined.omn
-
-$ ontodag get combined.omn Machine
-Subcategories of [Machine]:
-  Aibo
-  Drone
+$ odag put Spaniel Dog
+$ odag get Animal
+Cat
+Dog
+Spaniel
 ```
 
-The shared `Machine` category knitted the two files together — same name, same
-category.
-
-Convert formats and draw a picture:
+Remove an item (children reconnect to its parents automatically), and list every
+name:
 
 ```console
-$ ontodag export petshop.omn -o petshop.owl
-Exported to petshop.owl (format: owl)
-
-$ ontodag visualize petshop.omn --format svg
-OntoDAG visualization saved as: petshop.svg
+$ odag remove Cat
+$ odag list
+Aibo
+Animal
+Dog
+Machine
+Pet
+Spaniel
 ```
 
-`visualize` accepts `--format png|svg|pdf` and `-o NAME` to choose the output
-name. `put` accepts `--optimized` (see §4.1) and both `put`/`remove`/`merge`
-accept `-o` to avoid overwriting the input.
+Because output is plain lines, it pipes:
+
+```console
+$ odag get Animal | wc -l
+2
+$ odag get Animal | grep Span
+Spaniel
+```
+
+### 5.3 Pipes, scripts and interactive mode
+
+Run with no command and `odag` reads commands from standard input — one per line,
+`#` comments allowed — which makes stores scriptable:
+
+```console
+$ printf 'put Drone Machine\nget Machine\n' | odag
+Aibo
+Drone
+```
+
+Run it with no command on a terminal and you get an interactive prompt instead:
+
+```console
+$ odag
+Ontodag 0.1.0 - type help for help
+> put Fish Pet
+> get Pet
+Aibo
+Dog
+Fish
+Spaniel
+> quit
+```
+
+### 5.4 Converting, merging and drawing
+
+`export` writes the current store to a file; the format follows the extension.
+`import` replaces the store from a file; `merge` folds another file in (shared
+category names knit the two together). All three are silent on success:
+
+```console
+$ odag export pets.owl              # native store -> OWL
+$ odag export pets.omn              # -> Manchester syntax
+$ odag merge gadgets.omn            # fold gadgets.omn into the store
+$ odag visualize --format svg --out pets
+```
+
+`visualize` accepts `--format png|svg|pdf` and `--out NAME` for the output name.
+`put` accepts `--optimized` (see §4.1). `get`, `show` and `list` accept `-o FILE`
+to write to a file instead of stdout.
 
 Useful habits:
 
-- Keep your ontology as a `.omn` file in a git repository — the format is
-  line-oriented text, so diffs are readable and merges reviewable.
-- Item names with parents are positional: `ontodag put FILE ITEM PARENT1 PARENT2 …`.
-  Omit parents to add a top-level category.
-- If a parent doesn't exist yet, the command tells you and changes nothing:
-  `Error: parent(s) not found in DAG: Vehicle`.
+- The native store is line-oriented text; keep `~/.ontodag` (or a `-f` store) in a
+  git repository and diffs stay readable, merges reviewable.
+- Item names with parents are positional: `odag put ITEM PARENT1 PARENT2 …`. Omit the
+  parents to add a top-level category.
+- If a parent doesn't exist yet, the command changes nothing and reports on stderr
+  with a non-zero exit code: `odag: One or more super-categories do not exist.`
 
 ---
 
@@ -568,7 +614,7 @@ hand you can skip the root — top-level classes are attached to it automaticall
 
 Because these are standard OWL constructs, your files open in ontology tools such
 as **Protégé**, and conversely, the class hierarchy of an existing OWL ontology can
-be imported into OntoDAG (`ontodag show yourfile.owl` — OntoDAG reads the
+be imported into OntoDAG (`odag -f yourfile.owl show` — OntoDAG reads the
 subclass-of skeleton and ignores everything else).
 
 ---
