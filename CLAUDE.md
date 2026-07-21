@@ -22,7 +22,7 @@ python3 -m pytest tests/test_invariants.py -v              # structural invarian
 python3 -m pytest tests/test_boundaries.py -v              # dependency-boundary tests (must always pass)
 ```
 
-Expected failures in the local environment (missing optional deps, not regressions): `owlready2` is not installed, so `tests/testowl.py` fails at collection. `graphviz` and `dot2tex` were installed in July 2026, so the three rendering tests in `testdag.py` now pass — the full suite above is 43/43 green (it was 59 before the recordstore tests moved to the recordstore repo).
+All optional deps are now installed locally (`graphviz` and `dot2tex` since early July 2026; `owlready2` since 2026-07-21), so there are no expected failures left: `tests/testowl.py` collects and passes (7 tests), and the full suite (the files above plus `testowl.py`) is 67/67 green. Note the 2026-07-21 fix in `owl.py`: `ontology.save()` is called with the path *positional* because upstream `owlready2` names the parameter `file` while the `ontopy` fork names it `filename` — the old `filename=` keyword crashed `.owl` export under upstream owlready2 (silently swallowed into `**kargs`, falling back to the empty `onto_path`).
 
 All 12 invariant tests pass as of July 2026 (fixes I1–I4, I6 landed; see "Known bugs" below for what remains). The helpers in `tests/test_invariants.py` (`reach`, `edge_set`) compute reachability independently of the traversal code under test, so they remain a valid oracle while `dag.py` is being changed.
 

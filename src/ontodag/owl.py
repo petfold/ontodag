@@ -42,7 +42,12 @@ class OWLOntology:
                     if Thing in sub_cls.is_a:
                         sub_cls.is_a.remove(Thing)
 
-        ontology.save(filename=file_name, format="rdfxml")
+        # Positional on purpose: upstream owlready2 names this parameter
+        # `file`, the ontopy fork names it `filename` — the keyword form
+        # breaks on whichever library is not installed (owlready2 silently
+        # swallows `filename=` into **kargs and falls back to the empty
+        # onto_path, raising IndexError).
+        ontology.save(file_name, format="rdfxml")
 
     @staticmethod
     def generate_manchester_content(dag, unique_id=None) -> str:
