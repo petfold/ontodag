@@ -67,6 +67,12 @@ class Item:
         }
 
 
+def _name_of(node_or_name):
+    """Identity at the public boundary is the name: accept a plain string or
+    anything with a `.name` (an Item), and return the name string."""
+    return node_or_name if isinstance(node_or_name, str) else node_or_name.name
+
+
 class DAG:
     def __init__(self, nodes=None):
         self.nodes = {}
@@ -168,10 +174,16 @@ class DAG:
                     frontier.append(parent)
 
     def get_descendants(self, node, visited=None):
-        # Identity at the public boundary is the name: traverse this
-        # instance's node, not the caller's object, whose neighbors may be
-        # empty (e.g. a fresh Item used to query a rehydrated DAG).
-        node = self.nodes.get(node.name, node)
+        # Identity at the public boundary is the name (a plain string or an
+        # Item): traverse this instance's node, not the caller's object,
+        # whose neighbors may be empty (e.g. a fresh Item used to query a
+        # rehydrated DAG). An unknown name has no descendants.
+        if isinstance(node, str):
+            node = self.nodes.get(node)
+            if node is None:
+                return set()
+        else:
+            node = self.nodes.get(node.name, node)
         if visited is None:
             visited = set()
         if node in visited:
@@ -213,9 +225,10 @@ class DAG:
         return not missing
 
     def get_ancestors(self, node, ignore=()):
-        if node.name not in self.nodes:
-            raise ValueError(f"Node {node.name} does not exist in the graph.")
-        node = self.nodes[node.name]  # traverse our node, not the caller's
+        name = _name_of(node)  # a plain string is accepted too
+        if name not in self.nodes:
+            raise ValueError(f"Node {name} does not exist in the graph.")
+        node = self.nodes[name]  # traverse our node, not the caller's
 
         ancestors = set()
         frontier = [node]
@@ -351,10 +364,12 @@ class OntoDAG(DAG):
         results. See docs/SEMANTIC_CODES.md §10 before adding such a rewrite;
         it is sound only with a canonical-placement invariant on put().
         """
-        # 1. Resolve and deduplicate; an unknown term has an empty cone.
+        # 1. Resolve and deduplicate; terms may be name strings or Items
+        # (names are the identity at the public boundary); an unknown term
+        # has an empty cone.
         terms = {}
         for super_category in super_categories:
-            node = self.nodes.get(super_category.name)
+            node = self.nodes.get(_name_of(super_category))
             if node is None:
                 return set()
             terms[node.name] = node
@@ -429,7 +444,12 @@ class OntoDAG(DAG):
                 self.remove_edge(ancestor, to_node)
 
     def put(self, subcategory, super_categories, optimized=False):
-        if any(super_cat.name not in self.nodes for super_cat in super_categories):
+        # Names are the identity at the public boundary: plain strings are
+        # accepted anywhere an Item is (see "Identity" in CLAUDE.md).
+        if isinstance(subcategory, str):
+            subcategory = Item(subcategory)
+        super_names = [_name_of(sc) for sc in super_categories]
+        if any(name not in self.nodes for name in super_names):
             raise ValueError("One or more super-categories do not exist.")
         if subcategory.name == self.root.name and self.root.name in self.nodes:
             raise ValueError("Already exists as root.")
@@ -439,7 +459,7 @@ class OntoDAG(DAG):
         else:
             self.add_node(subcategory)
 
-        super_categories = [self.nodes[sc.name] for sc in super_categories]
+        super_categories = [self.nodes[name] for name in super_names]
 
         if not super_categories:
             super_categories = [self.root]
@@ -479,10 +499,16 @@ class OntoDAG(DAG):
                 self.add_edge(super_cat, subcategory)
 
     def remove(self, node_to_remove):
-        if node_to_remove.name not in self.nodes:
-            raise ValueError(f"Item {node_to_remove.name} does not exist.")
-        if node_to_remove.name == self.root.name:
+        # Accept a name string or any Item, and resolve to this instance's
+        # node: a fresh Item("X") has empty parents/neighbors, so operating
+        # on the caller's object instead of ours would orphan X's children
+        # and corrupt the graph.
+        name = _name_of(node_to_remove)
+        if name not in self.nodes:
+            raise ValueError(f"Item {name} does not exist.")
+        if name == self.root.name:
             raise ValueError("Cannot remove the root.")
+        node_to_remove = self.nodes[name]
 
         super_categories = {parent for parent in node_to_remove.parents
                             if self.nodes.get(parent.name) is parent}

@@ -95,6 +95,60 @@ class TestOntoDAG(unittest.TestCase):
         self.assertEqual(['E'], [item.name for item in common_subcategories])
 
 
+class TestStringAPI(unittest.TestCase):
+    """Names are the identity at the public boundary: plain strings are
+    accepted anywhere the API takes an Item, and both forms are
+    interchangeable."""
+
+    def setUp(self):
+        self.dag = OntoDAG()
+        self.dag.put("Animal", [])
+        self.dag.put("Pet", [])
+        self.dag.put("Dog", ["Animal", "Pet"])
+        self.dag.put("Cat", ["Animal", "Pet"])
+        self.dag.put("Spaniel", ["Dog"])
+
+    def test_get_with_strings(self):
+        names = sorted(item.name for item in self.dag.get(["Animal", "Pet"]))
+        self.assertEqual(['Cat', 'Dog', 'Spaniel'], names)
+
+    def test_strings_and_items_are_interchangeable(self):
+        self.assertEqual(self.dag.get(["Animal", "Pet"]),
+                         self.dag.get([Item("Animal"), Item("Pet")]))
+        self.dag.put(Item("Terrier"), ["Dog"])
+        self.dag.put("Beagle", [Item("Dog")])
+        self.assertEqual({'Terrier', 'Beagle', 'Spaniel'},
+                         {i.name for i in self.dag.get(["Dog"])})
+
+    def test_put_unknown_string_parent_raises(self):
+        with self.assertRaises(ValueError):
+            self.dag.put("X", ["Nope"])
+
+    def test_remove_by_name_reconnects_children(self):
+        self.dag.remove("Dog")
+        self.assertNotIn("Dog", self.dag.nodes)
+        self.assertEqual({'Animal', 'Pet'},
+                         {p.name for p in self.dag.nodes["Spaniel"].parents})
+
+    def test_remove_with_fresh_item_resolves_by_name(self):
+        # A fresh Item("Dog") has empty parents/neighbors; remove() must
+        # resolve it to this instance's node — operating on the caller's
+        # object would orphan Dog's children and leave dangling edges.
+        self.dag.remove(Item("Dog"))
+        self.assertNotIn("Dog", self.dag.nodes)
+        self.assertEqual({'Animal', 'Pet'},
+                         {p.name for p in self.dag.nodes["Spaniel"].parents})
+        self.assertEqual({'Cat', 'Spaniel'},
+                         {i.name for i in self.dag.get(["Animal", "Pet"])})
+
+    def test_traversals_accept_strings(self):
+        self.assertEqual({'Cat', 'Dog', 'Spaniel'},
+                         {i.name for i in self.dag.get_descendants("Animal")})
+        self.assertEqual(set(), self.dag.get_descendants("Nope"))
+        self.assertEqual({'*', 'Animal', 'Dog', 'Pet'},
+                         {i.name for i in self.dag.get_ancestors("Spaniel")})
+
+
 class TestQueryPlanner(unittest.TestCase):
     """get() plans queries (term elimination, count-ordered traversal, early
     exit); every planning step must be result-preserving. These tests pin the

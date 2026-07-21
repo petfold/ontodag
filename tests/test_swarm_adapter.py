@@ -255,6 +255,26 @@ class TestNodeExtras(unittest.TestCase):
         again3 = SwarmOntoDAG(RecordStore.at(again2.commit(), blobs))
         self.assertEqual(again3.store.get("IMG_1234")["payload"], "deadbeef" * 8)
 
+    def test_string_api_with_extras(self):
+        # Plain strings work at the adapter boundary too, including the
+        # payload/meta bookkeeping keyed by name.
+        blobs = MemoryBytesStore()
+        dag = SwarmOntoDAG(RecordStore(blobs))
+        dag.put("photos", [])
+        dag.put("IMG_1234", ["photos"], payload="cafebabe" * 8,
+                meta={"Content-Type": "image/png"})
+        root = dag.commit()
+
+        again = SwarmOntoDAG(RecordStore.at(root, blobs))
+        self.assertEqual(again.store.get("IMG_1234")["payload"], "cafebabe" * 8)
+        self.assertEqual({"IMG_1234"},
+                         {i.name for i in again.get(["photos"])})
+
+        editable = SwarmOntoDAG(RecordStore(blobs, root=root))
+        editable.remove("IMG_1234")
+        self.assertNotIn("IMG_1234", editable._payloads)
+        self.assertNotIn("IMG_1234", editable.nodes)
+
 
 class TestRemoval(unittest.TestCase):
     def test_remove_persists(self):

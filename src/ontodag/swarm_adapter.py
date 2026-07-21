@@ -19,7 +19,7 @@ nothing from `recordstore`, keeping the core↔recordstore dependency
 one-directional even here (see tests/test_boundaries.py).
 """
 
-from ontodag.dag import Item, OntoDAG
+from ontodag.dag import Item, OntoDAG, _name_of
 
 
 class SwarmOntoDAG(OntoDAG):
@@ -82,16 +82,17 @@ class SwarmOntoDAG(OntoDAG):
     def put(self, subcategory, super_categories, optimized=False,
             payload=None, meta=None):
         super().put(subcategory, super_categories, optimized=optimized)
-        name = subcategory.name
+        name = _name_of(subcategory)  # plain strings accepted, like OntoDAG
         if payload is not None:
             self._payloads[name] = payload
         if meta is not None:
             self._metas[name] = meta
 
     def remove(self, node_to_remove):
+        name = _name_of(node_to_remove)
         super().remove(node_to_remove)
-        self._payloads.pop(node_to_remove.name, None)
-        self._metas.pop(node_to_remove.name, None)
+        self._payloads.pop(name, None)
+        self._metas.pop(name, None)
 
     def merge(self, other_dag):
         super().merge(other_dag)
