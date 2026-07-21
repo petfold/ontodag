@@ -16,6 +16,9 @@ dependencies = [
 
 [project.optional-dependencies]
 web = ["flask", "dot2tex", "Pillow"]
+# The `swarm:NAME` CLI backend talks to a Bee node via recordstore's
+# BeeBytesStore, which needs `requests` (recordstore's own [bee] extra).
+swarm = ["requests"]
 
 [project.scripts]
 odag = "ontodag.__main__:main"
