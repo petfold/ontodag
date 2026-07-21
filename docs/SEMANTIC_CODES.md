@@ -347,5 +347,10 @@ with this section as the destination it points toward.
 - Roaring bitmaps (Lemire et al.) — the practical compressed-bitmap workhorse.
 - mdl-fca (github.com/petfold/mdl-fca) — the learner that makes codes *meaningful*
   (short codes for concepts that pay for themselves), see `SWARM_DESIGN.md` §8.
+- P. Földiák, "Sparse neural representation for semantic indexing," ESCOP 2003 —
+  concepts as sets of active features, inheritance as subset structure, set-algebra
+  queries, overlap-based retrieval; the code-primary position this note builds on.
+  https://drive.google.com/file/d/0BzC4pqiFnDxcNnpFTm9qYWpqejg/view?usp=sharing
+  (local copy: `docs/escopill2.pdf`, untracked).
 - `PHILOSOPHICAL_LANGUAGES.md` — why the ancestors of this idea failed, and which
   failure modes this note is built to avoid.

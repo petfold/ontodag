@@ -169,6 +169,16 @@ error-correcting codes want *distance*, not proximity).
   such a representation whose feature alphabet is the category set itself — and sparse
   coding theory says the efficient code allocates short/dense codes to frequent
   concepts, which is what an MDL objective (mdl-fca) does automatically.
+- **Földiák, "Sparse neural representation for semantic indexing" (ESCOP 2003)** —
+  the direct ancestor of this project's code-primary view: concepts as sets of active
+  units instead of nodes-and-links ("explicit links are not even necessary"),
+  inheritance as subset structure between feature sets, set algebra for defining
+  concepts and expressing queries, retrieval as maximal-overlap search with a
+  generality/specificity display. Its per-concept fresh feature (`animal := thing ∪ !`)
+  is precisely the reflexive bit of the ancestor-set code — the arbitrary surrogate
+  key embedded inside the meaning-bearing code. Poster:
+  https://drive.google.com/file/d/0BzC4pqiFnDxcNnpFTm9qYWpqejg/view?usp=sharing
+  (local copy: `docs/escopill2.pdf`, kept untracked).
 - **Order embeddings (Vendrov et al. 2016) and Poincaré/hyperbolic embeddings (Nickel
   & Kiela 2017).** The continuous relaxation: learn vectors such that subsumption is
   coordinate-wise dominance or hyperbolic proximity. Trees embed in hyperbolic space
