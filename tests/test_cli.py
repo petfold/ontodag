@@ -126,6 +126,80 @@ class TestSwarmBackend(unittest.TestCase):
                          (0, ""))
 
 
+class TestSetCommand(unittest.TestCase):
+    def _session(self, d):
+        return cli.Session(os.path.join(d, "store.od"))
+
+    def test_set_no_args_shows_all_settings(self):
+        with tempfile.TemporaryDirectory() as d:
+            code, out = _run(["set"], self._session(d))
+            self.assertEqual(code, 0)
+            for key in ("store", "bee_api", "bee_batch"):
+                self.assertIn(f"{key} = ", out)
+
+    def test_set_key_without_value_displays_not_errors(self):
+        with tempfile.TemporaryDirectory() as d:
+            for key in ("store", "bee_api", "bee_batch"):
+                code, out = _run(["set", key], self._session(d))
+                self.assertEqual(code, 0, f"{key} should display, not error")
+                self.assertTrue(out.startswith(f"{key} = "))
+
+    def test_set_key_value_changes_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            home = os.path.join(d, "home")
+            old = os.environ.get("ONTODAG_HOME")
+            os.environ["ONTODAG_HOME"] = home
+            try:
+                s = cli.Session(cli._resolve_store(None))
+                self.assertEqual(_run(["set", "bee_api", "http://n:1633"], s),
+                                 (0, ""))
+                code, out = _run(["set", "bee_api"], s)
+                self.assertEqual((code, out), (0, "bee_api = http://n:1633\n"))
+            finally:
+                if old is None:
+                    del os.environ["ONTODAG_HOME"]
+                else:
+                    os.environ["ONTODAG_HOME"] = old
+
+    def test_set_unknown_key_errors(self):
+        with tempfile.TemporaryDirectory() as d:
+            code, out = _run(["set", "bogus"], self._session(d))
+            self.assertEqual(code, 1)
+
+
+class TestSwarmMissingDependency(unittest.TestCase):
+    def test_missing_requests_gives_actionable_error(self):
+        # BeeBytesStore imports `requests` in its constructor; if it's not
+        # installed the swarm backend must fail with a clear message pointing
+        # at the extra, not a raw ModuleNotFoundError.
+        import builtins
+
+        real_import = builtins.__import__
+
+        def block(name, *args, **kwargs):
+            if name == "requests" or name.startswith("requests."):
+                raise ModuleNotFoundError("No module named 'requests'")
+            return real_import(name, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as home:
+            old_home = os.environ.get("ONTODAG_HOME")
+            os.environ["ONTODAG_HOME"] = home
+            builtins.__import__ = block
+            try:
+                with self.assertRaises(ValueError) as ctx:
+                    cli.SwarmBackend("pets")._record_store()
+            finally:
+                builtins.__import__ = real_import
+                if old_home is None:
+                    del os.environ["ONTODAG_HOME"]
+                else:
+                    os.environ["ONTODAG_HOME"] = old_home
+
+        msg = str(ctx.exception)
+        self.assertIn("requests", msg)
+        self.assertIn("swarm extra", msg)
+
+
 class TestSwarmConfig(unittest.TestCase):
     def test_set_store_swarm_is_verbatim(self):  # C5
         with tempfile.TemporaryDirectory() as home:

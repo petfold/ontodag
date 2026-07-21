@@ -223,13 +223,23 @@ class SwarmBackend:
     def _record_store(self):
         if self._store_factory is not None:
             return self._store_factory()
-        from recordstore import RecordStore, BeeBytesStore, FilePointer
         cfg = _read_config()
         api = os.environ.get("BEE_API") or cfg.get("bee_api") or "http://localhost:1633"
         batch = os.environ.get("BEE_BATCH") or cfg.get("bee_batch") or ""
-        os.makedirs(_home_dir(), exist_ok=True)
-        return RecordStore(BeeBytesStore(api, batch),
-                           pointer=FilePointer(self.pointer_path()))
+        try:
+            # BeeBytesStore imports `requests` in its constructor, so a missing
+            # optional dependency surfaces here rather than at module import.
+            from recordstore import RecordStore, BeeBytesStore, FilePointer
+            os.makedirs(_home_dir(), exist_ok=True)
+            return RecordStore(BeeBytesStore(api, batch),
+                               pointer=FilePointer(self.pointer_path()))
+        except ImportError as exc:
+            missing = exc.name or "requests"
+            raise ValueError(
+                f"the swarm backend needs an optional dependency that is not "
+                f"installed ({missing!r}); install the swarm extra with:  "
+                f"pip install -e \".[swarm]\"   (or: pip install requests)"
+            ) from exc
 
     def load(self):
         from ontodag.swarm_adapter import SwarmOntoDAG
@@ -342,20 +352,46 @@ def cmd_visualize(args, session, out):
     OntoDAGVisualizer(format=args.format).visualize(session.dag, filename=base)
 
 
+# Settings `set` can show and change. `store` is the active store spec;
+# bee_api/bee_batch configure the Swarm backend's Bee node.
+_SETTINGS = ("store", "bee_api", "bee_batch")
+
+
+def _effective_setting(session, key):
+    """The value currently in effect, honoring env/config precedence."""
+    if key == "store":
+        return session.describe()
+    cfg = _read_config()
+    if key == "bee_api":
+        return os.environ.get("BEE_API") or cfg.get("bee_api") or "http://localhost:1633"
+    if key == "bee_batch":
+        return os.environ.get("BEE_BATCH") or cfg.get("bee_batch") or ""
+    return cfg.get(key, "")
+
+
 def cmd_set(args, session, out):
+    # No key: show every setting. Key but no value: show that one. Both:
+    # change it. Displaying on a missing value never errors.
     if not args.key:
-        print(f"store = {session.describe()}", file=out)
+        for key in _SETTINGS:
+            print(f"{key} = {_effective_setting(session, key)}", file=out)
+        return
+    if args.key not in _SETTINGS:
+        raise ValueError(f"unknown setting: {args.key} "
+                         f"(known: {', '.join(_SETTINGS)})")
+    if args.value is None:
+        print(f"{args.key} = {_effective_setting(session, args.key)}", file=out)
         return
     if args.key == "store":
-        if not args.value:
-            raise ValueError("usage: set store PATH")
         spec = _normalize_spec(args.value)
         cfg = _read_config()
         cfg["store"] = spec
         _write_config(cfg)
         session.switch(spec)
     else:
-        raise ValueError(f"unknown setting: {args.key}")
+        cfg = _read_config()
+        cfg[args.key] = args.value
+        _write_config(cfg)
 
 
 HELP_TEXT = """\
@@ -371,7 +407,7 @@ Commands:
   import FILE           replace the store with the contents of FILE
   export FILE           write the store to FILE
   visualize [--out B]   render the DAG to an image
-  set [store PATH]      show config, or set the default store
+  set [KEY [VALUE]]     show settings, or set one (store, bee_api, bee_batch)
   help                  show this help
 
 With no command odag reads commands from a pipe, or opens an interactive
@@ -380,8 +416,9 @@ any other path is the native line format.
 
 A store may also be `swarm:NAME`, persisted on Ethereum Swarm (content on a
 Bee node, latest root in ~/.ontodag/NAME.root). `set store swarm:NAME` makes
-it the default, so every later command uses Swarm. Configure the node with
-$BEE_API / $BEE_BATCH or `bee_api` / `bee_batch` in ~/.ontodag/config.
+it the default, so every later command uses Swarm. Needs the swarm extra
+(`pip install -e ".[swarm]"`). Configure the node with $BEE_API / $BEE_BATCH
+or `bee_api` / `bee_batch` in ~/.ontodag/config.
 
 Options:
   -f, --store PATH      use PATH (or swarm:NAME) as the store for this run
@@ -444,7 +481,8 @@ def build_parser():
     p.add_argument("--format", default="png", choices=["png", "svg", "pdf"])
     p.set_defaults(func=cmd_visualize)
 
-    p = sub.add_parser("set", add_help=True, help="show or change config")
+    p = sub.add_parser("set", add_help=True,
+                       help="show settings, or change one")
     p.add_argument("key", nargs="?")
     p.add_argument("value", nargs="?")
     p.set_defaults(func=cmd_set)

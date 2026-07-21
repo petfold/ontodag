@@ -321,16 +321,26 @@ store for one command with `-f PATH`, or change the default permanently with
 
 ```console
 $ odag set store ~/work/pets.od      # writes ~/.ontodag/config; silent
-$ odag set                           # show the current store
+$ odag set                           # show every setting
+store = /home/you/work/pets.od
+bee_api = http://localhost:1633
+bee_batch =
+$ odag set store                     # show just one (no value = display, never an error)
 store = /home/you/work/pets.od
 ```
+
+`set KEY VALUE` changes a setting; `set KEY` on its own displays it; `set`
+alone lists them all. The settings are `store` and — for the Swarm backend
+below — `bee_api` / `bee_batch`.
 
 Files ending in `.owl` or `.omn` are read and written as OWL / Manchester syntax
 instead of the native format — so `odag -f pets.omn get Animal` works directly on an
 ontology file, and `export`/`import` convert between them.
 
 **Storing on Swarm.** A store can also live on [Ethereum Swarm](https://www.ethswarm.org/)
-instead of a local file. Set it once and it sticks:
+instead of a local file. It needs one extra dependency — install it once with
+`pip install -e ".[swarm]"` (this pulls in `requests`; without it you get a
+clear message telling you so). Then set the store once and it sticks:
 
 ```console
 $ odag set store swarm:pets       # every later command now uses Swarm
