@@ -173,7 +173,10 @@ though a typical 300-500 byte record fills only 10-15% of a chunk. Rationale:
 which keys get traversed together — because that data is exactly what a
 leaf-packing policy needs to be designed well, and guessing now would be
 premature. The `RecordStore.get`/`put`/`commit` interface must not change
-when this happens; only what's behind it does.
+when this happens; only what's behind it does. (One likely first customer
+identified since: the semantic-code cone index of `docs/SEMANTIC_CODES.md`
+§4 — dense, uniformly co-accessed records with a known access pattern from
+day one, unlike node records.)
 
 ## 5. Multi-writer / CRDT plan (not yet implemented)
 
@@ -200,6 +203,43 @@ the same reason: a real feed update needs client-side SOC signing
 out of the stdlib-only first cut. `FilePointer`/`MemoryPointer` stand in
 until then.
 
+> **Update (2026-07-20): the `recordstore` half of this section now exists
+> upstream** (releases v0.4.0–v0.10.0; OntoDAG's pin bump is on the task
+> list in `CLAUDE.md`):
+>
+> - `RecordStore.merge(bytes_store, base, ours, theirs, resolver=None)` —
+>   canonical three-way merge of two roots that diverged from a common base,
+>   O(divergence) on both sides via a structural trie diff (equal refs prune
+>   equal subtrees). Conflicting same-key changes raise `MergeConflict`
+>   unless a `resolver(key, base, ours, theirs)` settles them
+>   (`ABSENT`/`DELETE` sentinels for missing/removed values). Commutative
+>   when the resolver is symmetric.
+> - `commit(reconcile=True, resolver=None, retries=5)` — if the pointer
+>   moved past the root this commit built on, three-way merge and retry
+>   until it lands; concurrent writers converge instead of clobbering.
+> - The real `SwarmFeedPointer` (v0.4.0, signed via the `swarm-bee` package
+>   behind a `recordstore[feeds]` extra — the signing-dependency decision
+>   was made upstream, resolving the deferral above), with best-effort
+>   `compare_and_set` (v0.10.0) for cross-process reconcile. Caveat: Swarm
+>   feeds have no atomic index-claim primitive, so two writers hitting the
+>   exact same index simultaneously can still race; in-process reconcile
+>   over `MemoryPointer` is race-free.
+>
+> What remains is OntoDAG's merge *rule*, and it is genuinely OntoDAG-level:
+> a per-key record resolver alone cannot uphold the invariants, because
+> transitive reduction and `descendant_count` are properties of the whole
+> graph, not of one node record — merging two records' `up`/`down` unions
+> key-by-key can produce redundant edges or stale counts. The plan:
+> record-level reconcile handles disjoint-key divergence for free; when the
+> *same node* diverged (or after any conflicted merge), renormalize at the
+> graph level — hydrate both roots, apply `OntoDAG.merge` (the I7
+> commutative/idempotent semantics, i.e. the transitive reduction of the
+> edge union), recompute counts, recommit. The GSOC operation channel
+> described above is thereby demoted from prerequisite to optional
+> extension: state-based reconcile over a shared feed already gives
+> convergence; GSOC adds real-time push of pending ops on top, if wanted.
+> `remove` still needs the tombstone/observed-remove decision either way.
+
 ## 6. Performance model (read this before optimizing anything)
 
 The dominant cost is always the network chunk fetch, not any code-level
@@ -221,6 +261,12 @@ all *noise* relative to the storage model. What actually matters:
   synchronous. A batched/async `get_many()` is the single biggest future
   speed lever for real queries and should be an early addition to the
   `SwarmOntoDAG` adapter or a `recordstore` extension, not an afterthought.
+  *(Update 2026-07-20: shipped upstream — `BytesStore.get_many`/`put_many`
+  and `RecordStore.items()` in v0.5.0–v0.6.0, plus pooled HTTP sessions and
+  bulk trie writes in `commit()` through v0.7.x. The remaining OntoDAG-side
+  step is switching `SwarmOntoDAG._hydrate` from per-key `get` to
+  `items()`, which batches the cold-hydration reads and invalidates the
+  serial `node_count × 5ms` estimate below in the adapter's favor.)*
 - **One-record-per-chunk (§4)** costs a real, measurable multiple on cold
   multi-record scans (~8x round trips vs. a packed layout) but this erodes
   fast once records are warm in cache.
@@ -430,6 +476,22 @@ research direction, not a committed feature; the real design decision to pin
 down before acting on it is the free parameter **λ** (bits per byte-second of
 storage, access-weighted).
 
+### Related design note: semantic codes / the binary cone index
+
+A separate note, **`docs/SEMANTIC_CODES.md`** (2026-07-20), works out a derived
+binary index for the graph: each node's reflexive ancestor set as a bitvector
+(= its FCA intent; subsumption is containment, `get()` is bitwise AND over
+per-category cone bitmaps), with a canonical spanning-tree numbering that makes
+the bitmaps interval-compressible in proportion to the DAG's deviation from a
+tree. It belongs next to this section because mdl-fca is what makes the codes
+*meaningful* (MDL assigns short codes to concepts that pay for themselves),
+and because the index is `derived` in exactly this section's provenance sense —
+regenerable, losable, never authoritative. It would also enable an index-only
+query path over Swarm (O(query + result) chunk fetches instead of full
+hydration, revising §6) and is the first natural customer for §4's deferred
+leaf-packing. Design note only — gated on real usage data, no code exists.
+Historical/inspirational companion: `docs/PHILOSOPHICAL_LANGUAGES.md`.
+
 ## 9. Sequencing (what comes after `recordstore`)
 
 1. **Done in dev-mode form (July 2026, see §7 for the label).** Run
@@ -447,3 +509,11 @@ storage, access-weighted).
 4. Only then: consider leaf-packing (§4), async batched fetches (§6), the
    GSOC-based merge (§5), and the real feed pointer (§5) — each is an
    internal change behind an interface that shouldn't need to move again.
+
+   > **Update (2026-07-20):** recordstore v0.4.0–v0.10.0 delivered three of
+   > these four upstream — batched fetches (§6 update), the real feed
+   > pointer, and the merge/reconcile substrate (§5 update; GSOC is now
+   > optional on top). The remaining OntoDAG-side sequence is in `CLAUDE.md`
+   > "Current task": pin bump → `items()` hydration → feed-pointer adoption
+   > → the OntoDAG merge rule. Leaf-packing (§4) stays deferred pending
+   > usage data.
