@@ -324,12 +324,23 @@ with this section as the destination it points toward.
   today: drop query terms that are ancestors of other terms, order cones by
   `descendant_count` ascending, intersect incrementally with early exit, and
   choose walk-vs-probe (walk smallest cone, test candidates by upward
-  `parents` walk) from the counts. **Implemented 2026-07-21** (all but
-  walk-vs-probe, which needs a cost model and stays future): see
-  `OntoDAG.get` in `src/ontodag/dag.py` and the brute-force-oracle tests in
-  `tests/testdag.py::TestQueryPlanner`, including a guard test that fails if
-  a meet-substitution rewrite is ever added without the canonical-placement
-  invariant.
+  `parents` walk) from the counts. **Implemented 2026-07-21, including
+  walk-vs-probe**: see `OntoDAG.get` in `src/ontodag/dag.py`. Design points
+  that emerged: (a) *plan order in advance, choose operators during
+  retrieval* — term order rests on exact maintained statistics
+  (`descendant_count`), but intermediate result sizes are unknowable up
+  front (cone overlap is not a per-term statistic), so the walk-vs-probe
+  choice is made between steps, O(1) each, from the now-known running-result
+  size; one upward walk per candidate settles *all* remaining terms.
+  (b) *Planner work must scale with the query, never the graph* — the
+  subsumption test walks upward from the smaller-count term
+  (`_has_ancestors`, bounded by its shallow ancestor cone), not downward
+  from the larger. (c) The probe/walk crossover uses a deliberately
+  high constant (`_PROBE_COST_ESTIMATE`) standing in for the unmaintained
+  ancestor-cone size; both operators are exact, so the estimate steers time,
+  never correctness — made executable by the forced-probe/forced-walk oracle
+  tests in `tests/testdag.py::TestQueryPlanner`, which also guard the
+  meet-substitution trap above.
 - **Change-locality resolves by layer.** Asserted DAG: local (one edge + its
   ancestor set). Bitmap index: semi-local (exactly the affected ancestors'
   cones — the count-update set). FCA/learning: global, *and that is

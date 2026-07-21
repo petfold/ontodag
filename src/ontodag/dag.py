@@ -187,6 +187,31 @@ class DAG:
                     frontier.append(neighbor)
         return descendants
 
+    def _has_ancestors(self, node, targets):
+        """True if every Item in `targets` is a strict ancestor of `node`.
+
+        A single upward walk over `parents`, early-exiting as soon as every
+        target has been seen. Cost is bounded by `node`'s ancestor cone —
+        shallow in typical category graphs — and never by the size of the
+        graph or of any descendant cone. That bound is what makes this safe
+        to call from the query planner (see `OntoDAG.get`): checking "is A an
+        ancestor of X" downward from A can walk most of the graph when A is
+        near the root, while checking it upward from X cannot.
+        """
+        missing = set(targets)
+        seen = set()
+        stack = [node]
+        while stack and missing:
+            for parent in stack.pop().parents:
+                # Only follow parents that belong to this DAG instance.
+                if self.nodes.get(parent.name) is not parent:
+                    continue
+                missing.discard(parent)
+                if parent not in seen:
+                    seen.add(parent)
+                    stack.append(parent)
+        return not missing
+
     def get_ancestors(self, node, ignore=()):
         if node.name not in self.nodes:
             raise ValueError(f"Node {node.name} does not exist in the graph.")
@@ -273,23 +298,51 @@ class OntoDAG(DAG):
         self._remove_unneeded_edges(from_node, to_node)
         super().add_edge(from_node, to_node)
 
+    # Stand-in for the typical ancestor-cone size, which is not maintained
+    # per node. Used only to choose between two *exact* operators in get(),
+    # so a bad estimate costs time, never correctness. Deliberately biased
+    # high (ancestor cones in category graphs are usually far smaller than
+    # this) so the probe only fires when it is clearly the cheaper plan.
+    _PROBE_COST_ESTIMATE = 16
+
     def get(self, super_categories):
         """Return all items that are subcategories of all specified super-categories.
 
         The result is the intersection of the query terms' descendant cones.
-        The query is planned before anything is traversed; every planning step
-        is result-preserving and only reduces work:
+        The cheap, reliable decisions are planned up front; the decision that
+        depends on information only produced by retrieval itself is made
+        adaptively between steps. Every step is result-preserving.
+
+        Planned in advance (the inputs — `descendant_count` — are exact,
+        maintained statistics, so this needs no runtime correction):
 
         1. Terms are resolved by name and deduplicated (identity at the public
            boundary is the name, never the caller's object).
-        2. A term that is an ancestor of another term is dropped: its cone is a
-           superset of the other's, so it cannot narrow the intersection.
-           `descendant_count` supplies a cheap necessary condition — a strict
-           ancestor always has a strictly larger count — so reachability is
-           only checked for pairs the counts don't already rule out.
-        3. The surviving cones are traversed smallest-count-first and
-           intersected incrementally, stopping as soon as the running result
-           is empty, so the largest cones are often never walked at all.
+        2. A term that is an ancestor of another term is dropped: its cone is
+           a superset of the other's, so it cannot narrow the intersection.
+           The ancestry test walks *upward* from the smaller-count term via
+           `_has_ancestors` (bounded by its shallow ancestor cone), never
+           downward from the larger one (whose descendant cone may be most of
+           the graph): planner work must scale with the query, not with the
+           graph. `descendant_count` supplies the cheap necessary condition —
+           a strict ancestor always has a strictly larger count.
+        3. The surviving cones are ordered smallest-count-first (name as
+           tiebreak, keeping traversal deterministic).
+
+        Decided during retrieval: after each step the running result's size
+        is known exactly — something no up-front plan can estimate, since
+        cone overlap is not a per-term statistic — so before each remaining
+        term the cheaper of two exact operators is chosen:
+
+        - walk: traverse the term's whole cone and intersect
+          (cost ~ its `descendant_count`);
+        - probe: walk upward from each surviving candidate and keep those
+          with every remaining term among their ancestors (cost ~
+          len(result) x ancestor-cone size, independent of the remaining
+          cones' sizes — and one pass settles *all* remaining terms).
+
+        The loop also stops as soon as the running result is empty, so the
+        largest cones are often never walked at all.
 
         Note for future optimizers: a node whose parents are exactly {A, B} is
         NOT the meet of A and B — put(X, [A, B]) creates a *sibling* of such a
@@ -317,18 +370,29 @@ class OntoDAG(DAG):
             if not any(
                 other is not node
                 and node.descendant_count > other.descendant_count
-                and self._is_reachable(node, other)
+                and self._has_ancestors(other, (node,))
                 for other in nodes
             )
         ]
 
-        # 3. Smallest cone first, early exit on an empty running result. The
-        # name tiebreak keeps traversal order deterministic across runs.
+        # 3. Smallest cone first.
         minimal.sort(key=lambda node: (node.descendant_count, node.name))
+
+        # Adaptive execution: walk or probe, decided per step from the now-
+        # known size of the running result.
         common_subcategories = self.get_descendants(minimal[0])
-        for node in minimal[1:]:
+        for index, node in enumerate(minimal[1:], start=1):
             if not common_subcategories:
                 break
+            remaining = minimal[index:]
+            probe_cost = len(common_subcategories) * self._PROBE_COST_ESTIMATE
+            if probe_cost < sum(term.descendant_count for term in remaining):
+                # One upward walk per candidate settles every remaining term.
+                # (Candidates can never equal query terms: a surviving term
+                # is an ancestor of no other term, so no term lies inside the
+                # first term's cone — strict ancestry is the right test.)
+                return {candidate for candidate in common_subcategories
+                        if self._has_ancestors(candidate, remaining)}
             common_subcategories &= self.get_descendants(node)
         return common_subcategories
 

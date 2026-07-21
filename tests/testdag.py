@@ -183,6 +183,58 @@ class TestQueryPlanner(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.dag.get([])
 
+    # get() chooses adaptively between two exact operators (walk the next
+    # cone vs probe the surviving candidates upward); _PROBE_COST_ESTIMATE
+    # only steers that choice. Forcing it to each extreme must not change
+    # any result — this is what "a bad estimate costs time, never
+    # correctness" means, made executable.
+
+    def _assert_matches_brute_force_everywhere(self):
+        from itertools import combinations
+        items = list(self.items.values())
+        for size in (1, 2, 3):
+            for query in combinations(items, size):
+                self.assertEqual(
+                    self._brute_force(query), self.dag.get(list(query)),
+                    f"diverged on {[q.name for q in query]} with probe "
+                    f"estimate {self.dag._PROBE_COST_ESTIMATE}")
+
+    def test_forced_probe_matches_brute_force(self):
+        self.dag._PROBE_COST_ESTIMATE = 0        # probe whenever possible
+        self._assert_matches_brute_force_everywhere()
+
+    def test_forced_walk_matches_brute_force(self):
+        self.dag._PROBE_COST_ESTIMATE = 10 ** 9  # never probe
+        self._assert_matches_brute_force_everywhere()
+
+    def test_all_modes_agree_on_random_dag(self):
+        # A larger, seeded (deterministic) DAG so the probe path sees
+        # nontrivial ancestor cones, multi-parent diamonds, and skewed
+        # cone sizes that the hand-built fixture is too small to produce.
+        import random
+        rng = random.Random(7)
+        dag = OntoDAG()
+        items = []
+        for n in range(60):
+            item = Item(f'N{n:02d}')
+            parents = (rng.sample(items, rng.randint(1, min(3, len(items))))
+                       if items else [])
+            dag.put(item, parents)
+            items.append(item)
+
+        def brute_force(query):
+            return set.intersection(
+                *[dag.get_descendants(item) for item in query])
+
+        queries = [rng.sample(items, rng.randint(2, 4)) for _ in range(40)]
+        for estimate in (0, 16, 10 ** 9):
+            dag._PROBE_COST_ESTIMATE = estimate
+            for query in queries:
+                self.assertEqual(
+                    brute_force(query), dag.get(query),
+                    f"diverged on {[q.name for q in query]} with probe "
+                    f"estimate {estimate}")
+
 
 if __name__ == '__main__':
     unittest.main()
