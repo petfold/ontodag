@@ -137,7 +137,8 @@ multi-writer future in §8.
 
 **Names are the identity.** Inside a running DAG, links are direct object
 references (fast pointer hops). But at every boundary — files, queries, merging,
-network — an item *is* its name string, nothing more. Two `Item("Dog")`s are the
+network — an item *is* its name string, nothing more (which is why the public API
+simply accepts plain strings). Two `"Dog"`s are the
 same dog. This is why merges knit shared categories together, and why the same
 name in two DAGs means the same thing. (The corollary — agree on names before
 merging — is the price of that simplicity.)

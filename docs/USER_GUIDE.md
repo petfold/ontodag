@@ -81,63 +81,57 @@ Two optional extras:
 
 ## 3. A five-minute tour (Python)
 
-Start `python3` and type along:
+Start `python3` and type along. Everything is done with plain names:
 
 ```python
->>> from ontodag import OntoDAG, Item
+>>> from ontodag import OntoDAG
 
 >>> dag = OntoDAG()
 
-# Top-level categories: pass an empty list of parents.
->>> dag.put(Item("Animal"), [])
->>> dag.put(Item("Machine"), [])
->>> dag.put(Item("Pet"), [])
+# Top-level categories: no parents.
+>>> dag.put("Animal", [])
+>>> dag.put("Machine", [])
+>>> dag.put("Pet", [])
 
 # Things under several categories at once — this is the point of OntoDAG.
->>> dag.put(Item("Dog"), [Item("Animal"), Item("Pet")])
->>> dag.put(Item("Cat"), [Item("Animal"), Item("Pet")])
->>> dag.put(Item("Aibo"), [Item("Machine"), Item("Pet")])   # a robot pet
->>> dag.put(Item("Spaniel"), [Item("Dog")])
+>>> dag.put("Dog", ["Animal", "Pet"])
+>>> dag.put("Cat", ["Animal", "Pet"])
+>>> dag.put("Aibo", ["Machine", "Pet"])   # a robot pet
+>>> dag.put("Spaniel", ["Dog"])
 ```
 
-Your graph now looks like this (arrows point from general to specific; `*` is the
-built-in root that sits above everything):
+Here is the resulting graph, drawn by OntoDAG's own visualizer (§4.5). Arrows
+point from general to specific; `*` is the built-in root above everything; the
+number after each name is how many things sit below it:
 
-```
-                 *
-        ┌────────┼─────────┐
-     Animal     Pet      Machine
-        │      ╱ │ ╲        │
-        ├─ Dog   │  ╲       │
-        ├─ Cat ──┘   ╲      │
-        │             Aibo ─┘
-     Spaniel (under Dog)
-```
+![The pet-shop DAG](images/petshop.svg)
 
 Now ask questions. A query is a list of categories; the answer is everything under
 **all** of them:
 
 ```python
->>> sorted(item.name for item in dag.get([Item("Animal"), Item("Pet")]))
-['Cat', 'Dog', 'Spaniel']
+>>> for item in dag.get(["Animal", "Pet"]):
+...     print(item.name)
+Cat
+Spaniel
+Dog
 
->>> sorted(item.name for item in dag.get([Item("Machine"), Item("Pet")]))
-['Aibo']
-
->>> sorted(item.name for item in dag.get([Item("Animal")]))
-['Cat', 'Dog', 'Spaniel']
+>>> for item in dag.get(["Machine", "Pet"]):
+...     print(item.name)
+Aibo
 ```
 
-Notice `Spaniel` appeared under `Animal` + `Pet` even though you never said
-"Spaniel is an animal" or "Spaniel is a pet" — it's under `Dog`, and that's enough.
-That's the inheritance doing your bookkeeping for you.
+(Results are a set, so the order can vary.) Notice `Spaniel` appeared under
+`Animal` + `Pet` even though you never said "Spaniel is an animal" or "Spaniel is
+a pet" — it's under `Dog`, and that's enough. That's the inheritance doing your
+bookkeeping for you.
 
 Two more one-liners worth knowing:
 
 ```python
 >>> dag.nodes["Pet"].descendant_count     # how many things are under Pet?
 4
->>> dag.get([Item("Unicorn")])            # unknown names are simply empty
+>>> dag.get(["Unicorn"])                  # unknown names are simply empty
 set()
 ```
 
@@ -152,19 +146,19 @@ browser, or over the network.
 ### 4.1 Adding items: `put`
 
 ```python
-dag.put(Item("Goldfish"), [Item("Animal"), Item("Pet")])
+dag.put("Goldfish", ["Animal", "Pet"])
 ```
 
 Rules of the road:
 
-- **Parents must already exist.** `put(Item("X"), [Item("Nope")])` raises
+- **Parents must already exist.** `dag.put("X", ["Nope"])` raises
   `ValueError: One or more super-categories do not exist.` Add categories top-down.
-- **No parents means top-level:** `dag.put(Item("Vehicle"), [])` files `Vehicle`
+- **No parents means top-level:** `dag.put("Vehicle", [])` files `Vehicle`
   directly under the root `*`.
 - **Names are the identity.** Putting a name that already exists doesn't create a
   duplicate — it adds the new parent links to the existing item.
 - **Redundant links are cleaned up automatically.** Say you add
-  `dag.put(Item("Spaniel"), [Item("Animal"), Item("Dog")])`. The `Animal` link is
+  `dag.put("Spaniel", ["Animal", "Dog"])`. The `Animal` link is
   redundant — Spaniel is already an Animal *via* Dog — so OntoDAG silently skips it:
 
   ```python
@@ -178,9 +172,13 @@ Rules of the road:
 - **Cycles are refused.** Categories can't be their own ancestors:
 
   ```python
-  >>> dag.put(Item("Animal"), [Item("Spaniel")])
+  >>> dag.put("Animal", ["Spaniel"])
   ValueError: Edge Spaniel -> Animal would create a cycle.
   ```
+
+(For the record: everywhere this guide passes a name string, an `Item` object —
+`from ontodag import Item` — is accepted too; `dag.put(Item("Dog"), ...)` and
+`dag.put("Dog", ...)` mean exactly the same thing. Strings are just easier.)
 
 **The `optimized=True` flag.** Sometimes you know some general categories for an
 item, and more specific ones already exist that follow from them. With
@@ -190,7 +188,7 @@ list implies, instead of the ones you typed. Example: suppose categories `AB`
 and D) exist, and you add:
 
 ```python
-dag.put(Item("E"), [Item("AB"), Item("CD")], optimized=True)
+dag.put("E", ["AB", "CD"], optimized=True)
 ```
 
 E ends up under `ABC` and `CD` — because anything under both `AB` and `CD` is
@@ -201,11 +199,14 @@ the flag does it for you. When in doubt, leave it off; the default is predictabl
 ### 4.2 Asking questions: `get`
 
 ```python
-results = dag.get([Item("Animal"), Item("Pet")])   # a set of Item objects
-names = sorted(item.name for item in results)
+results = dag.get(["Animal", "Pet"])
+for item in results:
+    print(item.name)
 ```
 
-- One or more categories; the answer is everything under **all** of them.
+- One or more category names; the answer is everything under **all** of them,
+  returned as a set of item objects — each has a `.name` and a
+  `.descendant_count`.
 - The categories themselves are not in the answer (asking for `Animal` + `Pet`
   returns Dog, not Pet).
 - Unknown category → empty set, no error.
@@ -218,17 +219,16 @@ names = sorted(item.name for item in results)
 ### 4.3 Removing: `remove`
 
 ```python
-dag.remove(dag.nodes["Dog"])
+dag.remove("Dog")
 ```
 
-Note the form: you pass the DAG's own node (`dag.nodes["Dog"]`), not a fresh
-`Item("Dog")`. What happens to Dog's children? They are **reconnected to Dog's
-parents**, so nothing becomes orphaned and no query answer changes except those
-that mentioned Dog itself:
+What happens to Dog's children? They are **reconnected to Dog's parents**, so
+nothing becomes orphaned and no query answer changes except those that mentioned
+Dog itself:
 
 ```python
->>> dag.put(Item("Puppy"), [Item("Dog")])
->>> dag.remove(dag.nodes["Dog"])
+>>> dag.put("Puppy", ["Dog"])
+>>> dag.remove("Dog")
 >>> sorted(p.name for p in dag.nodes["Puppy"].parents)
 ['Animal', 'Pet']
 ```
@@ -581,14 +581,14 @@ network where data is retrieved by the fingerprint of its content. Support ships
 today as `SwarmOntoDAG`; here it is over an in-memory store (no network needed):
 
 ```python
-from ontodag import SwarmOntoDAG, Item
+from ontodag import SwarmOntoDAG
 from recordstore import RecordStore, MemoryBytesStore
 
 store = RecordStore(MemoryBytesStore())
 dag = SwarmOntoDAG(store)
 
-dag.put(Item("Animal"), [])
-dag.put(Item("Dog"), [Item("Animal")],
+dag.put("Animal", [])
+dag.put("Dog", ["Animal"],
         payload="swarm-ref-of-a-photo",          # optional: content this item tags
         meta={"content-type": "image/jpeg"})     # optional: free-form metadata
 
@@ -620,8 +620,9 @@ These behaviors are guarantees, not accidents. You can rely on them:
    minimal, tidy version of itself.
 3. **Order never matters.** Add parents in any order, merge in any order, build the
    same content by any history — you get the identical graph.
-4. **Names are the identity.** Two `Item("Dog")`s are the same item, in one DAG or
-   across DAGs. There are no duplicate names and no hidden IDs.
+4. **Names are the identity.** The name string *is* the item: `"Dog"` here and
+   `Item("Dog")` there refer to the same thing, in one DAG or across DAGs. There
+   are no duplicate names and no hidden IDs.
 5. **Counts are always right.** `descendant_count` is kept exactly consistent with
    the graph after every operation.
 6. **Removal never orphans.** Children of a removed item reattach to its parents.
