@@ -662,6 +662,12 @@ To store on the real Swarm network instead of memory, use `BeeBytesStore` from
 setup (nodes, stamps, costs) is beyond this guide — see `docs/SWARM_DESIGN.md` for
 the design and current status, and the recordstore project for store options.
 
+Once a store lives on Swarm, it can also be **browsed as a filesystem** with
+[ontodag-fs](https://github.com/petfold/ontodag-fs): directory paths are
+category queries (`/pet/dog` = everything that is a pet AND a dog), files are
+classified objects, and the whole thing FUSE-mounts. Its `odag-fs` command
+shares odag's store settings, so `odag set store swarm:pets` configures both.
+
 ---
 
 ## 9. Rules OntoDAG enforces (and why you'll be glad)

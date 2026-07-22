@@ -420,6 +420,10 @@ it the default, so every later command uses Swarm. Needs the swarm extra
 (`pip install -e ".[swarm]"`). Configure the node with $BEE_API / $BEE_BATCH
 or `bee_api` / `bee_batch` in ~/.ontodag/config.
 
+The store can also be browsed as a filesystem (paths as category queries,
+FUSE-mountable) with `odag-fs`, which shares these settings — see
+https://github.com/petfold/ontodag-fs.
+
 Options:
   -f, --store PATH      use PATH (or swarm:NAME) as the store for this run
   -o, --output FILE     write output to FILE instead of stdout (get/show/list)
