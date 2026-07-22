@@ -255,6 +255,27 @@ class TestNodeExtras(unittest.TestCase):
         again3 = SwarmOntoDAG(RecordStore.at(again2.commit(), blobs))
         self.assertEqual(again3.store.get("IMG_1234")["payload"], "deadbeef" * 8)
 
+    def test_meta_lives_on_item_metadata(self):
+        # meta is Item.metadata (one source of truth), and in-place edits
+        # after a commit are still detected as changes by the next commit
+        blobs = MemoryBytesStore()
+        dag = SwarmOntoDAG(RecordStore(blobs))
+        dag.put("photos", [])
+        dag.put("IMG_1234", ["photos"], meta={"label": "sunset.jpg"})
+        self.assertEqual(dag.nodes["IMG_1234"].metadata, {"label": "sunset.jpg"})
+        root = dag.commit()
+
+        editable = SwarmOntoDAG(RecordStore(blobs, root=root))
+        editable.nodes["IMG_1234"].metadata["label"] = "dawn.jpg"
+        root2 = editable.commit()
+        self.assertNotEqual(root, root2)
+
+        again = SwarmOntoDAG(RecordStore.at(root2, blobs))
+        self.assertEqual(again.nodes["IMG_1234"].metadata,
+                         {"label": "dawn.jpg"})
+        self.assertEqual(again.store.get("IMG_1234")["meta"],
+                         {"label": "dawn.jpg"})
+
     def test_string_api_with_extras(self):
         # Plain strings work at the adapter boundary too, including the
         # payload/meta bookkeeping keyed by name.

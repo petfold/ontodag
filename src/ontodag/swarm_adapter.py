@@ -28,7 +28,7 @@ class SwarmOntoDAG(OntoDAG):
         self.store = record_store
         self._synced = {}          # key -> record as of the last commit/hydrate
         self._payloads = {}        # name -> swarm ref
-        self._metas = {}           # name -> dict
+        # node meta lives on Item.metadata (records' "meta" field)
         self._hydrate()
 
     # ------------------------------------------------------------------ sync
@@ -54,7 +54,9 @@ class SwarmOntoDAG(OntoDAG):
             "down": sorted(child.name for child in node.neighbors),
             "count": node.descendant_count,
             "payload": self._payloads.get(node.name),
-            "meta": self._metas.get(node.name, {}),
+            # copied: _synced keeps these records, so aliasing the live dict
+            # would make later in-place metadata edits invisible to the diff
+            "meta": dict(node.metadata),
         }
 
     def _hydrate(self):
@@ -74,7 +76,7 @@ class SwarmOntoDAG(OntoDAG):
             if record.get("payload") is not None:
                 self._payloads[name] = record["payload"]
             if record.get("meta"):
-                self._metas[name] = record["meta"]
+                node.metadata = dict(record["meta"])
         self._synced = records
 
     # ------------------------------------------------------------- mutations
@@ -86,19 +88,16 @@ class SwarmOntoDAG(OntoDAG):
         if payload is not None:
             self._payloads[name] = payload
         if meta is not None:
-            self._metas[name] = meta
+            self.nodes[name].metadata = dict(meta)
 
     def remove(self, node_to_remove):
         name = _name_of(node_to_remove)
         super().remove(node_to_remove)
         self._payloads.pop(name, None)
-        self._metas.pop(name, None)
 
     def merge(self, other_dag):
-        super().merge(other_dag)
-        # Carry node extras from the other side; ours win on conflict.
+        super().merge(other_dag)  # carries Item.metadata (ours win per key)
+        # Carry payloads from the other side; ours win on conflict.
         if isinstance(other_dag, SwarmOntoDAG):
             for name, payload in other_dag._payloads.items():
                 self._payloads.setdefault(name, payload)
-            for name, meta in other_dag._metas.items():
-                self._metas.setdefault(name, meta)

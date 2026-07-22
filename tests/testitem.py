@@ -37,6 +37,24 @@ class TestItem(unittest.TestCase):
         item = Item("A")
         self.assertEqual(repr(item), "Item(A, [])")
 
+    def test_metadata_defaults_empty_and_is_copied(self):
+        self.assertEqual(Item("A").metadata, {})
+        source = {"label": "a.txt"}
+        item = Item("A", metadata=source)
+        source["label"] = "changed"
+        self.assertEqual(item.metadata, {"label": "a.txt"})
+
+    def test_metadata_never_affects_identity(self):
+        plain = Item("A")
+        tagged = Item("A", metadata={"label": "a.txt"})
+        self.assertEqual(plain, tagged)
+        self.assertEqual(hash(plain), hash(tagged))
+
+    def test_to_dict_includes_metadata_only_when_present(self):
+        self.assertNotIn("metadata", Item("A").to_dict())
+        item = Item("A", metadata={"label": "a.txt"})
+        self.assertEqual(item.to_dict()["metadata"], {"label": "a.txt"})
+
 
 if __name__ == '__main__':
     unittest.main()

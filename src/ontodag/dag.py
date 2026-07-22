@@ -44,11 +44,14 @@ class _EdgeSet(set):
 
 
 class Item:
-    def __init__(self, name):
+    def __init__(self, name, metadata=None):
         self.name = name
         self.parents = set()
         self.neighbors = _EdgeSet(self)
         self.descendant_count = 0
+        # Non-structural annotations (e.g. a display label, an object
+        # marker). Never identity: equality and hashing stay name-only.
+        self.metadata = dict(metadata) if metadata else {}
 
     def __eq__(self, other):
         return self.name == other.name
@@ -60,11 +63,14 @@ class Item:
         return f"Item({self.name}, [{', '.join(neighbor.name for neighbor in self.neighbors)}])"
 
     def to_dict(self):
-        return {
+        out = {
             "name": self.name,
             "neighbors": [neighbor.name for neighbor in self.neighbors],
             "descendant_count": self.descendant_count
         }
+        if self.metadata:
+            out["metadata"] = self.metadata
+        return out
 
 
 def _name_of(node_or_name):
@@ -455,7 +461,11 @@ class OntoDAG(DAG):
             raise ValueError("Already exists as root.")
 
         if subcategory.name in self.nodes:
-            subcategory = self.nodes[subcategory.name]
+            existing = self.nodes[subcategory.name]
+            # A re-put asserts the incoming metadata: its keys win.
+            if subcategory is not existing and subcategory.metadata:
+                existing.metadata.update(subcategory.metadata)
+            subcategory = existing
         else:
             self.add_node(subcategory)
 
@@ -545,10 +555,15 @@ class OntoDAG(DAG):
             raise ValueError("Can only merge with another OntoDAG instance.")
 
         with self._batched_count_updates():
-            # Pass 1: add all missing nodes (no edges yet)
-            for node_name in other_dag.nodes:
+            # Pass 1: add all missing nodes (no edges yet). Metadata merges
+            # per key with ours winning on conflict (same policy as the
+            # payload/meta carry-over in SwarmOntoDAG.merge).
+            for node_name, other_node in other_dag.nodes.items():
                 if node_name not in self.nodes:
-                    self.add_node(Item(node_name))
+                    self.add_node(Item(node_name, metadata=other_node.metadata))
+                else:
+                    for key, value in other_node.metadata.items():
+                        self.nodes[node_name].metadata.setdefault(key, value)
 
             # Pass 2: add edges in topological order (general → specific) using
             # add_edge so _remove_unneeded_edges prunes redundant edges correctly.
@@ -622,7 +637,7 @@ class OntoDAG(DAG):
 
         # Create new items for all relevant nodes
         for node in all_nodes_to_copy:
-            copy_item = Item(node.name)
+            copy_item = Item(node.name, metadata=node.metadata)
             mapping[node] = copy_item
             new_dag.add_node(copy_item)
 
@@ -648,7 +663,7 @@ class OntoDAG(DAG):
 
         # Create new items
         for original_item in self.nodes.values():
-            copy_item = Item(original_item.name)
+            copy_item = Item(original_item.name, metadata=original_item.metadata)
             mapping[original_item] = copy_item
             new_dag.add_node(copy_item)
 
