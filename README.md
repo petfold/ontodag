@@ -10,6 +10,11 @@ Associative memory and categories based on a directed acyclic graph data structu
   (canonical form, query planning, content-addressed persistence) and future plans.
 - `docs/SWARM_DESIGN.md`, `docs/SEMANTIC_CODES.md` — engineering design documents.
 
+See also **[ontodag-fs](https://github.com/petfold/ontodag-fs)**: any OntoDAG
+store can be browsed as a filesystem — paths are category queries, files are
+classified objects stored on Swarm, FUSE-mountable (`odag-fs`, which shares
+odag's store settings).
+
 ## Specification
 
 A Directed Acyclic Graph (DAG) associative storage and category manager in Python. You can store items into a ontodag and recall items from it. To store or "put" an item into a ontodag, you give it a name and a set of other names of already existing items that are its supercategories. To recall or "get", you specify a set of item names to get all items that are subcategories of all these items.
