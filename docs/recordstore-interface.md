@@ -1,8 +1,8 @@
 # recordstore — interface reference
 
 `recordstore` lives in its own repo, [github.com/petfold/recordstore](https://github.com/petfold/recordstore),
-extracted from this repo in July 2026 with history preserved. OntoDAG pins it in
-`pyproject.toml` (`recordstore @ git+https://github.com/petfold/recordstore.git@v0.3.0`).
+extracted from this repo in July 2026 with history preserved. OntoDAG depends on it
+from PyPI in `pyproject.toml` (`recordstore>=0.11`).
 
 **This is a manually-synced reference doc**, not generated and not a submodule: if the
 pinned version changes, re-check this summary against the tagged source.

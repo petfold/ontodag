@@ -44,12 +44,10 @@ under `Dog`, and later file crops of it under the photo. This is deliberate.
 
 ## 2. Installation
 
-You need **Python 3.8 or newer** and `git`.
+You need **Python 3.8 or newer**.
 
 ```bash
-git clone https://github.com/petfold/ontodag.git
-cd ontodag
-pip install -e .
+pip install ontodag
 ```
 
 This installs the `odag` command and the Python library, along with its
@@ -68,11 +66,12 @@ Two optional extras:
 - **The web app.** For the browser interface and REST API:
 
   ```bash
-  pip install -e ".[web]"
+  pip install "ontodag[web]"
   ```
 
-> **Running without installing:** if you just cloned the repo and don't want to
-> install anything, prefix commands with `PYTHONPATH=src`, e.g.
+> **Working from a source checkout instead:** `git clone
+> https://github.com/petfold/ontodag.git && cd ontodag`, then either
+> `pip install -e .` or prefix commands with `PYTHONPATH=src`, e.g.
 > `PYTHONPATH=src python3 -m ontodag show`. Everything below works
 > either way; we'll write `odag` for short, which is the same as
 > `PYTHONPATH=src python3 -m ontodag`.
@@ -339,7 +338,7 @@ ontology file, and `export`/`import` convert between them.
 
 **Storing on Swarm.** A store can also live on [Ethereum Swarm](https://www.ethswarm.org/)
 instead of a local file. It needs one extra dependency — install it once with
-`pip install -e ".[swarm]"` (this pulls in `requests`; without it you get a
+`pip install "ontodag[swarm]"` (this pulls in `requests`; without it you get a
 clear message telling you so). Then set the store once and it sticks:
 
 ```console
@@ -696,12 +695,12 @@ These behaviors are guarantees, not accidents. You can rely on them:
 ## 10. Troubleshooting
 
 **`ModuleNotFoundError: No module named 'ontodag'`**
-You're running from the repo without installing. Either `pip install -e .` or
-prefix with `PYTHONPATH=src` (from the repository root).
+Run `pip install ontodag`. If you're working from a source checkout instead,
+either `pip install -e .` or prefix with `PYTHONPATH=src` (from the repository root).
 
 **`ModuleNotFoundError: No module named 'owlready2'` (or `graphviz`, `flask`)**
-A dependency is missing — `pip install -e .` for the basics,
-`pip install -e ".[web]"` for the web app.
+A dependency is missing — `pip install ontodag` for the basics,
+`pip install "ontodag[web]"` for the web app.
 
 **`graphviz.backend.execute.ExecutableNotFound: failed to execute 'dot'`**
 The Graphviz *system program* isn't installed (the Python package is just a
