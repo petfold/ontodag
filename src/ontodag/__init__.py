@@ -14,4 +14,10 @@ def __getattr__(name):
         from ontodag.swarm_adapter import SwarmOntoDAG
 
         return SwarmOntoDAG
+    # Same for the on-demand reader (it needs no recordstore import itself,
+    # but belongs with the persistence layer, not the core).
+    if name == "LazyOntoDAG":
+        from ontodag.lazy_reader import LazyOntoDAG
+
+        return LazyOntoDAG
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

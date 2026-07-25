@@ -21,13 +21,14 @@ python3 -m pytest tests/testdag.py tests/testitem.py -v    # core DAG logic
 python3 -m pytest tests/test_invariants.py -v              # structural invariant tests (all 12 must pass)
 python3 -m pytest tests/test_boundaries.py -v              # dependency-boundary tests (must always pass)
 python3 -m pytest tests/test_cli.py -v                     # `odag` CLI (backends, set, swarm wiring via in-memory store)
+python3 -m pytest tests/test_lazy_reader.py -v              # LazyOntoDAG: eager-oracle correctness + fetch budgets
 
 # Live-node CLI Swarm test — skips unless BEE_API *and* BEE_BATCH are set
 # (always pass a real BEE_BATCH so nothing auto-buys; see "Bee integration status"):
 BEE_API=http://<node>:1633 BEE_BATCH=<batchID> python3 -m pytest tests/test_swarm_bee.py -v
 ```
 
-All optional deps are now installed locally (`graphviz` and `dot2tex` since early July 2026; `owlready2` since 2026-07-21), so there are no expected failures left: `tests/testowl.py` collects and passes (7 tests), and the full suite (the files above plus `testowl.py`) is 95/95 green. Note the 2026-07-21 fix in `owl.py`: `ontology.save()` is called with the path *positional* because upstream `owlready2` names the parameter `file` while the `ontopy` fork names it `filename` — the old `filename=` keyword crashed `.owl` export under upstream owlready2 (silently swallowed into `**kargs`, falling back to the empty `onto_path`).
+All optional deps are now installed locally (`graphviz` and `dot2tex` since early July 2026; `owlready2` since 2026-07-21), so there are no expected failures left: `tests/testowl.py` collects and passes (7 tests), and the full suite (the files above plus `testowl.py` and `test_lazy_reader.py`) is 107/107 green. Note the 2026-07-21 fix in `owl.py`: `ontology.save()` is called with the path *positional* because upstream `owlready2` names the parameter `file` while the `ontopy` fork names it `filename` — the old `filename=` keyword crashed `.owl` export under upstream owlready2 (silently swallowed into `**kargs`, falling back to the empty `onto_path`).
 
 All 12 invariant tests pass as of July 2026 (fixes I1–I4, I6 landed; see "Known bugs" below for what remains). The helpers in `tests/test_invariants.py` (`reach`, `edge_set`) compute reachability independently of the traversal code under test, so they remain a valid oracle while `dag.py` is being changed.
 
@@ -145,6 +146,16 @@ Also done 2026-07-19, same node/batch: **retrievability** — `GET /stewardship/
 
 Still open at the network level: postage expiry behavior and GC/pinning.
 
+### `LazyOntoDAG` on-demand reader (`src/ontodag/lazy_reader.py`) — DONE (2026-07-25)
+
+Read-only `OntoDAG` subclass that fetches records *as a query walks them*, so querying a published store costs the query rather than the store. Works because the §3 record schema carries `up`, `down` and `count` per node — exactly the planner's inputs. Nodes exist as **stubs** (name only, registered in `self.nodes` so `dag.py`'s `self.nodes.get(x.name) is x` identity checks hold) and are **expanded** (record fetched, count/meta set, children and parents added as stubs) on first traversal; `self.nodes` is a `_LazyNodes` dict whose `get` loads-and-expands, because the planner reads `descendant_count` off resolved terms and an unexpanded stub reports 0 (silently disabling cone ordering and term-dropping — correct results, no laziness). The three traversals the query path uses (`get_descendants`, `_has_ancestors`, `get_ancestors`) are overridden to expand as they walk; the inherited ones would walk a half-built graph. Cones are memoized by name (immutable snapshot, so no invalidation), bounded by `max_cached_cones`. `store.get` calls are counted in `.fetches`.
+
+**Read-only by construction** (`put`/`remove`/`merge`/`add_edge`/`add_node`/`commit` raise `TypeError`): whole-graph invariants and `commit()`'s diff against a complete `_synced` set are undefined for a fragment. `load_all()` materializes everything when an inherited whole-graph operation (`topological_sort`, `intersection_dag`, visualization) is needed. Duck-typed like the adapter — imports nothing from `recordstore` (new B1 case in `test_boundaries.py`), exposed as `ontodag.LazyOntoDAG` via the lazy `__getattr__`.
+
+Measured cost (3,221 records: 20 top / 200 mid / 3,000 leaves, two parents each): specific term 42 fetches, two mid terms (empty result) 82, broad+specific 81, two broad terms 1,071. The last one is the open case → roadmap item 1 (cone summaries).
+
+Tests: `tests/test_lazy_reader.py` (11 tests) — every 1/2/3-term query on the vehicles fixture and 200 random queries on a 40-node random DAG against an eager `SwarmOntoDAG` oracle, plus **fetch budgets** (a query near the bottom of a 237-record chain reads <20 records; repeat queries add zero fetches; cache disabled/bounded), unknown terms, `Item`-vs-string arguments, refused mutations, and `load_all()`.
+
 ### `SwarmOntoDAG` adapter (`src/ontodag/swarm_adapter.py`) — DONE (July 2026)
 
 An `OntoDAG` subclass persisted through a `RecordStore`, per `SWARM_DESIGN.md` §3/§6: one record per node keyed by name (`up`/`down` sorted, `count`, `payload`, `meta`); full hydration into memory on construction, batched through `RecordStore.items()` when the store offers it and falling back to `keys()`+`get` when it does not (`_all_records`, 2026-07-25); all mutation semantics inherited from `OntoDAG`; `commit()` diffs against the last-synced records and stages only changed nodes. The store is duck-typed — the module imports nothing from `recordstore` (B2), and `ontodag.SwarmOntoDAG` is exposed via the lazy `__getattr__` so `import ontodag` stays clean (B1). `put` accepts optional `payload`/`meta` (nodes are undifferentiated `Item`s — there is deliberately no class/instance distinction).
@@ -174,7 +185,7 @@ The broader roadmap (delivered / queued / parked / research horizon, for a gener
 audience) is `docs/ROADMAP.md`; this list is the working queue.
 
 Next candidates, in order (updated 2026-07-25 — see "What does not exist yet" for details):
-1. **Lazy remote reading** (`docs/DATABASE_DIRECTION.md` "Pure now" item 1) — the larger half of the hydration problem: `_hydrate` still loads the *whole* keyspace into RAM at construction, which caps scale and rules out browsers. Fetch records on demand during walks, cache cone summaries for hot categories, follow a feed pointer for "latest". Note the split to decide up front: `commit()` diffs against `_synced` and the invariants (transitive reduction, counts) are whole-graph properties, so a lazy store is naturally a **read-only** query path while writing keeps the full graph resident. Test style: assert correctness *and* the number of fetches.
+1. **Published cone summaries** — the remaining half of `docs/DATABASE_DIRECTION.md` "Pure now" item 1. `LazyOntoDAG` (below) still walks a cone when the narrowest query term is broad (measured: 1,071 fetches for a two-broad-term query on a 3,221-record store, vs 42 for a specific one). Per-category succinct bitmaps stored as ordinary content-addressed blobs, derived deterministically so canonical roots are unaffected; this is step (1) of `SEMANTIC_CODES.md` §8 arriving via a measured need. Keep them *derived*: regenerable, never merged, never part of the record schema.
 2. **Adopt `SwarmFeedPointer`** as the published-root pointer (also for the CLI's `swarm:NAME` backend, replacing the local `FilePointer`) plus a `BEE_API`-gated adapter test — no longer blocked on a signing decision (made upstream: `swarm-bee` under `recordstore[feeds]`).
 3. **Multi-writer merge rule** over upstream `merge`/`commit(reconcile=True)` (§5) — the OntoDAG-semantic resolver + graph-level renormalization; GSOC is now optional on top.
 

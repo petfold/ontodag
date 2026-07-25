@@ -30,21 +30,32 @@ Last updated 2026-07-25.
   library form rather than as a Bee plugin.
 - Fast loading from a published store (2026-07-25): hydration goes through
   recordstore's batched, concurrent bulk read instead of one fetch per item.
+- **Reading without loading everything** (2026-07-25): `LazyOntoDAG` answers
+  queries by fetching items as the query walks them, so a published ontology can
+  be queried without downloading it. On a 3,200-item store a specific query
+  touches a few dozen items. It is read-only by construction (see the next
+  section for why) and does not yet use published cone summaries, so a query
+  whose narrowest term is a broad category still costs that cone.
 
 ## Next up (concrete, queued)
 
-1. **Reading without loading everything.** Opening a published ontology still
-   pulls every item into memory first — fast now, but it caps how large a store
-   you can query and rules out browsers entirely. The fix is to fetch items on
-   demand as a query walks the graph, keeping summaries of frequently used
-   categories cached. Worth deciding at the outset: because the exactness rules
-   are properties of the *whole* graph, this naturally makes a lazily-read store
-   a read-only view, with editing still holding the full graph.
-2. **A published "latest version" pointer.** Swarm *feeds* give a stable address
+1. **Cone summaries for broad queries.** The on-demand reader (above) still
+   enumerates a cone when a query's narrowest term is broad. A small
+   deterministically-derived summary per popular category — fetched instead of
+   walked — is what turns that into a handful of fetches, and it is the first
+   step of the bitmap-index work below, pulled forward by an actual need rather
+   than speculation. Being *derived*, it never touches the canonical form.
+2. **Writing back from a partially-loaded graph.** `LazyOntoDAG` is read-only on
+   purpose: the exactness rules (minimal links, exact counts) are properties of
+   the whole graph, and change-detection diffs a complete set of records, so
+   neither is defined when only a fragment is resident. Making edits possible
+   without full residence means deciding which invariants can be checked locally
+   — a real design question, not a port.
+3. **A published "latest version" pointer.** Swarm *feeds* give a stable address
    that always resolves to your newest root — the missing piece for subscribing
    to someone's ontology. The signing machinery landed upstream; OntoDAG needs to
    adopt it and add an integration test.
-3. **Multi-writer collaboration.** The storage layer can now three-way-merge
+4. **Multi-writer collaboration.** The storage layer can now three-way-merge
    diverged versions and auto-reconcile concurrent commits. OntoDAG's remaining
    job is the merge *rule*: when two people edit the same item, reconcile at the
    graph level using the order-independent merge of §5 (whose properties were
