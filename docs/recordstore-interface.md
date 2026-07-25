@@ -5,7 +5,8 @@ extracted from this repo in July 2026 with history preserved. OntoDAG depends on
 from PyPI in `pyproject.toml` (`recordstore>=0.11`).
 
 **This is a manually-synced reference doc**, not generated and not a submodule: if the
-pinned version changes, re-check this summary against the tagged source.
+required version changes, re-check this summary against the tagged source. Last synced
+against **0.11.0** (2026-07-25).
 
 ## What OntoDAG uses it for
 
@@ -25,10 +26,25 @@ returned records are deep copies (mutating them never mutates the store).
   optionally at an existing root or following a `Pointer`.
 - `put(key, value)` / `get(key)` / `delete(key)` / `contains(key)` — staged operations;
   `get`/`delete` raise `KeyError` for missing keys.
-- `keys(prefix="")` — sorted iteration over keys under a prefix, staged overlay included.
-- `commit() → root` — flush staged changes, return the new root reference, and update
-  the pointer (if any). The pointer moves only after every blob write succeeds, so a
-  reader sees all of a commit or none of it.
+- `keys(prefix="")` — sorted keys under a prefix, staged overlay included, yielded
+  lazily (no result-set-sized buffer).
+- `items(prefix="")` — sorted `(key, value)` pairs, staged overlay included, streamed in
+  windows: value blobs are fetched a window at a time, so over a network store with
+  `get_many` the reads parallelise while memory stays bounded to one window. This is the
+  fast path for hydrating a whole store, and what `SwarmOntoDAG._hydrate` uses.
+- `commit(*, reconcile=False, resolver=None, retries=5) → root` — flush staged changes,
+  return the new root reference, and update the pointer (if any). The pointer moves only
+  after every blob write succeeds, so a reader sees all of a commit or none of it. Value
+  blobs and trie levels are written in concurrent batches (roots stay byte-identical to
+  serial commits). With `reconcile=True`, a pointer that moved past this commit's base
+  root is three-way-merged and the commit retried until it lands, so concurrent writers
+  converge.
+- `merge(bytes_store, base, ours, theirs, resolver=None) → root` (static) — canonical
+  three-way merge of two roots, O(divergence) via structural trie diff. Conflicts raise
+  `MergeConflict` unless `resolver(key, base, ours, theirs)` settles them (sentinels
+  `ABSENT`/`DELETE`); commutative when the resolver is symmetric. See
+  `docs/SWARM_DESIGN.md` §5 for how OntoDAG plans to use this — a per-key resolver alone
+  cannot uphold the graph invariants, so a graph-level renormalization pass is needed.
 - `RecordStore.at(root, bytes_store)` — read-only snapshot of any committed root
   (`put`/`delete`/`commit` raise `TypeError`).
 - `.root` — root of the last committed state.
@@ -50,8 +66,12 @@ encodings.
 
 Protocol: `put(data: bytes) → ref`, `get(ref) → bytes` (raises `KeyError` if missing).
 
+Optional bulk methods `get_many(refs)` / `put_many(datas)` are used by `items()` and
+`commit()` when the backend provides them; both backends below do.
+
 - `MemoryBytesStore()` — in-memory dict; the test double.
-- `BeeBytesStore(api_url, postage_batch_id, deferred_upload=True)` — a real Bee node
+- `BeeBytesStore(api_url, postage_batch_id="auto", deferred_upload=True,
+  max_concurrent_reads=16)` — a real Bee node
   over `POST/GET /bytes` (Bee's blob endpoint, not the raw `/chunks/{address}` single-chunk
   primitive — the name reflects that). Imports `requests` lazily (install extra:
   `recordstore[bee]`). Writes need a usable postage batch; against a real node always
@@ -61,36 +81,32 @@ Protocol: `put(data: bytes) → ref`, `get(ref) → bytes` (raises `KeyError` if
 
 Protocol: `get() → ref | None`, `set(ref)` — a mutable name for the latest root.
 
-- `MemoryPointer(root=None)` — in-memory.
+- `MemoryPointer(root=None)` — in-memory; `compare_and_set(expected, new)` is an atomic
+  in-process CAS.
 - `FilePointer(path)` — atomic file-based pointer.
-- `SwarmFeedPointer` — documented stub *at the pinned v0.3.0*; a real implementation
-  landed upstream in v0.4.0 (see below).
+- `SwarmFeedPointer(api_url, topic, *, signer=None, owner=None, postage_batch_id=None,
+  feed_ttl=15.0, ...)` — a real `Pointer` backed by an owner-signed Swarm feed. Signing
+  via the `swarm-bee` package, behind a `recordstore[feeds]` extra, imported lazily (the
+  core stays stdlib-only). Handles Bee's flaky feed lookups with a read-your-writes
+  cache, a monotonic write-index floor, direct SOC probing for cold reads, and the
+  `?after=N` index hint. `compare_and_set(expected, new)` enables cross-process
+  reconcile — best-effort, not atomic (Swarm feeds have no index-claim primitive).
+  **Not yet adopted by OntoDAG:** the `odag` Swarm backend still uses a local
+  `FilePointer` for the mutable root (see `docs/ROADMAP.md`).
 
-## Upstream since the pin (v0.4.0 – v0.10.0, all released 2026-07-20)
+## Version history relevant to OntoDAG
 
-Not yet available at the pinned v0.3.0 — bump the pin to use these (all additive, no
-breaking changes since v0.3.0; the pin bump is on the roadmap in `CLAUDE.md`). Re-sync
-this whole document when the pin moves.
+All releases since `v0.3.0` have been additive — no breaking API changes — which is why
+OntoDAG's dependency is a floor (`>=0.11`) rather than an exact pin.
 
-- **`SwarmFeedPointer(bee_api, topic, signer=..., owner=...)`** (v0.4.0/0.4.1) — a real
-  `Pointer` backed by an owner-signed Swarm feed. Signing via the `swarm-bee` package,
-  behind a `recordstore[feeds]` extra, imported lazily (core stays stdlib-only). Handles
-  Bee's flaky feed lookups with a read-your-writes cache, a monotonic write-index floor,
-  direct SOC probing for cold reads, and the `?after=N` index hint.
-  `compare_and_set(expected, new)` (v0.10.0) enables cross-process reconcile —
-  best-effort, not atomic (Swarm feeds have no index-claim primitive).
-- **Concurrent bulk I/O** (v0.5.0–v0.7.1): `RecordStore.items(prefix="")` — sorted
-  `(key, value)` pairs with value blobs fetched concurrently in bounded windows (the
-  fast way to hydrate a whole store); optional `BytesStore.get_many(refs)` /
-  `put_many(datas)`; `keys()`/`items()` stream lazily in sorted order; `BeeBytesStore`
-  pools HTTP connections; `commit()` writes value blobs and trie levels in concurrent
-  batches (roots byte-identical to serial commits).
-- **Multi-writer primitives** (v0.8.0–v0.10.0):
-  `RecordStore.merge(bytes_store, base, ours, theirs, resolver=None)` — canonical
-  three-way merge of two roots, O(divergence) via structural trie diff; conflicts raise
-  `MergeConflict` unless a `resolver(key, base, ours, theirs)` settles them (sentinels
-  `ABSENT`/`DELETE`); commutative when the resolver is symmetric.
-  `commit(reconcile=True, resolver=None, retries=5)` — if the pointer moved past this
-  commit's base root, merge and retry until it lands, so concurrent writers converge.
-  `MemoryPointer.compare_and_set` — atomic in-process CAS.
-  See `docs/SWARM_DESIGN.md` §5 (2026-07-20 update) for how OntoDAG plans to use these.
+- **v0.4.0/0.4.1** — the real `SwarmFeedPointer` (above), replacing a documented stub.
+- **v0.5.0–v0.7.1** — concurrent bulk I/O: `items()`, `get_many`/`put_many`, lazily
+  streamed `keys()`/`items()`, pooled HTTP connections in `BeeBytesStore`, and batched
+  blob/trie writes in `commit()`.
+- **v0.8.0–v0.10.0** — multi-writer primitives: three-way `merge`, `commit(reconcile=True)`,
+  `compare_and_set` on both pointer backends.
+- **v0.11.0** — current floor; the version this document was last synced against.
+
+Earlier renames worth knowing when reading old notes or commits: `BeeChunkStore` →
+`BeeBytesStore` (v0.2.0), then `ChunkStore` → `BytesStore`, `MemoryChunkStore` →
+`MemoryBytesStore`, and the `RecordStore` parameter `chunks` → `bytes_store` (v0.3.0).
