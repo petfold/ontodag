@@ -6,6 +6,16 @@ in the swarmlite repo for the verbatim exchange). Written to stand
 alone: a future session in this repo should be able to start from this
 file plus `HOW_IT_WORKS.md`.
 
+**Scope: this is a longer-term goals document, not a task list.** It
+records where OntoDAG-as-a-database is heading and — just as importantly
+— which conventional database features are deliberately *not* being
+built yet, together with the tripwire that would signal each one has
+become necessary. Nothing here is scheduled by virtue of being written
+down; the "Pure now" items are the ones considered ready to start, and
+even those are sequenced against the near-term engineering queue in
+`ROADMAP.md`. The day-to-day task list is in `CLAUDE.md`. Expect this
+file to outlive several of those.
+
 ## The governing principle (Peter, verbatim)
 
 > "My strategy was to keep it as pure and simple as possible to see how

@@ -202,58 +202,11 @@ asserted under arbitrary edit histories).
 
 ## 8. Where this is going
 
-Near-term, mid-term, and research horizon — in that order. (The day-to-day list
-lives in `CLAUDE.md`; design details in `SWARM_DESIGN.md` and `SEMANTIC_CODES.md`.)
-
-**Next steps (concrete, queued):**
-
-1. **Adopt the newest recordstore** (the pinned version lags several releases).
-   This brings connection pooling and concurrent uploads for free.
-2. **Faster loading from Swarm.** Hydration currently fetches records one by one;
-   recordstore now offers batched, concurrent bulk reads (`items()`), turning a
-   cold start from one network round trip per item into a few sweeps.
-3. **A published "latest version" pointer.** Swarm *feeds* give a stable address
-   that always resolves to your newest root — the missing piece for subscribing
-   to someone's ontology. The signing machinery landed upstream; OntoDAG needs to
-   adopt it and add an integration test.
-4. **Multi-writer collaboration.** The storage layer can now three-way-merge
-   diverged versions and auto-reconcile concurrent commits. OntoDAG's remaining
-   job is the merge *rule*: when two people edit the same item, reconcile at the
-   graph level using the order-independent merge of §5 (whose properties were
-   built for exactly this), then recommit. Goal: several writers, one shared
-   ontology, no server.
-
-**Performance ideas, deliberately parked until real usage data exists:**
-
-- **Bitmap indexes for queries.** Each category's cone can be kept as a bitmap so
-  that query intersection becomes a few machine-word AND operations, and — more
-  interestingly — queries against a *published* ontology could be answered by
-  fetching just a few small index records instead of the whole graph.
-  `SEMANTIC_CODES.md` works this out in detail (including how an item's set of
-  ancestors acts as a "semantic code" — a meaning-bearing binary address), along
-  with the endgame: letting *usage statistics* decide which intermediate
-  categories are worth materializing, somewhere between the bare graph and a
-  fully precomputed index. Parked behind explicit triggers: a measurably hot
-  query workload, a graph too big for RAM, or thin clients.
-- **Chunk-level layout tuning** (packing many small records per storage chunk) —
-  waiting on real record-size and access-pattern data.
-
-**Research horizon:**
-
-- **Private parts of a shared graph.** Overlays: a public base DAG plus encrypted
-  private sub-graphs, composable at load time via merge, with access managed by
-  Swarm's built-in access control. A permissions structure (company → department →
-  team) is itself a small DAG — a natural fit being explored.
-- **Learned categories.** A companion project, `mdl-fca`, learns "good" category
-  structures from raw data (which features co-occur across your items), using a
-  compression principle: a category earns its existence only if it makes
-  describing your data *shorter*. Its output has the same shape as OntoDAG, so
-  learned structure can flow in — tagged with **provenance** (`asserted` = a human
-  said so, irreplaceable; `derived` = a learner proposed it, regenerable), which
-  in turn drives what must be stored durably versus what can be recomputed.
-- **Richer item types** (from the original roadmap): numbers, time spans, and geo
-  coordinates as queryable values; namespaces for reconciling different people's
-  naming; ports beyond Python.
+The project's roadmap — what is delivered, what is queued next, what is parked
+behind explicit triggers, and what is research horizon — lives in its own file:
+**[ROADMAP.md](ROADMAP.md)**. Longer-term goals for OntoDAG as a database, and the
+conventional database features deliberately *not* being built yet, are in
+`DATABASE_DIRECTION.md`; the day-to-day task list is in `CLAUDE.md`.
 
 The common thread through all of it: keep the core exact and small — one graph,
 one invariant set, one query — and let everything else (storage, speed, sharing,
