@@ -13,7 +13,8 @@ Implements the design in docs/SWARM_DESIGN.md:
   stages only what changed, so the store's structural sharing keeps small
   changes small.
 
-The store is duck-typed (``get``/``put``/``delete``/``keys``/``commit``),
+The store is duck-typed (``get``/``put``/``delete``/``keys``/``commit``,
+plus an optional ``items()`` used for batched hydration when present),
 matching ``recordstore.RecordStore``; this module deliberately imports
 nothing from `recordstore`, keeping the core↔recordstore dependency
 one-directional even here (see tests/test_boundaries.py).
@@ -60,7 +61,7 @@ class SwarmOntoDAG(OntoDAG):
         }
 
     def _hydrate(self):
-        records = {name: self.store.get(name) for name in self.store.keys()}
+        records = dict(self._all_records())
         if not records:
             return
         # Records are the canonical, already-reduced state, so the graph is
@@ -78,6 +79,19 @@ class SwarmOntoDAG(OntoDAG):
             if record.get("meta"):
                 node.metadata = dict(record["meta"])
         self._synced = records
+
+    def _all_records(self):
+        """Every ``(key, record)`` in the store, batched where the store allows.
+
+        A store with ``items()`` (recordstore >= 0.5) fetches value blobs
+        concurrently in bounded windows, so a cold hydrate costs a few sweeps
+        instead of one network round trip per node. Stores without it — the
+        duck-typed minimum this module documents — fall back to serial gets.
+        """
+        items = getattr(self.store, "items", None)
+        if callable(items):
+            return items()
+        return ((name, self.store.get(name)) for name in self.store.keys())
 
     # ------------------------------------------------------------- mutations
 

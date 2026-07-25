@@ -313,5 +313,73 @@ class TestRemoval(unittest.TestCase):
         self.assertEqual(root, never.commit())
 
 
+class CountingStore:
+    """Wrapper that counts read calls, and can hide `items()` from the adapter.
+
+    `items()` batches value-blob fetches; the point of the counts is that a
+    cold hydrate goes through *one* batched call rather than one `get` per
+    node, while a store lacking `items` still hydrates correctly.
+    """
+
+    def __init__(self, store, batched=True):
+        self._store = store
+        self._batched = batched
+        self.gets = 0
+        self.items_calls = 0
+
+    def get(self, key):
+        self.gets += 1
+        return self._store.get(key)
+
+    def keys(self, prefix=""):
+        return self._store.keys(prefix)
+
+    def __getattr__(self, name):
+        if name == "items" and not self._batched:
+            raise AttributeError(name)      # look like a store without items()
+        if name == "items":
+            def items(prefix=""):
+                self.items_calls += 1
+                return self._store.items(prefix)
+            return items
+        return getattr(self._store, name)
+
+
+class TestBatchedHydration(unittest.TestCase):
+    def test_hydrate_uses_items_when_available(self):
+        blobs = MemoryBytesStore()
+        root = build(RecordStore(blobs), VEHICLES).commit()
+
+        store = CountingStore(RecordStore.at(root, blobs))
+        dag = SwarmOntoDAG(store)
+        self.assertEqual(1, store.items_calls)
+        self.assertEqual(0, store.gets)        # no per-node round trips
+        self.assertEqual(6, len(dag.nodes) - 1)  # minus the root '*'
+
+    def test_hydrate_falls_back_to_keys_and_get(self):
+        blobs = MemoryBytesStore()
+        root = build(RecordStore(blobs), VEHICLES).commit()
+
+        store = CountingStore(RecordStore.at(root, blobs), batched=False)
+        dag = SwarmOntoDAG(store)
+        self.assertEqual(0, store.items_calls)
+        self.assertEqual(7, store.gets)        # one per record, root included
+        self.assertEqual({"ev"}, {i.name for i in dag.get(["car", "electric"])})
+
+    def test_both_paths_hydrate_identically(self):
+        blobs = MemoryBytesStore()
+        root = build(RecordStore(blobs), VEHICLES).commit()
+
+        batched = SwarmOntoDAG(CountingStore(RecordStore.at(root, blobs)))
+        serial = SwarmOntoDAG(
+            CountingStore(RecordStore.at(root, blobs), batched=False))
+        self.assertEqual(edge_set(serial), edge_set(batched))
+        self.assertEqual(counts(serial), counts(batched))
+        self.assertEqual(serial._synced, batched._synced)
+        # and both re-commit to the root they came from
+        self.assertEqual(root, SwarmOntoDAG(
+            RecordStore(blobs, root=root)).commit())
+
+
 if __name__ == "__main__":
     unittest.main()
