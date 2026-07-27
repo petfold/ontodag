@@ -43,6 +43,13 @@ class _EdgeSet(set):
         return item
 
 
+# --- experiment/delta-counts instrumentation ----------------------------
+# Counts node expansions (one pop = one record fetch in a lazy remote
+# setting) so the two count-maintenance algorithms can be compared.
+# EXPERIMENT BRANCH ONLY — not for merge as-is.
+STATS = {"descendants": 0, "affected": 0, "reachable": 0, "delta": 0}
+
+
 class Item:
     def __init__(self, name, metadata=None):
         self.name = name
@@ -114,6 +121,7 @@ class DAG:
         seen = set()
         stack = [start]
         while stack:
+            STATS["reachable"] += 1
             for neighbor in stack.pop().neighbors:
                 if neighbor == target:
                     return True
@@ -171,6 +179,7 @@ class DAG:
         frontier = [node]
         while frontier:
             current = frontier.pop()
+            STATS["affected"] += 1
             if current in affected:
                 continue
             affected.add(current)
@@ -198,6 +207,7 @@ class DAG:
         descendants = set()  # Descendants of the current node
         frontier = [node]
         while frontier:
+            STATS["descendants"] += 1
             for neighbor in frontier.pop().neighbors:
                 descendants.add(neighbor)
                 if neighbor not in visited:
