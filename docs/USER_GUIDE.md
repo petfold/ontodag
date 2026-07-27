@@ -633,14 +633,14 @@ subclass-of skeleton and ignores everything else).
 OntoDAG can persist itself through a **content-addressed record store** — the
 storage model used by [Ethereum Swarm](https://www.ethswarm.org/), a decentralized
 network where data is retrieved by the fingerprint of its content. Support ships
-today as `SwarmOntoDAG`; here it is over an in-memory store (no network needed):
+today as `EagerOntoDAG`; here it is over an in-memory store (no network needed):
 
 ```python
-from ontodag import SwarmOntoDAG
+from ontodag import EagerOntoDAG
 from recordstore import RecordStore, MemoryBytesStore
 
 store = RecordStore(MemoryBytesStore())
-dag = SwarmOntoDAG(store)
+dag = EagerOntoDAG(store)
 
 dag.put("Animal", [])
 dag.put("Dog", ["Animal"],
@@ -653,7 +653,7 @@ root = dag.commit()      # every commit returns a fingerprint of the whole DAG
 That `root` string *is* your ontology-at-this-moment: anyone holding it (and the
 store) can reconstruct exactly this DAG, and the same DAG always produces the same
 root, no matter in what order it was built. Re-committing without changes returns
-the identical root. A `SwarmOntoDAG` constructed over a store with existing data
+the identical root. A `EagerOntoDAG` constructed over a store with existing data
 loads it automatically and behaves like any other OntoDAG.
 
 To store on the real Swarm network instead of memory, use `BeeBytesStore` from

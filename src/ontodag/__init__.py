@@ -8,16 +8,19 @@ def __getattr__(name):
         from ontodag.owl import OWLOntology
 
         return OWLOntology
-    # The Swarm adapter is optional persistence; keep plain `import ontodag`
-    # free of it (tests/test_boundaries.py, B1).
-    if name == "SwarmOntoDAG":
-        from ontodag.swarm_adapter import SwarmOntoDAG
+    # Persistence is optional; keep plain `import ontodag` free of it
+    # (tests/test_boundaries.py, B1). Eager and Lazy differ by *residency*
+    # (whole store in RAM vs fetched as a query walks); both take any
+    # duck-typed record store, so neither is tied to Swarm.
+    if name == "EagerOntoDAG":
+        from ontodag.eager import EagerOntoDAG
 
-        return SwarmOntoDAG
+        return EagerOntoDAG
     # Same for the on-demand reader (it needs no recordstore import itself,
     # but belongs with the persistence layer, not the core).
+
     if name == "LazyOntoDAG":
-        from ontodag.lazy_reader import LazyOntoDAG
+        from ontodag.lazy import LazyOntoDAG
 
         return LazyOntoDAG
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

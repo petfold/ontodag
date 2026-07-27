@@ -1,0 +1,99 @@
+\begin{thebibliography}{10}
+
+\bibitem{aho1972}
+A.~V. Aho, M.~R. Garey, and J.~D. Ullman.
+\newblock The transitive reduction of a directed graph.
+\newblock {\em SIAM Journal on Computing}, 1(2):131--137, 1972.
+
+\bibitem{benet2014}
+J.~Benet.
+\newblock {IPFS} --- content addressed, versioned, {P2P} file system, 2014.
+\newblock arXiv:1407.3561.
+
+\bibitem{bush1945}
+V.~Bush.
+\newblock As we may think.
+\newblock {\em The Atlantic Monthly}, 176(1):101--108, 1945.
+
+\bibitem{codd1970}
+E.~F. Codd.
+\newblock A relational model of data for large shared data banks.
+\newblock {\em Communications of the ACM}, 13(6):377--387, 1970.
+
+\bibitem{mdlfca}
+P.~F{\"o}ldi{\'a}k.
+\newblock {mdl-fca}: Minimum-description-length concept learning over binary
+  data, 2026.
+\newblock \url{https://github.com/petfold/mdl-fca}.
+
+\bibitem{ontodag}
+P.~F{\"o}ldi{\'a}k.
+\newblock {OntoDAG}: A {DAG}-based associative memory and category manager,
+  2026.
+\newblock \url{https://github.com/petfold/ontodag}.
+
+\bibitem{ganter1999}
+B.~Ganter and R.~Wille.
+\newblock {\em Formal Concept Analysis: Mathematical Foundations}.
+\newblock Springer, Berlin, 1999.
+
+\bibitem{gruber1993}
+T.~R. Gruber.
+\newblock A translation approach to portable ontology specifications.
+\newblock {\em Knowledge Acquisition}, 5(2):199--220, 1993.
+
+\bibitem{grunwald2007}
+P.~D. Gr{\"u}nwald.
+\newblock {\em The Minimum Description Length Principle}.
+\newblock MIT Press, Cambridge, MA, 2007.
+
+\bibitem{kleppmann2019}
+M.~Kleppmann, A.~Wiggins, P.~van Hardenberg, and M.~McGranaghan.
+\newblock Local-first software: You own your data, in spite of the cloud.
+\newblock In {\em Proceedings of the 2019 ACM SIGPLAN International Symposium
+  on New Ideas, New Paradigms, and Reflections on Programming and Software
+  (Onward!)}, pages 154--178, 2019.
+
+\bibitem{merkle1987}
+R.~C. Merkle.
+\newblock A digital signature based on a conventional encryption function.
+\newblock In {\em Advances in Cryptology --- CRYPTO~'87}, volume 293 of {\em
+  LNCS}, pages 369--378. Springer, 1988.
+
+\bibitem{ranganathan1933}
+S.~R. Ranganathan.
+\newblock {\em Colon Classification}.
+\newblock Madras Library Association, Madras, 1933.
+
+\bibitem{rissanen1978}
+J.~Rissanen.
+\newblock Modeling by shortest data description.
+\newblock {\em Automatica}, 14(5):465--471, 1978.
+
+\bibitem{shapiro2011}
+M.~Shapiro, N.~Pregui{\c{c}}a, C.~Baquero, and M.~Zawirski.
+\newblock Conflict-free replicated data types.
+\newblock In {\em Stabilization, Safety, and Security of Distributed Systems
+  (SSS 2011)}, volume 6976 of {\em LNCS}, pages 386--400. Springer, 2011.
+
+\bibitem{tron2020}
+V.~Tr{\'o}n.
+\newblock {\em The Book of Swarm: Storage and Communication Infrastructure for
+  a Self-Sovereign Digital Society}.
+\newblock Swarm Foundation, 2020.
+\newblock \url{https://www.ethswarm.org/the-book-of-swarm.pdf}.
+
+\bibitem{owl2}
+{W3C OWL Working Group}.
+\newblock {OWL~2 Web Ontology Language Document Overview (Second Edition)},
+  2012.
+\newblock W3C Recommendation, \url{https://www.w3.org/TR/owl2-overview/}.
+
+\bibitem{wille1982}
+R.~Wille.
+\newblock Restructuring lattice theory: An approach based on hierarchies of
+  concepts.
+\newblock In I.~Rival, editor, {\em Ordered Sets}, pages 445--470. Reidel,
+  Dordrecht, 1982.
+
+\end{thebibliography}

@@ -557,7 +557,7 @@ class OntoDAG(DAG):
         with self._batched_count_updates():
             # Pass 1: add all missing nodes (no edges yet). Metadata merges
             # per key with ours winning on conflict (same policy as the
-            # payload/meta carry-over in SwarmOntoDAG.merge).
+            # payload/meta carry-over in EagerOntoDAG.merge).
             for node_name, other_node in other_dag.nodes.items():
                 if node_name not in self.nodes:
                     self.add_node(Item(node_name, metadata=other_node.metadata))

@@ -166,7 +166,7 @@ strong properties:
   the records that changed plus a thin path of index nodes — like git, a thousand
   snapshots of a slowly-changing dataset costs little more than one.
 
-`SwarmOntoDAG` is OntoDAG plugged into this: **one record per item**, keyed by
+`EagerOntoDAG` is OntoDAG plugged into this: **one record per item**, keyed by
 name, holding its parent names, child names, count, and optionally a payload
 reference and metadata. On startup it loads all records into an ordinary
 in-memory OntoDAG (queries stay RAM-fast); `commit()` diffs the graph against

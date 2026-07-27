@@ -1,0 +1,31 @@
+// CDAG
+digraph {
+	rankdir=TB
+	Animal [label=Animal]
+	Mammal [label=Mammal]
+	Bird [label=Bird]
+	Dog [label=Dog]
+	Cat [label=Cat]
+	Parrot [label=Parrot]
+	"Has-colour" [label="Has-colour"]
+	Black [label=Black]
+	White [label=White]
+	Green [label=Green]
+	"Black Dog" [label="Black Dog"]
+	"Black Cat" [label="Black Cat"]
+	"Green Parrot" [label="Green Parrot"]
+	Animal -> Bird
+	Animal -> Mammal
+	Mammal -> Cat
+	Mammal -> Dog
+	Bird -> Parrot
+	Dog -> "Black Dog"
+	Cat -> "Black Cat"
+	Parrot -> "Green Parrot"
+	"Has-colour" -> Black
+	"Has-colour" -> White
+	"Has-colour" -> Green
+	Black -> "Black Cat"
+	Black -> "Black Dog"
+	Green -> "Green Parrot"
+}

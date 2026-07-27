@@ -108,7 +108,7 @@ class TestSwarmBackend(unittest.TestCase):
     def test_swarm_import_replaces_in_place(self):  # C6
         s = _mem_swarm_session(self.shared)
         _run(["put", "Old"], s)
-        self.assertIsInstance(s.dag, __import__("ontodag").SwarmOntoDAG)
+        self.assertIsInstance(s.dag, __import__("ontodag").EagerOntoDAG)
 
         with tempfile.TemporaryDirectory() as d:
             src = os.path.join(d, "new.od")
@@ -117,8 +117,8 @@ class TestSwarmBackend(unittest.TestCase):
             _run(["put", "Kid", "Fresh"], other)
 
             s.import_from(cli._load(src))
-            # Same object kind (still a SwarmOntoDAG), new contents.
-            self.assertIsInstance(s.dag, __import__("ontodag").SwarmOntoDAG)
+            # Same object kind (still a EagerOntoDAG), new contents.
+            self.assertIsInstance(s.dag, __import__("ontodag").EagerOntoDAG)
 
         code, out = _run(["get", "Fresh"], _mem_swarm_session(self.shared))
         self.assertEqual((code, out), (0, "Kid\n"))

@@ -185,11 +185,18 @@ def _save(dag, path):
 #
 # A backend hides *where* the store lives behind load()/save(dag)/describe().
 # The default is a local file (native/OWL/Manchester by extension). A
-# `swarm:NAME` spec persists through the SwarmOntoDAG adapter over a
-# RecordStore: content blobs on a Bee node, the mutable "latest root" in a
-# local FilePointer (no signing key needed). recordstore and the adapter are
-# imported lazily here, so `import ontodag` and the native path stay
-# dependency-free (tests/test_boundaries.py B1).
+# `swarm:NAME` spec persists through EagerOntoDAG over a RecordStore, in one
+# of two modes:
+#
+#   with a signer  -> recordstore.swarm_store(): blobs on a Bee node AND the
+#                     mutable "latest root" in a Swarm feed, so the store has
+#                     a stable address others can follow.
+#   without one    -> blobs on Bee, latest root in a local FilePointer. No key
+#                     needed, but nothing is publishable: readers would have
+#                     to be handed a root hash by hand.
+#
+# recordstore and the adapter are imported lazily here, so `import ontodag`
+# and the native path stay dependency-free (tests/test_boundaries.py B1).
 # --------------------------------------------------------------------------- #
 
 class FileBackend:
@@ -225,10 +232,15 @@ class SwarmBackend:
             return self._store_factory()
         cfg = _read_config()
         api = os.environ.get("BEE_API") or cfg.get("bee_api") or "http://localhost:1633"
-        batch = os.environ.get("BEE_BATCH") or cfg.get("bee_batch") or ""
+        batch = os.environ.get("BEE_BATCH") or cfg.get("bee_batch") or "auto"
+        signer = os.environ.get("BEE_SIGNER") or cfg.get("bee_signer") or ""
         try:
             # BeeBytesStore imports `requests` in its constructor, so a missing
             # optional dependency surfaces here rather than at module import.
+            if signer:
+                from recordstore import swarm_store
+                return swarm_store(self.name, api_url=api, stamp=batch,
+                                   signer=signer)
             from recordstore import RecordStore, BeeBytesStore, FilePointer
             os.makedirs(_home_dir(), exist_ok=True)
             return RecordStore(BeeBytesStore(api, batch),
@@ -242,8 +254,8 @@ class SwarmBackend:
             ) from exc
 
     def load(self):
-        from ontodag.swarm_adapter import SwarmOntoDAG
-        return SwarmOntoDAG(self._record_store())
+        from ontodag.eager import EagerOntoDAG
+        return EagerOntoDAG(self._record_store())
 
     def save(self, dag):
         dag.commit()
@@ -281,7 +293,7 @@ class Session:
         """Replace the store's contents with `incoming`, in place.
 
         Mutating the live DAG (rather than rebinding self.dag) keeps a
-        SwarmOntoDAG's identity, so its commit() still diffs against what it
+        EagerOntoDAG's identity, so its commit() still diffs against what it
         hydrated. Works for either backend via the public API alone: clearing
         to the root then merging reproduces `incoming` exactly (remove
         reconnects children upward, never deletes siblings)."""

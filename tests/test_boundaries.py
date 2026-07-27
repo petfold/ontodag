@@ -75,13 +75,13 @@ class TestCoreIsSwarmFree(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
 
 
-    def test_lazy_reader_needs_no_recordstore(self):
-        # The on-demand reader duck-types its store like swarm_adapter does,
+    def test_lazy_needs_no_recordstore(self):
+        # The on-demand reader duck-types its store like eager does,
         # so importing it must not drag recordstore (or requests) in either.
-        loaded = fresh_import("ontodag.lazy_reader", CORE_FORBIDDEN)
+        loaded = fresh_import("ontodag.lazy", CORE_FORBIDDEN)
         self.assertEqual(
             loaded, [],
-            f"importing ontodag.lazy_reader loaded {loaded}; it must stay "
+            f"importing ontodag.lazy loaded {loaded}; it must stay "
             "duck-typed over the record store",
         )
 

@@ -2,14 +2,14 @@
 
 Status: `recordstore` implemented and tested (in-memory + fuzz; Bee integration
 tests passed once against a `bee dev` 2.7.1 node — HTTP contract only, see the
-label in §7). The `dag.py` invariant fixes (I1–I6) and the `SwarmOntoDAG`
-adapter (§3/§6 design, `src/ontodag/swarm_adapter.py`, tested against
+label in §7). The `dag.py` invariant fixes (I1–I6) and the `EagerOntoDAG`
+adapter (§3/§6 design, `src/ontodag/eager.py`, tested against
 `MemoryBytesStore` and smoke-tested over the same dev node) are done as of
 July 2026. This document is the design rationale; `CLAUDE.md` has operational
 instructions and the current task list.
 
 Read this before making architectural changes to `recordstore` or starting the
-`SwarmOntoDAG` adapter — it explains *why*, which the code comments don't fully
+`EagerOntoDAG` adapter — it explains *why*, which the code comments don't fully
 capture.
 
 ## 1. Why persist OntoDAG at all, and why on Swarm
@@ -81,7 +81,7 @@ which is cheaper than speculating about it now.
 > repo as a pinned git dependency in `pyproject.toml`. Its test suite moved
 > to that repo as of its `v0.1.1` (the `tests/test_recordstore*.py` paths in
 > §7 now resolve there); this repo keeps the consumer-side checks
-> (`test_boundaries.py` B2, `test_swarm_adapter.py`).
+> (`test_boundaries.py` B2, `test_eager.py`).
 > A summary of the public API is kept (manually synced) in
 > `docs/recordstore-interface.md`. The rationale below is preserved as the
 > record of the original decision.
@@ -92,7 +92,7 @@ strictly one-directional (ontodag → recordstore). The question of whether it
 should live in its own repository was considered and **deliberately
 deferred**, not rejected:
 
-- **Stay in this repo for now.** The `SwarmOntoDAG` adapter (§3, §9) is the
+- **Stay in this repo for now.** The `EagerOntoDAG` adapter (§3, §9) is the
   first real consumer and will exert pressure on the interface — batching,
   leaf-packing (§4), the GSOC merge (§5), the real feed pointer. Splitting
   repos before the first consumer stabilizes the API turns every interface
@@ -110,7 +110,7 @@ deferred**, not rejected:
   `src/recordstore/` its own `pyproject.toml` so it is installable as its
   own distribution while still living in this repo.
 
-## 3. Node record schema (for the `SwarmOntoDAG` adapter — not yet built)
+## 3. Node record schema (for the `EagerOntoDAG` adapter — not yet built)
 
 One OntoDAG node is one `recordstore` record, keyed by name:
 
@@ -195,7 +195,7 @@ operation set into the current root deterministically and commits the result.
 `remove` needs a tombstone or an observed-remove rule (standard CRDT
 territory) since plain deletion doesn't commute with a concurrent re-add.
 This is `recordstore`-level machinery (a read-modify-commit cycle with a
-particular source of changes) — `SwarmOntoDAG` only supplies the fold rule.
+particular source of changes) — `EagerOntoDAG` only supplies the fold rule.
 
 Not started. `SwarmFeedPointer` in `recordstore.py` is a documented stub for
 the same reason: a real feed update needs client-side SOC signing
@@ -260,11 +260,11 @@ all *noise* relative to the storage model. What actually matters:
   fans out to independent fetches) but the current `recordstore` is
   synchronous. A batched/async `get_many()` is the single biggest future
   speed lever for real queries and should be an early addition to the
-  `SwarmOntoDAG` adapter or a `recordstore` extension, not an afterthought.
+  `EagerOntoDAG` adapter or a `recordstore` extension, not an afterthought.
   *(Update 2026-07-20: shipped upstream — `BytesStore.get_many`/`put_many`
   and `RecordStore.items()` in v0.5.0–v0.6.0, plus pooled HTTP sessions and
   bulk trie writes in `commit()` through v0.7.x. The remaining OntoDAG-side
-  step is switching `SwarmOntoDAG._hydrate` from per-key `get` to
+  step is switching `EagerOntoDAG._hydrate` from per-key `get` to
   `items()`, which batches the cold-hydration reads and invalidates the
   serial `node_count × 5ms` estimate below in the adapter's favor.)*
 - **One-record-per-chunk (§4)** costs a real, measurable multiple on cold
@@ -341,7 +341,7 @@ test's auto-buy default fails on a real node; set `BEE_BATCH` explicitly.
 Still open: retrievability from other nodes (`/stewardship`), postage
 expiry, GC/pinning — see `CLAUDE.md` "Bee integration status".
 
-Tested (`tests/test_swarm_adapter.py`, 13 tests, added July 2026 with the
+Tested (`tests/test_eager.py`, 13 tests, added July 2026 with the
 adapter): commit/rehydrate roundtrip with queries on the rehydrated graph,
 history- and put-order-independent canonical roots at the *graph* level (not
 just the record level), idempotent commit, incremental staging (a one-node
@@ -500,12 +500,12 @@ Historical/inspirational companion: `docs/PHILOSOPHICAL_LANGUAGES.md`.
 2. **Done (July 2026).** Fix the `dag.py` invariant bugs in
    `tests/test_invariants.py` (see `CLAUDE.md` for the exact list and
    order) — this was a precondition, not parallel work, because the
-   `SwarmOntoDAG` adapter should inherit clean semantics rather than freeze
+   `EagerOntoDAG` adapter should inherit clean semantics rather than freeze
    bugs into a content-addressed encoding.
-3. **Done (July 2026).** Build `SwarmOntoDAG`: a class implementing
+3. **Done (July 2026).** Build `EagerOntoDAG`: a class implementing
    `put`/`get`/`remove`/`merge` against the `recordstore` interface, using
    the schema in §3 and the hydrate-once/RAM-first pattern in §6
-   (`src/ontodag/swarm_adapter.py`).
+   (`src/ontodag/eager.py`).
 4. Only then: consider leaf-packing (§4), async batched fetches (§6), the
    GSOC-based merge (§5), and the real feed pointer (§5) — each is an
    internal change behind an interface that shouldn't need to move again.

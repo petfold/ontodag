@@ -10,11 +10,11 @@ against **0.11.0** (2026-07-25).
 
 ## What OntoDAG uses it for
 
-`ontodag.SwarmOntoDAG` persists one JSON record per DAG node through a `RecordStore`
+`ontodag.EagerOntoDAG` persists one JSON record per DAG node through a `RecordStore`
 (duck-typed — the adapter imports nothing from `recordstore`; the concrete store is
 injected by the caller). The recordstore test suite lives in the recordstore repo
 (since its `v0.1.1`); this repo keeps the consumer-side checks
-(`tests/test_boundaries.py` B2, `tests/test_swarm_adapter.py`).
+(`tests/test_boundaries.py` B2, `tests/test_eager.py`).
 
 ## `RecordStore`
 
@@ -31,7 +31,7 @@ returned records are deep copies (mutating them never mutates the store).
 - `items(prefix="")` — sorted `(key, value)` pairs, staged overlay included, streamed in
   windows: value blobs are fetched a window at a time, so over a network store with
   `get_many` the reads parallelise while memory stays bounded to one window. This is the
-  fast path for hydrating a whole store, and what `SwarmOntoDAG._hydrate` uses.
+  fast path for hydrating a whole store, and what `EagerOntoDAG._hydrate` uses.
 - `commit(*, reconcile=False, resolver=None, retries=5) → root` — flush staged changes,
   return the new root reference, and update the pointer (if any). The pointer moves only
   after every blob write succeeds, so a reader sees all of a commit or none of it. Value
@@ -54,8 +54,8 @@ returned records are deep copies (mutating them never mutates the store).
 Storage is a persistent, canonically-encoded compacted radix trie: **equal content
 produces equal root references**, regardless of the insertion/deletion history that
 produced it. This is what makes committed states content-addressable, diffable, and
-mergeable — and it is why `SwarmOntoDAG` gets history-independent canonical roots
-(verified by `tests/test_swarm_adapter.py` here and the fuzz suite
+mergeable — and it is why `EagerOntoDAG` gets history-independent canonical roots
+(verified by `tests/test_eager.py` here and the fuzz suite
 `tests/test_recordstore_fuzz.py` in the recordstore repo).
 
 `canonical_bytes(value)` — the canonical JSON encoding (sorted keys, minimal

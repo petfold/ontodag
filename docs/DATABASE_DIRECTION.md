@@ -75,7 +75,7 @@ What separates this from "a proper database" is the list below.
 These preserve both invariants untouched and are recommended as the
 next work, in order:
 
-1. **Lazy remote reader.** `SwarmOntoDAG` currently loads every record
+1. **Lazy remote reader.** `EagerOntoDAG` currently loads every record
    into RAM at startup; that caps scale and forbids browser use. The
    swarmlite lesson applies directly: fetch item records on demand
    during walks (recordstore's trie already supports lazy per-key gets

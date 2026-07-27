@@ -25,7 +25,7 @@ Last updated 2026-07-25.
   (§4) — this is what the old roadmap called "optimize retrieval by choosing
   subsets of query items".
 - Content-addressed persistence: the generic `recordstore` layer (now its own
-  package) and `SwarmOntoDAG`, validated against a real Bee node on Gnosis
+  package) and `EagerOntoDAG`, validated against a real Bee node on Gnosis
   mainnet — the "DAG-only graph database for Ethereum Swarm" line item, in its
   library form rather than as a Bee plugin.
 - Fast loading from a published store (2026-07-25): hydration goes through

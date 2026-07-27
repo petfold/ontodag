@@ -1,0 +1,95 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{merkle1987}
+\citation{benet2014}
+\citation{tron2020}
+\citation{codd1970}
+\citation{ontodag}
+\citation{aho1972}
+\citation{shapiro2011}
+\citation{mdlfca}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\citation{codd1970}
+\citation{ranganathan1933}
+\citation{wille1982}
+\citation{ganter1999}
+\citation{ontodag}
+\citation{bush1945}
+\citation{aho1972}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces A photograph of a seagull taken on a family trip is \emph  {simultaneously} travel, family, and birds. A directory tree forces a choice; a multi-parent DAG records all three memberships, and the item becomes findable from every direction.}}{2}{figure.1}\protected@file@percent }
+\newlabel{fig:treevsdag}{{1}{2}{A photograph of a seagull taken on a family trip is \emph {simultaneously} travel, family, and birds. A directory tree forces a choice; a multi-parent DAG records all three memberships, and the item becomes findable from every direction}{figure.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Why trees and tables are not enough}{2}{section.2}\protected@file@percent }
+\newlabel{sec:trees}{{2}{2}{Why trees and tables are not enough}{section.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{Directory trees.}{2}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Flat tags.}{2}{section*.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Relational tables.}{2}{section*.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Hierarchical and faceted classification.}{2}{section*.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}OntoDAG: the data structure}{2}{section.3}\protected@file@percent }
+\newlabel{sec:ontodag}{{3}{2}{OntoDAG: the data structure}{section.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Structure.}{2}{section*.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{The two primitives.}{2}{section*.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Canonical form: the transitive reduction.}{2}{section*.8}\protected@file@percent }
+\citation{gruber1993}
+\citation{owl2}
+\citation{tron2020}
+\citation{merkle1987}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces A miniature car-market OntoDAG (taken from the reference implementation's demo). Listings were inserted with $\texttt  {put}(\text  {ad\#1}, \{\text  {Car},\text  {Germany},\text  {Electric}\})$ and $\texttt  {put}(\text  {ad\#2}, \{\text  {Motorcycle},\text  {Germany},\text  {Diesel}\})$. The query $\texttt  {get}(\{\text  {Car},\text  {Electric}\})$ (highlighted categories) intersects the two descendant cones and returns ad~\#1 (highlighted item) --- no ``electric cars'' category was ever created.}}{3}{figure.2}\protected@file@percent }
+\newlabel{fig:putget}{{2}{3}{A miniature car-market OntoDAG (taken from the reference implementation's demo). Listings were inserted with $\texttt {put}(\text {ad\#1}, \{\text {Car},\text {Germany},\text {Electric}\})$ and $\texttt {put}(\text {ad\#2}, \{\text {Motorcycle},\text {Germany},\text {Diesel}\})$. The query $\texttt {get}(\{\text {Car},\text {Electric}\})$ (highlighted categories) intersects the two descendant cones and returns ad~\#1 (highlighted item) --- no ``electric cars'' category was ever created}{figure.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{Relationship to ontologies.}{3}{section*.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Persistence on Swarm}{3}{section.4}\protected@file@percent }
+\newlabel{sec:swarm}{{4}{3}{Persistence on Swarm}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Swarm in one paragraph}{3}{subsection.4.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces The three-layer architecture. Graph semantics exist only in the top layer; the record store knows nothing about edges or descendants and is reusable for any versioned key--value data; the bottom layer is the public Swarm network. Each layer talks to the next through a narrow interface, so storage-layout changes (chunk packing, batching) never touch graph code.}}{3}{figure.3}\protected@file@percent }
+\newlabel{fig:stack}{{3}{3}{The three-layer architecture. Graph semantics exist only in the top layer; the record store knows nothing about edges or descendants and is reusable for any versioned key--value data; the bottom layer is the public Swarm network. Each layer talks to the next through a narrow interface, so storage-layout changes (chunk packing, batching) never touch graph code}{figure.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Why the fit is unusually good}{3}{subsection.4.2}\protected@file@percent }
+\citation{ontodag}
+\citation{aho1972}
+\citation{shapiro2011}
+\citation{kleppmann2019}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}The RecordStore layer}{4}{subsection.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Performance model}{4}{subsection.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Implementation status}{4}{subsection.4.5}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Convergent merge. Writers A and B extend the same snapshot $r_0$ independently; whichever order the merges happen in --- and however many times they are repeated --- both replicas reach the \emph  {same} root reference, verifiable by comparing hashes. No coordinator, no lock, no conflict dialog.}}{4}{figure.4}\protected@file@percent }
+\newlabel{fig:merge}{{4}{4}{Convergent merge. Writers A and B extend the same snapshot $r_0$ independently; whichever order the merges happen in --- and however many times they are repeated --- both replicas reach the \emph {same} root reference, verifiable by comparing hashes. No coordinator, no lock, no conflict dialog}{figure.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Concurrent writers without coordination}{4}{section.5}\protected@file@percent }
+\newlabel{sec:crdt}{{5}{4}{Concurrent writers without coordination}{section.5}{}}
+\citation{wille1982}
+\citation{ganter1999}
+\citation{rissanen1978}
+\citation{grunwald2007}
+\citation{mdlfca}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Where do categories come from? Learning by compression}{5}{section.6}\protected@file@percent }
+\newlabel{sec:mdl}{{6}{5}{Where do categories come from? Learning by compression}{section.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Learning a category by compression. The attribute combination \{Car, Electric, Germany\} recurs in the object$\times $attribute data (left), so factoring it out as a concept shortens the total description: the learner inserts a \emph  {German EV} node (dashed) into the DAG, and the covered items are described through it. A combination that occurred once would not pay for its own description and is never materialized.}}{5}{figure.5}\protected@file@percent }
+\newlabel{fig:mdl}{{5}{5}{Learning a category by compression. The attribute combination \{Car, Electric, Germany\} recurs in the object$\times $attribute data (left), so factoring it out as a concept shortens the total description: the learner inserts a \emph {German EV} node (dashed) into the DAG, and the covered items are described through it. A combination that occurred once would not pay for its own description and is never materialized}{figure.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Learned categories are a cache: MDL meets storage economics}{5}{section.7}\protected@file@percent }
+\newlabel{sec:econ}{{7}{5}{Learned categories are a cache: MDL meets storage economics}{section.7}{}}
+\citation{ontodag}
+\bibstyle{abbrv}
+\bibdata{references}
+\bibcite{aho1972}{1}
+\bibcite{benet2014}{2}
+\bibcite{bush1945}{3}
+\bibcite{codd1970}{4}
+\bibcite{mdlfca}{5}
+\bibcite{ontodag}{6}
+\bibcite{ganter1999}{7}
+\bibcite{gruber1993}{8}
+\bibcite{grunwald2007}{9}
+\bibcite{kleppmann2019}{10}
+\bibcite{merkle1987}{11}
+\bibcite{ranganathan1933}{12}
+\bibcite{rissanen1978}{13}
+\bibcite{shapiro2011}{14}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Provenance $\times $ ownership routes what must be stored durably versus what may be lazily recomputed.}}{6}{table.1}\protected@file@percent }
+\newlabel{tab:2x2}{{1}{6}{Provenance $\times $ ownership routes what must be stored durably versus what may be lazily recomputed}{table.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Status and future work}{6}{section.8}\protected@file@percent }
+\newlabel{sec:status}{{8}{6}{Status and future work}{section.8}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {9}Conclusion}{6}{section.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Acknowledgments.}{6}{section*.10}\protected@file@percent }
+\bibcite{tron2020}{15}
+\bibcite{owl2}{16}
+\bibcite{wille1982}{17}
+\gdef \@abspage@last{7}
