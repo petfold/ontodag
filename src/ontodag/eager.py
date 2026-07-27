@@ -122,3 +122,32 @@ class EagerOntoDAG(OntoDAG):
         if isinstance(other_dag, EagerOntoDAG):
             for name, payload in other_dag._payloads.items():
                 self._payloads.setdefault(name, payload)
+
+    def merge_published(self, root, bytes_store=None) -> bool:
+        """Merge a published version identified by its `root`, and say whether
+        anything came of it.
+
+        Roots are canonical (same knowledge ⇒ same root), which turns "do I
+        already have this?" into a string comparison: if `root` equals ours,
+        that version's content is exactly our committed content, so the union
+        adds nothing and no records are read at all. Otherwise the other root
+        is opened over the same blobs and merged normally.
+
+        Note the short-circuit stays correct even when *we* have uncommitted
+        changes: our current graph is then a superset of our committed content,
+        which the equal root proves equals theirs — so the union still adds
+        nothing.
+
+        The same reasoning does **not** license short-circuiting `merge()` on a
+        live `EagerOntoDAG` by comparing `store.root`: the other object may hold
+        uncommitted changes its root does not reflect, and skipping would
+        silently drop them.
+        """
+        from recordstore import RecordStore
+
+        if root is not None and root == self.store.root:
+            return False                      # already have exactly this
+        other = EagerOntoDAG(
+            RecordStore.at(root, bytes_store or self.store.blobs))
+        self.merge(other)
+        return True

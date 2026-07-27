@@ -173,5 +173,68 @@ class TestCanonicalityDependsOnExactCounts(unittest.TestCase):
             "could travel unnoticed inside a published ontology")
 
 
+class TestCanonicityIsExploited(unittest.TestCase):
+    """Canonicity is not just a property to admire: `merge_published` turns
+    "do I already have this version?" into a string comparison."""
+
+    def test_merging_our_own_root_reads_nothing(self):
+        blobs = MemoryBytesStore()
+        dag = EagerOntoDAG(RecordStore(blobs))
+        for name, supers in TARGET:
+            dag.put(Item(name), [Item(s) for s in supers])
+        root = dag.commit()
+
+        class CountingBlobs:
+            def __init__(self, inner):
+                self.inner, self.gets = inner, 0
+
+            def put(self, data):
+                return self.inner.put(data)
+
+            def get(self, ref):
+                self.gets += 1
+                return self.inner.get(ref)
+
+        counting = CountingBlobs(blobs)
+        watched = EagerOntoDAG(RecordStore.at(root, counting))
+        before = counting.gets
+
+        self.assertFalse(watched.merge_published(root),
+                         "merging the root we already hold must report no change")
+        self.assertEqual(counting.gets, before,
+                         "an equal root must be settled by comparison, not by "
+                         "reading records")
+
+    def test_merging_a_different_root_still_works(self):
+        blobs = MemoryBytesStore()
+        mine = EagerOntoDAG(RecordStore(blobs))
+        for name, supers in TARGET:
+            mine.put(Item(name), [Item(s) for s in supers])
+        mine.commit()
+
+        theirs = EagerOntoDAG(RecordStore(blobs))
+        theirs.put(Item("Animal"), [])
+        theirs.put(Item("Bird"), [Item("Animal")])
+        other_root = theirs.commit()
+
+        self.assertTrue(mine.merge_published(other_root))
+        self.assertIn("Bird", mine.nodes)
+        # and the result is canonical: same as having built it in one go
+        direct = build(TARGET + [("Bird", ["Animal"])])
+        self.assertEqual(mine.commit(), direct.commit())
+
+    def test_short_circuit_holds_with_local_uncommitted_changes(self):
+        """Our uncommitted work makes us a superset of the shared root, so
+        skipping is still correct — and must not discard that work."""
+        blobs = MemoryBytesStore()
+        dag = EagerOntoDAG(RecordStore(blobs))
+        for name, supers in TARGET:
+            dag.put(Item(name), [Item(s) for s in supers])
+        root = dag.commit()
+
+        dag.put(Item("Terrier"), [Item("Dog")])          # uncommitted
+        self.assertFalse(dag.merge_published(root))
+        self.assertIn("Terrier", dag.nodes)
+
 if __name__ == "__main__":
     unittest.main()
