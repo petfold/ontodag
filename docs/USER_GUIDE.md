@@ -668,10 +668,44 @@ root, no matter in what order it was built. Re-committing without changes return
 the identical root. A `EagerOntoDAG` constructed over a store with existing data
 loads it automatically and behaves like any other OntoDAG.
 
-To store on the real Swarm network instead of memory, use `BeeBytesStore` from
-`recordstore`, pointed at a running Bee node with a purchased postage batch. That
-setup (nodes, stamps, costs) is beyond this guide — see `docs/SWARM_DESIGN.md` for
-the design and current status, and the recordstore project for store options.
+To store on the real Swarm network instead of memory, the one-liner is
+`recordstore.swarm_store`, which puts both halves on Swarm — the content in a Bee
+node and the "latest version" pointer in a signed Swarm feed, so the store has a
+stable address others can follow:
+
+```python
+from recordstore import swarm_store
+
+store = swarm_store("my-ontology", signer=private_key_hex)   # publish
+store = swarm_store("my-ontology", owner=address_hex)        # follow someone's
+dag = EagerOntoDAG(store)
+```
+
+(It needs a running node and a usable postage batch; the CLI wires the same thing
+up from `$BEE_API` / `$BEE_BATCH` / `$BEE_SIGNER` — see §5. For durable storage
+with no Swarm at all, `recordstore.DirBytesStore` keeps the blobs in a local
+directory.)
+
+### Querying a published DAG without downloading it
+
+`EagerOntoDAG` loads every record when it opens, which is what makes editing and
+committing straightforward — but it means opening someone's million-item
+ontology downloads a million records before you can ask anything.
+`LazyOntoDAG` is the other end of that trade: it fetches records *as the query
+walks them*, so cost scales with the question, not with the store.
+
+```python
+from ontodag import LazyOntoDAG
+
+dag = LazyOntoDAG(swarm_store("my-ontology", owner=address_hex))
+print([item.name for item in dag.get(["Animal", "Pet"])])
+print(dag.fetches)      # how many records that actually cost
+```
+
+On a 3,200-item published store a specific query touches a few dozen records.
+It is **read-only by construction** — use `EagerOntoDAG` to edit and publish,
+`LazyOntoDAG` to query what was published. (The names describe *residency*, not
+storage: both take any record store, and neither is tied to Swarm.)
 
 Once a store lives on Swarm, it can also be **browsed as a filesystem** with
 [ontodag-fs](https://github.com/petfold/ontodag-fs): directory paths are
