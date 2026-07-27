@@ -72,9 +72,31 @@ is a load-bearing wall, not a cosmetic preference.
 4. Only then is the arrow added.
 
 Alongside the arrows, every item keeps a running `descendant_count` — the size of
-its cone. Rather than recount after every arrow, a whole `put` batches its changes
-and refreshes the counts once at the end. These counts are more than statistics;
-they're the query planner's fuel (§4).
+its cone. These counts are more than statistics; they're the query planner's fuel
+(§4) — and because they live *inside* each stored record, they are also part of
+what gets hashed, so they must be an exact function of the content or the
+canonical root (§6) would depend on history.
+
+Keeping them exact used to mean recounting: after a change, every affected
+ancestor recomputed `len(descendants)`. The root is an ancestor of everything,
+so that enumerated the whole graph on every single write. Now the counts are
+maintained by **delta**, using what each operation means:
+
+- Appending a new item: nothing could reach it yet, so every distinct ancestor
+  gains exactly one — no cone walks at all.
+- Removing an item: contraction reconnects its children to its parents, so
+  nothing below it becomes unreachable and every ancestor loses exactly one.
+- Dropping a redundant link (transitive reduction): reachability is unchanged
+  by construction, so no count changes.
+- Linking two existing items: ancestors that could already reach the target
+  gain nothing — and neither can *their* ancestors, so that branch of the
+  ascent stops there.
+
+Cost becomes proportional to the region that actually changed rather than to
+the graph: building a 3,000-item taxonomy went from 8.5 s to 1.0 s, and a
+hundred removals from 0.59 s to 0.01 s, with the advantage widening as graphs
+grow. Exactness is checked after every operation by the oracle in
+`tests/test_count_deltas.py` (invariant I5).
 
 Internally each item knows both its children *and* its parents (two mirrored sets,
 kept in sync automatically), so the graph can be walked cheaply in either

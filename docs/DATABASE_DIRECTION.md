@@ -75,7 +75,15 @@ What separates this from "a proper database" is the list below.
 These preserve both invariants untouched and are recommended as the
 next work, in order:
 
-1. **Lazy remote reader.** `EagerOntoDAG` currently loads every record
+1. ~~**Lazy remote reader.**~~ **DONE** — `LazyOntoDAG` (`src/ontodag/lazy.py`)
+   already does this; it landed the same day this document was drafted, which
+   the draft did not know. Its own follow-up (cone summaries for broad-term
+   queries) is roadmap item 1. **Also done: count maintenance.** The delta
+   rules described in `experiments/RESULTS.md` are now in `dag.py` — exact
+   counts no longer require the whole graph, removing one of the three stated
+   reasons `LazyOntoDAG` refuses writes. Historical text follows.
+
+   `EagerOntoDAG` currently loads every record
    into RAM at startup; that caps scale and forbids browser use. The
    swarmlite lesson applies directly: fetch item records on demand
    during walks (recordstore's trie already supports lazy per-key gets

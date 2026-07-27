@@ -82,7 +82,7 @@ def _name_of(node_or_name):
 class DAG:
     def __init__(self, nodes=None):
         self.nodes = {}
-        self._deferred_dirty = None  # a set while inside _batched_count_updates
+        self._counts_frozen = False  # True while an operation maintains counts itself
         if nodes:
             for node in nodes:
                 self.add_node(node)
@@ -105,9 +105,9 @@ class DAG:
                 f"Edge {from_node.name} -> {to_node.name} would create a cycle."
             )
 
+        deltas = None if self._counts_frozen else self._plan_add(from_node, to_node)
         from_node.neighbors.add(to_node)
-
-        self._update_descendant_counts(from_node)
+        self._apply_count_deltas(deltas)
 
     def _is_reachable(self, start, target):
         """True if `target` is strictly reachable from `start` (iterative, early exit)."""
@@ -131,40 +131,117 @@ class DAG:
         if to_node not in from_node.neighbors:
             raise ValueError("Edge does not exist.")
         from_node.neighbors.remove(to_node)
+        # "can X still reach c?" is a post-state question, so plan after
+        self._apply_count_deltas(
+            None if self._counts_frozen else self._plan_remove(from_node, to_node))
 
-        self._update_descendant_counts(from_node)
-
-    def _update_descendant_counts(self, parent):
-        if self._deferred_dirty is not None:
-            # Inside a batched operation: record the seed, refresh at the end.
-            self._deferred_dirty.add(parent)
-            return
-        affected = set()
-        self._get_affected_nodes(parent, affected)
-        for node in affected:
-            node.descendant_count = len(self.get_descendants(node))
+    # ---- descendant counts, maintained by delta ---------------------------
+    #
+    # Counts used to be refreshed by recomputing `len(get_descendants(X))` for
+    # every affected ancestor. Since the root is an ancestor of everything,
+    # its cone is the whole graph, so *every* write enumerated the entire DAG:
+    # per-op cost grew linearly with the graph. But which counts change is
+    # local — only the touched node's ancestors — and by how much is derivable
+    # from what the operation means. Both rules below prune the ascent on a
+    # proof: an ancestor that already reaches the child also reaches
+    # everything below it, and so does every ancestor of *that* ancestor, so
+    # the whole branch is unaffected.
+    #
+    # Measured (experiments/delta_counts.py on the experiment/delta-counts
+    # branch), per operation at ~2000 items: appends 8.9x cheaper, removals
+    # 642x, cross-links 1.9x, verified against a brute-force oracle after
+    # every one of ~7,600 operations. Invariant I5 is the standing check.
 
     @contextmanager
-    def _batched_count_updates(self):
-        """Defer descendant-count refreshes until the enclosing operation ends.
-
-        A multi-edge operation (put with several supers, remove's
-        contraction, merge) otherwise recomputes counts once per edge.
-        Re-entrant: only the outermost context flushes.
-        """
-        if self._deferred_dirty is not None:
-            yield
-            return
-        self._deferred_dirty = set()
+    def _counts_unchanged(self):
+        """Structural changes whose counts are *not* this code's business:
+        transitive-reduction removals (which by construction change no
+        reachability, hence no count) and `remove`'s contraction (whose net
+        effect the caller applies itself). Re-entrant."""
+        prev, self._counts_frozen = self._counts_frozen, True
         try:
             yield
         finally:
-            dirty, self._deferred_dirty = self._deferred_dirty, None
-            affected = set()
-            for seed in dirty:
-                self._get_affected_nodes(seed, affected)
-            for node in affected:
-                node.descendant_count = len(self.get_descendants(node))
+            self._counts_frozen = prev
+
+    def _apply_count_deltas(self, deltas):
+        if deltas:
+            for node, delta in deltas.items():
+                node.descendant_count += delta
+
+    def _live_parents(self, node):
+        # only parents belonging to this DAG instance (a foreign Item's edges
+        # are not ours to walk)
+        return [p for p in node.parents if self.nodes.get(p.name) is p]
+
+    def _count_reachable(self, start, targets):
+        """How many of `targets` are reachable from `start`, exiting as soon
+        as all of them are found — cheap in exactly the case that matters."""
+        remaining = set(targets)
+        found = 0
+        seen = set()
+        frontier = [start]
+        while frontier and remaining:
+            for neighbor in frontier.pop().neighbors:
+                if neighbor in remaining:
+                    remaining.discard(neighbor)
+                    found += 1
+                    if not remaining:
+                        return found
+                if neighbor not in seen:
+                    seen.add(neighbor)
+                    frontier.append(neighbor)
+        return found
+
+    def _plan_add(self, parent, child):
+        """Count deltas for adding `parent` -> `child`, computed *before* the
+        edge exists (callers that also run transitive reduction must plan
+        first: reduction drops edges that are redundant only *given* the new
+        edge, so planning afterwards would read ancestors as newly gaining
+        what they already had)."""
+        below = self.get_descendants(child)
+        # A child with no parents yet cannot be reached from anywhere, so the
+        # "does this ancestor already reach it?" probe is provably False for
+        # every ancestor and is skipped. That is the common case — appending a
+        # fresh item — and it is what keeps the whole operation proportional to
+        # the ancestor set instead of to the cones: an exhaustive probe is the
+        # expensive direction (it can only conclude "no" by walking the lot).
+        unreachable = not self._live_parents(child)
+        deltas = {}
+        frontier = [parent]
+        seen = set()
+        while frontier:
+            node = frontier.pop()
+            if node in seen:
+                continue
+            seen.add(node)
+            if not unreachable and self._is_reachable(node, child):
+                continue          # reaches child already, hence all below it
+            gained = 1 if not below else (
+                1 + len(below) - self._count_reachable(node, below))
+            deltas[node] = deltas.get(node, 0) + gained
+            frontier.extend(self._live_parents(node))
+        return deltas
+
+    def _plan_remove(self, parent, child):
+        """Count deltas for a `parent` -> `child` edge that has just been
+        removed (reachability questions are about the post-state)."""
+        below = self.get_descendants(child)
+        deltas = {}
+        frontier = [parent]
+        seen = set()
+        while frontier:
+            node = frontier.pop()
+            if node in seen:
+                continue
+            seen.add(node)
+            if self._is_reachable(node, child):
+                continue          # still reaches child, hence all below it
+            lost = 1 if not below else (
+                1 + len(below) - self._count_reachable(node, below))
+            deltas[node] = deltas.get(node, 0) - lost
+            frontier.extend(self._live_parents(node))
+        return deltas
 
     def _get_affected_nodes(self, node, affected):
         """Get node and all its ancestors that need count updates"""
@@ -314,8 +391,15 @@ class OntoDAG(DAG):
             raise ValueError(
                 f"Edge {from_node.name} -> {to_node.name} would create a cycle."
             )
-        self._remove_unneeded_edges(from_node, to_node)
-        super().add_edge(from_node, to_node)
+        # Plan the delta against the pre-operation graph: the reduction below
+        # removes edges that are redundant only *given* the new edge, so an
+        # ancestor would momentarily stop reaching `to_node` and be read as
+        # newly gaining what it already had.
+        deltas = None if self._counts_frozen else self._plan_add(from_node, to_node)
+        with self._counts_unchanged():
+            self._remove_unneeded_edges(from_node, to_node)   # count-neutral
+            super().add_edge(from_node, to_node)              # structure only
+        self._apply_count_deltas(deltas)
 
     # Stand-in for the typical ancestor-cone size, which is not maintained
     # per node. Used only to choose between two *exact* operators in get(),
@@ -504,9 +588,8 @@ class OntoDAG(DAG):
             bottom = bottom_set(extended)
             super_categories = bottom
 
-        with self._batched_count_updates():
-            for super_cat in super_categories:
-                self.add_edge(super_cat, subcategory)
+        for super_cat in super_categories:
+            self.add_edge(super_cat, subcategory)
 
     def remove(self, node_to_remove):
         # Accept a name string or any Item, and resolve to this instance's
@@ -524,7 +607,15 @@ class OntoDAG(DAG):
                             if self.nodes.get(parent.name) is parent}
         subcategories = set(node_to_remove.neighbors)
 
-        with self._batched_count_updates():
+        # The whole operation costs exactly one subtraction per ancestor:
+        # contraction reconnects the removed node's children to its parents,
+        # so nothing *below* it becomes unreachable — every ancestor loses
+        # precisely `node_to_remove` itself. Captured before the graph moves.
+        affected = set()
+        self._get_affected_nodes(node_to_remove, affected)
+        ancestors = affected - {node_to_remove}
+
+        with self._counts_unchanged():
             # Remove edges pointing from the removed node
             for subcategory in subcategories:
                 self.remove_edge(node_to_remove, subcategory)
@@ -543,7 +634,9 @@ class OntoDAG(DAG):
                     continue
                 for subcategory in subcategories:
                     self.add_edge(super_category, subcategory)
-                self._update_descendant_counts(super_category)
+
+        for ancestor in ancestors:
+            ancestor.descendant_count -= 1
 
     def merge(self, other_dag):
         """Merge another OntoDAG into this one.
@@ -554,30 +647,25 @@ class OntoDAG(DAG):
         if not isinstance(other_dag, OntoDAG):
             raise ValueError("Can only merge with another OntoDAG instance.")
 
-        with self._batched_count_updates():
-            # Pass 1: add all missing nodes (no edges yet). Metadata merges
-            # per key with ours winning on conflict (same policy as the
-            # payload/meta carry-over in EagerOntoDAG.merge).
-            for node_name, other_node in other_dag.nodes.items():
-                if node_name not in self.nodes:
-                    self.add_node(Item(node_name, metadata=other_node.metadata))
-                else:
-                    for key, value in other_node.metadata.items():
-                        self.nodes[node_name].metadata.setdefault(key, value)
+        # Pass 1: add all missing nodes (no edges yet). Metadata merges
+        # per key with ours winning on conflict (same policy as the
+        # payload/meta carry-over in EagerOntoDAG.merge).
+        for node_name, other_node in other_dag.nodes.items():
+            if node_name not in self.nodes:
+                self.add_node(Item(node_name, metadata=other_node.metadata))
+            else:
+                for key, value in other_node.metadata.items():
+                    self.nodes[node_name].metadata.setdefault(key, value)
 
-            # Pass 2: add edges in topological order (general → specific) using
-            # add_edge so _remove_unneeded_edges prunes redundant edges correctly.
-            for other_node in other_dag.topological_sort():
-                self_node = self.nodes[other_node.name]
-                for neighbor in other_node.neighbors:
-                    if neighbor.name in self.nodes:
-                        self.add_edge(self_node, self.nodes[neighbor.name])
+        # Pass 2: add edges in topological order (general → specific) using
+        # add_edge so _remove_unneeded_edges prunes redundant edges correctly.
+        for other_node in other_dag.topological_sort():
+            self_node = self.nodes[other_node.name]
+            for neighbor in other_node.neighbors:
+                if neighbor.name in self.nodes:
+                    self.add_edge(self_node, self.nodes[neighbor.name])
 
-            self._remove_duplicate_root_edges()
-
-            # Update descendant counts
-            for node in self.nodes.values():
-                self._update_descendant_counts(node)
+        self._remove_duplicate_root_edges()
 
     def prune_to_common_descendants(self, interesting_nodes):
         # Gather each node's descendants in a list of sets

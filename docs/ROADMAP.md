@@ -46,11 +46,16 @@ Last updated 2026-07-25.
    step of the bitmap-index work below, pulled forward by an actual need rather
    than speculation. Being *derived*, it never touches the canonical form.
 2. **Writing back from a partially-loaded graph.** `LazyOntoDAG` is read-only on
-   purpose: the exactness rules (minimal links, exact counts) are properties of
-   the whole graph, and change-detection diffs a complete set of records, so
-   neither is defined when only a fragment is resident. Making edits possible
-   without full residence means deciding which invariants can be checked locally
-   — a real design question, not a port.
+   purpose — but one of the three reasons has now gone. **Exact counts are no
+   longer a blocker:** they are maintained by local delta (see §"counts" in
+   HOW_IT_WORKS), proven exact against a brute-force oracle over ~7,600
+   operations and *cheaper* than the old recompute, so nothing about them needs
+   the whole graph. What remains is (a) change detection — `commit()` still
+   diffs a complete set of records, which a partially-resident writer would
+   have to replace with dirty-tracking — and (b) minimal links: transitive
+   reduction is bounded by the ancestors and cones it touches, so it looks
+   local, but that has not been tested under partial residency. Groundwork:
+   `experiments/RESULTS.md` on the `experiment/delta-counts` branch.
 3. **A published "latest version" pointer.** Swarm *feeds* give a stable address
    that always resolves to your newest root — the missing piece for subscribing
    to someone's ontology. The signing machinery landed upstream; OntoDAG needs to
