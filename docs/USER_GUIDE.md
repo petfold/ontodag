@@ -330,7 +330,7 @@ store = /home/you/work/pets.od
 
 `set KEY VALUE` changes a setting; `set KEY` on its own displays it; `set`
 alone lists them all. The settings are `store` and — for the Swarm backend
-below — `bee_api` / `bee_batch`.
+below — `bee_api`, `bee_batch` and `bee_signer`.
 
 Files ending in `.owl` or `.omn` are read and written as OWL / Manchester syntax
 instead of the native format — so `odag -f pets.omn get Animal` works directly on an
@@ -347,11 +347,23 @@ $ odag put Animal
 $ odag get Animal
 ```
 
-The DAG's content is written to a Bee node (content-addressed, immutable), while
-the pointer to the *latest* version is kept locally at `~/.ontodag/pets.root` — so
-no signing key is needed to get started. Point `odag` at your node with the `BEE_API`
-and `BEE_BATCH` environment variables, or `bee_api` / `bee_batch` lines in
-`~/.ontodag/config`; writes need a funded [postage batch](https://docs.ethswarm.org/docs/develop/access-the-swarm/buy-a-stamp-batch).
+The DAG's content is written to a Bee node (content-addressed, immutable). Where
+the pointer to the *latest* version lives depends on whether you give `odag` a
+signing key:
+
+- **No key (the default).** The latest root is kept locally at
+  `~/.ontodag/pets.root`, so you can start with nothing but a node. Nothing is
+  publishable: to let someone else read your store you would have to pass them
+  a root hash by hand.
+- **With a key** (`BEE_SIGNER`, or `bee_signer` in the config) the latest root
+  goes into a **Swarm feed** — an owner-signed, stable address that always
+  resolves to your newest version, so others can follow the store rather than
+  chase hashes. Same command, one setting.
+
+Point `odag` at your node with the `BEE_API` and `BEE_BATCH` environment
+variables, or `bee_api` / `bee_batch` lines in `~/.ontodag/config`; the batch
+defaults to `auto`, which picks a usable one on the node. Writes need a funded
+[postage batch](https://docs.ethswarm.org/docs/develop/access-the-swarm/buy-a-stamp-batch).
 Reading and writing an empty store needs no node, but `put`/`import` (which commit
 to Swarm) do — without one you get a clear `Connection refused` error, and nothing
 is lost. Switch back to a file any time with `odag set store PATH`.

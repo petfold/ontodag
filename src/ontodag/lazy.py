@@ -21,11 +21,19 @@ is exactly the information the query planner needs about a node —
   out of the record, so ordering cones smallest-first costs one fetch per term
   rather than a traversal.
 
-**Read-only by construction.** Writing is refused, not merely discouraged:
-`OntoDAG`'s guarantees (transitive reduction, exact counts) are properties of
-the *whole* graph, and `EagerOntoDAG.commit` diffs against a full set of synced
-records — neither is well-defined when only part of the graph is resident. Use
-`EagerOntoDAG` to edit and publish, `LazyOntoDAG` to query what was published.
+**Read-only by construction.** Writing is refused, not merely discouraged —
+though the reasons have narrowed. Exact counts are *no longer* one of them:
+they are maintained by local delta (see the "counts" note in `dag.py`), proven
+exact against a brute-force oracle and cheaper than the recompute they
+replaced, so nothing about them needs the whole graph. What still does:
+`EagerOntoDAG.commit` detects change by diffing a *complete* set of synced
+records, which a partially-resident writer would have to replace with
+dirty-tracking; and transitive reduction, while bounded by the ancestors and
+cones it touches (so plausibly local), has not been tested under partial
+residency. Until both are settled: use `EagerOntoDAG` to edit and publish,
+`LazyOntoDAG` to query what was published. Groundwork in
+`experiments/RESULTS.md` on the `experiment/delta-counts` branch; status in
+`docs/ROADMAP.md` item 2.
 
 **Nodes exist in two states.** A *stub* is an `Item` that is known to exist
 (some record referenced it) but whose record has not been fetched: it has a
