@@ -13,113 +13,131 @@ hydrates eagerly and `LazyOntoDAG` refuses writes ("exact counts are
 properties of the whole graph").
 
 But *which* counts change is local — only the touched node's ancestors; a
-non-overlapping cone cannot be affected. So: can counts be maintained
-incrementally, touching only the region that actually changed?
+non-overlapping cone cannot be affected. So the answer is local while the
+method is global. Can counts be maintained incrementally?
 
-## The two rules tested
+## Three algorithms compared
 
-**ADD p→c.** Ascend from `p` over distinct ancestors. If X already reaches
-`c`, it also reaches everything below `c`, so X gains nothing — and every
-ancestor of X reaches X, hence also gains nothing → **prune the branch**.
-Otherwise X gains `1 + |cone(c) \ reach(X)|`. If `c` is brand new, nothing
-could reach it: every distinct ancestor gains exactly 1, **with no probes**.
+**baseline** — today's code: recompute `len(get_descendants(X))` for every
+affected ancestor.
 
-**DEL p→c.** Apply the removal, then ascend from `p`. If X can still reach
-`c` it still reaches all of `cone(c)` → prune. Otherwise X loses
-`1 + |cone(c) \ reach_after(X)|`.
+**edge-delta** — replay the operation's *edge events*, applying two pruned
+rules. ADD p→c: ascend from p; if X already reaches c it also reaches
+everything below c, so it gains nothing — and so does every ancestor of X
+→ prune. Otherwise X gains `1 + |cone(c) \ reach(X)|`; a brand-new c means
+every ancestor gains exactly 1 with no probes. DEL p→c: mirror, using
+"can X still reach c?".
 
-Counts are cardinalities, never summed across children (that double-counts
-overlap: `Dog(2) + Pet(2) + 2 ≠ Animal(4)`); the stored count is only ever
-the previous value to adjust.
+**op-delta** — exploit what each *operation* means instead of replaying its
+edges:
+
+1. **Redundancy removals cost nothing.** `_remove_unneeded_edges` deletes an
+   edge only because its target is already reachable another way — that is
+   what transitive reduction *is* — so no count changes.
+2. **`remove(n)` costs one subtraction per ancestor.** Contraction reconnects
+   n's children to n's parents, so nothing below n becomes unreachable: every
+   ancestor of n loses exactly `n` itself. No probes, no cone walks.
+3. **Genuine new edges** use the ADD rule above.
 
 ## Result 1 — correctness: exact counts do NOT need the whole graph
 
-Both algorithms were compared against a brute-force oracle
+All three algorithms were compared against a brute-force oracle
 (`len(get_descendants(X))` for every X) **after every single operation**,
-across 6 configurations (taxonomy and random shapes × ~200/800/2000 items),
-plus a randomised fuzz of adds, cross-links and removes — roughly 7,000
-operations in total.
-
-**Zero mismatches.** The pruned delta rules are exact.
+across 6 configurations (taxonomy and random shapes × ~200/800/2000 items)
+plus a randomised fuzz of adds, cross-links and removes — roughly 7,600
+operations. **Zero mismatches** for both delta variants.
 
 So `LazyOntoDAG`'s premise is a *cost* claim, not a correctness claim:
 exactness survives partial residency. A DAG-wide invariant is maintainable
 from local information.
 
-## Result 2 — cost: appends win big and improve with scale; removes lose
+## Result 2 — cost: op-delta wins everywhere, removes spectacularly
 
-Cost unit: node expansions (one pop = one record fetch in a lazy remote
-setting). Cycle checks are excluded — both algorithms pay them identically.
+Cost unit: node expansions (one pop ≈ one record fetch in a lazy remote
+setting), per operation. Cycle checks are excluded — all three pay them
+identically.
 
-Taxonomy shape (bounded depth, ~6 children per node — a realistic ontology):
+Taxonomy shape (bounded depth, ~6 children per node):
 
-| items | phase | base/op | delta/op | ratio |
-|------:|-------|--------:|---------:|------:|
-| 200 | grow (new items) | 192 | 29 | **6.6× cheaper** |
-| 800 | grow | 909 | 119 | **7.6× cheaper** |
-| 2000 | grow | 2,222 | 261 | **8.5× cheaper** |
-| 2000 | cross-link existing | 21,207 | 12,870 | 1.6× cheaper |
-| 2000 | remove | 16,946 | 68,368 | **5× worse** |
+| items | phase | base/op | edge-δ/op | op-δ/op | op-δ vs base |
+|------:|-------|--------:|----------:|--------:|-------------:|
+| 200 | grow | 192 | 26 | 26 | **7.2× cheaper** |
+| 200 | cross-link | 645 | 492 | 399 | 1.6× |
+| 200 | remove | 347 | 676 | **5** | **62×** |
+| 800 | grow | 909 | 128 | 128 | **7.1×** |
+| 800 | cross-link | 4,247 | 2,989 | 2,748 | 1.5× |
+| 800 | remove | 2,015 | 8,062 | **8** | **231×** |
+| 2000 | grow | 2,222 | 248 | 248 | **8.9×** |
+| 2000 | cross-link | 21,207 | 12,823 | 11,005 | 1.9× |
+| 2000 | remove | 16,946 | 67,612 | **26** | **642×** |
+| 2000 | *all phases* | 5,031 | 6,910 | 1,126 | **4.5×** |
 
-Random-DAG shape (pathologically large ancestor sets; included as a stress
-case, not as a realistic model):
+Random-DAG shape (pathologically dense ancestor sets; a stress case, not a
+realistic model) at 2000 items: grow 5.3×, cross-link 1.8×, remove **927×**,
+overall 4.2× cheaper than baseline.
 
-| items | phase | base/op | delta/op | ratio |
-|------:|-------|--------:|---------:|------:|
-| 2000 | grow | 44,289 | 8,749 | 5.1× cheaper |
-| 2000 | cross-link | 189,686 | 129,151 | 1.5× cheaper |
-| 2000 | remove | 172,953 | 627,900 | 3.6× worse |
+Two things to read out of the table:
 
-The scaling is the point: **baseline per-op cost grows linearly with graph
-size** (192 → 909 → 2,222 as items go 200 → 800 → 2000), exactly as
-"enumerate the whole graph per write" predicts, while the delta ratio
-*improves* with size (6.6× → 7.6× → 8.5×). Extrapolated to a large shared
-ontology, the gap keeps widening.
+* **Scaling.** Baseline per-op cost grows linearly with graph size
+  (192 → 909 → 2,222 for grow; 347 → 2,015 → 16,946 for remove), exactly as
+  "enumerate the whole graph per write" predicts. op-delta's remove cost is
+  near-constant (5 → 8 → 26 — it is just the ancestor-set size), so the gap
+  *widens without limit* as the ontology grows.
+* **Removal flipped from worst to best.** Edge-delta made removes 3–5×
+  *worse* than baseline; op-delta makes them 62–927× *better*. The 5× loss
+  was never a property of delta maintenance — it came from decomposing a
+  structured operation into unstructured edge events, which destroys the
+  information that makes it cheap.
 
-## Result 3 — why removes lose, and what would fix them
+## Result 3 — cross-links are the remaining weak spot
 
-Two causes, both structural rather than fatal:
+Adding an edge between two *existing* nodes genuinely changes reachability in
+ways no operation-level shortcut captures, so it still pays the probes:
+only 1.5–1.9× better than baseline, and it dominates op-delta's mixed-workload
+total. This is precisely where the cached cone summaries (succinct bitmaps)
+sketched in `docs/DATABASE_DIRECTION.md` would pay off — turning
+"can X reach n?" into a bit test:
+`gain = popcount(cone_c & ~reach(X))`.
 
-1. **The baseline amortizes; the per-event delta does not.** `remove()`
-   explodes into many edge events (every parent edge, every child edge, then
-   the contraction edges). The base class defers to one recompute for the
-   whole batch via `_batched_count_updates`; the delta pays a separate ascent
-   with probes *per event*. Batching the delta — computing one net effect per
-   flush instead of per edge — is the obvious next iteration.
-2. **Negative reachability cannot early-exit.** "Can X still reach c?" is
-   cheap when the answer is yes (stop at first hit) and worst-case a full
-   cone walk when the answer is no — and after a removal, "no" is the common
-   case. Cached cone summaries (the succinct-bitmap idea in
-   `docs/DATABASE_DIRECTION.md`) would turn this into a bit test:
-   `lost = popcount(cone_c & ~reach_after(X))`.
+## Two bugs worth remembering
 
-Note also that transitive reduction makes *adds* pay some of this: since
-`OntoDAG.add_edge` calls `_remove_unneeded_edges`, an add can generate
-removal events internally — which is why delta's grow cost isn't flat.
+**Redundancy removals are count-neutral per *operation*, not per *edge*.**
+`_remove_unneeded_edges` runs *before* the new edge is added, so mid-operation
+an ancestor really does lose reachability, which the new edge then restores.
+Applying those removals to the shadow immediately corrupted the ADD rule's
+"before" state: an ancestor that reached `c` only through a just-removed
+redundant edge looked like it was newly gaining `c`, and counts drifted
+upward. Fix: queue count-neutral structural changes and land them only after
+every count delta has been computed.
+
+**A harness trap that masqueraded as an algorithm bug.** A multi-super `put`
+can add edge 1 and then raise on a cycle for edge 2, mutating one DAG but not
+its twin. The first run reported hundreds of "count mismatches" that were
+purely this divergence. The harness now decomposes puts into single-super
+(atomic) puts and asserts structural equality across all three DAGs after
+every operation — without that guard, a harness bug is indistinguishable from
+an algorithm bug.
 
 ## Verdict
 
 - Lazy, partially-resident writes are **not blocked by correctness**. The
-  exact-count invariant is maintainable locally, proven empirically.
-- For **append-mostly** workloads — what a growing shared ontology actually
-  is — the delta rule is already a clear win that widens with scale.
-- **Removal needs the batched formulation** before a lazy writer should ship;
-  as formulated per-event it is several times worse than today's code.
-- A pragmatic split follows: a lazy writer could maintain counts by delta on
-  appends and fall back to publish-time recomputation after removals.
+  exact-count invariant is maintainable locally, verified empirically.
+- **Appends and removals are both cheap** under op-delta, and the advantage
+  grows with graph size — appends 7–9×, removals 62–927×.
+- **Cross-links remain the expensive case** (still ~1.7× better than today).
+  Cone-summary bitmaps are the next lever if that matters.
+- A lazy writer is therefore viable now for append-and-remove workloads,
+  which is what a growing shared ontology mostly does.
 
-## Caveats on this experiment
+## Caveats
 
-- Cost is counted in node expansions, not wall clock or round trips; a real
-  lazy reader would batch fetches, which changes constants but not scaling.
-- The delta implementation keeps an in-process shadow of the previous state.
-  That is *not* cheating on residency: in production the previous state is
-  the previously committed root, itself lazily queryable — but the experiment
+- Cost is node expansions, not wall clock or round trips; a real lazy reader
+  would batch fetches, changing constants but not scaling.
+- The delta classes keep an in-process shadow of the previous state. That is
+  not cheating on residency — in production the previous state is the
+  previously committed root, itself lazily queryable — but this experiment
   does not prove the fetch pattern against a real store.
+- The random-shape generator produces far denser ancestor sets than any real
+  taxonomy; treat those rows as a stress bound, not a forecast.
 - `experiments/` and the `STATS` counters added to `src/ontodag/dag.py` are
-  experiment scaffolding. **The instrumentation is not for merge as-is.**
-- One harness trap worth remembering: a multi-super `put` can add one edge
-  and then raise on a cycle for the next, mutating one DAG but not its twin.
-  The harness now decomposes puts into single-super (atomic) puts and asserts
-  structural equality after every operation. Before that guard, the resulting
-  divergence masqueraded convincingly as a count bug.
+  scaffolding. **The instrumentation is not for merge as-is.**

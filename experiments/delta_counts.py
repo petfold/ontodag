@@ -55,7 +55,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from ontodag.dag import STATS, Item, OntoDAG  # noqa: E402
+from ontodag.dag import STATS, Item, OntoDAG, _name_of  # noqa: E402
+
+STATS.setdefault("opdelta", 0)
 
 
 # --------------------------------------------------------------------------
@@ -63,6 +65,8 @@ from ontodag.dag import STATS, Item, OntoDAG  # noqa: E402
 # --------------------------------------------------------------------------
 
 class DeltaCountDAG(OntoDAG):
+    _stats_key = "delta"
+
     """OntoDAG whose counts are maintained by pruned delta propagation.
 
     Keeps a *shadow* of the graph as of the last flush (children, parents and
@@ -130,7 +134,7 @@ class DeltaCountDAG(OntoDAG):
         seen = set()
         frontier = [name]
         while frontier:
-            STATS["delta"] += 1
+            STATS[self._stats_key] += 1
             for child in self._adj.get(frontier.pop(), ()):
                 if child not in seen:
                     seen.add(child)
@@ -143,7 +147,7 @@ class DeltaCountDAG(OntoDAG):
         seen = set()
         frontier = [name]
         while frontier:
-            STATS["delta"] += 1
+            STATS[self._stats_key] += 1
             for child in self._adj.get(frontier.pop(), ()):
                 if child == target:
                     return True
@@ -164,7 +168,7 @@ class DeltaCountDAG(OntoDAG):
         seen = set()
         frontier = [name]
         while frontier and remaining:
-            STATS["delta"] += 1
+            STATS[self._stats_key] += 1
             for child in self._adj.get(frontier.pop(), ()):
                 if child in remaining:
                     remaining.discard(child)
@@ -192,7 +196,7 @@ class DeltaCountDAG(OntoDAG):
             if x in seen:
                 continue
             seen.add(x)
-            STATS["delta"] += 1
+            STATS[self._stats_key] += 1
             if fresh:
                 gain = 1                   # no probe at all: c is brand new
             elif self._reaches(x, c):
@@ -222,7 +226,7 @@ class DeltaCountDAG(OntoDAG):
             if x in seen:
                 continue
             seen.add(x)
-            STATS["delta"] += 1
+            STATS[self._stats_key] += 1
             if self._reaches(x, c):
                 continue                   # still reaches c, hence all of cone(c)
             lost = 1 + len(cone_c) - self._count_reachable(x, cone_c)
@@ -238,15 +242,126 @@ class DeltaCountDAG(OntoDAG):
             else:
                 self._delta_remove(p, c)
         self._events.clear()
+        deferred = getattr(self, "_deferred_shadow", None)
+        if deferred:
+            self._apply_deferred()
 
+        self._write_back()
+
+    def _write_back(self):
         for gone in [n for n in self._adj if n not in self.nodes]:
             self._adj.pop(gone, None)
             self._radj.pop(gone, None)
             self._shadow_counts.pop(gone, None)
         self._sync_new_names()
-
         for name, node in self.nodes.items():
             node.descendant_count = self._shadow_counts[name]
+
+
+class OpDeltaDAG(DeltaCountDAG):
+    """Counts maintained from what each *operation* means, not from its edges.
+
+    Three rules, exploiting structure the edge-event log throws away:
+
+    1. **Redundancy removals cost nothing.** `_remove_unneeded_edges` deletes
+       an edge only because its target is already reachable another way — that
+       is what transitive reduction *is* — so reachability, and therefore every
+       count, is unchanged. Do the structural work, record no count change.
+    2. **`remove(n)` costs one subtraction per ancestor.** Contraction
+       reconnects n's children to n's parents, so nothing below n becomes
+       unreachable: every ancestor of n loses exactly `n` itself. No probes,
+       no cone walks — cost is |ancestors(n)|.
+    3. **Genuine new edges** use the ADD rule inherited from `DeltaCountDAG`.
+    """
+
+    _stats_key = "opdelta"
+
+    def __init__(self):
+        self._suppress = False
+        self._deferred_shadow = []
+        super().__init__()
+
+    # -- structural bookkeeping that must happen even when counts don't ------
+
+    def _shadow_add(self, p, c):
+        self._ensure(p)
+        self._ensure(c)
+        self._adj[p].add(c)
+        self._radj[c].add(p)
+
+    def _shadow_del(self, p, c):
+        self._ensure(p)
+        self._ensure(c)
+        self._adj[p].discard(c)
+        self._radj[c].discard(p)
+
+    def _apply_deferred(self):
+        """Land the count-neutral structural changes (redundancy removals,
+        contraction edges) once every count delta has been computed against
+        the untouched pre-operation shadow."""
+        for kind, p, c in self._deferred_shadow:
+            if kind == "add":
+                self._shadow_add(p, c)
+            else:
+                self._shadow_del(p, c)
+        self._deferred_shadow.clear()
+
+    def _shadow_ancestors(self, name):
+        """Distinct strict ancestors of `name` in the shadow."""
+        seen = set()
+        frontier = [name]
+        while frontier:
+            STATS[self._stats_key] += 1
+            for parent in self._radj.get(frontier.pop(), ()):
+                if parent not in seen:
+                    seen.add(parent)
+                    frontier.append(parent)
+        return seen
+
+    # -- rule 1: redundancy removals are count-neutral ----------------------
+
+    def _remove_unneeded_edges(self, from_node, to_node):
+        prev, self._suppress = self._suppress, True
+        try:
+            super()._remove_unneeded_edges(from_node, to_node)
+        finally:
+            self._suppress = prev
+
+    # -- event capture, honouring suppression -------------------------------
+
+    def add_edge(self, from_node, to_node):
+        existed = to_node in from_node.neighbors
+        OntoDAG.add_edge(self, from_node, to_node)
+        if existed or to_node not in from_node.neighbors:
+            return
+        if self._suppress:
+            self._deferred_shadow.append(("add", from_node.name, to_node.name))
+        else:
+            self._events.append(("add", from_node.name, to_node.name))
+
+    def remove_edge(self, from_node, to_node):
+        OntoDAG.remove_edge(self, from_node, to_node)
+        if self._suppress:
+            self._deferred_shadow.append(("del", from_node.name, to_node.name))
+        else:
+            self._events.append(("del", from_node.name, to_node.name))
+
+    # -- rule 2: remove(n) == one subtraction per ancestor ------------------
+
+    def remove(self, node_to_remove):
+        name = _name_of(node_to_remove)
+        if name not in self.nodes or name == self.root.name:
+            return super().remove(node_to_remove)   # let the base class raise
+        ancestors = self._shadow_ancestors(name)
+        prev, self._suppress = self._suppress, True
+        try:
+            super().remove(node_to_remove)
+        finally:
+            self._suppress = prev
+        for a in ancestors:
+            self._shadow_counts[a] -= 1
+        self._apply_deferred()
+        self._write_back()
 
 
 # --------------------------------------------------------------------------
@@ -281,14 +396,24 @@ def delta_cost():
     return STATS["delta"]
 
 
+def opdelta_cost():
+    return STATS["opdelta"]
+
+
 class Pair:
     """Runs identical operations on both DAGs, checking counts after each."""
 
     def __init__(self):
         self.base = OntoDAG()
         self.delta = DeltaCountDAG()
+        self.opdelta = OpDeltaDAG()
         self.failures = []
         self.ops = 0
+
+    @property
+    def dags(self):
+        return (("baseline", self.base), ("edge-delta", self.delta),
+                ("op-delta", self.opdelta))
 
     @staticmethod
     def _structure(dag):
@@ -299,11 +424,13 @@ class Pair:
         # Guard first: the two DAGs must remain structurally identical. A
         # divergence here is a harness bug (e.g. an operation that mutates one
         # DAG then raises), and would otherwise masquerade as a count error.
-        if self._structure(self.base) != self._structure(self.delta):
-            self.failures.append((label, "STRUCTURAL DIVERGENCE (harness bug)", {}))
-            raise AssertionError(f"structures diverged at: {label}")
+        shape = self._structure(self.base)
+        for name, dag in self.dags[1:]:
+            if self._structure(dag) != shape:
+                self.failures.append((label, f"STRUCTURAL DIVERGENCE in {name}", {}))
+                raise AssertionError(f"{name} structure diverged at: {label}")
         truth = oracle(self.base)
-        for name, dag in (("baseline", self.base), ("delta", self.delta)):
+        for name, dag in self.dags:
             got = counts_of(dag)
             if got != truth:
                 wrong = {k: (got.get(k), truth.get(k))
@@ -318,19 +445,19 @@ class Pair:
         two DAGs in different states."""
         for sup in supers:
             raised = []
-            for dag in (self.base, self.delta):
+            for _, dag in self.dags:
                 try:
                     dag.put(Item(sub), [dag.nodes[sup]])
                     raised.append(None)
                 except ValueError as e:
                     raised.append(str(e))
-            assert (raised[0] is None) == (raised[1] is None), \
+            assert len({r is None for r in raised}) == 1, \
                 f"asymmetric failure putting {sub} under {sup}: {raised}"
         self.ops += 1
         self._check(f"put {sub} under {supers}")
 
     def remove(self, name):
-        for dag in (self.base, self.delta):
+        for _, dag in self.dags:
             dag.remove(name)
         self.ops += 1
         self._check(f"remove {name}")
@@ -341,10 +468,10 @@ class Pair:
 
 
 def measure(fn, *args):
-    """(baseline expansions, delta expansions) for one phase."""
-    b0, d0 = baseline_cost(), delta_cost()
+    """(baseline, edge-delta, op-delta) expansions for one phase."""
+    b0, d0, o0 = baseline_cost(), delta_cost(), opdelta_cost()
     fn(*args)
-    return baseline_cost() - b0, delta_cost() - d0
+    return (baseline_cost() - b0, delta_cost() - d0, opdelta_cost() - o0)
 
 
 def scenario_grow(pair, n, rng, width=3):
@@ -407,16 +534,19 @@ def scenario_remove(pair, n, rng):
 def report(title, rows, ops, failures):
     print(f"\n{title}")
     print("-" * len(title))
-    print(f"{'phase':<22}{'ops':>6}{'baseline':>12}{'delta':>11}{'ratio':>8}"
-          f"{'base/op':>10}{'delta/op':>10}")
-    for phase, o, b, d in rows:
-        ratio = f"{b / d:.1f}x" if d else "—"
-        print(f"{phase:<22}{o:>6}{b:>12,}{d:>11,}{ratio:>8}"
-              f"{b // max(o, 1):>10,}{d // max(o, 1):>10,}")
-    tb = sum(r[2] for r in rows)
-    td = sum(r[3] for r in rows)
-    print(f"{'TOTAL':<22}{ops:>6}{tb:>12,}{td:>11,}"
-          f"{(f'{tb / td:.1f}x' if td else '—'):>8}")
+    print(f"{'phase':<20}{'ops':>5}{'base/op':>10}{'edge-δ/op':>11}"
+          f"{'op-δ/op':>10}{'edge-δ':>9}{'op-δ':>9}")
+    for phase, o, b, d, x in rows:
+        n = max(o, 1)
+        rd = f"{b / d:.1f}x" if d else "—"
+        rx = f"{b / x:.1f}x" if x else "—"
+        print(f"{phase:<20}{o:>5}{b // n:>10,}{d // n:>11,}{x // n:>10,}"
+              f"{rd:>9}{rx:>9}")
+    tb, td, tx = (sum(r[i] for r in rows) for i in (2, 3, 4))
+    n = max(ops, 1)
+    print(f"{'TOTAL':<20}{ops:>5}{tb // n:>10,}{td // n:>11,}{tx // n:>10,}"
+          f"{(f'{tb / td:.1f}x' if td else '—'):>9}"
+          f"{(f'{tb / tx:.1f}x' if tx else '—'):>9}")
     print(f"correctness: {'OK — counts identical to oracle after every op' if not failures else f'{len(failures)} MISMATCHES'}")
     for f in failures[:5]:
         print(f"  {f}")
@@ -429,16 +559,16 @@ def run(size, seed=7, shape="random"):
 
     grow = scenario_grow if shape == "random" else scenario_taxonomy
     before = pair.ops
-    b, d = measure(grow, pair, size, rng)
-    rows.append((f"grow ({shape})", pair.ops - before, b, d))
+    costs = measure(grow, pair, size, rng)
+    rows.append((f"grow ({shape})", pair.ops - before, *costs))
 
     before = pair.ops
-    b, d = measure(scenario_crosslink, pair, max(10, size // 10), rng)
-    rows.append(("cross-link existing", pair.ops - before, b, d))
+    costs = measure(scenario_crosslink, pair, max(10, size // 10), rng)
+    rows.append(("cross-link existing", pair.ops - before, *costs))
 
     before = pair.ops
-    b, d = measure(scenario_remove, pair, max(10, size // 10), rng)
-    rows.append(("remove", pair.ops - before, b, d))
+    costs = measure(scenario_remove, pair, max(10, size // 10), rng)
+    rows.append(("remove", pair.ops - before, *costs))
 
     report(f"{shape} shape, ~{size} items (seed {seed})", rows, pair.ops, pair.failures)
     return pair.failures, rows
