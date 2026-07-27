@@ -17,8 +17,11 @@ dependencies = [
 [project.optional-dependencies]
 web = ["flask", "dot2tex", "Pillow"]
 # The `swarm:NAME` CLI backend talks to a Bee node via recordstore's
-# BeeBytesStore, which needs `requests` (recordstore's own [bee] extra).
-swarm = ["requests"]
+# BeeBytesStore (needs `requests`, recordstore's [bee] extra) and — when a
+# signer is configured — publishes the latest root to a Swarm feed via
+# SwarmFeedPointer (needs `swarm-bee`, recordstore's [feeds] extra). Declare
+# both through recordstore so the versions stay in step with it.
+swarm = ["recordstore[bee,feeds]>=0.12"]
 
 [project.scripts]
 odag = "ontodag.__main__:main"
