@@ -227,14 +227,28 @@ until then.
 >
 > What remains is OntoDAG's merge *rule*, and it is genuinely OntoDAG-level:
 > a per-key record resolver alone cannot uphold the invariants, because
-> transitive reduction and `descendant_count` are properties of the whole
-> graph, not of one node record — merging two records' `up`/`down` unions
-> key-by-key can produce redundant edges or stale counts. The plan:
-> record-level reconcile handles disjoint-key divergence for free; when the
-> *same node* diverged (or after any conflicted merge), renormalize at the
-> graph level — hydrate both roots, apply `OntoDAG.merge` (the I7
-> commutative/idempotent semantics, i.e. the transitive reduction of the
-> edge union), recompute counts, recommit. The GSOC operation channel
+> transitive reduction and `descendant_count` are *derived from the structure*,
+> so neither can be merged value-by-value: unioning two records' `up`/`down`
+> key-by-key can leave redundant edges, and a count that matches neither side.
+> (Note the precise claim. Counts are not "whole-graph properties" in the sense
+> that they need the whole graph *resident* — since 2026-07-25 they are
+> maintained by local delta, see the "counts" note in `dag.py`. They are
+> whole-graph *functions*, which is what rules out merging them as values.)
+> The plan: record-level reconcile handles disjoint-key divergence for free;
+> when the *same node* diverged (or after any conflicted merge), renormalize at
+> the graph level — hydrate both roots, apply `OntoDAG.merge` (the I7
+> commutative/idempotent semantics, i.e. the transitive reduction of the edge
+> union), recommit. There is no longer a separate "recompute counts" step:
+> `merge` builds the union through `add_edge`, which maintains counts by delta,
+> so the merged graph's counts are already exact (asserted by the merge case in
+> `tests/test_count_deltas.py`).
+>
+> One consequence worth designing around: the root is an ancestor of
+> everything, so *every* insert anywhere changes the root record's count. Two
+> concurrent writers therefore both modify it, and a naive three-way merge
+> would report a conflict on essentially every concurrent write. Counts must be
+> treated as derived and re-derived from the merged structure — never
+> reconciled as competing values. The GSOC operation channel
 > described above is thereby demoted from prerequisite to optional
 > extension: state-based reconcile over a shared feed already gives
 > convergence; GSOC adds real-time push of pending ops on top, if wanted.
