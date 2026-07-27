@@ -55,7 +55,9 @@ Last updated 2026-07-25.
    have to replace with dirty-tracking — and (b) minimal links: transitive
    reduction is bounded by the ancestors and cones it touches, so it looks
    local, but that has not been tested under partial residency. Groundwork:
-   `experiments/RESULTS.md` on the `experiment/delta-counts` branch.
+   `experiments/RESULTS.md` on the `experiment/delta-counts` branch, and
+   `docs/MERKLE_NOTES.md` for why change detection is a Merkle-diff problem
+   (recordstore's `_diff` already prunes shared subtrees; it is just private).
 3. **A published "latest version" pointer.** Swarm *feeds* give a stable address
    that always resolves to your newest root — the missing piece for subscribing
    to someone's ontology. The signing machinery landed upstream; OntoDAG needs to
