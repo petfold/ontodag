@@ -11,7 +11,7 @@ requires-python = ">=3.8"
 dependencies = [
     "graphviz",
     "owlready2",
-    "recordstore>=0.11",
+    "recordstore>=0.12",   # swarm_store() lives here
 ]
 
 [project.optional-dependencies]
