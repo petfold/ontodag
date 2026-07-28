@@ -1,0 +1,25 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[test]"
+      # tests/test_swarm_bee.py skips itself unless BEE_API and BEE_BATCH are
+      # set, so this is the offline suite only. Discovery of the legacy
+      # testdag.py/testitem.py/testowl.py names comes from the python_files
+      # pattern in pyproject.toml.
+      - run: pytest

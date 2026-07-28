@@ -1,5 +1,9 @@
 # OntoDAG
 
+[![tests](https://github.com/petfold/ontodag/actions/workflows/tests.yml/badge.svg)](https://github.com/petfold/ontodag/actions/workflows/tests.yml)
+[![PyPI](https://img.shields.io/pypi/v/ontodag)](https://pypi.org/project/ontodag/)
+[![license](https://img.shields.io/badge/license-BSD--3--Clause-blue)](LICENSE)
+
 Associative memory and categories based on a directed acyclic graph data structure
 
 ## Documentation

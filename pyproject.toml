@@ -7,6 +7,7 @@ name = "ontodag"
 version = "0.2.0"
 description = "Associative memory and categories based on a directed acyclic graph data structure"
 readme = "README.md"
+license = { text = "BSD-3-Clause" }
 requires-python = ">=3.8"
 dependencies = [
     "graphviz",
@@ -22,9 +23,21 @@ web = ["flask", "dot2tex", "Pillow"]
 # SwarmFeedPointer (needs `swarm-bee`, recordstore's [feeds] extra). Declare
 # both through recordstore so the versions stay in step with it.
 swarm = ["recordstore[bee,feeds]>=0.12"]
+test = ["pytest"]
 
 [project.scripts]
 odag = "ontodag.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[project.urls]
+Homepage = "https://github.com/petfold/ontodag"
+Repository = "https://github.com/petfold/ontodag"
+Issues = "https://github.com/petfold/ontodag/issues"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# testdag.py/testitem.py/testowl.py predate the test_*.py convention and are
+# silently skipped by pytest's default discovery pattern without this.
+python_files = ["test*.py"]
