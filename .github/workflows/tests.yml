@@ -17,7 +17,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -e ".[test]"
+      # tests/testdag.py renders with Graphviz and dot2tex: the `graphviz` PyPI
+      # package is only a wrapper, the `dot` binary has to come from apt, and
+      # dot2tex lives in the [web] extra.
+      - run: sudo apt-get update && sudo apt-get install -y graphviz
+      - run: pip install -e ".[test,web]"
       # tests/test_swarm_bee.py skips itself unless BEE_API and BEE_BATCH are
       # set, so this is the offline suite only. Discovery of the legacy
       # testdag.py/testitem.py/testowl.py names comes from the python_files
