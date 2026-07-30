@@ -86,6 +86,7 @@ layer for ``items()``); the traversals below are written so that change is
 local to ``_expand_many``.
 """
 
+from ontodag import dimensions as _dims
 from ontodag.dag import Item, OntoDAG, _name_of
 
 
@@ -205,29 +206,67 @@ class LazyOntoDAG(OntoDAG):
                 self._expand(self._stub(name))
         return self
 
+    # ------------------------------------------------------- dimensions
+    #
+    # DIMENSIONS.md §12 step 5: the inherited dimension machinery (_star,
+    # _computed_children/_parents, _virtual_cone, get, get_overlapping)
+    # works on names and on `self.nodes.get(...)`, which loads-and-expands
+    # here — the one thing it cannot do on stubs is walk *upward*, so the
+    # kind lookup expands as it climbs. Records carry `up`, so the walk
+    # costs the climbed path, never the graph; names without "(" short-
+    # circuit before any fetch, keeping dimension-free budgets unchanged.
+
+    def _dimension_kind(self, head_name):
+        node = self.nodes.get(head_name)   # loads + expands (or None)
+        if node is None or head_name in _dims.KINDS:
+            return None
+        kinds = set()
+        seen = set()
+        stack = [node]
+        while stack:
+            for parent in self._expand(stack.pop()).parents:
+                if dict.get(self.nodes, parent.name) is not parent:
+                    continue
+                if parent.name in _dims.KINDS:
+                    kinds.add(parent.name)
+                elif parent not in seen:
+                    seen.add(parent)
+                    stack.append(parent)
+        if len(kinds) > 1:
+            raise ValueError(
+                f"dimension {head_name!r} inherits multiple kinds: "
+                f"{', '.join(sorted(kinds))} — declare exactly one")
+        return next(iter(kinds), None)
+
     # ------------------------------------------------------- traversals
 
     def get_descendants(self, node, visited=None, computed=True):
-        # `computed` is accepted for signature compatibility with OntoDAG;
-        # the lazy reader is dimension-unaware until DIMENSIONS.md §12
-        # step 5 (its fixtures carry no parametric terms).
-        name = _name_of(node)
+        name = self._canonical_name(_name_of(node))
         start = self.nodes.get(name)
         if start is None:
             return set()
-        if self._cone_cache is not None and name in self._cone_cache:
+        # Cones are cached only in the combined order (the query semantics);
+        # an asserted-only request — e.g. a count recomputation in a copy —
+        # must not be served a combined cone, or vice versa.
+        if computed and self._cone_cache is not None \
+                and name in self._cone_cache:
             return set(self._cone_cache[name])
 
         descendants = set()
         seen = {start}
         frontier = [start]
         while frontier:
-            for child in self._expand(frontier.pop()).neighbors:
+            current = self._expand(frontier.pop())
+            successors = list(current.neighbors)
+            if computed:
+                successors.extend(self._computed_children(current))
+            for child in successors:
                 descendants.add(child)
                 if child not in seen:
                     seen.add(child)
                     frontier.append(child)
-        self._cache_cone(name, descendants)
+        if computed:
+            self._cache_cone(name, descendants)
         return descendants
 
     def _cache_cone(self, name, descendants):
@@ -239,14 +278,16 @@ class LazyOntoDAG(OntoDAG):
         self._cone_cache[name] = set(descendants)
 
     def _has_ancestors(self, node, targets, computed=True):
-        # `computed` accepted for signature compatibility (see get_descendants).
         missing = set(targets)
         seen = set()
         stack = [node]
         while stack and missing:
-            for parent in self._expand(stack.pop()).parents:
-                if dict.get(self.nodes, parent.name) is not parent:
-                    continue
+            current = self._expand(stack.pop())
+            predecessors = [p for p in current.parents
+                            if dict.get(self.nodes, p.name) is p]
+            if computed:
+                predecessors.extend(self._computed_parents(current))
+            for parent in predecessors:
                 missing.discard(parent)
                 if parent not in seen:
                     seen.add(parent)
@@ -254,8 +295,7 @@ class LazyOntoDAG(OntoDAG):
         return not missing
 
     def get_ancestors(self, node, ignore=(), computed=True):
-        # `computed` accepted for signature compatibility (see get_descendants).
-        name = _name_of(node)
+        name = self._canonical_name(_name_of(node))
         start = self.nodes.get(name)
         if start is None:
             raise ValueError(f"Node {name} does not exist in the graph.")
@@ -263,12 +303,16 @@ class LazyOntoDAG(OntoDAG):
         ancestors = set()
         frontier = [start]
         while frontier:
-            for parent in self._expand(frontier.pop()).parents:
+            current = self._expand(frontier.pop())
+            predecessors = [p for p in current.parents
+                            if dict.get(self.nodes, p.name) is p]
+            if computed:
+                predecessors.extend(self._computed_parents(current))
+            for parent in predecessors:
                 if parent in ancestors or parent in ignore:
                     continue
-                if dict.get(self.nodes, parent.name) is parent:
-                    ancestors.add(parent)
-                    frontier.append(parent)
+                ancestors.add(parent)
+                frontier.append(parent)
         return ancestors
 
     # --------------------------------------------------------------- no writes

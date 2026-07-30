@@ -209,5 +209,63 @@ class TestReadOnly(unittest.TestCase):
         self.assertLess(order.index("vehicle"), order.index("ev"))
 
 
+class TestLazyDimensions(unittest.TestCase):
+    """DIMENSIONS.md §12 step 5: virtual-term queries over a published
+    store, eager reader as the oracle, fetch budget asserted (a lazy reader
+    that quietly loads everything is correct and useless)."""
+
+    @classmethod
+    def setUpClass(cls):
+        puts = [
+            ("dimension", []), ("linear-dimension", ["dimension"]),
+            ("weight", ["linear-dimension"]),
+            ("parcel", ["weight(3kg)"]),
+            ("flour-bag", ["weight(1.2kg)"]),
+            ("heavy-parcel", ["weight(9kg)"]),
+            ("variable-offer", ["weight(0.8kg..1.5kg)"]),
+            ("unrelated", []),
+        ] + [(f"unrelated-{i}", ["unrelated"]) for i in range(40)]
+        cls.root, cls.blobs = publish(puts)
+        cls.total_records = 40 + 12   # leaves + the rest incl. root/values
+
+    def test_virtual_queries_match_eager(self):
+        oracle = eager(self.root, self.blobs)
+        reader = lazy(self.root, self.blobs)
+        for term in ["weight(..5kg)", "weight(1kg..)",
+                     "weight(2kg..8kg)", "weight(3kg)"]:
+            self.assertEqual(
+                {i.name for i in oracle.get([term])},
+                {i.name for i in reader.get([term])},
+                term)
+
+    def test_get_overlapping_matches_eager(self):
+        oracle = eager(self.root, self.blobs)
+        reader = lazy(self.root, self.blobs)
+        expected = {i.name for i in oracle.get_overlapping("weight(1kg..)")}
+        self.assertIn("variable-offer", expected)   # the possibly-satisfies
+        self.assertEqual(
+            expected,
+            {i.name for i in reader.get_overlapping("weight(1kg..)")})
+
+    def test_fetch_budget_ignores_unrelated_subtree(self):
+        reader = lazy(self.root, self.blobs)
+        reader.get(["weight(..5kg)"])
+        # The query walks the kind chain, the star and the matching cones —
+        # never the 40-leaf unrelated subtree.
+        self.assertLess(reader.fetches, 20,
+                        f"lazy dimension query fetched {reader.fetches}")
+
+    def test_dimension_free_query_costs_no_dimension_fetches(self):
+        reader = lazy(self.root, self.blobs)
+        reader.get(["unrelated"])
+        # Plain names never trigger head lookups: budget stays the cone.
+        self.assertLess(reader.fetches, 45)
+
+    def test_still_read_only(self):
+        reader = lazy(self.root, self.blobs)
+        with self.assertRaises(TypeError):
+            reader.put("x", ["weight(1kg)"])
+
+
 if __name__ == "__main__":
     unittest.main()
