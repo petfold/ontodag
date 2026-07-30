@@ -86,7 +86,11 @@ next work, in order:
    writes to the asserted store. **Also done: count maintenance.** The delta
    rules described in `experiments/RESULTS.md` are now in `dag.py` — exact
    counts no longer require the whole graph, removing one of the three stated
-   reasons `LazyOntoDAG` refuses writes. Historical text follows.
+   reasons `LazyOntoDAG` refuses writes. **The other two fell 2026-07-31:**
+   `SparseOntoDAG` is the partially-resident *writer* (change detection by
+   resident-set diff; reduction proven local once the downward reachability
+   probes flipped upward), so read-only-ness is now a per-class contract
+   choice, not a limitation of the model. Historical text follows.
 
    `EagerOntoDAG` currently loads every record
    into RAM at startup; that caps scale and forbids browser use. The

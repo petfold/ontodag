@@ -22,6 +22,7 @@ python3 -m pytest tests/test_invariants.py -v              # structural invarian
 python3 -m pytest tests/test_boundaries.py -v              # dependency-boundary tests (must always pass)
 python3 -m pytest tests/test_cli.py -v                     # `odag` CLI (backends, set, swarm wiring via in-memory store)
 python3 -m pytest tests/test_lazy.py -v              # LazyOntoDAG: eager-oracle correctness + fetch budgets
+python3 -m pytest tests/test_sparse.py tests/test_multiwriter.py tests/test_cone_index.py -v  # SparseOntoDAG writer, sync merge rule, cone summaries
 python3 -m pytest tests/test_dimensions.py tests/test_dimensions_dag.py -v  # parametric dimensions: grammar oracle + DAG integration
 
 # Live-node CLI Swarm test — skips unless BEE_API *and* BEE_BATCH are set
@@ -29,7 +30,7 @@ python3 -m pytest tests/test_dimensions.py tests/test_dimensions_dag.py -v  # pa
 BEE_API=http://<node>:1633 BEE_BATCH=<batchID> python3 -m pytest tests/test_swarm_bee.py -v
 ```
 
-All optional deps are now installed locally (`graphviz` and `dot2tex` since early July 2026; `owlready2` since 2026-07-21), so there are no expected failures left: `tests/testowl.py` collects and passes (7 tests), and bare `pytest` from the repo root (what CI's publish gate runs — it collects everything via the `python_files` setting, including `test_web.py`, which itself skips without the web extras) is 229 passed + 1 skipped (the `BEE_API`-gated live test) as of 2026-07-30, v0.4.0 (was 107 before the dimension-lattices work). Note the 2026-07-21 fix in `owl.py`: `ontology.save()` is called with the path *positional* because upstream `owlready2` names the parameter `file` while the `ontopy` fork names it `filename` — the old `filename=` keyword crashed `.owl` export under upstream owlready2 (silently swallowed into `**kargs`, falling back to the empty `onto_path`).
+All optional deps are now installed locally (`graphviz` and `dot2tex` since early July 2026; `owlready2` since 2026-07-21), so there are no expected failures left: `tests/testowl.py` collects and passes (7 tests), and bare `pytest` from the repo root (what CI's publish gate runs — it collects everything via the `python_files` setting, including `test_web.py`, which itself skips without the web extras) is 258 passed + 2 skipped (the `BEE_API`- and `BEE_SIGNER`-gated live tests) as of 2026-07-31 (was 107 before the dimension-lattices work; 229 at v0.4.0). Note the 2026-07-21 fix in `owl.py`: `ontology.save()` is called with the path *positional* because upstream `owlready2` names the parameter `file` while the `ontopy` fork names it `filename` — the old `filename=` keyword crashed `.owl` export under upstream owlready2 (silently swallowed into `**kargs`, falling back to the empty `onto_path`).
 
 All 12 invariant tests pass as of July 2026 (fixes I1–I4, I6 landed; see "Known bugs" below for what remains). The helpers in `tests/test_invariants.py` (`reach`, `edge_set`) compute reachability independently of the traversal code under test, so they remain a valid oracle while `dag.py` is being changed.
 

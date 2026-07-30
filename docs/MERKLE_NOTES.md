@@ -48,6 +48,20 @@ storage layer. No new mechanism required; it is a property of the substrate.
 
 ## The genuinely promising use: unblocking lazy writes
 
+> **Outcome (2026-07-31): lazy writes shipped (`SparseOntoDAG`) — and the
+> Merkle diff turned out not to be needed for them.** Blocker 2 dissolved
+> before reaching the trie: every mutation necessarily runs on *resident*
+> nodes (the write path expands what it touches), and the lazy layer already
+> caches each resident node's as-loaded record — so "detect my own changes"
+> is a diff of the resident set against those baselines, no trie walk at
+> all. Blocker 3 held up once the three remaining downward reachability
+> probes in `dag.py` were flipped upward into ancestor-cone walks. The
+> recommendation below — exposing `recordstore._diff` as a public
+> `RecordStore.diff(other_root)` — remains a good idea *on its own merits*
+> ("what changed between two published versions?" is useful well beyond
+> writing), but it is no longer a prerequisite for anything. Historical
+> analysis follows.
+
 `LazyOntoDAG` is read-only for what were three reasons. One is gone:
 
 1. ~~exact counts are whole-graph properties~~ — **disproved** 2026-07-25;
@@ -97,5 +111,5 @@ beyond writing.
 | how much did a count change? | delta rules | done (2026-07-25) |
 | can X reach n? | cone summaries / bitmaps | roadmap item 1 |
 | what changed between two versions? | **Merkle diff** | exists in recordstore, private |
-| detect my own changes without full residency | **Merkle diff** | the next step for lazy writes |
+| detect my own changes without full residency | resident-set diff (Merkle diff proved unnecessary — see Outcome above) | done: `SparseOntoDAG.commit()` |
 | what is this blob called? | Swarm BMT vs sha256 | choosable per store, orthogonal |

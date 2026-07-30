@@ -198,15 +198,29 @@ chain goes all the way up: **same ontology ⇒ same records ⇒ same root**, no
 matter who built it or in what order. The test suite literally builds the same
 ontology by different histories and asserts the roots come out identical.
 
+Eager is one point on a **residency** spectrum, and the other points reuse
+everything above. `LazyOntoDAG` *reads* a published graph by fetching records
+only as a query walks them — and a published index of *cone summaries* (one
+derived record stating a broad category's membership) turns even broad
+queries into a handful of fetches. `SparseOntoDAG` *writes* the same way: an
+edit touches the item's ancestors and whatever the tidy-graph rules need to
+check, and `commit()` stages only the records that really changed — adding
+one item to a 447-record store costs about seven fetches, writes about seven
+records, and produces the byte-identical root a fully-loaded editor would
+have produced. The fingerprint chain is what makes that last claim testable
+in one string comparison.
+
 **Where Swarm fits.** Ethereum Swarm is a peer-to-peer network that acts as a
 giant content-addressed store: data is split into chunks, spread across nodes
 worldwide, retrieved by fingerprint, paid for with "postage stamps" (storage rent,
 so the network knows what to keep). Point recordstore's `BeeBytesStore` at a Swarm
 node instead of memory or disk, and the same `commit()` publishes your ontology
 into that network — durable, verifiable by fingerprint, hosted by no one in
-particular. This works today against a real node; making it *convenient* (a
-published mutable "latest version" pointer, multi-writer collaboration) is the
-active edge of the project — see below.
+particular. This works today against a real node, conveniences included: with
+a signing key the latest root is published to a Swarm *feed* — a stable
+address others can follow — and collaborators converge without a server by
+folding each other's published versions in (`sync`): assertions union,
+redundant links re-prune, and equal knowledge lands on the equal fingerprint.
 
 ## 7. How we know it's correct
 
