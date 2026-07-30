@@ -91,8 +91,10 @@ Protocol: `get() → ref | None`, `set(ref)` — a mutable name for the latest r
   cache, a monotonic write-index floor, direct SOC probing for cold reads, and the
   `?after=N` index hint. `compare_and_set(expected, new)` enables cross-process
   reconcile — best-effort, not atomic (Swarm feeds have no index-claim primitive).
-  **Not yet adopted by OntoDAG:** the `odag` Swarm backend still uses a local
-  `FilePointer` for the mutable root (see `docs/ROADMAP.md`).
+  **Adopted by OntoDAG 2026-07-31:** with a signer configured (`$BEE_SIGNER` /
+  `bee_signer`, settable via `odag set`) the `odag` Swarm backend routes through
+  `swarm_store()`, so the mutable root lives in a signed feed; the local
+  `FilePointer` remains the keyless, non-publishable fallback.
 
 ## Version history relevant to OntoDAG
 

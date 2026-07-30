@@ -751,6 +751,52 @@ up from `$BEE_API` / `$BEE_BATCH` / `$BEE_SIGNER` — see §5. For durable stora
 with no Swarm at all, `recordstore.DirBytesStore` keeps the blobs in a local
 directory.)
 
+### Several writers, one ontology
+
+Because equal knowledge has an equal root, two people editing copies of the
+same ontology can *converge without a server*: each folds the other's
+published version in with `sync`, and both end up holding the byte-identical
+root —
+
+```python
+merged_root = my_dag.sync(their_root)   # fold theirs in, commit the union
+```
+
+`sync` is `merge` (§4.4) plus persistence: assertions union, redundant links
+are re-pruned, order never matters, and syncing something you already have
+changes nothing. Two things follow from "the union wins" that are worth
+knowing: a removal does not survive a collaborator's concurrent re-assertion,
+and typed values renormalize across writers — if you filed a parcel under
+`weight(..5kg)` and your collaborator filed it under `weight(3kg)`, after
+syncing both of you hold just the `weight(3kg)` link, because the coarser one
+is implied (§4.7).
+
+### Cone summaries: making broad queries cheap for readers
+
+A lazy reader (below) pays roughly one fetch per item in the *narrowest*
+cone it queries — fine for `get(["Spaniel"])`, painful for
+`get(["Animal", "Document"])` on a big store. A publisher can remove that
+cost by shipping a small **derived index** next to the ontology: one record
+per broad category stating its cone, so a reader fetches the answer instead
+of walking it.
+
+```python
+from ontodag.cones import ConeIndex, build_index
+
+index_store = RecordStore(MemoryBytesStore())     # a SEPARATE store
+index_root = build_index(dag, index_store, root)  # derived from `root`
+
+reader = LazyOntoDAG(RecordStore.at(root, store.blobs),
+                     cone_index=ConeIndex(index_store, root))
+```
+
+The index never touches the ontology's own root (same knowledge, same
+fingerprint, with or without an index), it is regenerable at will, and the
+reader treats it as a cache with an exact fallback: if it is stale, missing a
+category, or built by a different ontodag version, the reader silently walks
+instead — slower, never wrong. Measured on the test fixture, a two-broad-term
+query dropped from 375 fetches to 3.
+
 ### Querying a published DAG without downloading it
 
 `EagerOntoDAG` loads every record when it opens, which is what makes editing and
