@@ -125,6 +125,35 @@ class EagerOntoDAG(OntoDAG):
             for name, payload in other_dag._payloads.items():
                 self._payloads.setdefault(name, payload)
 
+    def sync(self, other_root, bytes_store=None) -> str:
+        """Fold a peer's published state into this graph, commit the union,
+        return the new root — the multi-writer merge *rule* of
+        SWARM_DESIGN.md §5.
+
+        Reconciliation is deliberately graph-level, not per-record:
+        transitive reduction and descendant counts are properties of the
+        whole graph, so no per-key resolver can uphold them. Divergent
+        versions are hydrated and folded through ``OntoDAG.merge`` (the I7
+        semantics — commutative, idempotent, union of assertions re-reduced
+        against the combined order, parametric dimension terms included),
+        then recommitted; the canonical trie turns convergence into a string
+        comparison — two writers syncing each other's roots land on the
+        byte-identical root.
+
+        Semantics that follow from union (both documented walls, not bugs):
+        a removal does not survive a peer's concurrent re-add (the grow-only
+        stance of DATABASE_DIRECTION.md's deletion wall), and a peer may
+        legitimately hold assertions that this side's put-time lints would
+        have refused together (e.g. an item under two disjoint parametric
+        terms — a provably empty concept, visible, queryable as empty).
+
+        Cross-process pointer racing is the deployment layer's business
+        (feed `compare_and_set` loops, loopmarket's aggregator); this method
+        is the fold they call.
+        """
+        self.merge_published(other_root, bytes_store)
+        return self.commit()
+
     def merge_published(self, root, bytes_store=None) -> bool:
         """Merge a published version identified by its `root`, and say whether
         anything came of it.

@@ -203,6 +203,19 @@ the same reason: a real feed update needs client-side SOC signing
 out of the stdlib-only first cut. `FilePointer`/`MemoryPointer` stand in
 until then.
 
+> **Update (2026-07-31): the OntoDAG half now exists too** —
+> `EagerOntoDAG.sync(other_root)` implements the merge rule described
+> below as *state-based reconcile*: hydrate the peer's published root,
+> fold it with `OntoDAG.merge` (the I7 semantics; with parametric
+> dimensions the re-reduction runs against the combined order, so e.g. a
+> coarse `parcel -> weight(..5kg)` assertion from one writer is pruned on
+> both replicas once another writer's `parcel -> weight(3kg)` arrives),
+> and recommit; the canonical trie makes convergence a string comparison.
+> Tests: `tests/test_multiwriter.py` (two/three-writer convergence, union
+> semantics, remove-vs-readd, dimension renormalization, conflicting kind
+> declarations). Pointer racing stays with the deployment layer
+> (`compare_and_set` loops); the GSOC op feed remains optional on top.
+>
 > **Update (2026-07-20): the `recordstore` half of this section now exists
 > upstream** (releases v0.4.0–v0.10.0; OntoDAG's pin bump is on the task
 > list in `CLAUDE.md`):
