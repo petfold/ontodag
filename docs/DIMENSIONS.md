@@ -1,14 +1,14 @@
 # Dimension Lattices: Parametric Items with a Computed Order
 
 Status: design agreed 2026-07-30 (three-session discussion, Peter + Claude);
-**steps 1–4 of §12 implemented the same day** (`src/ontodag/dimensions.py` +
-the `dag.py` integration; `tests/test_dimensions.py`,
-`tests/test_dimensions_dag.py`; CLI validated end-to-end on the native
-store). Steps 5–7 (LazyOntoDAG, derived index, `get_overlapping`) are open.
-This document is the design record; implementation sequencing is at the
-end. Read `DATABASE_DIRECTION.md` first for where this sits in the
-wall/tripwire discipline — this design is the fired escape hatch of the
-"exact arithmetic" wall, recorded there.
+**steps 1–5 and 7 of §12 implemented and released the same day (v0.4.0)** —
+`src/ontodag/dimensions.py`, the `dag.py` integration, the `LazyOntoDAG`
+path, `get_overlapping`, the web REST pass-through, user docs; CLI validated
+end-to-end on the native store. Step 6 (per-dimension sorted derived index)
+stays parked until profiling asks. This document is the design record;
+implementation sequencing is at the end. Read `DATABASE_DIRECTION.md` first
+for where this sits in the wall/tripwire discipline — this design is the
+fired escape hatch of the "exact arithmetic" wall, recorded there.
 
 ## 1. What and why
 
@@ -373,9 +373,19 @@ tooling, not model.
    smallest-cone-first path (virtual cones from the anchor star, then
    one upward probe for the ordinary terms); dimension-free queries
    keep the existing adaptive planner bit-for-bit.
-5. `LazyOntoDAG` virtual-term path (head record → star → filter).
-6. Per-dimension sorted derived index (only if profiling asks).
-7. `get_overlapping` (first follow-up, after v1 ships).
+5. ~~`LazyOntoDAG` virtual-term path~~ **DONE** (`06b4df8`) — the kind
+   lookup expands as it climbs (records carry `up`); traversal overrides
+   follow computed hops; cones cached only in the combined order; a
+   courier query reads <20 records while a 40-leaf unrelated subtree
+   stays untouched.
+6. Per-dimension sorted derived index (only if profiling asks) — OPEN,
+   deliberately: the tripwire is a measured hot dimension, not this
+   sequencing.
+7. ~~`get_overlapping` (first follow-up, after v1 ships)~~ **DONE**
+   (`ff9b72a`) — the possibly-satisfies query op of §8, virtual terms
+   welcome, inherited unchanged by Eager and Lazy. The web REST layer
+   also passes names through now (`put`/`get` resolve and validate),
+   so dimensions work over HTTP (`tests/test_web.py`).
 
 Tests mirror `test_invariants.py` style: an independent denotation
 oracle, all-pairs computed-order checks on fixtures, history-
