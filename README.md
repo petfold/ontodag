@@ -24,6 +24,15 @@ odag's store settings).
 
 A Directed Acyclic Graph (DAG) associative storage and category manager in Python. You can store items into a ontodag and recall items from it. To store or "put" an item into a ontodag, you give it a name and a set of other names of already existing items that are its supercategories. To recall or "get", you specify a set of item names to get all items that are subcategories of all these items.
 
+Categories can also carry **typed values**: declare `weight` as a dimension
+and `weight(3kg)` becomes an ordinary category whose ordering OntoDAG
+computes — `odag get 'weight(..5kg)'` finds the 3 kg parcel with no edge ever
+stored between them, at any threshold, with exact integer arithmetic. Ranges
+(`1kg..5kg`), timestamps and date ranges, hierarchical codes like geohash
+cells, and does-it-fit size tuples all work the same way. See
+[User Guide §4.7](docs/USER_GUIDE.md) and the design record
+[docs/DIMENSIONS.md](docs/DIMENSIONS.md).
+
 ## Roadmap
 
 The roadmap — what is done, what is queued next, what is parked and why — is in

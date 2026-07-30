@@ -222,7 +222,33 @@ query on fixtures and on randomized DAGs, in every planner mode. The persistence
 layer gets the same treatment (fuzzed against a plain dictionary; canonical roots
 asserted under arbitrary edit histories).
 
-## 8. Where this is going
+## 8. Typed values: the order that is computed, not stored
+
+Everything so far ordered items by *asserted* edges. But no edge can say that
+a 3 kg parcel satisfies a "max 5 kg" limit — and no finite set of edges ever
+could: between any two weights there is always another, so the "no link you
+can infer" rule (§2) has nothing it could keep. So for **parametric values**
+like `weight(3kg)` the order is *computed from the name* instead. Each such
+term stands for a set of values (`weight(..5kg)` = "up to 5 kg"), and one
+term sits below another exactly when its set is contained in the other's —
+the same everything-below-is-a-special-case meaning every ordinary edge
+already has. The values are exact integers in tiny base units (`3kg` is
+stored as `3000000mg` — the money-in-cents move), so every comparison is
+exact arithmetic and every replica computes the identical order: the
+canonical-form guarantee of §2 survives untouched, because the stored graph
+still contains only asserted edges, now pruned *modulo* what the arithmetic
+already implies.
+
+Each dimension keeps its used values on one visible shelf: every value hangs
+by a single fixed edge under its dimension's node (`weight(3000000mg)` under
+`weight`). That star is the whole storage cost — adding a value touches two
+records, never its neighbors — and it is also the index a query walks: asking
+`get("weight(..5kg)")` needs no such node to exist, it just filters the shelf
+and takes everything below the matching values. Sets that are unions rather
+than thresholds — "Saturdays", a delivery region — are ordinary categories
+with the member values placed under them, one edge each.
+
+## 9. Where this is going
 
 The project's roadmap — what is delivered, what is queued next, what is parked
 behind explicit triggers, and what is research horizon — lives in its own file:

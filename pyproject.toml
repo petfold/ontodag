@@ -9,7 +9,7 @@ description = "Associative memory and categories based on a directed acyclic gra
 readme = "README.md"
 license = { text = "BSD-3-Clause" }
 requires-python = ">=3.11"
-keywords = ["ontology", "knowledge-representation", "knowledge-graph", "concept-lattice", "fca", "formal-concept-analysis", "formal concept analysis", "dag", "taxonomy", "associative-memory", "swarm", "web3"]
+keywords = ["ontology", "knowledge-representation", "knowledge-graph", "concept-lattice", "fca", "formal-concept-analysis", "formal concept analysis", "pattern-structures", "concrete-domains", "dag", "taxonomy", "associative-memory", "swarm", "web3"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

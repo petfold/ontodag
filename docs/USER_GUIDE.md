@@ -279,6 +279,71 @@ OWLOntology.export_dag(dag, "petshop.owl")
 `.omn` files are ordinary text you can read and even write by hand — see §7. Both
 formats open in standard ontology editors like Protégé.
 
+### 4.7 Typed values: parametric dimensions
+
+Categories compare by the edges you assert — but nowhere in a graph of names
+does it say that 3 kg is under a 5 kg limit. **Parametric dimensions** add
+exactly that: values written as `weight(3kg)` are ordinary categories whose
+ordering OntoDAG *computes* from the value, so a courier's "max 5 kg" matches
+a 3 kg parcel with no edge ever stored between them.
+
+Declare a dimension once by placing it under one of the three built-in kind
+categories (create those like any other category):
+
+```python
+dag = OntoDAG()
+dag.put("dimension", [])
+dag.put("linear-dimension", ["dimension"])   # ordered scalars & ranges
+dag.put("weight", ["linear-dimension"])      # weight is now a dimension
+
+dag.put("parcel", ["weight(3kg)"])           # values are just categories
+dag.put("flour-bag", ["weight(1.2kg)"])
+
+names = {i.name for i in dag.get(["weight(..5kg)"])}   # at most 5 kg
+# {"parcel", "flour-bag", ...}  — and no weight(..5kg) node was created
+names = {i.name for i in dag.get(["weight(1kg..)"])}   # at least 1 kg
+```
+
+The same from the command line (**quote the parentheses** in a shell):
+
+```console
+$ odag put dimension
+$ odag put linear-dimension dimension
+$ odag put weight linear-dimension
+$ odag put parcel 'weight(3kg)'
+$ odag get 'weight(..5kg)'
+parcel
+weight(3000000mg)
+```
+
+What to know:
+
+- **Ranges are `lo..hi`**, either end may be open: `weight(..5kg)` (at most),
+  `weight(1kg..)` (at least), `weight(1kg..5kg)` (between), `weight(3kg)`
+  (exactly). Query terms never need to exist as nodes — ask any threshold.
+- **Values are exact integers in tiny base units.** `weight(3kg)` is stored
+  under its canonical name `weight(3000000mg)` (mass in mg, length in mm,
+  duration in s); `3kg`, `3000g` and `3.0kg` are one identity. Anything finer
+  than the base unit is an error, never rounded.
+- **Dates and times work too**: declare `time` under `linear-dimension`, file
+  things under `time(2026-08-15)` (a whole day) or a full timestamp, query
+  with `time(2026-06-01..2026-08-31)`.
+- **Two more kinds**: `prefix-dimension` for hierarchical codes
+  (`geo(u2ed)` is inside `geo(u2)` — geohash cells), and
+  `dominance-dimension` for does-it-fit tuples
+  (`size(19x23x39cm)` fits `size(20x30x40cm)`, rotation is free).
+- **A point is not a range.** `weight(3kg)` is *not* below `weight(5kg)` —
+  a 3 kg parcel is not a special case of a 5 kg one. Use `weight(..5kg)`.
+- **An item sits in the intersection of its parents**, so filing one thing
+  under two non-overlapping values of the same dimension
+  (`weight(..2kg)` *and* `weight(3kg..)`) is refused with an error. For a
+  union — "Saturdays", a delivery region — make an ordinary category and put
+  the values under *it* (`dag.put("time(2026-08-01)", ["saturdays"])`, one
+  edge per member).
+
+The full design (why the order is computed rather than stored, and what that
+preserves) is in [DIMENSIONS.md](DIMENSIONS.md).
+
 ---
 
 ## 5. The command line
@@ -732,7 +797,17 @@ These behaviors are guarantees, not accidents. You can rely on them:
    are no duplicate names and no hidden IDs.
 5. **Counts are always right.** `descendant_count` is kept exactly consistent with
    the graph after every operation.
-6. **Removal never orphans.** Children of a removed item reattach to its parents.
+6. **Removal never orphans.** Children of a removed item reattach to its parents
+   — including the computed ones: remove `weight(3kg)` and a parcel that was
+   once explicitly under `weight(..5kg)` is under it again.
+7. **One dimension, one meaning.** A dimension's values must share one unit
+   family (no seconds in a mass dimension), links *between* two values of the
+   same dimension are refused (their order is computed, not asserted), and
+   filing an item under provably disjoint values of one dimension is refused
+   (see §4.7).
+8. **Typed values are exact.** No floats anywhere: integers in base units,
+   scaled exactly or refused. `weight(3kg)`, `weight(3000g)` and
+   `weight(3.0kg)` are byte-for-byte the same stored name.
 
 (Each of these is enforced by a dedicated test suite — see the internals doc.)
 

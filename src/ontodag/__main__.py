@@ -428,6 +428,13 @@ With no command odag reads commands from a pipe, or opens an interactive
 prompt on a terminal. Files ending in .owl/.omn use OWL/Manchester syntax;
 any other path is the native line format.
 
+Typed values: declare a dimension once (put dimension; put
+linear-dimension dimension; put weight linear-dimension), then use
+parametric terms anywhere a category goes — put parcel 'weight(3kg)',
+get 'weight(..5kg)' (quote the parentheses in a shell). Values are
+exact integers in tiny base units (3kg is stored as 3000000mg); ranges
+are lo..hi with either end open. See docs/DIMENSIONS.md.
+
 A store may also be `swarm:NAME`, persisted on Ethereum Swarm (content on a
 Bee node, latest root in ~/.ontodag/NAME.root). `set store swarm:NAME` makes
 it the default, so every later command uses Swarm. Needs the swarm extra
