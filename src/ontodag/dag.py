@@ -509,6 +509,35 @@ class OntoDAG(DAG):
                     sibling.name, canonical, kind):
                 yield sibling
 
+    def get_overlapping(self, term):
+        """Present nodes that POSSIBLY satisfy `term`: the values of its
+        dimension whose denotation merely *overlaps* the term's, plus
+        everything below them.
+
+        This is the weaker of the two matching modes (DIMENSIONS.md §8):
+        `get({term})` returns guaranteed satisfaction (denotation ⊆ term —
+        an offer of weight(1.2kg) against weight(1kg..)), while this returns
+        candidates (an offer of weight(0.8kg..1.5kg) against weight(1kg..)
+        might weigh enough — the caller's exact check decides). Overlap is
+        not transitive, so it can never be a cone or an edge — it is a
+        separate query operation, computed per dimension from the anchor
+        star, touching no stored state. The term may be virtual, like any
+        query term. Raises ValueError for a term of no declared dimension,
+        since overlap is only defined for computed denotations."""
+        name = _name_of(term)
+        parsed = self._parse_parametric(name)
+        if parsed is None:
+            raise ValueError(
+                f"{name!r} is not a parametric term of a declared dimension"
+                " — get_overlapping needs a computed denotation")
+        head, kind, canonical = parsed
+        result = set()
+        for value, _ in self._star(head):
+            if _dims.intersect(canonical, value.name, kind) is not None:
+                result.add(value)
+                result |= self.get_descendants(value)
+        return result
+
     def _virtual_cone(self, head, kind, canonical):
         """The cone of a parametric term that need not exist as a node: the
         present values of its dimension contained in its denotation, plus

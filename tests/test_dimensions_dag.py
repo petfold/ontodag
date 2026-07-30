@@ -325,6 +325,53 @@ class TestVirtualQueryTerms(unittest.TestCase):
             self._market().get({"no-such", "weight(..5kg)"}), set())
 
 
+class TestGetOverlapping(unittest.TestCase):
+    """The market distinction (DIMENSIONS.md §8): get() is guaranteed
+    satisfaction (⊆); get_overlapping() is possibly-satisfies (∩ nonempty),
+    for candidate generation with the caller's exact check as the truth."""
+
+    def test_guaranteed_vs_possible(self):
+        dag = make_dag()
+        dag.put("exact-offer", ["weight(1.2kg)"])          # surely >= 1kg
+        dag.put("variable-offer", ["weight(0.8kg..1.5kg)"])  # maybe >= 1kg
+        dag.put("small-offer", ["weight(..0.5kg)"])          # surely not
+        guaranteed = names(dag.get({"weight(1kg..)"}))
+        self.assertIn("exact-offer", guaranteed)
+        self.assertNotIn("variable-offer", guaranteed)
+        possible = names(dag.get_overlapping("weight(1kg..)"))
+        self.assertIn("exact-offer", possible)      # guaranteed ⊆ possible
+        self.assertIn("variable-offer", possible)
+        self.assertNotIn("small-offer", possible)   # provably disjoint
+
+    def test_time_windows_overlap(self):
+        dag = make_dag()
+        dag.put("time", ["linear-dimension"])
+        dag.put("morning-slot",
+                ["time(2026-08-15T08:00:00Z..2026-08-15T12:00:00Z)"])
+        dag.put("evening-slot",
+                ["time(2026-08-15T18:00:00Z..2026-08-15T21:00:00Z)"])
+        window = "time(2026-08-15T11:00:00Z..2026-08-15T14:00:00Z)"
+        possible = names(dag.get_overlapping(window))
+        self.assertIn("morning-slot", possible)   # a delivery instant exists
+        self.assertNotIn("evening-slot", possible)
+        # ... but neither slot is *contained* in the window:
+        self.assertEqual(names(dag.get({window})) & {"morning-slot"}, set())
+
+    def test_term_may_be_virtual_and_creates_nothing(self):
+        dag = make_dag()
+        dag.put("offer", ["weight(0.8kg..1.5kg)"])
+        before = set(dag.nodes)
+        dag.get_overlapping("weight(1kg..)")
+        self.assertEqual(before, set(dag.nodes))
+
+    def test_non_dimension_term_raises(self):
+        dag = make_dag()
+        with self.assertRaises(ValueError):
+            dag.get_overlapping("organic")
+        with self.assertRaises(ValueError):
+            dag.get_overlapping("foo(3kg)")   # undeclared head
+
+
 class TestEagerDimensions(unittest.TestCase):
     STEPS = [("weight", ["linear-dimension"]),
              ("parcel", ["weight(..5kg)"]),
