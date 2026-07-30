@@ -60,23 +60,23 @@ Last updated 2026-07-25.
    `experiments/RESULTS.md` on the `experiment/delta-counts` branch, and
    `docs/MERKLE_NOTES.md` for why change detection is a Merkle-diff problem
    (recordstore's `_diff` already prunes shared subtrees; it is just private).
-3. **A published "latest version" pointer.** Swarm *feeds* give a stable address
-   that always resolves to your newest root — the missing piece for subscribing
-   to someone's ontology. The signing machinery landed upstream; OntoDAG needs to
-   adopt it and add an integration test.
-4. **Multi-writer collaboration.** The storage layer can now three-way-merge
-   diverged versions and auto-reconcile concurrent commits. OntoDAG's remaining
-   job is the merge *rule*: when two people edit the same item, reconcile at the
-   graph level using the order-independent merge of §5 (whose properties were
-   built for exactly this), then recommit. Goal: several writers, one shared
-   ontology, no server.
+3. ~~**A published "latest version" pointer.**~~ **Done (2026-07-31).** With a
+   signing key configured (`odag set bee_signer …` or `$BEE_SIGNER`) the store's
+   latest root lives in an owner-signed Swarm feed — a stable address others can
+   follow. Keyless stores keep the local-file pointer. The live-node run of the
+   gated integration test is the one remaining evidence gap.
+4. ~~**Multi-writer collaboration.**~~ **Done (2026-07-31).** `EagerOntoDAG.sync`
+   folds a peer's published root in at the graph level (the order-independent
+   merge, re-reduced, then recommitted); writers syncing each other's roots land
+   on the byte-identical root. Several writers, one shared ontology, no server —
+   with the documented union semantics (removals lose to concurrent re-adds).
 
 ## Then: more capability, still no model change
 
 The remaining "pure now" items of `DATABASE_DIRECTION.md` — they preserve the
 canonical form and the merge properties untouched:
 
-- **Dimension lattices** — *design agreed 2026-07-30, now the current task; see
+- ~~**Dimension lattices**~~ — *shipped in v0.4.0 (2026-07-30); see
   `docs/DIMENSIONS.md`.* Parametric items (`weight(..5kg)`, `time(a..b)`,
   `geo(u2ed)`) whose order relative to each other is computed from the name —
   containment of denoted value sets, the same extension-inclusion order the DAG
