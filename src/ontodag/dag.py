@@ -837,6 +837,13 @@ class OntoDAG(DAG):
         super_categories = {parent for parent in node_to_remove.parents
                             if self.nodes.get(parent.name) is parent}
         subcategories = set(node_to_remove.neighbors)
+        # Contraction follows the COMBINED order (DIMENSIONS.md §5): the
+        # children of a removed parametric node reattach to the present
+        # containing terms as well, restoring exactly what reduction-modulo-
+        # computed pruned. (A once-asserted parcel -> weight(..5kg) edge,
+        # pruned when parcel -> weight(3kg) arrived, comes back when the
+        # point is removed.) Captured before the graph moves.
+        computed_containers = list(self._computed_parents(node_to_remove))
 
         # The whole operation costs exactly one subtraction per ancestor:
         # contraction reconnects the removed node's children to its parents,
@@ -868,6 +875,15 @@ class OntoDAG(DAG):
 
         for ancestor in ancestors:
             ancestor.descendant_count -= 1
+
+        # Live adds, after the bookkeeping above: reattaching to a computed
+        # container genuinely changes ASSERTED reachability (the container
+        # gains an asserted cone), so these run with normal count planning;
+        # add_edge's combined-order checks drop any that are already implied
+        # and prune the asserted-contraction edges they make redundant.
+        for container in computed_containers:
+            for subcategory in subcategories:
+                self.add_edge(container, subcategory)
 
     def merge(self, other_dag):
         """Merge another OntoDAG into this one.

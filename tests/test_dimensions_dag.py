@@ -219,6 +219,36 @@ class TestPutGuards(unittest.TestCase):
             dag.put("x", ["odd(3)"])
 
 
+class TestRemoveContraction(unittest.TestCase):
+    def test_remove_restores_pruned_assertion(self):
+        dag = make_dag()
+        dag.put("parcel", ["weight(..5kg)"])
+        dag.put("parcel", ["weight(3kg)"])   # prunes the interval edge
+        dag.remove("weight(3kg)")            # sugar accepted here too
+        # Contraction along the combined order restores exactly what
+        # reduction-modulo-computed pruned.
+        self.assertEqual(names(dag.nodes["parcel"].parents),
+                         {"weight(..5000000mg)"})
+        self.assertNotIn("weight(3000000mg)", dag.nodes)
+
+    def test_remove_falls_back_to_the_head(self):
+        dag = make_dag()
+        dag.put("parcel", ["weight(3kg)"])
+        dag.remove("weight(3kg)")
+        # No containing term present: the anchor parent is all there is.
+        self.assertEqual(names(dag.nodes["parcel"].parents), {"weight"})
+
+    def test_counts_survive_contraction(self):
+        dag = make_dag()
+        dag.put("parcel", ["weight(..5kg)"])
+        dag.put("parcel", ["weight(3kg)"])
+        dag.put("flour-bag", ["weight(1.2kg)"])
+        dag.remove("weight(3kg)")
+        for node in dag.nodes.values():
+            self.assertEqual(node.descendant_count, len(reach(node)),
+                             f"count drift on {node.name}")
+
+
 class TestCountsStayAssertedOnly(unittest.TestCase):
     def test_i5_after_parametric_operations(self):
         dag = make_dag()
