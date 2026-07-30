@@ -509,6 +509,20 @@ class OntoDAG(DAG):
                     sibling.name, canonical, kind):
                 yield sibling
 
+    def _virtual_cone(self, head, kind, canonical):
+        """The cone of a parametric term that need not exist as a node: the
+        present values of its dimension contained in its denotation, plus
+        everything below them. Queries quantify over present nodes only —
+        this is why "all integers" can never be an answer, and why a
+        read-only client can ask any threshold without writing
+        (DIMENSIONS.md §8)."""
+        cone = set()
+        for value, _ in self._star(head):
+            if _dims.contains(canonical, value.name, kind):
+                cone.add(value)
+                cone |= self.get_descendants(value)
+        return cone
+
     def _ensure_parametric_node(self, canonical, head, kind):
         """Materialize a used value: one node, one anchor edge under its
         head. Every value of one head must share one value space (one unit
@@ -620,17 +634,66 @@ class OntoDAG(DAG):
         """
         # 1. Resolve and deduplicate; terms may be name strings or Items
         # (names are the identity at the public boundary, and parametric
-        # sugar canonicalizes first); an unknown term has an empty cone.
+        # sugar canonicalizes first). An unknown ordinary term has an empty
+        # cone; an unknown *parametric* term of a declared dimension is a
+        # VIRTUAL term — its cone is computed, no node needs to exist and
+        # none is created (DIMENSIONS.md §8).
         terms = {}
+        parametric = {}  # canonical name -> (head, kind), present or not
         for super_category in super_categories:
-            node = self.nodes.get(self._canonical_name(_name_of(super_category)))
+            raw = _name_of(super_category)
+            parsed = self._parse_parametric(raw)
+            if parsed is not None:
+                parametric[parsed[2]] = (parsed[0], parsed[1])
+                continue
+            node = self.nodes.get(raw)
             if node is None:
                 return set()
             terms[node.name] = node
-        if not terms:
+        if not terms and not parametric:
             # Preserves the pre-planner behavior (set.intersection() with no
             # sets raised TypeError), with an intelligible message.
             raise TypeError("get() requires at least one super-category")
+
+        # 1a. Same-head parametric terms pre-intersect EXACTLY — within a
+        # dimension, meets are computable (interval intersection), so this
+        # is result-preserving, and an empty meet is an empty result before
+        # the graph is touched at all. (Contrast SEMANTIC_CODES.md §10:
+        # asserted "meet-named" nodes must never be used this way.)
+        if parametric:
+            by_head = {}
+            for name, (head, kind) in parametric.items():
+                if head in by_head:
+                    met = _dims.intersect(by_head[head][0], name, kind)
+                    if met is None:
+                        return set()
+                    by_head[head] = (met, kind)
+                else:
+                    by_head[head] = (name, kind)
+            virtual = {}
+            for head, (name, kind) in by_head.items():
+                node = self.nodes.get(name)
+                if node is not None:
+                    terms[name] = node    # present: the planner handles it
+                else:
+                    virtual[name] = (head, kind)
+            # 1b. Virtual cones intersect first (they are computed sets
+            # anyway), then the surviving present terms settle by one upward
+            # probe per candidate — every step result-preserving.
+            if virtual:
+                cones = sorted((self._virtual_cone(head, kind, name)
+                                for name, (head, kind) in virtual.items()),
+                               key=len)
+                common = cones[0]
+                for cone in cones[1:]:
+                    if not common:
+                        return set()
+                    common &= cone
+                if terms and common:
+                    remaining = list(terms.values())
+                    common = {candidate for candidate in common
+                              if self._has_ancestors(candidate, remaining)}
+                return common
 
         # 2. Drop terms subsumed by another term.
         nodes = list(terms.values())

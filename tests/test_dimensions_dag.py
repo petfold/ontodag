@@ -262,5 +262,104 @@ class TestCountsStayAssertedOnly(unittest.TestCase):
                              f"count drift on {node.name}")
 
 
+class TestVirtualQueryTerms(unittest.TestCase):
+    def _market(self):
+        dag = make_dag()
+        dag.put("parcel", ["weight(3kg)"])
+        dag.put("flour-bag", ["weight(1.2kg)"])
+        dag.put("heavy-parcel", ["weight(9kg)"])
+        return dag
+
+    def test_courier_query_needs_no_node(self):
+        dag = self._market()
+        result = names(dag.get({"weight(..5kg)"}))
+        self.assertIn("parcel", result)
+        self.assertIn("flour-bag", result)
+        self.assertNotIn("heavy-parcel", result)
+        # Virtual means virtual: querying materialized nothing.
+        self.assertNotIn("weight(..5000000mg)", dag.nodes)
+
+    def test_flour_query(self):
+        result = names(self._market().get({"weight(1kg..)"}))
+        self.assertIn("flour-bag", result)
+        self.assertIn("parcel", result)
+
+    def test_same_head_terms_pre_intersect(self):
+        dag = self._market()
+        result = names(dag.get({"weight(..5kg)", "weight(2kg..)"}))
+        self.assertEqual({"weight(3000000mg)", "parcel"}, result)
+        # Provably disjoint terms: empty result, no error — a read is a
+        # question, only put refuses (DIMENSIONS.md §9).
+        self.assertEqual(dag.get({"weight(..2kg)", "weight(3kg..)"}), set())
+
+    def test_mixed_ordinary_and_virtual(self):
+        dag = self._market()
+        dag.put("organic", [])
+        dag.put("parcel", ["organic"])
+        result = names(dag.get({"organic", "weight(..5kg)"}))
+        self.assertEqual({"parcel"}, result)
+
+    def test_time_window_query(self):
+        dag = make_dag()
+        dag.put("time", ["linear-dimension"])
+        dag.put("summer-photo", ["time(2026-06-15)"])
+        dag.put("winter-photo", ["time(2026-01-10)"])
+        result = names(dag.get({"time(2026-06-01..2026-08-31)"}))
+        self.assertIn("summer-photo", result)
+        self.assertNotIn("winter-photo", result)
+
+    def test_geo_prefix_query(self):
+        dag = make_dag()
+        dag.put("cafe", ["geo(u2edk)"])
+        dag.put("far-cafe", ["geo(u3x)"])
+        result = names(dag.get({"geo(u2)"}))
+        self.assertIn("cafe", result)
+        self.assertNotIn("far-cafe", result)
+
+    def test_empty_query_still_raises(self):
+        with self.assertRaises(TypeError):
+            self._market().get(set())
+
+    def test_unknown_ordinary_term_fails_closed(self):
+        self.assertEqual(
+            self._market().get({"no-such", "weight(..5kg)"}), set())
+
+
+class TestEagerDimensions(unittest.TestCase):
+    STEPS = [("weight", ["linear-dimension"]),
+             ("parcel", ["weight(..5kg)"]),
+             ("parcel", ["weight(3kg)"]),
+             ("flour-bag", ["weight(1.2kg)"])]
+
+    def _build(self, steps):
+        from recordstore import MemoryBytesStore, RecordStore
+        blobs = MemoryBytesStore()
+        from ontodag.eager import EagerOntoDAG
+        dag = EagerOntoDAG(RecordStore(blobs))
+        dag.put("dimension", [])
+        dag.put("linear-dimension", ["dimension"])
+        for step in steps:
+            dag.put(*step)
+        return dag, blobs
+
+    def test_canonical_roots_across_put_orders(self):
+        dag_a, _ = self._build(self.STEPS)
+        reordered = [self.STEPS[0], self.STEPS[3],
+                     self.STEPS[1], self.STEPS[2]]
+        dag_b, _ = self._build(reordered)
+        self.assertEqual(dag_a.commit(), dag_b.commit())
+
+    def test_rehydrated_virtual_query(self):
+        from recordstore import RecordStore
+        from ontodag.eager import EagerOntoDAG
+        dag, blobs = self._build(self.STEPS)
+        root = dag.commit()
+        again = EagerOntoDAG(RecordStore.at(root, blobs))
+        self.assertIn("parcel", names(again.get({"weight(..5kg)"})))
+        # The anchor star survived the roundtrip as the enumeration index.
+        self.assertEqual(names(again.nodes["weight(3000000mg)"].parents),
+                         {"weight"})
+
+
 if __name__ == "__main__":
     unittest.main()
