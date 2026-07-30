@@ -118,7 +118,10 @@ def add_dag_items():
     my_dag = session["my_dag"]
     try:
         subcategories = [Item(name) for name in data.get("subcategories", [])]
-        super_categories = [my_dag.nodes[name] for name in (data.get("super_categories") or [my_dag.root.name])]
+        # Pass names through: put resolves them itself, which is what lets
+        # parametric terms (weight(3kg), weight(..5kg)) materialize with
+        # their anchors and sugar resolve to canonical names.
+        super_categories = data.get("super_categories") or [my_dag.root.name]
 
         for subcategory in subcategories:
             my_dag.put(subcategory, super_categories)
@@ -134,9 +137,9 @@ def remove_dag_items():
     data = request.json
     my_dag = session["my_dag"]
     try:
-        subcategories = [my_dag.nodes[name] for name in data.get("subcategories", [])]
-        for subcategory in subcategories:
-            my_dag.remove(subcategory)
+        # remove() accepts names and canonicalizes parametric sugar itself.
+        for name in data.get("subcategories", []):
+            my_dag.remove(name)
         return jsonify({"message": "Item(s) removed."}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -152,9 +155,13 @@ def get_query():
     query = categories.split(",")
 
     my_dag = session["my_dag"]
-    super_categories = [my_dag.nodes[name] for name in query]
-
-    result_nodes = my_dag.get(super_categories)
+    try:
+        # get() resolves names itself: unknown terms fail closed (empty
+        # result), parametric terms may be virtual (weight(..5kg) needs no
+        # node), malformed parameters are a client error.
+        result_nodes = my_dag.get(query)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     return jsonify({"nodes": list([node.to_dict() for node in result_nodes])})
 
