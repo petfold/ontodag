@@ -108,7 +108,10 @@ A query like `get(Animal, Pet, Vaccinated)` could be executed naively: compute
 each cone by walking the graph, then intersect the three sets. Correct, but
 wasteful — and OntoDAG's planner improves on it in ways borrowed from database
 query optimizers, all *provably result-preserving* (an optimizer that changes
-answers is a bug generator):
+answers is a bug generator). (OR-queries are a thin layer on top: `get_any`
+takes several such conjunctions and unions their results, dropping any branch
+that is provably contained in another — union lives entirely on the query
+side, never in the stored graph.) The conjunctive planner:
 
 **Planned before touching the graph** — using knowledge that's exact in advance:
 

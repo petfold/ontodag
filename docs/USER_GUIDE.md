@@ -378,6 +378,8 @@ odag <command> ...
 
   put SUB [PARENT...]   add SUB under the PARENT categories (or the root)
   get CAT [CAT...]      print items below all of the CATs, one per line
+                        (the literal word `or` separates alternatives:
+                        `get Dog Pet or Cat` = (Dog AND Pet) OR Cat)
   remove ITEM           remove ITEM from the store
   show                  print the DAG structure
   list                  print every item name
@@ -482,6 +484,16 @@ Ask which things are both animals and pets — one name per line, straight to st
 
 ```console
 $ odag get Animal Pet
+Cat
+Dog
+```
+
+Alternatives use the literal word `or` between groups — everything that is an
+animal-and-pet, *or* a machine:
+
+```console
+$ odag get Animal Pet or Machine
+Aibo
 Cat
 Dog
 ```

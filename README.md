@@ -22,7 +22,7 @@ odag's store settings).
 
 ## Specification
 
-A Directed Acyclic Graph (DAG) associative storage and category manager in Python. You can store items into a ontodag and recall items from it. To store or "put" an item into a ontodag, you give it a name and a set of other names of already existing items that are its supercategories. To recall or "get", you specify a set of item names to get all items that are subcategories of all these items.
+A Directed Acyclic Graph (DAG) associative storage and category manager in Python. You can store items into a ontodag and recall items from it. To store or "put" an item into a ontodag, you give it a name and a set of other names of already existing items that are its supercategories. To recall or "get", you specify a set of item names to get all items that are subcategories of all these items; alternatives are one word away (`odag get Dog Pet or Cat`, `get_any` in Python).
 
 Categories can also carry **typed values**: declare `weight` as a dimension
 and `weight(3kg)` becomes an ordinary category whose ordering OntoDAG
