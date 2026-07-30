@@ -207,7 +207,10 @@ class LazyOntoDAG(OntoDAG):
 
     # ------------------------------------------------------- traversals
 
-    def get_descendants(self, node, visited=None):
+    def get_descendants(self, node, visited=None, computed=True):
+        # `computed` is accepted for signature compatibility with OntoDAG;
+        # the lazy reader is dimension-unaware until DIMENSIONS.md §12
+        # step 5 (its fixtures carry no parametric terms).
         name = _name_of(node)
         start = self.nodes.get(name)
         if start is None:
@@ -235,7 +238,8 @@ class LazyOntoDAG(OntoDAG):
             self._cone_cache.pop(next(iter(self._cone_cache)))
         self._cone_cache[name] = set(descendants)
 
-    def _has_ancestors(self, node, targets):
+    def _has_ancestors(self, node, targets, computed=True):
+        # `computed` accepted for signature compatibility (see get_descendants).
         missing = set(targets)
         seen = set()
         stack = [node]
@@ -249,7 +253,8 @@ class LazyOntoDAG(OntoDAG):
                     stack.append(parent)
         return not missing
 
-    def get_ancestors(self, node, ignore=()):
+    def get_ancestors(self, node, ignore=(), computed=True):
+        # `computed` accepted for signature compatibility (see get_descendants).
         name = _name_of(node)
         start = self.nodes.get(name)
         if start is None:

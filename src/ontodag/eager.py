@@ -105,14 +105,16 @@ class EagerOntoDAG(OntoDAG):
     def put(self, subcategory, super_categories, optimized=False,
             payload=None, meta=None):
         super().put(subcategory, super_categories, optimized=optimized)
-        name = _name_of(subcategory)  # plain strings accepted, like OntoDAG
+        # Plain strings accepted, like OntoDAG; parametric sugar stores
+        # under the canonical name (weight(3kg) -> weight(3000000mg)).
+        name = self._canonical_name(_name_of(subcategory))
         if payload is not None:
             self._payloads[name] = payload
         if meta is not None:
             self.nodes[name].metadata = dict(meta)
 
     def remove(self, node_to_remove):
-        name = _name_of(node_to_remove)
+        name = self._canonical_name(_name_of(node_to_remove))
         super().remove(node_to_remove)
         self._payloads.pop(name, None)
 

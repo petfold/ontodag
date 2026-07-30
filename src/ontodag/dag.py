@@ -1,4 +1,7 @@
 from contextlib import contextmanager
+from itertools import combinations
+
+from ontodag import dimensions as _dims
 
 
 class _EdgeSet(set):
@@ -91,6 +94,24 @@ class DAG:
         """Add a node (Item) to the graph."""
         self.nodes[node.name] = node
 
+    # ---- computed order (parametric dimensions) ----------------------------
+    #
+    # The combined order = asserted edges ∪ computed pairs among present
+    # same-dimension parametric nodes (docs/DIMENSIONS.md §5). The base DAG
+    # has no dimension semantics, so the computed relation is empty here;
+    # OntoDAG overrides these. Persisted counts stay asserted-only by design,
+    # so every count-planning path passes computed=False explicitly, while
+    # query-facing traversals default to the combined order.
+
+    def _computed_children(self, node):
+        return ()
+
+    def _computed_parents(self, node):
+        return ()
+
+    def _canonical_name(self, name):
+        return name
+
     def add_edge(self, from_node, to_node):
         """Add a directed edge between two nodes."""
         if from_node.name not in self.nodes or to_node.name not in self.nodes:
@@ -109,12 +130,17 @@ class DAG:
         from_node.neighbors.add(to_node)
         self._apply_count_deltas(deltas)
 
-    def _is_reachable(self, start, target):
-        """True if `target` is strictly reachable from `start` (iterative, early exit)."""
+    def _is_reachable(self, start, target, computed=False):
+        """True if `target` is strictly reachable from `start` (iterative,
+        early exit); `computed=True` also follows computed dimension hops."""
         seen = set()
         stack = [start]
         while stack:
-            for neighbor in stack.pop().neighbors:
+            current = stack.pop()
+            successors = list(current.neighbors)
+            if computed:
+                successors.extend(self._computed_children(current))
+            for neighbor in successors:
                 if neighbor == target:
                     return True
                 if neighbor not in seen:
@@ -199,7 +225,7 @@ class DAG:
         first: reduction drops edges that are redundant only *given* the new
         edge, so planning afterwards would read ancestors as newly gaining
         what they already had)."""
-        below = self.get_descendants(child)
+        below = self.get_descendants(child, computed=False)
         # A child with no parents yet cannot be reached from anywhere, so the
         # "does this ancestor already reach it?" probe is provably False for
         # every ancestor and is skipped. That is the common case — appending a
@@ -226,7 +252,7 @@ class DAG:
     def _plan_remove(self, parent, child):
         """Count deltas for a `parent` -> `child` edge that has just been
         removed (reachability questions are about the post-state)."""
-        below = self.get_descendants(child)
+        below = self.get_descendants(child, computed=False)
         deltas = {}
         frontier = [parent]
         seen = set()
@@ -256,17 +282,20 @@ class DAG:
                 if self.nodes.get(parent.name) is parent:
                     frontier.append(parent)
 
-    def get_descendants(self, node, visited=None):
+    def get_descendants(self, node, visited=None, computed=True):
         # Identity at the public boundary is the name (a plain string or an
         # Item): traverse this instance's node, not the caller's object,
         # whose neighbors may be empty (e.g. a fresh Item used to query a
-        # rehydrated DAG). An unknown name has no descendants.
+        # rehydrated DAG). An unknown name has no descendants. Parametric
+        # sugar canonicalizes first (weight(3kg) -> weight(3000000mg)), and
+        # the walk follows the combined order unless `computed=False`
+        # (count maintenance is asserted-only by design).
         if isinstance(node, str):
-            node = self.nodes.get(node)
+            node = self.nodes.get(self._canonical_name(node))
             if node is None:
                 return set()
         else:
-            node = self.nodes.get(node.name, node)
+            node = self.nodes.get(self._canonical_name(node.name), node)
         if visited is None:
             visited = set()
         if node in visited:
@@ -275,14 +304,18 @@ class DAG:
         descendants = set()  # Descendants of the current node
         frontier = [node]
         while frontier:
-            for neighbor in frontier.pop().neighbors:
+            current = frontier.pop()
+            successors = list(current.neighbors)
+            if computed:
+                successors.extend(self._computed_children(current))
+            for neighbor in successors:
                 descendants.add(neighbor)
                 if neighbor not in visited:
                     visited.add(neighbor)
                     frontier.append(neighbor)
         return descendants
 
-    def _has_ancestors(self, node, targets):
+    def _has_ancestors(self, node, targets, computed=True):
         """True if every Item in `targets` is a strict ancestor of `node`.
 
         A single upward walk over `parents`, early-exiting as soon as every
@@ -297,18 +330,21 @@ class DAG:
         seen = set()
         stack = [node]
         while stack and missing:
-            for parent in stack.pop().parents:
-                # Only follow parents that belong to this DAG instance.
-                if self.nodes.get(parent.name) is not parent:
-                    continue
+            current = stack.pop()
+            predecessors = [p for p in current.parents
+                            # Only follow parents that belong to this DAG.
+                            if self.nodes.get(p.name) is p]
+            if computed:
+                predecessors.extend(self._computed_parents(current))
+            for parent in predecessors:
                 missing.discard(parent)
                 if parent not in seen:
                     seen.add(parent)
                     stack.append(parent)
         return not missing
 
-    def get_ancestors(self, node, ignore=()):
-        name = _name_of(node)  # a plain string is accepted too
+    def get_ancestors(self, node, ignore=(), computed=True):
+        name = self._canonical_name(_name_of(node))  # strings accepted too
         if name not in self.nodes:
             raise ValueError(f"Node {name} does not exist in the graph.")
         node = self.nodes[name]  # traverse our node, not the caller's
@@ -317,13 +353,16 @@ class DAG:
         frontier = [node]
         while frontier:
             current = frontier.pop()
-            for parent in current.parents:
+            predecessors = [p for p in current.parents
+                            # Only follow parents that belong to this DAG.
+                            if self.nodes.get(p.name) is p]
+            if computed:
+                predecessors.extend(self._computed_parents(current))
+            for parent in predecessors:
                 if parent in ancestors or parent in ignore:
                     continue
-                # Only follow parents that belong to this DAG instance.
-                if self.nodes.get(parent.name) is parent:
-                    ancestors.add(parent)
-                    frontier.append(parent)
+                ancestors.add(parent)
+                frontier.append(parent)
         return ancestors
 
     def intersection_dag(self, other_dag):
@@ -377,29 +416,154 @@ class OntoDAG(DAG):
         self.root = Item("*")
         self.nodes[self.root.name] = self.root
 
+    # ---- parametric dimensions (docs/DIMENSIONS.md) -------------------------
+    #
+    # A dimension head is an ordinary node asserted under a registry kind node
+    # (weight -> linear-dimension); its used values are parametric nodes
+    # (weight(3000000mg)) anchored under it by a schema edge — the "star".
+    # The order *within* a dimension is computed from the names and never
+    # materialized as edges (dense orders have no transitive reduction).
+
+    def _dimension_kind(self, head_name):
+        """The registry kind a declared dimension head inherits (ancestor
+        walk from the head to a kind node), or None. Inheriting two
+        different kinds is an error, not an MRO puzzle (DIMENSIONS.md §3).
+        The walk stops at kind nodes, so kind nodes themselves and plain
+        categories resolve to None."""
+        node = self.nodes.get(head_name)
+        if node is None or head_name in _dims.KINDS:
+            return None
+        kinds = set()
+        seen = set()
+        stack = [node]
+        while stack:
+            for parent in stack.pop().parents:
+                if self.nodes.get(parent.name) is not parent:
+                    continue
+                if parent.name in _dims.KINDS:
+                    kinds.add(parent.name)
+                elif parent not in seen:
+                    seen.add(parent)
+                    stack.append(parent)
+        if len(kinds) > 1:
+            raise ValueError(
+                f"dimension {head_name!r} inherits multiple kinds: "
+                f"{', '.join(sorted(kinds))} — declare exactly one")
+        return next(iter(kinds), None)
+
+    def _parse_parametric(self, name):
+        """(head, kind, canonical name) when `name` is a parametric term of a
+        *declared* dimension; None otherwise. This is the parse trigger:
+        term-shaped names with undeclared heads stay opaque atoms, so
+        existing graphs are untouched (DIMENSIONS.md §7)."""
+        split = _dims.split_term(name)
+        if split is None:
+            return None
+        kind = self._dimension_kind(split[0])
+        if kind is None:
+            return None
+        return split[0], kind, _dims.canonicalize(name, kind)
+
+    def _canonical_name(self, name):
+        parsed = self._parse_parametric(name)
+        return parsed[2] if parsed else name
+
+    def _is_anchor(self, parent, child):
+        """head -> value edges are schema, not assertions: exempt from
+        transitive-reduction pruning (DIMENSIONS.md §5)."""
+        parsed = self._parse_parametric(child.name)
+        return parsed is not None and parsed[0] == parent.name
+
+    def _star(self, head_name):
+        """The present values of a dimension: the head's parametric children
+        (this asserted star is the dimension's enumeration index)."""
+        head_node = self.nodes.get(head_name)
+        if head_node is None:
+            return
+        for child in head_node.neighbors:
+            parsed = self._parse_parametric(child.name)
+            if parsed is not None and parsed[0] == head_name:
+                yield child, parsed[1]
+
+    def _computed_children(self, node):
+        """Present same-head terms contained in `node`'s denotation — the
+        computed hops of the combined order. Distinct canonical names are
+        never mutually contained (equal denotation ⇒ equal name), so this
+        relation is a strict partial order on present nodes (I1)."""
+        parsed = self._parse_parametric(node.name)
+        if parsed is None:
+            return
+        head, kind, canonical = parsed
+        for sibling, _ in self._star(head):
+            if sibling is not node and _dims.contains(
+                    canonical, sibling.name, kind):
+                yield sibling
+
+    def _computed_parents(self, node):
+        parsed = self._parse_parametric(node.name)
+        if parsed is None:
+            return
+        head, kind, canonical = parsed
+        for sibling, _ in self._star(head):
+            if sibling is not node and _dims.contains(
+                    sibling.name, canonical, kind):
+                yield sibling
+
+    def _ensure_parametric_node(self, canonical, head, kind):
+        """Materialize a used value: one node, one anchor edge under its
+        head. Every value of one head must share one value space (one unit
+        family, one arity) — checked against the star, which keeps the
+        property inductively."""
+        node = self.nodes.get(canonical)
+        if node is not None:
+            return node
+        space = _dims.space_of(canonical, kind)
+        for sibling, _ in self._star(head):
+            sibling_space = _dims.space_of(sibling.name, kind)
+            if sibling_space != space:
+                raise ValueError(
+                    f"dimension {head!r} holds {sibling_space} values "
+                    f"({sibling.name}); {canonical} is {space}")
+            break  # one consistent sibling proves the whole star
+        node = Item(canonical)
+        self.add_node(node)
+        self.add_edge(self.nodes[head], node)  # the anchor (schema edge)
+        return node
+
     def add_edge(self, from_node, to_node):
         """Add a directed edge between two nodes and remove unneeded edges from ancestors."""
         if from_node == to_node or to_node in from_node.neighbors:
             return
-        # Skip the edge entirely if to_node is already reachable — adding it
-        # would violate transitive reduction (and made results depend on the
-        # order of super-categories in put).
-        if self._is_reachable(from_node, to_node):
+        parsed_from = self._parse_parametric(from_node.name)
+        parsed_to = self._parse_parametric(to_node.name)
+        if parsed_from is not None and parsed_to is not None \
+                and parsed_from[0] == parsed_to[0]:
+            raise ValueError(
+                f"within dimension {parsed_from[0]!r} the order is computed: "
+                f"refusing asserted edge {from_node.name} -> {to_node.name}")
+        anchor = parsed_to is not None and parsed_to[0] == from_node.name
+        # Skip the edge entirely if to_node is already reachable in the
+        # combined (asserted + computed) order — adding it would violate
+        # transitive reduction (and made results depend on the order of
+        # super-categories in put). Anchor edges are schema and always kept.
+        if not anchor and self._is_reachable(from_node, to_node, computed=True):
             return
-        # Reject cycles before _remove_unneeded_edges mutates anything.
-        if self._is_reachable(to_node, from_node):
+        # Reject cycles — through computed hops too — before anything mutates.
+        if self._is_reachable(to_node, from_node, computed=True):
             raise ValueError(
                 f"Edge {from_node.name} -> {to_node.name} would create a cycle."
             )
-        # Plan the delta against the pre-operation graph: the reduction below
-        # removes edges that are redundant only *given* the new edge, so an
-        # ancestor would momentarily stop reaching `to_node` and be read as
-        # newly gaining what it already had.
+        # Plan the delta against the pre-operation graph, add the edge, then
+        # prune. Pruning runs with live counts: an edge that is redundant via
+        # asserted paths removes nothing from asserted reachability (its
+        # _plan_remove is zero), while an edge redundant only via *computed*
+        # hops really does change asserted reachability — and persisted
+        # counts are asserted-only by design (DIMENSIONS.md §5).
         deltas = None if self._counts_frozen else self._plan_add(from_node, to_node)
         with self._counts_unchanged():
-            self._remove_unneeded_edges(from_node, to_node)   # count-neutral
             super().add_edge(from_node, to_node)              # structure only
         self._apply_count_deltas(deltas)
+        self._remove_unneeded_edges(from_node, to_node)
 
     # Stand-in for the typical ancestor-cone size, which is not maintained
     # per node. Used only to choose between two *exact* operators in get(),
@@ -455,11 +619,11 @@ class OntoDAG(DAG):
         it is sound only with a canonical-placement invariant on put().
         """
         # 1. Resolve and deduplicate; terms may be name strings or Items
-        # (names are the identity at the public boundary); an unknown term
-        # has an empty cone.
+        # (names are the identity at the public boundary, and parametric
+        # sugar canonicalizes first); an unknown term has an empty cone.
         terms = {}
         for super_category in super_categories:
-            node = self.nodes.get(_name_of(super_category))
+            node = self.nodes.get(self._canonical_name(_name_of(super_category)))
             if node is None:
                 return set()
             terms[node.name] = node
@@ -527,18 +691,79 @@ class OntoDAG(DAG):
             self.remove_edge(root, root_neighbor)
 
     def _remove_unneeded_edges(self, from_node, to_node):
-        """Remove unneeded edges originating from ancestors."""
-        ancestors = self.get_ancestors(from_node)
+        """Remove edges made redundant by the from -> to edge: a direct edge
+        from any *combined-order* ancestor of `from_node` down to `to_node`
+        is now implied. Anchor edges (head -> value) are schema and never
+        pruned — they are the dimension's enumeration index (DIMENSIONS.md
+        §5), and pruning them would leave stored form dependent on which
+        other values happen to exist."""
+        ancestors = self.get_ancestors(from_node)  # combined order
         for ancestor in ancestors:
-            if to_node in ancestor.neighbors:
+            if to_node in ancestor.neighbors \
+                    and not self._is_anchor(ancestor, to_node):
                 self.remove_edge(ancestor, to_node)
 
     def put(self, subcategory, super_categories, optimized=False):
         # Names are the identity at the public boundary: plain strings are
-        # accepted anywhere an Item is (see "Identity" in CLAUDE.md).
+        # accepted anywhere an Item is (see "Identity" in CLAUDE.md), and
+        # parametric sugar resolves to the canonical name before anything
+        # else looks at it (weight(3kg) -> weight(3000000mg), §7).
         if isinstance(subcategory, str):
             subcategory = Item(subcategory)
-        super_names = [_name_of(sc) for sc in super_categories]
+        sub_parsed = self._parse_parametric(subcategory.name)
+        if sub_parsed is not None and subcategory.name != sub_parsed[2]:
+            subcategory = Item(sub_parsed[2], metadata=subcategory.metadata)
+        super_names = [self._canonical_name(_name_of(sc))
+                       for sc in super_categories]
+
+        parametric_supers = {}  # head -> [(canonical name, kind), ...]
+        for name in super_names:
+            parsed = self._parse_parametric(name)
+            if parsed is not None:
+                parametric_supers.setdefault(parsed[0], []).append(
+                    (name, parsed[1]))
+
+        # Within a dimension the order is computed, full stop: a value under
+        # a same-head term would assert it (add_edge also refuses, but this
+        # raises before any node is created).
+        if sub_parsed is not None and sub_parsed[0] in parametric_supers:
+            raise ValueError(
+                f"within dimension {sub_parsed[0]!r} the order is computed: "
+                f"refusing {subcategory.name} under "
+                f"{parametric_supers[sub_parsed[0]][0][0]}")
+
+        # The disjoint-parents guard (DIMENSIONS.md §9): an item sits in the
+        # INTERSECTION of its parents, so provably disjoint same-dimension
+        # parents assert membership of an empty concept — the
+        # union-vs-intersection footgun, caught exactly. Existing parametric
+        # parents of the node participate too.
+        existing_node = self.nodes.get(subcategory.name)
+        if existing_node is not None:
+            for parent in existing_node.parents:
+                if self.nodes.get(parent.name) is not parent:
+                    continue
+                parsed = self._parse_parametric(parent.name)
+                if parsed is not None and parsed[0] in parametric_supers:
+                    parametric_supers[parsed[0]].append((parent.name, parsed[1]))
+        for head, entries in parametric_supers.items():
+            for (name_a, kind), (name_b, _) in combinations(entries, 2):
+                if _dims.intersect(name_a, name_b, kind) is None:
+                    raise ValueError(
+                        f"{subcategory.name} cannot sit under both {name_a} "
+                        f"and {name_b}: provably disjoint {head!r} terms — "
+                        "an item is in the intersection of its parents; for "
+                        "a union, use a region node (DIMENSIONS.md §9)")
+
+        # Materialize parametric super-categories on first use, anchored
+        # under their head (declare-the-dimension-first is enforced by the
+        # existence check below: with an undeclared head the name stays
+        # opaque and must exist like any other category).
+        for name in super_names:
+            if name not in self.nodes:
+                parsed = self._parse_parametric(name)
+                if parsed is not None:
+                    self._ensure_parametric_node(name, parsed[0], parsed[1])
+
         if any(name not in self.nodes for name in super_names):
             raise ValueError("One or more super-categories do not exist.")
         if subcategory.name == self.root.name and self.root.name in self.nodes:
@@ -550,6 +775,12 @@ class OntoDAG(DAG):
             if subcategory is not existing and subcategory.metadata:
                 existing.metadata.update(subcategory.metadata)
             subcategory = existing
+        elif sub_parsed is not None:
+            node = self._ensure_parametric_node(
+                subcategory.name, sub_parsed[0], sub_parsed[1])
+            if subcategory.metadata:
+                node.metadata.update(subcategory.metadata)
+            subcategory = node
         else:
             self.add_node(subcategory)
 
@@ -595,8 +826,8 @@ class OntoDAG(DAG):
         # Accept a name string or any Item, and resolve to this instance's
         # node: a fresh Item("X") has empty parents/neighbors, so operating
         # on the caller's object instead of ours would orphan X's children
-        # and corrupt the graph.
-        name = _name_of(node_to_remove)
+        # and corrupt the graph. Parametric sugar canonicalizes first.
+        name = self._canonical_name(_name_of(node_to_remove))
         if name not in self.nodes:
             raise ValueError(f"Item {name} does not exist.")
         if name == self.root.name:
@@ -739,9 +970,10 @@ class OntoDAG(DAG):
             for root_neighbor in root_to_copy.neighbors:
                 new_dag.root.neighbors.add(mapping[root_neighbor])
 
-        # Recalculate descendant counts
+        # Recalculate descendant counts (asserted-only, like all counts)
         for copy_item in new_dag.nodes.values():
-            copy_item.descendant_count = len(new_dag.get_descendants(copy_item))
+            copy_item.descendant_count = len(
+                new_dag.get_descendants(copy_item, computed=False))
 
         return new_dag
 
@@ -763,9 +995,10 @@ class OntoDAG(DAG):
         # Update the root reference
         new_dag.root = mapping[self.root]
 
-        # Recalculate descendant counts
+        # Recalculate descendant counts (asserted-only, like all counts)
         for node in new_dag.nodes.values():
-            node.descendant_count = len(new_dag.get_descendants(node))
+            node.descendant_count = len(
+                new_dag.get_descendants(node, computed=False))
 
         return new_dag
 
