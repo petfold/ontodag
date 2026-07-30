@@ -26,6 +26,7 @@ import ontodag.__main__ as cli
 
 BEE_API = os.environ.get("BEE_API")
 BEE_BATCH = os.environ.get("BEE_BATCH")
+BEE_SIGNER = os.environ.get("BEE_SIGNER")
 
 
 def _run(argv, session):
@@ -106,6 +107,59 @@ class TestSwarmBackendOnLiveBee(unittest.TestCase):
         code, out = _run(["get", "Animal", "Pet"], self._session())
         self.assertEqual((code, out), (0, "Dog\nSpaniel\n"))
         self.assertNotEqual(self._root(), root, "removal did not move the root")
+
+
+@unittest.skipUnless(
+    BEE_API and BEE_BATCH and BEE_SIGNER,
+    "set BEE_API, BEE_BATCH and BEE_SIGNER to run the live feed test",
+)
+class TestSwarmFeedPointerOnLiveBee(unittest.TestCase):
+    """The fully-on-Swarm mutable root (roadmap item 2): with a signer the
+    backend goes through recordstore.swarm_store, so the latest root lives
+    in a signed Swarm feed. The decisive assertion is rehydration from a
+    COMPLETELY empty home — no `.root` file exists anywhere, so the graph
+    can only have come back via the feed.
+
+        BEE_API=http://localhost:1633 BEE_BATCH=<batchID> \
+        BEE_SIGNER=<0x-hex-private-key> \
+            python3 -m pytest tests/test_swarm_bee.py -v
+
+    Costs a few feed writes on the batch; use a throwaway key whose feed
+    topic ("feedpets" here) you don't mind burning.
+    """
+
+    def setUp(self):
+        self._home = tempfile.TemporaryDirectory()
+        self._old_home = os.environ.get("ONTODAG_HOME")
+        os.environ["ONTODAG_HOME"] = self._home.name
+
+    def tearDown(self):
+        if self._old_home is None:
+            os.environ.pop("ONTODAG_HOME", None)
+        else:
+            os.environ["ONTODAG_HOME"] = self._old_home
+        self._home.cleanup()
+
+    def test_root_lives_in_the_feed(self):
+        name = "feedpets"
+        s = cli.Session(f"swarm:{name}")
+        for argv in (["put", "Animal"], ["put", "Dog", "Animal"]):
+            self.assertEqual(_run(argv, s)[0], 0, f"put failed: {argv}")
+
+        # No local pointer file may exist: the root is in the feed.
+        self.assertFalse(
+            os.path.exists(cli.SwarmBackend(name).pointer_path()),
+            "signer configured, yet a local .root file appeared")
+
+        # Scorched-earth rehydration: a brand-new empty home. Only the feed
+        # (same signer + topic, from the environment) can restore the graph.
+        fresh = tempfile.TemporaryDirectory()
+        os.environ["ONTODAG_HOME"] = fresh.name
+        try:
+            code, out = _run(["get", "Animal"], cli.Session(f"swarm:{name}"))
+            self.assertEqual((code, out), (0, "Dog\n"))
+        finally:
+            fresh.cleanup()
 
 
 if __name__ == "__main__":

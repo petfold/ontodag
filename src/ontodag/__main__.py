@@ -367,8 +367,10 @@ def cmd_visualize(args, session, out):
 
 
 # Settings `set` can show and change. `store` is the active store spec;
-# bee_api/bee_batch configure the Swarm backend's Bee node.
-_SETTINGS = ("store", "bee_api", "bee_batch")
+# bee_api/bee_batch configure the Swarm backend's Bee node; bee_signer, when
+# present, switches the swarm backend to a signed feed for the latest root
+# (recordstore.swarm_store / SwarmFeedPointer) instead of a local file.
+_SETTINGS = ("store", "bee_api", "bee_batch", "bee_signer")
 
 
 def _effective_setting(session, key):
@@ -380,6 +382,8 @@ def _effective_setting(session, key):
         return os.environ.get("BEE_API") or cfg.get("bee_api") or "http://localhost:1633"
     if key == "bee_batch":
         return os.environ.get("BEE_BATCH") or cfg.get("bee_batch") or ""
+    if key == "bee_signer":
+        return os.environ.get("BEE_SIGNER") or cfg.get("bee_signer") or ""
     return cfg.get(key, "")
 
 
@@ -421,7 +425,8 @@ Commands:
   import FILE           replace the store with the contents of FILE
   export FILE           write the store to FILE
   visualize [--out B]   render the DAG to an image
-  set [KEY [VALUE]]     show settings, or set one (store, bee_api, bee_batch)
+  set [KEY [VALUE]]     show settings, or set one (store, bee_api,
+                        bee_batch, bee_signer)
   help                  show this help
 
 With no command odag reads commands from a pipe, or opens an interactive

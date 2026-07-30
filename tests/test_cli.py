@@ -221,5 +221,74 @@ class TestSwarmConfig(unittest.TestCase):
                     os.environ["ONTODAG_HOME"] = old
 
 
+class TestSwarmSignerWiring(unittest.TestCase):
+    """The published-root pointer (roadmap item 2, DIMENSIONS-era queue):
+    with a signer configured the backend builds its store through
+    recordstore.swarm_store — blobs on Bee AND the latest root in a signed
+    Swarm feed (SwarmFeedPointer), a followable address. Without one it
+    stays BeeBytesStore + local FilePointer. Wiring only; the live feed
+    cycle is tests/test_swarm_bee.py's (gated) job."""
+
+    _ENV = ("ONTODAG_HOME", "BEE_API", "BEE_BATCH", "BEE_SIGNER")
+
+    def setUp(self):
+        self._home = tempfile.TemporaryDirectory()
+        self._saved = {k: os.environ.get(k) for k in self._ENV}
+        os.environ["ONTODAG_HOME"] = self._home.name
+        os.environ["BEE_API"] = "http://node:1633"
+        os.environ["BEE_BATCH"] = "beef" * 16
+        os.environ.pop("BEE_SIGNER", None)
+
+    def tearDown(self):
+        for key, value in self._saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        self._home.cleanup()
+
+    def test_signer_routes_to_swarm_store(self):
+        from unittest import mock
+        import recordstore
+
+        os.environ["BEE_SIGNER"] = "0x" + "11" * 32
+        sentinel = object()
+        with mock.patch.object(recordstore, "swarm_store",
+                               return_value=sentinel) as factory:
+            store = cli.SwarmBackend("pets")._record_store()
+        self.assertIs(store, sentinel)
+        factory.assert_called_once_with(
+            "pets", api_url="http://node:1633", stamp="beef" * 16,
+            signer="0x" + "11" * 32)
+
+    def test_signer_from_config_file(self):
+        from unittest import mock
+        import recordstore
+
+        _, out = _run(["set", "bee_signer", "0x" + "22" * 32],
+                      cli.Session(os.path.join(self._home.name, "ignore.od")))
+        with mock.patch.object(recordstore, "swarm_store",
+                               return_value=object()) as factory:
+            cli.SwarmBackend("pets")._record_store()
+        self.assertEqual(factory.call_args.kwargs["signer"], "0x" + "22" * 32)
+
+    def test_without_signer_uses_local_file_pointer(self):
+        from unittest import mock
+        import recordstore
+
+        with mock.patch.object(recordstore, "BeeBytesStore",
+                               lambda api, batch: MemoryBytesStore()), \
+             mock.patch.object(recordstore, "FilePointer") as pointer:
+            cli.SwarmBackend("pets")._record_store()
+        pointer.assert_called_once_with(
+            cli.SwarmBackend("pets").pointer_path())
+
+    def test_set_shows_bee_signer(self):
+        session = cli.Session(os.path.join(self._home.name, "ignore.od"))
+        code, out = _run(["set"], session)
+        self.assertEqual(code, 0)
+        self.assertIn("bee_signer = ", out)
+
+
 if __name__ == "__main__":
     unittest.main()
