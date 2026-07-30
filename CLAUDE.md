@@ -177,14 +177,16 @@ Tests: `tests/test_eager.py` (19 tests against `MemoryBytesStore`): roundtrip + 
 1. **`dag.py` invariant fixes** — all 12 tests in `tests/test_invariants.py` pass; one focused commit per invariant (I1, I2+I3, I4, I6), plus item 5 (reverse adjacency + batched counts). Remaining `dag.py` work: item 6 under "Known bugs".
 2. **`EagerOntoDAG` adapter** — see above.
 
-## Current task: none assigned
+## Current task: dimension lattices — parametric items (design agreed 2026-07-30, no code yet)
+
+**Read `docs/DIMENSIONS.md` before touching anything** — it is the full design record (agreed with Peter over three sessions, 2026-07-30) and ends with the implementation sequencing: one reviewable commit per step, starting with the grammar + registry + canonicalizer as a pure stdlib-only module (`src/ontodag/dimensions.py`). Headline decisions: parametric items (`weight(..5000000mg)`) ordered by containment of denoted value sets — computed at query time, **never materialized as edges**; kinds declared by ordinary edges under registry-known nodes (`weight → linear-dimension → dimension`), nothing in `meta`, no callables in data; values are integers in per-family base units (agreed 2026-07-30 — no decimals; sub-base precision is a boundary error, the UI renders friendly units); anchor/star edges under the head node are schema, exempt from reduction; `add_edge`/`_remove_unneeded_edges` consult combined (asserted + computed) reachability; only exact-arithmetic kinds ever enter the canonical order (geo discs stay application-side — see loopmarket). This fired the "exact arithmetic" wall's tripwire — recorded in `DATABASE_DIRECTION.md` — via the `../loopmarket` sister project (marketplace matching is a main OntoDAG goal); overlap matching (`get_overlapping`) is deliberately the *first follow-up*, not v1, because overlap is not transitive and therefore not a cone.
 
 Done 2026-07-25 (were items 1–2 of this list): the recordstore requirement was raised to `>=0.11` with 0.11.0 installed and `docs/recordstore-interface.md` re-synced against it (since superseded — see "Version state" above); `EagerOntoDAG._hydrate` now batches through `RecordStore.items()`.
 
 The broader roadmap (delivered / queued / parked / research horizon, for a general
 audience) is `docs/ROADMAP.md`; this list is the working queue.
 
-Next candidates, in order (updated 2026-07-25 — see "What does not exist yet" for details):
+Next candidates after the current task, in order (updated 2026-07-25 — see "What does not exist yet" for details):
 1. **Published cone summaries** — the remaining half of `docs/DATABASE_DIRECTION.md` "Pure now" item 1. `LazyOntoDAG` (below) still walks a cone when the narrowest query term is broad (measured: 1,071 fetches for a two-broad-term query on a 3,221-record store, vs 42 for a specific one). Per-category succinct bitmaps stored as ordinary content-addressed blobs, derived deterministically so canonical roots are unaffected; this is step (1) of `SEMANTIC_CODES.md` §8 arriving via a measured need. Keep them *derived*: regenerable, never merged, never part of the record schema.
 2. **Adopt `SwarmFeedPointer`** as the published-root pointer (also for the CLI's `swarm:NAME` backend, replacing the local `FilePointer`) plus a `BEE_API`-gated adapter test — no longer blocked on a signing decision (made upstream: `swarm-bee` under `recordstore[feeds]`).
 3. **Multi-writer merge rule** over upstream `merge`/`commit(reconcile=True)` (§5) — the OntoDAG-semantic resolver + graph-level renormalization; GSOC is now optional on top.

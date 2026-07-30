@@ -74,15 +74,19 @@ Last updated 2026-07-25.
 The remaining "pure now" items of `DATABASE_DIRECTION.md` — they preserve the
 canonical form and the merge properties untouched:
 
-- **Dimension lattices** — time, geo and numeric *ranges* handled in the spirit of
-  OntoDAG rather than by bolting on a value engine: generate category chains
-  (century → decade → year → month → day, geo quad-tree cells, interval halvings)
-  and classify items under the finest cell, so "photos of dogs from last summer
-  near Balaton" stays one cone intersection. This is what the original roadmap's
-  "predicated (parametric) items" and "space and time calculation" become; the
-  same trick covers hierarchical value types (image → png) and is where a way to
-  declare a partial ordering over values, and to retrieve items in that order,
-  would belong.
+- **Dimension lattices** — *design agreed 2026-07-30, now the current task; see
+  `docs/DIMENSIONS.md`.* Parametric items (`weight(..5kg)`, `time(a..b)`,
+  `geo(u2ed)`) whose order relative to each other is computed from the name —
+  containment of denoted value sets, the same extension-inclusion order the DAG
+  always had — instead of generated category chains: the "exact arithmetic" wall's
+  tripwire fired (loopmarket matching needs arbitrary query-time thresholds), so
+  the earlier quantized-chain version is superseded as semantics and survives only
+  as an optional derived index. Values are integers in per-family base units;
+  kinds (linear, prefix, dominance) are declared by ordinary edges under
+  registry-known nodes; queries like "photos of dogs from last summer near
+  Balaton" become *exactly* computed cone intersections. This is what the original
+  roadmap's "predicated (parametric) items" and "space and time calculation"
+  become.
 - **Union in `get()`.** Query-side set union over cone intersections; stored state
   and canonical form untouched.
 

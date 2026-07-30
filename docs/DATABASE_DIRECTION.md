@@ -101,6 +101,13 @@ next work, in order:
    intersection — the existing primitive, the existing planner. The
    lattice *generator* is tooling, not model. This is the worked
    example of the governing principle: the ontodag-spirit geo engine.
+   **Update 2026-07-30: superseded as semantics** by parametric
+   dimension lattices (`docs/DIMENSIONS.md`) — the arithmetic wall's
+   tripwire fired (see below), and the linear/prefix/product kinds
+   answer these queries *exactly* rather than by quantization; the
+   Balaton query becomes a computed cone intersection with no
+   quantization error. Generated chains survive only as an optional
+   derived index for hot dimensions.
 3. **Union in `get()`.** Query-side set union over cone intersections
    (disjunctive normal form). Touches no stored state; canonical form
    untouched; planner extension is straightforward.
@@ -117,6 +124,22 @@ future session recognizes the moment instead of pre-building:
   comparisons, joins on computed values). The escape hatch, when hit:
   typed attribute payloads on item records plus deterministic ordered
   indexes — derived purely from content so roots stay canonical.
+  **Tripwire fired 2026-07-30**: loopmarket's product/service matching
+  needs arbitrary query-time thresholds (a courier's `weight(..5kg)`)
+  that no pre-generated quantization contains. The hatch is being
+  implemented in a name-native variant — parametric items,
+  `docs/DIMENSIONS.md` — chosen over attribute payloads so that
+  constraint terms remain categories and matching remains one cone
+  intersection (one query model, one planner, one merge story) instead
+  of a second payload-filter mechanism beside subsumption; the
+  "deterministic ordered indexes" half of the recorded hatch survives
+  verbatim as derived per-dimension sorted indexes. Values are integers
+  in per-family base units (the bank/crypto move — exactness by
+  construction). Note the wall itself only *moved*, precisely as far as
+  the tripwire evidence reaches: comparisons of a value against a
+  constraint *within one dimension*. Cross-dimension computation
+  (`price × quantity`, joins on computed values) remains behind the
+  wall, tripwire unchanged.
 - **Arbitrary relations (roles).** "Alice *authored* Doc1" is not
   subsumption. Tripwire: users mass-reifying relation nodes
   ("authored-by-Alice" categories multiplying per entity). The escape
