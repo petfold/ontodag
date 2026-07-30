@@ -34,17 +34,19 @@ Last updated 2026-07-25.
   queries by fetching items as the query walks them, so a published ontology can
   be queried without downloading it. On a 3,200-item store a specific query
   touches a few dozen items. It is read-only by construction (see the next
-  section for why) and does not yet use published cone summaries, so a query
-  whose narrowest term is a broad category still costs that cone.
+  section for why). Since 2026-07-31 it can also consult **published cone
+  summaries** (below), so broad queries no longer cost their cones.
 
 ## Next up (concrete, queued)
 
-1. **Cone summaries for broad queries.** The on-demand reader (above) still
-   enumerates a cone when a query's narrowest term is broad. A small
-   deterministically-derived summary per popular category — fetched instead of
-   walked — is what turns that into a handful of fetches, and it is the first
-   step of the bitmap-index work below, pulled forward by an actual need rather
-   than speculation. Being *derived*, it never touches the canonical form.
+1. ~~**Cone summaries for broad queries.**~~ **Done (2026-07-31).** A small
+   deterministically-derived summary per broad category (sorted name lists in
+   a *separate* derived store, manifest-pinned to the data root and the
+   dimensions registry version) is fetched instead of walked: a two-broad-term
+   query dropped from hundreds of fetches to a handful on the test fixture.
+   Being *derived*, it never touches the canonical form — indexing writes
+   nothing to the asserted store, and a stale or version-skewed index is
+   ignored, never silently wrong.
 2. **Writing back from a partially-loaded graph.** `LazyOntoDAG` is read-only on
    purpose — but one of the three reasons has now gone. **Exact counts are no
    longer a blocker:** they are maintained by local delta (see §"counts" in

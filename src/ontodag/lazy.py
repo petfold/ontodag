@@ -135,7 +135,8 @@ class LazyOntoDAG(OntoDAG):
     store to change underneath it.
     """
 
-    def __init__(self, record_store, cache_cones=True, max_cached_cones=64):
+    def __init__(self, record_store, cache_cones=True, max_cached_cones=64,
+                 cone_index=None):
         super().__init__()
         self.store = record_store
         self.fetches = 0            # store.get calls; the point of all this
@@ -143,6 +144,12 @@ class LazyOntoDAG(OntoDAG):
         self._expanded = set()      # names whose edges are filled in
         self._cone_cache = {} if cache_cones else None
         self._max_cached_cones = max_cached_cones
+        # Optional published cone summaries (ontodag.cones.ConeIndex, duck-
+        # typed): a hit turns a whole-cone enumeration into one fetch and
+        # returns STUB members (names registered, unexpanded — no per-item
+        # fetches unless the caller wants payload/meta). A cache with an
+        # exact fallback: misses and stale indexes just walk.
+        self._cone_index = cone_index
         root = self.root
         self.nodes = _LazyNodes(self)
         dict.__setitem__(self.nodes, root.name, root)
@@ -251,6 +258,15 @@ class LazyOntoDAG(OntoDAG):
         if computed and self._cone_cache is not None \
                 and name in self._cone_cache:
             return set(self._cone_cache[name])
+        # Published summary: one fetch instead of the enumeration. Combined-
+        # order requests only — summaries state the query-path cone, and an
+        # asserted-only caller (count recomputation) must never see it.
+        if computed and self._cone_index is not None:
+            members = self._cone_index.cone(name)
+            if members is not None:
+                descendants = {self._stub(member) for member in members}
+                self._cache_cone(name, descendants)
+                return descendants
 
         descendants = set()
         seen = {start}

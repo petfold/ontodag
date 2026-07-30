@@ -78,7 +78,12 @@ next work, in order:
 1. ~~**Lazy remote reader.**~~ **DONE** — `LazyOntoDAG` (`src/ontodag/lazy.py`)
    already does this; it landed the same day this document was drafted, which
    the draft did not know. Its own follow-up (cone summaries for broad-term
-   queries) is roadmap item 1. **Also done: count maintenance.** The delta
+   queries) landed 2026-07-31 — `src/ontodag/cones.py`, sorted-name-list
+   summaries in a separate derived store, manifest-pinned to the data root
+   and the dimensions registry version, wired into `LazyOntoDAG` as a cache
+   with an exact fallback (two broad terms: 375 → 3 record fetches on the
+   test fixture). Canonical form untouched by construction: indexing never
+   writes to the asserted store. **Also done: count maintenance.** The delta
    rules described in `experiments/RESULTS.md` are now in `dag.py` — exact
    counts no longer require the whole graph, removing one of the three stated
    reasons `LazyOntoDAG` refuses writes. Historical text follows.

@@ -1,11 +1,18 @@
 # Semantic codes: a binary index for OntoDAG (design note)
 
-Status: **design note, not scheduled work — deliberately parked 2026-07-20.** The
-theory is considered complete for now (see §10 for the last questions resolved); do
-not extend this note further until one of the §8 gates opens. No code exists and none
-should be written before then. The one cheap action allowed meanwhile: when the web
-API is next touched, add a trivial query log (a counter per queried category-set) —
-it is the empirical input §9 waits on. Referenced from `SWARM_DESIGN.md` §8.
+Status: **design note, parked 2026-07-20 — one §8 gate has since opened.** The
+thin-client gate (fetch count over a published store) opened with measured numbers
+(a two-broad-term lazy query cost 1,071 fetches; see `CONE_SUMMARIES_PLAN.md`), and
+its step landed 2026-07-31 as **published cone summaries** (`src/ontodag/cones.py`):
+per-category membership records in a *separate* derived store — but as **sorted name
+lists, not this note's bitmaps**, because bitmaps are positional and a thin client
+would need the whole name↔position dictionary to read one answer. §8's sequencing
+assumed the hot-CPU gate would open first; it was the fetch gate, so its steps
+(2)+(3) arrived before (1). The bitmap/code lattice of this note remains parked
+behind the remaining gates; the manifest's format field is the seam it would land
+through. Everything else stands: do not extend this note until another gate opens,
+and the one cheap action allowed meanwhile is still the web-API query counter §9
+waits on. Referenced from `SWARM_DESIGN.md` §8.
 Companion historical notes (Wilkins, Leibniz, Borges — where this idea comes from and
 how its ancestors failed): `PHILOSOPHICAL_LANGUAGES.md`.
 
