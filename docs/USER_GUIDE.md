@@ -215,6 +215,25 @@ for item in results:
   already under Animal. You can be sloppy; the query planner sorts it out (and
   picks an efficient evaluation order for you — details in the internals doc).
 
+**OR-queries: `get_any`.** `get` is AND; for alternatives, give `get_any` a
+list of queries and it returns everything matching *at least one* of them:
+
+```python
+dag.get_any([["Animal", "Pet"], ["Machine"]])   # (Animal AND Pet) OR Machine
+```
+
+Same rules per branch as `get` (an unknown category empties only its own
+branch), and it composes with typed values — the classic use is *outside a
+range*, which no single AND-query can say:
+
+```python
+dag.get_any([["weight(..2kg)"], ["weight(5kg..)"]])   # under 2 kg OR over 5 kg
+```
+
+On the command line the literal word `or` does the same job
+(`odag get Dog Pet or Cat`), and over REST it's a pipe
+(`/dag/query?cat=Dog,Pet|Cat`).
+
 ### 4.3 Removing: `remove`
 
 ```python
@@ -669,7 +688,7 @@ Endpoint summary:
 | `GET /dag`                   | The whole DAG as JSON                          |
 | `POST /dag/node`             | Add item(s): `{"subcategories": [...], "super_categories": [...]}` |
 | `DELETE /dag/node`           | Remove item(s): `{"subcategories": [...]}`     |
-| `GET /dag/query?cat=A,B`     | Everything under all the listed categories     |
+| `GET /dag/query?cat=A,B`     | Everything under all the listed categories (`\|` for OR: `cat=A,B\|C` = (A AND B) OR C) |
 | `GET /dag/image`             | PNG of the DAG                                 |
 | `GET /dag/query/image?cat=…` | PNG of a query and its results                 |
 | `POST /dag/import`           | Merge an uploaded `.owl`/`.omn` file into the session |

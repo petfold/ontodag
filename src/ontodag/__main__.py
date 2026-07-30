@@ -329,7 +329,23 @@ def cmd_put(args, session, out):
 
 
 def cmd_get(args, session, out):
-    for name in sorted(item.name for item in session.dag.get(args.categories)):
+    # The literal argument `or` separates disjuncts:
+    #   odag get Dog Pet or Cat     ->  (Dog AND Pet) OR Cat
+    # (`or` is therefore reserved as a category name on the command line;
+    # a plain AND query is the one-disjunct case.)
+    queries, current = [], []
+    for category in args.categories:
+        if category == "or":
+            queries.append(current)
+            current = []
+        else:
+            current.append(category)
+    queries.append(current)
+    if any(not query for query in queries):
+        raise ValueError("empty query around 'or'")
+    result = session.dag.get(queries[0]) if len(queries) == 1 \
+        else session.dag.get_any(queries)
+    for name in sorted(item.name for item in result):
         print(name, file=out)
 
 
@@ -418,6 +434,8 @@ Usage: odag [-f STORE] <command> [args]
 Commands:
   put SUB [PARENT...]   add SUB under the PARENT categories (or the root)
   get CAT [CAT...]      print items below all of the CATs, one per line
+                        (the literal word `or` separates alternatives:
+                        `get Dog Pet or Cat` = (Dog AND Pet) OR Cat)
   remove ITEM           remove ITEM from the store
   show                  print the DAG structure
   list                  print every item name

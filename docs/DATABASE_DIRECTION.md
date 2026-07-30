@@ -117,9 +117,12 @@ next work, in order:
    Balaton query becomes a computed cone intersection with no
    quantization error. Generated chains survive only as an optional
    derived index for hot dimensions.
-3. **Union in `get()`.** Query-side set union over cone intersections
-   (disjunctive normal form). Touches no stored state; canonical form
-   untouched; planner extension is straightforward.
+3. ~~**Union in `get()`.**~~ **Done (2026-07-31):** `OntoDAG.get_any` —
+   query-side DNF, exactly as scoped: no stored state, canonical form
+   untouched, and the one planner extension (drop a disjunct whose
+   canonicalized term set strictly contains another's — it can only
+   return a subset) is result-preserving like every planner step.
+   Surfaced as `or` in the CLI and `|` in the REST query parameter.
 
 ## The walls — documented tripwires, not features
 

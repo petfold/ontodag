@@ -45,6 +45,15 @@ class TestPlainRest:
         put(client, "animal")
         assert query_names(client, "no-such-thing") == set()
 
+    def test_pipe_is_union(self, client):
+        put(client, "animal")
+        put(client, "machine")
+        put(client, "pet")
+        put(client, "dog", ["animal", "pet"])
+        put(client, "drone", ["machine"])
+        # cat=animal,pet|machine  ->  (animal AND pet) OR machine
+        assert query_names(client, "animal,pet|machine") == {"dog", "drone"}
+
     def test_missing_super_is_client_error(self, client):
         response = put(client, "dog", ["no-such-parent"])
         assert response.status_code == 400

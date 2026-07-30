@@ -221,6 +221,22 @@ class TestSwarmConfig(unittest.TestCase):
                     os.environ["ONTODAG_HOME"] = old
 
 
+class TestGetOr(unittest.TestCase):
+    def test_or_separates_disjuncts(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "zoo.od"))
+            for argv in (["put", "animal"], ["put", "machine"],
+                         ["put", "pet"], ["put", "dog", "animal", "pet"],
+                         ["put", "drone", "machine"]):
+                self.assertEqual(_run(argv, session)[0], 0)
+            code, out = _run(["get", "animal", "pet", "or", "machine"],
+                             session)
+            self.assertEqual((code, out), (0, "dog\ndrone\n"))
+            # A trailing/leading `or` is a usage error, not a silent empty.
+            code, _ = _run(["get", "animal", "or"], session)
+            self.assertNotEqual(code, 0)
+
+
 class TestSwarmSignerWiring(unittest.TestCase):
     """The published-root pointer (roadmap item 2, DIMENSIONS-era queue):
     with a signer configured the backend builds its store through

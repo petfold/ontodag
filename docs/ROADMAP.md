@@ -91,8 +91,12 @@ canonical form and the merge properties untouched:
   Balaton" become *exactly* computed cone intersections. This is what the original
   roadmap's "predicated (parametric) items" and "space and time calculation"
   become.
-- **Union in `get()`.** Query-side set union over cone intersections; stored state
-  and canonical form untouched.
+- ~~**Union in `get()`.**~~ **Done (2026-07-31):** `get_any` — DNF over
+  conjunctive queries, on every residency (Eager/Lazy/Sparse), with the CLI's
+  literal `or` and the REST API's `|`. Stored state and canonical form
+  untouched, as promised: union is a question you ask, never a thing you
+  store. Classic use with typed values: *outside a range*
+  (`get_any([["weight(..2kg)"], ["weight(5kg..)"]])`).
 
 ## Parked until real usage data exists
 

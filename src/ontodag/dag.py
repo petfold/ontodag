@@ -770,6 +770,44 @@ class OntoDAG(DAG):
             common_subcategories &= self.get_descendants(node)
         return common_subcategories
 
+    def get_any(self, queries):
+        """Union of conjunctive queries — `get` in disjunctive normal form.
+
+        Each element of `queries` is a collection of terms exactly as
+        `get` takes them (names or Items, parametric sugar and virtual
+        terms included); the result is everything matching AT LEAST ONE of
+        the conjunctions:
+
+            get_any([{"dog", "pet"}, {"cat"}])   # (dog AND pet) OR cat
+
+        Query-side only: no stored state, no new edge kind, canonical form
+        untouched (DATABASE_DIRECTION.md "Pure now" item 3 — union is a
+        question you ask, never a thing you store). Planner note, result-
+        preserving like every planner step: after canonicalization, a
+        disjunct whose term set is a strict superset of another's can only
+        return a subset of that other's result (adding a term never widens
+        a cone intersection), so it is skipped; the survivors each run
+        through the ordinary `get` planner and their results union. An
+        unknown term empties only its own disjunct — the other branches
+        still answer.
+        """
+        normalized = []
+        for query in queries:
+            terms = frozenset(self._canonical_name(_name_of(term))
+                              for term in query)
+            if not terms:
+                raise TypeError("get_any() disjuncts need at least one term")
+            if terms not in normalized:
+                normalized.append(terms)
+        if not normalized:
+            raise TypeError("get_any() requires at least one query")
+        minimal = [terms for terms in normalized
+                   if not any(other < terms for other in normalized)]
+        result = set()
+        for terms in minimal:
+            result |= self.get(terms)
+        return result
+
     def get_by_dag(self, query_dag):
         """
         Returns a new DAG with a new root, with the nodes that are intersected with the query nodes,

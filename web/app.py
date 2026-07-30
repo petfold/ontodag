@@ -152,14 +152,20 @@ def get_query():
     categories = request.args.get("cat")
     if not categories:
         return jsonify({"error": "No categories provided"}), 400
-    query = categories.split(",")
+    # `|` separates disjuncts, `,` conjoins within one:
+    #   cat=Dog,Pet|Cat  ->  (Dog AND Pet) OR Cat
+    queries = [part.split(",") for part in categories.split("|")]
 
     my_dag = session["my_dag"]
     try:
-        # get() resolves names itself: unknown terms fail closed (empty
-        # result), parametric terms may be virtual (weight(..5kg) needs no
-        # node), malformed parameters are a client error.
-        result_nodes = my_dag.get(query)
+        # get()/get_any() resolve names themselves: unknown terms fail
+        # closed (empty result / empty disjunct), parametric terms may be
+        # virtual (weight(..5kg) needs no node), malformed parameters are
+        # a client error.
+        if len(queries) == 1:
+            result_nodes = my_dag.get(queries[0])
+        else:
+            result_nodes = my_dag.get_any(queries)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
