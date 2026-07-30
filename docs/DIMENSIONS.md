@@ -1,10 +1,14 @@
 # Dimension Lattices: Parametric Items with a Computed Order
 
-Status: design agreed 2026-07-30 (three-session discussion, Peter + Claude).
-No code yet. This document is the design record; implementation sequencing
-is at the end. Read `DATABASE_DIRECTION.md` first for where this sits in
-the wall/tripwire discipline — this design is the fired escape hatch of
-the "exact arithmetic" wall, recorded there.
+Status: design agreed 2026-07-30 (three-session discussion, Peter + Claude);
+**steps 1–4 of §12 implemented the same day** (`src/ontodag/dimensions.py` +
+the `dag.py` integration; `tests/test_dimensions.py`,
+`tests/test_dimensions_dag.py`; CLI validated end-to-end on the native
+store). Steps 5–7 (LazyOntoDAG, derived index, `get_overlapping`) are open.
+This document is the design record; implementation sequencing is at the
+end. Read `DATABASE_DIRECTION.md` first for where this sits in the
+wall/tripwire discipline — this design is the fired escape hatch of the
+"exact arithmetic" wall, recorded there.
 
 ## 1. What and why
 
@@ -347,17 +351,28 @@ tooling, not model.
 
 ## 12. Implementation sequencing (one reviewable commit each)
 
-1. Grammar + registry + canonicalizer (`src/ontodag/dimensions.py`):
-   parse/normalize/render, kind lookup by ancestry, unit table,
-   `contains`/`intersect` for the three kinds. Pure functions;
-   oracle-style tests (brute force over denotations).
-2. Combined reachability in `dag.py`: `add_edge` cycle check,
-   `_remove_unneeded_edges`, same-dimension edge rejection, anchor
-   auto-creation on first use of a value, and the disjoint-parents
-   guard (§9).
-3. `remove` contraction along combined covers.
-4. Virtual query terms + planner pre-intersection; `get` over eager
-   graphs.
+1. ~~Grammar + registry + canonicalizer (`src/ontodag/dimensions.py`)~~
+   **DONE** (`80f18df`) — parse/normalize/render, unit table,
+   `contains`/`intersect` for the three kinds; brute-force denotation
+   oracles. One design refinement the oracle forced: integer families
+   admit no negatives, so an unbounded lower end IS 0 and normalizes to
+   one canonical form (`number(..0)` ≡ `number(0)`,
+   `number(0..5)` ≡ `number(..5)`).
+2. ~~Combined reachability in `dag.py`~~ **DONE** (`590a402`) — kind
+   lookup by ancestry, boundary canonicalization everywhere, anchor
+   auto-creation (schema edges, never pruned), combined-order cycle
+   check and reduction, same-dimension edge rejection, disjoint-parents
+   guard, per-head value-space consistency. Note on counts: pruning now
+   runs with *live* counts after the add — an edge redundant only via
+   computed hops genuinely changes asserted reachability, so its
+   removal must (and does) decrement the asserted-only counts, while
+   asserted-redundant prunes remain count-neutral automatically.
+3. ~~`remove` contraction along combined covers~~ **DONE** (`d78639d`).
+4. ~~Virtual query terms + planner pre-intersection~~ **DONE**
+   (`72e7d31`) — queries with parametric terms take a straightforward
+   smallest-cone-first path (virtual cones from the anchor star, then
+   one upward probe for the ordinary terms); dimension-free queries
+   keep the existing adaptive planner bit-for-bit.
 5. `LazyOntoDAG` virtual-term path (head record → star → filter).
 6. Per-dimension sorted derived index (only if profiling asks).
 7. `get_overlapping` (first follow-up, after v1 ships).
