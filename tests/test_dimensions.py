@@ -1,0 +1,262 @@
+"""Step 1 of docs/DIMENSIONS.md §12: the pure grammar/registry/arithmetic
+module, tested against explicit denotation oracles (materialized value sets),
+mirroring the independent-oracle style of test_invariants.py."""
+
+import itertools
+
+import pytest
+
+from ontodag import dimensions as dims
+from ontodag.dimensions import (
+    KIND_DOMINANCE, KIND_LINEAR, KIND_PREFIX,
+    canonicalize, contains, intersect, space_of, split_term,
+)
+
+
+class TestSplitTerm:
+    def test_shapes(self):
+        assert split_term("weight(3kg)") == ("weight", "3kg")
+        assert split_term("time(2026-08-10..2026-08-20)") == (
+            "time", "2026-08-10..2026-08-20")
+
+    def test_non_terms_stay_opaque(self):
+        for name in ["weight", "weight()", "(3kg)", "weight(3kg", "3kg)",
+                     "a(b)(c)", "smiley:-)", 42, None]:
+            assert split_term(name) is None
+
+
+class TestLinearCanonicalization:
+    @pytest.mark.parametrize("raw,canonical", [
+        ("weight(3kg)", "weight(3000000mg)"),
+        ("weight(0.5g)", "weight(500mg)"),
+        ("weight(05kg)", "weight(5000000mg)"),
+        ("weight(3.0kg)", "weight(3000000mg)"),
+        ("weight(..5kg)", "weight(..5000000mg)"),
+        ("weight(1kg..)", "weight(1000000mg..)"),
+        ("weight(1kg..5kg)", "weight(1000000mg..5000000mg)"),
+        ("weight(2kg..2000g)", "weight(2000000mg)"),  # degenerate -> point
+        ("length(1km)", "length(1000000mm)"),
+        ("wait(2min)", "wait(120s)"),
+        ("number(5)", "number(5)"),
+        ("number(0)", "number(0)"),
+        # No negatives in the grammar, so 0 IS unbounded-below: one
+        # denotation, one canonical name.
+        ("number(..0)", "number(0)"),
+        ("number(0..5)", "number(..5)"),
+        ("number(0..)", "number(0..)"),
+    ])
+    def test_units_scale_exactly(self, raw, canonical):
+        assert canonicalize(raw, KIND_LINEAR) == canonical
+
+    def test_idempotent(self):
+        for raw in ["weight(3kg)", "weight(..5kg)", "number(1..9)",
+                    "time(2026-08-15)"]:
+            once = canonicalize(raw, KIND_LINEAR)
+            assert canonicalize(once, KIND_LINEAR) == once
+
+    @pytest.mark.parametrize("raw,canonical", [
+        ("time(2026-08-15T14:00:00Z)", "time(2026-08-15T14:00:00Z)"),
+        ("time(2026-08-15)",
+         "time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)"),
+        ("time(2026-08-10..2026-08-20)",
+         "time(2026-08-10T00:00:00Z..2026-08-20T23:59:59Z)"),
+        ("time(..2026-01-01T00:00:00Z)", "time(..2026-01-01T00:00:00Z)"),
+    ])
+    def test_timestamps_and_date_sugar(self, raw, canonical):
+        assert canonicalize(raw, KIND_LINEAR) == canonical
+
+    @pytest.mark.parametrize("raw", [
+        "weight(0.0005g)",        # finer than the base unit: never round
+        "weight(3zz)",            # unknown unit
+        "weight(..)",             # no end at all
+        "weight(5kg..1kg)",       # empty range
+        "weight(1..2..3)",        # two separators
+        "weight(1kg..2s)",        # mixed families in one range
+        "time(2026-13-40)",       # not a real date
+        "time(2026-02-30T00:00:00Z)",  # not a real timestamp
+        "weight(-3kg)",           # no negative quantities in the grammar
+    ])
+    def test_malformed_raise(self, raw):
+        with pytest.raises(ValueError):
+            canonicalize(raw, KIND_LINEAR)
+
+
+class TestDominanceCanonicalization:
+    def test_shared_unit_and_sorting(self):
+        assert canonicalize("size(19x23x39cm)", KIND_DOMINANCE) == \
+            "size(390x230x190mm)"
+        assert canonicalize("size(1mx50cm)", KIND_DOMINANCE) == \
+            "size(1000x500mm)"
+        assert canonicalize("shape(3x4x5)", KIND_DOMINANCE) == "shape(5x4x3)"
+
+    def test_idempotent(self):
+        once = canonicalize("size(19x23x39cm)", KIND_DOMINANCE)
+        assert canonicalize(once, KIND_DOMINANCE) == once
+
+    @pytest.mark.parametrize("raw", [
+        "size(5cm)",              # needs at least two components
+        "size(3x4mmx5)",          # count component left of a unit one
+        "size(3xx4)",             # empty component
+    ])
+    def test_malformed_raise(self, raw):
+        with pytest.raises(ValueError):
+            canonicalize(raw, KIND_DOMINANCE)
+
+
+class TestPrefixCanonicalization:
+    def test_passthrough(self):
+        assert canonicalize("geo(u2ed)", KIND_PREFIX) == "geo(u2ed)"
+
+    @pytest.mark.parametrize("raw", ["geo(a..b)", "geo(a b)", "geo(.x)"])
+    def test_malformed_raise(self, raw):
+        with pytest.raises(ValueError):
+            canonicalize(raw, KIND_PREFIX)
+
+
+class TestContains:
+    def test_courier_and_flour(self):
+        # The two worked examples of DIMENSIONS.md §2, verbatim.
+        assert contains("weight(..5kg)", "weight(3kg)", KIND_LINEAR)
+        assert contains("weight(1kg..)", "weight(1.2kg)", KIND_LINEAR)
+        # Points are incomparable: a 3 kg parcel is not a 5 kg parcel.
+        assert not contains("weight(5kg)", "weight(3kg)", KIND_LINEAR)
+        assert not contains("weight(3kg)", "weight(5kg)", KIND_LINEAR)
+
+    def test_reflexive_never_mutual_between_distinct_canonicals(self):
+        assert contains("weight(3kg)", "weight(3000g)", KIND_LINEAR)
+        assert contains("weight(3000g)", "weight(3kg)", KIND_LINEAR)
+        # ... but those two ARE the same canonical name (same denotation).
+        assert canonicalize("weight(3kg)", KIND_LINEAR) == \
+            canonicalize("weight(3000g)", KIND_LINEAR)
+
+    def test_time_windows(self):
+        assert contains("time(2026-08-10..2026-08-20)",
+                        "time(2026-08-15T14:00:00Z)", KIND_LINEAR)
+        assert contains("time(2026-08-15)",
+                        "time(2026-08-15T14:00:00Z..2026-08-15T17:00:00Z)",
+                        KIND_LINEAR)
+        assert not contains("time(2026-08-15)",
+                            "time(2026-08-15T14:00:00Z..2026-08-16T10:00:00Z)",
+                            KIND_LINEAR)
+
+    def test_dominance_fits_in(self):
+        # The luggage example: sorted componentwise dominance.
+        assert contains("size(20x30x40cm)", "size(19x23x39cm)",
+                        KIND_DOMINANCE)
+        assert not contains("size(19x23x39cm)", "size(20x30x40cm)",
+                            KIND_DOMINANCE)
+        # Rotation is free: canonical sorting compares largest to largest.
+        assert contains("size(40x30x20cm)", "size(39x19x23cm)",
+                        KIND_DOMINANCE)
+
+    def test_prefix(self):
+        assert contains("geo(u2)", "geo(u2ed)", KIND_PREFIX)
+        assert not contains("geo(u2ed)", "geo(u2)", KIND_PREFIX)
+        assert not contains("geo(u2ed)", "geo(u3)", KIND_PREFIX)
+
+    def test_cross_head_and_family_mismatch_raise(self):
+        with pytest.raises(ValueError):
+            contains("weight(..5kg)", "height(3mm)", KIND_LINEAR)
+        with pytest.raises(ValueError):
+            contains("weight(..5kg)", "weight(3s)", KIND_LINEAR)
+        with pytest.raises(ValueError):
+            contains("size(3x4)", "size(3x4x5)", KIND_DOMINANCE)
+
+
+class TestIntersect:
+    def test_linear(self):
+        assert intersect("weight(1kg..5kg)", "weight(3kg..9kg)",
+                         KIND_LINEAR) == "weight(3000000mg..5000000mg)"
+        assert intersect("weight(..5kg)", "weight(2kg..)",
+                         KIND_LINEAR) == "weight(2000000mg..5000000mg)"
+        assert intersect("weight(..2kg)", "weight(3kg..)",
+                         KIND_LINEAR) is None
+        assert intersect("weight(..5kg)", "weight(3kg)",
+                         KIND_LINEAR) == "weight(3000000mg)"
+
+    def test_dominance_never_empty(self):
+        assert intersect("size(20x30x40cm)", "size(50x10x35cm)",
+                         KIND_DOMINANCE) == "size(400x300x100mm)"
+
+    def test_prefix(self):
+        assert intersect("geo(u2)", "geo(u2ed)", KIND_PREFIX) == "geo(u2ed)"
+        assert intersect("geo(u2ed)", "geo(u2)", KIND_PREFIX) == "geo(u2ed)"
+        assert intersect("geo(u2)", "geo(u3)", KIND_PREFIX) is None
+
+
+class TestSpaceOf:
+    def test_tags(self):
+        assert space_of("weight(3kg)", KIND_LINEAR) == "linear:mass"
+        assert space_of("time(2026-08-15)", KIND_LINEAR) == "linear:time"
+        assert space_of("size(3x4x5cm)", KIND_DOMINANCE) == \
+            "dominance:length:3"
+        assert space_of("geo(u2)", KIND_PREFIX) == "prefix"
+
+
+class TestAgainstDenotationOracle:
+    """Brute force: materialize denotations as explicit finite sets and check
+    contains/intersect against set operations — the independent oracle.
+    Upper-open intervals are materialized over an *extended* grid so that
+    open-vs-bounded distinctions stay faithful (an unbounded set contains
+    beyond-grid values no bounded set has)."""
+
+    GRID = range(0, 13)
+    EXTENT = max(GRID) + 3  # where "unbounded above" is materialized to
+
+    def _terms(self):
+        """canonical name -> materialized denotation set (duplicates like
+        number(0..5) and number(..5) merge into one canonical entry)."""
+        raw = [(f"number({v})", {v}) for v in self.GRID]
+        for lo, hi in itertools.combinations(self.GRID, 2):
+            raw.append((f"number({lo}..{hi})", set(range(lo, hi + 1))))
+        for v in self.GRID:
+            raw.append((f"number(..{v})", set(range(0, v + 1))))
+            raw.append((f"number({v}..)", set(range(v, self.EXTENT + 1))))
+        terms = {}
+        for name, values in raw:
+            canonical = canonicalize(name, KIND_LINEAR)
+            assert terms.setdefault(canonical, values) == values
+        return terms
+
+    def test_contains_matches_subset(self):
+        terms = self._terms()
+        for (name_a, set_a), (name_b, set_b) in itertools.product(
+                terms.items(), repeat=2):
+            assert contains(name_a, name_b, KIND_LINEAR) == \
+                (set_b <= set_a), f"{name_a} vs {name_b}"
+
+    def test_intersect_matches_set_intersection(self):
+        terms = self._terms()
+        for (name_a, set_a), (name_b, set_b) in itertools.product(
+                terms.items(), repeat=2):
+            met = intersect(name_a, name_b, KIND_LINEAR)
+            expected = set_a & set_b
+            if not expected:
+                assert met is None, f"{name_a} vs {name_b}"
+            else:
+                assert met is not None, f"{name_a} vs {name_b}"
+                # The meet's denotation must be exactly the intersection.
+                assert terms[met] == expected, f"{name_a} vs {name_b}"
+
+    def test_dominance_oracle(self):
+        # All 2-tuples over a small grid; denotation = the down-set.
+        tuples = list(itertools.product(range(1, 6), repeat=2))
+
+        def downset(t):
+            s = tuple(sorted(t, reverse=True))
+            return {(x, y) for x in range(0, s[0] + 1)
+                    for y in range(0, s[1] + 1) if x >= y}
+
+        for ta, tb in itertools.product(tuples, repeat=2):
+            name_a = f"shape({ta[0]}x{ta[1]})"
+            name_b = f"shape({tb[0]}x{tb[1]})"
+            assert contains(name_a, name_b, KIND_DOMINANCE) == \
+                (downset(tb) <= downset(ta)), f"{name_a} vs {name_b}"
+
+
+class TestRegistry:
+    def test_reserved_names(self):
+        assert dims.KINDS == {"linear-dimension", "prefix-dimension",
+                              "dominance-dimension"}
+        assert dims.DIMENSION_ROOT == "dimension"
+        assert isinstance(dims.REGISTRY_VERSION, int)
