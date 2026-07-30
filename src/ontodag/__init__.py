@@ -23,4 +23,11 @@ def __getattr__(name):
         from ontodag.lazy import LazyOntoDAG
 
         return LazyOntoDAG
+    # The partially-resident writer: LazyOntoDAG's residency model with
+    # EagerOntoDAG's mutation semantics (ROADMAP "writing back from a
+    # partially-loaded graph").
+    if name == "SparseOntoDAG":
+        from ontodag.lazy import SparseOntoDAG
+
+        return SparseOntoDAG
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

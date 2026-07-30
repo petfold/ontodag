@@ -47,19 +47,21 @@ Last updated 2026-07-25.
    Being *derived*, it never touches the canonical form — indexing writes
    nothing to the asserted store, and a stale or version-skewed index is
    ignored, never silently wrong.
-2. **Writing back from a partially-loaded graph.** `LazyOntoDAG` is read-only on
-   purpose — but one of the three reasons has now gone. **Exact counts are no
-   longer a blocker:** they are maintained by local delta (see §"counts" in
-   HOW_IT_WORKS), proven exact against a brute-force oracle over ~7,600
-   operations and *cheaper* than the old recompute, so nothing about them needs
-   the whole graph. What remains is (a) change detection — `commit()` still
-   diffs a complete set of records, which a partially-resident writer would
-   have to replace with dirty-tracking — and (b) minimal links: transitive
-   reduction is bounded by the ancestors and cones it touches, so it looks
-   local, but that has not been tested under partial residency. Groundwork:
-   `experiments/RESULTS.md` on the `experiment/delta-counts` branch, and
-   `docs/MERKLE_NOTES.md` for why change detection is a Merkle-diff problem
-   (recordstore's `_diff` already prunes shared subtrees; it is just private).
+2. ~~**Writing back from a partially-loaded graph.**~~ **Done (2026-07-31):
+   `SparseOntoDAG`** — LazyOntoDAG's residency with the full mutation
+   semantics. The two open problems resolved as the analysis predicted:
+   (a) *change detection* needs no Merkle diff at all — every mutation runs
+   on resident nodes, whose as-loaded records the reader already caches, so
+   `commit()` diffs the resident set against those baselines and stages only
+   real changes; (b) *minimal links* proved local once the three remaining
+   downward probes (redundancy, cycle, "already reaches child" in count
+   planning) were flipped upward into ancestor-cone walks — the same
+   direction rule the query planner always followed, and a speedup for the
+   eager writer too. Oracle: byte-identical roots against an eager writer
+   applying the same operations, including randomized sequences, removals
+   with contraction, and dimension renormalization. Measured on a
+   447-record store: a `put` costs **7 fetches** and its commit stages
+   **7 records**; a `remove` 3 more and 5.
 3. ~~**A published "latest version" pointer.**~~ **Done (2026-07-31).** With a
    signing key configured (`odag set bee_signer …` or `$BEE_SIGNER`) the store's
    latest root lives in an owner-signed Swarm feed — a stable address others can

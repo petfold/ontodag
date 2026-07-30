@@ -87,7 +87,7 @@ local to ``_expand_many``.
 """
 
 from ontodag import dimensions as _dims
-from ontodag.dag import Item, OntoDAG, _name_of
+from ontodag.dag import DAG, Item, OntoDAG, _name_of
 
 
 class _LazyNodes(dict):
@@ -106,6 +106,12 @@ class _LazyNodes(dict):
         self._dag = dag
 
     def get(self, name, default=None):
+        # A resident node — expanded from the store, or created locally by
+        # the sparse writer (which has no record: _load would wrongly report
+        # it absent) — is the truth as it stands in memory.
+        node = dict.get(self, name)
+        if node is not None and name in self._dag._expanded:
+            return node
         if self._dag._load(name) is None:
             return default
         # Resolution expands: the planner reads `descendant_count` off the
@@ -343,3 +349,162 @@ class LazyOntoDAG(OntoDAG):
     put = remove = merge = _read_only
     add_edge = remove_edge = add_node = _read_only
     commit = _read_only
+
+
+class SparseOntoDAG(LazyOntoDAG):
+    """The partially-resident WRITER: LazyOntoDAG's residency model with the
+    full OntoDAG mutation semantics (ROADMAP "writing back from a
+    partially-loaded graph").
+
+    The two problems that kept the lazy reader read-only, and how they are
+    solved here:
+
+    - **Change detection.** `EagerOntoDAG.commit()` diffs a complete record
+      set; a partially-resident writer cannot enumerate what it never
+      loaded. But it doesn't need to: every mutation runs on *expanded*
+      nodes (the overrides below expand before touching anything), so a
+      mutated node is always resident — and `self._records` already holds
+      each resident node's as-loaded record. `commit()` therefore diffs the
+      RESIDENT set against those baselines and stages only real changes:
+      cost scales with what was touched, never with the store.
+    - **Reduction locality.** Transitive reduction, cycle checks and count
+      deltas are bounded by the ancestor sets and cones they walk; the
+      traversal seams (`_is_reachable`, `_count_reachable`, `_live_parents`,
+      `_get_affected_nodes`, plus LazyOntoDAG's read overrides) expand as
+      they go, so those walks fetch what they touch and nothing else. The
+      oracle test (tests/test_sparse.py) asserts byte-identical roots
+      against an eager writer applying the same operations.
+
+    Construct it over a WRITABLE store at the published base
+    (``RecordStore(blobs, root=base)``), not a read-only snapshot. Cone
+    caching and published cone indexes are disabled — both describe an
+    immutable snapshot, which a writer is not. `merge`/`sync` of whole
+    peers remain EagerOntoDAG's job (they are O(|other|) by nature).
+    """
+
+    def __init__(self, record_store):
+        super().__init__(record_store, cache_cones=False)
+        self._deleted = set()   # store-backed names removed since last commit
+
+    # ------------------------------------------------ expansion-aware seams
+    #
+    # dag.py's structural machinery walks `neighbors`/`parents` directly;
+    # on stubs those are empty, which would silently corrupt reduction and
+    # counts. Each seam expands what it walks — that is the entire cost of
+    # a write: the ancestors and cones the operation genuinely touches.
+
+    def _is_reachable(self, start, target, computed=False):
+        seen = set()
+        stack = [start]
+        while stack:
+            current = self._expand(stack.pop())
+            successors = list(current.neighbors)
+            if computed:
+                successors.extend(self._computed_children(current))
+            for neighbor in successors:
+                if neighbor == target:
+                    return True
+                if neighbor not in seen:
+                    seen.add(neighbor)
+                    stack.append(neighbor)
+        return False
+
+    def _count_reachable(self, start, targets):
+        remaining = set(targets)
+        found = 0
+        seen = set()
+        frontier = [start]
+        while frontier and remaining:
+            for neighbor in self._expand(frontier.pop()).neighbors:
+                if neighbor in remaining:
+                    remaining.discard(neighbor)
+                    found += 1
+                    if not remaining:
+                        return found
+                if neighbor not in seen:
+                    seen.add(neighbor)
+                    frontier.append(neighbor)
+        return found
+
+    def _live_parents(self, node):
+        self._expand(node)
+        return [p for p in node.parents
+                if dict.get(self.nodes, p.name) is p]
+
+    def _get_affected_nodes(self, node, affected):
+        frontier = [node]
+        while frontier:
+            current = frontier.pop()
+            if current in affected:
+                continue
+            affected.add(current)
+            frontier.extend(self._live_parents(current))
+
+    # ------------------------------------------------------------ mutations
+    #
+    # LazyOntoDAG blocks these with class attributes, so super() would hit
+    # the guard: delegate to OntoDAG/DAG explicitly. Every entry expands its
+    # endpoints first, keeping the invariant that mutated nodes are resident
+    # (and therefore that _records holds their pre-change baseline).
+
+    def add_node(self, node):
+        DAG.add_node(self, node)
+        # A created node is fully known: nothing in the store to expand.
+        self._records.setdefault(node.name, None)
+        self._expanded.add(node.name)
+
+    def add_edge(self, from_node, to_node):
+        self._expand(from_node)
+        self._expand(to_node)
+        OntoDAG.add_edge(self, from_node, to_node)
+
+    def remove_edge(self, from_node, to_node):
+        self._expand(from_node)
+        self._expand(to_node)
+        DAG.remove_edge(self, from_node, to_node)
+
+    def put(self, subcategory, super_categories, optimized=False):
+        OntoDAG.put(self, subcategory, super_categories, optimized=optimized)
+
+    def remove(self, node_to_remove):
+        name = self._canonical_name(_name_of(node_to_remove))
+        persisted = name in self.nodes and self._load(name) is not None
+        OntoDAG.remove(self, node_to_remove)
+        self._records[name] = None      # later lookups: known absent
+        self._expanded.discard(name)
+        if persisted:
+            self._deleted.add(name)
+
+    # --------------------------------------------------------------- commit
+
+    def _record_for(self, node):
+        loaded = self._records.get(node.name) or {}
+        return {
+            "up": sorted(p.name for p in node.parents
+                         if dict.get(self.nodes, p.name) is p),
+            "down": sorted(child.name for child in node.neighbors),
+            "count": node.descendant_count,
+            "payload": loaded.get("payload"),   # preserved, never edited here
+            "meta": dict(node.metadata),
+        }
+
+    def commit(self):
+        """Stage the resident diff, commit, return the new root.
+
+        Sweeps only `self._expanded` — every node a mutation could have
+        touched — comparing each against its as-loaded record; unchanged
+        residents stage nothing. A node re-added after removal simply
+        diffs as changed, so deletion bookkeeping stays consistent."""
+        for name in sorted(self._deleted):
+            if name not in self.nodes:      # not re-added since
+                self.store.delete(name)
+        self._deleted.clear()
+        for name in sorted(self._expanded):
+            node = dict.get(self.nodes, name)
+            if node is None:
+                continue
+            record = self._record_for(node)
+            if self._records.get(name) != record:
+                self.store.put(name, record)
+                self._records[name] = record
+        return self.store.commit()

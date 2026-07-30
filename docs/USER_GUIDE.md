@@ -814,9 +814,30 @@ print(dag.fetches)      # how many records that actually cost
 ```
 
 On a 3,200-item published store a specific query touches a few dozen records.
-It is **read-only by construction** — use `EagerOntoDAG` to edit and publish,
-`LazyOntoDAG` to query what was published. (The names describe *residency*, not
-storage: both take any record store, and neither is tied to Swarm.)
+It is **read-only by construction** — for reading, that is the right contract.
+(The names describe *residency*, not storage: every variant takes any record
+store, and none is tied to Swarm.)
+
+**Editing without downloading everything** is `SparseOntoDAG`: the same
+on-demand residency, with the full `put`/`remove` semantics on top.
+
+```python
+from ontodag import SparseOntoDAG
+from recordstore import RecordStore
+
+dag = SparseOntoDAG(RecordStore(blobs, root=published_root))  # writable
+dag.put("spaniel", ["dog"])
+new_root = dag.commit()        # stages only what actually changed
+```
+
+A write fetches just what it touches — the new item's parents, their
+ancestors, whatever the tidy-graph rules need to check — and `commit()`
+stages only the records that really changed: adding one item to a
+447-record store costs about 7 fetches and writes about 7 records, and the
+resulting root is byte-identical to what a fully-loaded editor would have
+produced. Use `EagerOntoDAG` when you are editing most of a graph anyway
+(or merging whole ontologies), `SparseOntoDAG` for surgical edits to big
+published ones, `LazyOntoDAG` to only ask questions.
 
 Once a store lives on Swarm, it can also be **browsed as a filesystem** with
 [ontodag-fs](https://github.com/petfold/ontodag-fs): directory paths are

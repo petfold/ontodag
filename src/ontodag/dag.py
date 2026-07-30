@@ -226,13 +226,17 @@ class DAG:
         edge, so planning afterwards would read ancestors as newly gaining
         what they already had)."""
         below = self.get_descendants(child, computed=False)
-        # A child with no parents yet cannot be reached from anywhere, so the
-        # "does this ancestor already reach it?" probe is provably False for
-        # every ancestor and is skipped. That is the common case — appending a
-        # fresh item — and it is what keeps the whole operation proportional to
-        # the ancestor set instead of to the cones: an exhaustive probe is the
-        # expensive direction (it can only conclude "no" by walking the lot).
+        # "Does this ancestor already reach child?" is asked once per walked
+        # ancestor; answered downward it walks that ancestor's cone (which
+        # near the root is the whole graph — ruinous in fetches for a
+        # partially-resident writer, wasteful in hops everywhere). Answered
+        # upward it is ONE walk over child's ancestor cone, then set
+        # membership. A child with no parents yet reaches nothing and is
+        # reached from nowhere — the common append-a-fresh-item case skips
+        # even that walk.
         unreachable = not self._live_parents(child)
+        reaches_child = frozenset() if unreachable else \
+            self.get_ancestors(child, computed=False)
         deltas = {}
         frontier = [parent]
         seen = set()
@@ -241,7 +245,7 @@ class DAG:
             if node in seen:
                 continue
             seen.add(node)
-            if not unreachable and self._is_reachable(node, child):
+            if node in reaches_child:
                 continue          # reaches child already, hence all below it
             gained = 1 if not below else (
                 1 + len(below) - self._count_reachable(node, below))
@@ -253,6 +257,10 @@ class DAG:
         """Count deltas for a `parent` -> `child` edge that has just been
         removed (reachability questions are about the post-state)."""
         below = self.get_descendants(child, computed=False)
+        # Upward probe, as in _plan_add: one walk over child's remaining
+        # ancestor cone answers "does this node still reach child?" for
+        # every walked ancestor.
+        still_reaches_child = self.get_ancestors(child, computed=False)
         deltas = {}
         frontier = [parent]
         seen = set()
@@ -261,7 +269,7 @@ class DAG:
             if node in seen:
                 continue
             seen.add(node)
-            if self._is_reachable(node, child):
+            if node in still_reaches_child:
                 continue          # still reaches child, hence all below it
             lost = 1 if not below else (
                 1 + len(below) - self._count_reachable(node, below))
@@ -589,10 +597,15 @@ class OntoDAG(DAG):
         # combined (asserted + computed) order — adding it would violate
         # transitive reduction (and made results depend on the order of
         # super-categories in put). Anchor edges are schema and always kept.
-        if not anchor and self._is_reachable(from_node, to_node, computed=True):
+        # Both this and the cycle check below are asked UPWARD (is X among
+        # Y's ancestors?): ancestor cones are shallow where descendant cones
+        # can be most of the graph — the same direction rule the query
+        # planner follows, and what keeps writes local for the
+        # partially-resident writer.
+        if not anchor and self._has_ancestors(to_node, (from_node,)):
             return
         # Reject cycles — through computed hops too — before anything mutates.
-        if self._is_reachable(to_node, from_node, computed=True):
+        if self._has_ancestors(from_node, (to_node,)):
             raise ValueError(
                 f"Edge {from_node.name} -> {to_node.name} would create a cycle."
             )
