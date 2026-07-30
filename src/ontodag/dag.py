@@ -808,6 +808,68 @@ class OntoDAG(DAG):
             result |= self.get(terms)
         return result
 
+    def is_below(self, node, super_category):
+        """True iff `node` fits within `super_category` — equal to it, or
+        below it in the combined (asserted + computed) order. The Boolean
+        face of the DAG's one relation: "is A a solution to query B?".
+
+        Answered UPWARD from `node` with early exit (the planner's
+        direction rule: ancestor cones are shallow where descendant cones
+        can be most of the graph — never answer a subsumption question by
+        enumerating a cone). Unknown names fail closed to False, like
+        `get`. Either side may be a *virtual* parametric term: same-head
+        pairs decide by arithmetic from the names alone (no graph state
+        needed — `is_below("weight(3kg)", "weight(..5kg)")` is a pocket
+        containment check), a virtual bound is met by climbing to any
+        present value contained in it, and a virtual subject relates
+        upward only through the present values containing it.
+
+        Note there is deliberately NO descendant_count pre-filter here:
+        counts are asserted-only while this order is combined, so
+        "a strict ancestor has a strictly larger count" — sound for the
+        planner's optional term-dropping — would be an unsound *rejection*
+        rule with dimensions (a point value with a large asserted cone
+        sits below an interval whose asserted cone is empty).
+        """
+        sub = self._canonical_name(_name_of(node))
+        sup = self._canonical_name(_name_of(super_category))
+        sub_parsed = self._parse_parametric(sub)
+        sup_parsed = self._parse_parametric(sup)
+        sub_node = self.nodes.get(sub)
+        sup_node = self.nodes.get(sup)
+        if (sub_node is None and sub_parsed is None) or \
+                (sup_node is None and sup_parsed is None):
+            return False                 # unknown vocabulary fails closed
+        if sub == sup:
+            return True                  # fits-within is reflexive
+        # Same-dimension arithmetic is sound unconditionally (the computed
+        # order is real whether or not the nodes exist) — and for a pair
+        # with a virtual side it is also complete, short of cross edges.
+        if sub_parsed is not None and sup_parsed is not None \
+                and sub_parsed[0] == sup_parsed[0] \
+                and _dims.contains(sup, sub, sup_parsed[1]):
+            return True
+        if sub_node is None:
+            # A virtual subject relates upward only through the present
+            # values that contain it.
+            head, kind, _ = sub_parsed
+            return any(
+                _dims.contains(value.name, sub, kind)
+                and self.is_below(value, sup)
+                for value, _kind in self._star(head))
+        if sup_node is None:
+            # A virtual bound is met by any ancestor (or the subject
+            # itself, handled by the arithmetic above) whose denotation
+            # it contains.
+            head, kind, _ = sup_parsed
+            for ancestor in self.get_ancestors(sub_node):
+                parsed = self._parse_parametric(ancestor.name)
+                if parsed is not None and parsed[0] == head \
+                        and _dims.contains(sup, ancestor.name, kind):
+                    return True
+            return False
+        return self._has_ancestors(sub_node, (sup_node,))
+
     def get_by_dag(self, query_dag):
         """
         Returns a new DAG with a new root, with the nodes that are intersected with the query nodes,

@@ -111,7 +111,9 @@ query optimizers, all *provably result-preserving* (an optimizer that changes
 answers is a bug generator). (OR-queries are a thin layer on top: `get_any`
 takes several such conjunctions and unions their results, dropping any branch
 that is provably contained in another — union lives entirely on the query
-side, never in the stored graph.) The conjunctive planner:
+side, never in the stored graph. And the bare yes/no question — `is_below(A,
+B)` — never touches a cone at all: it walks *upward* from A, where ancestor
+sets are shallow, with early exit.) The conjunctive planner:
 
 **Planned before touching the graph** — using knowledge that's exact in advance:
 

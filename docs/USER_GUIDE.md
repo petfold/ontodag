@@ -234,6 +234,22 @@ On the command line the literal word `or` does the same job
 (`odag get Dog Pet or Cat`), and over REST it's a pipe
 (`/dag/query?cat=Dog,Pet|Cat`).
 
+**Yes/no questions: `is_below`.** When you don't want the list, just the
+answer — *does A fit within B?* — there's a direct test:
+
+```python
+dag.is_below("Spaniel", "Animal")               # True
+dag.is_below("Animal", "Spaniel")               # False — direction matters
+dag.is_below("weight(3kg)", "weight(..5kg)")    # True, from the names alone
+```
+
+It's the Boolean face of the same fits-within relation: reflexive
+(`is_below("Dog", "Dog")` is True), fail-closed on unknown names (False,
+never an error), and answered by walking *upward* from A with early exit —
+so it's fast even when B is a huge category, and cheap over the network on
+a lazy reader. With typed values it needs no graph at all: the last line
+above is pure arithmetic, a pocket containment check for dimension terms.
+
 ### 4.3 Removing: `remove`
 
 ```python
@@ -380,6 +396,8 @@ odag <command> ...
   get CAT [CAT...]      print items below all of the CATs, one per line
                         (the literal word `or` separates alternatives:
                         `get Dog Pet or Cat` = (Dog AND Pet) OR Cat)
+  below SUB SUP         does SUB fit within SUP? prints true/false and
+                        exits 0/1 (grep-style); `?` works at the prompt
   remove ITEM           remove ITEM from the store
   show                  print the DAG structure
   list                  print every item name
@@ -497,6 +515,22 @@ Aibo
 Cat
 Dog
 ```
+
+And for a plain yes/no there's `below`, which also sets the exit code
+(0 = true, 1 = false, like `grep`), so it slots straight into shell logic:
+
+```console
+$ odag below Aibo Pet
+true
+$ odag below Aibo Animal
+false
+$ odag below Aibo Pet && echo "it qualifies"
+true
+it qualifies
+```
+
+(At the interactive `>` prompt, `? Aibo Pet` is a synonym — no shell there
+to fight over the question mark.)
 
 Add a spaniel under Dog; nobody typed "Spaniel is an Animal" — being under Dog was
 enough:
@@ -701,6 +735,7 @@ Endpoint summary:
 | `POST /dag/node`             | Add item(s): `{"subcategories": [...], "super_categories": [...]}` |
 | `DELETE /dag/node`           | Remove item(s): `{"subcategories": [...]}`     |
 | `GET /dag/query?cat=A,B`     | Everything under all the listed categories (`\|` for OR: `cat=A,B\|C` = (A AND B) OR C) |
+| `GET /dag/below?sub=A&sup=B` | Yes/no: does A fit within B? → `{"below": true}` |
 | `GET /dag/image`             | PNG of the DAG                                 |
 | `GET /dag/query/image?cat=…` | PNG of a query and its results                 |
 | `POST /dag/import`           | Merge an uploaded `.owl`/`.omn` file into the session |

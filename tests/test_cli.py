@@ -237,6 +237,45 @@ class TestGetOr(unittest.TestCase):
             self.assertNotEqual(code, 0)
 
 
+class TestBelow(unittest.TestCase):
+    def _session(self, home):
+        session = cli.Session(os.path.join(home, "zoo.od"))
+        for argv in (["put", "animal"], ["put", "dog", "animal"]):
+            self.assertEqual(_run(argv, session)[0], 0)
+        return session
+
+    def test_true_false_and_exit_codes(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            self.assertEqual(_run(["below", "dog", "animal"], session),
+                             (0, "true\n"))
+            self.assertEqual(_run(["below", "animal", "dog"], session),
+                             (1, "false\n"))
+            # Unknown names are false, not errors: nothing on stderr.
+            self.assertEqual(_run(["below", "typo", "animal"], session),
+                             (1, "false\n"))
+
+    def test_question_mark_alias(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            self.assertEqual(_run(["?", "dog", "animal"], session),
+                             (0, "true\n"))
+
+    def test_typed_values_from_names_alone(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            for argv in (["put", "dimension"],
+                         ["put", "linear-dimension", "dimension"],
+                         ["put", "weight", "linear-dimension"]):
+                self.assertEqual(_run(argv, session)[0], 0)
+            self.assertEqual(
+                _run(["below", "weight(3kg)", "weight(..5kg)"], session),
+                (0, "true\n"))
+            self.assertEqual(
+                _run(["below", "weight(9kg)", "weight(..5kg)"], session),
+                (1, "false\n"))
+
+
 class TestSwarmSignerWiring(unittest.TestCase):
     """The published-root pointer (roadmap item 2, DIMENSIONS-era queue):
     with a signer configured the backend builds its store through

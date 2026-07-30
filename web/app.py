@@ -172,6 +172,21 @@ def get_query():
     return jsonify({"nodes": list([node.to_dict() for node in result_nodes])})
 
 
+@app.route("/dag/below", methods=["GET"])
+def get_below():
+    sub = request.args.get("sub")
+    sup = request.args.get("sup")
+    if not sub or not sup:
+        return jsonify({"error": "need both sub and sup"}), 400
+    my_dag = session["my_dag"]
+    try:
+        # Unknown names fail closed to false; malformed parametric terms
+        # are a client error, as in /dag/query.
+        return jsonify({"below": my_dag.is_below(sub, sup)})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
 @app.route("/dag/query/image", methods=["GET"])
 def get_query_dag_image():
     categories = request.args.get("cat")

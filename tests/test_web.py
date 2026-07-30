@@ -45,6 +45,19 @@ class TestPlainRest:
         put(client, "animal")
         assert query_names(client, "no-such-thing") == set()
 
+    def test_below_endpoint(self, client):
+        put(client, "animal")
+        put(client, "dog", ["animal"])
+        response = client.get("/dag/below",
+                              query_string={"sub": "dog", "sup": "animal"})
+        assert (response.status_code, response.get_json()) == \
+            (200, {"below": True})
+        response = client.get("/dag/below",
+                              query_string={"sub": "animal", "sup": "dog"})
+        assert response.get_json() == {"below": False}
+        assert client.get("/dag/below",
+                          query_string={"sub": "dog"}).status_code == 400
+
     def test_pipe_is_union(self, client):
         put(client, "animal")
         put(client, "machine")

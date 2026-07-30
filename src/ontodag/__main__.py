@@ -349,6 +349,16 @@ def cmd_get(args, session, out):
         print(name, file=out)
 
 
+def cmd_below(args, session, out):
+    # A Unix-style boolean, git merge-base --is-ancestor style: prints one
+    # parseable word (the interactive prompt has no exit codes) AND exits
+    # 0 for true / 1 for false, so `odag below A B && ...` just works.
+    # Unknown names are false, not errors (fail-closed, like get).
+    result = session.dag.is_below(args.sub, args.sup)
+    print("true" if result else "false", file=out)
+    return 0 if result else 1
+
+
 def cmd_remove(args, session, out):
     session.dag.remove(args.item)
     session.save()
@@ -436,6 +446,11 @@ Commands:
   get CAT [CAT...]      print items below all of the CATs, one per line
                         (the literal word `or` separates alternatives:
                         `get Dog Pet or Cat` = (Dog AND Pet) OR Cat)
+  below SUB SUP         does SUB fit within SUP? prints true/false and
+                        exits 0/1 (grep-style), so `odag below A B && ...`
+                        works; `?` is a synonym at the interactive prompt.
+                        Works on typed values from the names alone:
+                        below 'weight(3kg)' 'weight(..5kg)' -> true
   remove ITEM           remove ITEM from the store
   show                  print the DAG structure
   list                  print every item name
@@ -502,6 +517,12 @@ def build_parser():
     p.add_argument("-o", "--output")
     p.set_defaults(func=cmd_get, stream_output=True)
 
+    p = sub.add_parser("below", add_help=True,
+                       help="test whether SUB fits within SUP (exit 0/1)")
+    p.add_argument("sub")
+    p.add_argument("sup")
+    p.set_defaults(func=cmd_below, stream_output=True)
+
     p = sub.add_parser("remove", add_help=True, help="remove an item")
     p.add_argument("item")
     p.set_defaults(func=cmd_remove)
@@ -548,6 +569,10 @@ PARSER = build_parser()
 
 def dispatch(argv, session):
     """Parse one command line and run it. Returns a process-style exit code."""
+    if argv and argv[0] == "?":
+        # Interactive-prompt sugar for the subsumption test (`? Spaniel
+        # Animal`); works from a shell too if you quote the glob character.
+        argv = ["below"] + list(argv[1:])
     try:
         args = PARSER.parse_args(argv)
     except SystemExit as exc:  # argparse handled --help or a usage error
@@ -560,8 +585,10 @@ def dispatch(argv, session):
         if outpath and getattr(args, "stream_output", False):
             handle = open(outpath, "w")
             out = handle
-        args.func(args, session, out)
-        return 0
+        # A command may return an int to set the exit code (below's
+        # true/false is 0/1, grep-style); None keeps the usual 0.
+        code = args.func(args, session, out)
+        return code or 0
     except (ValueError, OSError) as exc:
         print(f"odag: {exc}", file=sys.stderr)
         return 1
