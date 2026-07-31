@@ -65,8 +65,9 @@ Last updated 2026-07-25.
 3. ~~**A published "latest version" pointer.**~~ **Done (2026-07-31).** With a
    signing key configured (`odag set bee_signer …` or `$BEE_SIGNER`) the store's
    latest root lives in an owner-signed Swarm feed — a stable address others can
-   follow. Keyless stores keep the local-file pointer. The live-node run of the
-   gated integration test is the one remaining evidence gap.
+   follow. Keyless stores keep the local-file pointer. Validated live 2026-08-01
+   (Gnosis mainnet): the root of a store rebuilt in an empty environment came
+   back purely via the feed.
 4. ~~**Multi-writer collaboration.**~~ **Done (2026-07-31).** `EagerOntoDAG.sync`
    folds a peer's published root in at the graph level (the order-independent
    merge, re-reduced, then recommitted); writers syncing each other's roots land

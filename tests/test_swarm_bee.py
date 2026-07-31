@@ -44,9 +44,13 @@ def _run(argv, session):
 class TestSwarmBackendOnLiveBee(unittest.TestCase):
     def setUp(self):
         # A temp home isolates the FilePointer(s); BEE_API/BEE_BATCH come from
-        # the environment, exactly as a real `odag` run reads them.
+        # the environment, exactly as a real `odag` run reads them. BEE_SIGNER
+        # is explicitly cleared: this class tests the KEYLESS mode (local
+        # FilePointer), and a signer in the environment would route the
+        # backend to the feed — that mode has its own class below.
         self._home = tempfile.TemporaryDirectory()
         self._old_home = os.environ.get("ONTODAG_HOME")
+        self._old_signer = os.environ.pop("BEE_SIGNER", None)
         os.environ["ONTODAG_HOME"] = self._home.name
 
     def tearDown(self):
@@ -54,6 +58,8 @@ class TestSwarmBackendOnLiveBee(unittest.TestCase):
             os.environ.pop("ONTODAG_HOME", None)
         else:
             os.environ["ONTODAG_HOME"] = self._old_home
+        if self._old_signer is not None:
+            os.environ["BEE_SIGNER"] = self._old_signer
         self._home.cleanup()
 
     def _session(self, name="pets"):
