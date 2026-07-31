@@ -57,10 +57,12 @@ storage layer. No new mechanism required; it is a property of the substrate.
 > all. Blocker 3 held up once the three remaining downward reachability
 > probes in `dag.py` were flipped upward into ancestor-cone walks. The
 > recommendation below — exposing `recordstore._diff` as a public
-> `RecordStore.diff(other_root)` — remains a good idea *on its own merits*
-> ("what changed between two published versions?" is useful well beyond
-> writing), but it is no longer a prerequisite for anything. Historical
-> analysis follows.
+> `RecordStore.diff(other_root)` — was then taken on its own merits:
+> **shipped upstream in recordstore 0.15.0 (2026-08-01)**, yielding
+> `(key, mine, theirs)` with `ABSENT` for missing sides, cost
+> proportional to the difference. OntoDAG's floor is unchanged (nothing
+> here consumes it yet); it exists for the "what changed between two
+> published versions?" question. Historical analysis follows.
 
 `LazyOntoDAG` is read-only for what were three reasons. One is gone:
 
@@ -110,6 +112,6 @@ beyond writing.
 |---|---|---|
 | how much did a count change? | delta rules | done (2026-07-25) |
 | can X reach n? | cone summaries / bitmaps | roadmap item 1 |
-| what changed between two versions? | **Merkle diff** | exists in recordstore, private |
+| what changed between two versions? | **Merkle diff** | public since recordstore 0.15.0: `RecordStore.diff` |
 | detect my own changes without full residency | resident-set diff (Merkle diff proved unnecessary — see Outcome above) | done: `SparseOntoDAG.commit()` |
 | what is this blob called? | Swarm BMT vs sha256 | choosable per store, orthogonal |

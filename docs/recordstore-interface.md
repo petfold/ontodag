@@ -99,7 +99,8 @@ Protocol: `get() → ref | None`, `set(ref)` — a mutable name for the latest r
 ## Version history relevant to OntoDAG
 
 All releases since `v0.3.0` have been additive — no breaking API changes — which is why
-OntoDAG's dependency is a floor (`>=0.11`) rather than an exact pin.
+OntoDAG's dependency is a floor (`>=0.13.1` in `pyproject.toml`) rather than an exact
+pin.
 
 - **v0.4.0/0.4.1** — the real `SwarmFeedPointer` (above), replacing a documented stub.
 - **v0.5.0–v0.7.1** — concurrent bulk I/O: `items()`, `get_many`/`put_many`, lazily
@@ -107,7 +108,13 @@ OntoDAG's dependency is a floor (`>=0.11`) rather than an exact pin.
   blob/trie writes in `commit()`.
 - **v0.8.0–v0.10.0** — multi-writer primitives: three-way `merge`, `commit(reconcile=True)`,
   `compare_and_set` on both pointer backends.
-- **v0.11.0** — current floor; the version this document was last synced against.
+- **v0.11.0–v0.14.0** — the 0.13/0.14 line adds stamp-health checks for `"auto"`
+  batch selection (see its CHANGELOG); OntoDAG's floor is `>=0.13.1`.
+- **v0.15.0** — public **`RecordStore.diff(other_root)`**: `(key, mine, theirs)` per
+  differing key, `ABSENT` for a missing side, cost proportional to the difference
+  (the structural trie diff `merge` used internally, now first-class). Requested by
+  `MERKLE_NOTES.md`; OntoDAG does not consume it yet, so the floor is unchanged.
+  The version this document was last synced against.
 
 Earlier renames worth knowing when reading old notes or commits: `BeeChunkStore` →
 `BeeBytesStore` (v0.2.0), then `ChunkStore` → `BytesStore`, `MemoryChunkStore` →
