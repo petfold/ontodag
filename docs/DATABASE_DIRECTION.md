@@ -175,6 +175,26 @@ future session recognizes the moment instead of pre-building:
   empty-by-axiom intersections before walking). Tripwire: garbage
   queries or polluted merges that a disjointness check would have
   refused.
+- **Query-argument subsumption** (`is_below` taking conjunctions on
+  either side; considered and parked 2026-07-31). The generalization is
+  fully worked out and turns out to *be* loopmarket's `satisfies`: with
+  same-head parametric conjuncts pre-intersected (dimension meets are
+  exact), "(A₁∧A₂) fits within (B₁∧B₂)" is ∀ sup-conjunct ∃ sub-conjunct
+  — sound, and complete w.r.t. everything the graph asserts, since
+  asserted meets are unknowable (§10) while dimension meets are
+  computable. Not built because it has one consumer, which already
+  exists as three lines on the right side of the boundary. Tripwire:
+  a caller holding machine-built description *sets* the satisfies-loop
+  can't serve — realistically, parametric terms entering offer concepts,
+  which is when the dimension-meet pre-intersection stops being
+  consumerless. Two commitments for whoever builds it: the semantics is
+  **intensional only** — extension containment (`get(A) ⊆ cone(B)`)
+  makes the answer depend on today's population and can flip under a
+  collaborator's merge, breaking the monotone/CRDT-stable answers
+  property that admitted OR and excludes NOT — and sup-side
+  *disjunction* is only ∃-sound (a term can fit a union of intervals
+  while fitting neither part), so it stays out unless someone needs
+  exactly that and accepts union-of-intervals arithmetic.
 
 ## Merkle structures: see `MERKLE_NOTES.md`
 
