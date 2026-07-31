@@ -316,6 +316,25 @@ class LazyOntoDAG(OntoDAG):
                     stack.append(parent)
         return not missing
 
+    def _walk_ancestors(self, node, computed=True):
+        # Expansion-aware version of DAG._walk_ancestors: parents are only
+        # known after a node is expanded. Yielded ancestors stay STUBS —
+        # the virtual-bound test needs only their names, so an early
+        # return costs the records climbed through, not the ones seen.
+        seen = set()
+        frontier = [node]
+        while frontier:
+            current = self._expand(frontier.pop())
+            predecessors = [p for p in current.parents
+                            if dict.get(self.nodes, p.name) is p]
+            if computed:
+                predecessors.extend(self._computed_parents(current))
+            for parent in predecessors:
+                if parent not in seen:
+                    seen.add(parent)
+                    frontier.append(parent)
+                    yield parent
+
     def get_ancestors(self, node, ignore=(), computed=True):
         name = self._canonical_name(_name_of(node))
         start = self.nodes.get(name)

@@ -135,6 +135,35 @@ class TestIsBelowDimensions(unittest.TestCase):
 
 
 class TestIsBelowResidencies(unittest.TestCase):
+    def test_virtual_bound_is_streaming_on_the_lazy_reader(self):
+        # The courier check on a published store: parcel ⊑ weight(..5kg)
+        # with no such node. The containing value is a DIRECT parent of the
+        # parcel, so the streaming climb answers from the parcel's own
+        # record — it must NOT expand the deep category chain that also
+        # sits above the parcel (materialize-then-scan would fetch all of
+        # it: this budget is the regression test for that).
+        blobs = MemoryBytesStore()
+        eager = EagerOntoDAG(RecordStore(blobs))
+        eager.put("dimension", [])
+        eager.put("linear-dimension", ["dimension"])
+        eager.put("weight", ["linear-dimension"])
+        eager.put("c0", [])
+        for i in range(1, 30):
+            eager.put(f"c{i}", [f"c{i-1}"])
+        eager.put("parcel", ["weight(3kg)", "c29"])
+        root = eager.commit()
+
+        reader = LazyOntoDAG(RecordStore.at(root, blobs))
+        self.assertTrue(reader.is_below("parcel", "weight(..5kg)"))
+        self.assertLess(reader.fetches, 10,
+                        f"virtual-bound test fetched {reader.fetches} "
+                        "records — the up-cone chain leaked in")
+        # The False case must still exhaust (proving absence), chain and
+        # all — same records the materializing version read.
+        heavy = LazyOntoDAG(RecordStore.at(root, blobs))
+        self.assertFalse(heavy.is_below("parcel", "weight(..2kg)"))
+        self.assertGreater(heavy.fetches, 30)
+
     def test_lazy_and_sparse(self):
         blobs = MemoryBytesStore()
         eager = EagerOntoDAG(RecordStore(blobs))

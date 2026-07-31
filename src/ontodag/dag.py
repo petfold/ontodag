@@ -351,6 +351,27 @@ class DAG:
                     stack.append(parent)
         return not missing
 
+    def _walk_ancestors(self, node, computed=True):
+        """Yield `node`'s ancestors as the upward walk reaches them —
+        `get_ancestors` without the materialization, for callers that can
+        stop early (`is_below`'s virtual-bound branch). Same visit set,
+        same filters; a caller that exhausts it does exactly the work of
+        `get_ancestors`, one that returns early does strictly less."""
+        seen = set()
+        frontier = [node]
+        while frontier:
+            current = frontier.pop()
+            predecessors = [p for p in current.parents
+                            # Only follow parents that belong to this DAG.
+                            if self.nodes.get(p.name) is p]
+            if computed:
+                predecessors.extend(self._computed_parents(current))
+            for parent in predecessors:
+                if parent not in seen:
+                    seen.add(parent)
+                    frontier.append(parent)
+                    yield parent
+
     def get_ancestors(self, node, ignore=(), computed=True):
         name = self._canonical_name(_name_of(node))  # strings accepted too
         if name not in self.nodes:
@@ -860,9 +881,14 @@ class OntoDAG(DAG):
         if sup_node is None:
             # A virtual bound is met by any ancestor (or the subject
             # itself, handled by the arithmetic above) whose denotation
-            # it contains.
+            # it contains. Streaming: each ancestor is tested AS the climb
+            # reaches it, so the common case — the containing value is a
+            # direct parent — answers in one hop instead of after
+            # materializing the whole up-cone (which, on a lazy reader,
+            # is the difference between a couple of fetches and all of
+            # them).
             head, kind, _ = sup_parsed
-            for ancestor in self.get_ancestors(sub_node):
+            for ancestor in self._walk_ancestors(sub_node):
                 parsed = self._parse_parametric(ancestor.name)
                 if parsed is not None and parsed[0] == head \
                         and _dims.contains(sup, ancestor.name, kind):
