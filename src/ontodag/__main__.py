@@ -214,7 +214,7 @@ class FileBackend:
 
 
 class SwarmBackend:
-    def __init__(self, name, store_factory=None):
+    def __init__(self, name, store_factory=None, index_store_factory=None):
         if not name:
             raise ValueError("swarm store needs a name, e.g. swarm:mydag")
         if os.sep in name or (os.altsep and os.altsep in name) or name == "..":
@@ -223,6 +223,17 @@ class SwarmBackend:
         # Injection seam: tests pass a factory returning a RecordStore over an
         # in-memory bytes store, exercising the whole wiring without a node.
         self._store_factory = store_factory
+        self._index_store_factory = index_store_factory
+
+    def index_record_store(self):
+        """The SEPARATE record store for published cone summaries (the
+        `odag index` command): same wiring as the data store under the
+        sibling name NAME-index, so the derived index never touches the
+        ontology's own root (docs/DIMENSIONS.md-era purity rule; see
+        ontodag.cones)."""
+        if self._index_store_factory is not None:
+            return self._index_store_factory()
+        return SwarmBackend(self.name + "-index")._record_store()
 
     def pointer_path(self):
         return os.path.join(_home_dir(), self.name + ".root")
@@ -359,6 +370,26 @@ def cmd_below(args, session, out):
     return 0 if result else 1
 
 
+def cmd_index(args, session, out):
+    # Publish cone summaries next to the store (CONE_SUMMARIES_PLAN step E):
+    # a derived index in a SEPARATE record store, so the data root is
+    # untouched. Prints the manifest pair — hand both roots to lazy readers.
+    backend = session.backend
+    if not isinstance(backend, SwarmBackend):
+        raise ValueError(
+            "index needs a record-store backend (a swarm:NAME store); "
+            "file stores are loaded whole and never benefit from one")
+    from ontodag.cones import build_index
+
+    data_root = session.dag.store.root
+    if not data_root:
+        raise ValueError("nothing committed yet — put something first")
+    index_root = build_index(session.dag, backend.index_record_store(),
+                             data_root, threshold=args.threshold)
+    print(f"data  {data_root}", file=out)
+    print(f"index {index_root}", file=out)
+
+
 def cmd_remove(args, session, out):
     session.dag.remove(args.item)
     session.save()
@@ -458,6 +489,9 @@ Commands:
   import FILE           replace the store with the contents of FILE
   export FILE           write the store to FILE
   visualize [--out B]   render the DAG to an image
+  index [--threshold N] publish cone summaries for a swarm: store into the
+                        sibling NAME-index store (a derived index: the data
+                        root is untouched); prints both roots for readers
   set [KEY [VALUE]]     show settings, or set one (store, bee_api,
                         bee_batch, bee_signer)
   help                  show this help
@@ -522,6 +556,13 @@ def build_parser():
     p.add_argument("sub")
     p.add_argument("sup")
     p.set_defaults(func=cmd_below, stream_output=True)
+
+    p = sub.add_parser("index", add_help=True,
+                       help="publish cone summaries for a swarm store")
+    p.add_argument("--threshold", type=int, default=64,
+                   help="summarize categories with at least this many "
+                        "descendants (default 64)")
+    p.set_defaults(func=cmd_index, stream_output=True)
 
     p = sub.add_parser("remove", add_help=True, help="remove an item")
     p.add_argument("item")

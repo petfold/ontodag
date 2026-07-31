@@ -2,6 +2,7 @@ import os
 import sys
 import uuid
 import random
+from collections import Counter
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -157,6 +158,12 @@ def get_query():
     queries = [part.split(",") for part in categories.split("|")]
 
     my_dag = session["my_dag"]
+    # The query log SEMANTIC_CODES.md §9 waits on: one counter per queried
+    # category-set (per disjunct, names as queried), across all sessions —
+    # the empirical input for workload-driven index decisions. In-memory
+    # and process-local, deliberately trivial.
+    for query in queries:
+        QUERY_LOG[",".join(sorted(query))] += 1
     try:
         # get()/get_any() resolve names themselves: unknown terms fail
         # closed (empty result / empty disjunct), parametric terms may be
@@ -170,6 +177,19 @@ def get_query():
         return jsonify({"error": str(e)}), 400
 
     return jsonify({"nodes": list([node.to_dict() for node in result_nodes])})
+
+
+QUERY_LOG = Counter()  # category-set -> times queried (see /dag/stats/queries)
+
+
+@app.route("/dag/stats/queries", methods=["GET"])
+def get_query_stats():
+    """The query workload, most-asked first — what SEMANTIC_CODES.md §9's
+    adaptive index-admission policy will eventually read."""
+    return jsonify({"queries": [
+        {"cat": cat, "count": count}
+        for cat, count in QUERY_LOG.most_common()
+    ]})
 
 
 @app.route("/dag/below", methods=["GET"])

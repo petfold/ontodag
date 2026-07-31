@@ -11,8 +11,11 @@ assumed the hot-CPU gate would open first; it was the fetch gate, so its steps
 (2)+(3) arrived before (1). The bitmap/code lattice of this note remains parked
 behind the remaining gates; the manifest's format field is the seam it would land
 through. Everything else stands: do not extend this note until another gate opens,
-and the one cheap action allowed meanwhile is still the web-API query counter §9
-waits on. Referenced from `SWARM_DESIGN.md` §8.
+and the one cheap action allowed meanwhile — the web-API query counter §9
+waits on — was taken 2026-08-01: `GET /dag/stats/queries` reports a per-
+category-set counter (per disjunct, process-local, deliberately trivial).
+§9's adaptive admission policy now has its data source whenever a gate
+opens. Referenced from `SWARM_DESIGN.md` §8.
 Companion historical notes (Wilkins, Leibniz, Borges — where this idea comes from and
 how its ancestors failed): `PHILOSOPHICAL_LANGUAGES.md`.
 

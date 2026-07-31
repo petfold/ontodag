@@ -398,6 +398,10 @@ odag <command> ...
                         `get Dog Pet or Cat` = (Dog AND Pet) OR Cat)
   below SUB SUP         does SUB fit within SUP? prints true/false and
                         exits 0/1 (grep-style); `?` works at the prompt
+  index [--threshold N] for swarm: stores — publish cone summaries (a
+                        derived index in a sibling NAME-index store) so
+                        lazy readers answer broad queries in a few
+                        fetches; prints the data and index roots
   remove ITEM           remove ITEM from the store
   show                  print the DAG structure
   list                  print every item name

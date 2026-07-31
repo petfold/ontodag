@@ -45,6 +45,18 @@ class TestPlainRest:
         put(client, "animal")
         assert query_names(client, "no-such-thing") == set()
 
+    def test_query_log_counts_category_sets(self, client):
+        from app import QUERY_LOG
+        QUERY_LOG.clear()
+        put(client, "animal")
+        put(client, "pet")
+        query_names(client, "animal,pet")
+        query_names(client, "pet,animal")     # same set, same key
+        query_names(client, "animal|pet")     # two disjuncts, two keys
+        stats = client.get("/dag/stats/queries").get_json()["queries"]
+        counts = {row["cat"]: row["count"] for row in stats}
+        assert counts == {"animal,pet": 2, "animal": 1, "pet": 1}
+
     def test_below_endpoint(self, client):
         put(client, "animal")
         put(client, "dog", ["animal"])

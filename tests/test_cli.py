@@ -276,6 +276,51 @@ class TestBelow(unittest.TestCase):
                 (1, "false\n"))
 
 
+class TestIndexCommand(unittest.TestCase):
+    def test_publish_and_consume_cone_summaries(self):
+        data_blobs = MemoryBytesStore()
+        data_pointer = MemoryPointer()
+        index_blobs = MemoryBytesStore()
+        index_pointer = MemoryPointer()
+        backend = cli.SwarmBackend(
+            "pets",
+            store_factory=lambda: RecordStore(data_blobs,
+                                              pointer=data_pointer),
+            index_store_factory=lambda: RecordStore(index_blobs,
+                                                    pointer=index_pointer))
+        session = cli.Session.__new__(cli.Session)
+        session.spec, session.backend = "swarm:pets", backend
+        session.dag = backend.load()
+        for i in range(70):   # enough descendants to clear the threshold
+            self.assertEqual(_run(["put", f"dog-{i}", "animal"]
+                                  if i else ["put", "animal"], session)[0], 0)
+        code, out = _run(["index"], session)
+        self.assertEqual(code, 0, out)
+        lines = dict(line.split(None, 1) for line in out.splitlines())
+        self.assertEqual(lines["data"], session.dag.store.root)
+
+        # The published pair actually serves a lazy reader.
+        from ontodag.cones import ConeIndex
+        from ontodag.lazy import LazyOntoDAG
+        reader = LazyOntoDAG(
+            RecordStore.at(lines["data"], data_blobs),
+            cone_index=ConeIndex(RecordStore.at(lines["index"], index_blobs),
+                                 lines["data"]))
+        result = reader.get(["animal"])
+        self.assertEqual(len(result), 69)
+        self.assertLess(reader.fetches, 10)   # summary, not the cone
+
+        # Indexing wrote nothing to the data store.
+        self.assertEqual(lines["data"], session.dag.store.root)
+
+    def test_file_backend_refuses(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "zoo.od"))
+            _run(["put", "animal"], session)
+            code, _ = _run(["index"], session)
+            self.assertNotEqual(code, 0)
+
+
 class TestSwarmSignerWiring(unittest.TestCase):
     """The published-root pointer (roadmap item 2, DIMENSIONS-era queue):
     with a signer configured the backend builds its store through
