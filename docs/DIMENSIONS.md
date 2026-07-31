@@ -245,6 +245,11 @@ normalized before names are formed.
 - `get` returns matching parametric nodes as well as items below them
   (consistent with today's whole-cone results; items-only is a
   presentation flag).
+- **The Boolean face**: `is_below(sub, sup)` (v0.7.0) accepts virtual
+  parametric terms on either side — a same-head pair decides from the
+  names alone, a virtual bound is met by a streaming upward climb
+  (early exit on the walk, not just the scan), a virtual subject
+  relates through its present containers.
 - **Overlap is not a cone and never will be** — overlap is not
   transitive, so no partial order generates it. Guaranteed satisfaction
   (offer ⊆ constraint) is the v1 order. A separate query op

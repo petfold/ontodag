@@ -263,7 +263,10 @@ by a single fixed edge under its dimension's node (`weight(3000000mg)` under
 `weight`). That star is the whole storage cost — adding a value touches two
 records, never its neighbors — and it is also the index a query walks: asking
 `get("weight(..5kg)")` needs no such node to exist, it just filters the shelf
-and takes everything below the matching values. Sets that are unions rather
+and takes everything below the matching values. (The weaker question —
+whose value merely *overlaps* mine, the "possibly satisfies" of a
+marketplace — is deliberately a separate operation, `get_overlapping`:
+overlap is not transitive, so it can never be an edge or a category.) Sets that are unions rather
 than thresholds — "Saturdays", a delivery region — are ordinary categories
 with the member values placed under them, one edge each.
 

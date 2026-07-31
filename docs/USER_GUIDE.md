@@ -376,6 +376,23 @@ What to know:
   the values under *it* (`dag.put("time(2026-08-01)", ["saturdays"])`, one
   edge per member).
 
+**Guaranteed vs. possible: `get_overlapping`.** `get` on a range answers
+*guaranteed* satisfaction — everything whose value certainly fits. For
+matching you often also want the maybes: things whose value range merely
+*overlaps* yours. That's a separate question (Python API only):
+
+```python
+dag.put("exact-offer", ["weight(1.2kg)"])
+dag.put("variable-offer", ["weight(0.8kg..1.5kg)"])   # might be enough
+
+dag.get(["weight(1kg..)"])              # exact-offer only — guaranteed
+dag.get_overlapping("weight(1kg..)")    # both — possibly satisfies
+```
+
+Overlap can't be expressed as a category (it isn't transitive), which is why
+it's its own method rather than more `get` syntax; use it to generate
+candidates, then check the survivors exactly.
+
 The full design (why the order is computed rather than stored, and what that
 preserves) is in [DIMENSIONS.md](DIMENSIONS.md).
 
@@ -740,6 +757,7 @@ Endpoint summary:
 | `DELETE /dag/node`           | Remove item(s): `{"subcategories": [...]}`     |
 | `GET /dag/query?cat=A,B`     | Everything under all the listed categories (`\|` for OR: `cat=A,B\|C` = (A AND B) OR C) |
 | `GET /dag/below?sub=A&sup=B` | Yes/no: does A fit within B? → `{"below": true}` |
+| `GET /dag/stats/queries`     | Query workload so far, most-asked first (per category-set) |
 | `GET /dag/image`             | PNG of the DAG                                 |
 | `GET /dag/query/image?cat=…` | PNG of a query and its results                 |
 | `POST /dag/import`           | Merge an uploaded `.owl`/`.omn` file into the session |
@@ -865,7 +883,9 @@ fingerprint, with or without an index), it is regenerable at will, and the
 reader treats it as a cache with an exact fallback: if it is stale, missing a
 category, or built by a different ontodag version, the reader silently walks
 instead — slower, never wrong. Measured on the test fixture, a two-broad-term
-query dropped from 375 fetches to 3.
+query dropped from 375 fetches to 3. From the command line, `odag index`
+publishes exactly this pair for a `swarm:` store (see the command table in
+§5) — validated on a real node: 71 fetches down to 1 + 2.
 
 ### Querying a published DAG without downloading it
 
