@@ -327,8 +327,9 @@ their homes stay findable:
    `ontodag.CONTRACT_VERSION` in code, carried by the discoverability
    record once the agent surface lands. Conformance suite
    `tests/test_contract.py` — one named test class per guarantee (G1–G6),
-   importing only the public `ontodag` API — queued as a Phase 1 work item
-   alongside the renderer.
+   importing only the public `ontodag` API — **landed 2026-08-01** (15
+   tests, including `TestAsOfClause` for §4; a contract clause now breaks a
+   test before it breaks a consumer).
 3. **`get_overlapping`'s statement** → G6 (complete for possibility, silent
    on satisfaction; recall-completeness provable from the filing
    discipline — and already what loopmarket's candidate generation relies

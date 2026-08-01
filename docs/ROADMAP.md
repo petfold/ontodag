@@ -101,8 +101,9 @@ replayable answer, which the existing snapshot machinery already supports.
    monotonicity-under-merge clause with its remove caveat, the
    as-of/root-pinning rule for non-monotone questions, the admissibility
    criterion behind the walls, the verifiability tiers, and the certificate
-   policy. A conformance test suite asserting the guarantees through the
-   public API only is queued alongside the Phase-1 code.
+   policy. The conformance test suite asserting the guarantees through the
+   public API only landed the same day (`tests/test_contract.py`, 15 tests
+   covering G1–G6, the as-of clause, and the version constant).
 6. **Provenance design** — [PROVENANCE.md](PROVENANCE.md), drafted and
    **reviewed & agreed the same day (2026-08-01)**: attribution in a
    parallel provenance store (never in the knowledge record, so agreement-
