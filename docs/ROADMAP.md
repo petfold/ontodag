@@ -11,7 +11,7 @@ including which conventional database features are deliberately *not* being buil
 yet and what would signal that they are needed, are in `DATABASE_DIRECTION.md`;
 the engineering rationale is in `SWARM_DESIGN.md` and `SEMANTIC_CODES.md`.
 
-Last updated 2026-07-25.
+Last updated 2026-08-01.
 
 ## Delivered
 

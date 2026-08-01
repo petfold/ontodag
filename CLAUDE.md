@@ -24,6 +24,7 @@ python3 -m pytest tests/test_cli.py -v                     # `odag` CLI (backend
 python3 -m pytest tests/test_lazy.py -v              # LazyOntoDAG: eager-oracle correctness + fetch budgets
 python3 -m pytest tests/test_sparse.py tests/test_multiwriter.py tests/test_cone_index.py -v  # SparseOntoDAG writer, sync merge rule, cone summaries
 python3 -m pytest tests/test_dimensions.py tests/test_dimensions_dag.py -v  # parametric dimensions: grammar oracle + DAG integration
+python3 -m pytest tests/test_count_deltas.py tests/test_canonical.py tests/test_is_below.py tests/test_union.py -v  # count-delta oracle (I5), canonical roots, below, get_any
 
 # Live-node CLI Swarm test — skips unless BEE_API *and* BEE_BATCH are set
 # (always pass a real BEE_BATCH so nothing auto-buys; see "Bee integration status"):
@@ -41,7 +42,7 @@ The project is a `src/`-layout package (`pyproject.toml`, `pip install -e .` or 
 ### `src/ontodag/` — the core data structure
 - `dag.py`:
   - `Item`: graph node with `name`, `neighbors` (set of child `Item`s), `descendant_count`
-  - `DAG`: base directed graph — `add_node`, `add_edge`, `remove_edge`, `get_descendants`, `get_ancestors`, `topological_sort`, `intersection_dag`; descendant counts are recalculated from scratch on each structural change
+  - `DAG`: base directed graph — `add_node`, `add_edge`, `remove_edge`, `get_descendants`, `get_ancestors`, `topological_sort`, `intersection_dag`; descendant counts are maintained by **delta**, not recomputed — `_plan_add`/`_plan_remove` compute the per-ancestor change against the pre-operation graph and `_apply_count_deltas` applies it (oracle: `tests/test_count_deltas.py`, invariant I5)
   - `OntoDAG(DAG)`: extends DAG with `put(item, super_categories)`, `get(super_categories)`, `get_any(queries)` (union/DNF, 2026-07-31 — CLI `or`, REST `|`), `is_below(sub, sup)` (Boolean fits-within, answered upward, reflexive, fail-closed, virtual parametric terms decidable from names alone — CLI `below`/`?`, REST `/dag/below`), `get_overlapping(term)`, `remove(item)`, `merge`, `copy_subdag`, `prune_to_common_descendants` and a root node `*`; `put` accepts an optional `optimized=True` flag that prunes redundant supercategory links before inserting; overrides `add_edge` to call `_remove_unneeded_edges`
   - `OntoDAGVisualizer`: Graphviz-backed renderer; lazy-imports `graphviz` so it doesn't break non-visualization code
 - `owl.py`: OWL import/export via `owlready2`, including Manchester syntax; reached lazily through `ontodag.OWLOntology` (module `__getattr__` in `__init__.py`), so importing the core never touches `owlready2`
@@ -94,7 +95,7 @@ Fixed (July 2026), one commit per invariant:
 3. ~~**`intersection_dag` aliases live nodes.**~~ **Fixed (I4)** — builds fresh `Item`s via a name→copy mapping, mirroring `copy_subdag`; `is` name comparisons replaced with `==`.
 4. ~~**Recursive traversals overflow on deep graphs.**~~ **Fixed (I6)** — `get_descendants`, `get_ancestors`, and `_get_affected_nodes` use explicit frontier stacks.
 
-5. ~~**Quadratic structure maintenance.**~~ **Fixed (July 2026)** — `Item` has a `parents` set maintained symmetrically with `neighbors` via `_EdgeSet` (a set subclass that syncs the reverse direction even under direct `neighbors` mutation); `get_ancestors`, `_get_affected_nodes` and `remove` walk `parents` instead of scanning the graph; descendant-count refreshes are batched per public operation (`_batched_count_updates`) instead of per edge. `parents` is the in-memory form of the record schema's `up` list, so the in-memory and persisted shapes now match.
+5. ~~**Quadratic structure maintenance.**~~ **Fixed (July 2026)** — `Item` has a `parents` set maintained symmetrically with `neighbors` via `_EdgeSet` (a set subclass that syncs the reverse direction even under direct `neighbors` mutation); `get_ancestors`, `_get_affected_nodes` and `remove` walk `parents` instead of scanning the graph; descendant-count refreshes stopped being per-edge full recounts. (The batching helper this note originally named, `_batched_count_updates`, no longer exists: counts were subsequently moved to exact **delta** maintenance — `_plan_add`/`_plan_remove`/`_apply_count_deltas` — which is what the code does today.) `parents` is the in-memory form of the record schema's `up` list, so the in-memory and persisted shapes now match.
 
 6. ~~**`topological_sort` is still recursive.**~~ **Fixed (July 2026)** — iterative post-order DFS with an explicit `(node, iterator)` path stack, completing I6; covered by `test_topological_sort_is_iterative` (1500-deep chain) and an ordering test in `test_invariants.py`.
 

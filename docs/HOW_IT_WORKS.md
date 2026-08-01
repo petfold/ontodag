@@ -159,8 +159,9 @@ deliberately and are checked by tests:
 
 Together with the canonical form, this means *any group of people can share
 changes in any order, repeatedly, and converge on the identical graph* — the
-property distributed-systems folks call a CRDT. That's the seed of the
-multi-writer future in §8.
+property distributed-systems folks call a CRDT. That is the seed of the
+multi-writer collaboration described at the end of §6, which is built today
+rather than promised.
 
 **Names are the identity.** Inside a running DAG, links are direct object
 references (fast pointer hops). But at every boundary — files, queries, merging,

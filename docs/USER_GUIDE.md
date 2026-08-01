@@ -44,7 +44,7 @@ under `Dog`, and later file crops of it under the photo. This is deliberate.
 
 ## 2. Installation
 
-You need **Python 3.8 or newer**.
+You need **Python 3.11 or newer**.
 
 ```bash
 pip install ontodag
@@ -53,7 +53,7 @@ pip install ontodag
 This installs the `odag` command and the Python library, along with its
 dependencies (`graphviz`, `owlready2`, and `recordstore`).
 
-Two optional extras:
+Three optional extras:
 
 - **Pictures.** To render your DAG as an image you also need the Graphviz *system
   program* (the Python package alone is not enough):
@@ -67,6 +67,13 @@ Two optional extras:
 
   ```bash
   pip install "ontodag[web]"
+  ```
+
+- **Swarm storage.** To keep a store on Ethereum Swarm rather than in a local
+  file (§5.1):
+
+  ```bash
+  pip install "ontodag[swarm]"
   ```
 
 > **Working from a source checkout instead:** `git clone
@@ -280,9 +287,9 @@ both, redundant links pruned as usual. Items with the same name are treated as t
 same item (names are the identity — so agree on names before you merge!).
 
 Merge is designed so that **order never matters**: if you merge my DAG into yours
-and I merge yours into mine, we end up with identical graphs. This is what will
-eventually let several people maintain one shared ontology without a central
-server. (See "future plans" in the internals doc.)
+and I merge yours into mine, we end up with identical graphs. That is what lets
+several people maintain one shared ontology without a central server — the
+persisted form of it is `sync`, in §8.
 
 ### 4.5 Pictures
 
@@ -449,6 +456,7 @@ $ odag set                           # show every setting
 store = /home/you/work/pets.od
 bee_api = http://localhost:1633
 bee_batch =
+bee_signer =
 $ odag set store                     # show just one (no value = display, never an error)
 store = /home/you/work/pets.od
 ```
@@ -462,9 +470,11 @@ instead of the native format — so `odag -f pets.omn get Animal` works directly
 ontology file, and `export`/`import` convert between them.
 
 **Storing on Swarm.** A store can also live on [Ethereum Swarm](https://www.ethswarm.org/)
-instead of a local file. It needs one extra dependency — install it once with
-`pip install "ontodag[swarm]"` (this pulls in `requests`; without it you get a
-clear message telling you so). Then set the store once and it sticks:
+instead of a local file. It needs a few extra dependencies — install them once with
+`pip install "ontodag[swarm]"`, which brings `requests` (talking to the Bee node),
+`swarmfs` (picking a postage batch when `bee_batch` is left at `auto`) and
+`swarm-bee` (signing feed updates). Miss them and you get a clear message saying
+which. Then set the store once and it sticks:
 
 ```console
 $ odag set store swarm:pets       # every later command now uses Swarm
@@ -532,13 +542,20 @@ Look at what you have:
 ```console
 $ odag show
 * [root] -> Animal Machine Pet
+Animal (*) -> Cat Dog
 Pet (*) -> Aibo Cat Dog
+Dog (Animal Pet) ->
+Cat (Animal Pet) ->
 Machine (*) -> Aibo
 Aibo (Machine Pet) ->
-Animal (*) -> Cat Dog
-Cat (Animal Pet) ->
-Dog (Animal Pet) ->
 ```
+
+(Each line lists an item, its parents in brackets, then its children. The
+*children* on a line are sorted, but the **order of the lines varies between
+runs** — `show` walks the graph in topological order and ties are broken by
+Python's set iteration. Every line will be there; don't diff this output. The
+stored file is a different matter: it is sorted and byte-identical for the same
+content, which is what makes the git habit below work.)
 
 Ask which things are both animals and pets — one name per line, straight to stdout:
 
@@ -623,7 +640,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.1.0 - type help for help
+Ontodag 0.8.0 - type help for help
 > put Fish Pet
 > get Pet
 Aibo
@@ -1017,6 +1034,19 @@ answer empty, because nothing can be under a category that doesn't exist.
 
 **`TypeError: get() requires at least one super-category`**
 You passed an empty query. Ask for at least one category.
+
+**`odag: cannot reach the Bee node at http://localhost:1633 …`**
+Your store is set to `swarm:NAME` and the node isn't running. Start Bee, or work
+locally — the message lists both escapes (§5.1). Nothing was written.
+
+**`odag: the swarm backend needs an optional dependency that is not installed`**
+`pip install "ontodag[swarm]"`. Note this hits you on *every* command against a
+swarm store, including reads, because the store is opened before anything else runs.
+
+**`odag: no usable postage stamp …` or a 402 on write**
+The node answered, but has no batch it can write with. Buy or top up a postage
+batch; `odag` only ever *selects* one, it never spends your xBZZ. A batch that is
+full rather than expired needs diluting, not renewing.
 
 **My web DAG disappeared**
 Each browser session has its own DAG, held in memory. Restarting the server or
