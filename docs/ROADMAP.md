@@ -208,6 +208,28 @@ canonical form and the merge properties untouched:
   store. Classic use with typed values: *outside a range*
   (`get_any([["weight(..2kg)"], ["weight(5kg..)"]])`).
 
+- **Local-time dates: elaboration default with explicit zone override**
+  (queued 2026-08-01; position in `SURFACE_LAYER.md` §5). A bare date is
+  zone-relative reality — "2026-08-01" is a different set of instants in
+  Vienna than in Tokyo — and today the core resolves it as the UTC day by
+  fiat. Implement the surface-layer policy: elaboration interprets bare
+  dates/times in the user's local zone by default, with an explicit-zone
+  spelling to override; the zone dies at input (IANA tzdata via stdlib
+  `zoneinfo`, consulted once, only the resolved UTC interval is stored),
+  so canonical arithmetic and merge never see it. Cross-zone query
+  mismatch is inherent and stays served by `get_overlapping`.
+- **Cyclic (modular) dimension kind — narrowed** (queued 2026-08-01;
+  design sketch in `DIMENSIONS.md` §13). One general kind for circles:
+  values are arcs with `(start, extent)` canonical form (so
+  `hours(22:00..06:00)` wraps through midnight legally), per-head period
+  declared as vocabulary, named positions as spellings, fixed-offset
+  zones as exact rotations. Narrowed by the UTC-only-core discussion:
+  finite cycles (weekdays, months) need NO kind — they are vocabulary
+  packs plus surface-side materialized parents, buildable today — so the
+  kind is only for *continuous* periodic ranges as query terms (opening
+  hours, angles mod 360). Tripwire: a real consumer filing continuous
+  periodic ranges; political/DST zones stay walled at elaboration.
+
 ## Under discussion (no decision yet)
 
 - **Packs — published ontologies as an ecosystem** (`PACKS.md`, draft
