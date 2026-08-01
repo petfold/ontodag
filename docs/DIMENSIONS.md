@@ -177,19 +177,42 @@ keeps the integer.
   for multi-writer, §5 of SWARM_DESIGN) also removes semantically
   redundant cross edges that union reintroduces.
 
-## 6. The v1 kinds
+## 6. The kinds
 
 | kind node             | denotations                          | contains / intersect                    | covers |
 |-----------------------|--------------------------------------|-----------------------------------------|--------|
 | `linear-dimension`    | intervals over integers-with-unit or ISO-UTC timestamps; points degenerate; open ends | two comparisons each | weight, quantity-vs-capacity, prices, time windows |
 | `prefix-dimension`    | identifier subtrees                  | string prefix test                       | geohash cells; generated hierarchies |
 | `dominance-dimension` | boxes (componentwise intervals), components canonically sorted descending | componentwise | parcels/luggage ("fits in"), `size(390x230x190mm)` |
+| `calendar-dimension`  | the same interval denotations as linear over the time family, but every literal is a calendar period: `2026` the year, `2026-08` the month, `2026-08-15` the day, a timestamp the instant | identical to linear (shared code path) | dates on documents, "last summer", "everything from 2026" |
 
-Deferred, with reasons: **calendars/periodic sets as a computed kind**
+**`calendar-dimension` (added 2026-08-01, `REGISTRY_VERSION` 2).** A separate
+kind for one reason, and it is a grammar collision rather than a semantic
+difference: in a linear dimension a bare integer is a dimensionless *count*
+(`number(5)`), so `time(2026)` there can only mean the number 2026, which then
+refuses to compare with any date and reports a baffling unit-family error.
+Parsing is deliberately context-free on the name — the year reading must not
+depend on what else the graph happens to contain, or the same term would
+canonicalize differently for two replicas and §3's determinism doctrine would
+fall. The declared kind is the one piece of context a term already carries
+(`contains(outer, inner, kind)` has always taken it), so that is where the
+calendar grammar belongs.
+
+It is *linear over the time family* in every other respect: same interval
+denotations, same containment and meet code, same `linear:time` space tag, same
+canonical rendering. A dimension declared `time → linear-dimension` can be
+re-declared `time → calendar-dimension` without one stored value or canonical
+name changing — the only difference is which literals the parameter grammar
+admits. Reduced precision denoting the whole period is not new either: the
+linear grammar already read a bare date as the whole day, and this extends the
+same rule up to months and years.
+
+Deferred, with reasons: **periodic sets as a computed kind**
 — largely obsoleted by §9: "Saturdays" is a generated node over
 day-interval terms, with definitional hierarchy replacing
 recurrence-rule inclusion; a computed kind would only answer
-beyond-horizon membership, so its tripwire has receded. **Geo discs** — never
+beyond-horizon membership, so its tripwire has receded. (Calendar *periods*,
+above, are ordinary intervals and needed none of that machinery.) **Geo discs** — never
 (determinism doctrine, §3); they remain loopmarket's exact refinement.
 **Cross-dimension computation** (`price × quantity`) — still behind its
 wall; dimensions compare a value to a constraint within one dimension,
@@ -206,6 +229,7 @@ param  := value | range | tuple
 range  := [value] ".." [value]        -- at least one end; inclusive (v1)
 tuple  := value ("x" value)+          -- dominance kinds; canonical order sorted descending
 value  := integer unit | iso-utc-timestamp | prefix-string
+          | calendar-period            -- calendar kinds: YYYY | YYYY-MM | YYYY-MM-DD | iso-utc-timestamp
 ```
 
 Canonical form: no whitespace; integers without leading zeros or `+`;

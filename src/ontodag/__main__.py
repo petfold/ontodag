@@ -600,7 +600,10 @@ linear-dimension dimension; put weight linear-dimension), then use
 parametric terms anywhere a category goes — put parcel 'weight(3kg)',
 get 'weight(..5kg)' (quote the parentheses in a shell). Values are
 exact integers in tiny base units (3kg is stored as 3000000mg); ranges
-are lo..hi with either end open. See docs/DIMENSIONS.md.
+are lo..hi with either end open. For dates use calendar-dimension
+instead of linear-dimension: then 'time(2026)' is the year,
+'time(2026-08)' the month, 'time(2026-08-15)' the day, and each
+contains the finer ones. See docs/DIMENSIONS.md.
 
 A store may also be `swarm:NAME`, persisted on Ethereum Swarm (content on a
 Bee node, latest root in ~/.ontodag/NAME.root). `set store swarm:NAME` makes

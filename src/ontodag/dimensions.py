@@ -15,13 +15,14 @@ extension-inclusion order the DAG's asserted edges have always meant.
 """
 
 import re
+from calendar import monthrange
 from datetime import datetime
 from fractions import Fraction
 
 # Bump when the kind set, unit table, or comparison semantics change: the
 # computed order participates in canonical reduction, so two writers must
 # agree on this version to reproduce each other's roots (DIMENSIONS.md §10).
-REGISTRY_VERSION = 1
+REGISTRY_VERSION = 2  # 2 (2026-08-01): added KIND_CALENDAR
 
 # Reserved node names the registry recognizes, the way the codebase already
 # recognizes "*". A dimension head is declared by asserting it under exactly
@@ -30,7 +31,19 @@ DIMENSION_ROOT = "dimension"
 KIND_LINEAR = "linear-dimension"
 KIND_PREFIX = "prefix-dimension"
 KIND_DOMINANCE = "dominance-dimension"
-KINDS = frozenset({KIND_LINEAR, KIND_PREFIX, KIND_DOMINANCE})
+# Calendar is linear with a calendar-only parameter grammar. It exists as its
+# own kind for one reason: in a linear dimension a bare integer is a
+# dimensionless *count* (`number(5)`), so `time(2026)` there can only mean the
+# number 2026 -- which then refuses to compare with any real date. Parsing is
+# deliberately context-free on the name, so the year reading cannot depend on
+# what else happens to be in the graph; the declared kind is the one piece of
+# context a term already carries, and it is where the calendar grammar belongs.
+# Values canonicalize identically to a linear time dimension (same space tag),
+# so a store that declared `time -> linear-dimension` can be re-declared under
+# this kind without a single stored name changing.
+KIND_CALENDAR = "calendar-dimension"
+KINDS = frozenset({KIND_LINEAR, KIND_PREFIX, KIND_DOMINANCE, KIND_CALENDAR})
+_LINEARISH = frozenset({KIND_LINEAR, KIND_CALENDAR})
 
 # suffix -> (family, exact scale factor to the family's base unit).
 # Base units are deliberately tiny so every value is an integer (the
@@ -49,6 +62,8 @@ _TIME = "time"  # the one non-integer linear value space (ISO-8601 UTC)
 
 _TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
+_YEAR_RE = re.compile(r"^\d{4}$")
 _NUM_RE = re.compile(r"^(\d+(?:\.\d+)?)([a-z]*)$")
 _PREFIX_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._\-]*$")
 
@@ -150,6 +165,60 @@ def _parse_linear(param):
     return family, value, value  # a point is a degenerate interval
 
 
+def _calendar_end(text, side):
+    """One calendar literal -> the instant at `side` of the interval it names.
+
+    Reduced precision denotes the whole period, which is the same rule the
+    linear grammar already applies to a bare date: `2026` is the year,
+    `2026-08` the month, `2026-08-15` the day, and a full timestamp is the
+    instant itself. So a document filed under `time(2026-08-15)` sits inside
+    `time(2026)` by arithmetic, with no edge between them.
+    """
+    if _TS_RE.match(text):
+        return _parse_timestamp(text)
+    if _DATE_RE.match(text):
+        try:
+            datetime.strptime(text, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError(f"invalid date {text!r}")
+        return text + ("T00:00:00Z" if side == "lo" else "T23:59:59Z")
+    if _MONTH_RE.match(text):
+        year, month = int(text[:4]), int(text[5:])
+        if not 1 <= month <= 12:
+            raise ValueError(f"invalid month {text!r} (expected YYYY-MM)")
+        if side == "lo":
+            return f"{text}-01T00:00:00Z"
+        return f"{text}-{monthrange(year, month)[1]:02d}T23:59:59Z"
+    if _YEAR_RE.match(text):
+        return f"{text}-01-01T00:00:00Z" if side == "lo" \
+            else f"{text}-12-31T23:59:59Z"
+    raise ValueError(
+        f"invalid calendar value {text!r} — expected YYYY, YYYY-MM, "
+        "YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ")
+
+
+def _parse_calendar(param):
+    """-> (time family, lo, hi); closed interval of instants, None = open.
+
+    Same shape as `_parse_linear` so everything downstream (containment,
+    meet, rendering, the space tag) is shared — only the literal grammar
+    differs, and here every literal is a calendar period.
+    """
+    if ".." in param:
+        parts = param.split("..")
+        if len(parts) != 2:
+            raise ValueError(f"malformed range {param!r}")
+        lo_text, hi_text = parts
+        if not lo_text and not hi_text:
+            raise ValueError(f"range {param!r} needs at least one end")
+        lo = _calendar_end(lo_text, "lo") if lo_text else None
+        hi = _calendar_end(hi_text, "hi") if hi_text else None
+        if lo is not None and hi is not None and lo > hi:
+            raise ValueError(f"empty range {param!r} (lo > hi)")
+        return _TIME, lo, hi
+    return _TIME, _calendar_end(param, "lo"), _calendar_end(param, "hi")
+
+
 def _parse_dominance(param):
     """-> (family, tuple sorted descending). Units propagate right-to-left
     (`390x230x190mm`: the trailing unit covers unitless components); no unit
@@ -199,6 +268,8 @@ def _render_linear(family, lo, hi):
 
 
 def _denotation(param, kind):
+    if kind == KIND_CALENDAR:
+        return _parse_calendar(param)
     if kind == KIND_LINEAR:
         return _parse_linear(param)
     if kind == KIND_DOMINANCE:
@@ -209,7 +280,7 @@ def _denotation(param, kind):
 
 
 def _render(denotation, kind):
-    if kind == KIND_LINEAR:
+    if kind in _LINEARISH:
         return _render_linear(*denotation)
     if kind == KIND_DOMINANCE:
         family, values = denotation
@@ -232,7 +303,10 @@ def space_of(name, kind):
     """Value-space tag for put-time consistency checks: every value of one
     head must share it (one family, one arity)."""
     denotation = _denotation(split_term(name)[1], kind)
-    if kind == KIND_LINEAR:
+    if kind in _LINEARISH:
+        # Calendar shares linear's tag on purpose: the two describe the same
+        # value space, so re-declaring a time dimension from one to the other
+        # leaves every stored value and every canonical name untouched.
         return f"linear:{denotation[0]}"
     if kind == KIND_DOMINANCE:
         return f"dominance:{denotation[0]}:{len(denotation[1])}"
@@ -247,19 +321,36 @@ def _same_head(a, b):
     return head_a, param_a, param_b
 
 
+def _family_mismatch(a, fam_a, b, fam_b):
+    """The families-differ message, with the one hint worth giving.
+
+    A bare `time(2026)` in a *linear* dimension is the count 2026, not the
+    year, so it refuses to compare with any real date. That reads as a
+    baffling unit error unless we say what to do about it.
+    """
+    message = (f"unit families differ: {a!r} ({fam_a}) vs {b!r} ({fam_b})")
+    counted, timed = ((a, b) if fam_a == "count" else (b, a)) \
+        if {fam_a, fam_b} == {"count", _TIME} else (None, None)
+    if counted is not None and _YEAR_RE.match(split_term(counted)[1]):
+        message += (
+            f" — {counted!r} is the number, not the year. Declare the head "
+            f"under {KIND_CALENDAR!r} to read bare years and months as "
+            f"calendar periods, or write the range out "
+            f"(e.g. '2026-01-01..2026-12-31')")
+    return message
+
+
 def contains(outer, inner, kind):
     """denotation(inner) ⊆ denotation(outer)? Both must share the head.
     Reflexive; distinct canonical names are therefore strictly ordered or
     incomparable, never mutually contained (that is what keeps the combined
     relation a partial order — DIMENSIONS.md §11, I1)."""
     _, param_outer, param_inner = _same_head(outer, inner)
-    if kind == KIND_LINEAR:
-        fam_o, lo_o, hi_o = _parse_linear(param_outer)
-        fam_i, lo_i, hi_i = _parse_linear(param_inner)
+    if kind in _LINEARISH:
+        fam_o, lo_o, hi_o = _denotation(param_outer, kind)
+        fam_i, lo_i, hi_i = _denotation(param_inner, kind)
         if fam_o != fam_i:
-            raise ValueError(
-                f"unit families differ: {outer!r} ({fam_o}) vs "
-                f"{inner!r} ({fam_i})")
+            raise ValueError(_family_mismatch(outer, fam_o, inner, fam_i))
         lo_ok = lo_o is None or (lo_i is not None and lo_i >= lo_o)
         hi_ok = hi_o is None or (hi_i is not None and hi_i <= hi_o)
         return lo_ok and hi_ok
@@ -282,12 +373,11 @@ def intersect(a, b, kind):
     the planner pre-intersects same-head query terms with this, and the
     disjoint-parents guard raises on None (DIMENSIONS.md §8, §9)."""
     head, param_a, param_b = _same_head(a, b)
-    if kind == KIND_LINEAR:
-        fam_a, lo_a, hi_a = _parse_linear(param_a)
-        fam_b, lo_b, hi_b = _parse_linear(param_b)
+    if kind in _LINEARISH:
+        fam_a, lo_a, hi_a = _denotation(param_a, kind)
+        fam_b, lo_b, hi_b = _denotation(param_b, kind)
         if fam_a != fam_b:
-            raise ValueError(
-                f"unit families differ: {a!r} ({fam_a}) vs {b!r} ({fam_b})")
+            raise ValueError(_family_mismatch(a, fam_a, b, fam_b))
         lo = lo_a if lo_b is None else lo_b if lo_a is None else max(lo_a, lo_b)
         hi = hi_a if hi_b is None else hi_b if hi_a is None else min(hi_a, hi_b)
         if lo is not None and hi is not None and lo > hi:

@@ -408,5 +408,60 @@ class TestEagerDimensions(unittest.TestCase):
                          {"weight"})
 
 
+class TestCalendarDimensionInDAG(unittest.TestCase):
+    """`time(2026)` as a year, through a real DAG: the kind is resolved by the
+    ancestor walk like any other, and reduced-precision periods contain the
+    days filed under them without an edge ever being stored between them."""
+
+    def setUp(self):
+        self.dag = OntoDAG()
+        self.dag.put("dimension", [])
+        self.dag.put("calendar-dimension", ["dimension"])
+        self.dag.put("time", ["calendar-dimension"])
+        self.dag.put("Flight", [])
+        for name, when in [("japan-outbound.pdf", "2026-08-15"),
+                           ("japan-return.pdf", "2026-08-29"),
+                           ("berlin-flight.pdf", "2026-03-02"),
+                           ("nye.pdf", "2025-12-31T23:00:00Z")]:
+            self.dag.put(name, ["Flight", f"time({when})"])
+
+    def test_year_query(self):
+        self.assertEqual(
+            names(self.dag.get(["Flight", "time(2026)"])),
+            {"japan-outbound.pdf", "japan-return.pdf", "berlin-flight.pdf"})
+        self.assertEqual(names(self.dag.get(["Flight", "time(2025)"])),
+                         {"nye.pdf"})
+
+    def test_month_query(self):
+        self.assertEqual(
+            names(self.dag.get(["Flight", "time(2026-08)"])),
+            {"japan-outbound.pdf", "japan-return.pdf"})
+
+    def test_month_range_query(self):
+        self.assertEqual(
+            names(self.dag.get(["Flight", "time(2026-03..2026-08)"])),
+            {"japan-outbound.pdf", "japan-return.pdf", "berlin-flight.pdf"})
+
+    def test_virtual_year_costs_no_nodes(self):
+        # The query term never becomes a node: only the four filed days did.
+        before = set(self.dag.nodes)
+        self.dag.get(["Flight", "time(2026)"])
+        self.assertEqual(set(self.dag.nodes), before)
+        self.assertNotIn("time(2026)", self.dag.nodes)
+
+    def test_is_below_from_names_alone(self):
+        self.assertTrue(self.dag.is_below("time(2026-08-15)", "time(2026)"))
+        self.assertTrue(self.dag.is_below("time(2026-08-15)", "time(2026-08)"))
+        self.assertFalse(self.dag.is_below("time(2026-08-15)", "time(2025)"))
+
+    def test_anchor_star_holds_the_days(self):
+        self.assertIn("time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)",
+                      names(self.dag.nodes["time"].neighbors))
+
+    def test_disjoint_periods_still_refused(self):
+        with self.assertRaises(ValueError):
+            self.dag.put("impossible.pdf", ["time(2025)", "time(2026)"])
+
+
 if __name__ == "__main__":
     unittest.main()

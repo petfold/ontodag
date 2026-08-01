@@ -395,13 +395,13 @@ as `time(2026-08-15)` are ordinary categories whose ordering OntoDAG *computes*
 from the value, so a "last summer" query matches an August flight with no edge
 ever stored between them, at any date range you care to ask.
 
-Declare a dimension once by placing it under one of the three built-in kind
+Declare a dimension once by placing it under one of the four built-in kind
 categories (create those like any other category):
 
 ```python
 dag.put("dimension", [])
-dag.put("linear-dimension", ["dimension"])   # ordered scalars & ranges
-dag.put("time", ["linear-dimension"])        # time is now a dimension
+dag.put("calendar-dimension", ["dimension"])  # dates, periods and ranges
+dag.put("time", ["calendar-dimension"])       # time is now a dimension
 
 # Dates are just more categories to file under.
 dag.put("japan-outbound.pdf", ["Flight", "Japan", "time(2026-08-15)"])
@@ -422,7 +422,8 @@ Now ask for a stretch of time that nobody ever created:
 The same from the command line (**quote the parentheses** in a shell):
 
 ```console
-$ odag put time linear-dimension
+$ odag put calendar-dimension dimension
+$ odag put time calendar-dimension
 $ odag put japan-outbound.pdf Flight Japan 'time(2026-08-15)'
 $ odag get Flight 'time(2026-06-01..2026-08-31)'
 japan-outbound.pdf
@@ -437,10 +438,14 @@ What to know:
   name `time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)` — the whole day — which
   is why it falls inside a summer query. Full timestamps
   (`time(2026-08-15T14:30:00Z)`) work too, for a departure rather than a date.
-- **A whole year is a range**, written out: `time(2026-01-01..2026-12-31)`. A bare
-  `time(2026)` is *not* a year — it is read as the dimensionless number 2026 and
-  rejected for mixing unit families. Month granularity (`time(2026-08)`) is not
-  parsed either; write the month's first and last day.
+- **Whole years and months are values too**: `time(2026)` is the year,
+  `time(2026-08)` the month, and they nest the way you would expect — a document
+  filed under `time(2026-08-15)` is inside both. Ranges of them work as well
+  (`time(2026-03..2026-08)`). This is what `calendar-dimension` buys you: under
+  the plain `linear-dimension` a bare `time(2026)` is the dimensionless *number*
+  2026, because there a bare integer is a count. If you declared a time dimension
+  that way, the error message says so and names the fix; re-declaring the head
+  under `calendar-dimension` changes no stored value.
 - **Other dimensions work the same way.** `weight(3kg)` is stored as
   `weight(3000000mg)` — values are exact integers in tiny base units (mass in mg,
   length in mm, duration in s), so `3kg`, `3000g` and `3.0kg` are one identity,
@@ -449,6 +454,8 @@ What to know:
   (`geo(u2ed)` is inside `geo(u2)` — geohash cells, handy for "near Tokyo"), and
   `dominance-dimension` for does-it-fit tuples
   (`size(19x23x39cm)` fits `size(20x30x40cm)` — cabin baggage, rotation free).
+  `linear-dimension` is the fourth: numbers with units, which is what
+  `weight(3kg)` above uses.
 - **A point is not a range.** `weight(3kg)` is *not* below `weight(5kg)` —
   a 3 kg bag is not a special case of a 5 kg one. Use `weight(..5kg)`.
 - **An item sits in the intersection of its parents**, so filing one thing

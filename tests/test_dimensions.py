@@ -8,7 +8,7 @@ import pytest
 
 from ontodag import dimensions as dims
 from ontodag.dimensions import (
-    KIND_DOMINANCE, KIND_LINEAR, KIND_PREFIX,
+    KIND_CALENDAR, KIND_DOMINANCE, KIND_LINEAR, KIND_PREFIX,
     canonicalize, contains, intersect, space_of, split_term,
 )
 
@@ -254,9 +254,80 @@ class TestAgainstDenotationOracle:
                 (downset(tb) <= downset(ta)), f"{name_a} vs {name_b}"
 
 
+class TestCalendarCanonicalization:
+    """A calendar dimension reads reduced precision as the whole period it
+    names — the rule the linear grammar already applied to a bare date,
+    extended up to months and years. It is a separate kind because in a
+    linear dimension a bare integer is a dimensionless count, so `time(2026)`
+    there can only mean the number 2026."""
+
+    @pytest.mark.parametrize("param, expected", [
+        ("2026", "2026-01-01T00:00:00Z..2026-12-31T23:59:59Z"),
+        ("2026-08", "2026-08-01T00:00:00Z..2026-08-31T23:59:59Z"),
+        ("2026-02", "2026-02-01T00:00:00Z..2026-02-28T23:59:59Z"),
+        ("2024-02", "2024-02-01T00:00:00Z..2024-02-29T23:59:59Z"),  # leap
+        ("2026-08-15", "2026-08-15T00:00:00Z..2026-08-15T23:59:59Z"),
+        ("2026-08-15T14:30:00Z", "2026-08-15T14:30:00Z"),           # a point
+        ("2026-03..2026-08", "2026-03-01T00:00:00Z..2026-08-31T23:59:59Z"),
+        ("..2026", "..2026-12-31T23:59:59Z"),
+        ("2026..", "2026-01-01T00:00:00Z.."),
+    ])
+    def test_period_bounds(self, param, expected):
+        assert canonicalize(f"t({param})", KIND_CALENDAR) == f"t({expected})"
+
+    @pytest.mark.parametrize("param", [
+        "2026-13", "2026-00", "2026-02-30", "20260", "26", "abc", "2026-8",
+        "2026-12..2026-01",          # empty range
+        "..",                        # no end at all
+    ])
+    def test_rejected(self, param):
+        with pytest.raises(ValueError):
+            canonicalize(f"t({param})", KIND_CALENDAR)
+
+    @pytest.mark.parametrize("inner, outer", [
+        ("2026-08-15", "2026"), ("2026-08-15", "2026-08"),
+        ("2026-08", "2026"), ("2026-08-15T14:30:00Z", "2026-08-15"),
+        ("2026", "2026"), ("2026-03..2026-04", "2026"),
+    ])
+    def test_contains(self, inner, outer):
+        assert contains(f"t({outer})", f"t({inner})", KIND_CALENDAR)
+
+    @pytest.mark.parametrize("inner, outer", [
+        ("2026-08-15", "2025"), ("2026", "2026-08"),
+        ("2026-08-15", "2026-09"), ("2026", "2026-01-01"),
+    ])
+    def test_does_not_contain(self, inner, outer):
+        assert not contains(f"t({outer})", f"t({inner})", KIND_CALENDAR)
+
+    def test_shares_the_linear_time_space_tag(self):
+        # So a dimension declared linear can be re-declared calendar without
+        # any stored value changing identity or space.
+        assert space_of("t(2026-08-15)", KIND_CALENDAR) == \
+            space_of("t(2026-08-15)", KIND_LINEAR) == "linear:time"
+        assert canonicalize("t(2026-08-15)", KIND_CALENDAR) == \
+            canonicalize("t(2026-08-15)", KIND_LINEAR)
+
+    def test_intersect(self):
+        assert intersect("t(2026)", "t(2026-08)", KIND_CALENDAR) == \
+            "t(2026-08-01T00:00:00Z..2026-08-31T23:59:59Z)"
+        assert intersect("t(2025)", "t(2026)", KIND_CALENDAR) is None
+
+    def test_bare_year_stays_a_count_under_the_linear_kind(self):
+        # The reason this kind exists: unchanged linear semantics.
+        assert canonicalize("n(2026)", KIND_LINEAR) == "n(2026)"
+        assert space_of("n(2026)", KIND_LINEAR) == "linear:count"
+
+    def test_family_mismatch_names_the_fix(self):
+        with pytest.raises(ValueError) as excinfo:
+            contains("t(2026-08-15)", "t(2026)", KIND_LINEAR)
+        message = str(excinfo.value)
+        assert "is the number, not the year" in message
+        assert KIND_CALENDAR in message
+
+
 class TestRegistry:
     def test_reserved_names(self):
         assert dims.KINDS == {"linear-dimension", "prefix-dimension",
-                              "dominance-dimension"}
+                              "dominance-dimension", "calendar-dimension"}
         assert dims.DIMENSION_ROOT == "dimension"
         assert isinstance(dims.REGISTRY_VERSION, int)
