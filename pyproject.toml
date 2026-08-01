@@ -23,17 +23,23 @@ classifiers = [
 dependencies = [
     "graphviz",
     "owlready2",
-    "recordstore>=0.13.1",  # swarm_store() and RecordStore.blobs live here
+    "recordstore>=0.14.0",  # swarm_store(), RecordStore.blobs, batch health
 ]
 
 [project.optional-dependencies]
 web = ["flask", "dot2tex", "Pillow"]
 # The `swarm:NAME` CLI backend talks to a Bee node via recordstore's
-# BeeBytesStore (needs `requests`, recordstore's [bee] extra) and — when a
-# signer is configured — publishes the latest root to a Swarm feed via
-# SwarmFeedPointer (needs `swarm-bee`, recordstore's [feeds] extra). Declare
-# both through recordstore so the versions stay in step with it.
-swarm = ["recordstore[bee,feeds]>=0.13.1"]
+# BeeBytesStore (needs `requests`, recordstore's [bee] extra); resolves the
+# postage batch with the default `bee_batch = auto` (needs `swarmfs`, the
+# [stamps] extra — without it every command on a swarm store fails at
+# store-open, since selection happens in BeeBytesStore's constructor); and —
+# when a signer is configured — publishes the latest root to a Swarm feed via
+# SwarmFeedPointer (needs `swarm-bee`, the [feeds] extra). Declare all three
+# through recordstore so the versions stay in step with it. The [stamps]
+# extra is why the floor here is 0.14.0: it does not exist earlier, and pip
+# only warns when an extra is missing, so naming it below the floor would
+# silently install nothing.
+swarm = ["recordstore[bee,feeds,stamps]>=0.14.0"]
 test = ["pytest"]
 
 [project.scripts]

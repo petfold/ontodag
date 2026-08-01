@@ -2,8 +2,8 @@
 
 `recordstore` lives in its own repo, [github.com/petfold/recordstore](https://github.com/petfold/recordstore),
 extracted from this repo in July 2026 with history preserved. OntoDAG depends on it
-from PyPI in `pyproject.toml` (`recordstore>=0.13.1`, both in the base dependencies
-and in the `swarm` extra).
+from PyPI in `pyproject.toml` (`recordstore>=0.14.0`, both in the base dependencies and
+in the `swarm` extra, which asks for `recordstore[bee,feeds,stamps]`).
 
 **This is a manually-synced reference doc**, not generated and not a submodule: if the
 required version changes, re-check this summary against the tagged source. Last synced
@@ -11,7 +11,7 @@ against **0.15.0**, verified signature-by-signature on 2026-08-01 against a chec
 the `v0.15.0` tag.
 
 The sync point is deliberately *ahead* of the floor: the floor says what OntoDAG needs,
-this doc describes what the current release offers. Anything requiring more than 0.13.1
+this doc describes what the current release offers. Anything requiring more than 0.14.0
 is marked **(needs ≥ x.y.z)** below — everything unmarked is available at the floor.
 
 ## What OntoDAG uses it for
@@ -58,7 +58,7 @@ returned records are deep copies (mutating them never mutates the store).
   `merge` uses, pruning subtrees whose refs match, so equal roots read zero blobs.
   Compare two arbitrary roots with `RecordStore.at(a, blobs).diff(b)`. Requested by
   `docs/MERKLE_NOTES.md`; **nothing in OntoDAG consumes it yet**, which is why the floor
-  stays at 0.13.1.
+  stops at 0.14.0 rather than following the latest release.
 - `RecordStore.at(root, bytes_store)` — read-only snapshot of any committed root
   (`put`/`delete`/`commit` raise `TypeError`).
 - `.root` — root of the last committed state.
@@ -103,9 +103,7 @@ Optional bulk methods `get_many(refs)` / `put_many(datas)` are used by `items()`
   via `swarmfs.splitter`, making a directory an offline mirror of Swarm's address space;
   needs `recordstore[swarm-addressing]`), or any `bytes -> str` callable.
 - `BeeBytesStore(api_url, postage_batch_id="auto", deferred_upload=True,
-  max_concurrent_reads=16, min_batch_ttl=AUTO_MIN_BATCH_TTL)` — the last parameter
-  **needs ≥ 0.14.0**; at the 0.13.1 floor the signature ends at `max_concurrent_reads`
-  — a real Bee node
+  max_concurrent_reads=16, min_batch_ttl=AUTO_MIN_BATCH_TTL)` — a real Bee node
   over `POST/GET /bytes` (Bee's blob endpoint, not the raw `/chunks/{address}` single-chunk
   primitive — the name reflects that). Imports `requests` lazily (install extra:
   `recordstore[bee]`). Writes need a usable postage batch; against a real node always
@@ -122,12 +120,12 @@ node wallet's xBZZ stays a deliberate caller action (swarmfs's `StampManager.pla
 is the programmatic route).
 
 - `AUTO_MIN_BATCH_TTL = 86400` — a day of remaining validity is required of an
-  auto-selected batch **(needs ≥ 0.14.0)**; override per store with `min_batch_ttl=`.
-  Earlier versions inherited swarmfs's 60-second floor, written for one-shot uploads: a
-  batch with a minute left would be selected and everything written under it would stop
-  being paid for a minute later.
+  auto-selected batch; override per store with `min_batch_ttl=`. Versions before 0.14.0
+  inherited swarmfs's 60-second floor, written for one-shot uploads: a batch with a
+  minute left would be selected and everything written under it would stop being paid
+  for a minute later. Getting this behaviour is part of why the floor is 0.14.0.
 - `batch_status(api_url, batch_id, *, buckets=False)` and
-  `BeeBytesStore.batch_status(*, buckets=False)` **(needs ≥ 0.14.0)** — read-only batch
+  `BeeBytesStore.batch_status(*, buckets=False)` — read-only batch
   health, returning `(StampInfo, BucketStats | None)`; `buckets=True` fetches the node's
   exact per-bucket histogram (~2 MB) instead of the summary. Selection also warns on
   under a week of validity (an expired batch cannot be revived) and on a fullest bucket
@@ -138,12 +136,15 @@ is the programmatic route).
   function needs `from recordstore.recordstore import batch_status` (verified
   2026-08-01; an export oversight upstream rather than a deliberate boundary).
 
-**Packaging gap worth knowing:** the `auto` path imports `swarmfs`, which recordstore
-declares as its `[stamps]` extra (`swarmfs>=0.4.0`) since 0.14.0. OntoDAG's own `swarm`
-extra asks for `recordstore[bee,feeds]` only — so on a clean install the default
-`auto` batch resolution raises an `ImportError` telling you to install swarmfs. It works
-on this dev box because swarmfs is installed from a local checkout. Either add `stamps`
-to the extra or set an explicit `bee_batch`.
+**Why the floor is 0.14.0 and the extra names three components.** The `auto` path imports
+`swarmfs`, which recordstore declares as its `[stamps]` extra (`swarmfs>=0.4.0`) from
+0.14.0 on. OntoDAG's `swarm` extra used to ask for `recordstore[bee,feeds]` only, so a
+clean install had no `swarmfs` and the *default* batch setting failed at store-open with
+an `ImportError` — invisible on a dev box that has swarmfs from a checkout. Fixed
+2026-08-01 by asking for `recordstore[bee,feeds,stamps]>=0.14.0`. The floor had to move
+with it: `stamps` does not exist below 0.14.0, and pip only *warns* about an
+unknown extra, so naming it against an older floor would have installed nothing and
+looked fine.
 
 ## `Pointer` backends
 
@@ -188,7 +189,7 @@ only the blobs go to Swarm, which is exactly the keyless mode's documented limit
 ## Version history relevant to OntoDAG
 
 All releases since `v0.3.0` have been additive — no breaking API changes — which is why
-OntoDAG's dependency is a floor (`>=0.13.1` in `pyproject.toml`, in the base dependencies
+OntoDAG's dependency is a floor (`>=0.14.0` in `pyproject.toml`, in the base dependencies
 and the `swarm` extra alike) rather than an exact pin. One behavioural tightening rather
 than a signature change: 0.14.0 made `"auto"` refuse batches with under a day of validity
 left, so a batch that older versions would have selected can now be rejected.
@@ -204,13 +205,13 @@ left, so a batch that older versions would have selected can now be rejected.
 - **v0.12.0** — `swarm_store()` (above). **v0.12.1** — metadata only (the PyPI page was
   blank: `readme` was never declared).
 - **v0.13.0** — `DirBytesStore`, `FsspecBytesStore`, pluggable `addressing=`.
-- **v0.13.1** — `RecordStore.blobs`; **OntoDAG's current floor**, needed by
-  `EagerOntoDAG.merge_published`. **v0.13.2** — metadata only (`requires-python>=3.11`,
-  populated `[project.urls]`).
-- **v0.14.0** — postage batch health: the one-day `AUTO_MIN_BATCH_TTL`, expiry and
-  bucket-fullness warnings, `batch_status()`, and 402-on-write messages that distinguish
-  "overissued bucket, dilute and retry, nothing lost" from an expired batch. Adds the
-  `[stamps]` extra (`swarmfs>=0.4.0`).
+- **v0.13.1** — `RecordStore.blobs`, needed by `EagerOntoDAG.merge_published`.
+  **v0.13.2** — metadata only (`requires-python>=3.11`, populated `[project.urls]`).
+- **v0.14.0** — **OntoDAG's current floor.** Postage batch health: the one-day
+  `AUTO_MIN_BATCH_TTL`, expiry and bucket-fullness warnings, `batch_status()`, and
+  402-on-write messages that distinguish "overissued bucket, dilute and retry, nothing
+  lost" from an expired batch. Adds the `[stamps]` extra (`swarmfs>=0.4.0`) — which is
+  the reason the floor sits here rather than at 0.13.1 (see above).
 - **v0.15.0** — public `RecordStore.diff(other_root)` (above). The version this document
   was last synced against.
 

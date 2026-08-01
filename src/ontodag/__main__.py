@@ -333,7 +333,8 @@ class SwarmBackend:
                 f"the swarm backend needs an optional dependency that is not "
                 f"installed ({missing!r}); install the swarm extra with:  "
                 f"pip install -e \".[swarm]\"   "
-                f"(that covers both: `requests` for the Bee blob store and "
+                f"(that covers all three: `requests` for the Bee blob store, "
+                f"`swarmfs` for resolving bee_batch=auto against the node, and "
                 f"`swarm-bee` for publishing the latest root to a Swarm feed)"
             ) from exc
         except OSError as exc:
