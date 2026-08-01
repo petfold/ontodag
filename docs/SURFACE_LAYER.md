@@ -16,6 +16,15 @@ canonical, verifiable store plays in a world of AI agents (§14). Those last two
 are bigger than a rendering layer and may want their own documents once they
 have shape.
 
+**Update 2026-08-01 (later the same day).** The strategy discussion happened,
+and Part II got its outcomes: **agents-first is agreed** as the priority
+(§14), §13 grew into the predicted standalone document — `CONTRACT.md`, which
+sharpens its criterion into two axes and adds the as-of/root-pinning clause
+and a verifiability section — and §14's provenance prerequisite became the
+design note `PROVENANCE.md`. Positions were also recorded (not decided) on
+the remaining §9 questions and on §12's fork; they are marked inline below.
+The working plan is in `ROADMAP.md` ("Next up") and `CLAUDE.md`.
+
 Read `DIMENSIONS.md` first for the canonical-form discipline this must not
 break, and `SEMANTIC_CODES.md` §9 for the precedent of a derived, local,
 never-merged layer — which is exactly the category this belongs to.
@@ -107,6 +116,25 @@ tempting: **do not store the user's spelling.** Keeping "they typed `2026`" in
 the same fact by different spellings would get different roots. Intent must be
 *recomputed* structurally (a range that exactly spans a calendar period renders
 as that period), not remembered.
+
+Three sharpenings from the 2026-08-01 discussion:
+
+- **Policy picks, vocabulary defines.** The law interacts with local policy:
+  if my renderer prefers `weight(3lb)`, elaboration must be able to read
+  `lb` — and that unit table is *shared vocabulary* (§11), not policy. So:
+  rendering policy may only choose among spellings the shared vocabulary
+  already defines, never invent one. That is what makes `--render` output
+  safe to hand to a user with different preferences — same vocabulary, same
+  canonical result. Without this clause the law can hold on my machine and
+  fail on yours.
+- **Injectivity per context.** The law requires `render` to be injective on
+  canonical terms: it may collapse a range to `time(2026)` only when the
+  span is *exact*. The almost-a-year range is the fuzz case that matters.
+- **The non-law.** `render(elaborate(s)) == s` is deliberately **not**
+  promised — the user's spelling normalizes away, per the paragraph above.
+  Stated so nobody "fixes" it later. The fuzz test therefore runs in one
+  direction (canonical → surface → canonical) plus a determinism check on
+  elaboration, never the other round trip.
 
 ## 5. Input side: elaboration
 
@@ -222,18 +250,35 @@ structure* rather than terms. That is the `mdl-fca` provenance question
 
 ## 9. Open questions
 
+Positions recorded 2026-08-01 (from the strategy discussion) are marked
+*Position:* — they are recommendations on the record, not decisions.
+
 1. **Is the calendar kind still the right shape** if a surface layer exists? A
    richer surface reduces the pain of declaring kinds but does not remove the
    ambiguity that made the kind necessary. My current view: the kind stays, and
    the surface makes it cheaper to live with — but this is worth attacking.
+   *Position: the kind stays. It was never about parsing — a calendar year
+   denotes a range and has irregular arithmetic; no surface can make that
+   ambiguity go away, only make declaring it cheap.*
 2. **Declaration ceremony.** A `declare` shorthand, an opt-in prelude of
    standard dimensions, or auto-declare-on-first-use-with-confirmation? A
    prelude changes the canonical root of a "fresh" store, so it cannot be the
    default without thought.
+   *Position: the prelude should be a **published ontology with a well-known
+   root, adopted by explicit `merge`** — not a config default. Merge is
+   idempotent and canonical, so everyone who adopts prelude-vX converges; the
+   root change becomes a feature (adoption is explicit, versioned, visible in
+   the fingerprint). This is simultaneously the upper-ontology answer from
+   the issues list: don't bake one in, publish optional vocabularies as
+   stores and let people merge them. One mechanism, three problems.*
 3. **Clock- and locale-dependent input** (`today`, local dates vs UTC). Accept
    with explicit expansion shown, or refuse? Bare dates are UTC days in the core
    today; a surface that accepts local dates lets two users store different
    facts from identical keystrokes.
+   *Position: accept **interactively only** (stdin is a tty), with the
+   canonical echo on screen; refuse in batch/pipe mode without an explicit
+   flag. Mirrors the §9.4 output rule exactly — liberal where a human is
+   present to see the expansion, strict where a script runs blind.*
 4. ~~**Pipe semantics** (§7).~~ **Decided 2026-08-01: both.** Canonical
    whenever stdout is not a terminal, *and* a `--render` opt-in for when it
    isn't; `--raw` forces canonical on a terminal. Table and consequences in
@@ -242,15 +287,24 @@ structure* rather than terms. That is the `mdl-fca` provenance question
    `REGISTRY_VERSION` — rendering changes are harmless, but changing elaboration
    changes what identical input stores. Does that version need to appear
    anywhere, or is it purely informational?
+   *Position: purely informational — nothing in the graph. But `odag canon`
+   should print it and the confirm echo should carry it.*
 6. **Scope.** Does the surface layer cover only dimension values, or names in
    general — aliases, spelling, language? The roadmap's "Namespaces" item
    (reconciling different people's naming) is the same shape of problem and may
    want to land here rather than beside it.
+   *Position: dimension values only in v1. Aliases and languages are
+   knowledge by §11's own criterion, and belong to §12/Namespaces — don't let
+   the renderer grow a lexicon.*
 7. **Where does it live?** A module in `ontodag`, or its own package? An LLM
    elaborator is certainly an optional extra; the pretty-printer probably is
    not.
+   *Position: `ontodag.surface` in-package (the renderer is dependency-free);
+   the LLM elaborator a separate package or extra, behind the same contract.*
 8. **The legacy time-under-`linear-dimension` path.** Leave it, warn on it, or
    refuse `linear:time` at put time? Today it works until you type a bare year.
+   *Position: warn at **declaration** time (`put time linear-dimension` is
+   the mistake moment), refuse nothing.*
 
 ## 10. Possible sequencing (only if we decide to do this)
 
@@ -356,6 +410,19 @@ identity again, and leaving them unrelated loses the link. That residue *is*
 the Namespaces problem; a language feature that pretends otherwise will be
 wrong in exactly the cases that matter.
 
+**Proposed resolution (2026-08-01, recorded so the fork is not re-litigated;
+build nothing until the Namespaces tripwire fires).** The two cases split
+along §11's own line. *Exact* aliases — typos, abbreviations, `vol` really
+does mean `Flight` — are identity, hence elaboration's job: a **lexicon
+store** (the third option above), shared by reference like a cone index,
+mapping surface names to canonical names without touching anyone's root.
+*Near-synonyms* — where the carving differs — are claims, hence graph
+content: distinct nodes plus relation edges, SKOS-shaped, disputable. The
+lexicon handles the easy majority invisibly; the graph holds the disputed
+residue, where the dispute *is* the information. The option ruled out is
+labels-in-records: every community's labels in everyone's data, and a label
+edit changing a knowledge fingerprint.
+
 ## 13. What are the limits of OntoDAG?
 
 The question: from a deliberately small query formalism, how far toward full
@@ -400,6 +467,21 @@ intersections. For that to work the interface must be written down explicitly �
 *what a higher layer may assume* — so it cannot come to depend on internals:
 `put`/`get`/`get_any`/`is_below`/`remove`/`merge`/`sync`, the canonical root,
 and the guarantee that equal knowledge yields equal roots. Nothing else.
+
+**Continued in `CONTRACT.md` (2026-08-01)** — the document this section
+predicted. What it adds beyond the paragraph above: the criterion sharpened
+into **two axes** (monotone, so merge survives; *and* cheaply **semantically**
+canonicalizable, so equal knowledge keeps yielding equal roots — the second is
+what the relations/EL step fails: EL is monotone, but without research-grade
+work on canonicalizing entailment closures the root degrades from a
+fingerprint of knowledge to a fingerprint of phrasing); the **as-of clause**
+(non-monotone questions — negation, aggregation, closed-world, absence — are
+honest when pinned to a root, and `RecordStore.at()` + `LazyOntoDAG` already
+implement it); the observation that both axes are necessary but not
+sufficient (computed values pass both and still wait behind a tripwire); and
+this section's feature table re-sorted into `DATABASE_DIRECTION.md`'s walls.
+The direction — core gains no further expressiveness; the higher layer
+compiles down under the written contract — was **agreed 2026-08-01**.
 
 ## 14. OntoDAG among AI agents
 
@@ -454,3 +536,25 @@ Finally, keep the two model roles apart, because they have different contracts:
 validated and confirmed before storage. This section's LLM is a **peer** that
 reads and writes the store directly, and the question there is not elaboration
 but authority, provenance and review.
+
+**Decisions and follow-ups (2026-08-01).** This section stopped being open:
+
+- **Agents-first is agreed** — the priority consumer, with a decent human
+  interface kept alongside. Rationale in `CONTRACT.md` §1: reasoning is
+  abundant, agreement is scarce; the four properties above are what a model's
+  knowledge is not.
+- **Canonical echo is §5's confirm step** — one mechanism serves humans and
+  agents, which is evidence the surface contract is right, and means building
+  §10 step 1 *is* building agent infrastructure.
+- **Provenance is promoted** from research horizon to prerequisite: no agent
+  write path before `PROVENANCE.md` is settled (attribution in a parallel
+  store, never in the knowledge record — or agreement-by-fingerprint dies).
+- **Verification upgrades the verifier role to trustless**: `is_below`
+  certificates in both polarities (`CONTRACT.md` §7) let a third party check
+  an agent's citation while holding only the root. The read-only MCP surface
+  is queued first, writes gated on provenance; the MCP surface doubles as the
+  **tripwire instrument** — what agents try to express and can't is exactly
+  the evidence `DATABASE_DIRECTION.md`'s walls wait for.
+- The review problem (the risk bullet above) is answered in design by
+  *claims merge, acceptance is policy* — endorsement filtering per reader,
+  `PROVENANCE.md` §5 — and must exist before writes run at volume.

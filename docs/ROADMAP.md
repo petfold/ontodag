@@ -13,6 +13,27 @@ the engineering rationale is in `SWARM_DESIGN.md` and `SEMANTIC_CODES.md`.
 
 Last updated 2026-08-01.
 
+## Direction (agreed 2026-08-01): agents first
+
+OntoDAG's differentiators — knowledge that is **canonical** (equal knowledge,
+equal fingerprint), **addressable** (citable by root), **verifiable** (answers
+that can be checked, eventually with cryptographic certificates), and
+**attributable** (who asserted what, against which state) — are exactly the
+four properties an AI model's knowledge lacks, and exactly what agent
+ecosystems are missing. The agreed priority is therefore the **agent-facing
+surface**: a written contract of what a higher layer may assume
+([CONTRACT.md](CONTRACT.md)), verifiable answers, and provenance-gated agent
+writes ([PROVENANCE.md](PROVENANCE.md)) — while keeping a decent human
+interface (the surface layer's readable rendering serves both audiences; its
+canonical echo is the same mechanism as the agent-facing one).
+
+The companion decision: the **core gains no further expressiveness** — no
+relations, no negation, no rules, no weights. Richer reasoning belongs to a
+higher layer that compiles down to cone intersections under the contract, and
+non-monotone questions (negation, aggregation, closed-world) are asked
+honestly by pinning them to a root — a snapshot question with an immutable,
+replayable answer, which the existing snapshot machinery already supports.
+
 ## Delivered
 
 - The core structure — `put`/`get`/`remove`/`merge`, minimal-link maintenance
@@ -73,6 +94,46 @@ Last updated 2026-08-01.
    merge, re-reduced, then recommitted); writers syncing each other's roots land
    on the byte-identical root. Several writers, one shared ontology, no server —
    with the documented union semantics (removals lose to concurrent re-adds).
+5. **The higher-layer contract** — drafted 2026-08-01 as
+   [CONTRACT.md](CONTRACT.md) (discussion draft, pending review): the
+   operations and guarantees a higher layer or agent may rely on, the
+   monotonicity-under-merge clause, the as-of/root-pinning rule for
+   non-monotone questions, the admissibility criterion behind the walls, and
+   the verifiability tiers.
+6. **Provenance design** — drafted 2026-08-01 as
+   [PROVENANCE.md](PROVENANCE.md) (discussion draft): attribution in a
+   parallel provenance store (never in the knowledge record, so agreement-by-
+   fingerprint survives), signed assertion/endorsement/retraction records.
+   **Gates all agent writes.** Promoted from the research horizon by the
+   agents-first decision.
+7. **Readable rendering + `odag canon`** — the surface layer's steps 1–2
+   (`SURFACE_LAYER.md` §10; unblocked since the pipe-semantics decision):
+   `time(2026)` instead of the canonical timestamp range on terminals,
+   canonical bytes whenever output is piped, a round-trip fuzz test, and an
+   inspectable elaboration command. Serves humans and agents at once — the
+   canonical echo is the confirm mechanism for both.
+8. **Read-only agent surface (MCP) + a discoverability record.** Tool-shaped
+   `get`/`get_any`/`is_below`/`show`/`canon`, always citing roots, with as-of
+   (query at a named root) included since the snapshot machinery exists; plus
+   a small conventional "what is this store about" record an agent reads
+   first. Doubles as the **tripwire instrument**: what agents try to express
+   and can't is the usage evidence the walls in `DATABASE_DIRECTION.md` wait
+   for, so refused/awkward patterns get logged from day one.
+9. **Verifiable answers.** recordstore `prove`/`verify` — Merkle inclusion
+   *and absence* proofs from the canonically-encoded trie (absence is provable
+   precisely because the encoding is canonical); then `is_below` certificates
+   in both polarities on top (witness path for true; an upward-closed,
+   inclusion-proven ancestor cone for false). Upgrades "trust the store" to
+   "verify against 32 bytes". recordstore half lives in that repo.
+10. **Agent writes** — gated on item 6: the provenance store implementation,
+    write-path tools (propose → canonical echo → confirm, idempotent puts),
+    then endorsement/review workflows before any volume.
+11. **The human track, in parallel:** a standard **prelude as a published
+    ontology** (adopt common dimension declarations by merging a well-known
+    root — also the answer to "which upper ontology?": publish optional
+    vocabularies, don't bake one in), and the User Guide quick-start rework,
+    which item 7 makes honest to write (examples can finally read
+    `time(2026)`).
 
 ## Then: more capability, still no model change
 
@@ -101,23 +162,25 @@ canonical form and the merge properties untouched:
 
 ## Under discussion (no decision yet)
 
-- **A surface layer** — a separate, local, never-merged layer between people
-  and the exact core: forgiving input on the way in (a bare `2026` as the year,
-  ISO weeks, eventually a locally-running LLM turning a sentence into terms) and
-  readable output on the way out (`time(2026)` rather than
+- **A surface layer** — a layer between people and the exact core: forgiving
+  input on the way in (a bare `2026` as the year, ISO weeks, eventually a
+  locally-running LLM turning a sentence into terms) and readable output on
+  the way out (`time(2026)` rather than
   `time(2026-01-01T00:00:00Z..2026-12-31T23:59:59Z)`, `weight(3kg)` rather than
   `weight(3000000mg)`). The core stays exactly as strict as it is now — the
   surface only ever proposes, and everything it proposes is validated and
   canonicalized before it is stored, which is also the condition that would
   make an LLM safe to plug in. Both layers stay reachable from every interface:
   a `--raw` switch on the command line, an opt-in module for Python callers.
-  Discussion draft with open questions: `SURFACE_LAYER.md`. Its Part II
-  collects the wider questions the discussion opened: building the surface out
-  of OntoDAG itself rather than beside it, multilingual naming (the Namespaces
-  item, arriving from a new direction), how far this should go toward knowledge
-  representation and inference versus what belongs in a higher layer with a
-  stated interface, and what a canonical verifiable store is *for* in a world
-  of capable AI agents.
+  Discussion draft with open questions: `SURFACE_LAYER.md`. **Status
+  2026-08-01:** its Part II questions now have outcomes — the agents-first
+  direction above, `CONTRACT.md` (how far toward knowledge representation:
+  the core stops here; a higher layer compiles down), and `PROVENANCE.md`
+  (what agent writes require) — and the rendering work itself is queued
+  (item 7 above). Still genuinely under discussion: declaration ergonomics,
+  clock-dependent input, and multilingual naming (a proposed split — exact
+  aliases in a shared-by-reference lexicon store, disputed near-synonyms as
+  graph claims — is recorded in its §12, waiting on the Namespaces tripwire).
 
 ## Parked until real usage data exists
 
@@ -135,6 +198,15 @@ Not "someday" items — each is worked out in a design note and waits on a trigg
   query workload, a graph too big for RAM, or thin clients.
 - **Chunk-level layout tuning** (packing many small records per storage chunk) —
   waiting on real record-size and access-pattern data.
+- **Zero-knowledge proofs over private ontologies** — prove "my catalogue
+  contains something under `weight(..5kg) ∧ location(EU)`" without revealing
+  the catalogue. Parked behind a real privacy-demanding counterparty
+  (loopmarket-shaped), but the positioning is unusually good when it fires:
+  deterministic canonical encoding, one query primitive, and no floating
+  point anywhere (values are integers in base units — what arithmetic
+  circuits want). See `CONTRACT.md` §7. On-chain *anchoring* of roots, by
+  contrast, is cheap (Swarm's BMT addressing is keccak-based, the EVM's
+  native hash) and waits only on a consumer, not on research.
 
 ## Research horizon
 
@@ -149,9 +221,29 @@ Not "someday" items — each is worked out in a design note and waits on a trigg
   learned structure can flow in — tagged with **provenance** (`asserted` = a human
   said so, irreplaceable; `derived` = a learner proposed it, regenerable), which
   in turn drives what must be stored durably versus what can be recomputed.
+  *Note 2026-08-01: the provenance machinery itself is no longer horizon — it
+  moved to the queue ([PROVENANCE.md](PROVENANCE.md)) because agent writes
+  need it first; the learner integration stays here.*
 - **Namespaces.** Reconciling different people's naming — spelling, language, and
   the same word used for different things — so DAGs built independently can be
-  merged without name collisions.
+  merged without name collisions. *A proposed shape is recorded in
+  `SURFACE_LAYER.md` §12 (exact aliases in a lexicon store, disputed
+  near-synonyms as graph claims); building it waits on the tripwire.*
+- **Economic guarantees on claims — the factbond sister project**
+  (github.com/petfold/factbond, created 2026-08-01, design stage: bonded
+  assertions + information insurance for factual claims). The third trust
+  leg after structural proofs and provenance: "someone will pay if this is
+  wrong." OntoDAG's parts in it are worked out in factbond's
+  `docs/INTEGRATION.md`: canonical root-pinned names as *claim identity*
+  (and a root as a batched claim — bond millions of facts at once, dispute
+  one record via an inclusion proof); the provenance store as its assertion
+  layer minus money; certificates as the free bottom rung of dispute
+  adjudication; and — the research bridge — OntoDAG as a tractable,
+  monotone claim/implication fragment for knowledge-graph collateral
+  netting (`is_below` as implication, disjointness claims as exclusion).
+  loopmarket's P3 "guarantee fabric" (bonded stakes on catalogue edges,
+  settlement-attached insurance) is the first structured consumer. Nothing
+  in this repo depends on any of it.
 - **Materialized intermediate categories.** Adding (and removing) intermediate
   nodes purely to speed up search, chosen by usage statistics; the derived,
   never-merged half of the bitmap-index endgame above.

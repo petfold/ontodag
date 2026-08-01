@@ -34,6 +34,39 @@ one-primitive query model that keeps the planner provable. Purity is
 what the guarantees are made of. Every proposal below is sorted by
 whether it preserves the invariants untouched.
 
+## Update 2026-08-01: the criterion behind the walls, and what changed
+
+The strategy discussion recorded in `SURFACE_LAYER.md` Part II produced
+`CONTRACT.md` (what a higher layer or agent may assume) and settled the
+"how far toward knowledge representation?" question. Four consequences for
+this document:
+
+1. **The walls now have a general criterion**, not just instances
+   (`CONTRACT.md` §5): a feature is admissible in the shared store only if
+   it is (a) **monotone** — merge-as-union survives — *and* (b) **cheaply,
+   semantically canonicalizable** — "equal knowledge ⇒ equal root" stays
+   decidable and cheap rather than degrading to "equal syntax ⇒ equal
+   root". Both are necessary; together they are still **not sufficient** —
+   the tripwire discipline below decides what is *warranted* (computed
+   values pass both axes and still wait). Per-wall notes below name which
+   axis each wall protects.
+2. **The as-of clause** (`CONTRACT.md` §4) is the sanctioned path around
+   the non-monotone walls: negation, aggregation, closed-world readings and
+   absence claims are well-defined when **pinned to a root** — immutable,
+   replayable answers via the existing snapshot machinery
+   (`RecordStore.at(root)` + `LazyOntoDAG`). The walls guard the living,
+   merging store; they were never about snapshot questions.
+3. **Agents are the tripwire instrument.** With agents-first agreed
+   (`ROADMAP.md` "Direction"), the read-only MCP surface will log what
+   agents try to express and can't — walls stop waiting on anecdote and
+   start accumulating evidence. Expect the constraints and relations
+   tripwires to be probed far sooner than human usage would have.
+4. **Verification is now a stated offering** (`CONTRACT.md` §7): what holds
+   today by construction (semantic content addressing *is* a commitment
+   scheme; agreement is a hash comparison), what is committed (trie
+   inclusion/absence proofs, `is_below` certificates), and what is walled
+   (ZK, below).
+
 ## Why ask the database question at all
 
 Context from the swarmlite side: SQL-on-Swarm (swarmlite) is the
@@ -123,6 +156,17 @@ next work, in order:
    canonicalized term set strictly contains another's — it can only
    return a subset) is result-preserving like every planner step.
    Surfaced as `or` in the CLI and `|` in the REST query parameter.
+4. **Proof surfaces** (added 2026-08-01 — pure by the same test: derived
+   entirely from committed content, canonical form untouched). recordstore
+   `prove`/`verify` — Merkle inclusion proofs plus **absence** proofs,
+   which the trie supports precisely because its encoding is canonical (a
+   key has exactly one possible location); then `is_below` certificates in
+   both polarities on top (witness path; upward-closed ancestor cone).
+   Details and the agent-facing rationale: `CONTRACT.md` §7 Tier 2.
+5. **The read-only agent surface (MCP)** (added 2026-08-01) — pure
+   engineering over the existing operations: tool-shaped queries citing
+   roots, as-of via `RecordStore.at()`, the discoverability record, and
+   logging of what agents fail to express (the tripwire instrument).
 
 ## The walls — documented tripwires, not features
 
@@ -160,12 +204,32 @@ future session recognizes the moment instead of pre-building:
   taxonomy of entities *and of relations* (`authored` is-under
   `contributed-to`). That combination would be genuinely novel; it is
   also the research-grade step, not to be taken casually.
+  **Refinement 2026-08-01:** which axis this wall protects is now known,
+  and it is not the obvious one. The EL-shaped extension is *monotone*
+  (adding axioms only adds entailments), so merge would survive; what
+  breaks is axis (b) — subsumption stops being computable from names and
+  local structure, and canonicalizing an axiom set up to logical
+  equivalence means canonicalizing its entailment closure. Until that
+  research is done, "equal knowledge ⇒ equal root" silently degrades to
+  "equal syntax ⇒ equal root" — the guarantee agents actually cite. That
+  is what "research-grade" concretely means here. Tripwire unchanged, but
+  now observable: agent traffic through the MCP surface is where
+  mass-reification pressure will first show.
 - **Negation.** "Under A but not under B" requires a closed-world
   decision and prices the complement of a cone. Tripwire: repeated user
   need for exclusion queries that pre-filtering can't express.
+  **Amendment 2026-08-01:** the wall guards the *living, merging* store —
+  there the answer set can shrink under merge, which axis (a) forbids.
+  Against a **pinned root** the same question is deterministic, immutable
+  and replayable, and is sanctioned by `CONTRACT.md`'s as-of clause; the
+  higher layer gets its negation there, the shared store never stores one.
 - **Aggregation beyond COUNT.** `descendant_count` already gives the
   most-used aggregate for free. SUM/AVG/GROUP BY require values first
   (see arithmetic wall). Tripwire follows from that one.
+  **Amendment 2026-08-01:** same as-of resolution as negation — a
+  root-pinned aggregate is an honest, replayable fact (and parametric
+  values now exist to aggregate over); anything *stored* or asked of the
+  living store stays behind the wall.
 - **Deletion under multi-writer merge.** Merge is union; a removal can
   be resurrected by an old copy. Options when hit: tombstones (costs
   idempotence care) or a declared grow-only stance. Tripwire: the first
@@ -175,6 +239,23 @@ future session recognizes the moment instead of pre-building:
   empty-by-axiom intersections before walking). Tripwire: garbage
   queries or polluted merges that a disjointness check would have
   refused.
+  **Refinement 2026-08-01 — the shape is resolved in advance, only the
+  timing waits.** `SURFACE_LAYER.md` §11's criterion (claims merge,
+  policy doesn't) splits this wall cleanly: the disjointness *assertion*
+  is a claim about the world — monotone, trivially canonical (ordinary
+  edges under a vocabulary node) — and may merge; *enforcement* is local
+  policy — a checker that warns or refuses at put time, never a merge
+  precondition. Merge stays total, and a violation arriving via merge is
+  visible, queryable structure: `get(Cat, Dog)` being non-empty **is**
+  the consistency check — the one query primitive doing one more job.
+  Expect agents writing at volume to fire this tripwire first.
+  **A second consumer approached the same day:** collateral netting in the
+  factbond design (generalized negRisk — its graph layer) nets against
+  *exclusions*, i.e. mutually exclusive claims, which in OntoDAG terms are
+  exactly these disjointness claims (implications it gets from `is_below`,
+  already built). Two independent consumers converging on one wall is the
+  evidence shape this document's tripwires wait for; see factbond's
+  `docs/INTEGRATION.md` §6.
 - **Query-argument subsumption** (`is_below` taking conjunctions on
   either side; considered and parked 2026-07-31). The generalization is
   fully worked out and turns out to *be* loopmarket's `satisfies`: with
@@ -195,6 +276,34 @@ future session recognizes the moment instead of pre-building:
   *disjunction* is only ∃-sound (a term can fit a union of intervals
   while fitting neither part), so it stays out unless someone needs
   exactly that and accepts union-of-intervals arithmetic.
+- **Rules / derived facts in the shared store** (added 2026-08-01, from
+  `SURFACE_LAYER.md` §13's table). Derived content entering the shared
+  store unmarked would be absorbed into the canonical form — the root
+  would fingerprint conclusions as if they were ground truth, and
+  re-running a different rule set would fork stores that agree on every
+  assertion. Local derived closures need no wall at all (the cone-index
+  pattern: derived, local, regenerable, never merged). The hatch for
+  *shared* derived content: ordinary claims marked `derived` in the
+  provenance store with their basis pinned (`PROVENANCE.md` §4), plus
+  endorsement to promote them. Tripwire: mdl-fca output or agent-derived
+  structure that people actually want to share rather than recompute.
+- **Weights, probabilities, confidence** (added 2026-08-01). Fails axis
+  (b) outright — a weight in the name or record breaks exactness, hence
+  canonical roots; and it fails merge too (whose number wins?). The
+  hatch: confidence is a property of a *speech act*, not of knowledge —
+  it lives on assertion/endorsement records in the provenance store
+  (`PROVENANCE.md` §6), or outside the system. Tripwire: a consumer whose
+  need provably cannot be expressed as claims-plus-endorsement.
+- **Zero-knowledge proofs over private ontologies** (added 2026-08-01;
+  the Tier-3 item of `CONTRACT.md` §7). Prove "my catalogue contains
+  something under `weight(..5kg) ∧ location(EU)`" without revealing the
+  catalogue. Heavy research (SNARK circuits over trie walks), so walled —
+  but record the positioning for when it fires: deterministic canonical
+  encoding, a single query primitive, and no floats anywhere (integers in
+  base units) make OntoDAG unusually circuit-friendly. Tripwire: a real
+  privacy-demanding counterparty, loopmarket-shaped. Contrast on-chain
+  *anchoring* of roots, which is not a wall: 32 bytes in a contract,
+  keccak-native BMT addressing, waits only on a consumer.
 
 ## Merkle structures: see `MERKLE_NOTES.md`
 
@@ -209,12 +318,25 @@ machinery behind a private method.
 
 - **recordstore** stays the shared value/persistence layer (it was
   extracted from here; the canonical-roots contract is joint property).
+  The `prove`/`verify` pair (Pure now, item 4) belongs in that repo: it
+  is a property of the canonical trie, not of OntoDAG.
 - **swarmlite** is the SQL adoption surface; an OntoDAG can
   *materialize* views into `site.db` and publish them with swarmlite's
   publisher (pure downstream artifact, no coupling).
 - **ontodag-fs** already shows the query surface insight: paths are
   queries. The lazy reader (Pure now, item 1) is what would let the
   same surface run against a published store without downloading it.
+- **factbond** (github.com/petfold/factbond, created 2026-08-01, design
+  stage) — bonded assertions + information insurance on factual claims:
+  the *economic* trust leg above proofs and provenance. OntoDAG's roles in
+  it: the **claim layer** (canonical, root-pinned claim identity; a root as
+  a batched claim disputed per-record by inclusion proof), the
+  **assertion-layer substrate** (its record shapes are `PROVENANCE.md` §3
+  plus money — see `PROVENANCE.md` §7), and the candidate **tractable
+  implication fragment** for its netting layer (`is_below` = implication;
+  disjointness claims = exclusion — the wall note above). Composition is
+  strictly one-directional: factbond consumes `CONTRACT.md`; nothing here
+  imports it.
 
 ## Suggested first session in this repo
 
