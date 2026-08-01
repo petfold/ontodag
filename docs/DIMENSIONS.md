@@ -428,3 +428,49 @@ independence of roots with parametric puts in shuffled orders, boundary
 error cases (sub-base precision, mixed unit families, undeclared heads,
 same-dimension edges), and a loopmarket-shaped candidate-generation
 fixture (courier + flour + time window + geohash).
+
+## 13. Future kinds — parked, with tripwires (recorded 2026-08-01)
+
+The four shipped kinds are not the boundary of what the admissibility
+criterion allows. The criterion never mentions topology; it asks only
+that **containment of named regions be a partial order decidable by
+exact arithmetic from the names alone**. Candidates that pass, parked
+until a consumer trips the wire:
+
+- **Cyclic (`cyclic-dimension`)** — values are *arcs* on a circle:
+  `weekday(Fri..Mon)` wrapping through Sunday, hour-of-day, angle mod
+  360 (the linear `angle` family puts 359° maximally far from 1°; a
+  cyclic kind would make them neighbors). Arc containment is
+  transitive and exact. Design wrinkles: canonical form is
+  `(start, extent)` rather than `lo..hi` (a wrapping arc has no
+  lo ≤ hi), and the full circle must collapse to one name. Likeliest
+  consumer: opening hours / recurring schedules.
+- **Periodic projections of time** — "all Saturdays" is not a
+  dimension but a periodic predicate over the time line: an infinite
+  union of intervals whose containment against any interval is still
+  decidable from names (reduce endpoints mod the period, exact).
+  More machinery than cyclic; same tripwire.
+- **Spherical caps (real geo discs)** — currently dodged by geohash
+  (prefix topology draped over the sphere). The square root is NOT
+  the wall: comparisons of squared distances eliminate it — planar
+  Euclidean discs are admissible *today*
+  (`disc₁ ⊆ disc₂ ⇔ r₁ ≤ r₂ ∧ dist² ≤ (r₂−r₁)²`, exact over
+  rationals; Peter's observation, 2026-08-01). The real wall is
+  **trig**: lat/lon are angles, and sin/cos are transcendental. But
+  that is a representation choice — store positions as rational
+  points *on* the sphere (dense, Pythagorean-style parametrization),
+  and chordal-squared arithmetic makes cap containment a comparison
+  among degree-2 algebraic numbers: decidable exactly by squaring
+  with sign case-analysis. The lossy lat/lon → rational-point snap
+  happens at elaboration, where lossiness is allowed (the surface
+  layer's job, like `2026` → a timestamp range). Needs a worked
+  design: canonical point encoding, the case analysis, and whether
+  loopmarket's application-side discs migrate.
+- **Toroids, Möbius strips, Klein bottles** — no obstruction in
+  principle: a partial order of regions neither knows nor cares
+  about orientability or genus. The blocker would only ever be
+  agreeing a canonical region-naming scheme with exact containment
+  arithmetic. Recorded for completeness; no consumer is expected.
+
+None of these are scheduled. The rule stands: kinds are added when a
+real workload arrives (the loopmarket precedent), never speculatively.
