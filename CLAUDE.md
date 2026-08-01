@@ -117,7 +117,7 @@ The medium-term goal (see `docs/ROADMAP.md`, which absorbed the old README check
 
 **Full design rationale is in `docs/SWARM_DESIGN.md` — read it before touching `recordstore` or the OntoDAG-Swarm adapter.** It covers: why a generic `recordstore` layer exists at all rather than calling Swarm directly, and the move of `recordstore` to its own repo (§2 — executed July 2026, see the update note there), the node record schema for the eventual adapter (§3), why storage is one-record-per-chunk for now and when that should change (§4), the planned multi-writer/CRDT merge mechanism (§5), the performance model and the four caching layers involved (§6), what's tested vs. not (§7), and the recommended sequencing of remaining work (§8). This file (`CLAUDE.md`) has the day-to-day task list; `SWARM_DESIGN.md` has the "why."
 
-### What already exists (the `recordstore` package — external repo, `>=0.11` from PyPI)
+### What already exists (the `recordstore` package — external repo, `>=0.13.1` from PyPI)
 
 A versioned key→record store over a content-addressed chunk store — the generic substrate `OntoDAG`-on-Swarm will sit on. Implemented and tested:
 - `RecordStore`: staged put/get/delete, `commit() → root`, `RecordStore.at(root)` read-only snapshots, sorted prefix iteration (`keys(prefix)`).

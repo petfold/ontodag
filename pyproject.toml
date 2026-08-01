@@ -33,7 +33,7 @@ web = ["flask", "dot2tex", "Pillow"]
 # signer is configured — publishes the latest root to a Swarm feed via
 # SwarmFeedPointer (needs `swarm-bee`, recordstore's [feeds] extra). Declare
 # both through recordstore so the versions stay in step with it.
-swarm = ["recordstore[bee,feeds]>=0.12"]
+swarm = ["recordstore[bee,feeds]>=0.13.1"]
 test = ["pytest"]
 
 [project.scripts]

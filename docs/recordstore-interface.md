@@ -2,11 +2,14 @@
 
 `recordstore` lives in its own repo, [github.com/petfold/recordstore](https://github.com/petfold/recordstore),
 extracted from this repo in July 2026 with history preserved. OntoDAG depends on it
-from PyPI in `pyproject.toml` (`recordstore>=0.11`).
+from PyPI in `pyproject.toml` (`recordstore>=0.13.1`, both in the base dependencies
+and in the `swarm` extra).
 
 **This is a manually-synced reference doc**, not generated and not a submodule: if the
 required version changes, re-check this summary against the tagged source. Last synced
-against **0.11.0** (2026-07-25).
+against **0.11.0** (2026-07-25) — two releases behind the current floor, so treat the
+details below as accurate for what OntoDAG actually calls, but re-check against the
+0.13.1 tag before relying on anything not exercised by our tests.
 
 ## What OntoDAG uses it for
 
