@@ -162,6 +162,31 @@ clock and a convention. Clock-dependent input is the first place where two
 users typing the same characters store different data — not corruption, but
 worth an explicit decision (§9.3).
 
+**Time zones (position recorded 2026-08-01, prompted by Peter).** A bare
+date is genuinely ambiguous: "2026-08-01" is a different set of instants
+in Vienna than in Tokyo, and in a DST-shift zone the civil day is 23 or
+25 hours long. The core currently resolves bare dates as the UTC day by
+fiat — deterministic, sometimes not what the human meant. The right home
+for local-time interpretation is exactly this layer, under the §4 rule
+(policy picks, vocabulary defines):
+
+- **Default = local time is a legitimate elaboration policy**, with an
+  explicit-zone spelling for overrides. The zone-dependence must die at
+  input: elaboration resolves the civil day to a concrete UTC interval
+  and only that canonical name is stored. Two users meaning different
+  civil days SHOULD store different names — that is correctness. What
+  may never happen is the zone reaching stored semantics, so the same
+  bytes read differently in different places.
+- **tzdata mutability is contained by this placement**: IANA tables
+  (stdlib `zoneinfo`; `timezonefinder` for zone *shapes* from
+  coordinates) are consulted once, at elaboration; an already-stored
+  interval is immune to later table changes. This is the same move as
+  the §13-of-DIMENSIONS wall on political zones — the table never
+  touches canonical arithmetic.
+- **The residue is cross-zone querying**: a Tokyo query for
+  "2026-08-01" won't exactly match Vienna filings of the "same" day.
+  Reality, not a bug; `get_overlapping` is the honest tool.
+
 ## 6. Output side: rendering
 
 The cheapest win and the least dangerous change, because output cannot corrupt
