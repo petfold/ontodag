@@ -111,7 +111,13 @@ canonical form and the merge properties untouched:
   canonicalized before it is stored, which is also the condition that would
   make an LLM safe to plug in. Both layers stay reachable from every interface:
   a `--raw` switch on the command line, an opt-in module for Python callers.
-  Discussion draft with open questions: `SURFACE_LAYER.md`.
+  Discussion draft with open questions: `SURFACE_LAYER.md`. Its Part II
+  collects the wider questions the discussion opened: building the surface out
+  of OntoDAG itself rather than beside it, multilingual naming (the Namespaces
+  item, arriving from a new direction), how far this should go toward knowledge
+  representation and inference versus what belongs in a higher layer with a
+  stated interface, and what a canonical verifiable store is *for* in a world
+  of capable AI agents.
 
 ## Parked until real usage data exists
 

@@ -7,6 +7,15 @@ by the observation that the honest answer is not about that one literal but
 about where messiness is allowed to live. Open questions are collected in §9
 rather than resolved inline; §10 sketches a sequence *if* we decide to do this.
 
+**Part II (§11–§14)** collects wider questions Peter raised while reading Part
+I: that the surface layer is not separate software from OntoDAG and should be
+built out of it where it can be (§11, which corrects §3); multilingual naming
+(§12); how far OntoDAG should travel toward knowledge representation and
+inference, and what belongs in a higher layer instead (§13); and what role a
+canonical, verifiable store plays in a world of AI agents (§14). Those last two
+are bigger than a rendering layer and may want their own documents once they
+have shape.
+
 Read `DIMENSIONS.md` first for the canonical-form discipline this must not
 break, and `SEMANTIC_CODES.md` §9 for the precedent of a derived, local,
 never-merged layer — which is exactly the category this belongs to.
@@ -64,6 +73,11 @@ The surface layer is that pair of functions. It is:
 That triple is not new. Cone indexes are derived-local-never-merged; so is the
 materialization layer of `SEMANTIC_CODES.md` §9. This is the third instance of
 a pattern the project already has a category for.
+
+**But the triple is too simple, and §11 corrects it.** Part of what this layer
+needs — that `weight` is a linear dimension, that `vol` is another name for
+`Flight` — is knowledge, and knowledge merges. The honest split is *shared
+vocabulary in the graph, local policy outside it*; see §11.
 
 **Half of it already exists.** Canonicalization *is* elaboration:
 
@@ -258,3 +272,185 @@ Ordered so each step is independently useful and none blocks a later one:
 Steps 1–3 are small and self-contained. Step 4 is the one with real design
 content left in it. Steps 5–6 should not be started until the contract has been
 exercised by 1–4.
+
+---
+
+# Part II — wider questions this opened
+
+Raised by Peter, 2026-08-01, while reading Part I. They are recorded here
+because the surface-layer discussion produced them, but §13 and §14 are plainly
+bigger than a rendering layer and may deserve their own documents once they
+have shape. **None of these are answered here on purpose.**
+
+## 11. The surface layer is not separate software
+
+The observation that reframes Part I: **the interpreter is already partly made
+of OntoDAG.** `time(2026)` is resolved by an ancestor walk to a kind node — the
+registry is not a config file, it is nodes and edges in the graph, read with
+the graph's own primitive. The dimension declarations *are* interpreter
+configuration expressed as data.
+
+So the default should invert. Not "build a surface layer beside OntoDAG", but
+**do as much of it in OntoDAG as OntoDAG can express**, and treat anything else
+as a departure that has to justify itself. What that buys is not elegance for
+its own sake: interpreter configuration then merges with the data, is versioned
+with it, is queryable with the one primitive, and is inspectable with `show`. A
+store carries its own reading instructions, which is exactly what you want when
+the store outlives the tool that wrote it.
+
+This contradicts §3's "never merged", and the fix is a sharper line:
+
+| | example | where it lives |
+|---|---|---|
+| shared **vocabulary** | `weight` is a linear dimension; `vol` is another name for `Flight`; a boarding pass is a travel document | in the graph, merges |
+| local **policy** | display in French; prefer `kg` to `mg`; collapse aligned ranges to periods; verbosity | outside, never merges |
+
+The criterion: **claims about the world merge; preferences about presentation
+do not.** A synonym is a claim — someone is asserting two names denote the same
+category, and someone else may disagree. "Show me French" asserts nothing.
+
+The genuine departure is the LLM (§8, §14): a separate mechanism, and one that
+must stay **optional and never a dependency** — the same boundary `B1` already
+draws around Swarm. The core must remain fully functional, and fully useful,
+with no model present.
+
+Open: how much of *rendering policy* could also be graph-expressed without
+merging it — a locally-held OntoDAG of preferences, using the same code, kept
+in a separate store the way cone indexes are? That would make the surface layer
+"OntoDAG all the way down" without putting preferences into shared data.
+
+## 12. Languages
+
+Two problems wear the same clothes:
+
+1. **The fixed vocabulary** — command names, kind names, error text. Ordinary
+   i18n, not an OntoDAG question. Though note the registry's own names
+   (`linear-dimension`, `dimension`) are English strings baked into the graph,
+   so even this is not entirely outside.
+2. **User names** — `Flight` / `vol` / `航班`. This *is* knowledge, and it is
+   the roadmap's existing **Namespaces** item ("reconciling different people's
+   naming — spelling, language, and the same word used for different things")
+   arriving from a new direction.
+
+For (2) the fork is: **is a translation an identity or a relation?** Names are
+identity in OntoDAG, so:
+
+- *One node, many labels.* Labels ride in the record, hence in the root — which
+  is correct (a label is new knowledge, so the fingerprint should change) but
+  means every community's labels land in everyone's data.
+- *Many nodes, linked.* Keeps names primary and makes "these are the same" an
+  assertion that can be disputed, refined, or scoped. Costs an extra hop and a
+  new kind of edge, which is precisely the thing §13 says to be careful about.
+- *A separate lexicon store.* Translations in their own store with their own
+  root, adopted by reference — the separation cone indexes already have. Lets a
+  community share a vocabulary without touching anyone's asserted graph.
+
+Prior art worth reading before deciding: SKOS uses `prefLabel`/`altLabel` with
+language tags and is deliberately weaker than `owl:sameAs`, for the reason
+below.
+
+The hard part, which should not be glossed: **translation is rarely identity of
+extension.** If `vol` and `Flight` carve slightly differently, asserting
+identity destroys information, asserting subsumption in both directions is
+identity again, and leaving them unrelated loses the link. That residue *is*
+the Namespaces problem; a language feature that pretends otherwise will be
+wrong in exactly the cases that matter.
+
+## 13. What are the limits of OntoDAG?
+
+The question: from a deliberately small query formalism, how far toward full
+knowledge representation and inference should this go?
+
+The project already has the machinery for answering that shape of question —
+`DATABASE_DIRECTION.md`'s **walls and tripwires**: features named as not-built,
+each with the signal that would justify building it. Dimension lattices were an
+escape hatch fired by a real tripwire. So this section should eventually become
+walls, not opinions.
+
+What the core is today, stated so a limit can be drawn against it:
+
+1. one query primitive — intersection of descendant cones;
+2. one structural invariant — the unique transitive reduction;
+3. names as identity;
+4. an exact, computed order for parametric values.
+
+Everything shipped so far preserves all four. A useful first pass at candidate
+KR features and what each would actually cost:
+
+| feature | cost to the four |
+|---|---|
+| properties / roles beyond subsumption | a second edge type; cones stop being the only question; reduction is unique only per-relation |
+| disjunction | already available query-side (`get_any`), deliberately never stored — the model to copy |
+| negation | not a cone, and not monotone: merge stops being union |
+| cardinality restrictions | needs individuals distinct from categories, which the item/category collapse deliberately refuses |
+| rules / derived facts | derived content must be marked derived or the canonical form absorbs it; makes provenance mandatory |
+| defaults, non-monotonic reasoning | directly incompatible with merge-as-union |
+| weights, probabilities | breaks exactness, hence canonical roots |
+
+A criterion falls out of that table, and it is sharper than "keep it simple":
+**monotone and computable from names is admissible; non-monotone fights merge.**
+Negation, defaults and closed-world assumptions are not merely bigger — they
+are the ones that would take the CRDT property with them.
+
+Which suggests the shape Peter proposed is right: **a higher layer that
+compiles down.** An inference engine treats OntoDAG as its exact, shareable,
+extensional substrate, keeps its own derived closure locally and unmerged (the
+cone-index pattern again), and pushes down what it can express as cone
+intersections. For that to work the interface must be written down explicitly —
+*what a higher layer may assume* — so it cannot come to depend on internals:
+`put`/`get`/`get_any`/`is_below`/`remove`/`merge`/`sync`, the canonical root,
+and the guarantee that equal knowledge yields equal roots. Nothing else.
+
+## 14. OntoDAG among AI agents
+
+The most practical and most urgent of these, and the least settled.
+
+Start from the asymmetry rather than the rivalry:
+
+- **A model has** coverage, fluency, and speed on fuzzy tasks. It very likely
+  already "knows" most of what a small ontology would record.
+- **OntoDAG has** structure that is *canonical, addressable, verifiable and
+  attributable*. Equal knowledge yields an equal hash. A claim can be cited by
+  root. Two parties can prove they agree, and a disagreement shows up as
+  structure rather than as two paragraphs of confident prose.
+
+A model's knowledge is none of those four: not addressable, not diffable, not
+attributable, not stable across versions. So the proposition is not "store
+facts the model already knows" — it is **a substrate for what has been agreed,
+that can be shared unambiguously and checked cheaply.**
+
+Roles that follow, and they are worth separating:
+
+- **Shared ground truth between agents**, cited by root rather than restated.
+- **Convergence without a server** — two agents `sync` and land on the same
+  fingerprint, or discover exactly where they differ.
+- **An audit surface.** Once agents write, provenance (`asserted` vs `derived`,
+  already sketched on the roadmap) stops being a nicety.
+- **A cheap verifier.** `is_below` is one bounded question an agent can *check*
+  instead of asserting confidently — arguably the single most valuable thing to
+  offer a model.
+
+Interface questions to work through, phrased as questions:
+
+- **Discoverability.** What does an agent read *first* to learn what a store is
+  about, without downloading it? Anchor stars and cone summaries exist; a
+  compact "what is in here" overview record does not.
+- **Usability.** Tool-shaped operations, and errors that teach — the calendar
+  error naming its own fix is the model to follow. Canonical echo matters
+  disproportionately: the agent must be shown what was *stored*, not what it
+  typed, or it will keep re-asserting variants.
+- **Effectiveness.** Idempotent writes, bounded fetches, batch operations,
+  propose-then-confirm, and a cheap "do you already have this?".
+- **Surface.** MCP is the obvious candidate today. The CLI's contract (silent
+  on success, one fact per line, non-zero exit) is already close to
+  agent-shaped, which is some evidence the shape is right.
+- **Risk.** Agents can produce structure faster than anyone can review it.
+  Canonicity makes duplicates free to *detect* and does nothing to make content
+  *good*; provenance plus endorsement is the sketched mitigation and would have
+  to become real before this is safe at volume.
+
+Finally, keep the two model roles apart, because they have different contracts:
+§8's LLM is an **elaborator** inside one person's surface layer, whose output is
+validated and confirmed before storage. This section's LLM is a **peer** that
+reads and writes the store directly, and the question there is not elaboration
+but authority, provenance and review.
