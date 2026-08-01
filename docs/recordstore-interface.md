@@ -7,9 +7,12 @@ and in the `swarm` extra).
 
 **This is a manually-synced reference doc**, not generated and not a submodule: if the
 required version changes, re-check this summary against the tagged source. Last synced
-against **0.11.0** (2026-07-25) — two releases behind the current floor, so treat the
-details below as accurate for what OntoDAG actually calls, but re-check against the
-0.13.1 tag before relying on anything not exercised by our tests.
+against **0.15.0**, verified signature-by-signature on 2026-08-01 against a checkout of
+the `v0.15.0` tag.
+
+The sync point is deliberately *ahead* of the floor: the floor says what OntoDAG needs,
+this doc describes what the current release offers. Anything requiring more than 0.13.1
+is marked **(needs ≥ x.y.z)** below — everything unmarked is available at the floor.
 
 ## What OntoDAG uses it for
 
@@ -48,9 +51,21 @@ returned records are deep copies (mutating them never mutates the store).
   `ABSENT`/`DELETE`); commutative when the resolver is symmetric. See
   `docs/SWARM_DESIGN.md` §5 for how OntoDAG plans to use this — a per-key resolver alone
   cannot uphold the graph invariants, so a graph-level renormalization pass is needed.
+- `diff(other_root)` **(needs ≥ 0.15.0)** — yields `(key, mine, theirs)` for every key
+  whose value differs between this store's committed root and `other_root`; a side
+  lacking the key gets `ABSENT` (a stored value may legitimately be `None`). Cost is
+  proportional to the *difference*, not the dataset — the same structural trie diff
+  `merge` uses, pruning subtrees whose refs match, so equal roots read zero blobs.
+  Compare two arbitrary roots with `RecordStore.at(a, blobs).diff(b)`. Requested by
+  `docs/MERKLE_NOTES.md`; **nothing in OntoDAG consumes it yet**, which is why the floor
+  stays at 0.13.1.
 - `RecordStore.at(root, bytes_store)` — read-only snapshot of any committed root
   (`put`/`delete`/`commit` raise `TypeError`).
 - `.root` — root of the last committed state.
+- `.blobs` — the underlying `BytesStore`, so a caller holding one store can open another
+  root over the same backend without having kept a separate reference.
+  `EagerOntoDAG.merge_published` relies on exactly this:
+  `RecordStore.at(other_root, self.store.blobs)`.
 
 ## Canonicity guarantee
 
@@ -70,15 +85,65 @@ encodings.
 Protocol: `put(data: bytes) → ref`, `get(ref) → bytes` (raises `KeyError` if missing).
 
 Optional bulk methods `get_many(refs)` / `put_many(datas)` are used by `items()` and
-`commit()` when the backend provides them; both backends below do.
+`commit()` when the backend provides them; all four backends below do.
 
 - `MemoryBytesStore()` — in-memory dict; the test double.
+- `DirBytesStore(path, addressing="sha256")` — durable blobs in a local directory, the
+  file name being the reference. Fills the gap between the other two: `MemoryBytesStore`
+  forgets everything on exit and `BeeBytesStore` needs a node and a batch, while
+  `FilePointer` persists only the *root ref*, not the blobs. Atomic and idempotent
+  writes; names fan out two hex chars deep so a large store stays listable.
+- `FsspecBytesStore(url, addressing="sha256")` — the same contract over any fsspec
+  filesystem (local, S3, GCS, Azure, HTTP, SFTP, `memory://`); needs `recordstore[fsspec]`.
+  It **refuses `bzz://` explicitly**: fsspec is path-addressed while a Swarm reference is
+  produced *by* the write, so pointing it at Swarm would store blobs under `<sha256>`
+  paths and discard Swarm's own addressing — use `BeeBytesStore`/`swarm_store` for that.
+- Both take `addressing=`: `"sha256"` (default — roots stay portable with
+  `MemoryBytesStore`), `"swarm"` (name blobs by their Swarm reference, computed locally
+  via `swarmfs.splitter`, making a directory an offline mirror of Swarm's address space;
+  needs `recordstore[swarm-addressing]`), or any `bytes -> str` callable.
 - `BeeBytesStore(api_url, postage_batch_id="auto", deferred_upload=True,
-  max_concurrent_reads=16)` — a real Bee node
+  max_concurrent_reads=16, min_batch_ttl=AUTO_MIN_BATCH_TTL)` — the last parameter
+  **needs ≥ 0.14.0**; at the 0.13.1 floor the signature ends at `max_concurrent_reads`
+  — a real Bee node
   over `POST/GET /bytes` (Bee's blob endpoint, not the raw `/chunks/{address}` single-chunk
   primitive — the name reflects that). Imports `requests` lazily (install extra:
   `recordstore[bee]`). Writes need a usable postage batch; against a real node always
   supply a purchased batch id (see CLAUDE.md "Bee integration status").
+
+### Postage batches: selection, never purchase
+
+`postage_batch_id="auto"` (the default, and what `odag` uses unless `BEE_BATCH` /
+`bee_batch` is set) resolves the batch at **construction time**, by asking the node for
+its batch list via swarmfs's `StampManager` — so opening a store over Bee is a network
+call, and a stopped node fails there rather than at first write. Selection picks the
+usable batch with the longest remaining validity and **never buys one**: spending the
+node wallet's xBZZ stays a deliberate caller action (swarmfs's `StampManager.plan`/`buy`
+is the programmatic route).
+
+- `AUTO_MIN_BATCH_TTL = 86400` — a day of remaining validity is required of an
+  auto-selected batch **(needs ≥ 0.14.0)**; override per store with `min_batch_ttl=`.
+  Earlier versions inherited swarmfs's 60-second floor, written for one-shot uploads: a
+  batch with a minute left would be selected and everything written under it would stop
+  being paid for a minute later.
+- `batch_status(api_url, batch_id, *, buckets=False)` and
+  `BeeBytesStore.batch_status(*, buckets=False)` **(needs ≥ 0.14.0)** — read-only batch
+  health, returning `(StampInfo, BucketStats | None)`; `buckets=True` fetches the node's
+  exact per-bucket histogram (~2 MB) instead of the summary. Selection also warns on
+  under a week of validity (an expired batch cannot be revived) and on a fullest bucket
+  ≥ 80% full on an immutable batch (dilute, or chunks hashing there are refused despite
+  free capacity elsewhere).
+  *Import note:* only the **method** is reachable from the package root — neither
+  `batch_status` nor `AUTO_MIN_BATCH_TTL` appears in `recordstore.__all__`, so the free
+  function needs `from recordstore.recordstore import batch_status` (verified
+  2026-08-01; an export oversight upstream rather than a deliberate boundary).
+
+**Packaging gap worth knowing:** the `auto` path imports `swarmfs`, which recordstore
+declares as its `[stamps]` extra (`swarmfs>=0.4.0`) since 0.14.0. OntoDAG's own `swarm`
+extra asks for `recordstore[bee,feeds]` only — so on a clean install the default
+`auto` batch resolution raises an `ImportError` telling you to install swarmfs. It works
+on this dev box because swarmfs is installed from a local checkout. Either add `stamps`
+to the extra or set an explicit `bee_batch`.
 
 ## `Pointer` backends
 
@@ -99,11 +164,34 @@ Protocol: `get() → ref | None`, `set(ref)` — a mutable name for the latest r
   `swarm_store()`, so the mutable root lives in a signed feed; the local
   `FilePointer` remains the keyless, non-publishable fallback.
 
+## `swarm_store()` — the whole store on Swarm, in one call
+
+```python
+swarm_store(topic, *, api_url="http://localhost:1633", stamp="auto",
+            signer=None, owner=None, feed_ttl=15.0,
+            deferred_upload=True, max_concurrent_reads=16) -> RecordStore
+```
+
+Blobs in a Bee node (`BeeBytesStore`) **and** the mutable latest-root in a Swarm feed
+(`SwarmFeedPointer`), so a published store has a stable address instead of a root hash
+passed around by hand. Pass `signer=` to publish your own store, `owner=` to follow
+someone else's (read-only). The postage batch is resolved once by the blob store and
+shared with the feed's SOC writes.
+
+This is the single greppable answer to "where is Swarm specified?" — everything above
+`RecordStore` stays backend-neutral. It is what `odag`'s `swarm:NAME` backend calls when
+a signer is configured (`src/ontodag/__main__.py`, `SwarmBackend._record_store`); without
+one, `odag` assembles `BeeBytesStore` + a local `FilePointer` itself, which is the wiring
+`swarm_store` exists to replace — that combination leaves the head on local disk while
+only the blobs go to Swarm, which is exactly the keyless mode's documented limitation.
+
 ## Version history relevant to OntoDAG
 
 All releases since `v0.3.0` have been additive — no breaking API changes — which is why
-OntoDAG's dependency is a floor (`>=0.13.1` in `pyproject.toml`) rather than an exact
-pin.
+OntoDAG's dependency is a floor (`>=0.13.1` in `pyproject.toml`, in the base dependencies
+and the `swarm` extra alike) rather than an exact pin. One behavioural tightening rather
+than a signature change: 0.14.0 made `"auto"` refuse batches with under a day of validity
+left, so a batch that older versions would have selected can now be rejected.
 
 - **v0.4.0/0.4.1** — the real `SwarmFeedPointer` (above), replacing a documented stub.
 - **v0.5.0–v0.7.1** — concurrent bulk I/O: `items()`, `get_many`/`put_many`, lazily
@@ -111,13 +199,23 @@ pin.
   blob/trie writes in `commit()`.
 - **v0.8.0–v0.10.0** — multi-writer primitives: three-way `merge`, `commit(reconcile=True)`,
   `compare_and_set` on both pointer backends.
-- **v0.11.0–v0.14.0** — the 0.13/0.14 line adds stamp-health checks for `"auto"`
-  batch selection (see its CHANGELOG); OntoDAG's floor is `>=0.13.1`.
-- **v0.15.0** — public **`RecordStore.diff(other_root)`**: `(key, mine, theirs)` per
-  differing key, `ABSENT` for a missing side, cost proportional to the difference
-  (the structural trie diff `merge` used internally, now first-class). Requested by
-  `MERKLE_NOTES.md`; OntoDAG does not consume it yet, so the floor is unchanged.
-  The version this document was last synced against.
+- **v0.11.0** — `postage_batch_id` defaults to `"auto"` (selection via swarmfs, never
+  purchase).
+- **v0.12.0** — `swarm_store()` (above). **v0.12.1** — metadata only (the PyPI page was
+  blank: `readme` was never declared).
+- **v0.13.0** — `DirBytesStore`, `FsspecBytesStore`, pluggable `addressing=`.
+- **v0.13.1** — `RecordStore.blobs`; **OntoDAG's current floor**, needed by
+  `EagerOntoDAG.merge_published`. **v0.13.2** — metadata only (`requires-python>=3.11`,
+  populated `[project.urls]`).
+- **v0.14.0** — postage batch health: the one-day `AUTO_MIN_BATCH_TTL`, expiry and
+  bucket-fullness warnings, `batch_status()`, and 402-on-write messages that distinguish
+  "overissued bucket, dilute and retry, nothing lost" from an expired batch. Adds the
+  `[stamps]` extra (`swarmfs>=0.4.0`).
+- **v0.15.0** — public `RecordStore.diff(other_root)` (above). The version this document
+  was last synced against.
+
+Renewal is deliberately absent throughout: recordstore reports batch health, the caller
+decides whether to spend.
 
 Earlier renames worth knowing when reading old notes or commits: `BeeChunkStore` →
 `BeeBytesStore` (v0.2.0), then `ChunkStore` → `BytesStore`, `MemoryChunkStore` →
