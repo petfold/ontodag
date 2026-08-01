@@ -44,7 +44,7 @@ class TestTable(unittest.TestCase):
             self.assertEqual(once, expected, suffix)
 
     def test_registry_version_and_compatibility(self):
-        self.assertEqual(REGISTRY_VERSION, "3.0")
+        self.assertEqual(REGISTRY_VERSION, "3.1")
         self.assertTrue(registry_compatible("3.9"))
         self.assertFalse(registry_compatible("2"))
         self.assertFalse(registry_compatible("4.0"))
@@ -85,6 +85,24 @@ class TestFlagshipExactness(unittest.TestCase):
         # A 19x23x39 cm case fits a 9x10x16 inch box — exactly.
         self.assertTrue(contains("size(9x10x16in)", "size(19x23x39cm)",
                                  KIND_DOMINANCE))
+
+    def test_bits_bytes_and_the_binary_decimal_split(self):
+        # 1 TiB = 1.0995... TB: inside ..2TB, NOT inside ..1TB — exactly.
+        self.assertTrue(contains("d(..2TB)", "d(1TiB)", KIND_LINEAR))
+        self.assertFalse(contains("d(..1TB)", "d(1TiB)", KIND_LINEAR))
+        self.assertEqual(canonicalize("d(1KiB)", KIND_LINEAR),
+                         "d(8192bit)")
+        self.assertTrue(contains("r(..1Gbps)", "r(100MBps)", KIND_LINEAR))
+
+    def test_crypto_denominations_are_protocol_exact(self):
+        self.assertEqual(canonicalize("p(1sat)", KIND_LINEAR),
+                         "p(1/100000000BTC)")
+        self.assertEqual(canonicalize("g(21Gwei)", KIND_LINEAR),
+                         "g(21/1000000000ETH)")
+        self.assertTrue(contains("f(..1xBZZ)", "f(9999PLUR)", KIND_LINEAR))
+        # ... but currencies never share a lattice: exchange rates float.
+        with self.assertRaises(ValueError):
+            contains("x(..1BTC)", "x(15ETH)", KIND_LINEAR)
 
     def test_honest_exclusions(self):
         for bad in ("t(20degC)", "t(70degF)", "a(1rad)"):

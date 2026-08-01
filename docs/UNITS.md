@@ -237,7 +237,24 @@ dissolve (no bases to choose), the §4 table reduces to *suffix vocabulary
 + exact definitions*, and the v3 migration becomes the **last canonical-
 name migration in the system's life**.
 
-## 9. Verdicts needed (the review sheet)
+## 9. Addendum: registry 3.1 — the exactly-fixed non-SI units
+(2026-08-01, Peter's follow-up; the first D10 minor in practice)
+
+Bits and bytes (both prefix systems — decimal kB…EB and binary KiB…EiB —
+all exact integers of the bit, so `1TiB ⊑ ..2TB` is arithmetic), data
+rates (`bps`/`Mbps`/`MBps`…), FLOPS…EFLOPS, and the **protocol-fixed
+crypto denominations**: BTC/mBTC/sat/msat, ETH/Gwei/wei, xBZZ/PLUR (the
+Swarm postage currency — very much this project's own). The boundary that
+matters: denominations are exact and share a family; **exchange rates are
+not fixed, so currencies never share a lattice** — `BTC` vs `ETH` refuses,
+which is the truth. Being purely vocabulary-additive this is registry
+"3.1": every 3.x reader interoperates (D10 working as designed — no root
+changed, no store touched). Still pack material (§7): fiat currencies
+(internally exact, cent = 1/100), typography points (127⁄360 mm exactly,
+but `pt` is taken by the pint — a pack picks its own suffix), dozens,
+percent, IOPS, and the rest we have not thought of yet.
+
+## 10. Verdicts needed (the review sheet)
 
 - **D1 — Bases by computed common measure** with ×10³ margin, SI-prefixed
   names where decimal, `<unit>q` quantum names otherwise (P2/P5)?

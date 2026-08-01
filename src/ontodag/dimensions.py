@@ -36,8 +36,11 @@ from fractions import Fraction
 # minor and interoperate — stored names carry only anchor suffixes, so old
 # readers read everything and merely refuse unknown spellings as input.
 # History: 1 (dimension lattices), 2 (+KIND_CALENDAR),
-# 3.0 (2026-08-01: rational anchoring, the full SI + customary unit table).
-REGISTRY_VERSION = "3.0"
+# 3.0 (2026-08-01: rational anchoring, the full SI + customary unit table),
+# 3.1 (2026-08-01: information/data-rate/compute-rate families and the
+#      protocol-fixed crypto denominations — the first D10 minor: purely
+#      vocabulary-additive, interoperable with every 3.x reader).
+REGISTRY_VERSION = "3.1"
 
 
 def registry_compatible(version, other=None):
@@ -189,6 +192,34 @@ def _build_units():
             "mas": F(1, 3600000), "arcsec": F(1, 3600),
             "arcmin": F(1, 60), "deg": F(1), "grad": F(9, 10),
             "turn": F(360)}),
+        # -- non-SI but exactly fixed (3.1) ------------------------------ #
+        "information": ("bit", {
+            "b": F(1), "bit": F(1), "B": F(8),
+            "kbit": F(10**3), "Mbit": F(10**6), "Gbit": F(10**9),
+            "Tbit": F(10**12),
+            "kB": F(8) * 10**3, "MB": F(8) * 10**6, "GB": F(8) * 10**9,
+            "TB": F(8) * 10**12, "PB": F(8) * 10**15, "EB": F(8) * 10**18,
+            "KiB": F(8) * 2**10, "MiB": F(8) * 2**20, "GiB": F(8) * 2**30,
+            "TiB": F(8) * 2**40, "PiB": F(8) * 2**50, "EiB": F(8) * 2**60}),
+        "data-rate": ("bps", {
+            "bps": F(1), "kbps": F(10**3), "Mbps": F(10**6),
+            "Gbps": F(10**9), "Tbps": F(10**12),
+            "Bps": F(8), "kBps": F(8) * 10**3, "MBps": F(8) * 10**6,
+            "GBps": F(8) * 10**9}),
+        "compute-rate": ("FLOPS", {
+            "FLOPS": F(1), "MFLOPS": F(10**6), "GFLOPS": F(10**9),
+            "TFLOPS": F(10**12), "PFLOPS": F(10**15),
+            "EFLOPS": F(10**18)}),
+        # Each currency is its OWN family: denominations are protocol-fixed
+        # and exact; exchange rates are not, so cross-currency comparison is
+        # refused — which is the truth (UNITS.md addendum).
+        "btc": ("BTC", {
+            "BTC": F(1), "mBTC": F(1, 1000), "sat": F(1, 10**8),
+            "msat": F(1, 10**11)}),
+        "eth": ("ETH", {
+            "ETH": F(1), "Gwei": F(1, 10**9), "wei": F(1, 10**18)}),
+        "xbzz": ("xBZZ", {
+            "xBZZ": F(1), "PLUR": F(1, 10**16)}),
         "count": ("", {"": F(1)}),
     }
     anchors, suffixes = {}, {}
