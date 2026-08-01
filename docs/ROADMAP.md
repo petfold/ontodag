@@ -139,12 +139,19 @@ replayable answer, which the existing snapshot machinery already supports.
    equal root). Failed calls are logged from day one — the tripwire
    instrument the walls wait for. Design note: `docs/AGENT_SURFACE.md`.
    Writes stay absent until the provenance layer exists.
-9. **Verifiable answers.** recordstore `prove`/`verify` — Merkle inclusion
-   *and absence* proofs from the canonically-encoded trie (absence is provable
-   precisely because the encoding is canonical); then `is_below` certificates
-   in both polarities on top (witness path for true; an upward-closed,
-   inclusion-proven ancestor cone for false). Upgrades "trust the store" to
-   "verify against 32 bytes". recordstore half lives in that repo.
+9. ~~**Verifiable answers.**~~ **Done (2026-08-01).** recordstore v0.16.0
+   ships `prove`/`verify_proof` — Merkle inclusion *and absence* proofs
+   from the canonically-encoded trie (absence is provable precisely because
+   the encoding is canonical: one root, one possible location per key), and
+   `ontodag.certificates` composes them into `is_below` certificates in
+   both polarities: the prover bundles an authenticated proof of every
+   record the answer depends on (an order-invariant closure, so any
+   verifier's walk is covered), and the verifier **re-runs the real
+   `is_below`** over those proof-verified records — semantics single-
+   sourced, a wrong answer impossible to validate, a coverage gap failing
+   loudly. Live on the agent surface as `certify: true`: "trust the store"
+   is now "verify against 32 bytes", for humans, agents, and — when the
+   time comes — factbond's mechanical dispute rung.
 10. **Agent writes** — gated on item 6: the provenance store implementation,
     write-path tools (propose → canonical echo → confirm, idempotent puts),
     then endorsement/review workflows before any volume.

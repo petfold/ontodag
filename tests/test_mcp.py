@@ -172,13 +172,28 @@ class TestTools(SurfaceHarness):
         self.assertEqual(answer["display"], "time(2026)")
         self.assertEqual(answer["surface_version"], "0.1")
 
-    def test_errors_teach_and_certify_is_reserved(self):
+    def test_errors_teach_and_query_certify_is_reserved(self):
         text = self.call("query", {"terms": ["weight(3zz)"]},
                          expect_error=True)
         self.assertIn("unknown unit", text)
-        text = self.call("is_below", {"sub": "a", "sup": "b",
-                                      "certify": True}, expect_error=True)
-        self.assertIn("certificates are not available yet", text)
+        text = self.call("query", {"terms": ["pet"], "certify": True},
+                         expect_error=True)
+        self.assertIn("is_below", text)   # points at what IS certifiable
+
+    def test_is_below_certify_returns_a_verifiable_certificate(self):
+        from ontodag.certificates import verify_below
+        answer = self.call("is_below", {"sub": "weight(3kg)",
+                                        "sup": "weight(..5kg)",
+                                        "certify": True})
+        self.assertTrue(answer["result"])
+        cert = answer["certificate"]
+        # trustless: check it against the cited root alone, no store
+        self.assertTrue(verify_below(cert, answer["root"]))
+        negative = self.call("is_below", {"sub": "cat", "sup": "light",
+                                          "certify": True})
+        self.assertFalse(negative["result"])
+        self.assertFalse(verify_below(negative["certificate"],
+                                      negative["root"]))
 
     def test_as_of_current_root_answers_and_unknown_root_teaches(self):
         current = self.surface.root

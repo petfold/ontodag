@@ -57,8 +57,8 @@ returned records are deep copies (mutating them never mutates the store).
   proportional to the *difference*, not the dataset — the same structural trie diff
   `merge` uses, pruning subtrees whose refs match, so equal roots read zero blobs.
   Compare two arbitrary roots with `RecordStore.at(a, blobs).diff(b)`. Requested by
-  `docs/MERKLE_NOTES.md`; **nothing in OntoDAG consumes it yet**, which is why the floor
-  stops at 0.14.0 rather than following the latest release.
+  `docs/MERKLE_NOTES.md`; **nothing in OntoDAG consumes it yet** (the floor moved past
+  0.15.0 for the proofs below, not for `diff`).
 - `prove(key, addressing=None)` **(needs ≥ 0.16.0)** — a verifiable inclusion-or-absence
   proof for `key` against the *committed* root: a self-describing, JSON-ready dict
   (`{format: "recordstore-trie-proof", version: 1, addressing, root, key, present,
@@ -203,7 +203,7 @@ only the blobs go to Swarm, which is exactly the keyless mode's documented limit
 ## Version history relevant to OntoDAG
 
 All releases since `v0.3.0` have been additive — no breaking API changes — which is why
-OntoDAG's dependency is a floor (`>=0.14.0` in `pyproject.toml`, in the base dependencies
+OntoDAG's dependency is a floor (`>=0.16.0` in `pyproject.toml`, in the base dependencies
 and the `swarm` extra alike) rather than an exact pin. One behavioural tightening rather
 than a signature change: 0.14.0 made `"auto"` refuse batches with under a day of validity
 left, so a batch that older versions would have selected can now be rejected.
@@ -221,17 +221,18 @@ left, so a batch that older versions would have selected can now be rejected.
 - **v0.13.0** — `DirBytesStore`, `FsspecBytesStore`, pluggable `addressing=`.
 - **v0.13.1** — `RecordStore.blobs`, needed by `EagerOntoDAG.merge_published`.
   **v0.13.2** — metadata only (`requires-python>=3.11`, populated `[project.urls]`).
-- **v0.14.0** — **OntoDAG's current floor.** Postage batch health: the one-day
+- **v0.14.0** — (the floor 2026-08-01, until the proofs moved it) Postage batch health: the one-day
   `AUTO_MIN_BATCH_TTL`, expiry and bucket-fullness warnings, `batch_status()`, and
   402-on-write messages that distinguish "overissued bucket, dilute and retry, nothing
   lost" from an expired batch. Adds the `[stamps]` extra (`swarmfs>=0.4.0`) — which is
   the reason the floor sits here rather than at 0.13.1 (see above).
 - **v0.15.0** — public `RecordStore.diff(other_root)` (above).
-- **v0.16.0** — verifiable inclusion/absence proofs: `RecordStore.prove(key)`,
-  module-level `verify_proof(proof, root)`, `ProofError`, `PROOF_FORMAT` (above).
-  Built at ontodag's request (`CONTRACT.md` §7 Tier 2); becomes ontodag's floor
-  the moment `is_below` certificates land and consume it. The version this
-  document was last synced against (local checkout; installed 2026-08-01).
+- **v0.16.0** — **OntoDAG's current floor.** Verifiable inclusion/absence proofs:
+  `RecordStore.prove(key)`, module-level `verify_proof(proof, root)`, `ProofError`,
+  `PROOF_FORMAT` (above). Built at ontodag's request (`CONTRACT.md` §7 Tier 2) and
+  consumed the same day by `ontodag.certificates` (`is_below` certificates — which is
+  what moved the floor here). The version this document was last synced against
+  (local checkout; installed 2026-08-01).
 
 Renewal is deliberately absent throughout: recordstore reports batch health, the caller
 decides whether to spend.

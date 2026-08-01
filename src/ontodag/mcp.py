@@ -122,10 +122,10 @@ class AgentSurface:
     def _refuse_certify(self, arguments):
         if arguments.get("certify"):
             raise ToolError(
-                "certificates are not available yet (they arrive with "
-                "recordstore prove/verify — CONTRACT.md §7 Tier 2); call "
-                "again without certify, and verify by re-execution at the "
-                "cited root meanwhile")
+                "query certificates are not available (result-soundness "
+                "proofs are cone-sized; verify by re-execution at the "
+                "cited root instead) — is_below DOES support "
+                "certify: true, so check individual candidates with it")
 
     @staticmethod
     def _need(arguments, key):
@@ -163,7 +163,8 @@ class AgentSurface:
             "server": {"name": "odag-mcp", "version": __version__},
             "capabilities": sorted(TOOL_HANDLERS),
             "notes": "read-only; writes are gated on the provenance layer; "
-                     "certificates arrive with recordstore prove/verify",
+                     "is_below supports certify: true (verifiable "
+                     "certificates, checkable against the root alone)",
         })
 
     def tool_query(self, arguments):
@@ -191,15 +192,22 @@ class AgentSurface:
         return self._envelope(root, payload)
 
     def tool_is_below(self, arguments):
-        self._refuse_certify(arguments)
         dag, root = self._dag_at(arguments.get("as_of"))
         sub = self._need(arguments, "sub")
         sup = self._need(arguments, "sup")
-        return self._envelope(root, {
+        payload = {
             "sub": dag._canonical_name(sub),
             "sup": dag._canonical_name(sup),
             "result": bool(dag.is_below(sub, sup)),
-        })
+        }
+        if arguments.get("certify"):
+            # The trustless upgrade (CONTRACT.md §7 Tier 2): recordstore
+            # proofs of every record the answer depends on; anyone holding
+            # the cited root checks it with
+            # ontodag.certificates.verify_below(certificate, root).
+            from ontodag.certificates import prove_below
+            payload["certificate"] = prove_below(dag, sub, sup)
+        return self._envelope(root, payload)
 
     def tool_overlapping(self, arguments):
         dag, root = self._dag_at(arguments.get("as_of"))
@@ -264,8 +272,9 @@ _AS_OF = {"type": "string",
           "description": "answer from this root (a snapshot) instead of "
                          "the current one; answers cite the root they used"}
 _CERTIFY = {"type": "boolean",
-            "description": "reserved: request a verifiable certificate "
-                           "(not available yet)"}
+            "description": "reserved for query (not available: verify by "
+                           "re-execution at the cited root, or certify "
+                           "individual candidates via is_below)"}
 
 TOOL_SPECS = [
     {"name": "about",
@@ -291,12 +300,24 @@ TOOL_SPECS = [
      "description": "Does SUB fit within SUP? Fail-closed: true only with "
                     "a witness in the graph or exact dimension arithmetic; "
                     "false means not derivable. The one bounded question "
-                    "you can check instead of asserting.",
+                    "you can check instead of asserting — and with "
+                    "certify: true, one anyone can verify holding only "
+                    "the root.",
      "inputSchema": {"type": "object",
                      "required": ["sub", "sup"],
-                     "properties": {"sub": {"type": "string"},
-                                    "sup": {"type": "string"},
-                                    "as_of": _AS_OF, "certify": _CERTIFY}}},
+                     "properties": {
+                         "sub": {"type": "string"},
+                         "sup": {"type": "string"},
+                         "as_of": _AS_OF,
+                         "certify": {
+                             "type": "boolean",
+                             "description":
+                                 "attach a verifiable certificate: "
+                                 "recordstore proofs of every record the "
+                                 "answer depends on; check it with "
+                                 "ontodag.certificates.verify_below("
+                                 "certificate, root) — no store access "
+                                 "needed"}}}},
     {"name": "overlapping",
      "description": "Recall-complete CANDIDATES that possibly satisfy a "
                     "parametric term (denotations overlap). Membership does "

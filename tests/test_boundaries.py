@@ -97,6 +97,17 @@ class TestCoreIsSwarmFree(unittest.TestCase):
             "stay a lazy, function-local import",
         )
 
+    def test_certificates_module_imports_stay_core_only(self):
+        # Certificates compose recordstore proofs, but only at call time:
+        # module-level imports stay core-only, like mcp and the CLI's
+        # swarm path.
+        loaded = fresh_import("ontodag.certificates", CORE_FORBIDDEN)
+        self.assertEqual(
+            loaded, [],
+            f"importing ontodag.certificates loaded {loaded}; recordstore "
+            "must stay a lazy, function-local import",
+        )
+
     def test_core_never_imports_the_surface(self):
         # SURFACE_LAYER.md §7: ontodag.surface is opt-in by import — the
         # human-facing rendering layer. The core must never call it, or

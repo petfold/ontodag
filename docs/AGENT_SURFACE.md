@@ -61,11 +61,15 @@ Decisions embedded there:
   core; *malformed* parametric terms raise the core's teaching errors,
   passed through verbatim as tool errors (`isError: true`), never protocol
   errors.
-- **`certify` is reserved, and says so**: requesting it returns a teaching
-  error naming what to do meanwhile (verify by re-execution at the cited
-  root) and what will provide it (recordstore `prove`/`verify`,
-  `CONTRACT.md` §7 Tier 2). The parameter exists now so shapes don't churn
-  when certificates land.
+- **`certify: true` is live on `is_below`** (2026-08-01): the answer gains
+  a `certificate` field — recordstore proofs of every record the answer
+  depends on — checkable by anyone holding the cited root with
+  `ontodag.certificates.verify_below(certificate, root)`, no store access.
+  Both polarities, virtual parametric terms included; the certificate pins
+  the registry version and a mismatched verifier refuses. On `query` the
+  parameter stays reserved (result-soundness proofs are cone-sized; the
+  teaching error points at certifying individual candidates via
+  `is_below`).
 
 ## 3. as-of
 
@@ -97,9 +101,10 @@ constraint pressure); collect it from day one, decide from data.
   path is propose → canonical echo → confirm, with signed assertion records
   beside every knowledge change and remove coupled to retraction. None of
   that exists yet, so neither does a write tool.
-- **Certificates** — arrive with recordstore `prove`/`verify`, then
-  `is_below` certificate envelopes (`CONTRACT.md` §7 Tier 2 policy: raw
-  blobs, hash-chain verification, format-name versioning, opt-in).
+- ~~**Certificates**~~ — **landed the same day** for `is_below`
+  (`ontodag.certificates`, recordstore ≥ 0.16.0; see §2). Still absent:
+  `query` result certificates (cone-sized; re-execution stays the honest
+  answer, per `CONTRACT.md` §7).
 - **Guarantee status** — factbond's namespace in `annotations`, when that
   project has something to report.
 - **Cone-index awareness** — a `LazyOntoDAG(cone_index=...)`-backed serving

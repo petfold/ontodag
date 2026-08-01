@@ -231,24 +231,31 @@ The crypto-facing half of the contract. Three tiers plus two limits.
   deterministically recomputable by anyone (G3). Everything in Tier 2 is an
   optimization of this base case.
 
-### Tier 2 — committed, not yet built
+### Tier 2 — committed (the two proof items built 2026-08-01)
 
-- **Inclusion and absence proofs from the trie.** recordstore's persistent
-  trie is canonically encoded, so a key has exactly one possible location —
-  which makes *non*-membership provable by exhibiting the path where the key
-  would live, alongside ordinary O(log n) Merkle inclusion proofs. Concretely
-  a `prove(key)`/`verify(proof, root)` pair, belonging in the recordstore
-  repo. Everything below stacks on it.
-- **`is_below` certificates, both polarities.** Positive: the witness
-  ancestor path, each hop attested by an inclusion proof of the child's
-  record showing the parent in its `up` list. Negative: the sub-term's full
-  ancestor cone with inclusion proofs; the verifier checks upward closure
-  (every parent of every member is in the set) and that the sup-term is
-  absent. Ancestor cones are shallow, so both certificates are small and
-  bounded — G4's fail-closed semantics is certificate-shaped already. This
-  upgrades the agent-facing verifier from "trust the store" to "trust
-  nobody": `is_below(X,Y) at root R, certificate C` is checkable by a third
-  party holding only the root.
+- **Inclusion and absence proofs from the trie — BUILT (recordstore
+  v0.16.0).** recordstore's persistent trie is canonically encoded, so a
+  key has exactly one possible location — which makes *non*-membership
+  provable by exhibiting the path where the key would live, alongside
+  ordinary O(depth) Merkle inclusion proofs. Shipped as
+  `RecordStore.prove(key)` + pure `verify_proof(proof, root)` (no store
+  access, hash-chain over the raw carried bytes, per the certificate
+  policy below). Everything below stacks on it.
+- **`is_below` certificates, both polarities — BUILT (2026-08-01,
+  `ontodag.certificates`).** As shipped, the design is *re-execution over
+  authenticated fragments* rather than bespoke closure rules: the prover
+  bundles a recordstore proof (inclusion **or absence**) for every record
+  the answer depends on — computed as the order-invariant dependency
+  closure, so a verifier whose walk explores a different path is still
+  covered — and the verifier re-runs the *real* `is_below` over a strict
+  fragment store that serves only proof-verified records. Semantics stay
+  single-sourced in the core; a coverage gap fails verification, never
+  validates a wrong answer. Both polarities cost the (shallow) ancestor
+  cone; the certificate pins `REGISTRY_VERSION` and a mismatched verifier
+  refuses rather than misinterprets (L2). This upgrades the agent-facing
+  verifier from "trust the store" to "trust nobody": `is_below(X,Y) at
+  root R, certificate C` is checkable by a third party holding only the
+  root — live on the MCP surface as `certify: true`.
 - **`get` soundness certificates** (per-result upward paths to each query
   term). Full `get` *completeness* certificates are possible via the attested
   `down` lists but grow with the cone; re-execution stays the honest answer
