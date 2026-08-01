@@ -169,7 +169,39 @@ discussion settles the trust workflow.
 | endorsement | provenance records on pack roots; `review` | subject form needed |
 | the residue | lookalike names, semantic spoofing | social; culture + UI |
 
-## 8. Open questions (the sheet)
+## 8. The adoption algebra (answers to Peter's sequencing questions, 2026-08-01)
+
+Settled by the merge semantics rather than by choice, so recorded as
+facts:
+
+- **Units did not need to wait for this discussion** — the graph-declared
+  mechanism is the substrate any pack ecosystem needs, and the rejected
+  alternative (everything built-in) would have permanently claimed ~170
+  spellings in the code table. Pack claims are soft; built-in claims are
+  hard.
+- **Code-shipped packs migrate to published packs seamlessly**: pack
+  content is deterministic, so publishing today's `crypto-majors` v1 to
+  Swarm yields *the very golden root already pinned* — early adopters and
+  later adopters converge byte-identically. `ontodag.packs` then shrinks
+  to a shim that knows fingerprints.
+- **Updates are additive; corrections are interventions.** Merging a new
+  pack version can add declarations (idempotent, converging) but can
+  never change or retire one — the surviving old declaration meets the
+  new one and refuses loudly. Correcting a unit's meaning requires the
+  adopter to `remove` the old declaration node deliberately, then adopt.
+  This is the right default (a unit silently changing meaning is the
+  disaster class) and a real constraint on pack evolution.
+- **No name is blocked globally.** Conflicts are per-store: two packs may
+  define `XBT` differently and each serve their own communities. If two
+  stores that disagree ever merge, the collision surfaces loudly at first
+  parse — for units, declarations travel with the data, so cross-store
+  collisions arrive *with* the merge instead of hiding inside it. (Bare
+  names lack this; that gap is §3.)
+- **Built-in claims are for-a-major.** A built-in suffix cannot be
+  redefined by any pack while it stays in the table — the argument for a
+  minimal table, and for §8.10 below.
+
+## 9. Open questions (the sheet)
 
 1. **Naming**: is "pack" the word, given that preludes, lexicons, upper
    ontologies and private overlays are the same role? Candidates:
@@ -195,3 +227,10 @@ discussion settles the trust workflow.
    `ontodag.packs` then shrinks to a bootstrap shim.
 9. **Private overlays**: same mechanism plus access control — does the
    research-horizon item fold into this document?
+10. **Tighten the built-in table to pure measurement?** By this
+    document's own rule of thumb, even BTC and ETH are market-shaped.
+    Moving BTC/ETH/BZZ/xBZZ/DAI/xDAI into a `crypto-core` pack would
+    leave the built-in table holding only what physics fixes — at the
+    cost of one `odag pack crypto-core` before `sat` works out of the
+    box (postage tooling could adopt it automatically). Cheap only while
+    0.10.0 is unreleased.
