@@ -85,6 +85,18 @@ class TestCoreIsSwarmFree(unittest.TestCase):
             "duck-typed over the record store",
         )
 
+    def test_mcp_module_imports_stay_core_only(self):
+        # The agent surface (ontodag.mcp) is stdlib + core at module level;
+        # recordstore loads lazily inside functions, exactly like the CLI's
+        # swarm path. (recordstore is an installed dependency — this checks
+        # coupling, not availability.)
+        loaded = fresh_import("ontodag.mcp", CORE_FORBIDDEN)
+        self.assertEqual(
+            loaded, [],
+            f"importing ontodag.mcp loaded {loaded}; the record store must "
+            "stay a lazy, function-local import",
+        )
+
     def test_core_never_imports_the_surface(self):
         # SURFACE_LAYER.md §7: ontodag.surface is opt-in by import — the
         # human-facing rendering layer. The core must never call it, or

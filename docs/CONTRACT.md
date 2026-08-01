@@ -64,9 +64,10 @@ The contract promises *capabilities* — conjunctive and disjunctive query,
 fits-within, overlap candidates, per-item description, canonical echo, and
 discoverability ("learn what a store is about without downloading it") — and
 stays silent on tool inventories. The concrete agent surface (the MCP tool
-list, request/response shapes, the discoverability record's fields) will be
-specified in `docs/AGENT_SURFACE.md` when that work starts. Two constraints
-on that surface *are* contract-level, decided at the 2026-08-01 review:
+list, request/response shapes, the discoverability record's fields) is
+specified in `docs/AGENT_SURFACE.md` (v1 shipped 2026-08-01, read-only —
+`ontodag.mcp`). Two constraints on that surface *are* contract-level,
+decided at the 2026-08-01 review:
 
 - **The discoverability record never lives inside the knowledge store.** A
   summary stored in the trie would make the root depend on a description of

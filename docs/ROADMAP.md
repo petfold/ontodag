@@ -126,13 +126,19 @@ replayable answer, which the existing snapshot machinery already supports.
    the round-trip law `elaborate(render(t)) == t` — the promised one-way
    direction only. Serves humans and agents at once: the canonical echo is
    the confirm mechanism for both.
-8. **Read-only agent surface (MCP) + a discoverability record.** Tool-shaped
-   `get`/`get_any`/`is_below`/`show`/`canon`, always citing roots, with as-of
-   (query at a named root) included since the snapshot machinery exists; plus
-   a small conventional "what is this store about" record an agent reads
-   first. Doubles as the **tripwire instrument**: what agents try to express
-   and can't is the usage evidence the walls in `DATABASE_DIRECTION.md` wait
-   for, so refused/awkward patterns get logged from day one.
+8. ~~**Read-only agent surface (MCP) + a discoverability record.**~~
+   **Done (2026-08-01).** `odag-mcp` serves any odag store over MCP's stdio
+   transport (stdlib-only, no SDK dependency): six tools — `about` (the
+   what-is-this-store record, computed on demand, never stored), `query`
+   (conjunctions and unions), `is_below`, `overlapping`, `describe`,
+   `canon` — with every answer citing the root it is true of, the contract
+   version, and the extensible annotations slot; canonical terms echoed
+   back so an agent sees what was stored, friendly spellings supplied
+   *beside* names, `as_of` for snapshot queries, and even local file
+   stores answering with their semantic fingerprint (equal knowledge,
+   equal root). Failed calls are logged from day one — the tripwire
+   instrument the walls wait for. Design note: `docs/AGENT_SURFACE.md`.
+   Writes stay absent until the provenance layer exists.
 9. **Verifiable answers.** recordstore `prove`/`verify` — Merkle inclusion
    *and absence* proofs from the canonically-encoded trie (absence is provable
    precisely because the encoding is canonical); then `is_below` certificates

@@ -44,6 +44,7 @@ test = ["pytest"]
 
 [project.scripts]
 odag = "ontodag.__main__:main"
+odag-mcp = "ontodag.mcp:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
