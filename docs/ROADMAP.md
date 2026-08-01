@@ -210,6 +210,17 @@ canonical form and the merge properties untouched:
 
 ## Under discussion (no decision yet)
 
+- **Packs — published ontologies as an ecosystem** (`PACKS.md`, draft
+  2026-08-01). What shipped for units is an instance of a general role:
+  a published ontology adopted by merge — and the general role raises
+  the questions the unit case dodged: name collisions between strangers'
+  packs (the Namespaces problem, arriving with urgency), spoofing and
+  trust (adopt-by-fingerprint, signed feeds, endorsement of pack roots,
+  diff-before-merge), whether packs form a DAG (yes — and adoption is
+  order-free because merges commute), where packs live and how they are
+  discovered. Third-party pack distribution is frozen until this is
+  discussed.
+
 - **A surface layer** — a layer between people and the exact core: forgiving
   input on the way in (a bare `2026` as the year, ISO weeks, eventually a
   locally-running LLM turning a sentence into terms) and readable output on
