@@ -3,7 +3,7 @@
 OntoDAG helps you organize things — files, notes, photos, products, ideas — into
 **categories that can overlap**. You put items in, telling OntoDAG which categories
 each one belongs to, and later you ask questions like *"show me everything that is
-both an Animal and a Pet."*
+both a Flight document and part of the Japan trip."*
 
 This guide is for everyday users. It assumes you can open a terminal and copy-paste
 commands, but not much more. Every example in it has been run for real — the outputs
@@ -16,29 +16,32 @@ read [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) afterwards.
 
 Computers usually offer two ways to organize things, and both are frustrating:
 
-- **Folders** force every item into exactly one place. Where does a photo of your
-  dog at a birthday party go — `Pets/` or `Parties/`? You must choose, and whichever
-  you choose, you'll look in the other one first.
+- **Folders** force every item into exactly one place. Where does your flight
+  confirmation for the Japan trip go — `Flights/` or `Japan/`? You must choose, and
+  whichever you choose, you'll look in the other one first.
 - **Tags** let an item carry many labels, but the labels themselves are a flat,
-  unstructured heap. Tagging something `spaniel` doesn't make it show up when you
-  search for `dog`, unless you remembered to add `dog` too. And `animal`. Every time.
+  unstructured heap. Tagging a scan `boarding-pass` doesn't make it show up when you
+  search for `flight`, unless you remembered to add `flight` too. And `Japan`. Every
+  time.
 
 OntoDAG sits exactly between the two:
 
 - Like tags, an item can belong to **many categories at once**.
-- Like folders, categories are **organized**: `Spaniel` can live under `Dog`, which
-  lives under `Animal` and `Pet` — so anything filed as a `Spaniel` automatically
-  counts as a `Dog`, an `Animal`, and a `Pet`, without you repeating yourself.
+- Like folders, categories are **organized**: a boarding pass can live under the
+  flight it belongs to, which lives under `Flight` and `Japan` — so the boarding pass
+  automatically counts as part of the trip, without you repeating yourself.
 
 There is one more idea, and it's the whole query language: **asking = intersecting.**
 You ask with a set of categories, and you get back everything that is under *all* of
-them. `Animal` + `Pet` → your dog, your cat, but not your robot vacuum (a machine)
-and not the fox from the garden (an animal, but no pet).
+them. `Flight` + `Japan` → the flights for that trip, but not the hotel booking (also
+Japan, but not a flight) and not last year's flight to Berlin (a flight, but not this
+trip).
 
 A note on vocabulary: in OntoDAG there is no difference between an "item" and a
 "category." Everything is just a named thing that can sit under other named things
-and can have things under it. Today's item is tomorrow's category — file a photo
-under `Dog`, and later file crops of it under the photo. This is deliberate.
+and can have things under it. Today's item is tomorrow's category — file a flight
+confirmation, and later file the boarding pass under *it*. This is deliberate, and
+it is how the trip's paperwork ends up organizing itself.
 
 ---
 
@@ -140,50 +143,61 @@ Start `python3` and type along. Everything is done with plain names:
 
 >>> dag = OntoDAG()
 
-# Top-level categories: no parents.
->>> dag.put("Animal", [])
->>> dag.put("Machine", [])
->>> dag.put("Pet", [])
+# Top-level categories: no parents. Two kinds of document, one trip.
+>>> dag.put("Flight", [])
+>>> dag.put("Hotel", [])
+>>> dag.put("Japan", [])
 
 # Things under several categories at once — this is the point of OntoDAG.
->>> dag.put("Dog", ["Animal", "Pet"])
->>> dag.put("Cat", ["Animal", "Pet"])
->>> dag.put("Aibo", ["Machine", "Pet"])   # a robot pet
->>> dag.put("Spaniel", ["Dog"])
+>>> dag.put("japan-outbound.pdf", ["Flight", "Japan"])
+>>> dag.put("japan-return.pdf", ["Flight", "Japan"])
+>>> dag.put("hotel-tokyo.pdf", ["Hotel", "Japan"])
+
+# A document filed under another document: the boarding pass for that flight.
+>>> dag.put("boarding-pass.png", ["japan-outbound.pdf"])
 ```
 
 Here is the resulting graph, drawn by OntoDAG's own visualizer (§4.5). Arrows
 point from general to specific; `*` is the built-in root above everything; the
 number after each name is how many things sit below it:
 
-![The pet-shop DAG](images/petshop.svg)
+![The travel DAG](images/travel.svg)
 
 Now ask questions. A query is a list of categories; the answer is everything under
 **all** of them:
 
 ```python
->>> for item in dag.get(["Animal", "Pet"]):
+>>> for item in dag.get(["Flight", "Japan"]):
 ...     print(item.name)
-Cat
-Spaniel
-Dog
+japan-return.pdf
+boarding-pass.png
+japan-outbound.pdf
 
->>> for item in dag.get(["Machine", "Pet"]):
+>>> for item in dag.get(["Hotel", "Japan"]):
 ...     print(item.name)
-Aibo
+hotel-tokyo.pdf
 ```
 
-(Results are a set, so the order can vary.) Notice `Spaniel` appeared under
-`Animal` + `Pet` even though you never said "Spaniel is an animal" or "Spaniel is
-a pet" — it's under `Dog`, and that's enough. That's the inheritance doing your
-bookkeeping for you.
+(Results are a set, so the order can vary.) Notice `boarding-pass.png` appeared
+under `Flight` + `Japan` even though you never said it was a flight document or
+part of the Japan trip — it's under `japan-outbound.pdf`, and that's enough. That's
+the inheritance doing your bookkeeping for you.
+
+And asking for the trip alone gathers everything, whatever kind of document it is:
+
+```python
+>>> sorted(item.name for item in dag.get(["Japan"]))
+['boarding-pass.png', 'hotel-tokyo.pdf', 'japan-outbound.pdf', 'japan-return.pdf']
+```
+
+That is the folder you never had to make.
 
 Two more one-liners worth knowing:
 
 ```python
->>> dag.nodes["Pet"].descendant_count     # how many things are under Pet?
+>>> dag.nodes["Japan"].descendant_count   # how many things are under Japan?
 4
->>> dag.get(["Unicorn"])                  # unknown names are simply empty
+>>> dag.get(["Iceland"])                  # unknown names are simply empty
 set()
 ```
 
@@ -198,24 +212,25 @@ browser, or over the network.
 ### 4.1 Adding items: `put`
 
 ```python
-dag.put("Goldfish", ["Animal", "Pet"])
+dag.put("seat-reservation.pdf", ["Flight", "Japan"])
 ```
 
 Rules of the road:
 
 - **Parents must already exist.** `dag.put("X", ["Nope"])` raises
   `ValueError: One or more super-categories do not exist.` Add categories top-down.
-- **No parents means top-level:** `dag.put("Vehicle", [])` files `Vehicle`
-  directly under the root `*`.
+- **No parents means top-level:** `dag.put("Lisbon", [])` files `Lisbon`
+  directly under the root `*` — that's how you start the next trip.
 - **Names are the identity.** Putting a name that already exists doesn't create a
   duplicate — it adds the new parent links to the existing item.
 - **Redundant links are cleaned up automatically.** Say you add
-  `dag.put("Spaniel", ["Animal", "Dog"])`. The `Animal` link is
-  redundant — Spaniel is already an Animal *via* Dog — so OntoDAG silently skips it:
+  `dag.put("boarding-pass.png", ["Japan", "japan-outbound.pdf"])`. The `Japan` link
+  is redundant — the boarding pass is already part of the trip *via* the flight it
+  belongs to — so OntoDAG silently skips it:
 
   ```python
-  >>> sorted(p.name for p in dag.nodes["Spaniel"].parents)
-  ['Dog']
+  >>> sorted(p.name for p in dag.nodes["boarding-pass.png"].parents)
+  ['japan-outbound.pdf']
   ```
 
   You can never make the graph messy this way; it tidies itself. (Why it insists on
@@ -224,13 +239,13 @@ Rules of the road:
 - **Cycles are refused.** Categories can't be their own ancestors:
 
   ```python
-  >>> dag.put("Animal", ["Spaniel"])
-  ValueError: Edge Spaniel -> Animal would create a cycle.
+  >>> dag.put("Flight", ["boarding-pass.png"])
+  ValueError: Edge boarding-pass.png -> Flight would create a cycle.
   ```
 
 (For the record: everywhere this guide passes a name string, an `Item` object —
-`from ontodag import Item` — is accepted too; `dag.put(Item("Dog"), ...)` and
-`dag.put("Dog", ...)` mean exactly the same thing. Strings are just easier.)
+`from ontodag import Item` — is accepted too; `dag.put(Item("Flight"), ...)` and
+`dag.put("Flight", ...)` mean exactly the same thing. Strings are just easier.)
 
 **The `optimized=True` flag.** Sometimes you know some general categories for an
 item, and more specific ones already exist that follow from them. With
@@ -251,7 +266,7 @@ the flag does it for you. When in doubt, leave it off; the default is predictabl
 ### 4.2 Asking questions: `get`
 
 ```python
-results = dag.get(["Animal", "Pet"])
+results = dag.get(["Flight", "Japan"])
 for item in results:
     print(item.name)
 ```
@@ -259,45 +274,47 @@ for item in results:
 - One or more category names; the answer is everything under **all** of them,
   returned as a set of item objects — each has a `.name` and a
   `.descendant_count`.
-- The categories themselves are not in the answer (asking for `Animal` + `Pet`
-  returns Dog, not Pet).
+- The categories themselves are not in the answer (asking for `Flight` + `Japan`
+  returns the flight documents, not `Japan`).
 - Unknown category → empty set, no error.
 - An empty list raises `TypeError` — a query has to ask *something*.
 - Order doesn't matter, and redundant terms are ignored: asking for
-  `[Animal, Dog]` is the same as asking for `[Dog]`, since everything under Dog is
-  already under Animal. You can be sloppy; the query planner sorts it out (and
-  picks an efficient evaluation order for you — details in the internals doc).
+  `[Japan, japan-outbound.pdf]` is the same as asking for
+  `[japan-outbound.pdf]`, since everything under the flight is already under the
+  trip. You can be sloppy; the query planner sorts it out (and picks an efficient
+  evaluation order for you — details in the internals doc).
 
 **OR-queries: `get_any`.** `get` is AND; for alternatives, give `get_any` a
 list of queries and it returns everything matching *at least one* of them:
 
 ```python
-dag.get_any([["Animal", "Pet"], ["Machine"]])   # (Animal AND Pet) OR Machine
+dag.get_any([["Flight", "Japan"], ["Hotel"]])   # (Flight AND Japan) OR Hotel
 ```
 
 Same rules per branch as `get` (an unknown category empties only its own
-branch), and it composes with typed values — the classic use is *outside a
-range*, which no single AND-query can say:
+branch), and it composes with typed values (§4.7) — the classic use is *outside
+a range*, which no single AND-query can say:
 
 ```python
-dag.get_any([["weight(..2kg)"], ["weight(5kg..)"]])   # under 2 kg OR over 5 kg
+dag.get_any([["time(..2026-01-01)"], ["time(2026-12-31..)"]])   # before or after
 ```
 
 On the command line the literal word `or` does the same job
-(`odag get Dog Pet or Cat`), and over REST it's a pipe
-(`/dag/query?cat=Dog,Pet|Cat`).
+(`odag get Flight Japan or Hotel`), and over REST it's a pipe
+(`/dag/query?cat=Flight,Japan|Hotel`).
 
 **Yes/no questions: `is_below`.** When you don't want the list, just the
 answer — *does A fit within B?* — there's a direct test:
 
 ```python
-dag.is_below("Spaniel", "Animal")               # True
-dag.is_below("Animal", "Spaniel")               # False — direction matters
-dag.is_below("weight(3kg)", "weight(..5kg)")    # True, from the names alone
+dag.is_below("boarding-pass.png", "Japan")      # True
+dag.is_below("Japan", "boarding-pass.png")      # False — direction matters
+dag.is_below("time(2026-08-15)",
+             "time(2026-06-01..2026-08-31)")    # True, from the names alone
 ```
 
 It's the Boolean face of the same fits-within relation: reflexive
-(`is_below("Dog", "Dog")` is True), fail-closed on unknown names (False,
+(`is_below("Flight", "Flight")` is True), fail-closed on unknown names (False,
 never an error), and answered by walking *upward* from A with early exit —
 so it's fast even when B is a huge category, and cheap over the network on
 a lazy reader. With typed values it needs no graph at all: the last line
@@ -306,21 +323,22 @@ above is pure arithmetic, a pocket containment check for dimension terms.
 ### 4.3 Removing: `remove`
 
 ```python
-dag.remove("Dog")
+dag.remove("japan-outbound.pdf")
 ```
 
-What happens to Dog's children? They are **reconnected to Dog's parents**, so
+What happens to its children? They are **reconnected to its parents**, so
 nothing becomes orphaned and no query answer changes except those that mentioned
-Dog itself:
+the removed item itself:
 
 ```python
->>> dag.put("Puppy", ["Dog"])
->>> dag.remove("Dog")
->>> sorted(p.name for p in dag.nodes["Puppy"].parents)
-['Animal', 'Pet']
+>>> dag.put("gate-info.txt", ["japan-outbound.pdf"])
+>>> dag.remove("japan-outbound.pdf")
+>>> sorted(p.name for p in dag.nodes["gate-info.txt"].parents)
+['Flight', 'Japan']
 ```
 
-Puppy silently moved up to where Dog used to hang.
+`gate-info.txt` silently moved up to where the flight used to hang — still a
+flight document, still part of the trip.
 
 ### 4.4 Combining two DAGs: `merge`
 
@@ -343,7 +361,7 @@ persisted form of it is `sync`, in §8.
 from ontodag import OntoDAGVisualizer
 
 viz = OntoDAGVisualizer(format="png")        # also: "svg", "pdf"
-viz.visualize(dag, filename="petshop")       # writes petshop.png
+viz.visualize(dag, filename="travel")        # writes travel.png
 ```
 
 Requires the Graphviz system program (see Installation). The root is drawn shaded;
@@ -357,11 +375,11 @@ OntoDAG reads and writes standard **OWL ontology** files, in two flavors:
 from ontodag import OWLOntology
 
 # Human-friendly text format (Manchester syntax) — recommended:
-OWLOntology.export_dag_manchester(dag, "petshop.omn")
-dag2 = OWLOntology.import_dag_manchester(file_name="petshop.omn")
+OWLOntology.export_dag_manchester(dag, "travel.omn")
+dag2 = OWLOntology.import_dag_manchester(file_name="travel.omn")
 
 # RDF/XML (.owl), for interoperability with other ontology tools:
-OWLOntology.export_dag(dag, "petshop.owl")
+OWLOntology.export_dag(dag, "travel.owl")
 ```
 
 `.omn` files are ordinary text you can read and even write by hand — see §7. Both
@@ -369,77 +387,92 @@ formats open in standard ontology editors like Protégé.
 
 ### 4.7 Typed values: parametric dimensions
 
-Categories compare by the edges you assert — but nowhere in a graph of names
-does it say that 3 kg is under a 5 kg limit. **Parametric dimensions** add
-exactly that: values written as `weight(3kg)` are ordinary categories whose
-ordering OntoDAG *computes* from the value, so a courier's "max 5 kg" matches
-a 3 kg parcel with no edge ever stored between them.
+Everything so far has sorted itself by the edges you asserted. But dates are the
+one thing you always want to ask about travel documents — *what did I book for
+last summer?* — and nowhere in a graph of names does it say that 15 August falls
+inside June-to-August. **Parametric dimensions** add exactly that: values written
+as `time(2026-08-15)` are ordinary categories whose ordering OntoDAG *computes*
+from the value, so a "last summer" query matches an August flight with no edge
+ever stored between them, at any date range you care to ask.
 
 Declare a dimension once by placing it under one of the three built-in kind
 categories (create those like any other category):
 
 ```python
-dag = OntoDAG()
 dag.put("dimension", [])
 dag.put("linear-dimension", ["dimension"])   # ordered scalars & ranges
-dag.put("weight", ["linear-dimension"])      # weight is now a dimension
+dag.put("time", ["linear-dimension"])        # time is now a dimension
 
-dag.put("parcel", ["weight(3kg)"])           # values are just categories
-dag.put("flour-bag", ["weight(1.2kg)"])
+# Dates are just more categories to file under.
+dag.put("japan-outbound.pdf", ["Flight", "Japan", "time(2026-08-15)"])
+dag.put("japan-return.pdf",   ["Flight", "Japan", "time(2026-08-29)"])
+dag.put("berlin-flight.pdf",  ["Flight", "time(2026-03-02)"])
+```
 
-names = {i.name for i in dag.get(["weight(..5kg)"])}   # at most 5 kg
-# {"parcel", "flour-bag", ...}  — and no weight(..5kg) node was created
-names = {i.name for i in dag.get(["weight(1kg..)"])}   # at least 1 kg
+Now ask for a stretch of time that nobody ever created:
+
+```python
+>>> sorted(i.name for i in dag.get(["Flight", "time(2026-06-01..2026-08-31)"]))
+['japan-outbound.pdf', 'japan-return.pdf']
+
+>>> sorted(i.name for i in dag.get(["Flight", "time(2026-01-01..2026-12-31)"]))
+['berlin-flight.pdf', 'japan-outbound.pdf', 'japan-return.pdf']
 ```
 
 The same from the command line (**quote the parentheses** in a shell):
 
 ```console
-$ odag put dimension
-$ odag put linear-dimension dimension
-$ odag put weight linear-dimension
-$ odag put parcel 'weight(3kg)'
-$ odag get 'weight(..5kg)'
-parcel
-weight(3000000mg)
+$ odag put time linear-dimension
+$ odag put japan-outbound.pdf Flight Japan 'time(2026-08-15)'
+$ odag get Flight 'time(2026-06-01..2026-08-31)'
+japan-outbound.pdf
 ```
 
 What to know:
 
-- **Ranges are `lo..hi`**, either end may be open: `weight(..5kg)` (at most),
-  `weight(1kg..)` (at least), `weight(1kg..5kg)` (between), `weight(3kg)`
-  (exactly). Query terms never need to exist as nodes — ask any threshold.
-- **Values are exact integers in tiny base units.** `weight(3kg)` is stored
-  under its canonical name `weight(3000000mg)` (mass in mg, length in mm,
-  duration in s); `3kg`, `3000g` and `3.0kg` are one identity. Anything finer
-  than the base unit is an error, never rounded.
-- **Dates and times work too**: declare `time` under `linear-dimension`, file
-  things under `time(2026-08-15)` (a whole day) or a full timestamp, query
-  with `time(2026-06-01..2026-08-31)`.
+- **Ranges are `lo..hi`**, either end may be open: `time(..2026-01-01)` (before),
+  `time(2026-12-31..)` (after), `time(2026-06-01..2026-08-31)` (between).
+  Query terms never need to exist as nodes — ask any range.
+- **A day is itself a range.** `time(2026-08-15)` is stored under the canonical
+  name `time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)` — the whole day — which
+  is why it falls inside a summer query. Full timestamps
+  (`time(2026-08-15T14:30:00Z)`) work too, for a departure rather than a date.
+- **A whole year is a range**, written out: `time(2026-01-01..2026-12-31)`. A bare
+  `time(2026)` is *not* a year — it is read as the dimensionless number 2026 and
+  rejected for mixing unit families. Month granularity (`time(2026-08)`) is not
+  parsed either; write the month's first and last day.
+- **Other dimensions work the same way.** `weight(3kg)` is stored as
+  `weight(3000000mg)` — values are exact integers in tiny base units (mass in mg,
+  length in mm, duration in s), so `3kg`, `3000g` and `3.0kg` are one identity,
+  and anything finer than the base unit is an error rather than rounded.
 - **Two more kinds**: `prefix-dimension` for hierarchical codes
-  (`geo(u2ed)` is inside `geo(u2)` — geohash cells), and
+  (`geo(u2ed)` is inside `geo(u2)` — geohash cells, handy for "near Tokyo"), and
   `dominance-dimension` for does-it-fit tuples
-  (`size(19x23x39cm)` fits `size(20x30x40cm)`, rotation is free).
+  (`size(19x23x39cm)` fits `size(20x30x40cm)` — cabin baggage, rotation free).
 - **A point is not a range.** `weight(3kg)` is *not* below `weight(5kg)` —
-  a 3 kg parcel is not a special case of a 5 kg one. Use `weight(..5kg)`.
+  a 3 kg bag is not a special case of a 5 kg one. Use `weight(..5kg)`.
 - **An item sits in the intersection of its parents**, so filing one thing
   under two non-overlapping values of the same dimension
-  (`weight(..2kg)` *and* `weight(3kg..)`) is refused with an error. For a
-  union — "Saturdays", a delivery region — make an ordinary category and put
-  the values under *it* (`dag.put("time(2026-08-01)", ["saturdays"])`, one
+  (`time(..2026-01-01)` *and* `time(2026-12-31..)`) is refused with an error. For
+  a union — "weekends", a delivery region — make an ordinary category and put
+  the values under *it* (`dag.put("time(2026-08-01)", ["weekend"])`, one
   edge per member).
+- **Value nodes answer queries too.** A bare `dag.get(["time(2026-08-01..)"])`
+  returns the matching `time(...)` categories alongside your documents — they are
+  ordinary categories and they genuinely satisfy the query. Pair the date with a
+  real category (`["Flight", "time(...)"]`, as above) when you want documents only.
 
 **Guaranteed vs. possible: `get_overlapping`.** `get` on a range answers
-*guaranteed* satisfaction — everything whose value certainly fits. For
-matching you often also want the maybes: things whose value range merely
-*overlaps* yours. That's a separate question (Python API only):
+*guaranteed* satisfaction — everything whose value certainly fits. Often you also
+want the maybes: a flexible ticket valid over a week *might* cover your date. That
+is a separate question (Python API only):
 
 ```python
-dag.put("exact-offer", ["weight(1.2kg)"])
-dag.put("variable-offer", ["weight(0.8kg..1.5kg)"])   # might be enough
+dag.put("fixed-ticket.pdf",    ["time(2026-08-15)"])              # that day
+dag.put("flexible-ticket.pdf", ["time(2026-08-14..2026-08-20)"])  # any day that week
 
-dag.get(["weight(1kg..)"])              # exact-offer only — guaranteed
-dag.get_overlapping("weight(1kg..)")    # both — possibly satisfies
+dag.get(["time(2026-08-15..2026-08-16)"])            # fixed only — guaranteed
+dag.get_overlapping("time(2026-08-15..2026-08-16)")  # both — possibly
 ```
 
 Overlap can't be expressed as a category (it isn't transitive), which is why
@@ -465,7 +498,7 @@ odag <command> ...
   put SUB [PARENT...]   add SUB under the PARENT categories (or the root)
   get CAT [CAT...]      print items below all of the CATs, one per line
                         (the literal word `or` separates alternatives:
-                        `get Dog Pet or Cat` = (Dog AND Pet) OR Cat)
+                        `get Flight Japan or Hotel` = (Flight AND Japan) OR Hotel)
   below SUB SUP         does SUB fit within SUP? prints true/false and
                         exits 0/1 (grep-style); `?` works at the prompt
   index [--threshold N] for swarm: stores — publish cone summaries (a
@@ -497,14 +530,14 @@ store for one command with `-f PATH`, or change the default permanently with
 `set store PATH`:
 
 ```console
-$ odag set store ~/work/pets.od      # writes ~/.ontodag/config; silent
+$ odag set store ~/work/travel.od      # writes ~/.ontodag/config; silent
 $ odag set                           # show every setting
-store = /home/you/work/pets.od
+store = /home/you/work/travel.od
 bee_api = http://localhost:1633
 bee_batch =
 bee_signer =
 $ odag set store                     # show just one (no value = display, never an error)
-store = /home/you/work/pets.od
+store = /home/you/work/travel.od
 ```
 
 `set KEY VALUE` changes a setting; `set KEY` on its own displays it; `set`
@@ -512,7 +545,7 @@ alone lists them all. The settings are `store` and — for the Swarm backend
 below — `bee_api`, `bee_batch` and `bee_signer`.
 
 Files ending in `.owl` or `.omn` are read and written as OWL / Manchester syntax
-instead of the native format — so `odag -f pets.omn get Animal` works directly on an
+instead of the native format — so `odag -f travel.omn get Flight` works directly on an
 ontology file, and `export`/`import` convert between them.
 
 **Storing on Swarm.** A store can also live on [Ethereum Swarm](https://www.ethswarm.org/)
@@ -523,9 +556,9 @@ instead of a local file. It needs a few extra dependencies — install them once
 which. Then set the store once and it sticks:
 
 ```console
-$ odag set store swarm:pets       # every later command now uses Swarm
-$ odag put Animal
-$ odag get Animal
+$ odag set store swarm:travel     # every later command now uses Swarm
+$ odag put Flight
+$ odag get Flight
 ```
 
 The DAG's content is written to a Bee node (content-addressed, immutable). Where
@@ -533,7 +566,7 @@ the pointer to the *latest* version lives depends on whether you give `odag` a
 signing key:
 
 - **No key (the default).** The latest root is kept locally at
-  `~/.ontodag/pets.root`, so you can start with nothing but a node. Nothing is
+  `~/.ontodag/travel.root`, so you can start with nothing but a node. Nothing is
   publishable: to let someone else read your store you would have to pass them
   a root hash by hand.
 - **With a key** (`BEE_SIGNER`, or `bee_signer` in the config) the latest root
@@ -555,8 +588,8 @@ stopped, even `odag get` fails — but it fails cleanly, with one line on stderr
 exit status 1, nothing written, and a reminder of the ways out:
 
 ```console
-$ odag get Animal
-odag: cannot reach the Bee node at http://localhost:1633, needed by store 'swarm:pets' (Cannot connect to host localhost:1633 ssl:default [Connect call failed ('127.0.0.1', 1633)])
+$ odag get Flight
+odag: cannot reach the Bee node at http://localhost:1633, needed by store 'swarm:travel' (Cannot connect to host localhost:1633 ssl:default [Connect call failed ('127.0.0.1', 1633)])
   * start your Bee node, then run this again
   * or work locally for one command:  odag -f /home/you/.ontodag/store.od ...
   * or switch back to local storage:  odag set store /home/you/.ontodag/store.od
@@ -575,25 +608,25 @@ Swarm store first and start the node afterwards.
 Build the pet shop from nothing — each `put` is silent on success:
 
 ```console
-$ odag put Animal
-$ odag put Machine
-$ odag put Pet
-$ odag put Dog Animal Pet
-$ odag put Cat Animal Pet
-$ odag put Aibo Machine Pet
+$ odag put Flight
+$ odag put Hotel
+$ odag put Japan
+$ odag put japan-outbound.pdf Flight Japan
+$ odag put japan-return.pdf Flight Japan
+$ odag put hotel-tokyo.pdf Hotel Japan
 ```
 
 Look at what you have:
 
 ```console
 $ odag show
-* [root] -> Animal Machine Pet
-Animal (*) -> Cat Dog
-Machine (*) -> Aibo
-Pet (*) -> Aibo Cat Dog
-Aibo (Machine Pet) ->
-Cat (Animal Pet) ->
-Dog (Animal Pet) ->
+* [root] -> Flight Hotel Japan
+Flight (*) -> japan-outbound.pdf japan-return.pdf
+Hotel (*) -> hotel-tokyo.pdf
+Japan (*) -> hotel-tokyo.pdf japan-outbound.pdf japan-return.pdf
+hotel-tokyo.pdf (Hotel Japan) ->
+japan-outbound.pdf (Flight Japan) ->
+japan-return.pdf (Flight Japan) ->
 ```
 
 (Each line lists an item, its parents in brackets, then its children. Parents
@@ -603,72 +636,75 @@ built it and in whatever order. You can diff this output, and the stored file
 too: it is sorted and byte-identical for equal content, which is what makes the
 git habit below work.)
 
-Ask which things are both animals and pets — one name per line, straight to stdout:
+Ask which documents are flights for the Japan trip — one name per line, straight
+to stdout:
 
 ```console
-$ odag get Animal Pet
-Cat
-Dog
+$ odag get Flight Japan
+japan-outbound.pdf
+japan-return.pdf
 ```
 
-Alternatives use the literal word `or` between groups — everything that is an
-animal-and-pet, *or* a machine:
+Alternatives use the literal word `or` between groups — everything that is a
+Japan flight, *or* any hotel booking at all:
 
 ```console
-$ odag get Animal Pet or Machine
-Aibo
-Cat
-Dog
+$ odag get Flight Japan or Hotel
+hotel-tokyo.pdf
+japan-outbound.pdf
+japan-return.pdf
 ```
 
 And for a plain yes/no there's `below`, which also sets the exit code
 (0 = true, 1 = false, like `grep`), so it slots straight into shell logic:
 
 ```console
-$ odag below Aibo Pet
+$ odag below hotel-tokyo.pdf Japan
 true
-$ odag below Aibo Animal
+$ odag below hotel-tokyo.pdf Flight
 false
-$ odag below Aibo Pet && echo "it qualifies"
+$ odag below hotel-tokyo.pdf Japan && echo "it belongs to the trip"
 true
-it qualifies
+it belongs to the trip
 ```
 
-(At the interactive `>` prompt, `? Aibo Pet` is a synonym — no shell there
-to fight over the question mark.)
+(At the interactive `>` prompt, `? hotel-tokyo.pdf Japan` is a synonym — no shell
+there to fight over the question mark.)
 
-Add a spaniel under Dog; nobody typed "Spaniel is an Animal" — being under Dog was
-enough:
+File the boarding pass under the flight it belongs to, then ask for the whole
+trip; nobody typed "the boarding pass is part of Japan" — being under the outbound
+flight was enough:
 
 ```console
-$ odag put Spaniel Dog
-$ odag get Animal
-Cat
-Dog
-Spaniel
+$ odag put boarding-pass.png japan-outbound.pdf
+$ odag get Japan
+boarding-pass.png
+hotel-tokyo.pdf
+japan-outbound.pdf
+japan-return.pdf
 ```
 
 Remove an item (children reconnect to its parents automatically), and list every
 name:
 
 ```console
-$ odag remove Cat
+$ odag remove hotel-tokyo.pdf
 $ odag list
-Aibo
-Animal
-Dog
-Machine
-Pet
-Spaniel
+Flight
+Hotel
+Japan
+boarding-pass.png
+japan-outbound.pdf
+japan-return.pdf
 ```
 
 Because output is plain lines, it pipes:
 
 ```console
-$ odag get Animal | wc -l
-2
-$ odag get Animal | grep Span
-Spaniel
+$ odag get Japan | wc -l
+3
+$ odag get Japan | grep boarding
+boarding-pass.png
 ```
 
 ### 5.3 Pipes, scripts and interactive mode
@@ -677,9 +713,8 @@ Run with no command and `odag` reads commands from standard input — one per li
 `#` comments allowed — which makes stores scriptable:
 
 ```console
-$ printf 'put Drone Machine\nget Machine\n' | odag
-Aibo
-Drone
+$ printf 'put hotel-kyoto.pdf Hotel Japan\nget Hotel\n' | odag
+hotel-kyoto.pdf
 ```
 
 Run it with no command on a terminal and you get an interactive prompt instead:
@@ -687,12 +722,13 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 ```console
 $ odag
 Ontodag 0.8.0 - type help for help
-> put Fish Pet
-> get Pet
-Aibo
-Dog
-Fish
-Spaniel
+> put insurance.pdf Japan
+> get Japan
+boarding-pass.png
+hotel-kyoto.pdf
+insurance.pdf
+japan-outbound.pdf
+japan-return.pdf
 > quit
 ```
 
@@ -703,10 +739,10 @@ Spaniel
 category names knit the two together). All three are silent on success:
 
 ```console
-$ odag export pets.owl              # native store -> OWL
-$ odag export pets.omn              # -> Manchester syntax
-$ odag merge gadgets.omn            # fold gadgets.omn into the store
-$ odag visualize --format svg --out pets
+$ odag export travel.owl              # native store -> OWL
+$ odag export travel.omn              # -> Manchester syntax
+$ odag merge lisbon.omn             # fold the next trip into the store
+$ odag visualize --format svg --out travel
 ```
 
 `visualize` accepts `--format png|svg|pdf` and `--out NAME` for the output name.
@@ -753,14 +789,15 @@ $ curl -s -c cookies.txt -X POST http://localhost:5000/dag
 
 $ curl -s -b cookies.txt -X POST http://localhost:5000/dag/node \
     -H "Content-Type: application/json" \
-    -d '{"subcategories": ["Animal", "Pet", "Machine"]}'
+    -d '{"subcategories": ["Flight", "Hotel", "Japan"]}'
 {
   "message": "Item(s) inserted."
 }
 
 $ curl -s -b cookies.txt -X POST http://localhost:5000/dag/node \
     -H "Content-Type: application/json" \
-    -d '{"subcategories": ["Dog", "Cat"], "super_categories": ["Animal", "Pet"]}'
+    -d '{"subcategories": ["japan-outbound.pdf", "japan-return.pdf"],
+         "super_categories": ["Flight", "Japan"]}'
 {
   "message": "Item(s) inserted."
 }
@@ -771,17 +808,17 @@ $ curl -s -b cookies.txt -X POST http://localhost:5000/dag/node \
 Query — categories comma-separated in the `cat` parameter:
 
 ```console
-$ curl -s -b cookies.txt "http://localhost:5000/dag/query?cat=Animal,Pet"
+$ curl -s -b cookies.txt "http://localhost:5000/dag/query?cat=Flight,Japan"
 {
   "nodes": [
     {
       "descendant_count": 0,
-      "name": "Dog",
+      "name": "japan-return.pdf",
       "neighbors": []
     },
     {
       "descendant_count": 0,
-      "name": "Cat",
+      "name": "japan-outbound.pdf",
       "neighbors": []
     }
   ]
@@ -792,7 +829,7 @@ Remove items:
 
 ```console
 $ curl -s -b cookies.txt -X DELETE http://localhost:5000/dag/node \
-    -H "Content-Type: application/json" -d '{"subcategories": ["Cat"]}'
+    -H "Content-Type: application/json" -d '{"subcategories": ["japan-return.pdf"]}'
 {
   "message": "Item(s) removed."
 }
@@ -805,8 +842,8 @@ for .owl, `/dag/export/dot` and `/dag/export/tex` for Graphviz/LaTeX sources):
 $ curl -s -b cookies.txt http://localhost:5000/dag/export/omn
 Prefix: : <urn:ontodag_…#>
 …
-Class: :Aibo
-    SubClassOf: :Machine, :Pet
+Class: :japan-outbound.pdf
+    SubClassOf: :Flight, :Japan
 …
 ```
 
@@ -814,7 +851,7 @@ Import a file into the session (it merges into whatever is already there):
 
 ```console
 $ curl -s -b cookies.txt -X POST http://localhost:5000/dag/import \
-    -F "file=@petshop.omn"
+    -F "file=@travel.omn"
 {
   "message": "File imported and DAG created."
 }
@@ -824,7 +861,7 @@ Pictures over HTTP — the whole DAG or a query result:
 
 ```console
 $ curl -s -b cookies.txt http://localhost:5000/dag/image -o dag.png
-$ curl -s -b cookies.txt "http://localhost:5000/dag/query/image?cat=Animal,Pet" -o result.png
+$ curl -s -b cookies.txt "http://localhost:5000/dag/query/image?cat=Flight,Japan" -o result.png
 ```
 
 > **Gotcha:** the image endpoints need the session's visualizer, which is set up
@@ -861,12 +898,12 @@ result of your last query instead of the whole DAG.
 A `.omn` (Manchester syntax) file is just the DAG written as OWL classes:
 
 ```
-Class: :Dog
-    SubClassOf: :Animal, :Pet
+Class: :japan-outbound.pdf
+    SubClassOf: :Flight, :Japan
 ```
 
-reads as "Dog is a subclass of Animal and of Pet" — exactly OntoDAG's
-`put(Dog, [Animal, Pet])`. When OntoDAG writes the file itself you'll also see a
+reads as "japan-outbound.pdf is a subclass of Flight and of Japan" — exactly
+OntoDAG's `put("japan-outbound.pdf", ["Flight", "Japan"])`. When OntoDAG writes the file itself you'll also see a
 class named `*` (the root) and `Prefix:`/`Ontology:` header lines; when writing by
 hand you can skip the root — top-level classes are attached to it automatically.
 
@@ -891,10 +928,10 @@ from recordstore import RecordStore, MemoryBytesStore
 store = RecordStore(MemoryBytesStore())
 dag = EagerOntoDAG(store)
 
-dag.put("Animal", [])
-dag.put("Dog", ["Animal"],
-        payload="swarm-ref-of-a-photo",          # optional: content this item tags
-        meta={"content-type": "image/jpeg"})     # optional: free-form metadata
+dag.put("Flight", [])
+dag.put("japan-outbound.pdf", ["Flight"],
+        payload="swarm-ref-of-the-scan",         # optional: content this item tags
+        meta={"content-type": "application/pdf"})  # optional: free-form metadata
 
 root = dag.commit()      # every commit returns a fingerprint of the whole DAG
 ```
@@ -938,16 +975,16 @@ merged_root = my_dag.sync(their_root)   # fold theirs in, commit the union
 are re-pruned, order never matters, and syncing something you already have
 changes nothing. Two things follow from "the union wins" that are worth
 knowing: a removal does not survive a collaborator's concurrent re-assertion,
-and typed values renormalize across writers — if you filed a parcel under
-`weight(..5kg)` and your collaborator filed it under `weight(3kg)`, after
-syncing both of you hold just the `weight(3kg)` link, because the coarser one
-is implied (§4.7).
+and typed values renormalize across writers — if you filed a ticket under
+`time(2026-08-01..2026-08-31)` and your collaborator filed it under
+`time(2026-08-15)`, after syncing both of you hold just the `time(2026-08-15)`
+link, because the coarser one is implied (§4.7).
 
 ### Cone summaries: making broad queries cheap for readers
 
 A lazy reader (below) pays roughly one fetch per item in the *narrowest*
-cone it queries — fine for `get(["Spaniel"])`, painful for
-`get(["Animal", "Document"])` on a big store. A publisher can remove that
+cone it queries — fine for `get(["boarding-pass.png"])`, painful for
+`get(["Flight", "Document"])` on a big store. A publisher can remove that
 cost by shipping a small **derived index** next to the ontology: one record
 per broad category stating its cone, so a reader fetches the answer instead
 of walking it.
@@ -983,7 +1020,7 @@ walks them*, so cost scales with the question, not with the store.
 from ontodag import LazyOntoDAG
 
 dag = LazyOntoDAG(swarm_store("my-ontology", owner=address_hex))
-print([item.name for item in dag.get(["Animal", "Pet"])])
+print([item.name for item in dag.get(["Flight", "Japan"])])
 print(dag.fetches)      # how many records that actually cost
 ```
 
@@ -1000,7 +1037,7 @@ from ontodag import SparseOntoDAG
 from recordstore import RecordStore
 
 dag = SparseOntoDAG(RecordStore(blobs, root=published_root))  # writable
-dag.put("spaniel", ["dog"])
+dag.put("boarding-pass.png", ["japan-outbound.pdf"])
 new_root = dag.commit()        # stages only what actually changed
 ```
 
@@ -1027,20 +1064,21 @@ These behaviors are guarantees, not accidents. You can rely on them:
 
 1. **No cycles, ever.** An attempt to make a category its own ancestor is refused
    with a clear error, and the graph is untouched.
-2. **No redundant links, ever.** If a relationship is already implied (Spaniel →
-   Animal when Spaniel → Dog → Animal exists), it is not stored; if adding a link
+2. **No redundant links, ever.** If a relationship is already implied
+   (boarding-pass → Japan when boarding-pass → japan-outbound.pdf → Japan
+   exists), it is not stored; if adding a link
    makes an old one redundant, the old one is dropped. Your graph is always the
    minimal, tidy version of itself.
 3. **Order never matters.** Add parents in any order, merge in any order, build the
    same content by any history — you get the identical graph.
-4. **Names are the identity.** The name string *is* the item: `"Dog"` here and
-   `Item("Dog")` there refer to the same thing, in one DAG or across DAGs. There
+4. **Names are the identity.** The name string *is* the item: `"Flight"` here and
+   `Item("Flight")` there refer to the same thing, in one DAG or across DAGs. There
    are no duplicate names and no hidden IDs.
 5. **Counts are always right.** `descendant_count` is kept exactly consistent with
    the graph after every operation.
 6. **Removal never orphans.** Children of a removed item reattach to its parents
-   — including the computed ones: remove `weight(3kg)` and a parcel that was
-   once explicitly under `weight(..5kg)` is under it again.
+   — including the computed ones: remove `time(2026-08-15)` and a ticket that
+   was once explicitly under `time(2026-06-01..2026-08-31)` is under it again.
 7. **One dimension, one meaning.** A dimension's values must share one unit
    family (no seconds in a mass dimension), links *between* two values of the
    same dimension are refused (their order is computed, not asserted), and
@@ -1091,7 +1129,7 @@ Load `http://localhost:5000/` once in that session first — see the gotcha in �
 Parents must be added before children. Check spelling — names are case-sensitive.
 
 **A query returns nothing, but I'm sure there are results**
-Check the names (case matters: `pet` ≠ `Pet`). An unknown category makes the whole
+Check the names (case matters: `flight` ≠ `Flight`). An unknown category makes the whole
 answer empty, because nothing can be under a category that doesn't exist.
 
 **`TypeError: get() requires at least one super-category`**

@@ -14,14 +14,14 @@ is the readable map of that territory.
 
 OntoDAG stores one graph: named items connected by "is-under" arrows, general
 above, specific below, with a single root `*` above everything. Arrows may
-converge — `Dog` sits under both `Animal` and `Pet` — which is what makes it a
-**DAG** (directed acyclic graph) rather than a tree. Trees are what folders are;
+converge — `japan-outbound.pdf` sits under both `Flight` and `Japan` — which is
+what makes it a **DAG** (directed acyclic graph) rather than a tree. Trees are what folders are;
 the whole point here is to not be one.
 
 Every item casts a shadow downward: itself and everything reachable below it. We
-call that its **cone**. `Animal`'s cone contains `Dog`, `Cat`, `Spaniel`, and every
-photo you ever file under any of those. The *entire query language* is one
-operation on cones:
+call that its **cone**. `Japan`'s cone contains every flight, hotel and ticket you
+filed under the trip, and every scan you later filed under any of those. The
+*entire query language* is one operation on cones:
 
 > **get(A, B, …) = the intersection of the cones of A, B, …**
 
@@ -35,8 +35,8 @@ Here is the one design decision from which everything else follows.
 
 At all times, OntoDAG stores the **minimal** set of arrows whose implications give
 your full category structure — never a link that's already implied by a chain of
-others. If `Spaniel → Dog → Animal` exists, the direct link `Spaniel → Animal`
-must *not* be stored; adding it is silently skipped, and if adding some new link
+others. If `boarding-pass → japan-outbound.pdf → Japan` exists, the direct link
+`boarding-pass → Japan` must *not* be stored; adding it is silently skipped, and if adding some new link
 makes an old one redundant, the old one is dropped on the spot. Mathematicians
 call this the **transitive reduction** of the graph.
 
@@ -59,16 +59,19 @@ is a load-bearing wall, not a cosmetic preference.
 
 ## 3. What happens when you `put`
 
-`put(Spaniel, [Animal, Dog])` runs, for each requested parent link:
+`put(boarding-pass, [Japan, japan-outbound.pdf])` runs, for each requested parent
+link:
 
-1. **Already implied?** If `Spaniel` is already reachable from `Animal` through
-   other links, skip this link entirely (that's the redundant-`Animal` case).
-2. **Would it loop?** If the *reverse* is reachable — `Animal` is somewhere below
-   `Spaniel` — the link would create a cycle, and the operation is rejected with
-   an error *before anything is modified*. "Is X reachable from Y" is answered by
-   a simple walk that stops as soon as it finds the target.
-3. **Does it obsolete an old link?** If some ancestor of `Dog` (say `Animal`) has
-   a direct link to `Spaniel`, that link is now redundant and gets removed.
+1. **Already implied?** If `boarding-pass` is already reachable from `Japan`
+   through other links, skip this link entirely (that's the redundant-`Japan`
+   case).
+2. **Would it loop?** If the *reverse* is reachable — `Japan` is somewhere below
+   `boarding-pass` — the link would create a cycle, and the operation is rejected
+   with an error *before anything is modified*. "Is X reachable from Y" is
+   answered by a simple walk that stops as soon as it finds the target.
+3. **Does it obsolete an old link?** If some ancestor of `japan-outbound.pdf` (say
+   `Japan`) has a direct link to `boarding-pass`, that link is now redundant and
+   gets removed.
 4. Only then is the arrow added.
 
 Alongside the arrows, every item keeps a running `descendant_count` — the size of
@@ -104,7 +107,7 @@ direction — downward for cones, upward for ancestry checks.
 
 ## 4. What happens when you `get`
 
-A query like `get(Animal, Pet, Vaccinated)` could be executed naively: compute
+A query like `get(Flight, Japan, Refundable)` could be executed naively: compute
 each cone by walking the graph, then intersect the three sets. Correct, but
 wasteful — and OntoDAG's planner improves on it in ways borrowed from database
 query optimizers, all *provably result-preserving* (an optimizer that changes
@@ -117,9 +120,9 @@ sets are shallow, with early exit.) The conjunctive planner:
 
 **Planned before touching the graph** — using knowledge that's exact in advance:
 
-- *Drop redundant terms.* If `Dog` is among your query terms along with `Animal`,
-  the `Animal` term adds nothing (everything under Dog is already under Animal),
-  so it's discarded. The check walks *upward* from the more specific term, which
+- *Drop redundant terms.* If `japan-outbound.pdf` is among your query terms along
+  with `Japan`, the `Japan` term adds nothing (everything under the flight is
+  already under the trip), so it's discarded. The check walks *upward* from the more specific term, which
   is cheap — ancestor chains are short even in huge graphs.
 - *Order by size.* `descendant_count` says exactly how big each cone is, so the
   planner starts with the smallest — the strongest filter first.
@@ -166,8 +169,8 @@ rather than promised.
 **Names are the identity.** Inside a running DAG, links are direct object
 references (fast pointer hops). But at every boundary — files, queries, merging,
 network — an item *is* its name string, nothing more (which is why the public API
-simply accepts plain strings). Two `"Dog"`s are the
-same dog. This is why merges knit shared categories together, and why the same
+simply accepts plain strings). Two `"Flight"`s are the
+same category. This is why merges knit shared categories together, and why the same
 name in two DAGs means the same thing. (The corollary — agree on names before
 merging — is the price of that simplicity.)
 
@@ -244,32 +247,33 @@ asserted under arbitrary edit histories).
 
 ## 8. Typed values: the order that is computed, not stored
 
-Everything so far ordered items by *asserted* edges. But no edge can say that
-a 3 kg parcel satisfies a "max 5 kg" limit — and no finite set of edges ever
-could: between any two weights there is always another, so the "no link you
+Everything so far ordered items by *asserted* edges. But no edge can say that a
+flight on 15 August falls inside "last summer" — and no finite set of edges ever
+could: between any two instants there is always another, so the "no link you
 can infer" rule (§2) has nothing it could keep. So for **parametric values**
-like `weight(3kg)` the order is *computed from the name* instead. Each such
-term stands for a set of values (`weight(..5kg)` = "up to 5 kg"), and one
-term sits below another exactly when its set is contained in the other's —
-the same everything-below-is-a-special-case meaning every ordinary edge
-already has. The values are exact integers in tiny base units (`3kg` is
-stored as `3000000mg` — the money-in-cents move), so every comparison is
-exact arithmetic and every replica computes the identical order: the
-canonical-form guarantee of §2 survives untouched, because the stored graph
-still contains only asserted edges, now pruned *modulo* what the arithmetic
-already implies.
+like `time(2026-08-15)` the order is *computed from the name* instead. Each such
+term stands for a set of values (`time(2026-06-01..2026-08-31)` = "that summer",
+and a bare date is itself the set of instants in that day), and one term sits
+below another exactly when its set is contained in the other's — the same
+everything-below-is-a-special-case meaning every ordinary edge already has. The
+values are exact integers in tiny base units (a weight of `3kg` is stored as
+`3000000mg` — the money-in-cents move), so every comparison is exact arithmetic
+and every replica computes the identical order: the canonical-form guarantee of
+§2 survives untouched, because the stored graph still contains only asserted
+edges, now pruned *modulo* what the arithmetic already implies.
 
 Each dimension keeps its used values on one visible shelf: every value hangs
-by a single fixed edge under its dimension's node (`weight(3000000mg)` under
-`weight`). That star is the whole storage cost — adding a value touches two
+by a single fixed edge under its dimension's node (that August day under
+`time`). That star is the whole storage cost — adding a value touches two
 records, never its neighbors — and it is also the index a query walks: asking
-`get("weight(..5kg)")` needs no such node to exist, it just filters the shelf
-and takes everything below the matching values. (The weaker question —
-whose value merely *overlaps* mine, the "possibly satisfies" of a
-marketplace — is deliberately a separate operation, `get_overlapping`:
-overlap is not transitive, so it can never be an edge or a category.) Sets that are unions rather
-than thresholds — "Saturdays", a delivery region — are ordinary categories
-with the member values placed under them, one edge each.
+for a summer's worth of documents needs no such node to exist, it just filters
+the shelf and takes everything below the matching values. (The weaker question
+— whose value merely *overlaps* mine, the "does this flexible ticket maybe
+cover my date" of a marketplace — is deliberately a separate operation,
+`get_overlapping`: overlap is not transitive, so it can never be an edge or a
+category.) Sets that are unions rather than thresholds — "weekends", a
+delivery region — are ordinary categories with the member values placed under
+them, one edge each.
 
 ## 9. Where this is going
 

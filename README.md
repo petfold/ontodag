@@ -22,14 +22,18 @@ odag's store settings).
 
 ## Specification
 
-A Directed Acyclic Graph (DAG) associative storage and category manager in Python. You can store items into a ontodag and recall items from it. To store or "put" an item into a ontodag, you give it a name and a set of other names of already existing items that are its supercategories. To recall or "get", you specify a set of item names to get all items that are subcategories of all these items; alternatives are one word away (`odag get Dog Pet or Cat`, `get_any` in Python).
+A Directed Acyclic Graph (DAG) associative storage and category manager in Python. You can store items into a ontodag and recall items from it. To store or "put" an item into a ontodag, you give it a name and a set of other names of already existing items that are its supercategories. To recall or "get", you specify a set of item names to get all items that are subcategories of all these items; alternatives are one word away (`odag get Flight Japan or Hotel`, `get_any` in Python).
 
-Categories can also carry **typed values**: declare `weight` as a dimension
-and `weight(3kg)` becomes an ordinary category whose ordering OntoDAG
-computes — `odag get 'weight(..5kg)'` finds the 3 kg parcel with no edge ever
-stored between them, at any threshold, with exact integer arithmetic. Ranges
-(`1kg..5kg`), timestamps and date ranges, hierarchical codes like geohash
-cells, and does-it-fit size tuples all work the same way. See
+File a flight confirmation under both `Flight` and `Japan`, the boarding pass
+under the flight itself, and `odag get Japan` returns the whole trip — including
+the boarding pass you never filed under the trip. No folder had to be chosen.
+
+Categories can also carry **typed values**: declare `time` as a dimension
+and `time(2026-08-15)` becomes an ordinary category whose ordering OntoDAG
+computes — `odag get Flight 'time(2026-06-01..2026-08-31)'` finds last summer's
+flights with no edge ever stored between them, at any range, with exact integer
+arithmetic. Weights and sizes (`weight(..5kg)`), hierarchical codes like geohash
+cells, and does-it-fit tuples all work the same way. See
 [User Guide §4.7](docs/USER_GUIDE.md) and the design record
 [docs/DIMENSIONS.md](docs/DIMENSIONS.md).
 
