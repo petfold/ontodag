@@ -465,7 +465,17 @@ until a consumer trips the wire:
   knowledge, breaking determinism and merge. They belong at
   elaboration ("Vienna time" snaps to concrete offsets on input), or
   wait for a pinned-table mechanism à la REGISTRY_VERSION if stored
-  political zones ever find a real consumer.
+  political zones ever find a real consumer. Narrowed further (Peter,
+  same day: "leave it to the surface layer, core deals only in UTC"):
+  (a) the time→cycle projection can ALSO be surface — file the event
+  under both `time(…)` and `weekday(Sat)` at put time (materialized,
+  asserted, merge-safe; cost: projections not anticipated at filing
+  time can't be queried retroactively); (b) FINITE cycles need no kind
+  at all — `weekday(Fri..Mon)` is a plain category with four asserted
+  children, shippable as a vocabulary pack today. The cyclic kind's
+  tripwire therefore narrows to *continuous* periodic ranges as query
+  terms (opening hours `22:00..06:00`, angles mod 360), where
+  containment must be computed, not enumerated.
 - **Periodic projections of time** — "all Saturdays" is not a
   dimension but a periodic predicate over the time line: an infinite
   union of intervals whose containment against any interval is still
