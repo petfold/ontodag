@@ -449,7 +449,23 @@ until a consumer trips the wire:
   range"), correctly, because on a line nothing sits between 5 and 3
   going up; on a circle `hours(22..06)` and `weekday(Thu..Tue)` are the
   wrap arcs, which is exactly what `(start, extent)` makes canonical
-  and one mod-subtraction decides.
+  and one mod-subtraction decides. Refined (Peter, same day): make it
+  ONE general modular kind, not per-case types — a head declares its
+  period the way a unit family declares its anchor (weekday = 7,
+  hour-of-day = 86400 s, month = 12, angle = 360), and named positions
+  (`Thu`, `Aug`) are spellings for rational positions, so the whole
+  unit-declaration/pack machinery transfers unchanged. Time zones:
+  a fixed offset is a *rotation* of the circle, and rotations map arcs
+  to arcs exactly — boundary-crossing shifts cost nothing because the
+  circle has no boundary — so fixed offsets are core arithmetic and
+  may ride in canonical names. **Political zones (tzdata, DST) are a
+  wall**: not computable from names, mutably and politically amended,
+  and one named zone is different rotations at different times of the
+  year — two readers with different tables would disagree about stored
+  knowledge, breaking determinism and merge. They belong at
+  elaboration ("Vienna time" snaps to concrete offsets on input), or
+  wait for a pinned-table mechanism à la REGISTRY_VERSION if stored
+  political zones ever find a real consumer.
 - **Periodic projections of time** — "all Saturdays" is not a
   dimension but a periodic predicate over the time line: an infinite
   union of intervals whose containment against any interval is still
