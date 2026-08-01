@@ -1,12 +1,13 @@
 # Provenance: Attribution Without Breaking the Root
 
-Status: **design note / discussion draft, 2026-08-01 (Peter + Claude).
-Nothing implemented.** What *is* agreed: the agents-first decision
-(`CONTRACT.md` §1) promotes provenance from the roadmap's research horizon to
-a prerequisite — no agent write path ships before this note is settled. The
-proposal in §3 is argued, not decided; open questions in §8. §7 (added later
-the same day) records the economic extension of this layer — bonded
-assertions, designed in the **factbond** sister repo.
+Status: **agreed design, 2026-08-01 (Peter + Claude) — drafted, reviewed and
+agreed the same day; all open questions resolved (the review record is §8).
+Nothing implemented** — Phase 2 of the working plan is the implementation
+gate, now unblocked on the design side. §7 records the economic extension of
+this layer — bonded assertions, designed in the **factbond** sister repo.
+One flagged residual: the `payload(name, content-hash)` subject form (§3) is
+sketched, not worked — if payload attribution matters early, it needs its
+own session before Phase 2 builds it.
 
 Read first: `SWARM_DESIGN.md` §8 (the original provenance sketch this note
 amends), `CONTRACT.md` §6–§7 (the obligations and verifiability clauses that
@@ -48,10 +49,30 @@ The project already has the pattern: cone indexes are a separate store with
 its own root, published beside the data root, manifest-pinned
 (`cones.py`). Provenance is the same move with different content:
 
-- A **provenance store** maps an *assertion identity* (§7.1) to a set of
-  signed provenance records. It merges by **union** — attributions are
-  monotone facts about speech acts ("K said X"), so two provenance stores
-  merge without conflict, and re-syncing is idempotent.
+- A **provenance store** maps a *subject* to a set of signed provenance
+  records. **Subjects are claims, not edges (decided 2026-08-01):** the
+  ordered pair of canonical names `sub ⊑ sup` — stable under reduction and
+  merge, where a stored edge is not (reduction can prune an asserted edge
+  whose claim stays entailed: assert `X⊑A`, then `X⊑B, B⊑A` arrives and the
+  edge vanishes from the canonical form while `is_below(X, A)` stays true).
+  Node existence is the claim `X ⊑ *`; payload/meta attribution uses a
+  `payload(name, content-hash)` subject form (sketched, not yet worked).
+  Subjects are adversary-computable — any party derives the same subject
+  from the same claim, parametric spellings already collapsed by
+  canonicalization — which is what a later bonded claim needs (§7). An
+  optional deterministic `group` field, the hash of the canonically-encoded
+  operation `{op, item, supers sorted, basis root}`, links the several
+  claims of one intentional act (`put(X, [A, B])`).
+- The store merges by **union** — attributions are monotone facts about
+  speech acts ("K said X"), so two provenance stores merge without conflict,
+  and re-syncing is idempotent. **No semantic canonical form is needed**
+  (decided 2026-08-01): there is no reduction or entailment on speech acts,
+  so set equality is the only equality, and the trie's sorted encoding
+  already gives "same attributions ⇒ same provenance root". Records are
+  keyed `s/<subject-hash>/<record-hash>` — set semantics by content address
+  (duplicates dedupe), subject-prefix lookup via the existing
+  `keys(prefix)`, union merge via the or-set resolver pattern loopmarket
+  already validated.
 - Publication is a **pair of roots** `(knowledge_root, provenance_root)`,
   pinned together the way cone-index manifests pin
   `{data_root, registry_version}`. The knowledge root stays pure; a verifier
@@ -61,20 +82,51 @@ its own root, published beside the data root, manifest-pinned
   property of the design: provenance is layered beside the data, never inside
   it, and a store without a provenance sibling remains fully functional.
 
-Sketched record shapes (all signed over content-addressed data, so
-verifiable per `CONTRACT.md` Tier 2):
+Record shapes (all signed over content-addressed data, so verifiable per
+`CONTRACT.md` Tier 2). Every record carries a schema version `v` and a
+**namespaced extensions map** from day one (decided 2026-08-01 — the
+contract's annotations-slot move applied to records; factbond's
+`bondRef`/`confidence`/liveness ride there when they arrive); readers ignore
+unknown record types, fields and namespaces, and the store manifest pins
+`{format, schema version}` cone-index style:
 
-| record | fields (sketch) |
+| record | fields (beyond `v`, extensions, signature) |
 |---|---|
-| assertion | subject, author key, basis `knowledge_root` the author wrote against, `origin: asserted \| derived`, `derived_from: (corpus_root, learner_version)?`, time?, signature |
-| endorsement | subject, endorser key, basis root, time?, signature |
-| retraction | subject, author key, basis root, time?, signature |
+| assertion | subject, author key, basis `knowledge_root` the author wrote against, `origin: asserted \| derived`, `derived_from: (corpus_root, learner_version)?`, time? |
+| endorsement | subject, endorser key, basis root, time? |
+| retraction | subject, author key, basis root, time? |
+| binding | key, canonical name, basis root, time? — the self-signed key↔name link, endorsable by others (a web-of-trust edge). It cannot be a knowledge edge: "K speaks-for N" is a *relation*, which is walled — so it lives here as a speech act, disputable and endorsable like the rest. The knowledge graph never stores key material. |
+
+Timestamps are **part of the signed claim** — "K says it was Tuesday" —
+useful for ordering heuristics and review UIs, never load-bearing for merge
+or identity; anchored time (feed index, on-chain anchor) is the upgrade
+path, and its natural customer is factbond's liveness windows, so it belongs
+to that contract. The same claim re-asserted later by the same key is
+deliberately a *new record*: "I still stand behind this against root R₂" is
+audit information.
 
 **Retraction is a speech act, not a deletion.** It records "this key no
 longer stands behind this claim"; the knowledge-level grow-only stance
 (`CONTRACT.md` G2) is untouched, and readers weigh retractions exactly as
 they weigh endorsements — by policy. This gives `remove` a principled
 companion instead of a fight with merge-as-union.
+**Coupling rule (decided 2026-08-01):** on the agent write surface, a
+knowledge-level `remove` **must** emit the matching retraction record in the
+same published pair — the audit trail never has silent disappearances, and
+the agent surface is exactly where audit is the point. Direct human
+CLI/library use: recommended, unenforced. The coupling lives in the write
+surface, never in `dag.py` — the core stays provenance-free (the B1
+discipline).
+
+**Deployment shape (decided 2026-08-01): per-writer stores.** Each writer
+publishes their own provenance store under their own signed feed; readers
+and aggregators fold exactly the stores they *choose* by union merge
+(O(divergence) on the canonical trie) — loopmarket's one-book-per-maker
+shape, same machinery. Admission is by **reference, not write access**, so
+spam needs no store-side mechanism (no quotas, no stake): a flooder is
+simply un-merged, and "everything K ever asserted" is auditable and
+revocable as a unit. Economic spam pricing (assertion fees) arrives later as
+factbond's layer.
 
 ## 4. What survives from the §8 sketch, and where it moves
 
@@ -160,37 +212,42 @@ What that means for this design, concretely:
   corrected database — grow-only knowledge plus provenance-level correction,
   independently reinvented.
 
-## 8. Open questions
+## 8. Review record (2026-08-01 — all open questions resolved)
 
-1. **Subject identity — what exactly is attributed?** Edges `(child,
-   parent)`, nodes, or whole `put` operations? Edge-grain matches merge (a
-   merge is a union of edges) but one `put` asserts several edges that form
-   one intentional act; an operation-grain subject needs a canonical encoding
-   of the operation. Current lean: edge-grain with an optional operation
-   grouping field, but this is the first thing to settle.
-2. **Does the provenance store need semantic canonical form?** Probably not —
-   its records are speech acts, not knowledge; union merge plus the trie's
-   sorted canonical encoding should suffice, and "same attributions ⇒ same
-   provenance root" follows from that alone. Confirm rather than assume.
-3. **Timestamps.** Whose clock, and are they claims (unsigned hints inside
-   the signed record) or anchored facts (feed index, on-chain anchor)? The
-   cheap honest position: a timestamp is part of the signed claim — "K says
-   it was Tuesday" — and anchoring is the upgrade path for when that isn't
-   enough.
-4. **Author identity.** Bare keys sign, but keys are not people or agents.
-   Is there a claim shape linking a key to a name in the graph — and is that
-   link itself just another attributed, endorsable assertion? (It is the
-   `SURFACE_LAYER.md` §12 identity-vs-relation fork again, wearing
-   authentication clothes.)
-5. **Spam and volume.** Union-merge means anyone can flood a provenance
-   store they can write to. Reader-side filtering by endorsement is policy
-   and always works; is anything needed store-side (per-key stores merged by
-   reference? quotas?), or is "you merge only provenance stores you choose"
-   already the answer?
-6. **Interaction with `remove`.** Should a knowledge-level `remove` be
-   *required* to carry a retraction record, so the audit trail never has
-   silent disappearances? (Lean: yes for agent-mediated writes, unenforced
-   for direct human CLI use.)
-7. **Schema versioning.** Nothing exists, so there is no migration burden —
-   which is exactly why the record format should carry a version field from
-   day one.
+Reviewed with Peter the same day the note was drafted; all seven resolutions
+accepted and folded into §3 above. Kept here so the decisions and their
+reasons stay findable:
+
+1. **Subject identity** → **claims, not edges** (§3). The draft's edge-grain
+   lean was found broken against the core's own behavior: transitive
+   reduction can prune an asserted edge whose claim stays entailed, so an
+   edge-grain subject dangles under canonicalization. Subjects are
+   `sub ⊑ sup` canonical-name pairs (`X ⊑ *` for existence,
+   `payload(name, content-hash)` for payload — the one sketched-not-worked
+   residual), plus the deterministic operation `group` hash linking one
+   intentional act's claims.
+2. **Semantic canonical form** → not needed: no reduction or entailment
+   exists on speech acts, so set equality is the only equality.
+   Content-hash keys under subject-hash prefixes; union merge via the
+   or-set resolver already validated in loopmarket.
+3. **Timestamps** → part of the signed claim ("K says it was Tuesday"),
+   never load-bearing for merge or identity; anchored time is the upgrade
+   path and belongs to factbond's contract (liveness windows).
+   Re-assertion is deliberately a new record — audit information.
+4. **Author identity** → `binding` records, the fourth type: self-signed
+   key↔name links, endorsable by others (web-of-trust). Never a knowledge
+   edge — "speaks-for" is a relation, which is walled. The §12
+   identity-vs-relation fork resolved the same way once more: the binding
+   is a claim (merges); whose binding you trust is policy.
+5. **Spam and volume** → per-writer stores folded by explicit choice
+   (§3 deployment shape). Admission is by reference, not write access, so
+   no store-side quotas or stakes: un-merge the flooder. Economic pricing
+   (assertion fees) is factbond's layer.
+6. **`remove` coupling** → required on the agent write surface (retraction
+   record in the same published pair), recommended-unenforced for direct
+   human use; the coupling lives in the write surface, keeping the core
+   provenance-free (§3 coupling rule).
+7. **Schema versioning** → `v` on every record; unknown record types,
+   fields and namespaces ignored; manifest pins `{format, schema version}`;
+   and a namespaced extensions map per record — the contract's
+   annotations-slot move applied to records, where factbond's fields ride.
