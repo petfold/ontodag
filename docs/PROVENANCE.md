@@ -2,12 +2,21 @@
 
 Status: **agreed design, 2026-08-01 (Peter + Claude) — drafted, reviewed and
 agreed the same day; all open questions resolved (the review record is §8).
-Nothing implemented** — Phase 2 of the working plan is the implementation
-gate, now unblocked on the design side. §7 records the economic extension of
-this layer — bonded assertions, designed in the **factbond** sister repo.
-One flagged residual: the `payload(name, content-hash)` subject form (§3) is
-sketched, not worked — if payload attribution matters early, it needs its
-own session before Phase 2 builds it.
+The store layer is IMPLEMENTED** (same day, Phase 2 first movement):
+`src/ontodag/provenance.py` — claim-grain subjects, the four signed record
+types with `v` + namespaced `ext` from day one, `s/<subject-hash>/<record-
+hash>` content-addressed keys (set semantics; re-assertion is deliberately a
+new record), real secp256k1 signing via the same `bee` package the feed
+pointer uses (duck-typed seam, lazy import) with `verify_record`, and
+conflict-free direction-independent `union` for the per-writer deployment
+shape. Tests: `tests/test_provenance.py`. **Not yet implemented:** the write
+surface (propose → canonical echo → confirm on the MCP path, knowledge
+writes coupled to assertion records, `remove` coupled to retraction — §3's
+coupling rule and §5's flow) and the endorsement/review workflow. §7 records
+the economic extension of this layer — bonded assertions, designed in the
+**factbond** sister repo. One flagged residual: the
+`payload(name, content-hash)` subject form (§3) is sketched, not worked —
+and deliberately not implemented.
 
 Read first: `SWARM_DESIGN.md` §8 (the original provenance sketch this note
 amends), `CONTRACT.md` §6–§7 (the obligations and verifiability clauses that

@@ -108,6 +108,18 @@ class TestCoreIsSwarmFree(unittest.TestCase):
             "must stay a lazy, function-local import",
         )
 
+    def test_provenance_module_imports_stay_core_only(self):
+        # Records are signed and stored, but both dependencies load lazily:
+        # recordstore for canonical bytes and the store, `bee` for real
+        # secp256k1 signing (the same package the feed pointer uses).
+        loaded = fresh_import("ontodag.provenance",
+                              CORE_FORBIDDEN + ("bee",))
+        self.assertEqual(
+            loaded, [],
+            f"importing ontodag.provenance loaded {loaded}; recordstore "
+            "and bee must stay lazy, function-local imports",
+        )
+
     def test_core_never_imports_the_surface(self):
         # SURFACE_LAYER.md §7: ontodag.surface is opt-in by import — the
         # human-facing rendering layer. The core must never call it, or
