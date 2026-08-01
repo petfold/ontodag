@@ -150,10 +150,31 @@ honest switch.
   that turns both directions off. Plus a `canon TERM` command that prints what
   a surface term elaborates to, so the mapping is inspectable rather than
   folklore — the single most useful debugging affordance here.
-- **Piping.** `odag get | odag put` must round-trip. Either output is canonical
-  whenever stdout is not a terminal (the `ls` convention), or rendering is
-  strictly opt-in on output. This needs deciding (§9.4) before any renderer
-  ships, because getting it wrong silently corrupts scripted pipelines.
+- **Piping — decided (2026-08-01).** Both halves of the choice, which turn out
+  to compose rather than compete: **canonical whenever stdout is not a
+  terminal**, and **rendering opt-in** when it isn't. So
+
+  | stdout | default | override |
+  |---|---|---|
+  | a terminal | rendered | `--raw` for canonical |
+  | a pipe, a file, `-o FILE` | canonical | `--render` to force friendly |
+
+  The precedence is flag, then `$ONTODAG_SURFACE` (`0`/`1`/`auto`), then the
+  tty test — `ls --color=auto` and `git`'s pager use the same shape, so it is a
+  convention people already have. `odag get | odag put` round-trips by default;
+  `odag get --render | grep` is available and is the user's explicit choice to
+  break that, exactly as `ls --color=always | grep` is.
+
+  Three consequences worth writing down:
+
+  - **The rule is output-only.** `put` and `get` accept surface *input*
+    regardless of where stdout goes; elaboration is never conditioned on a tty.
+  - **stderr always renders.** Diagnostics are for people and nothing parses
+    them — but that does mean an error can name a term in a spelling that
+    differs from the stored one, so error text should show the canonical form
+    too when the two differ.
+  - **Testing needs a real pty**, not just a flag, or the default path goes
+    unexercised. There is already precedent for driving `odag` under a pty.
 - **Web/REST.** Return both: canonical as the field, rendered as a sibling
   display field. The UI shows one and sends back the other.
 
@@ -199,8 +220,10 @@ structure* rather than terms. That is the `mdl-fca` provenance question
    with explicit expansion shown, or refuse? Bare dates are UTC days in the core
    today; a surface that accepts local dates lets two users store different
    facts from identical keystrokes.
-4. **Pipe semantics** (§7). Canonical-when-not-a-tty, or opt-in rendering? This
-   one blocks the renderer.
+4. ~~**Pipe semantics** (§7).~~ **Decided 2026-08-01: both.** Canonical
+   whenever stdout is not a terminal, *and* a `--render` opt-in for when it
+   isn't; `--raw` forces canonical on a terminal. Table and consequences in
+   §7. This was the only thing blocking the renderer (§10.1).
 5. **Surface versioning.** The surface needs its own version, separate from
    `REGISTRY_VERSION` — rendering changes are harmless, but changing elaboration
    changes what identical input stores. Does that version need to appear
@@ -219,8 +242,11 @@ structure* rather than terms. That is the `mdl-fca` provenance question
 
 Ordered so each step is independently useful and none blocks a later one:
 
-1. **Renderer + round-trip fuzz test** (§4, §6). Read-only, reversible,
-   immediately fixes the ugliest complaint. Needs §9.4 decided first.
+1. **Renderer + round-trip fuzz test** (§4, §6), under the §7 tty rule.
+   Read-only, reversible, immediately fixes the ugliest complaint.
+   **Unblocked** — §9.4 is decided; this is now the first thing that could be
+   built, and it is self-contained enough to build before the rest of the
+   layer is agreed.
 2. **`odag canon TERM`** and `--raw`. Makes the layer inspectable and gives the
    escape hatch before anyone depends on the friendly form.
 3. **Pure-function input sugar** — weeks, quarters. No new machinery.
