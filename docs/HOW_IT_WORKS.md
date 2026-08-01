@@ -231,6 +231,21 @@ address others can follow — and collaborators converge without a server by
 folding each other's published versions in (`sync`): assertions union,
 redundant links re-prune, and equal knowledge lands on the equal fingerprint.
 
+**Proving it to a stranger.** Fingerprints buy one more thing (2026-08-01):
+answers that can be *checked* by someone who has never seen your store.
+Because the storage layer is a canonically-encoded hash structure, "record X
+is in this version" — and, unusually, "record X is provably **absent** from
+this version" — each have a small proof: the exact stored bytes along the
+one path where the record must live, checkable by recomputing hashes and
+nothing else. `is_below` builds on that: its certificate bundles such a
+proof for every record the answer depends on, and the verifier re-runs the
+real subsumption check over those authenticated records. So "the cello fits
+the crate, per the catalogue with fingerprint `21728cd9…`" is a claim a
+counterparty can verify holding just the fingerprint — the answer travels,
+the store doesn't. Both polarities work, and a certificate can be
+incomplete (verification fails) but never misleading (a wrong answer cannot
+verify). The agent surface (`odag-mcp`) hands these out on request.
+
 ## 7. How we know it's correct
 
 A design whose value is exactness needs its guarantees tested as such. The test

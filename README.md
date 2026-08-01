@@ -9,11 +9,14 @@ Associative memory and categories based on a directed acyclic graph data structu
 ## Documentation
 
 - **[User Guide](docs/USER_GUIDE.md)** — installation, tutorial, Python API,
-  command line, web app/REST, file formats, troubleshooting. Start here.
+  command line, web app/REST, file formats, AI agents, troubleshooting. Start here.
 - **[How It Works Inside](docs/HOW_IT_WORKS.md)** — the design in plain language
-  (canonical form, query planning, content-addressed persistence).
+  (canonical form, query planning, content-addressed persistence, verifiable answers).
 - **[Roadmap](docs/ROADMAP.md)** — delivered, queued, parked, and research horizon.
-- `docs/SWARM_DESIGN.md`, `docs/SEMANTIC_CODES.md` — engineering design documents.
+- **[The contract](docs/CONTRACT.md)** — what programs (and AI agents) built on
+  OntoDAG may rely on: the guarantees, versioned.
+- `docs/SWARM_DESIGN.md`, `docs/SEMANTIC_CODES.md`, `docs/AGENT_SURFACE.md` —
+  engineering design documents.
 
 See also **[ontodag-fs](https://github.com/petfold/ontodag-fs)**: any OntoDAG
 store can be browsed as a filesystem — paths are category queries, files are
@@ -36,6 +39,26 @@ arithmetic. Weights and sizes (`weight(..5kg)`), hierarchical codes like geohash
 cells, and does-it-fit tuples all work the same way. See
 [User Guide §4.7](docs/USER_GUIDE.md) and the design record
 [docs/DIMENSIONS.md](docs/DIMENSIONS.md).
+
+Values are stored in an exact canonical form and shown to you in a friendly
+one: on a terminal `odag` prints `time(2026)` and `weight(3kg)`, while pipes
+and files always get the exact bytes, so `odag get ... | odag` round-trips
+(`--render`/`--raw` override; `odag canon TERM` shows what any spelling
+actually stores).
+
+## For AI agents
+
+Serve any store to an agent over MCP, read-only, with **`odag-mcp`**
+(`claude mcp add odag -- odag-mcp`): query, fits-within, overlap candidates,
+per-item description, canonical echo, and an `about` tool that says what the
+store contains. Every answer cites the **root** — a fingerprint of the
+store's entire content — and `is_below` answers can carry a **certificate**
+that anyone holding only that fingerprint can verify, with no access to the
+store (`ontodag.certificates.verify_below`). Equal knowledge yields an equal
+fingerprint, so two parties can prove they agree — and a disagreement shows
+up as structure, not prose. The guarantees an agent (or any program) may
+rely on are written down and versioned in [docs/CONTRACT.md](docs/CONTRACT.md);
+the tool shapes in [docs/AGENT_SURFACE.md](docs/AGENT_SURFACE.md).
 
 ## Roadmap
 

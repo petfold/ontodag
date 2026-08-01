@@ -438,6 +438,8 @@ What to know:
   name `time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)` — the whole day — which
   is why it falls inside a summer query. Full timestamps
   (`time(2026-08-15T14:30:00Z)`) work too, for a departure rather than a date.
+  On a terminal you'll see the friendly form back (`time(2026-08-15)`); pipes
+  get the exact stored bytes, and `odag canon` shows the mapping — see §5.5.
 - **Whole years and months are values too**: `time(2026)` is the year,
   `time(2026-08)` the month, and they nest the way you would expect — a document
   filed under `time(2026-08-15)` is inside both. Ranges of them work as well
@@ -519,7 +521,11 @@ odag <command> ...
   import FILE           replace the store with the contents of FILE
   export FILE           write the store to FILE
   visualize [--out B]   render the DAG to an image
-  set [store PATH]      show config, or set the default store
+  canon [TERM]          print TERM's canonical form — what would actually
+                        be stored; with no TERM, the surface/registry
+                        versions (see §5.5)
+  set [KEY [VALUE]]     show settings, or set one (store, bee_api,
+                        bee_batch, bee_signer)
   help                  show this help
 ```
 
@@ -728,7 +734,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.8.0 - type help for help
+Ontodag 0.9.0 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png
@@ -764,6 +770,55 @@ Useful habits:
   parents to add a top-level category.
 - If a parent doesn't exist yet, the command changes nothing and reports on stderr
   with a non-zero exit code: `odag: One or more super-categories do not exist.`
+
+### 5.5 Readable output: friendly on screen, exact in pipes
+
+Typed values are stored in an exact canonical form — `time(2026-08-15)` is
+really `time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)`, `weight(3kg)` is
+`weight(3000000mg)` — which is what makes equal knowledge produce equal
+fingerprints. You shouldn't have to *read* that, so `odag` renders friendly
+spellings **on a terminal** and prints the exact canonical bytes **whenever
+output goes to a pipe, a file, or `-o`** — so `odag get ... | odag` always
+round-trips, and scripts never see a "pretty" name. The same store, both
+ways (`--render` forces the friendly form even in a pipe; `--raw` forces
+canonical even on a terminal):
+
+```console
+$ odag list            # piped: exact canonical bytes
+Flight
+Japan
+calendar-dimension
+dimension
+time
+time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)
+tokyo-flight
+$ odag list --render    # what a terminal shows by default
+Flight
+Japan
+calendar-dimension
+dimension
+time
+time(2026-08-15)
+tokyo-flight
+```
+
+Rendering never changes what is stored, and it only ever uses spellings the
+parser accepts, so a friendly name typed back in means exactly the same
+thing. `ONTODAG_SURFACE=0`/`1` sets the default (flag beats env, env beats
+the terminal test), and the rule applies to output only — input always
+accepts every spelling.
+
+When you want to see precisely what a spelling means, `canon` prints the
+stored form of any term, and `canon` alone reports the rendering layer's
+versions:
+
+```console
+$ odag canon "time(2026-08-15)"
+time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)
+$ odag canon
+surface 0.1
+registry 2
+```
 
 ---
 
@@ -1065,7 +1120,62 @@ shares odag's store settings, so `odag set store swarm:pets` configures both.
 
 ---
 
-## 9. Rules OntoDAG enforces (and why you'll be glad)
+## 9. AI agents and verifiable answers
+
+### 9.1 `odag-mcp`: your store as an agent tool
+
+Any store `odag` can open can also be served to an AI agent over MCP (the
+Model Context Protocol), read-only, with the `odag-mcp` command — no extra
+dependencies, and it shares `odag`'s settings, so it serves your default
+store unless you point it elsewhere with `-f`. For Claude Code:
+
+```console
+$ claude mcp add odag -- odag-mcp
+```
+
+The agent gets six tools: `about` (what is this store — size, top-level
+categories, declared dimensions, versions), `query`, `is_below`,
+`overlapping`, `describe`, and `canon`. Every answer cites the **root** it
+is true of — a fingerprint of the store's entire content — and echoes the
+canonical form of what it answered, so an agent always sees what is
+actually stored rather than what it typed. Friendly spellings come along
+in a separate `display` field, never in place of the name.
+
+### 9.2 Certificates: answers a stranger can check
+
+`is_below` answers can carry a **certificate**: a bundle of cryptographic
+proofs (over the store's content-addressed records) that lets anyone
+holding only the root fingerprint verify the answer — no access to your
+store, no trust in you or your server. Agents request it with
+`certify: true`; in Python:
+
+```pycon
+>>> from recordstore import MemoryBytesStore, RecordStore
+>>> import ontodag
+>>> from ontodag.certificates import prove_below, verify_below
+>>> dag = ontodag.EagerOntoDAG(RecordStore(MemoryBytesStore()))
+>>> for name, parents in [("dimension", []),
+...                       ("linear-dimension", ["dimension"]),
+...                       ("weight", ["linear-dimension"]),
+...                       ("parcel", ["weight(3kg)"])]:
+...     dag.put(name, parents)
+>>> root = dag.commit()
+>>> cert = prove_below(dag, "parcel", "weight(..5kg)")
+>>> cert["result"], len(cert["proofs"])
+(True, 7)
+>>> # elsewhere, holding only the certificate and the root:
+>>> verify_below(cert, root)
+True
+```
+
+The certificate is plain JSON and survives any transport; verification
+re-runs the real subsumption check over cryptographically authenticated
+records, so a tampered certificate fails loudly and a wrong answer cannot
+be validated. Both answers work — "parcel fits" and "parcel does not fit"
+are equally provable. The design details live in `docs/CONTRACT.md` (what
+any program may rely on) and `docs/AGENT_SURFACE.md` (the tool shapes).
+
+## 10. Rules OntoDAG enforces (and why you'll be glad)
 
 These behaviors are guarantees, not accidents. You can rely on them:
 
@@ -1099,7 +1209,7 @@ These behaviors are guarantees, not accidents. You can rely on them:
 
 ---
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 **`error: externally-managed-environment` when installing**
 Your distribution reserves the system Python for its own package manager. Use
