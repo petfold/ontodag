@@ -210,18 +210,44 @@ def _build_units():
             "FLOPS": F(1), "MFLOPS": F(10**6), "GFLOPS": F(10**9),
             "TFLOPS": F(10**12), "PFLOPS": F(10**15),
             "EFLOPS": F(10**18)}),
-        # Each currency is its OWN family: denominations are protocol-fixed
-        # and exact; exchange rates are not, so cross-currency comparison is
-        # refused — which is the truth (UNITS.md addendum).
+        # Each currency is its OWN family: denominations (and 1:1 bridge
+        # representations, e.g. BZZ↔xBZZ, DAI↔xDAI) are protocol-fixed and
+        # exact; exchange rates and stablecoin PEGS are not, so
+        # cross-currency comparison is refused — which is the truth
+        # (UNITS.md addendum). USD vs USDC refuses too: a peg is a promise,
+        # not arithmetic.
         "btc": ("BTC", {
             "BTC": F(1), "mBTC": F(1, 1000), "sat": F(1, 10**8),
             "msat": F(1, 10**11)}),
         "eth": ("ETH", {
             "ETH": F(1), "Gwei": F(1, 10**9), "wei": F(1, 10**18)}),
-        "xbzz": ("xBZZ", {
-            "xBZZ": F(1), "PLUR": F(1, 10**16)}),
-        "count": ("", {"": F(1)}),
+        "bzz": ("BZZ", {   # mainnet BZZ; xBZZ is the Gnosis bridge, 1:1
+            "BZZ": F(1), "xBZZ": F(1), "PLUR": F(1, 10**16)}),
+        "dai": ("DAI", {   # xDAI is Gnosis Chain's native DAI, 1:1
+            "DAI": F(1), "xDAI": F(1)}),
     }
+    # Stablecoins: each its own family (a peg is a promise, not a fixed
+    # ratio — USDC never compares to USD or USDT).
+    for coin in ("USDT", "USDC", "EURC", "PYUSD", "GUSD", "TUSD"):
+        families[coin.lower()] = (coin, {coin: F(1)})
+    # National fiat currencies (ISO 4217, active national/circulating set;
+    # the special X-codes for metals and SDRs are excluded, the circulating
+    # XAF/XOF/XCD/XPF francs and dollars kept). One family each, anchored
+    # at the code — subunits need no names, decimals are exact rationals
+    # (0.99USD stores as 99/100USD).
+    for code in (
+        "AED AFN ALL AMD ANG AOA ARS AUD AWG AZN BAM BBD BDT BGN BHD BIF "
+        "BMD BND BOB BRL BSD BTN BWP BYN BZD CAD CDF CHF CLP CNY COP CRC "
+        "CUP CVE CZK DJF DKK DOP DZD EGP ERN ETB EUR FJD FKP GBP GEL GHS "
+        "GIP GMD GNF GTQ GYD HKD HNL HTG HUF IDR ILS INR IQD IRR ISK JMD "
+        "JOD JPY KES KGS KHR KMF KPW KRW KWD KYD KZT LAK LBP LKR LRD LSL "
+        "LYD MAD MDL MGA MKD MMK MNT MOP MRU MUR MVR MWK MXN MYR MZN NAD "
+        "NGN NIO NOK NPR NZD OMR PAB PEN PGK PHP PKR PLN PYG QAR RON RSD "
+        "RUB RWF SAR SBD SCR SDG SEK SGD SHP SLE SOS SRD SSP STN SYP SZL "
+        "THB TJS TMT TND TOP TRY TTD TWD TZS UAH UGX USD UYU UZS VES VND "
+        "VUV WST XAF XCD XOF XPF YER ZAR ZMW ZWG").split():
+        families[f"fiat-{code.lower()}"] = (code, {code: F(1)})
+    families["count"] = ("", {"": F(1)})
     anchors, suffixes = {}, {}
     for family, (anchor, units) in families.items():
         if units[anchor] != 1:

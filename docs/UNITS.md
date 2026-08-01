@@ -249,10 +249,18 @@ matters: denominations are exact and share a family; **exchange rates are
 not fixed, so currencies never share a lattice** — `BTC` vs `ETH` refuses,
 which is the truth. Being purely vocabulary-additive this is registry
 "3.1": every 3.x reader interoperates (D10 working as designed — no root
-changed, no store touched). Still pack material (§7): fiat currencies
-(internally exact, cent = 1/100), typography points (127⁄360 mm exactly,
-but `pt` is taken by the pint — a pack picks its own suffix), dozens,
-percent, IOPS, and the rest we have not thought of yet.
+changed, no store touched). Extended the same evening at Peter's request
+(still 3.1, pre-release): **BZZ** with xBZZ as its 1:1 Gnosis bridge
+representation (one family, one identity — `1xBZZ` canonicalizes to
+`1BZZ`), **DAI/xDAI** likewise, the major **stablecoins** (USDT, USDC,
+EURC, PYUSD, GUSD, TUSD — each its OWN family: a peg is a promise, not
+arithmetic, so USD vs USDC refuses), and the **ISO 4217 national fiat
+set** (~150 currencies, one family per code, no named subunits — decimals
+are exact rationals, `0.99USD` stores as `99/100USD`). Total: 388 unit
+spellings, uniqueness asserted at import. Still pack material (§7):
+typography points (127⁄360 mm exactly, but `pt` is taken by the pint — a
+pack picks its own suffix), dozens, percent, IOPS, historical/local
+currencies, and the rest we have not thought of yet.
 
 ## 10. Verdicts needed (the review sheet)
 
