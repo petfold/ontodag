@@ -1,12 +1,16 @@
 # Units: All of SI, the Customary Units, and the Bases That Make Them Exact
 
-Status: **design note, 2026-08-01 (Peter + Claude). Direction decided by
-Peter: full unit coverage now, not walls** — the bases-freeze argument cuts
-*for* acting while the ecosystem is one prelude and a handful of stores,
-and real users (including Peter) need these units. **The table below is
-proposed, pending Peter's verdicts (§8); nothing is implemented until
-then**, because this changes canonical names — a `REGISTRY_VERSION` bump
-and a coordinated migration (§6).
+Status: **accepted design, 2026-08-01 (Peter + Claude) — all verdicts
+D1–D10 accepted by Peter the same day.** Headline: **D9 (rational
+anchoring) is in** — canonical values are reduced rationals of the SI
+coherent unit, bases are abolished, and with them every future class-C
+migration; D1 and D4 (computed bases, quantum names) are thereby moot.
+D10 splits the registry version major/minor. One deviation from the §4
+table as drawn: suffixes are **slash-free** (the slash belongs to rational
+values like `10/33m`), so speed reads `mps`/`kmh`/`mph`/`kn`/`fps`.
+Registry v3 is the one canonical-name migration in the system's life, and
+old spellings (`mg`, `mm`) remain valid *input* — so re-canonicalization
+is a replay through `put` under v3, nothing more.
 
 Read with `DIMENSIONS.md` (values are exact integers in per-family base
 units; the computed order participates in canonical roots — the reason
