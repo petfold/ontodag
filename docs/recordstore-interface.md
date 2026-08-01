@@ -59,6 +59,20 @@ returned records are deep copies (mutating them never mutates the store).
   Compare two arbitrary roots with `RecordStore.at(a, blobs).diff(b)`. Requested by
   `docs/MERKLE_NOTES.md`; **nothing in OntoDAG consumes it yet**, which is why the floor
   stops at 0.14.0 rather than following the latest release.
+- `prove(key, addressing=None)` **(needs ≥ 0.16.0)** — a verifiable inclusion-or-absence
+  proof for `key` against the *committed* root: a self-describing, JSON-ready dict
+  (`{format: "recordstore-trie-proof", version: 1, addressing, root, key, present,
+  nodes, value}`) carrying the raw trie-node blobs along the key's one possible path,
+  plus the value blob when present. O(depth) small; refuses keys with staged changes
+  (proofs are statements about committed roots); self-verified before being returned,
+  so an addressing mismatch fails at prove time. `addressing` is auto-detected
+  (`sha256`/`swarm`), with the keyword for duck-typed stores. Module-level
+  **`verify_proof(proof, root)`** checks a proof with **no store access** — hash-chain
+  recomputation over the carried bytes — returning the record or `ABSENT`, raising
+  `ProofError` on any mismatch. Absence is provable because the encoding is canonical:
+  one root, one possible location per key. This is the substrate for `CONTRACT.md` §7
+  Tier 2 (`is_below` certificates compose these proofs), built for exactly that
+  purpose 2026-08-01.
 - `RecordStore.at(root, bytes_store)` — read-only snapshot of any committed root
   (`put`/`delete`/`commit` raise `TypeError`).
 - `.root` — root of the last committed state.
@@ -212,8 +226,12 @@ left, so a batch that older versions would have selected can now be rejected.
   402-on-write messages that distinguish "overissued bucket, dilute and retry, nothing
   lost" from an expired batch. Adds the `[stamps]` extra (`swarmfs>=0.4.0`) — which is
   the reason the floor sits here rather than at 0.13.1 (see above).
-- **v0.15.0** — public `RecordStore.diff(other_root)` (above). The version this document
-  was last synced against.
+- **v0.15.0** — public `RecordStore.diff(other_root)` (above).
+- **v0.16.0** — verifiable inclusion/absence proofs: `RecordStore.prove(key)`,
+  module-level `verify_proof(proof, root)`, `ProofError`, `PROOF_FORMAT` (above).
+  Built at ontodag's request (`CONTRACT.md` §7 Tier 2); becomes ontodag's floor
+  the moment `is_below` certificates land and consume it. The version this
+  document was last synced against (local checkout; installed 2026-08-01).
 
 Renewal is deliberately absent throughout: recordstore reports batch health, the caller
 decides whether to spend.
