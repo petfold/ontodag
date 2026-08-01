@@ -94,18 +94,25 @@ replayable answer, which the existing snapshot machinery already supports.
    merge, re-reduced, then recommitted); writers syncing each other's roots land
    on the byte-identical root. Several writers, one shared ontology, no server —
    with the documented union semantics (removals lose to concurrent re-adds).
-5. **The higher-layer contract** — drafted 2026-08-01 as
-   [CONTRACT.md](CONTRACT.md) (discussion draft, pending review): the
-   operations and guarantees a higher layer or agent may rely on, the
-   monotonicity-under-merge clause, the as-of/root-pinning rule for
-   non-monotone questions, the admissibility criterion behind the walls, and
-   the verifiability tiers.
-6. **Provenance design** — drafted 2026-08-01 as
-   [PROVENANCE.md](PROVENANCE.md) (discussion draft): attribution in a
-   parallel provenance store (never in the knowledge record, so agreement-by-
-   fingerprint survives), signed assertion/endorsement/retraction records.
-   **Gates all agent writes.** Promoted from the research horizon by the
-   agents-first decision.
+5. **The higher-layer contract** — [CONTRACT.md](CONTRACT.md), drafted and
+   **reviewed & agreed the same day (2026-08-01, contract version 0.1)**:
+   the operations and guarantees a higher layer or agent may rely on
+   (G1–G6, including `get_overlapping`'s candidate semantics), the
+   monotonicity-under-merge clause with its remove caveat, the
+   as-of/root-pinning rule for non-monotone questions, the admissibility
+   criterion behind the walls, the verifiability tiers, and the certificate
+   policy. A conformance test suite asserting the guarantees through the
+   public API only is queued alongside the Phase-1 code.
+6. **Provenance design** — [PROVENANCE.md](PROVENANCE.md), drafted and
+   **reviewed & agreed the same day (2026-08-01)**: attribution in a
+   parallel provenance store (never in the knowledge record, so agreement-
+   by-fingerprint survives); **subjects are claims, not edges** (stable
+   under the core's own reduction); signed assertion / endorsement /
+   retraction / key-binding records with a version and extensions map from
+   day one; per-writer stores folded by explicit choice, so spam control is
+   admission-by-reference. **Gates all agent writes** — the design gate is
+   now open; implementation is Phase 2. Promoted from the research horizon
+   by the agents-first decision.
 7. **Readable rendering + `odag canon`** — the surface layer's steps 1–2
    (`SURFACE_LAYER.md` §10; unblocked since the pipe-semantics decision):
    `time(2026)` instead of the canonical timestamp range on terminals,
