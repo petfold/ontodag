@@ -120,6 +120,30 @@ class TestFlagshipExactness(unittest.TestCase):
         with self.assertRaises(ValueError):
             contains("x(..1USDT)", "x(1USDC)", KIND_LINEAR)
 
+    def test_second_round_additions(self):
+        # Torr and mmHg: near-identical, deliberately DISTINCT exact values
+        # in one family — the difference is real and preserved.
+        self.assertFalse(contains("p(1Torr)", "p(1mmHg)", KIND_LINEAR)
+                         and contains("p(1mmHg)", "p(1Torr)", KIND_LINEAR))
+        self.assertTrue(contains("p(..1000Torr)", "p(760mmHg)",
+                                 KIND_LINEAR))
+        # kitchen measures are exact US-liquid fractions
+        self.assertTrue(contains("v(1cup)", "v(16tbsp)", KIND_LINEAR))
+        self.assertTrue(contains("v(1tbsp)", "v(3tsp)", KIND_LINEAR))
+        # troy is not avoirdupois
+        self.assertFalse(contains("w(1oz)", "w(1ozt)", KIND_LINEAR)
+                         and contains("w(1ozt)", "w(1oz)", KIND_LINEAR))
+        # Rankine is scalar from absolute zero: admissible, exact
+        self.assertTrue(contains("t(..300K)", "t(500Ra)", KIND_LINEAR))
+        # percent/ppm/bp on the dimensionless family
+        self.assertEqual(canonicalize("n(50pct)", KIND_LINEAR), "n(1/2)")
+        self.assertEqual(canonicalize("n(25bp)", KIND_LINEAR), "n(1/400)")
+        # crypto denominations
+        self.assertEqual(canonicalize("x(1lamport)", KIND_LINEAR),
+                         "x(1/1000000000SOL)")
+        with self.assertRaises(ValueError):
+            contains("x(..1SOL)", "x(1XRP)", KIND_LINEAR)
+
     def test_honest_exclusions(self):
         for bad in ("t(20degC)", "t(70degF)", "a(1rad)"):
             with self.assertRaises(ValueError):

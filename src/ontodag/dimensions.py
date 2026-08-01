@@ -101,13 +101,16 @@ def _build_units():
             "g": F(1, 1000), "kg": F(1), "t": F(1000),
             "gr": lb / 7000, "oz": lb / 16, "lb": lb, "st": 14 * lb,
             "cwt": 112 * lb, "ust": 2000 * lb, "lt": 2240 * lb,
-            "ct": F(1, 5000)}),
+            "ct": F(1, 5000), "ozt": F("0.0311034768")}),
         "length": ("m", {
             "nm": F(1, 10**9), "um": F(1, 10**6), "mm": F(1, 1000),
             "cm": F(1, 100), "m": F(1), "km": F(1000),
             "mil": inch / 1000, "in": inch, "ft": ft, "yd": yd, "mi": mi,
             "nmi": F(1852), "au": F(149597870700),
-            "ly": F(9460730472580800)}),
+            "ly": F(9460730472580800),
+            "pm": F(1, 10**12), "fm": F(1, 10**15),
+            "angstrom": F(1, 10**10), "dm": F(1, 10),
+            "ftm": 72 * inch, "ch": 792 * inch, "fur": 7920 * inch}),
         "duration": ("s", {
             "ns": F(1, 10**9), "us": F(1, 10**6), "ms": F(1, 1000),
             "s": F(1), "min": F(60), "h": F(3600), "d": F(86400),
@@ -122,14 +125,20 @@ def _build_units():
             "m3": F(1), "in3": inch**3, "ft3": ft**3,
             "floz": gal / 128, "pt": gal / 8, "qt": gal / 4, "gal": gal,
             "ifloz": igal / 160, "ipt": igal / 8, "iqt": igal / 4,
-            "igal": igal}),
+            "igal": igal,
+            "tsp": gal / 768, "tbsp": gal / 256, "cup": gal / 16,
+            "bbl": 42 * gal,                    # oil barrel
+            "bu": 2150 * inch**3 + F(42, 100) * inch**3}),  # US bushel
         "speed": ("mps", {
             "mps": F(1), "kmh": F(1000, 3600), "mph": mi / 3600,
-            "kn": F(1852, 3600), "fps": ft}),
+            "kn": F(1852, 3600), "fps": ft,
+            "c": F(299792458)}),                # exact by definition
         "pressure": ("Pa", {
             "Pa": F(1), "hPa": F(100), "kPa": F(1000), "MPa": F(10**6),
             "mbar": F(100), "bar": F(10**5), "atm": F(101325),
-            "mmHg": F("133.322387415"), "psi": lbf / inch**2}),
+            "mmHg": F("133.322387415"), "psi": lbf / inch**2,
+            "Torr": F(101325, 760),             # NOT mmHg — close, distinct
+            "inHg": F("25.4") * F("133.322387415")}),
         "force": ("N", {
             "uN": F(1, 10**6), "mN": F(1, 1000), "N": F(1), "kN": F(1000),
             "lbf": lbf}),
@@ -137,15 +146,20 @@ def _build_units():
             "eV": eV, "J": F(1), "kJ": F(1000), "MJ": F(10**6),
             "GJ": F(10**9), "Wh": F(3600), "kWh": F(3600000),
             "cal": F("4.184"), "kcal": F(4184),
-            "BTU": F("1055.05585262")}),
+            "BTU": F("1055.05585262"), "thm": F("105505585.262"),
+            "keV": eV * 10**3, "MeV": eV * 10**6, "GeV": eV * 10**9,
+            "TeV": eV * 10**12}),
         "power": ("W", {
             "uW": F(1, 10**6), "mW": F(1, 1000), "W": F(1), "kW": F(1000),
-            "MW": F(10**6), "GW": F(10**9), "hp": 550 * ft * lbf}),
+            "MW": F(10**6), "GW": F(10**9), "hp": 550 * ft * lbf,
+            "PS": F("735.49875")}),             # metric horsepower
         "frequency": ("Hz", {
             "uHz": F(1, 10**6), "mHz": F(1, 1000), "Hz": F(1),
-            "kHz": F(1000), "MHz": F(10**6), "GHz": F(10**9)}),
+            "kHz": F(1000), "MHz": F(10**6), "GHz": F(10**9),
+            "rpm": F(1, 60)}),
         "temperature": ("K", {
-            "uK": F(1, 10**6), "mK": F(1, 1000), "K": F(1)}),
+            "uK": F(1, 10**6), "mK": F(1, 1000), "K": F(1),
+            "Ra": F(5, 9)}),   # Rankine: scalar from absolute zero, exact
         "current": ("A", {
             "pA": F(1, 10**12), "nA": F(1, 10**9), "uA": F(1, 10**6),
             "mA": F(1, 1000), "A": F(1), "kA": F(1000)}),
@@ -181,11 +195,15 @@ def _build_units():
             "pmol": F(1, 10**12), "nmol": F(1, 10**9),
             "umol": F(1, 10**6), "mmol": F(1, 1000), "mol": F(1)}),
         "radioactivity": ("Bq", {
-            "Bq": F(1), "kBq": F(1000), "MBq": F(10**6), "GBq": F(10**9)}),
+            "Bq": F(1), "kBq": F(1000), "MBq": F(10**6), "GBq": F(10**9),
+            "Ci": F(37000000000)}),             # curie, exact
         "absorbed-dose": ("Gy", {
             "uGy": F(1, 10**6), "mGy": F(1, 1000), "Gy": F(1)}),
         "dose-equivalent": ("Sv", {
-            "uSv": F(1, 10**6), "mSv": F(1, 1000), "Sv": F(1)}),
+            "uSv": F(1, 10**6), "mSv": F(1, 1000), "Sv": F(1),
+            "rem": F(1, 100)}),
+        "optical-power": ("dpt", {              # dioptres (reciprocal
+            "dpt": F(1)}),                      # metres: its own quantity)
         "catalytic-activity": ("kat", {
             "nkat": F(1, 10**9), "ukat": F(1, 10**6), "kat": F(1)}),
         "angle": ("deg", {                # degree-anchored; radian excluded
@@ -229,6 +247,25 @@ def _build_units():
         "dai": ("DAI", {"DAI": F(1)}),
         "xdai": ("xDAI", {"xDAI": F(1)}),    # Gnosis Chain's native coin
     }
+    # The major cryptocurrencies (top-of-market set, 2026-08): one family
+    # each — exchange rates are never fixed — with the chain's canonical
+    # denomination named where one exists (protocol-fixed decimals).
+    for coin, subunits in {
+        "SOL": {"lamport": F(1, 10**9)},
+        "XRP": {"drop": F(1, 10**6)},
+        "BNB": {}, "DOGE": {}, "LINK": {}, "AVAX": {}, "BCH": {},
+        "UNI": {}, "SHIB": {}, "NEAR": {}, "SUI": {},
+        "ADA": {"lovelace": F(1, 10**6)},
+        "TRX": {"sun": F(1, 10**6)},
+        "TON": {"nanoton": F(1, 10**9)},
+        "DOT": {"planck": F(1, 10**10)},
+        "LTC": {"litoshi": F(1, 10**8)},
+        "XLM": {"stroop": F(1, 10**7)},
+        "ATOM": {"uatom": F(1, 10**6)},
+        "XMR": {"piconero": F(1, 10**12)},
+        "HBAR": {"tinybar": F(1, 10**8)},
+    }.items():
+        families[coin.lower()] = (coin, {coin: F(1), **subunits})
     # Stablecoins: each its own family (a peg is a promise, not a fixed
     # ratio — USDC never compares to USD or USDT).
     for coin in ("USDT", "USDC", "EURC", "PYUSD", "GUSD", "TUSD"):
@@ -250,7 +287,9 @@ def _build_units():
         "THB TJS TMT TND TOP TRY TTD TWD TZS UAH UGX USD UYU UZS VES VND "
         "VUV WST XAF XCD XOF XPF YER ZAR ZMW ZWG").split():
         families[f"fiat-{code.lower()}"] = (code, {code: F(1)})
-    families["count"] = ("", {"": F(1)})
+    families["count"] = ("", {"": F(1), "pct": F(1, 100),
+                          "ppm": F(1, 10**6), "bp": F(1, 10**4),
+                          "dz": F(12)})
     anchors, suffixes = {}, {}
     for family, (anchor, units) in families.items():
         if units[anchor] != 1:

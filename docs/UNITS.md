@@ -172,15 +172,41 @@ published demos) in the same pass. Doing this before ontodag 0.10.0 means
 the break rides a normal release; doing it in a year means migrating
 strangers' data.
 
-## 7. User-defined units stay in the plan
+## 7. Graph-declared units: adding units without a release
 
-The graph-carried unit packs (shared vocabulary, adopted by merge like
-the prelude — see the 2026-08-01 discussion recorded in `SURFACE_LAYER.md`
-§11/§12's pattern) remain the door for local, exact, non-universal units:
-a brewery's kegs, a paper mill's reams, a country's legacy measures. The
-built-in table covers what is universal and fixed; packs cover what is
-exact but local. Same P1–P3 rules; a pack may extend a family's spellings,
-never move its base.
+Peter's structural objection (2026-08-01, late): needing an OntoDAG
+*release* to add a unit is not ideal — D10 minors are cheap (additive,
+interoperable, a pip upgrade), but vocabulary should be data. The fix was
+already agreed in principle (`SURFACE_LAYER.md` §11: shared vocabulary
+merges); here is the concrete mechanism, **queued as the next work item**:
+
+- **A unit declaration is an ordinary node**:
+  `unit(lb=45359237/100000000kg)` — a spelling, defined by an exact value
+  in an already-resolvable unit (grounding, possibly through other
+  declarations, in a built-in anchor) — placed under the registry-known
+  node `unit-declaration`, a sibling of the kind nodes. The family is the
+  defining suffix's family.
+- **Resolution = built-in table ∪ declarations in the graph.** The
+  interpretation context stays exactly §2's rule — merged declarations
+  plus `REGISTRY_VERSION` — so determinism and G1 are untouched by
+  construction, because **canonical names still carry only built-in
+  anchors**: declarations extend *input and rendering* vocabulary, never
+  stored spellings. No registry bump, ever.
+- **A pack is a prelude**: a published ontology of declaration nodes with
+  a pinned golden root, adopted by explicit merge (`odag prelude`-style;
+  the mechanism already exists end to end). A brewery's kegs, typography
+  points under a suffix of its choosing, a country's legacy measures,
+  IOPS — one merge away, zero releases.
+- **Conflicts surface loudly**: the same spelling declared with a
+  different factor, or clashing with a built-in suffix, is an error at
+  first parse — the conflicting-kind-declaration precedent, exactly.
+- **v1 scope: units in existing families only.** Declaring new *families*
+  (which allocates an anchor suffix, touching canonical spellings) needs
+  its own care and waits; the ~60-family table makes this the rare case.
+
+Until this lands, additions ride D10 minors — code, but cheap, additive
+code. After it lands, the built-in table is merely the vocabulary
+everyone shares without asking; everything else is data.
 
 ## 8. What if units change in the future? (Peter's question, 2026-08-01)
 
@@ -276,10 +302,33 @@ US liquid (imperial ships as `ipt`/`igal`), `hp` is mechanical
 (550 ft·lbf/s), `BTU` is the IT definition, `cal` thermochemical, `a` the
 Julian year, `mil` the thou (not the Scandinavian mile), `mmHg` the
 conventional 133.322387415 Pa, and `PLUR` lives with `xBZZ` (the token Bee
-spends) though mainnet BZZ shares the decimal structure. Still pack material (§7):
-typography points (127⁄360 mm exactly, but `pt` is taken by the pint — a
-pack picks its own suffix), dozens, percent, IOPS, historical/local
-currencies, and the rest we have not thought of yet.
+spends) though mainnet BZZ shares the decimal structure. **Second research round (Peter's request, same evening — non-crypto
+first):** kitchen measures (tsp/tbsp/cup as exact US-gallon fractions),
+the oil barrel and US bushel, troy ounce (`ozt` — gold is not avoirdupois),
+Torr and inHg (Torr = 101325⁄760 Pa, deliberately distinct from mmHg in
+the same family — the difference is real and preserved), metric horsepower
+(`PS`), **Rankine** (`Ra` = 5⁄9 K — scalar from absolute zero, so
+admissible where Celsius is not), keV–TeV, therms, rpm, the speed of light
+(`c`, exact by definition), curie and rem, dioptres (a new `optical-power`
+family — reciprocal metres are their own quantity), fathom/chain/furlong,
+pm/fm/ångström/dm, and `pct`/`ppm`/`bp`/`dz` on the dimensionless family.
+Crypto: the major set beyond BTC/ETH — SOL, XRP, BNB, ADA, DOGE, TRX, TON,
+LINK, AVAX, XLM, DOT, LTC, BCH, XMR, UNI, ATOM, SHIB, NEAR, SUI, HBAR —
+one family each, with the chain's canonical denomination named where one
+exists (lamport, drop, lovelace, sun, nanoton, planck, litoshi, stroop,
+uatom, piconero, tinybar). **446 suffixes total.**
+
+**Exclusion classes the round confirmed** (each documented, none silent):
+**logarithmic scales** — decibels, pH, Richter, stellar magnitude — are
+not linear quantities and would need their own kind (a wall, with the
+`log-dimension` idea noted); **variable "units"** — the month (calendar
+handles it), Mach (condition-dependent), the IU (substance-dependent),
+fuel economy (mpg vs L/100km are *reciprocal* quantities — a trap, not a
+conversion); and **π strikes again**: the parsec is 648000⁄π au, so it
+joins the radian among the transcendentally excluded. Still pack material
+(§7): typography points (`pt` is taken by the pint — a pack picks its own
+suffix), IOPS, gross/ream, historical/local currencies, and the rest we
+have not thought of yet.
 
 ## 10. Verdicts needed (the review sheet)
 
