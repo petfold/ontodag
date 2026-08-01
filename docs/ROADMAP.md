@@ -114,12 +114,18 @@ replayable answer, which the existing snapshot machinery already supports.
    admission-by-reference. **Gates all agent writes** — the design gate is
    now open; implementation is Phase 2. Promoted from the research horizon
    by the agents-first decision.
-7. **Readable rendering + `odag canon`** — the surface layer's steps 1–2
-   (`SURFACE_LAYER.md` §10; unblocked since the pipe-semantics decision):
-   `time(2026)` instead of the canonical timestamp range on terminals,
-   canonical bytes whenever output is piped, a round-trip fuzz test, and an
-   inspectable elaboration command. Serves humans and agents at once — the
-   canonical echo is the confirm mechanism for both.
+7. ~~**Readable rendering + `odag canon`.**~~ **Done (2026-08-01).** On a
+   terminal, `odag` now prints `time(2026)` and `weight(3kg)`; pipes, files
+   and `-o` always get the exact canonical bytes, so `odag get ... | odag`
+   round-trips by default (`--render`/`--raw`/`ONTODAG_SURFACE` override;
+   flag > env > terminal test). `odag canon TERM` shows the exact stored
+   form of any spelling — the inspectable mapping — and bare `canon` prints
+   the surface and registry versions. The renderer (`ontodag.surface`) is a
+   pure function of the canonical name and the declared kind, emits only
+   spellings the vocabulary already accepts, and is pinned by a fuzz test of
+   the round-trip law `elaborate(render(t)) == t` — the promised one-way
+   direction only. Serves humans and agents at once: the canonical echo is
+   the confirm mechanism for both.
 8. **Read-only agent surface (MCP) + a discoverability record.** Tool-shaped
    `get`/`get_any`/`is_below`/`show`/`canon`, always citing roots, with as-of
    (query at a named root) included since the snapshot machinery exists; plus

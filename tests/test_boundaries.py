@@ -85,6 +85,23 @@ class TestCoreIsSwarmFree(unittest.TestCase):
             "duck-typed over the record store",
         )
 
+    def test_core_never_imports_the_surface(self):
+        # SURFACE_LAYER.md §7: ontodag.surface is opt-in by import — the
+        # human-facing rendering layer. The core must never call it, or
+        # canonical data paths would grow a display dependency.
+        code = (
+            "import sys\n"
+            "import ontodag\n"
+            "assert 'ontodag.surface' not in sys.modules, "
+            "'the core imported ontodag.surface'\n"
+        )
+        env = dict(os.environ, PYTHONPATH=SRC)
+        proc = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True,
+            env=env,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+
 
 class TestRecordstoreIsOntodagFree(unittest.TestCase):
     def test_import_recordstore_pulls_no_ontodag(self):

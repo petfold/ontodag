@@ -1,7 +1,10 @@
 # The Surface Layer: Messy Input, Readable Output, an Exact Core
 
-Status: **discussion draft, 2026-08-01 (Peter + Claude). Nothing implemented,
-nothing agreed.** This document exists to be argued with. It was prompted by
+Status: **discussion draft, 2026-08-01 (Peter + Claude)** — though no longer
+"nothing implemented": **§10 steps 1–2 shipped later the same day**
+(`ontodag.surface`, the CLI's §9.4 pipe rule, `odag canon`; see §10 for what
+exactly). Everything not marked decided or done remains discussion. This
+document exists to be argued with. It was prompted by
 the `time(2026)` question — whether a bare year should be read as a year — and
 by the observation that the honest answer is not about that one literal but
 about where messiness is allowed to live. Open questions are collected in §9
@@ -310,13 +313,23 @@ Positions recorded 2026-08-01 (from the strategy discussion) are marked
 
 Ordered so each step is independently useful and none blocks a later one:
 
-1. **Renderer + round-trip fuzz test** (§4, §6), under the §7 tty rule.
-   Read-only, reversible, immediately fixes the ugliest complaint.
-   **Unblocked** — §9.4 is decided; this is now the first thing that could be
-   built, and it is self-contained enough to build before the rest of the
-   layer is agreed.
-2. **`odag canon TERM`** and `--raw`. Makes the layer inspectable and gives the
-   escape hatch before anyone depends on the friendly form.
+1. ~~**Renderer + round-trip fuzz test**~~ **Done (2026-08-01):**
+   `src/ontodag/surface.py` — `render()`/`elaborate()` plus
+   `SURFACE_VERSION`, a pure function of the canonical name and the declared
+   kind (opaque heads pass through untouched, or the law would break on
+   them; §4's sharpenings implemented: only vocabulary-defined spellings are
+   emitted, collapses only on exact denotation match). The CLI follows the
+   §9.4 table exactly (per-command `--render`/`--raw` > leading global flag
+   > `$ONTODAG_SURFACE` > tty test on the actual output stream, so `-o FILE`
+   is canonical). Tests: `tests/test_surface.py` — the §6 table, a seeded
+   one-direction fuzz (`elaborate(render(t)) == t` across all four kinds),
+   the almost-a-year injectivity guard, the CLI rule including a **real pty**
+   for the tty default, and a boundary check that the core never imports the
+   surface.
+2. ~~**`odag canon TERM`** and `--raw`.~~ **Done (same commit):** `canon TERM`
+   prints the stored form of any spelling (malformed parameters raise the
+   core's teaching error, exit 1); `canon` with no term prints the surface
+   and registry versions — the §9.5 position, implemented.
 3. **Pure-function input sugar** — weeks, quarters. No new machinery.
 4. **Declaration ergonomics** (§9.2), which is what would let dates appear in
    the User Guide's Quick Start.

@@ -24,6 +24,8 @@ import socket
 import sys
 
 from ontodag.dag import OntoDAG, Item
+from ontodag import surface as _surface
+from ontodag.dimensions import REGISTRY_VERSION
 
 try:
     from importlib.metadata import version, PackageNotFoundError
@@ -404,20 +406,59 @@ class Session:
 
 
 # --------------------------------------------------------------------------- #
+# The surface rule (SURFACE_LAYER.md §7, decided 2026-08-01): rendered output
+# on a terminal, canonical bytes everywhere else — so `odag get | odag put`
+# round-trips by default. Precedence: per-command flag (--render/--raw) >
+# leading global flag > $ONTODAG_SURFACE (0/1/auto) > the tty test on the
+# actual output stream (-o FILE is not a terminal). Output-only: input
+# elaboration never depends on where stdout goes.
+# --------------------------------------------------------------------------- #
+
+_SURFACE_OVERRIDE = [None]  # set by main() from a leading --raw/--render
+
+
+def _want_render(args, out):
+    flag = getattr(args, "render_mode", None)
+    if flag is not None:
+        return flag
+    if _SURFACE_OVERRIDE[0] is not None:
+        return _SURFACE_OVERRIDE[0]
+    env = os.environ.get("ONTODAG_SURFACE", "").strip().lower()
+    if env in ("0", "off", "raw"):
+        return False
+    if env in ("1", "on", "render"):
+        return True
+    try:
+        return out.isatty()
+    except (AttributeError, ValueError):
+        return False
+
+
+def _namer(args, session, out):
+    """The name formatter this command's output should use: identity for
+    canonical output, the surface renderer for a terminal. Sorting always
+    happens on canonical names (the identity); rendering is display-only."""
+    if _want_render(args, out):
+        return lambda name: _surface.render(name, session.dag)
+    return lambda name: name
+
+
+# --------------------------------------------------------------------------- #
 # Command handlers — (args, session, out); silent on success
 # --------------------------------------------------------------------------- #
 
-def _print_dag(dag, out):
+def _print_dag(dag, out, fmt=lambda name: name):
     for node in dag.topological_sort():
         children = sorted(n.name for n in node.neighbors)
+        shown = [fmt(c) for c in children]
         if node.name == dag.root.name:
-            print(f"{node.name} [root] -> {' '.join(children)}".rstrip(), file=out)
+            print(f"{node.name} [root] -> {' '.join(shown)}".rstrip(), file=out)
         else:
             parents = sorted(
                 p.name for p in node.parents if dag.nodes.get(p.name) is p
             )
-            print(f"{node.name} ({' '.join(parents)}) -> {' '.join(children)}".rstrip(),
-                  file=out)
+            print(f"{fmt(node.name)} ({' '.join(fmt(p) for p in parents)}) "
+                  f"-> {' '.join(shown)}".rstrip(), file=out)
 
 
 def cmd_put(args, session, out):
@@ -442,8 +483,9 @@ def cmd_get(args, session, out):
         raise ValueError("empty query around 'or'")
     result = session.dag.get(queries[0]) if len(queries) == 1 \
         else session.dag.get_any(queries)
+    fmt = _namer(args, session, out)
     for name in sorted(item.name for item in result):
-        print(name, file=out)
+        print(fmt(name), file=out)
 
 
 def cmd_below(args, session, out):
@@ -482,12 +524,27 @@ def cmd_remove(args, session, out):
 
 
 def cmd_show(args, session, out):
-    _print_dag(session.dag, out)
+    _print_dag(session.dag, out, fmt=_namer(args, session, out))
 
 
 def cmd_list(args, session, out):
+    fmt = _namer(args, session, out)
     for name in sorted(n for n in session.dag.nodes if n != session.dag.root.name):
-        print(name, file=out)
+        print(fmt(name), file=out)
+
+
+def cmd_canon(args, session, out):
+    # The inspectable mapping (SURFACE_LAYER.md §7): what does this surface
+    # term elaborate to? Output is always canonical — that is the command's
+    # whole point — so it ignores the render mode. A malformed parameter of
+    # a declared head raises the core's own teaching error (exit 1). With no
+    # term it prints the surface and registry versions (§9.5: informational,
+    # never stored).
+    if not args.term:
+        print(f"surface {_surface.SURFACE_VERSION}", file=out)
+        print(f"registry {REGISTRY_VERSION}", file=out)
+        return
+    print(_surface.elaborate(args.term, session.dag), file=out)
 
 
 def cmd_merge(args, session, out):
@@ -587,6 +644,9 @@ Commands:
   index [--threshold N] publish cone summaries for a swarm: store into the
                         sibling NAME-index store (a derived index: the data
                         root is untouched); prints both roots for readers
+  canon [TERM]          print TERM's canonical form — what would actually be
+                        stored (`canon 'time(2026)'` shows the timestamp
+                        range); with no TERM, the surface/registry versions
   set [KEY [VALUE]]     show settings, or set one (store, bee_api,
                         bee_batch, bee_signer)
   help                  show this help
@@ -604,6 +664,13 @@ are lo..hi with either end open. For dates use calendar-dimension
 instead of linear-dimension: then 'time(2026)' is the year,
 'time(2026-08)' the month, 'time(2026-08-15)' the day, and each
 contains the finer ones. See docs/DIMENSIONS.md.
+
+Readable output: on a terminal, names print in friendly spellings —
+weight(3kg), time(2026) — while pipes, files and -o always get the exact
+canonical bytes, so `odag get ... | odag` round-trips. Override per
+command or globally with --render / --raw, or set ONTODAG_SURFACE=0/1
+(flag > env > terminal test; input is never affected). `canon TERM`
+shows the exact stored form of any spelling. See docs/SURFACE_LAYER.md.
 
 A store may also be `swarm:NAME`, persisted on Ethereum Swarm (content on a
 Bee node, latest root in ~/.ontodag/NAME.root). `set store swarm:NAME` makes
@@ -631,6 +698,17 @@ def cmd_help(args, session, out):
 # Parser
 # --------------------------------------------------------------------------- #
 
+def _add_surface_flags(p):
+    """--render/--raw on every command whose stdout carries names. The pair
+    overrides $ONTODAG_SURFACE and the tty default (§7 precedence)."""
+    group = p.add_mutually_exclusive_group()
+    group.add_argument("--render", dest="render_mode", action="store_const",
+                       const=True, help="friendly names even when piped")
+    group.add_argument("--raw", dest="render_mode", action="store_const",
+                       const=False, help="canonical names even on a terminal")
+    p.set_defaults(render_mode=None)
+
+
 def build_parser():
     parser = argparse.ArgumentParser(prog="odag", add_help=False,
                                      description="Manipulate an OntoDAG store.")
@@ -647,6 +725,7 @@ def build_parser():
     p = sub.add_parser("get", add_help=True, help="query common subcategories")
     p.add_argument("categories", nargs="+")
     p.add_argument("-o", "--output")
+    _add_surface_flags(p)
     p.set_defaults(func=cmd_get, stream_output=True)
 
     p = sub.add_parser("below", add_help=True,
@@ -668,11 +747,20 @@ def build_parser():
 
     p = sub.add_parser("show", add_help=True, help="print the DAG structure")
     p.add_argument("-o", "--output")
+    _add_surface_flags(p)
     p.set_defaults(func=cmd_show, stream_output=True)
 
     p = sub.add_parser("list", add_help=True, help="print all item names")
     p.add_argument("-o", "--output")
+    _add_surface_flags(p)
     p.set_defaults(func=cmd_list, stream_output=True)
+
+    p = sub.add_parser("canon", add_help=True,
+                       help="print a term's canonical form "
+                            "(no term: surface/registry versions)")
+    p.add_argument("term", nargs="?")
+    p.add_argument("-o", "--output")
+    p.set_defaults(func=cmd_canon, stream_output=True)
 
     p = sub.add_parser("merge", add_help=True, help="merge a file into the store")
     p.add_argument("file")
@@ -775,7 +863,13 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
 
     store_override = None
-    while argv and argv[0] in ("-f", "--store", "--file"):
+    while argv and argv[0] in ("-f", "--store", "--file", "--raw", "--render"):
+        if argv[0] in ("--raw", "--render"):
+            # Global surface switch (SURFACE_LAYER.md §7): applies to every
+            # command this invocation runs, including a whole stdin batch.
+            _SURFACE_OVERRIDE[0] = argv[0] == "--render"
+            argv = argv[1:]
+            continue
         if len(argv) < 2:
             print("odag: option requires a path", file=sys.stderr)
             sys.exit(2)
