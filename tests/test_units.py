@@ -100,13 +100,15 @@ class TestFlagshipExactness(unittest.TestCase):
         self.assertEqual(canonicalize("g(21Gwei)", KIND_LINEAR),
                          "g(21/1000000000ETH)")
         self.assertTrue(contains("f(..1xBZZ)", "f(9999PLUR)", KIND_LINEAR))
-        # Bridge representations are 1:1 by construction — one identity:
-        self.assertEqual(canonicalize("f(1xBZZ)", KIND_LINEAR), "f(1BZZ)")
-        self.assertEqual(canonicalize("g(0.5xDAI)", KIND_LINEAR),
-                         "g(1/2DAI)")
-        # ... but currencies never share a lattice: exchange rates float.
+        # ... but currencies never share a lattice: exchange rates float,
         with self.assertRaises(ValueError):
             contains("x(..1BTC)", "x(15ETH)", KIND_LINEAR)
+        # ... and BRIDGES are promises too — a nominal 1:1 costs a fee,
+        # takes time, and can fail, so it is a relation, not an identity:
+        with self.assertRaises(ValueError):
+            contains("x(..1BZZ)", "x(1xBZZ)", KIND_LINEAR)
+        with self.assertRaises(ValueError):
+            contains("x(..1DAI)", "x(1xDAI)", KIND_LINEAR)
 
     def test_fiat_and_stablecoins_each_their_own_lattice(self):
         self.assertEqual(canonicalize("p(0.99USD)", KIND_LINEAR),

@@ -250,9 +250,14 @@ not fixed, so currencies never share a lattice** — `BTC` vs `ETH` refuses,
 which is the truth. Being purely vocabulary-additive this is registry
 "3.1": every 3.x reader interoperates (D10 working as designed — no root
 changed, no store touched). Extended the same evening at Peter's request
-(still 3.1, pre-release): **BZZ** with xBZZ as its 1:1 Gnosis bridge
-representation (one family, one identity — `1xBZZ` canonicalizes to
-`1BZZ`), **DAI/xDAI** likewise, the major **stablecoins** (USDT, USDC,
+(still 3.1, pre-release): **BZZ and xBZZ as
+DISTINCT families** — corrected by Peter the same evening, and the
+correction is the principle: the identity test is *definitional
+arithmetic*, nothing weaker. A bridge's nominal 1:1 costs a fee, takes
+time, and can fail, so it is a relation between distinct assets, never an
+identity — `BZZ` vs `xBZZ` refuses, like `DAI` vs `xDAI` (both included,
+separately; `PLUR` lives with `xBZZ`, the token Bee actually spends).
+Likewise the major **stablecoins** (USDT, USDC,
 EURC, PYUSD, GUSD, TUSD — each its OWN family: a peg is a promise, not
 arithmetic, so USD vs USDC refuses), and the **ISO 4217 national fiat
 set** (~150 currencies, one family per code, no named subunits — decimals

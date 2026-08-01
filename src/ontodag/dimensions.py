@@ -210,21 +210,24 @@ def _build_units():
             "FLOPS": F(1), "MFLOPS": F(10**6), "GFLOPS": F(10**9),
             "TFLOPS": F(10**12), "PFLOPS": F(10**15),
             "EFLOPS": F(10**18)}),
-        # Each currency is its OWN family: denominations (and 1:1 bridge
-        # representations, e.g. BZZ↔xBZZ, DAI↔xDAI) are protocol-fixed and
-        # exact; exchange rates and stablecoin PEGS are not, so
-        # cross-currency comparison is refused — which is the truth
-        # (UNITS.md addendum). USD vs USDC refuses too: a peg is a promise,
-        # not arithmetic.
+        # Each asset is its OWN family. The identity test is DEFINITIONAL
+        # ARITHMETIC, nothing weaker (Peter, 2026-08-01): denominations
+        # (sat, Gwei, PLUR) are the same asset by definition; pegs are
+        # promises (USD vs USDC refuses); and BRIDGES are promises too —
+        # converting BZZ to xBZZ costs a fee, takes time, and can fail, so
+        # nominal 1:1 convertibility is a relation between distinct
+        # assets, never an identity. BZZ vs xBZZ refuses, like DAI vs
+        # xDAI, like everything the world could break.
         "btc": ("BTC", {
             "BTC": F(1), "mBTC": F(1, 1000), "sat": F(1, 10**8),
             "msat": F(1, 10**11)}),
         "eth": ("ETH", {
             "ETH": F(1), "Gwei": F(1, 10**9), "wei": F(1, 10**18)}),
-        "bzz": ("BZZ", {   # mainnet BZZ; xBZZ is the Gnosis bridge, 1:1
-            "BZZ": F(1), "xBZZ": F(1), "PLUR": F(1, 10**16)}),
-        "dai": ("DAI", {   # xDAI is Gnosis Chain's native DAI, 1:1
-            "DAI": F(1), "xDAI": F(1)}),
+        "bzz": ("BZZ", {"BZZ": F(1)}),      # Ethereum mainnet token
+        "xbzz": ("xBZZ", {                   # the Gnosis token Bee spends;
+            "xBZZ": F(1), "PLUR": F(1, 10**16)}),  # postage is PLUR of it
+        "dai": ("DAI", {"DAI": F(1)}),
+        "xdai": ("xDAI", {"xDAI": F(1)}),    # Gnosis Chain's native coin
     }
     # Stablecoins: each its own family (a peg is a promise, not a fixed
     # ratio — USDC never compares to USD or USDT).
