@@ -545,6 +545,21 @@ def cmd_list(args, session, out):
         print(fmt(name), file=out)
 
 
+def cmd_prelude(args, session, out):
+    # The declaration-ceremony answer (SURFACE_LAYER.md §9.2): adopt the
+    # standard dimension declarations by an explicit, idempotent MERGE —
+    # never as a silent default of a fresh store, so the root change is
+    # a visible, versioned act of adoption.
+    from ontodag.prelude import DECLARATIONS, PRELUDE_VERSION, prelude_dag
+    if args.show:
+        print(f"# ontodag prelude v{PRELUDE_VERSION}", file=out)
+        for name, parents in DECLARATIONS:
+            print(" ".join([name, *parents]), file=out)
+        return
+    session.dag.merge(prelude_dag())
+    session.save()
+
+
 def cmd_canon(args, session, out):
     # The inspectable mapping (SURFACE_LAYER.md §7): what does this surface
     # term elaborate to? Output is always canonical — that is the command's
@@ -659,6 +674,9 @@ Commands:
   canon [TERM]          print TERM's canonical form — what would actually be
                         stored (`canon 'time(2026)'` shows the timestamp
                         range); with no TERM, the surface/registry versions
+  prelude [--show]      adopt the standard dimension declarations (weight,
+                        time, geo, size, ...) in one idempotent merge;
+                        --show prints them instead
   set [KEY [VALUE]]     show settings, or set one (store, bee_api,
                         bee_batch, bee_signer)
   help                  show this help
@@ -667,8 +685,8 @@ With no command odag reads commands from a pipe, or opens an interactive
 prompt on a terminal. Files ending in .owl/.omn use OWL/Manchester syntax;
 any other path is the native line format.
 
-Typed values: declare a dimension once (put dimension; put
-linear-dimension dimension; put weight linear-dimension), then use
+Typed values: run `odag prelude` once (or declare by hand: put dimension;
+put linear-dimension dimension; put weight linear-dimension), then use
 parametric terms anywhere a category goes — put parcel 'weight(3kg)',
 get 'weight(..5kg)' (quote the parentheses in a shell). Values are
 exact integers in tiny base units (3kg is stored as 3000000mg); ranges
@@ -766,6 +784,14 @@ def build_parser():
     p.add_argument("-o", "--output")
     _add_surface_flags(p)
     p.set_defaults(func=cmd_list, stream_output=True)
+
+    p = sub.add_parser("prelude", add_help=True,
+                       help="adopt the standard dimension declarations "
+                            "(an idempotent merge; --show to inspect)")
+    p.add_argument("--show", action="store_true",
+                   help="print the prelude instead of merging it")
+    p.add_argument("-o", "--output")
+    p.set_defaults(func=cmd_prelude, stream_output=True)
 
     p = sub.add_parser("canon", add_help=True,
                        help="print a term's canonical form "

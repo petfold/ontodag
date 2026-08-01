@@ -12,6 +12,60 @@ read [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) afterwards.
 
 ---
 
+## Quick start (two minutes)
+
+Install, and you have the `odag` command (no file to create — a default
+store appears in `~/.ontodag`):
+
+```console
+$ pip install ontodag
+```
+
+File things under **as many categories as apply** — no folder to choose.
+Run `odag prelude` once and dates, weights and sizes work as typed values:
+
+```console
+$ odag put Travel
+$ odag put Japan Travel
+$ odag put Flight Travel
+$ odag prelude
+$ odag put boarding-pass.pdf Flight Japan 'time(2026-08-15)'
+$ odag put hotel-kyoto.pdf Japan
+```
+
+Then ask. Every question is "everything under *all* of these":
+
+```console
+$ odag get Japan
+boarding-pass.pdf
+hotel-kyoto.pdf
+$ odag get Travel 'time(2026)'
+boarding-pass.pdf
+$ odag below boarding-pass.pdf Travel
+true
+```
+
+The boarding pass came back for `time(2026)` although you filed it under a
+single *day* — the containment is computed, no link was stored. That's the
+whole system: `put` with categories, `get` with categories, `below` to
+check one fact. Everything else in this guide — Python, typed values in
+depth, the web app, publishing to Swarm, AI agents — builds on exactly
+this.
+
+The same in Python, if that's your home ground:
+
+```pycon
+>>> from ontodag import OntoDAG
+>>> dag = OntoDAG()
+>>> dag.put("Travel", [])
+>>> dag.put("Japan", ["Travel"])
+>>> dag.put("hotel-kyoto.pdf", ["Japan"])
+>>> sorted(item.name for item in dag.get(["Travel"]))
+['Japan', 'hotel-kyoto.pdf']
+```
+
+---
+
 ## 1. Why OntoDAG? (one minute)
 
 Computers usually offer two ways to organize things, and both are frustrating:
@@ -395,8 +449,12 @@ as `time(2026-08-15)` are ordinary categories whose ordering OntoDAG *computes*
 from the value, so a "last summer" query matches an August flight with no edge
 ever stored between them, at any date range you care to ask.
 
-Declare a dimension once by placing it under one of the four built-in kind
-categories (create those like any other category):
+The no-ceremony path: `odag prelude` (or `ontodag.prelude.apply(dag)` in
+Python) declares the everyday dimensions — `weight`, `length`, `duration`,
+`time`, `geo`, `size` — in one idempotent merge, and everything below just
+works. What it does is nothing special: a dimension is declared by placing
+it under one of the four built-in kind categories, which you can always do
+by hand (create those like any other category):
 
 ```python
 dag.put("dimension", [])
@@ -524,6 +582,9 @@ odag <command> ...
   canon [TERM]          print TERM's canonical form — what would actually
                         be stored; with no TERM, the surface/registry
                         versions (see §5.5)
+  prelude [--show]      adopt the standard dimension declarations (weight,
+                        time, geo, size, ...) in one idempotent merge;
+                        --show prints them without merging
   set [KEY [VALUE]]     show settings, or set one (store, bee_api,
                         bee_batch, bee_signer)
   help                  show this help

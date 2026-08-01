@@ -170,12 +170,18 @@ replayable answer, which the existing snapshot machinery already supports.
     standing, and an acceptance verdict under the reader's own trust
     list. What lands in a store is never what a reader must accept:
     claims merge, acceptance is policy.
-11. **The human track, in parallel:** a standard **prelude as a published
-    ontology** (adopt common dimension declarations by merging a well-known
-    root — also the answer to "which upper ontology?": publish optional
-    vocabularies, don't bake one in), and the User Guide quick-start rework,
-    which item 7 makes honest to write (examples can finally read
-    `time(2026)`).
+11. **The human track:** ~~a standard prelude~~ + ~~the quick start~~ —
+    **done (2026-08-01).** `odag prelude` adopts the everyday dimension
+    declarations (weight, length, duration, time, geo, size) in one
+    idempotent merge — never a silent default: adoption is explicit,
+    versioned, and *is* a specific fingerprint (prelude v1's canonical
+    root is pinned by a golden test), which is also the shape of the
+    upper-ontology answer: publish optional vocabularies, don't bake one
+    in. The User Guide opens with a two-minute Quick Start — install,
+    file travel documents under overlapping categories and a typed date,
+    ask, check — every output executed for real. Remaining `issues.txt`
+    wishes (empty query = everything, further guide polish) stay on the
+    list, not on this item.
 
 ## Then: more capability, still no model change
 

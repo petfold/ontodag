@@ -274,6 +274,12 @@ Positions recorded 2026-08-01 (from the strategy discussion) are marked
    the fingerprint). This is simultaneously the upper-ontology answer from
    the issues list: don't bake one in, publish optional vocabularies as
    stores and let people merge them. One mechanism, three problems.*
+   **Implemented (2026-08-01):** `ontodag.prelude` + `odag prelude [--show]`
+   — the kind registry plus six everyday heads, adopted by idempotent merge,
+   with prelude v1's canonical root pinned by a golden test
+   (`tests/test_prelude.py`), so "prelude v1" *is* a specific fingerprint.
+   Publishing it as a Swarm store others `sync` is the same move one
+   deployment step later.
 3. **Clock- and locale-dependent input** (`today`, local dates vs UTC). Accept
    with explicit expansion shown, or refuse? Bare dates are UTC days in the core
    today; a surface that accepts local dates lets two users store different
