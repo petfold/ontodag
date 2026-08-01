@@ -65,8 +65,9 @@ fits-within, overlap candidates, per-item description, canonical echo, and
 discoverability ("learn what a store is about without downloading it") — and
 stays silent on tool inventories. The concrete agent surface (the MCP tool
 list, request/response shapes, the discoverability record's fields) is
-specified in `docs/AGENT_SURFACE.md` (v1 shipped 2026-08-01, read-only —
-`ontodag.mcp`). Two constraints on that surface *are* contract-level,
+specified in `docs/AGENT_SURFACE.md` (shipped 2026-08-01 — `ontodag.mcp`:
+read-only by default, an opt-in provenance-coupled write surface, and the
+review workflow). Two constraints on that surface *are* contract-level,
 decided at the 2026-08-01 review:
 
 - **The discoverability record never lives inside the knowledge store.** A
@@ -290,7 +291,7 @@ here.
   `weight(..5kg) ∧ location(EU)` — proof, not disclosure"). Tripwire: a real
   privacy-demanding counterparty, loopmarket-shaped. Positioning note worth
   keeping: deterministic canonical encoding, one query primitive, and no
-  floats anywhere (the integers-in-base-units decision) make OntoDAG
+  floats anywhere (values are exact rationals — pairs of integers) make OntoDAG
   unusually circuit-friendly *when* the tripwire fires.
 - **Query-completeness SNARKs** — probably never; re-execution is cheap.
 

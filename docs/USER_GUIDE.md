@@ -510,7 +510,8 @@ What to know:
   of the SI anchor unit — `weight(3000g)` is stored as `weight(3kg)`, `500g` as
   `weight(1/2kg)` — so `3kg`, `3000g` and `3.0kg` are one identity, nothing is
   ever rounded, and every exactly-defined unit works: `weight(1lb)`,
-  `pressure(32psi)`, even `length(10/33m)`. Run `odag prelude` for the everyday
+  `pressure(32psi)`, `storage(..2TB)` against tebibytes, `price(0.01sat)`,
+  ~150 national currencies, even `length(10/33m)` (the shaku). Run `odag prelude` for the everyday
   dimensions and see docs/UNITS.md for the full table.
 - **Two more kinds**: `prefix-dimension` for hierarchical codes
   (`geo(u2ed)` is inside `geo(u2)` — geohash cells, handy for "near Tokyo"), and
@@ -797,7 +798,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.9.0 - type help for help
+Ontodag 0.10.0 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png
@@ -1188,7 +1189,7 @@ shares odag's store settings, so `odag set store swarm:pets` configures both.
 ### 9.1 `odag-mcp`: your store as an agent tool
 
 Any store `odag` can open can also be served to an AI agent over MCP (the
-Model Context Protocol), read-only, with the `odag-mcp` command — no extra
+Model Context Protocol) with the `odag-mcp` command — no extra
 dependencies, and it shares `odag`'s settings, so it serves your default
 store unless you point it elsewhere with `-f`. For Claude Code:
 
@@ -1203,6 +1204,15 @@ is true of — a fingerprint of the store's entire content — and echoes the
 canonical form of what it answered, so an agent always sees what is
 actually stored rather than what it typed. Friendly spellings come along
 in a separate `display` field, never in place of the name.
+
+Read-only is the default. Start the server with `odag-mcp --write` (a
+`swarm:` store plus a configured `bee_signer`) and the agent also gets a
+propose → confirm write flow — it is always shown exactly what would be
+stored, against exactly which version, before anything changes — where
+every accepted change carries a signed **provenance record** (who asserted
+what, against which state), removals emit retractions, and a `review` tool
+shows any claim's audit trail and whether *you* accept it under your own
+trust list. Claims merge; acceptance is policy.
 
 ### 9.2 Certificates: answers a stranger can check
 
@@ -1264,7 +1274,7 @@ These behaviors are guarantees, not accidents. You can rely on them:
    same dimension are refused (their order is computed, not asserted), and
    filing an item under provably disjoint values of one dimension is refused
    (see §4.7).
-8. **Typed values are exact.** No floats anywhere: integers in base units,
+8. **Typed values are exact.** No floats anywhere: rationals of SI anchors,
    scaled exactly or refused. `weight(3kg)`, `weight(3000g)` and
    `weight(3.0kg)` are byte-for-byte the same stored name.
 

@@ -262,7 +262,21 @@ EURC, PYUSD, GUSD, TUSD — each its OWN family: a peg is a promise, not
 arithmetic, so USD vs USDC refuses), and the **ISO 4217 national fiat
 set** (~150 currencies, one family per code, no named subunits — decimals
 are exact rationals, `0.99USD` stores as `99/100USD`). Total: 388 unit
-spellings, uniqueness asserted at import. Still pack material (§7):
+spellings, uniqueness asserted at import.
+
+**Audit for further BZZ-class traps (same evening): none found.** Fiat
+currencies pegged *by law* (BGN's currency board, XOF/XAF's treaty rate to
+the euro) are already separate families — a law is a revocable promise,
+same principle as bridges — and Torr was deliberately never shipped
+(Torr = 101325⁄760 Pa ≠ mmHg: the textbook near-identity pair; pack
+material for whoever needs it, under its own name). What remains are
+**documented conventions**, chosen once and test-pinned, not identities at
+risk: `oz` is avoirdupois (troy is pack material as `ozt`), `pt`/`gal` are
+US liquid (imperial ships as `ipt`/`igal`), `hp` is mechanical
+(550 ft·lbf/s), `BTU` is the IT definition, `cal` thermochemical, `a` the
+Julian year, `mil` the thou (not the Scandinavian mile), `mmHg` the
+conventional 133.322387415 Pa, and `PLUR` lives with `xBZZ` (the token Bee
+spends) though mainnet BZZ shares the decimal structure. Still pack material (§7):
 typography points (127⁄360 mm exactly, but `pt` is taken by the pint — a
 pack picks its own suffix), dozens, percent, IOPS, historical/local
 currencies, and the rest we have not thought of yet.

@@ -34,8 +34,11 @@ the boarding pass you never filed under the trip. No folder had to be chosen.
 Categories can also carry **typed values**: declare `time` as a dimension
 and `time(2026-08-15)` becomes an ordinary category whose ordering OntoDAG
 computes — `odag get Flight 'time(2026-06-01..2026-08-31)'` finds last summer's
-flights with no edge ever stored between them, at any range, with exact integer
-arithmetic. Weights and sizes (`weight(..5kg)`), hierarchical codes like geohash
+flights with no edge ever stored between them, at any range, with exact
+arithmetic — values are rationals of the SI anchor units, so *every* exactly
+defined unit works: all of SI, pounds and psi, TB and TiB, sat and Gwei, ~150
+national currencies (`odag prelude` declares the everyday dimensions in one
+command). Weights and sizes (`weight(..5kg)`), hierarchical codes like geohash
 cells, and does-it-fit tuples all work the same way. See
 [User Guide §4.7](docs/USER_GUIDE.md) and the design record
 [docs/DIMENSIONS.md](docs/DIMENSIONS.md).
@@ -48,10 +51,13 @@ actually stores).
 
 ## For AI agents
 
-Serve any store to an agent over MCP, read-only, with **`odag-mcp`**
+Serve any store to an agent over MCP with **`odag-mcp`**
 (`claude mcp add odag -- odag-mcp`): query, fits-within, overlap candidates,
 per-item description, canonical echo, and an `about` tool that says what the
-store contains. Every answer cites the **root** — a fingerprint of the
+store contains — read-only by default; `--write` adds a propose→confirm write
+surface where every change carries a **signed provenance record** (who
+asserted what, against which state) and a `review` tool computes each claim's
+standing under *your* trust list: claims merge, acceptance is policy. Every answer cites the **root** — a fingerprint of the
 store's entire content — and `is_below` answers can carry a **certificate**
 that anyone holding only that fingerprint can verify, with no access to the
 store (`ontodag.certificates.verify_below`). Equal knowledge yields an equal
