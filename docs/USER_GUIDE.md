@@ -487,11 +487,32 @@ signing key:
 
 Point `odag` at your node with the `BEE_API` and `BEE_BATCH` environment
 variables, or `bee_api` / `bee_batch` lines in `~/.ontodag/config`; the batch
-defaults to `auto`, which picks a usable one on the node. Writes need a funded
+defaults to `auto`, which picks the usable batch with the longest TTL on the
+node — it only ever *selects*, never buys, so no command spends your xBZZ
+behind your back. Writes need a funded
 [postage batch](https://docs.ethswarm.org/docs/develop/access-the-swarm/buy-a-stamp-batch).
-Reading and writing an empty store needs no node, but `put`/`import` (which commit
-to Swarm) do — without one you get a clear `Connection refused` error, and nothing
-is lost. Switch back to a file any time with `odag set store PATH`.
+
+**When the node is down.** Every command on a `swarm:` store opens the store
+before it does anything else, and opening talks to the node: `auto` has to ask
+it which batches exist, and a non-empty store has to be read back. So with Bee
+stopped, even `odag get` fails — but it fails cleanly, with one line on stderr,
+exit status 1, nothing written, and a reminder of the ways out:
+
+```console
+$ odag get Animal
+odag: cannot reach the Bee node at http://localhost:1633, needed by store 'swarm:pets' (Cannot connect to host localhost:1633 ssl:default [Connect call failed ('127.0.0.1', 1633)])
+  * start your Bee node, then run this again
+  * or work locally for one command:  odag -f /home/you/.ontodag/store.od ...
+  * or switch back to local storage:  odag set store /home/you/.ontodag/store.od
+    (local is the default and needs no node: one text file, nothing published)
+```
+
+`odag` will not silently fall back to the local store: writing to a store other
+than the configured one would let the two diverge, with nothing to say afterwards
+which is authoritative. It also won't start your node for you. Switch back to a
+file any time with `odag set store PATH` — and note that a `set store` setting is
+saved even when the store can't be opened right now, so you can point `odag` at a
+Swarm store first and start the node afterwards.
 
 ### 5.2 A complete worked session
 

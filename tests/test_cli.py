@@ -21,7 +21,7 @@ import io
 import os
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 
 import ontodag.__main__ as cli
 from recordstore import MemoryBytesStore, MemoryPointer, RecordStore
@@ -198,6 +198,163 @@ class TestSwarmMissingDependency(unittest.TestCase):
         msg = str(ctx.exception)
         self.assertIn("requests", msg)
         self.assertIn("swarm extra", msg)
+
+
+class TestSwarmNodeDown(unittest.TestCase):
+    """Opening a `swarm:NAME` store is network I/O, so it fails whenever the
+    node is down — and it happens in main(), before dispatch()'s handler. The
+    CLI contract (one line on stderr, non-zero exit) must hold there too, and
+    the message must name the way out: start the node, or use the local
+    default store. It must NOT quietly switch to the local store, which would
+    let two stores diverge with no signal about which one is authoritative."""
+
+    _ENV = ("ONTODAG_HOME", "BEE_API", "BEE_BATCH", "BEE_SIGNER")
+
+    def setUp(self):
+        self._home = tempfile.TemporaryDirectory()
+        self._saved = {k: os.environ.get(k) for k in self._ENV}
+        os.environ["ONTODAG_HOME"] = self._home.name
+        os.environ["BEE_API"] = "http://localhost:1633"
+        os.environ.pop("BEE_SIGNER", None)
+
+    def tearDown(self):
+        for key, value in self._saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        self._home.cleanup()
+
+    @staticmethod
+    def _wrapped(name, cause):
+        """An OSError subclass named `name` carrying `cause` — the shape both
+        HTTP clients produce: not a builtin ConnectionError, real refusal
+        underneath."""
+        exc = type(name, (OSError,), {})("Cannot connect to host localhost:1633")
+        exc.__cause__ = cause
+        return exc
+
+    def _aiohttp_style_refusal(self):
+        """What swarmfs's stamp selection actually raised in the wild."""
+        return self._wrapped("ClientConnectorError",
+                             ConnectionRefusedError(111, "Connect call failed"))
+
+    def test_detects_unreachable_by_type_name(self):
+        self.assertTrue(cli._is_unreachable(self._aiohttp_style_refusal()))
+        self.assertTrue(cli._is_unreachable(
+            ConnectionRefusedError(111, "Connection refused")))
+
+    def test_detects_unreachable_through_the_cause_chain(self):
+        # An unfamiliar wrapper type: only the chain gives it away.
+        self.assertTrue(cli._is_unreachable(self._wrapped(
+            "SomeFutureClientError",
+            ConnectionRefusedError(111, "Connection refused"))))
+
+    def test_node_answering_is_not_unreachable(self):
+        # The node answering with a complaint is a different failure: no
+        # "start your node" advice for it.
+        self.assertFalse(cli._is_unreachable(
+            OSError("no usable postage stamp on http://localhost:1633")))
+        self.assertFalse(cli._is_unreachable(
+            self._wrapped("BeeAPIError", ValueError("402 Payment Required"))))
+
+    def test_unreachable_node_gives_actionable_error(self):
+        backend = cli.SwarmBackend(
+            "pets", store_factory=self._aiohttp_style_refusal_raiser())
+        with self.assertRaises(ValueError) as ctx:
+            backend.load()
+        msg = str(ctx.exception)
+        self.assertIn("cannot reach the Bee node at http://localhost:1633", msg)
+        self.assertIn("swarm:pets", msg)
+        self.assertIn("start your Bee node", msg)
+        # ...and the local escape hatches, pointing at the real default path.
+        self.assertIn(f"odag -f {cli._default_store_path()}", msg)
+        self.assertIn(f"odag set store {cli._default_store_path()}", msg)
+
+    def test_node_answering_with_an_error_uses_the_other_branch(self):
+        def factory():
+            raise OSError("no usable postage stamp on http://localhost:1633")
+
+        with self.assertRaises(ValueError) as ctx:
+            cli.SwarmBackend("pets", store_factory=factory).load()
+        msg = str(ctx.exception)
+        self.assertIn("cannot open swarm store 'pets'", msg)
+        self.assertIn("no usable postage stamp", msg)
+        self.assertNotIn("start your Bee node", msg)
+        self.assertIn("odag set store", msg)  # fallback still offered
+
+    def test_main_reports_one_line_not_a_traceback(self):
+        from unittest import mock
+
+        err = io.StringIO()
+        boom = self._aiohttp_style_refusal()
+
+        def raising_session(spec):
+            raise cli._swarm_open_error("pets", "http://localhost:1633", boom)
+
+        with mock.patch.object(cli, "Session", raising_session), \
+             mock.patch.object(cli, "_resolve_store", lambda o: "swarm:pets"), \
+             redirect_stderr(err):
+            with self.assertRaises(SystemExit) as ctx:
+                cli.main(["get", "Dog"])
+
+        self.assertEqual(ctx.exception.code, 1)
+        text = err.getvalue()
+        self.assertTrue(text.startswith("odag: "), text)
+        self.assertNotIn("Traceback", text)
+        self.assertIn("start your Bee node", text)
+
+    def test_failed_switch_leaves_the_session_on_its_old_store(self):
+        from unittest import mock
+
+        local = os.path.join(self._home.name, "local.od")
+        session = cli.Session(local)
+        _run(["put", "Animal"], session)
+
+        # `set store swarm:down` with the node unreachable.
+        boom = self._aiohttp_style_refusal()
+        with mock.patch.object(cli, "_make_backend", lambda spec: cli.SwarmBackend(
+                "down", store_factory=self._raiser(boom))):
+            code, _ = _run(["set", "store", "swarm:down"], session)
+        self.assertEqual(code, 1)
+
+        # The session still serves the store it had — not a half-switched one.
+        self.assertEqual(session.spec, local)
+        self.assertEqual(_run(["get", "Animal"], session), (0, ""))
+        self.assertEqual(_run(["list"], session), (0, "Animal\n"))
+        # ...while the setting itself was saved, so starting the node and
+        # re-running picks it up.
+        self.assertEqual(cli._read_config()["store"], "swarm:down")
+
+    def test_failed_switch_says_the_setting_was_saved(self):
+        from unittest import mock
+
+        session = cli.Session(os.path.join(self._home.name, "local.od"))
+        err = io.StringIO()
+        with mock.patch.object(cli, "_make_backend", lambda spec: cli.SwarmBackend(
+                "down", store_factory=self._raiser(
+                    self._aiohttp_style_refusal()))), redirect_stderr(err):
+            code = cli.dispatch(["set", "store", "swarm:down"], session)
+        self.assertEqual(code, 1)
+        msg = err.getvalue()
+        self.assertTrue(msg.startswith("odag: "), msg)
+        self.assertIn("cannot reach the Bee node", msg)
+        self.assertIn("setting was still saved as swarm:down", msg)
+
+    @staticmethod
+    def _raiser(exc):
+        def factory():
+            raise exc
+
+        return factory
+
+    def _aiohttp_style_refusal_raiser(self):
+        exc = self._aiohttp_style_refusal()
+
+        def factory():
+            raise exc
+
+        return factory
 
 
 class TestSwarmConfig(unittest.TestCase):

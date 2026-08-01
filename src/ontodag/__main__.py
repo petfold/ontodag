@@ -17,8 +17,10 @@ imported lazily only when a command actually needs them.
 """
 
 import argparse
+import errno
 import os
 import shlex
+import socket
 import sys
 
 from ontodag.dag import OntoDAG, Item
@@ -85,6 +87,13 @@ def _normalize_spec(spec):
     return spec if _is_swarm(spec) else _abspath(spec)
 
 
+def _default_store_path():
+    """The zero-dependency default store: a native text file under the home
+    dir. Named separately from `_resolve_store` because error messages offer
+    it as the fallback when a configured Swarm store can't be opened."""
+    return os.path.join(_home_dir(), "store.od")
+
+
 def _resolve_store(override):
     """Store precedence: -f flag > $ONTODAG_STORE > config > default."""
     if override:
@@ -95,7 +104,7 @@ def _resolve_store(override):
     cfg = _read_config()
     if cfg.get("store"):
         return _normalize_spec(cfg["store"])
-    return os.path.join(_home_dir(), "store.od")
+    return _default_store_path()
 
 
 # --------------------------------------------------------------------------- #
@@ -213,6 +222,66 @@ class FileBackend:
         return self.path
 
 
+_UNREACHABLE_ERRNOS = {
+    errno.ECONNREFUSED, errno.EHOSTUNREACH, errno.ENETUNREACH,
+    errno.ENETDOWN, errno.ETIMEDOUT,
+}
+
+# Connection failures reach us wrapped by whichever HTTP client ran: `requests`
+# for the blob store, or aiohttp under swarmfs's postage-stamp selection. Both
+# subclass OSError but neither subclasses the builtin ConnectionError, so match
+# the cause chain (which does bottom out in a real ConnectionRefusedError) and
+# fall back to type names for clients that break the chain.
+_UNREACHABLE_NAMES = {
+    "ConnectionError", "ConnectTimeout", "ReadTimeout", "Timeout",
+    "ClientConnectorError", "ServerTimeoutError", "MaxRetryError",
+    "NewConnectionError",
+}
+
+
+def _is_unreachable(exc):
+    """True when `exc` means "no answer from the node", as opposed to the node
+    answering with an error (no usable stamp, HTTP 4xx, bad reference)."""
+    for _ in range(10):  # bounded: cause chains can be cyclic
+        if exc is None:
+            return False
+        if isinstance(exc, (ConnectionError, socket.gaierror, TimeoutError)):
+            return True
+        if getattr(exc, "errno", None) in _UNREACHABLE_ERRNOS:
+            return True
+        if type(exc).__name__ in _UNREACHABLE_NAMES:
+            return True
+        exc = exc.__cause__ or exc.__context__
+    return False
+
+
+def _swarm_open_error(name, api, exc):
+    """A ValueError whose message tells the user what to do next.
+
+    Deliberately *not* a silent fallback to the local store: writing to a
+    different store than the configured one would let a local file and the
+    Swarm store diverge with no signal about which is authoritative. Offer
+    the fallback, never take it unasked. Starting the node is likewise the
+    user's call — a query command must not spawn a syncing daemon.
+    """
+    local = _default_store_path()
+    if _is_unreachable(exc):
+        head = (f"cannot reach the Bee node at {api}, needed by store "
+                f"'swarm:{name}' ({exc})\n"
+                f"  * start your Bee node, then run this again")
+    else:
+        head = (f"cannot open swarm store '{name}' via {api}: {exc}\n"
+                f"  * check the node and its postage batch "
+                f"(odag set shows bee_api / bee_batch)")
+    return ValueError(
+        f"{head}\n"
+        f"  * or work locally for one command:  odag -f {local} ...\n"
+        f"  * or switch back to local storage:  odag set store {local}\n"
+        f"    (local is the default and needs no node: one text file, "
+        f"nothing published)"
+    )
+
+
 class SwarmBackend:
     def __init__(self, name, store_factory=None, index_store_factory=None):
         if not name:
@@ -239,15 +308,17 @@ class SwarmBackend:
         return os.path.join(_home_dir(), self.name + ".root")
 
     def _record_store(self):
-        if self._store_factory is not None:
-            return self._store_factory()
         cfg = _read_config()
         api = os.environ.get("BEE_API") or cfg.get("bee_api") or "http://localhost:1633"
         batch = os.environ.get("BEE_BATCH") or cfg.get("bee_batch") or "auto"
         signer = os.environ.get("BEE_SIGNER") or cfg.get("bee_signer") or ""
         try:
+            if self._store_factory is not None:
+                return self._store_factory()
             # BeeBytesStore imports `requests` in its constructor, so a missing
             # optional dependency surfaces here rather than at module import.
+            # It also resolves batch="auto" against the node, so this line is
+            # the first one that needs Bee to be up.
             if signer:
                 from recordstore import swarm_store
                 return swarm_store(self.name, api_url=api, stamp=batch,
@@ -265,10 +336,21 @@ class SwarmBackend:
                 f"(that covers both: `requests` for the Bee blob store and "
                 f"`swarm-bee` for publishing the latest root to a Swarm feed)"
             ) from exc
+        except OSError as exc:
+            raise _swarm_open_error(self.name, api, exc) from exc
 
     def load(self):
         from ontodag.eager import EagerOntoDAG
-        return EagerOntoDAG(self._record_store())
+        store = self._record_store()
+        try:
+            # Hydration reads every record, so a node that dies between
+            # opening the store and reading it lands here, not above.
+            return EagerOntoDAG(store)
+        except OSError as exc:
+            cfg = _read_config()
+            api = (os.environ.get("BEE_API") or cfg.get("bee_api")
+                   or "http://localhost:1633")
+            raise _swarm_open_error(self.name, api, exc) from exc
 
     def save(self, dag):
         dag.commit()
@@ -292,9 +374,12 @@ class Session:
         self.switch(spec)
 
     def switch(self, spec):
-        self.spec = spec
-        self.backend = _make_backend(spec)
-        self.dag = self.backend.load()
+        # Atomic: build and load first, assign only once nothing can fail. A
+        # store that won't open (node down) must leave the session on the one
+        # it already had, not half-switched to a backend whose load failed.
+        backend = _make_backend(spec)
+        dag = backend.load()
+        self.spec, self.backend, self.dag = spec, backend, dag
 
     def save(self):
         self.backend.save(self.dag)
@@ -462,7 +547,16 @@ def cmd_set(args, session, out):
         cfg = _read_config()
         cfg["store"] = spec
         _write_config(cfg)
-        session.switch(spec)
+        try:
+            session.switch(spec)
+        except (ValueError, OSError) as exc:
+            # The setting is saved regardless: configuring a store you can't
+            # reach yet is legitimate (start the node afterwards). Say so, so
+            # the failure doesn't read as "nothing happened".
+            raise ValueError(
+                f"{exc}\n  the `store` setting was still saved as {spec}; "
+                f"this session keeps using {session.spec}"
+            ) from exc
     else:
         cfg = _read_config()
         cfg[args.key] = args.value
@@ -691,7 +785,14 @@ def main(argv=None):
         sys.stdout.write(HELP_TEXT)
         sys.exit(0)
 
-    session = Session(_resolve_store(store_override))
+    # Opening the store is I/O like any command, and for a swarm: spec it is
+    # network I/O — so it gets the same treatment dispatch() gives commands:
+    # one line on stderr and a non-zero exit, never a traceback.
+    try:
+        session = Session(_resolve_store(store_override))
+    except (ValueError, OSError) as exc:
+        print(f"odag: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     if not argv:
         _run_stream(session, sys.stdin, interactive=sys.stdin.isatty())
