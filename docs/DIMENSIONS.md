@@ -444,7 +444,12 @@ until a consumer trips the wire:
   transitive and exact. Design wrinkles: canonical form is
   `(start, extent)` rather than `lo..hi` (a wrapping arc has no
   lo ≤ hi), and the full circle must collapse to one name. Likeliest
-  consumer: opening hours / recurring schedules.
+  consumer: opening hours / recurring schedules — and midnight-crossing
+  hours are the motivating case: linear `5..3` refuses today ("empty
+  range"), correctly, because on a line nothing sits between 5 and 3
+  going up; on a circle `hours(22..06)` and `weekday(Thu..Tue)` are the
+  wrap arcs, which is exactly what `(start, extent)` makes canonical
+  and one mod-subtraction decides.
 - **Periodic projections of time** — "all Saturdays" is not a
   dimension but a periodic predicate over the time line: an infinite
   union of intervals whose containment against any interval is still
@@ -473,7 +478,12 @@ until a consumer trips the wire:
   error at service-offer scales is of order (d/R)² — centimeters. The
   one requirement is a shared frame (two discs compare exactly only in
   the same projection), which makes the frame choice part of the
-  vocabulary, like a unit. Full spherical caps then matter only for
+  vocabulary, like a unit. A *per-pair* halfway-point tangent plane
+  roughly halves the distortion but is an application-side trick only:
+  frame-per-comparison means containment stops being a function of the
+  stored names in one shared system (and the frame itself needs trig at
+  query time) — fine for loopmarket's matcher, out of bounds for a
+  stored kind. Full spherical caps then matter only for
   continent-scale regions — nobody's tripwire.**
 - **Toroids, Möbius strips, Klein bottles** — no obstruction in
   principle: a partial order of regions neither knows nor cares
