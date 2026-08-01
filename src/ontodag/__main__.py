@@ -285,7 +285,8 @@ def _swarm_open_error(name, api, exc):
 
 
 class SwarmBackend:
-    def __init__(self, name, store_factory=None, index_store_factory=None):
+    def __init__(self, name, store_factory=None, index_store_factory=None,
+                 prov_store_factory=None):
         if not name:
             raise ValueError("swarm store needs a name, e.g. swarm:mydag")
         if os.sep in name or (os.altsep and os.altsep in name) or name == "..":
@@ -295,6 +296,17 @@ class SwarmBackend:
         # in-memory bytes store, exercising the whole wiring without a node.
         self._store_factory = store_factory
         self._index_store_factory = index_store_factory
+        self._prov_store_factory = prov_store_factory
+
+    def provenance_record_store(self):
+        """The per-writer provenance store (docs/PROVENANCE.md): signed
+        speech acts about claims, in a SEPARATE record store under the
+        sibling name NAME-prov — beside the knowledge store, never inside
+        it, so identical knowledge keeps identical roots whoever asserted
+        it. Same wiring as the data store (and as NAME-index)."""
+        if self._prov_store_factory is not None:
+            return self._prov_store_factory()
+        return SwarmBackend(self.name + "-prov")._record_store()
 
     def index_record_store(self):
         """The SEPARATE record store for published cone summaries (the

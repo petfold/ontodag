@@ -95,12 +95,42 @@ agents try and cannot express is exactly the evidence
 `DATABASE_DIRECTION.md`'s walls wait for (relations, exclusion queries,
 constraint pressure); collect it from day one, decide from data.
 
-## 6. Deliberately absent from v1
+## 6. The write surface (added 2026-08-01, explicit opt-in)
 
-- **Writes** — gated on the provenance layer (`PROVENANCE.md`): the write
-  path is propose → canonical echo → confirm, with signed assertion records
-  beside every knowledge change and remove coupled to retraction. None of
-  that exists yet, so neither does a write tool.
+`odag-mcp --write` enables four more tools — for a `swarm:NAME` store with
+a configured signer (`bee_signer` / `$BEE_SIGNER`; refused otherwise, and
+refused entirely for file stores, which remain `odag`'s own). The flow is
+`PROVENANCE.md` §5, mechanized:
+
+1. **`propose_put {item, supers}`** — changes nothing; returns the
+   **canonical echo** (what would actually be stored), the claims to be
+   asserted, `already_below` per super (the cheap "do you already have
+   this?"), `missing_supers` to create first, and a **proposal token** —
+   the deterministic hash of the canonicalized operation *against the
+   current root*.
+2. **`put {item, supers, proposal}`** — confirms. The server recomputes
+   the token; if the store moved or the spelling changed since the
+   proposal, the write is refused with a teaching error ("propose again").
+   On success: the knowledge change commits, **one signed assertion record
+   per claim** (basis = the root the author saw, shared `group` hash)
+   lands in the provenance sibling store (`NAME-prov`), and the answer
+   carries both new roots — the published pair.
+3. **`propose_remove` / `remove`** — same shape, and the §3 **coupling
+   rule is enforced**: a removal emits signed retraction records for the
+   node's existence and each parent claim. The audit trail has no silent
+   disappearances.
+
+Idempotence is by design: re-confirming the same knowledge is a graph
+no-op (the root does not move) while the re-assertion is deliberately a
+*new* provenance record — audit information. Honest caveat: the two
+commits (knowledge, then provenance) are not atomic across stores; a crash
+between them loses only speech acts about a change that did land, and
+re-asserting is always safe.
+
+## 7. Deliberately absent
+
+- **Endorsement/review tools** — the workflow that must exist before
+  writes run at any volume (`PROVENANCE.md` §5); next movement of Phase 2.
 - ~~**Certificates**~~ — **landed the same day** for `is_below`
   (`ontodag.certificates`, recordstore ≥ 0.16.0; see §2). Still absent:
   `query` result certificates (cone-sized; re-execution stays the honest

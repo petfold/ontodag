@@ -41,11 +41,17 @@ import argparse
 import json
 import os
 import sys
+import time
 
 from ontodag import CONTRACT_VERSION
 from ontodag import surface as _surface
 from ontodag.dimensions import KINDS, REGISTRY_VERSION
-from ontodag.__main__ import __version__, _make_backend, _resolve_store
+from ontodag.__main__ import (__version__, _make_backend, _read_config,
+                              _resolve_store)
+
+
+def _utc_now():
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
 class ToolError(ValueError):
@@ -69,8 +75,9 @@ def _log_failure(event):
 # --------------------------------------------------------------------------- #
 
 class AgentSurface:
-    def __init__(self, spec):
-        backend = _make_backend(spec)
+    def __init__(self, spec, backend=None, signer=None, writable=False):
+        backend = backend or _make_backend(spec)
+        self._backend = backend
         self.described = backend.describe()
         dag = backend.load()
         if getattr(dag, "store", None) is None:
@@ -87,8 +94,60 @@ class AgentSurface:
         self.dag = dag
         self.root = dag.store.root
         self._snapshots = {}
+        # The write surface (PROVENANCE.md §5): explicit opt-in, a
+        # record-store-backed store with a provenance sibling, and a signer
+        # — every write is a signed speech act beside a knowledge change.
+        self.writable = bool(writable)
+        self._signer = signer
+        self._prov = None
+        if self.writable:
+            if not hasattr(backend, "provenance_record_store"):
+                raise ValueError(
+                    "the write surface needs a record-store-backed store "
+                    "(swarm:NAME) with a provenance sibling; file stores "
+                    "are odag's own — use `odag put` for local files")
+            if self._signer is None:
+                key = (os.environ.get("BEE_SIGNER")
+                       or _read_config().get("bee_signer") or "")
+                if not key:
+                    raise ValueError(
+                        "writes are signed speech acts — configure a "
+                        "signer first: `odag set bee_signer <32-byte hex "
+                        "key>` or $BEE_SIGNER")
+                from ontodag.provenance import KeySigner
+                self._signer = KeySigner(key)
 
     # -- helpers ----------------------------------------------------------- #
+
+    def _require_writable(self):
+        if not self.writable:
+            raise ToolError(
+                "this server is read-only; writes need `odag-mcp --write` "
+                "(a swarm:NAME store plus a configured signer) — "
+                "docs/AGENT_SURFACE.md")
+
+    def _provenance(self):
+        if self._prov is None:
+            from ontodag.provenance import ProvenanceStore
+            self._prov = ProvenanceStore(
+                self._backend.provenance_record_store(),
+                signer=self._signer)
+        return self._prov
+
+    def _canonical_supers(self, dag, supers):
+        if supers is None:
+            return []
+        if not isinstance(supers, list) or \
+                not all(isinstance(s, str) and s for s in supers):
+            raise ToolError("supers must be a list of strings")
+        return [dag._canonical_name(s) for s in supers]
+
+    @staticmethod
+    def _claims_for_put(item_c, supers_c):
+        from ontodag.provenance import below_subject, exists_subject
+        if supers_c:
+            return [below_subject(item_c, s) for s in supers_c]
+        return [exists_subject(item_c)]
 
     def _envelope(self, root, payload):
         answer = {"root": root, "contract": CONTRACT_VERSION}
@@ -161,10 +220,18 @@ class AgentSurface:
             "registry_version": REGISTRY_VERSION,
             "surface_version": _surface.SURFACE_VERSION,
             "server": {"name": "odag-mcp", "version": __version__},
-            "capabilities": sorted(TOOL_HANDLERS),
-            "notes": "read-only; writes are gated on the provenance layer; "
-                     "is_below supports certify: true (verifiable "
-                     "certificates, checkable against the root alone)",
+            "capabilities": sorted(TOOL_HANDLERS) + (
+                sorted(WRITE_TOOL_HANDLERS) if self.writable else []),
+            "author": self._signer.address if self._signer else None,
+            "notes": ("writable: propose_put/put and propose_remove/remove "
+                      "follow propose → canonical echo → confirm; every "
+                      "write publishes a signed provenance record beside "
+                      "the knowledge change; "
+                      if self.writable else
+                      "read-only (start with --write for the write "
+                      "surface); ")
+                     + "is_below supports certify: true (verifiable "
+                       "certificates, checkable against the root alone)",
         })
 
     def tool_query(self, arguments):
@@ -251,11 +318,143 @@ class AgentSurface:
             "registry_version": REGISTRY_VERSION,
         })
 
+    # -- the write surface (PROVENANCE.md §5: propose → echo → confirm) ---- #
+
+    def tool_propose_put(self, arguments):
+        self._require_writable()
+        from ontodag.provenance import operation_group
+        item = self._need(arguments, "item")
+        dag = self.dag
+        item_c = dag._canonical_name(item)
+        supers_c = self._canonical_supers(dag, arguments.get("supers"))
+        basis = self.root
+        claims = self._claims_for_put(item_c, supers_c)
+        missing = sorted({
+            s for s in supers_c
+            if dag.nodes.get(s) is None and dag._parse_parametric(s) is None})
+        payload = {
+            "op": "put",
+            "item": item_c,                       # the canonical echo:
+            "supers": supers_c,                   # what would be STORED
+            "claims": claims,
+            "already_below": {s: bool(dag.is_below(item_c, s))
+                              for s in supers_c},
+            "missing_supers": missing,            # create these first
+            "basis": basis,
+            "proposal": operation_group("put", item_c, supers_c, basis),
+            "next": "confirm by calling put with the same item/supers and "
+                    "this proposal",
+        }
+        return self._envelope(self.root, payload)
+
+    def tool_put(self, arguments):
+        self._require_writable()
+        from ontodag.provenance import operation_group
+        item = self._need(arguments, "item")
+        proposal = self._need(arguments, "proposal")
+        dag = self.dag
+        item_c = dag._canonical_name(item)
+        supers_c = self._canonical_supers(dag, arguments.get("supers"))
+        basis = self.root
+        if proposal != operation_group("put", item_c, supers_c, basis):
+            raise ToolError(
+                f"proposal does not match this operation against the "
+                f"current root {basis} — the store moved or the spelling "
+                f"changed; call propose_put again and confirm what it "
+                f"echoes")
+        dag.put(item_c, supers_c)      # the core validates; errors teach
+        new_root = dag.commit()
+        prov = self._provenance()
+        stamp = _utc_now()
+        claims = self._claims_for_put(item_c, supers_c)
+        for claim in claims:
+            prov.assert_claim(claim, basis=basis, time=stamp,
+                              group=proposal)
+        provenance_root = prov.commit()
+        self.root = new_root
+        return self._envelope(new_root, {
+            "op": "put", "item": item_c, "supers": supers_c,
+            "records": len(claims), "author": prov.author,
+            "basis": basis, "provenance_root": provenance_root,
+        })
+
+    def tool_propose_remove(self, arguments):
+        self._require_writable()
+        from ontodag.provenance import (below_subject, exists_subject,
+                                        operation_group)
+        item = self._need(arguments, "item")
+        dag = self.dag
+        item_c = dag._canonical_name(item)
+        node = dag.nodes.get(item_c)
+        if node is None:
+            raise ToolError(f"{item_c!r} is not in the store — nothing to "
+                            f"remove (removals are proposed against what "
+                            f"exists)")
+        parents = sorted(p.name for p in node.parents
+                         if p.name != dag.root.name
+                         and dag.nodes.get(p.name) is p)
+        claims = [below_subject(item_c, p) for p in parents]
+        claims.append(exists_subject(item_c))
+        basis = self.root
+        payload = {
+            "op": "remove",
+            "item": item_c,
+            "retracts": claims,        # the speech acts a confirm will emit
+            "basis": basis,
+            "proposal": operation_group("remove", item_c, [], basis),
+            "next": "confirm by calling remove with the same item and this "
+                    "proposal",
+        }
+        return self._envelope(self.root, payload)
+
+    def tool_remove(self, arguments):
+        self._require_writable()
+        from ontodag.provenance import (below_subject, exists_subject,
+                                        operation_group)
+        item = self._need(arguments, "item")
+        proposal = self._need(arguments, "proposal")
+        dag = self.dag
+        item_c = dag._canonical_name(item)
+        basis = self.root
+        if proposal != operation_group("remove", item_c, [], basis):
+            raise ToolError(
+                f"proposal does not match this removal against the current "
+                f"root {basis} — the store moved; call propose_remove again")
+        node = dag.nodes.get(item_c)
+        if node is None:
+            raise ToolError(f"{item_c!r} is not in the store")
+        parents = sorted(p.name for p in node.parents
+                         if p.name != dag.root.name
+                         and dag.nodes.get(p.name) is p)
+        dag.remove(item_c)
+        new_root = dag.commit()
+        # The coupling rule (PROVENANCE.md §3): on the agent surface a
+        # knowledge-level remove MUST emit its retraction records — the
+        # audit trail never has silent disappearances.
+        prov = self._provenance()
+        stamp = _utc_now()
+        claims = [below_subject(item_c, p) for p in parents]
+        claims.append(exists_subject(item_c))
+        for claim in claims:
+            prov.retract(claim, basis=basis, time=stamp, group=proposal)
+        provenance_root = prov.commit()
+        self.root = new_root
+        return self._envelope(new_root, {
+            "op": "remove", "item": item_c, "records": len(claims),
+            "author": prov.author, "basis": basis,
+            "provenance_root": provenance_root,
+        })
+
+    def tool_specs(self):
+        return TOOL_SPECS + (WRITE_TOOL_SPECS if self.writable else [])
+
     def call(self, name, arguments):
-        handler = TOOL_HANDLERS.get(name)
+        handler = TOOL_HANDLERS.get(name) or WRITE_TOOL_HANDLERS.get(name)
         if handler is None:
+            available = sorted(TOOL_HANDLERS) + \
+                (sorted(WRITE_TOOL_HANDLERS) if self.writable else [])
             raise ToolError(f"unknown tool {name!r} "
-                            f"(available: {', '.join(sorted(TOOL_HANDLERS))})")
+                            f"(available: {', '.join(available)})")
         return handler(self, arguments or {})
 
 
@@ -266,6 +465,13 @@ TOOL_HANDLERS = {
     "overlapping": AgentSurface.tool_overlapping,
     "describe": AgentSurface.tool_describe,
     "canon": AgentSurface.tool_canon,
+}
+
+WRITE_TOOL_HANDLERS = {
+    "propose_put": AgentSurface.tool_propose_put,
+    "put": AgentSurface.tool_put,
+    "propose_remove": AgentSurface.tool_propose_remove,
+    "remove": AgentSurface.tool_remove,
 }
 
 _AS_OF = {"type": "string",
@@ -339,6 +545,43 @@ TOOL_SPECS = [
                      "properties": {"term": {"type": "string"}}}},
 ]
 
+_SUPERS = {"type": "array", "items": {"type": "string"},
+           "description": "the supercategories (empty/omitted = top level)"}
+
+WRITE_TOOL_SPECS = [
+    {"name": "propose_put",
+     "description": "Step 1 of a write: see exactly what would be stored — "
+                    "canonical item and supers, the claims to be asserted, "
+                    "whether they already hold, any missing supers — plus "
+                    "the proposal token to confirm with. Changes nothing.",
+     "inputSchema": {"type": "object", "required": ["item"],
+                     "properties": {"item": {"type": "string"},
+                                    "supers": _SUPERS}}},
+    {"name": "put",
+     "description": "Step 2: confirm a proposed put. The proposal must "
+                    "match the same operation against the current root "
+                    "(if the store moved, propose again). Writes the "
+                    "knowledge change AND signed assertion records to the "
+                    "provenance store; answers with both new roots.",
+     "inputSchema": {"type": "object", "required": ["item", "proposal"],
+                     "properties": {"item": {"type": "string"},
+                                    "supers": _SUPERS,
+                                    "proposal": {"type": "string"}}}},
+    {"name": "propose_remove",
+     "description": "Step 1 of a removal: see what would be removed and "
+                    "the retraction records a confirm will emit. Changes "
+                    "nothing.",
+     "inputSchema": {"type": "object", "required": ["item"],
+                     "properties": {"item": {"type": "string"}}}},
+    {"name": "remove",
+     "description": "Step 2: confirm a proposed removal. Removes the item "
+                    "AND emits signed retraction records (the audit trail "
+                    "has no silent disappearances).",
+     "inputSchema": {"type": "object", "required": ["item", "proposal"],
+                     "properties": {"item": {"type": "string"},
+                                    "proposal": {"type": "string"}}}},
+]
+
 
 # --------------------------------------------------------------------------- #
 # MCP framing: newline-delimited JSON-RPC 2.0 over stdio
@@ -368,7 +611,8 @@ class MCPServer:
         if method == "ping":
             return self._result(msg_id, {})
         if method == "tools/list":
-            return self._result(msg_id, {"tools": TOOL_SPECS})
+            return self._result(msg_id,
+                                {"tools": self.surface.tool_specs()})
         if method == "tools/call":
             params = message.get("params") or {}
             name = params.get("name")
@@ -424,9 +668,16 @@ def main(argv=None):
     parser.add_argument("-f", "--store", "--file", dest="store",
                         help="store path or swarm:NAME "
                              "(default: odag's configured store)")
+    parser.add_argument("--write", action="store_true",
+                        help="enable the write surface (needs a swarm:NAME "
+                             "store and a configured bee_signer): "
+                             "propose_put/put, propose_remove/remove — "
+                             "every write pairs a signed provenance record "
+                             "with the knowledge change")
     args = parser.parse_args(argv)
     try:
-        surface = AgentSurface(_resolve_store(args.store))
+        surface = AgentSurface(_resolve_store(args.store),
+                               writable=args.write)
     except (ValueError, OSError) as exc:
         print(f"odag-mcp: {exc}", file=sys.stderr)
         return 1

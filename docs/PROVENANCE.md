@@ -9,10 +9,15 @@ hash>` content-addressed keys (set semantics; re-assertion is deliberately a
 new record), real secp256k1 signing via the same `bee` package the feed
 pointer uses (duck-typed seam, lazy import) with `verify_record`, and
 conflict-free direction-independent `union` for the per-writer deployment
-shape. Tests: `tests/test_provenance.py`. **Not yet implemented:** the write
-surface (propose → canonical echo → confirm on the MCP path, knowledge
-writes coupled to assertion records, `remove` coupled to retraction — §3's
-coupling rule and §5's flow) and the endorsement/review workflow. §7 records
+shape. Tests: `tests/test_provenance.py`. **The write surface is implemented too**
+(same day): `odag-mcp --write` — propose → canonical echo → confirm with a
+deterministic proposal token recomputed against the current root (a moved
+store refuses the stale confirmation), one signed assertion record per
+claim beside every knowledge change, and `remove` emitting its retraction
+records per §3's coupling rule; per-writer provenance lives in the
+`NAME-prov` sibling store. See `AGENT_SURFACE.md` §6. **Not yet
+implemented:** the endorsement/review workflow (§5) — required before
+writes run at any volume. §7 records
 the economic extension of this layer — bonded assertions, designed in the
 **factbond** sister repo. One flagged residual: the
 `payload(name, content-hash)` subject form (§3) is sketched, not worked —

@@ -152,9 +152,18 @@ replayable answer, which the existing snapshot machinery already supports.
    loudly. Live on the agent surface as `certify: true`: "trust the store"
    is now "verify against 32 bytes", for humans, agents, and — when the
    time comes — factbond's mechanical dispute rung.
-10. **Agent writes** — gated on item 6: the provenance store implementation,
-    write-path tools (propose → canonical echo → confirm, idempotent puts),
-    then endorsement/review workflows before any volume.
+10. **Agent writes** — the provenance store **and the write path shipped
+    (2026-08-01)**: attribution lives in a per-writer store beside the
+    knowledge (never inside it, so identical knowledge keeps identical
+    fingerprints whoever asserted it); subjects are *claims*, stable under
+    the core's own canonicalization; records are signed speech acts —
+    assertion, endorsement, retraction, key-binding — that merge
+    conflict-free between writers. `odag-mcp --write` mechanizes the safe
+    flow: **propose** (see exactly what would be stored, and whether it
+    already holds) → **confirm** (refused if the store moved meanwhile),
+    with signed assertion records beside every change and removals
+    emitting retractions — the audit trail has no silent disappearances.
+    **Still open before volume:** the endorsement/review workflow.
 11. **The human track, in parallel:** a standard **prelude as a published
     ontology** (adopt common dimension declarations by merging a well-known
     root — also the answer to "which upper ontology?": publish optional

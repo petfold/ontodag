@@ -222,6 +222,180 @@ class TestFileStoreRootIsSemantic(unittest.TestCase):
             self.assertEqual(a.root, b.root)
 
 
+class WritableHarness(unittest.TestCase):
+    """The write surface over an injected in-memory swarm-shaped backend:
+    the fixture is built through the propose → echo → confirm flow itself."""
+
+    def setUp(self):
+        import hashlib
+
+        from recordstore import MemoryBytesStore, RecordStore
+
+        from ontodag.__main__ import SwarmBackend
+
+        class FakeSigner:
+            address = "fake:agent"
+
+            @staticmethod
+            def sign(data):
+                return hashlib.sha256(b"fake:agent" + data).hexdigest()
+
+        self.knowledge_blobs = MemoryBytesStore()
+        self.prov_store = RecordStore(MemoryBytesStore())
+        backend = SwarmBackend(
+            "t",
+            store_factory=lambda: RecordStore(self.knowledge_blobs),
+            prov_store_factory=lambda: self.prov_store)
+        self.surface = AgentSurface("swarm:t", backend=backend,
+                                    signer=FakeSigner(), writable=True)
+        self.server = MCPServer(self.surface)
+
+    def call(self, tool, arguments=None, expect_error=False):
+        response = self.server.handle({
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": tool, "arguments": arguments or {}}})
+        result = response["result"]
+        self.assertEqual(result.get("isError", False), expect_error,
+                         result["content"][0]["text"])
+        if expect_error:
+            return result["content"][0]["text"]
+        answer = result["structuredContent"]
+        self.assertEqual(answer["contract"], CONTRACT_VERSION)
+        self.assertEqual(answer["annotations"], {})
+        self.assertIn("root", answer)   # None is honest for an empty store
+        return answer
+
+    def write(self, item, supers=()):
+        proposed = self.call("propose_put",
+                             {"item": item, "supers": list(supers)})
+        return self.call("put", {"item": item, "supers": list(supers),
+                                 "proposal": proposed["proposal"]}), proposed
+
+    def provenance_records(self):
+        from ontodag.provenance import ProvenanceStore
+        return list(ProvenanceStore(self.prov_store).records())
+
+
+class TestWriteSurface(WritableHarness):
+    def test_propose_echoes_canonical_and_flags_missing(self):
+        for item, supers in [("dimension", []),
+                             ("linear-dimension", ["dimension"]),
+                             ("weight", ["linear-dimension"])]:
+            self.write(item, supers)
+        proposed = self.call("propose_put", {
+            "item": "parcel", "supers": ["weight(3kg)", "nowhere"]})
+        self.assertEqual(proposed["item"], "parcel")
+        self.assertIn("weight(3000000mg)", proposed["supers"])  # echo
+        self.assertEqual(proposed["missing_supers"], ["nowhere"])
+        self.assertIn("proposal", proposed)
+        self.assertFalse(proposed["already_below"]["weight(3000000mg)"])
+
+    def test_put_needs_a_matching_proposal(self):
+        text = self.call("put", {"item": "pet", "supers": [],
+                                 "proposal": "bogus"}, expect_error=True)
+        self.assertIn("propose_put again", text)
+
+    def test_put_writes_the_pair_and_signs_the_claims(self):
+        answer, proposed = self.write("pet")
+        self.assertNotEqual(answer["root"], proposed["basis"])
+        self.assertTrue(answer["provenance_root"])
+        self.assertEqual(answer["author"], "fake:agent")
+        answer2, _ = self.write("cat", ["pet"])
+        records = self.provenance_records()
+        self.assertEqual(len(records), 2)  # pet⊑* and cat⊑pet assertions
+        claims = {(r["subject"]["sub"], r["subject"]["sup"])
+                  for r in records}
+        self.assertEqual(claims, {("pet", "*"), ("cat", "pet")})
+        for record in records:
+            self.assertEqual(record["type"], "assertion")
+            self.assertEqual(record["author"], "fake:agent")
+            self.assertTrue(record["group"])
+            self.assertTrue(record["sig"])
+        # and the knowledge is really there, queryable
+        result = self.call("query", {"terms": ["pet"]})
+        self.assertIn("cat", result["items"])
+        self.assertEqual(result["root"], answer2["root"])
+
+    def test_stale_proposal_is_refused_after_the_store_moves(self):
+        proposed = self.call("propose_put", {"item": "pet", "supers": []})
+        self.write("robot")                       # the store moves
+        text = self.call("put", {"item": "pet", "supers": [],
+                                 "proposal": proposed["proposal"]},
+                         expect_error=True)
+        self.assertIn("store moved", text)
+
+    def test_reput_is_idempotent_in_knowledge_new_in_audit(self):
+        self.write("pet")
+        first, _ = self.write("cat", ["pet"])
+        before = len(self.provenance_records())
+        second, _ = self.write("cat", ["pet"])    # same knowledge again
+        self.assertEqual(first["root"], second["root"])   # no-op in graph
+        self.assertEqual(len(self.provenance_records()), before + 1)
+
+    def test_remove_couples_retraction_records(self):
+        self.write("pet")
+        self.write("cat", ["pet"])
+        proposed = self.call("propose_remove", {"item": "cat"})
+        retracts = {(c["sub"], c["sup"]) for c in proposed["retracts"]}
+        self.assertEqual(retracts, {("cat", "pet"), ("cat", "*")})
+        answer = self.call("remove", {"item": "cat",
+                                      "proposal": proposed["proposal"]})
+        self.assertEqual(answer["records"], 2)
+        gone = self.call("query", {"terms": ["pet"]})
+        self.assertNotIn("cat", gone["items"])
+        retractions = [r for r in self.provenance_records()
+                       if r["type"] == "retraction"]
+        self.assertEqual(len(retractions), 2)
+
+    def test_about_reports_the_write_capabilities_and_author(self):
+        answer = self.call("about")
+        self.assertIn("propose_put", answer["capabilities"])
+        self.assertEqual(answer["author"], "fake:agent")
+        listed = self.server.handle({"jsonrpc": "2.0", "id": 1,
+                                     "method": "tools/list"})
+        names = {t["name"] for t in listed["result"]["tools"]}
+        self.assertIn("put", names)
+
+
+class TestWriteGating(SurfaceHarness):
+    def test_read_only_surface_hides_and_refuses_write_tools(self):
+        listed = self.server.handle({"jsonrpc": "2.0", "id": 1,
+                                     "method": "tools/list"})
+        names = {t["name"] for t in listed["result"]["tools"]}
+        self.assertNotIn("put", names)
+        text = self.call("put", {"item": "x", "proposal": "p"},
+                         expect_error=True)
+        self.assertIn("--write", text)
+
+    def test_file_stores_refuse_write_mode(self):
+        with self.assertRaises(ValueError) as ctx:
+            AgentSurface(self.store, writable=True)
+        self.assertIn("odag put", str(ctx.exception))
+
+    def test_write_mode_needs_a_signer(self):
+        from recordstore import MemoryBytesStore, RecordStore
+
+        from ontodag.__main__ import SwarmBackend
+        backend = SwarmBackend(
+            "t",
+            store_factory=lambda: RecordStore(MemoryBytesStore()),
+            prov_store_factory=lambda: RecordStore(MemoryBytesStore()))
+        env = os.environ.pop("BEE_SIGNER", None)
+        home = os.environ.get("ONTODAG_HOME")
+        os.environ["ONTODAG_HOME"] = self.tmp.name   # empty config
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                AgentSurface("swarm:t", backend=backend, writable=True)
+            self.assertIn("signer", str(ctx.exception))
+        finally:
+            if env is not None:
+                os.environ["BEE_SIGNER"] = env
+            if home is not None:
+                os.environ["ONTODAG_HOME"] = home
+            else:
+                os.environ.pop("ONTODAG_HOME", None)
+
+
 class TestStdioEndToEnd(unittest.TestCase):
     def test_initialize_list_and_call_over_stdio(self):
         with tempfile.TemporaryDirectory() as tmp:

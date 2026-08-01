@@ -194,13 +194,15 @@ class ProvenanceStore:
                          origin=origin, derived_from=derived_from,
                          group=group)
 
-    def endorse(self, subject: dict, basis, time=None, ext=None):
-        return self._add("endorsement", subject, basis, time=time, ext=ext)
+    def endorse(self, subject: dict, basis, time=None, group=None, ext=None):
+        return self._add("endorsement", subject, basis, time=time, ext=ext,
+                         group=group)
 
-    def retract(self, subject: dict, basis, time=None, ext=None):
+    def retract(self, subject: dict, basis, time=None, group=None, ext=None):
         """"This key no longer stands behind this claim" — a speech act;
         the knowledge-level grow-only stance is untouched."""
-        return self._add("retraction", subject, basis, time=time, ext=ext)
+        return self._add("retraction", subject, basis, time=time, ext=ext,
+                         group=group)
 
     def bind(self, name: str, basis, time=None, ext=None):
         """The self-signed key↔name link, endorsable by others."""
