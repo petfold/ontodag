@@ -465,7 +465,16 @@ until a consumer trips the wire:
   happens at elaboration, where lossiness is allowed (the surface
   layer's job, like `2026` → a timestamp range). Needs a worked
   design: canonical point encoding, the case analysis, and whether
-  loopmarket's application-side discs migrate.
+  loopmarket's application-side discs migrate. **But note the shortcut
+  that covers the actual use case (Peter, same day): "within 10 km of
+  here" needs no sphere at all — project to a shared local tangent
+  plane at elaboration and store rational planar coordinates; planar
+  squared-distance discs are already admissible, and the projection
+  error at service-offer scales is of order (d/R)² — centimeters. The
+  one requirement is a shared frame (two discs compare exactly only in
+  the same projection), which makes the frame choice part of the
+  vocabulary, like a unit. Full spherical caps then matter only for
+  continent-scale regions — nobody's tripwire.**
 - **Toroids, Möbius strips, Klein bottles** — no obstruction in
   principle: a partial order of regions neither knows nor cares
   about orientability or genus. The blocker would only ever be
