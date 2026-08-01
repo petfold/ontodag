@@ -234,24 +234,11 @@ def _build_units():
             "FLOPS": F(1), "MFLOPS": F(10**6), "GFLOPS": F(10**9),
             "TFLOPS": F(10**12), "PFLOPS": F(10**15),
             "EFLOPS": F(10**18)}),
-        # Each asset is its OWN family. The identity test is DEFINITIONAL
-        # ARITHMETIC, nothing weaker (Peter, 2026-08-01): denominations
-        # (sat, Gwei, PLUR) are the same asset by definition; pegs are
-        # promises (USD vs USDC refuses); and BRIDGES are promises too —
-        # converting BZZ to xBZZ costs a fee, takes time, and can fail, so
-        # nominal 1:1 convertibility is a relation between distinct
-        # assets, never an identity. BZZ vs xBZZ refuses, like DAI vs
-        # xDAI, like everything the world could break.
-        "btc": ("BTC", {
-            "BTC": F(1), "mBTC": F(1, 1000), "sat": F(1, 10**8),
-            "msat": F(1, 10**11)}),
-        "eth": ("ETH", {
-            "ETH": F(1), "Gwei": F(1, 10**9), "wei": F(1, 10**18)}),
-        "bzz": ("BZZ", {"BZZ": F(1)}),      # Ethereum mainnet token
-        "xbzz": ("xBZZ", {                   # the Gnosis token Bee spends;
-            "xBZZ": F(1), "PLUR": F(1, 10**16)}),  # postage is PLUR of it
-        "dai": ("DAI", {"DAI": F(1)}),
-        "xdai": ("xDAI", {"xDAI": F(1)}),    # Gnosis Chain's native coin
+        # No currencies here at all (UNITS.md / PACKS.md Q10, accepted):
+        # the built-in table holds only what PHYSICS fixes — anything
+        # market-shaped, even BTC, lives in packs, so no market suffix is
+        # ever hard-claimed for a registry major. The stack's own tokens
+        # (BTC/ETH/BZZ/xBZZ/DAI/xDAI) ship in the `crypto-core` pack.
     }
 
     # (Stablecoins and national fiat currencies moved to shipped PACKS —

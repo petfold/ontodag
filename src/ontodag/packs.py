@@ -60,9 +60,30 @@ _ISO4217 = (
     "THB TJS TMT TND TOP TRY TTD TWD TZS UAH UGX USD UYU UZS VES VND "
     "VUV WST XAF XCD XOF XPF YER ZAR ZMW ZWG").split()
 
+# The stack's own tokens (PACKS.md Q10, accepted 2026-08-01: built-in =
+# what physics fixes, so even these are a pack — one merge before `sat`
+# works). Each asset its own family; bridges are promises, not identities
+# (BZZ vs xBZZ refuses, DAI vs xDAI refuses); denominations are
+# protocol-fixed.
+_CRYPTO_CORE = (
+    "unit-family(BTC)",
+    "unit(mBTC=1/1000BTC)",
+    "unit(sat=1/100000000BTC)",
+    "unit(msat=1/100000000000BTC)",
+    "unit-family(ETH)",
+    "unit(Gwei=1/1000000000ETH)",
+    "unit(wei=1/1000000000000000000ETH)",
+    "unit-family(BZZ)",                      # Ethereum mainnet token
+    "unit-family(xBZZ)",                     # the Gnosis token Bee spends
+    "unit(PLUR=1/10000000000000000xBZZ)",    # postage is PLUR of xBZZ
+    "unit-family(DAI)",
+    "unit-family(xDAI)",                     # Gnosis Chain's native coin
+)
+
 # name -> (version, declaration node names). Bump a pack's version when its
 # declarations change; the golden-root tests pin each version's fingerprint.
 PACKS = {
+    "crypto-core": (1, _CRYPTO_CORE),
     "crypto-majors": (1, _crypto_majors()),
     "stablecoins": (1, tuple(f"unit-family({c})" for c in _STABLECOINS)),
     "fiat-iso4217": (1, tuple(f"unit-family({c})" for c in _ISO4217)),

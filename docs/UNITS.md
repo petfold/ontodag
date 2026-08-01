@@ -221,9 +221,10 @@ declarations (the walk covers the declaration nodes automatically).
 
 **The built-in/pack sorting, reconsidered per Peter (2026-08-01, late):**
 the built-in table now holds *physical and digital measurement* —
-timeless, universal, churn-free (259 suffixes) — plus the stack's own
-tokens (BTC, ETH, BZZ/xBZZ, DAI/xDAI: top-two by dominance and the Swarm
-postage pair). Everything **market-shaped or bulk** moved to packs: the
+timeless, universal, churn-free (247 suffixes) — and **nothing else**:
+PACKS.md Q10 (accepted) moved even BTC/ETH and the stack's own tokens to
+the `crypto-core` pack, so no market-shaped suffix is hard-claimed for a
+registry major. Everything **market-shaped or bulk** is packs: the
 crypto majors (rankings churn — a pack version bump beats a code
 release), stablecoins, and the fiat registry. The rule of thumb: *if its
 importance can change, it's a pack; if only physics can change it, it's

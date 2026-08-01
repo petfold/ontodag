@@ -227,10 +227,9 @@ facts:
    `ontodag.packs` then shrinks to a bootstrap shim.
 9. **Private overlays**: same mechanism plus access control — does the
    research-horizon item fold into this document?
-10. **Tighten the built-in table to pure measurement?** By this
-    document's own rule of thumb, even BTC and ETH are market-shaped.
-    Moving BTC/ETH/BZZ/xBZZ/DAI/xDAI into a `crypto-core` pack would
-    leave the built-in table holding only what physics fixes — at the
-    cost of one `odag pack crypto-core` before `sat` works out of the
-    box (postage tooling could adopt it automatically). Cheap only while
-    0.10.0 is unreleased.
+10. ~~**Tighten the built-in table to pure measurement?**~~ **Accepted
+    and done (2026-08-01):** BTC/ETH/BZZ/xBZZ/DAI/xDAI moved to the
+    `crypto-core` pack (v1, golden root `4d501a43…`); the built-in table
+    (247 suffixes) now holds only what physics fixes, so **no
+    market-shaped suffix is hard-claimed for a registry major,
+    anywhere**. `sat` costs one `odag pack crypto-core`.

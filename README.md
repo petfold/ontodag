@@ -36,10 +36,10 @@ and `time(2026-08-15)` becomes an ordinary category whose ordering OntoDAG
 computes — `odag get Flight 'time(2026-06-01..2026-08-31)'` finds last summer's
 flights with no edge ever stored between them, at any range, with exact
 arithmetic — values are rationals of the SI anchor units, so *every* exactly
-defined unit works: all of SI, pounds and psi, TB and TiB, sat and Gwei built
-in, and **unit packs one merge away** (`odag pack fiat-iso4217` for ~150
-national currencies, `crypto-majors` for the market's top coins — or declare
-your own: vocabulary is graph data that travels with the store, no release
+defined unit works: all of SI, pounds and psi, TB and TiB built in, and **unit packs one merge
+away** (`odag pack crypto-core` for BTC/ETH/BZZ, `fiat-iso4217` for ~150 national
+currencies, `crypto-majors` for the market's top coins — or declare your
+own: vocabulary is graph data that travels with the store, no release
 needed). `odag prelude` declares the everyday dimensions in one command. Weights and sizes (`weight(..5kg)`), hierarchical codes like geohash
 cells, and does-it-fit tuples all work the same way. See
 [User Guide §4.7](docs/USER_GUIDE.md) and the design record

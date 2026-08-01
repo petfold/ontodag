@@ -19,6 +19,8 @@ from ontodag.dimensions import UNIT_DECLARATION
 from ontodag.packs import PACKS, apply, pack_dag
 
 GOLDEN_ROOTS = {  # pack v1 fingerprints: everyone merging these converges
+    "crypto-core":
+        "4d501a439e109269252300d2777145be6ef736bbe5468b7812f016acb730d566",
     "crypto-majors":
         "649b00504f6f4346a0da2cb7a422ec7b5d9caf9c91bd11c37ee09ef7a819b5a5",
     "stablecoins":
@@ -78,6 +80,24 @@ class TestPacks(unittest.TestCase):
                          "price(5000lamport)")
         with self.assertRaises(ValueError):
             dag.is_below("price(1XRP)", "price(..1SOL)")
+
+    def test_crypto_core_denominations_and_bridges(self):
+        dag = priced_dag("crypto-core")
+        self.assertTrue(dag.is_below("price(1sat)",
+                                     "price(..1/100000000BTC)"))
+        self.assertEqual(
+            dag._canonical_name("price(21Gwei)"),
+            "price(21/1000000000ETH)")
+        dag.put("stamp", ["price(9999PLUR)"])
+        self.assertTrue(dag.is_below("stamp", "price(..1xBZZ)"))
+        # bridges are promises, not identities (Peter's principle, kept):
+        with self.assertRaises(ValueError):
+            dag.is_below("price(1xBZZ)", "price(..1BZZ)")
+        with self.assertRaises(ValueError):
+            dag.is_below("price(1xDAI)", "price(..1DAI)")
+        # ... and exchange rates never share a lattice
+        with self.assertRaises(ValueError):
+            dag.is_below("price(1BTC)", "price(..15ETH)")
 
     def test_vocabulary_travels_with_the_store(self):
         blobs = MemoryBytesStore()
