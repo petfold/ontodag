@@ -99,6 +99,20 @@ canonical form and the merge properties untouched:
   store. Classic use with typed values: *outside a range*
   (`get_any([["weight(..2kg)"], ["weight(5kg..)"]])`).
 
+## Under discussion (no decision yet)
+
+- **A surface layer** — a separate, local, never-merged layer between people
+  and the exact core: forgiving input on the way in (a bare `2026` as the year,
+  ISO weeks, eventually a locally-running LLM turning a sentence into terms) and
+  readable output on the way out (`time(2026)` rather than
+  `time(2026-01-01T00:00:00Z..2026-12-31T23:59:59Z)`, `weight(3kg)` rather than
+  `weight(3000000mg)`). The core stays exactly as strict as it is now — the
+  surface only ever proposes, and everything it proposes is validated and
+  canonicalized before it is stored, which is also the condition that would
+  make an LLM safe to plug in. Both layers stay reachable from every interface:
+  a `--raw` switch on the command line, an opt-in module for Python callers.
+  Discussion draft with open questions: `SURFACE_LAYER.md`.
+
 ## Parked until real usage data exists
 
 Not "someday" items — each is worked out in a design note and waits on a trigger:
