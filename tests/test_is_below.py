@@ -91,7 +91,7 @@ class TestIsBelowDimensions(unittest.TestCase):
         self.assertFalse(dag.is_below("weight(9kg)", "weight(..5kg)"))
         self.assertTrue(dag.is_below("weight(3kg)", "weight(3000g)"))  # ≡
         # ... and nothing was materialized by asking:
-        self.assertNotIn("weight(3000000mg)", dag.nodes)
+        self.assertNotIn("weight(3kg)", dag.nodes)
 
     def test_item_against_virtual_bound(self):
         dag = self._dag()
@@ -129,8 +129,8 @@ class TestIsBelowDimensions(unittest.TestCase):
         for i in range(20):
             dag.put(f"parcel-{i}", ["weight(3kg)"])
         dag.put("weight(..5kg)", [])
-        self.assertGreater(dag.nodes["weight(3000000mg)"].descendant_count,
-                           dag.nodes["weight(..5000000mg)"].descendant_count)
+        self.assertGreater(dag.nodes["weight(3kg)"].descendant_count,
+                           dag.nodes["weight(..5kg)"].descendant_count)
         self.assertTrue(dag.is_below("weight(3kg)", "weight(..5kg)"))
 
 

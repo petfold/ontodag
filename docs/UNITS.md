@@ -1,7 +1,9 @@
 # Units: All of SI, the Customary Units, and the Bases That Make Them Exact
 
-Status: **accepted design, 2026-08-01 (Peter + Claude) — all verdicts
-D1–D10 accepted by Peter the same day.** Headline: **D9 (rational
+Status: **accepted AND IMPLEMENTED, 2026-08-01 (registry v3 shipped the
+same evening — `dimensions.py` rational anchoring, ~30 families/120+ unit
+spellings, `tests/test_units.py` exactness suite, prelude v2, and the
+`ontodag.migrate` replay tool). All verdicts D1–D10 accepted by Peter.** Headline: **D9 (rational
 anchoring) is in** — canonical values are reduced rationals of the SI
 coherent unit, bases are abolished, and with them every future class-C
 migration; D1 and D4 (computed bases, quantum names) are thereby moot.
@@ -12,9 +14,9 @@ Registry v3 is the one canonical-name migration in the system's life, and
 old spellings (`mg`, `mm`) remain valid *input* — so re-canonicalization
 is a replay through `put` under v3, nothing more.
 
-Read with `DIMENSIONS.md` (values are exact integers in per-family base
-units; the computed order participates in canonical roots — the reason
-exactness is non-negotiable) and `SURFACE_LAYER.md` §4/§5.5 (humans see
+Read with `DIMENSIONS.md` (the computed order participates in canonical
+roots — the reason exactness is non-negotiable; values are, since D9,
+exact rationals of per-family SI anchors) and `SURFACE_LAYER.md` §4/§5.5 (humans see
 rendered units; canonical spellings are for machines).
 
 ## 1. Principles
@@ -89,6 +91,12 @@ else the definition table throws at it. This is the piece hand-picked
 "tiny units" could never get right, and the test recomputes it forever.
 
 ## 4. The families (proposed scope)
+
+*(Historical: the "base" column below is the pre-D9 draft — under the
+accepted D9 every family's canonical suffix is simply its SI coherent
+anchor (`kg`, `m`, `Pa`, …) and the shipped spelling set is the one in
+`dimensions.py._build_units`, pinned by `tests/test_units.py`. Kept for
+the record of how the quantum-base design fell away.)*
 
 Every SI base quantity, every named SI derived unit as its own family
 where it names a quantity people file under, the accepted-for-use units,

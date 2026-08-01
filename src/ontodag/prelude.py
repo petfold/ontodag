@@ -25,7 +25,9 @@ from ontodag.dag import OntoDAG
 
 # Bump when DECLARATIONS change; the golden-root test pins each version's
 # canonical fingerprint, so a bump is visible, never silent.
-PRELUDE_VERSION = 1
+# v2 (2026-08-01, UNITS.md D7): heads for the everyday families the full
+# unit table (registry v3) brought in.
+PRELUDE_VERSION = 2
 
 DECLARATIONS = (
     # the kind registry (names dimensions.py recognizes)
@@ -35,9 +37,15 @@ DECLARATIONS = (
     ("prefix-dimension", ("dimension",)),
     ("dominance-dimension", ("dimension",)),
     # everyday heads, one per family where that is the obvious reading
-    ("weight", ("linear-dimension",)),      # mass, base unit mg
-    ("length", ("linear-dimension",)),      # base unit mm
-    ("duration", ("linear-dimension",)),    # base unit s
+    ("weight", ("linear-dimension",)),      # mass, anchored at kg
+    ("length", ("linear-dimension",)),      # anchored at m
+    ("duration", ("linear-dimension",)),    # anchored at s
+    ("area", ("linear-dimension",)),        # anchored at m2
+    ("volume", ("linear-dimension",)),      # anchored at m3
+    ("speed", ("linear-dimension",)),       # anchored at mps
+    ("pressure", ("linear-dimension",)),    # anchored at Pa; psi welcome
+    ("temperature", ("linear-dimension",)), # kelvin-only (UNITS.md §2)
+    ("energy", ("linear-dimension",)),      # anchored at J
     ("time", ("calendar-dimension",)),      # 2026 means the year
     ("geo", ("prefix-dimension",)),         # geohash-style cells
     ("size", ("dominance-dimension",)),     # does-it-fit tuples

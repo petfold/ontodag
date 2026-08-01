@@ -19,28 +19,30 @@ import ontodag
 from ontodag.__main__ import Session, dispatch
 from ontodag.prelude import PRELUDE_VERSION, apply, prelude_dag
 
-# The canonical fingerprint of prelude v1 — the "well-known root" the
+# The canonical fingerprint of prelude v2 — the "well-known root" the
 # adoption story rests on: everyone merging this version contributes the
 # byte-identical subgraph. If this test fails, either the prelude changed
 # (bump PRELUDE_VERSION and re-pin, deliberately) or canonicalization
 # regressed (fix that instead).
-GOLDEN_ROOT_V1 = \
-    "a160bf51e805ea086bcd5ef9fe5c5dd9d3fff9ef7fa861bda1e486496084baff"
+GOLDEN_ROOT_V2 = \
+    "18e42105bd2d9a4a07dc69ad0097fc3fd7b4e1eac83487f8c399c0c22d0f77b6"
 
 
 class TestPrelude(unittest.TestCase):
     def test_golden_root_pins_the_version(self):
-        self.assertEqual(PRELUDE_VERSION, 1)
+        self.assertEqual(PRELUDE_VERSION, 2)
         dag = ontodag.EagerOntoDAG(RecordStore(MemoryBytesStore()))
         apply(dag)
-        self.assertEqual(dag.commit(), GOLDEN_ROOT_V1)
+        self.assertEqual(dag.commit(), GOLDEN_ROOT_V2)
 
     def test_typed_values_work_immediately_after_adoption(self):
         dag = prelude_dag()
         dag.put("parcel", ["weight(3kg)"])
         dag.put("trip", ["time(2026-08)"])
+        dag.put("tyre", ["pressure(32psi)"])
         self.assertTrue(dag.is_below("parcel", "weight(..5kg)"))
         self.assertTrue(dag.is_below("trip", "time(2026)"))
+        self.assertTrue(dag.is_below("tyre", "pressure(..3bar)"))
         self.assertTrue(dag.is_below("geo(u2ed)", "geo(u2)"))
         self.assertTrue(dag.is_below("size(19x23x39cm)",
                                      "size(20x30x40cm)"))

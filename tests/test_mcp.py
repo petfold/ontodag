@@ -144,8 +144,8 @@ class TestTools(SurfaceHarness):
         answer = self.call("is_below", {"sub": "weight(3kg)",
                                         "sup": "weight(..5kg)"})
         self.assertTrue(answer["result"])
-        self.assertEqual(answer["sub"], "weight(3000000mg)")
-        self.assertEqual(answer["sup"], "weight(..5000000mg)")
+        self.assertEqual(answer["sub"], "weight(3kg)")
+        self.assertEqual(answer["sup"], "weight(..5kg)")
         self.assertFalse(self.call("is_below",
                                    {"sub": "nope", "sup": "pet"})["result"])
 
@@ -158,7 +158,7 @@ class TestTools(SurfaceHarness):
 
     def test_describe_returns_display_beside_the_name(self):
         answer = self.call("describe", {"term": "weight(2kg)"})
-        self.assertEqual(answer["name"], "weight(2000000mg)")
+        self.assertEqual(answer["name"], "weight(2kg)")
         self.assertEqual(answer["display"], "weight(2kg)")
         self.assertTrue(answer["exists"])
         self.assertIn("heavy", answer["children"])
@@ -295,10 +295,10 @@ class TestWriteSurface(WritableHarness):
         proposed = self.call("propose_put", {
             "item": "parcel", "supers": ["weight(3kg)", "nowhere"]})
         self.assertEqual(proposed["item"], "parcel")
-        self.assertIn("weight(3000000mg)", proposed["supers"])  # echo
+        self.assertIn("weight(3kg)", proposed["supers"])  # echo
         self.assertEqual(proposed["missing_supers"], ["nowhere"])
         self.assertIn("proposal", proposed)
-        self.assertFalse(proposed["already_below"]["weight(3000000mg)"])
+        self.assertFalse(proposed["already_below"]["weight(3kg)"])
 
     def test_put_needs_a_matching_proposal(self):
         text = self.call("put", {"item": "pet", "supers": [],

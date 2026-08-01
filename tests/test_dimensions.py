@@ -27,15 +27,24 @@ class TestSplitTerm:
 
 class TestLinearCanonicalization:
     @pytest.mark.parametrize("raw,canonical", [
-        ("weight(3kg)", "weight(3000000mg)"),
-        ("weight(0.5g)", "weight(500mg)"),
-        ("weight(05kg)", "weight(5000000mg)"),
-        ("weight(3.0kg)", "weight(3000000mg)"),
-        ("weight(..5kg)", "weight(..5000000mg)"),
-        ("weight(1kg..)", "weight(1000000mg..)"),
-        ("weight(1kg..5kg)", "weight(1000000mg..5000000mg)"),
-        ("weight(2kg..2000g)", "weight(2000000mg)"),  # degenerate -> point
-        ("length(1km)", "length(1000000mm)"),
+        # Registry v3 (UNITS.md D9): canonical values are reduced rationals
+        # of the SI coherent anchor — kg, m, s — so integer-anchor values
+        # are already their own canonical spelling.
+        ("weight(3kg)", "weight(3kg)"),
+        ("weight(0.5g)", "weight(1/2000kg)"),
+        ("weight(05kg)", "weight(5kg)"),
+        ("weight(3.0kg)", "weight(3kg)"),
+        ("weight(3000g)", "weight(3kg)"),
+        ("weight(..5kg)", "weight(..5kg)"),
+        ("weight(1kg..)", "weight(1kg..)"),
+        ("weight(1kg..5kg)", "weight(1kg..5kg)"),
+        ("weight(2kg..2000g)", "weight(2kg)"),        # degenerate -> point
+        ("weight(1lb)", "weight(45359237/100000000kg)"),
+        ("weight(0.0005g)", "weight(1/2000000kg)"),   # exact, never rounded
+        ("length(1km)", "length(1000m)"),
+        ("length(1in)", "length(127/5000m)"),
+        ("length(10/33m)", "length(10/33m)"),         # the shaku, day one
+        ("pressure(1atm)", "pressure(101325Pa)"),
         ("wait(2min)", "wait(120s)"),
         ("number(5)", "number(5)"),
         ("number(0)", "number(0)"),
@@ -66,7 +75,6 @@ class TestLinearCanonicalization:
         assert canonicalize(raw, KIND_LINEAR) == canonical
 
     @pytest.mark.parametrize("raw", [
-        "weight(0.0005g)",        # finer than the base unit: never round
         "weight(3zz)",            # unknown unit
         "weight(..)",             # no end at all
         "weight(5kg..1kg)",       # empty range
@@ -84,9 +92,9 @@ class TestLinearCanonicalization:
 class TestDominanceCanonicalization:
     def test_shared_unit_and_sorting(self):
         assert canonicalize("size(19x23x39cm)", KIND_DOMINANCE) == \
-            "size(390x230x190mm)"
+            "size(39/100x23/100x19/100m)"
         assert canonicalize("size(1mx50cm)", KIND_DOMINANCE) == \
-            "size(1000x500mm)"
+            "size(1x1/2m)"
         assert canonicalize("shape(3x4x5)", KIND_DOMINANCE) == "shape(5x4x3)"
 
     def test_idempotent(self):
@@ -166,17 +174,17 @@ class TestContains:
 class TestIntersect:
     def test_linear(self):
         assert intersect("weight(1kg..5kg)", "weight(3kg..9kg)",
-                         KIND_LINEAR) == "weight(3000000mg..5000000mg)"
+                         KIND_LINEAR) == "weight(3kg..5kg)"
         assert intersect("weight(..5kg)", "weight(2kg..)",
-                         KIND_LINEAR) == "weight(2000000mg..5000000mg)"
+                         KIND_LINEAR) == "weight(2kg..5kg)"
         assert intersect("weight(..2kg)", "weight(3kg..)",
                          KIND_LINEAR) is None
         assert intersect("weight(..5kg)", "weight(3kg)",
-                         KIND_LINEAR) == "weight(3000000mg)"
+                         KIND_LINEAR) == "weight(3kg)"
 
     def test_dominance_never_empty(self):
         assert intersect("size(20x30x40cm)", "size(50x10x35cm)",
-                         KIND_DOMINANCE) == "size(400x300x100mm)"
+                         KIND_DOMINANCE) == "size(2/5x3/10x1/10m)"
 
     def test_prefix(self):
         assert intersect("geo(u2)", "geo(u2ed)", KIND_PREFIX) == "geo(u2ed)"
@@ -330,4 +338,8 @@ class TestRegistry:
         assert dims.KINDS == {"linear-dimension", "prefix-dimension",
                               "dominance-dimension", "calendar-dimension"}
         assert dims.DIMENSION_ROOT == "dimension"
-        assert isinstance(dims.REGISTRY_VERSION, int)
+        # MAJOR.MINOR since v3 (UNITS.md D10): same major = same
+        # canonical-name arithmetic; minors add vocabulary only.
+        assert dims.REGISTRY_VERSION == "3.0"
+        assert dims.registry_compatible("3.7")
+        assert not dims.registry_compatible("2")

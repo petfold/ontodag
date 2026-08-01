@@ -119,10 +119,10 @@ class TestDimensionsAcrossWriters(unittest.TestCase):
         merged_a = alice.sync(bob.commit())
         merged_b = bob.sync(alice.store.root)
         self.assertEqual(merged_a, merged_b)
-        self.assertEqual(parents(alice, "parcel"), {"weight(3000000mg)"})
-        self.assertEqual(parents(bob, "parcel"), {"weight(3000000mg)"})
+        self.assertEqual(parents(alice, "parcel"), {"weight(3kg)"})
+        self.assertEqual(parents(bob, "parcel"), {"weight(3kg)"})
         # The coarse value survives as a value node (anchored), edge-pruned.
-        self.assertIn("weight(..5000000mg)", alice.nodes)
+        self.assertIn("weight(..5kg)", alice.nodes)
 
     def test_conflicting_kind_declarations_surface_loudly(self):
         blobs = MemoryBytesStore()

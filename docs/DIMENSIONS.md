@@ -118,6 +118,12 @@ name; meta is annotation no query traverses.**
 
 Decision 2026-07-30: measured quantities are **integers in a per-family
 base unit** — the bank/crypto move (cents, wei). Tiny base units, large
+> **Superseded 2026-08-01 (registry v3, `UNITS.md` D9):** values are now
+> **reduced rationals of the SI coherent anchor** (`weight(3kg)`,
+> `weight(1/2000kg)`, `length(10/33m)`) — the same exactness with no base
+> to choose and no future base migration; the full SI + customary unit
+> table and all decisions live in `docs/UNITS.md`. The §-references to
+> integer base units below are kept as the historical record.
 numbers; rendering in friendly units is the UI's job, the canonical name
 keeps the integer.
 

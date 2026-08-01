@@ -25,7 +25,7 @@ Three rules keep the law cheap to uphold (§4's 2026-08-01 sharpenings):
   that give the name its kind). Never of what anyone originally typed.
 
 Like the core, rendering is interpretation-context-relative: whether
-`weight(3000000mg)` may be shown as `weight(3kg)` depends on `weight` being
+`weight(1/2000kg)` may be shown as `weight(500g)` depends on `weight` being
 a declared dimension in the graph at hand — an *opaque* name that merely
 looks parametric is returned unchanged, or the law above would break on it.
 Pass the DAG (any OntoDAG), or pass the kind directly when you already
@@ -47,20 +47,28 @@ SURFACE_VERSION = "0.1"
 # Friendly spellings per kind (each must re-elaborate to the same canonical)
 # --------------------------------------------------------------------------- #
 
-def _friendly_int(family, value):
+def _friendly_value(family, value):
     """Largest unit of the family in which `value` is a whole number.
-    Integers only — elaboration accepts decimals from humans, rendering
-    never produces them (fewer spellings, one deterministic choice)."""
-    base = _dims._BASE_UNIT[family]
+    Integers only — elaboration accepts decimals and rationals from
+    humans, rendering never produces them (fewer spellings, one
+    deterministic choice). A value no unit fits exactly (the shaku's
+    10/33 m) keeps its canonical rational spelling."""
     if family == "count":
-        return str(value)
+        return _dims._fraction_text(value)
+    anchor = _dims._ANCHOR[family]
     if value == 0:
-        return "0" + base
-    suffix, factor = base, 1
+        return "0" + anchor
+    best = None                      # (factor, suffix)
     for unit, (fam, scale) in _dims._UNITS.items():
-        if fam == family and scale > factor and value % scale == 0:
-            suffix, factor = unit, scale
-    return f"{value // factor}{suffix}"
+        if fam != family:
+            continue
+        quotient = value / scale
+        if quotient.denominator == 1 and \
+                (best is None or scale > best[0]):
+            best = (scale, unit)
+    if best is None:
+        return _dims._render_scalar(family, value)
+    return f"{int(value / best[0])}{best[1]}"
 
 
 def _collapse_lo(ts, calendar):
@@ -105,26 +113,29 @@ def _friendly_linear(denotation, kind):
     if family == _dims._TIME:
         return _friendly_time(lo, hi, calendar=(kind == _dims.KIND_CALENDAR))
     if lo is not None and lo == hi:
-        return _friendly_int(family, lo)
-    if lo == 0 and hi is not None:  # integer families: 0 is unbounded-below
+        return _friendly_value(family, lo)
+    if lo == 0 and hi is not None:  # numeric families: 0 is unbounded-below
         lo = None
-    lo_text = _friendly_int(family, lo) if lo is not None else ""
-    hi_text = _friendly_int(family, hi) if hi is not None else ""
+    lo_text = _friendly_value(family, lo) if lo is not None else ""
+    hi_text = _friendly_value(family, hi) if hi is not None else ""
     return f"{lo_text}..{hi_text}"
 
 
 def _friendly_dominance(denotation):
     family, values = denotation
     if family == "count":
-        return "x".join(str(v) for v in values)
-    base = _dims._BASE_UNIT[family]
-    suffix, factor = base, 1
-    if any(values):  # all-zero tuples stay in the base unit
+        return "x".join(_dims._fraction_text(v) for v in values)
+    best = None
+    if any(values):  # all-zero tuples keep the anchor spelling
         for unit, (fam, scale) in _dims._UNITS.items():
-            if fam == family and scale > factor \
-                    and all(v % scale == 0 for v in values):
-                suffix, factor = unit, scale
-    return "x".join(str(v // factor) for v in values) + suffix
+            if fam == family and \
+                    all((v / scale).denominator == 1 for v in values) and \
+                    (best is None or scale > best[0]):
+                best = (scale, unit)
+    if best is None:                 # no single unit fits all components:
+        return "x".join(_dims._fraction_text(v) for v in values) \
+            + _dims._ANCHOR[family]  # the canonical spelling
+    return "x".join(str(int(v / best[0])) for v in values) + best[1]
 
 
 def _friendly_param(param, kind):

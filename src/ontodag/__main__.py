@@ -689,7 +689,8 @@ Typed values: run `odag prelude` once (or declare by hand: put dimension;
 put linear-dimension dimension; put weight linear-dimension), then use
 parametric terms anywhere a category goes — put parcel 'weight(3kg)',
 get 'weight(..5kg)' (quote the parentheses in a shell). Values are
-exact integers in tiny base units (3kg is stored as 3000000mg); ranges
+exact rationals of the SI anchor unit (500g is stored as 1/2kg; any
+exact unit works, psi to shaku — see docs/UNITS.md); ranges
 are lo..hi with either end open. For dates use calendar-dimension
 instead of linear-dimension: then 'time(2026)' is the year,
 'time(2026-08)' the month, 'time(2026-08-15)' the day, and each

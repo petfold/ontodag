@@ -271,8 +271,8 @@ term stands for a set of values (`time(2026-06-01..2026-08-31)` = "that summer",
 and a bare date is itself the set of instants in that day), and one term sits
 below another exactly when its set is contained in the other's — the same
 everything-below-is-a-special-case meaning every ordinary edge already has. The
-values are exact integers in tiny base units (a weight of `3kg` is stored as
-`3000000mg` — the money-in-cents move), so every comparison is exact arithmetic
+values are exact rationals of the SI anchor unit (a weight of `500g` is stored
+as `1/2kg` — exactness with no rounding, ever), so every comparison is exact arithmetic
 and every replica computes the identical order: the canonical-form guarantee of
 §2 survives untouched, because the stored graph still contains only asserted
 edges, now pruned *modulo* what the arithmetic already implies.

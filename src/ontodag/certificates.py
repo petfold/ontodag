@@ -56,7 +56,7 @@ import copy
 
 from ontodag import dimensions as _dims
 from ontodag.dag import _name_of
-from ontodag.dimensions import REGISTRY_VERSION
+from ontodag.dimensions import REGISTRY_VERSION, registry_compatible
 
 CERTIFICATE_FORMAT = "ontodag-is-below-certificate"
 
@@ -185,7 +185,7 @@ def verify_below(certificate, root):
         raise CertificateError(
             f"certificate is about root {certificate.get('root')!r}, "
             f"not {root!r}")
-    if certificate.get("registry_version") != REGISTRY_VERSION:
+    if not registry_compatible(certificate.get("registry_version")):
         raise CertificateError(
             f"certificate was produced under dimensions registry "
             f"v{certificate.get('registry_version')!r}; this verifier "

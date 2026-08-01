@@ -1,13 +1,24 @@
 """Parametric items ("dimension lattices"): grammar, registry, canonicalizer,
-and the containment/intersection arithmetic. Design record: docs/DIMENSIONS.md.
+and the containment/intersection arithmetic. Design records:
+docs/DIMENSIONS.md (the model) and docs/UNITS.md (the unit system,
+registry v3, all verdicts accepted 2026-08-01).
 
 Pure stdlib and graph-free (B1): callers resolve a head's *kind* from the DAG
 (an ancestor walk to a registry kind node) and pass it into every function
 here. Only exact, platform-independent arithmetic is permitted in this module
-— integers in per-family base units, strings, and fixed-format ISO-8601 UTC
-timestamps compared lexicographically — because the computed order
-participates in transitive reduction and therefore in canonical roots
-(determinism doctrine, DIMENSIONS.md §3). No floats, ever.
+— **reduced rationals anchored at the SI coherent unit** (UNITS.md D9),
+strings, and fixed-format ISO-8601 UTC timestamps compared lexicographically
+— because the computed order participates in transitive reduction and
+therefore in canonical roots (determinism doctrine, DIMENSIONS.md §3).
+No floats, ever.
+
+Rational anchoring, in one line: a canonical scalar is ``n[/d]<anchor>``
+with n/d in lowest terms — ``weight(3kg)``, ``weight(1/2kg)`` for 500 g,
+``length(10/33m)`` for the shaku — so *any* unit with an exact rational
+definition is representable, forever, and no base ever needs refining
+(UNITS.md §8). Non-anchor unit spellings (``g``, ``psi``, ``mph``…) are
+input/render vocabulary only: they never appear in stored names, which is
+what makes adding units later a non-event (D10).
 
 A parametric term denotes a *set of values*; the computed order between two
 same-head terms is containment of denotations (`contains`), i.e. the same
@@ -19,10 +30,21 @@ from calendar import monthrange
 from datetime import datetime
 from fractions import Fraction
 
-# Bump when the kind set, unit table, or comparison semantics change: the
-# computed order participates in canonical reduction, so two writers must
-# agree on this version to reproduce each other's roots (DIMENSIONS.md §10).
-REGISTRY_VERSION = 2  # 2 (2026-08-01): added KIND_CALENDAR
+# The registry version, MAJOR.MINOR (UNITS.md D10): order-affecting changes
+# (anchors, kinds, arithmetic) bump the major and refuse across it;
+# vocabulary-additive changes (new unit spellings, new families) bump the
+# minor and interoperate — stored names carry only anchor suffixes, so old
+# readers read everything and merely refuse unknown spellings as input.
+# History: 1 (dimension lattices), 2 (+KIND_CALENDAR),
+# 3.0 (2026-08-01: rational anchoring, the full SI + customary unit table).
+REGISTRY_VERSION = "3.0"
+
+
+def registry_compatible(version, other=None):
+    """Same major = identical canonical-name arithmetic (D10)."""
+    other = REGISTRY_VERSION if other is None else other
+    return str(version).split(".")[0] == str(other).split(".")[0]
+
 
 # Reserved node names the registry recognizes, the way the codebase already
 # recognizes "*". A dimension head is declared by asserting it under exactly
@@ -45,26 +67,155 @@ KIND_CALENDAR = "calendar-dimension"
 KINDS = frozenset({KIND_LINEAR, KIND_PREFIX, KIND_DOMINANCE, KIND_CALENDAR})
 _LINEARISH = frozenset({KIND_LINEAR, KIND_CALENDAR})
 
-# suffix -> (family, exact scale factor to the family's base unit).
-# Base units are deliberately tiny so every value is an integer (the
-# bank/crypto move, agreed 2026-07-30); rendering friendly units is UI work.
-_UNITS = {
-    "mg": ("mass", 1), "g": ("mass", 10**3),
-    "kg": ("mass", 10**6), "t": ("mass", 10**9),
-    "mm": ("length", 1), "cm": ("length", 10),
-    "m": ("length", 10**3), "km": ("length", 10**6),
-    "s": ("duration", 1), "min": ("duration", 60),
-    "h": ("duration", 3600), "d": ("duration", 86400),
-    "": ("count", 1),
-}
-_BASE_UNIT = {"mass": "mg", "length": "mm", "duration": "s", "count": ""}
-_TIME = "time"  # the one non-integer linear value space (ISO-8601 UTC)
+
+# --------------------------------------------------------------------------- #
+# The unit table (docs/UNITS.md §4, accepted 2026-08-01)
+#
+# family -> (anchor suffix, {suffix: exact Fraction factor to the anchor}).
+# Anchors are the SI coherent units; every factor is exact by definition
+# (the 1959 yard-and-pound agreement, the 2019 SI redefinition, and the
+# international definitions of the rest). Suffixes are ASCII, case-
+# sensitive, slash-free (the slash belongs to rational values), and unique
+# across ALL families — the suffix alone determines the family (verified at
+# import below, and unit-by-unit in tests/test_units.py).
+# Honest exclusions (UNITS.md §2): Celsius/Fahrenheit (affine — temperature
+# is kelvin-anchored) and the radian (pi/180 is irrational — the angle
+# family is degree-anchored).
+# --------------------------------------------------------------------------- #
+
+def _build_units():
+    F = Fraction
+    lb = F("0.45359237")                    # kg, exact since 1959
+    inch = F("0.0254")                      # m, exact since 1959
+    ft, yd, mi = 12 * inch, 36 * inch, 63360 * inch
+    lbf = lb * F("9.80665")                 # N (standard gravity, exact)
+    gal = 231 * inch**3                     # m3, US gallon (exact)
+    igal = F("0.00454609")                  # m3, imperial gallon (exact)
+    eV = F("1.602176634") / 10**19          # J, exact since SI-2019
+    families = {
+        "mass": ("kg", {
+            "ng": F(1, 10**12), "ug": F(1, 10**9), "mg": F(1, 10**6),
+            "g": F(1, 1000), "kg": F(1), "t": F(1000),
+            "gr": lb / 7000, "oz": lb / 16, "lb": lb, "st": 14 * lb,
+            "cwt": 112 * lb, "ust": 2000 * lb, "lt": 2240 * lb,
+            "ct": F(1, 5000)}),
+        "length": ("m", {
+            "nm": F(1, 10**9), "um": F(1, 10**6), "mm": F(1, 1000),
+            "cm": F(1, 100), "m": F(1), "km": F(1000),
+            "mil": inch / 1000, "in": inch, "ft": ft, "yd": yd, "mi": mi,
+            "nmi": F(1852), "au": F(149597870700),
+            "ly": F(9460730472580800)}),
+        "duration": ("s", {
+            "ns": F(1, 10**9), "us": F(1, 10**6), "ms": F(1, 1000),
+            "s": F(1), "min": F(60), "h": F(3600), "d": F(86400),
+            "wk": F(604800), "a": F(31557600)}),
+        "area": ("m2", {
+            "mm2": F(1, 10**6), "cm2": F(1, 10**4), "m2": F(1),
+            "ha": F(10**4), "km2": F(10**6),
+            "in2": inch**2, "ft2": ft**2, "yd2": yd**2,
+            "ac": 43560 * ft**2, "mi2": mi**2}),
+        "volume": ("m3", {
+            "uL": F(1, 10**9), "mL": F(1, 10**6), "L": F(1, 1000),
+            "m3": F(1), "in3": inch**3, "ft3": ft**3,
+            "floz": gal / 128, "pt": gal / 8, "qt": gal / 4, "gal": gal,
+            "ifloz": igal / 160, "ipt": igal / 8, "iqt": igal / 4,
+            "igal": igal}),
+        "speed": ("mps", {
+            "mps": F(1), "kmh": F(1000, 3600), "mph": mi / 3600,
+            "kn": F(1852, 3600), "fps": ft}),
+        "pressure": ("Pa", {
+            "Pa": F(1), "hPa": F(100), "kPa": F(1000), "MPa": F(10**6),
+            "mbar": F(100), "bar": F(10**5), "atm": F(101325),
+            "mmHg": F("133.322387415"), "psi": lbf / inch**2}),
+        "force": ("N", {
+            "uN": F(1, 10**6), "mN": F(1, 1000), "N": F(1), "kN": F(1000),
+            "lbf": lbf}),
+        "energy": ("J", {
+            "eV": eV, "J": F(1), "kJ": F(1000), "MJ": F(10**6),
+            "GJ": F(10**9), "Wh": F(3600), "kWh": F(3600000),
+            "cal": F("4.184"), "kcal": F(4184),
+            "BTU": F("1055.05585262")}),
+        "power": ("W", {
+            "uW": F(1, 10**6), "mW": F(1, 1000), "W": F(1), "kW": F(1000),
+            "MW": F(10**6), "GW": F(10**9), "hp": 550 * ft * lbf}),
+        "frequency": ("Hz", {
+            "uHz": F(1, 10**6), "mHz": F(1, 1000), "Hz": F(1),
+            "kHz": F(1000), "MHz": F(10**6), "GHz": F(10**9)}),
+        "temperature": ("K", {
+            "uK": F(1, 10**6), "mK": F(1, 1000), "K": F(1)}),
+        "current": ("A", {
+            "pA": F(1, 10**12), "nA": F(1, 10**9), "uA": F(1, 10**6),
+            "mA": F(1, 1000), "A": F(1), "kA": F(1000)}),
+        "charge": ("C", {
+            "pC": F(1, 10**12), "nC": F(1, 10**9), "uC": F(1, 10**6),
+            "mC": F(1, 1000), "C": F(1), "mAh": F("3.6"), "Ah": F(3600)}),
+        "voltage": ("V", {
+            "uV": F(1, 10**6), "mV": F(1, 1000), "V": F(1), "kV": F(1000),
+            "MV": F(10**6)}),
+        "resistance": ("ohm", {
+            "uohm": F(1, 10**6), "mohm": F(1, 1000), "ohm": F(1),
+            "kohm": F(1000), "Mohm": F(10**6)}),
+        "capacitance": ("F", {
+            "pF": F(1, 10**12), "nF": F(1, 10**9), "uF": F(1, 10**6),
+            "mF": F(1, 1000), "F": F(1)}),
+        "inductance": ("H", {
+            "nH": F(1, 10**9), "uH": F(1, 10**6), "mH": F(1, 1000),
+            "H": F(1)}),
+        "conductance": ("sie", {          # siemens; "S" would clash with s
+            "usie": F(1, 10**6), "msie": F(1, 1000), "sie": F(1)}),
+        "magnetic-flux": ("Wb", {
+            "nWb": F(1, 10**9), "uWb": F(1, 10**6), "mWb": F(1, 1000),
+            "Wb": F(1)}),
+        "flux-density": ("T", {
+            "uT": F(1, 10**6), "mT": F(1, 1000), "T": F(1)}),
+        "luminous-intensity": ("cd", {
+            "ucd": F(1, 10**6), "mcd": F(1, 1000), "cd": F(1)}),
+        "luminous-flux": ("lm", {
+            "ulm": F(1, 10**6), "mlm": F(1, 1000), "lm": F(1)}),
+        "illuminance": ("lx", {
+            "ulx": F(1, 10**6), "mlx": F(1, 1000), "lx": F(1)}),
+        "amount": ("mol", {
+            "pmol": F(1, 10**12), "nmol": F(1, 10**9),
+            "umol": F(1, 10**6), "mmol": F(1, 1000), "mol": F(1)}),
+        "radioactivity": ("Bq", {
+            "Bq": F(1), "kBq": F(1000), "MBq": F(10**6), "GBq": F(10**9)}),
+        "absorbed-dose": ("Gy", {
+            "uGy": F(1, 10**6), "mGy": F(1, 1000), "Gy": F(1)}),
+        "dose-equivalent": ("Sv", {
+            "uSv": F(1, 10**6), "mSv": F(1, 1000), "Sv": F(1)}),
+        "catalytic-activity": ("kat", {
+            "nkat": F(1, 10**9), "ukat": F(1, 10**6), "kat": F(1)}),
+        "angle": ("deg", {                # degree-anchored; radian excluded
+            "mas": F(1, 3600000), "arcsec": F(1, 3600),
+            "arcmin": F(1, 60), "deg": F(1), "grad": F(9, 10),
+            "turn": F(360)}),
+        "count": ("", {"": F(1)}),
+    }
+    anchors, suffixes = {}, {}
+    for family, (anchor, units) in families.items():
+        if units[anchor] != 1:
+            raise AssertionError(f"anchor {anchor!r} of {family} must be 1")
+        anchors[family] = anchor
+        for suffix, factor in units.items():
+            if suffix in suffixes:
+                raise AssertionError(f"suffix {suffix!r} claimed twice")
+            if factor <= 0:
+                raise AssertionError(f"non-positive factor for {suffix!r}")
+            suffixes[suffix] = (family, factor)
+    return anchors, suffixes
+
+
+_ANCHOR, _UNITS = _build_units()
+_TIME = "time"  # the one non-numeric linear value space (ISO-8601 UTC)
 
 _TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
 _YEAR_RE = re.compile(r"^\d{4}$")
-_NUM_RE = re.compile(r"^(\d+(?:\.\d+)?)([a-z]*)$")
+# A value is an integer, a decimal, or a rational n/d — then a unit suffix
+# (letters first, digits allowed after: m2, in3). The slash belongs to the
+# value, which is why suffixes are slash-free (UNITS.md).
+_NUM_RE = re.compile(r"^(\d+(?:\.\d+)?|\d+/\d+)([A-Za-z][A-Za-z0-9]*)?$")
 _PREFIX_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._\-]*$")
 
 
@@ -99,8 +250,11 @@ def _parse_timestamp(text):
 
 
 def _parse_scalar(text):
-    """One linear value -> (family, value). Integers land in base units
-    exactly or raise; timestamps stay strings (lexicographic = chronological).
+    """One linear value -> (family, value). Numeric values become exact
+    Fractions of the family's anchor unit — integers, decimals and
+    rationals (`10/33m`) all land exactly, so nothing is ever rounded or
+    refused for precision (UNITS.md D9); timestamps stay strings
+    (lexicographic = chronological).
     """
     if _TS_RE.match(text):
         return _TIME, _parse_timestamp(text)
@@ -108,15 +262,15 @@ def _parse_scalar(text):
     if not match:
         raise ValueError(f"invalid value {text!r}")
     number, unit = match.groups()
+    unit = unit or ""
     if unit not in _UNITS:
         raise ValueError(f"unknown unit {unit!r} in {text!r}")
     family, factor = _UNITS[unit]
-    scaled = Fraction(number) * factor
-    if scaled.denominator != 1:
-        raise ValueError(
-            f"{text!r} is finer than the base unit "
-            f"({_BASE_UNIT[family] or 'integer'}) — no silent rounding")
-    return family, int(scaled)
+    try:
+        value = Fraction(number) * factor
+    except ZeroDivisionError:
+        raise ValueError(f"zero denominator in {text!r}") from None
+    return family, value
 
 
 def _parse_end(text, side):
@@ -134,7 +288,7 @@ def _parse_end(text, side):
 
 
 def _parse_linear(param):
-    """-> (family, lo, hi); closed interval; None = unbounded. Integer
+    """-> (family, lo, hi); closed interval; None = unbounded. Numeric
     families have no negative values (the grammar admits none), so an
     unbounded lower end IS 0 and is normalized to it — `number(..0)` and
     `number(0)` must be one canonical name (one denotation, one identity).
@@ -155,7 +309,7 @@ def _parse_linear(param):
             if lo[1] > hi[1]:
                 raise ValueError(f"empty range {param!r} (lo > hi)")
         family = (lo or hi)[0]
-        lo_value = lo[1] if lo else (None if family == _TIME else 0)
+        lo_value = lo[1] if lo else (None if family == _TIME else Fraction(0))
         return family, lo_value, hi[1] if hi else None
     if _DATE_RE.match(param):  # bare date = the whole day, as an interval
         lo = _parse_end(param, "lo")
@@ -250,14 +404,25 @@ def _parse_prefix(param):
 
 # ---- rendering (the canonical form; names are the identity) ----------------
 
+def _fraction_text(value):
+    value = Fraction(value)
+    if value.denominator == 1:
+        return str(value.numerator)
+    return f"{value.numerator}/{value.denominator}"
+
+
 def _render_scalar(family, value):
-    return value if family == _TIME else f"{value}{_BASE_UNIT[family]}"
+    """Canonical spelling: a reduced rational plus the anchor suffix —
+    `3kg`, `1/2kg`, `10/33m` (UNITS.md D9)."""
+    if family == _TIME:
+        return value
+    return f"{_fraction_text(value)}{_ANCHOR[family]}"
 
 
 def _render_linear(family, lo, hi):
     if lo is not None and lo == hi:
         return _render_scalar(family, lo)
-    # Integer families: lo == 0 means unbounded-below and renders as the
+    # Numeric families: lo == 0 means unbounded-below and renders as the
     # `..hi` form — except when hi is also unbounded, where `0..` keeps the
     # rendering parseable (a bare `..` is invalid).
     if family != _TIME and lo == 0 and hi is not None:
@@ -284,8 +449,8 @@ def _render(denotation, kind):
         return _render_linear(*denotation)
     if kind == KIND_DOMINANCE:
         family, values = denotation
-        suffix = "" if family == "count" else _BASE_UNIT[family]
-        return "x".join(str(v) for v in values) + suffix
+        suffix = _ANCHOR[family]
+        return "x".join(_fraction_text(v) for v in values) + suffix
     return denotation  # prefix: the validated string is canonical
 
 

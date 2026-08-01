@@ -91,7 +91,7 @@ class ConeIndex:
             manifest
             and manifest.get("format") == FORMAT
             and manifest.get("data_root") == data_root
-            and manifest.get("registry_version") == _dims.REGISTRY_VERSION)
+            and _dims.registry_compatible(manifest.get("registry_version")))
 
     def cone(self, name):
         if not self._live:

@@ -295,7 +295,7 @@ class DAG:
         # Item): traverse this instance's node, not the caller's object,
         # whose neighbors may be empty (e.g. a fresh Item used to query a
         # rehydrated DAG). An unknown name has no descendants. Parametric
-        # sugar canonicalizes first (weight(3kg) -> weight(3000000mg)), and
+        # sugar canonicalizes first (weight(3000g) -> weight(3kg)), and
         # the walk follows the combined order unless `computed=False`
         # (count maintenance is asserted-only by design).
         if isinstance(node, str):
@@ -468,7 +468,7 @@ class OntoDAG(DAG):
     #
     # A dimension head is an ordinary node asserted under a registry kind node
     # (weight -> linear-dimension); its used values are parametric nodes
-    # (weight(3000000mg)) anchored under it by a schema edge — the "star".
+    # (weight(3kg)) anchored under it by a schema edge — the "star".
     # The order *within* a dimension is computed from the names and never
     # materialized as edges (dense orders have no transitive reduction).
 
@@ -957,7 +957,7 @@ class OntoDAG(DAG):
         # Names are the identity at the public boundary: plain strings are
         # accepted anywhere an Item is (see "Identity" in CLAUDE.md), and
         # parametric sugar resolves to the canonical name before anything
-        # else looks at it (weight(3kg) -> weight(3000000mg), §7).
+        # else looks at it (weight(3000g) -> weight(3kg), §7).
         if isinstance(subcategory, str):
             subcategory = Item(subcategory)
         sub_parsed = self._parse_parametric(subcategory.name)

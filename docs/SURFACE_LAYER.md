@@ -173,6 +173,11 @@ anything. Recognize structure in canonical names and print the friendly form:
 | `time(2026-08-01T00:00:00Z..2026-08-31T23:59:59Z)` | `time(2026-08)` |
 | `weight(3000000mg)` | `weight(3kg)` |
 
+(Historical note, 2026-08-01 evening: registry v3 — `UNITS.md` D9 — moved
+canonical values to rationals of the SI anchor, so the weight row now reads
+`weight(1/2000kg)` → `weight(500g)`; `weight(3kg)` became its own canonical
+spelling. The law and the layering are unchanged.)
+
 The weight row shows this is not a calendar feature: "render friendly units" is
 already noted as UI work in `dimensions.py` and has never been done.
 

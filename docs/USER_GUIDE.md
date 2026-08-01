@@ -506,10 +506,12 @@ What to know:
   2026, because there a bare integer is a count. If you declared a time dimension
   that way, the error message says so and names the fix; re-declaring the head
   under `calendar-dimension` changes no stored value.
-- **Other dimensions work the same way.** `weight(3kg)` is stored as
-  `weight(3000000mg)` — values are exact integers in tiny base units (mass in mg,
-  length in mm, duration in s), so `3kg`, `3000g` and `3.0kg` are one identity,
-  and anything finer than the base unit is an error rather than rounded.
+- **Other dimensions work the same way.** Values are stored as exact rationals
+  of the SI anchor unit — `weight(3000g)` is stored as `weight(3kg)`, `500g` as
+  `weight(1/2kg)` — so `3kg`, `3000g` and `3.0kg` are one identity, nothing is
+  ever rounded, and every exactly-defined unit works: `weight(1lb)`,
+  `pressure(32psi)`, even `length(10/33m)`. Run `odag prelude` for the everyday
+  dimensions and see docs/UNITS.md for the full table.
 - **Two more kinds**: `prefix-dimension` for hierarchical codes
   (`geo(u2ed)` is inside `geo(u2)` — geohash cells, handy for "near Tokyo"), and
   `dominance-dimension` for does-it-fit tuples
@@ -835,9 +837,9 @@ Useful habits:
 ### 5.5 Readable output: friendly on screen, exact in pipes
 
 Typed values are stored in an exact canonical form — `time(2026-08-15)` is
-really `time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)`, `weight(3kg)` is
-`weight(3000000mg)` — which is what makes equal knowledge produce equal
-fingerprints. You shouldn't have to *read* that, so `odag` renders friendly
+really `time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)`, `weight(500g)` is
+`weight(1/2kg)` (a rational of the SI anchor unit) — which is what makes equal
+knowledge produce equal fingerprints. You shouldn't have to *read* that, so `odag` renders friendly
 spellings **on a terminal** and prints the exact canonical bytes **whenever
 output goes to a pipe, a file, or `-o`** — so `odag get ... | odag` always
 round-trips, and scripts never see a "pretty" name. The same store, both

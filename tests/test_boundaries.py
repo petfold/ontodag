@@ -120,6 +120,11 @@ class TestCoreIsSwarmFree(unittest.TestCase):
             "and bee must stay lazy, function-local imports",
         )
 
+    def test_migrate_module_imports_stay_core_only(self):
+        loaded = fresh_import("ontodag.migrate", CORE_FORBIDDEN)
+        self.assertEqual(loaded, [],
+                         f"importing ontodag.migrate loaded {loaded}")
+
     def test_core_never_imports_the_surface(self):
         # SURFACE_LAYER.md §7: ontodag.surface is opt-in by import — the
         # human-facing rendering layer. The core must never call it, or

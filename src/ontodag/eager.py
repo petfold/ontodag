@@ -106,7 +106,7 @@ class EagerOntoDAG(OntoDAG):
             payload=None, meta=None):
         super().put(subcategory, super_categories, optimized=optimized)
         # Plain strings accepted, like OntoDAG; parametric sugar stores
-        # under the canonical name (weight(3kg) -> weight(3000000mg)).
+        # under the canonical name (weight(3000g) -> weight(3kg)).
         name = self._canonical_name(_name_of(subcategory))
         if payload is not None:
             self._payloads[name] = payload

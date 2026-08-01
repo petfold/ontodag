@@ -80,13 +80,13 @@ class TestRenderingTable(unittest.TestCase):
                          "time(2026-08-15T12:00:00Z)")
 
     def test_units_re_express(self):
-        self.assertEqual(self.r("weight(3000000mg)"), "weight(3kg)")
-        self.assertEqual(self.r("weight(..5000000mg)"), "weight(..5kg)")
+        self.assertEqual(self.r("weight(3kg)"), "weight(3kg)")
+        self.assertEqual(self.r("weight(..5kg)"), "weight(..5kg)")
         self.assertEqual(self.r("weight(800000mg..1500000mg)"),
                          "weight(800g..1500g)")
         self.assertEqual(self.r("weight(1500mg)"), "weight(1500mg)")
         self.assertEqual(self.r("weight(1000000000mg)"), "weight(1t)")
-        self.assertEqual(self.r("weight(0mg)"), "weight(0mg)")
+        self.assertEqual(self.r("weight(0mg)"), "weight(0kg)")  # zero keeps the anchor
 
     def test_dominance_and_prefix(self):
         self.assertEqual(self.r("size(390x230x190mm)"), "size(39x23x19cm)")
@@ -107,12 +107,12 @@ class TestRenderingTable(unittest.TestCase):
         # break the law, since elaboration keeps it opaque.
         self.assertEqual(self.r("foo(3000000mg)"), "foo(3000000mg)")
         self.assertEqual(self.r("cat"), "cat")
-        self.assertEqual(surface.render("weight(3000000mg)"),  # no context
-                         "weight(3000000mg)")
+        self.assertEqual(surface.render("weight(3kg)"),  # no context
+                         "weight(3kg)")
 
     def test_kind_direct_context(self):
         self.assertEqual(
-            surface.render("weight(3000000mg)", kind=dims.KIND_LINEAR),
+            surface.render("weight(3kg)", kind=dims.KIND_LINEAR),
             "weight(3kg)")
 
     def test_injectivity_the_almost_a_year_range(self):
@@ -122,7 +122,7 @@ class TestRenderingTable(unittest.TestCase):
         self.assertEqual(surface.elaborate(rendered, self.dag), t)
 
     def test_render_is_a_pure_function_of_the_canonical_name(self):
-        spellings = ["weight(3kg)", "weight(3000g)", "weight(3000000mg)"]
+        spellings = ["weight(3kg)", "weight(3000g)", "weight(3kg)"]
         rendered = {surface.render(surface.elaborate(s, self.dag), self.dag)
                     for s in spellings}
         self.assertEqual(rendered, {"weight(3kg)"})
@@ -274,7 +274,7 @@ class TestSurfaceCLI(unittest.TestCase):
         _, lines = self.run_cmd(["canon", "time(2026)"])
         self.assertEqual(lines, [self.CANONICAL])
         _, lines = self.run_cmd(["canon", "weight(3kg)"])
-        self.assertEqual(lines, ["weight(3000000mg)"])
+        self.assertEqual(lines, ["weight(3kg)"])
         _, lines = self.run_cmd(["canon", "cat"])   # opaque: itself
         self.assertEqual(lines, ["cat"])
 

@@ -50,20 +50,20 @@ def make_dag():
 class TestBoundaryAndAnchors(unittest.TestCase):
     def test_put_canonicalizes_and_anchors(self):
         dag = make_dag()
-        dag.put("parcel", ["weight(3kg)"])
-        self.assertIn("weight(3000000mg)", dag.nodes)
-        self.assertNotIn("weight(3kg)", dag.nodes)
-        value = dag.nodes["weight(3000000mg)"]
+        dag.put("parcel", ["weight(3000g)"])   # sugar in ...
+        self.assertIn("weight(3kg)", dag.nodes)      # ... canonical stored
+        self.assertNotIn("weight(3000g)", dag.nodes)  # never the spelling
+        value = dag.nodes["weight(3kg)"]
         self.assertEqual(names(value.parents), {"weight"})   # the anchor
         self.assertEqual(names(dag.nodes["parcel"].parents),
-                         {"weight(3000000mg)"})
+                         {"weight(3kg)"})
 
     def test_sugar_is_one_identity_everywhere(self):
         dag = make_dag()
         dag.put("parcel", ["weight(3kg)"])
         dag.put("parcel2", ["weight(3000g)"])  # same canonical value
         self.assertEqual(
-            names(dag.nodes["weight(3000000mg)"].neighbors),
+            names(dag.nodes["weight(3kg)"].neighbors),
             {"parcel", "parcel2"})
         # Queries accept sugar too.
         self.assertIn(dag.nodes["parcel"],
@@ -80,7 +80,7 @@ class TestBoundaryAndAnchors(unittest.TestCase):
         dag = make_dag()
         dag.put("light", ["weight"])
         dag.put("weight(3kg)", ["light"])
-        value = dag.nodes["weight(3000000mg)"]
+        value = dag.nodes["weight(3kg)"]
         # `weight` is an ancestor of `light`, so reduction would prune the
         # direct weight -> value edge — but it is the anchor: schema, kept.
         self.assertEqual(names(value.parents), {"weight", "light"})
@@ -89,8 +89,10 @@ class TestBoundaryAndAnchors(unittest.TestCase):
         dag = make_dag()
         with self.assertRaises(ValueError):
             dag.put("parcel", ["weight(3zz)"])
-        with self.assertRaises(ValueError):
-            dag.put("parcel", ["weight(0.0005g)"])  # finer than base unit
+        # Sub-anchor precision is no longer an error (UNITS.md D9):
+        # rationals are exact, so nothing is ever rounded or refused.
+        dag.put("parcel", ["weight(0.0005g)"])
+        self.assertIn("weight(1/2000000kg)", dag.nodes)
 
 
 class TestComputedOrder(unittest.TestCase):
@@ -155,8 +157,8 @@ class TestReductionModuloComputed(unittest.TestCase):
         # parcel under the point implies parcel under the interval via a
         # computed hop: the interval edge must be gone (canonical form).
         self.assertEqual(names(dag.nodes["parcel"].parents),
-                         {"weight(3000000mg)"})
-        self.assertIn("weight(..5000000mg)", dag.nodes)  # value stays
+                         {"weight(3kg)"})
+        self.assertIn("weight(..5kg)", dag.nodes)  # value stays
 
     def test_history_independence_of_stored_form(self):
         def build(order):
@@ -202,8 +204,8 @@ class TestPutGuards(unittest.TestCase):
         dag = make_dag()
         dag.put("x", ["weight(1kg..3kg)", "weight(2kg..5kg)"])
         self.assertEqual(names(dag.nodes["x"].parents),
-                         {"weight(1000000mg..3000000mg)",
-                          "weight(2000000mg..5000000mg)"})
+                         {"weight(1kg..3kg)",
+                          "weight(2kg..5kg)"})
 
     def test_unit_family_consistency_per_head(self):
         dag = make_dag()
@@ -228,8 +230,8 @@ class TestRemoveContraction(unittest.TestCase):
         # Contraction along the combined order restores exactly what
         # reduction-modulo-computed pruned.
         self.assertEqual(names(dag.nodes["parcel"].parents),
-                         {"weight(..5000000mg)"})
-        self.assertNotIn("weight(3000000mg)", dag.nodes)
+                         {"weight(..5kg)"})
+        self.assertNotIn("weight(3kg)", dag.nodes)
 
     def test_remove_falls_back_to_the_head(self):
         dag = make_dag()
@@ -277,7 +279,7 @@ class TestVirtualQueryTerms(unittest.TestCase):
         self.assertIn("flour-bag", result)
         self.assertNotIn("heavy-parcel", result)
         # Virtual means virtual: querying materialized nothing.
-        self.assertNotIn("weight(..5000000mg)", dag.nodes)
+        self.assertNotIn("weight(..5kg)", dag.nodes)
 
     def test_flour_query(self):
         result = names(self._market().get({"weight(1kg..)"}))
@@ -287,7 +289,7 @@ class TestVirtualQueryTerms(unittest.TestCase):
     def test_same_head_terms_pre_intersect(self):
         dag = self._market()
         result = names(dag.get({"weight(..5kg)", "weight(2kg..)"}))
-        self.assertEqual({"weight(3000000mg)", "parcel"}, result)
+        self.assertEqual({"weight(3kg)", "parcel"}, result)
         # Provably disjoint terms: empty result, no error — a read is a
         # question, only put refuses (DIMENSIONS.md §9).
         self.assertEqual(dag.get({"weight(..2kg)", "weight(3kg..)"}), set())
@@ -404,7 +406,7 @@ class TestEagerDimensions(unittest.TestCase):
         again = EagerOntoDAG(RecordStore.at(root, blobs))
         self.assertIn("parcel", names(again.get({"weight(..5kg)"})))
         # The anchor star survived the roundtrip as the enumeration index.
-        self.assertEqual(names(again.nodes["weight(3000000mg)"].parents),
+        self.assertEqual(names(again.nodes["weight(3kg)"].parents),
                          {"weight"})
 
 
