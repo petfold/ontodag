@@ -91,6 +91,27 @@ PACKS = {
 }
 
 
+_SUFFIX_INDEX = None
+
+
+def packs_defining(suffix):
+    """Sorted names of shipped packs whose declarations define `suffix` —
+    the lookup behind the teaching error for units that are one merge
+    away (`5USD` before `odag pack fiat-iso4217`)."""
+    global _SUFFIX_INDEX
+    if _SUFFIX_INDEX is None:
+        index = {}
+        for pack, (_version, declarations) in PACKS.items():
+            for declaration in declarations:
+                if declaration.startswith("unit-family("):
+                    spelling = declaration[len("unit-family("):-1]
+                else:
+                    spelling = declaration[len("unit("):].partition("=")[0]
+                index.setdefault(spelling, []).append(pack)
+        _SUFFIX_INDEX = {k: sorted(v) for k, v in index.items()}
+    return _SUFFIX_INDEX.get(suffix, [])
+
+
 def pack_dag(name) -> OntoDAG:
     """The pack as a fresh OntoDAG, ready to merge into any store."""
     try:

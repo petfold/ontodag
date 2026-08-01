@@ -373,9 +373,8 @@ def _parse_scalar(text, units=None):
     if hit is None:
         raise ValueError(
             f"unknown unit {unit!r} in {text!r} — not in the built-in "
-            f"table or this graph's unit declarations (merge the pack "
-            f"that defines it, or declare it: put "
-            f"'unit({unit}=<value><unit>)' unit-declaration)")
+            f"table or this graph's unit declarations"
+            f"{_pack_hint([unit])}")
     family, factor = hit
     try:
         value = Fraction(number) * factor
@@ -705,6 +704,28 @@ def intersect(a, b, kind, units=None):
 _SUFFIX_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*$")
 
 
+def _pack_hint(suffixes):
+    """The actionable tail of an unknown-unit error: name the shipped pack
+    that defines the spelling when one does (`USD` -> fiat-iso4217,
+    `sat` -> crypto-core), the generic declaration recipe otherwise.
+    Lazy import — packs sits above this module, and only error paths
+    ever come here."""
+    from ontodag import packs as _packs
+    by_pack = {}
+    for suffix in suffixes:
+        for pack in _packs.packs_defining(suffix):
+            by_pack.setdefault(pack, []).append(suffix)
+    if by_pack:
+        offers = "; ".join(
+            f"{', '.join(map(repr, sorted(found)))} is in the "
+            f"{pack!r} pack — adopt it with: odag pack {pack}"
+            for pack, found in sorted(by_pack.items()))
+        return f" ({offers}; vocabulary then travels with the store)"
+    one = sorted(suffixes)[0]
+    return (f" (merge the pack that defines it, or declare it: "
+            f"put 'unit({one}=<value><unit>)' unit-declaration)")
+
+
 def resolve_declarations(names):
     """Parse a set of declaration-node names into an extra-units map
     ``{suffix: (family, factor)}``. Pure; raises ValueError with a
@@ -768,7 +789,6 @@ def resolve_declarations(names):
             raise ValueError(
                 f"unresolvable unit declarations "
                 f"{sorted(r for *_, r in rest)!r}: unknown base unit(s) "
-                f"{missing!r} — merge the pack that defines them, or "
-                f"declare them first")
+                f"{missing!r}{_pack_hint(missing)}")
         pending = rest
     return extra

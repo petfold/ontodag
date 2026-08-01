@@ -518,7 +518,9 @@ What to know:
   national currencies), `odag pack crypto-majors`, `odag pack` to list — and you
   can declare your own unit with one put:
   `odag put 'unit(firkin=9igal)' unit-declaration`. Declarations merge
-  and travel with the store, so readers need nothing installed. Run `odag prelude` for the everyday
+  and travel with the store, so readers need nothing installed. You don't
+  have to memorize any of this: typing `price(5USD)` before adopting a pack
+  refuses with the exact command (`odag pack fiat-iso4217`). Run `odag prelude` for the everyday
   dimensions and see the generated docs/UNIT_TABLE.md for the full listing.
 - **Two more kinds**: `prefix-dimension` for hierarchical codes
   (`geo(u2ed)` is inside `geo(u2)` — geohash cells, handy for "near Tokyo"), and

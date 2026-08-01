@@ -128,6 +128,24 @@ class TestDeclarations(unittest.TestCase):
         dag.put("delivery", ["beer(1kilderkin)"])
         self.assertTrue(dag.is_below("delivery", "beer(..100igal)"))
 
+    def test_pack_defined_spelling_teaches_the_pack(self):
+        # A unit that exists one merge away names its pack and the exact
+        # command — never the generic error (Peter, 2026-08-01).
+        dag = priced_dag()
+        for term, pack in [("price(5USD)", "fiat-iso4217"),
+                           ("price(1BTC)", "crypto-core"),
+                           ("price(2000sat)", "crypto-core"),
+                           ("price(1DOGE)", "crypto-majors"),
+                           ("price(9USDC)", "stablecoins")]:
+            with self.assertRaises(ValueError) as ctx:
+                dag.put("x", [term])
+            self.assertIn(f"odag pack {pack}", str(ctx.exception), term)
+        # a declaration whose *base* is pack-defined teaches the same way
+        from ontodag.dimensions import resolve_declarations
+        with self.assertRaises(ValueError) as ctx:
+            resolve_declarations({"unit(cent=1/100USD)"})
+        self.assertIn("odag pack fiat-iso4217", str(ctx.exception))
+
     def test_unknown_spelling_teaches_the_declaration(self):
         dag = ontodag.OntoDAG()
         dag.put("dimension", [])
