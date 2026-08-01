@@ -13,6 +13,7 @@ Associative memory and categories based on a directed acyclic graph data structu
 - **[How It Works Inside](docs/HOW_IT_WORKS.md)** — the design in plain language
   (canonical form, query planning, content-addressed persistence, verifiable answers).
 - **[Roadmap](docs/ROADMAP.md)** — delivered, queued, parked, and research horizon.
+- **[Changelog](CHANGELOG.md)** — what each release added, with registry migration notes.
 - **[The contract](docs/CONTRACT.md)** — what programs (and AI agents) built on
   OntoDAG may rely on: the guarantees, versioned.
 - `docs/SWARM_DESIGN.md`, `docs/SEMANTIC_CODES.md`, `docs/AGENT_SURFACE.md` —
