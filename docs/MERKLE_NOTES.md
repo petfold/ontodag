@@ -115,3 +115,15 @@ beyond writing.
 | what changed between two versions? | **Merkle diff** | public since recordstore 0.15.0: `RecordStore.diff` |
 | detect my own changes without full residency | resident-set diff (Merkle diff proved unnecessary — see Outcome above) | done: `SparseOntoDAG.commit()` |
 | what is this blob called? | Swarm BMT vs sha256 | choosable per store, orthogonal |
+| is this record in root R? / provably absent? | **trie proofs** | done: recordstore 0.16.0 `prove`/`verify_proof` |
+| is X ⊑ A, verifiable by a third party? | certificates (re-execution over authenticated fragments) | done: `ontodag.certificates` (2026-08-01) |
+| path-sized ⊑ proofs / on-chain verification / per-cone commitments? | a **Merkle-ized semantic DAG, as a derived index** | walled — see `DATABASE_DIRECTION.md`, "A Merkle-ized semantic DAG" (2026-08-01) |
+
+**Update 2026-08-01 — the "Merkle-ize the semantic DAG itself?" question**
+(Peter, after the certificates landed) is answered as a wall in
+`DATABASE_DIRECTION.md`: never the base representation (names are identity,
+Merkle addresses are version-bound; hash links serve one direction; the
+computed order has no edges to link), but a *derived* per-node
+cone-commitment index is admissible and buys path-sized positive proofs,
+whole-subontology agreement by hash, and on-chain-verifiable subsumption —
+tripwire-gated on someone actually needing the on-chain half.

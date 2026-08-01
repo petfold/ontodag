@@ -304,6 +304,33 @@ future session recognizes the moment instead of pre-building:
   privacy-demanding counterparty, loopmarket-shaped. Contrast on-chain
   *anchoring* of roots, which is not a wall: 32 bytes in a contract,
   keccak-native BMT addressing, waits only on a consumer.
+- **A Merkle-ized semantic DAG — per-node cone commitments** (added
+  2026-08-01, from Peter's question after the `is_below` certificates
+  landed; extends `MERKLE_NOTES.md`). Hash-linking the semantic graph
+  itself (node id = hash of name + child hashes) would buy three real
+  things the current stack lacks: **path-sized, order-free positive
+  subsumption proofs** (a hash-link path is a self-verifying witness — no
+  dependency closure, no re-execution), **per-category cone commitments**
+  (agree about a whole subontology by comparing one hash; adopt a
+  published vocabulary as byte-identical subtrees), and **on-chain
+  verifiable subsumption** — the one proof shape a contract can check,
+  where re-execution certificates cannot run. It can never be the *base
+  representation*: names are identity and a Merkle address changes
+  whenever anything below the node changes (so it is an index *over* the
+  named graph, never the graph); hash links point one way, so negative
+  answers keep needing the ancestor-cone machinery regardless; and the
+  computed order corresponds to no edges at all, so hash paths cover only
+  the asserted fragment — declarations and arithmetic re-execution stay.
+  The admissible form is the third instance of the
+  derived-local-regenerable pattern (cone summaries, `SEMANTIC_CODES.md`):
+  a per-node cone-commitment index in its own store, manifest-pinned,
+  deterministic from the canonical form — the asserted root untouched by
+  construction. Kin: the POT track in recordstore's ROADMAP (the
+  storage-side cousin, with the Solidity verifier). Tripwire: someone
+  needs a ⊑ claim verified **on-chain** (factbond dispute settlement,
+  loopmarket P2 settlement), or certificate volume makes cone-sized
+  proofs measurably painful. Until then, the 2026-08-01 certificates
+  answer every off-chain need, and building this is pre-building.
 
 ## Merkle structures: see `MERKLE_NOTES.md`
 
