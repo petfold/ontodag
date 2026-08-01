@@ -44,8 +44,17 @@ from fractions import Fraction
 #      `unit-family(NAME)` nodes under the registry node `unit-declaration`
 #      extend the vocabulary as DATA (UNITS.md §7); the built-in table
 #      slims to physical/digital measurement + the stack's own tokens, and
-#      currencies move to shipped packs adopted by merge).
-REGISTRY_VERSION = "3.2"
+#      currencies move to shipped packs adopted by merge),
+# 4.0 (2026-08-01: AFFINE TEMPERATURES, and bare C/F go to them — Peter:
+#      "if I type 24C it should be Celsius rather than Coulomb". `24C`,
+#      `-40F`, `0C..100C` parse exactly onto the kelvin scale (offsets are
+#      rationals). The bare coulomb and farad are spelled out (`coulomb`,
+#      `farad` — now the anchors); every prefixed form (mC, uF, mAh...)
+#      is untouched, and those are what charge/capacitance actually use.
+#      MAJOR because two canonical anchors change and bare C/F change
+#      meaning: a 3.x store carrying bare-C/F values must rewrite them to
+#      coulomb/farad spellings before an ontodag.migrate replay).
+REGISTRY_VERSION = "4.0"
 
 
 def registry_compatible(version, other=None):
@@ -169,18 +178,19 @@ def _build_units():
         "current": ("A", {
             "pA": F(1, 10**12), "nA": F(1, 10**9), "uA": F(1, 10**6),
             "mA": F(1, 1000), "A": F(1), "kA": F(1000)}),
-        "charge": ("C", {
+        "charge": ("coulomb", {
             "pC": F(1, 10**12), "nC": F(1, 10**9), "uC": F(1, 10**6),
-            "mC": F(1, 1000), "C": F(1), "mAh": F("3.6"), "Ah": F(3600)}),
+            "mC": F(1, 1000), "coulomb": F(1),
+            "mAh": F("3.6"), "Ah": F(3600)}),
         "voltage": ("V", {
             "uV": F(1, 10**6), "mV": F(1, 1000), "V": F(1), "kV": F(1000),
             "MV": F(10**6)}),
         "resistance": ("ohm", {
             "uohm": F(1, 10**6), "mohm": F(1, 1000), "ohm": F(1),
             "kohm": F(1000), "Mohm": F(10**6)}),
-        "capacitance": ("F", {
+        "capacitance": ("farad", {
             "pF": F(1, 10**12), "nF": F(1, 10**9), "uF": F(1, 10**6),
-            "mF": F(1, 1000), "F": F(1)}),
+            "mF": F(1, 1000), "farad": F(1)}),
         "inductance": ("H", {
             "nH": F(1, 10**9), "uH": F(1, 10**6), "mH": F(1, 1000),
             "H": F(1)}),
@@ -261,6 +271,26 @@ def _build_units():
 
 
 _ANCHOR, _UNITS = _build_units()
+
+# Affine units (2026-08-01, Peter: "we need Celsius", and "if I type 24C
+# it should be Celsius rather than Coulomb"): K = n·factor + offset, exact
+# rationals. The old §2 exclusion is retracted in part — the blocker was
+# the (family, factor) model, not determinism: with an explicit suffix the
+# map is exact and unambiguous. Bare `C` and `F` mean the temperatures —
+# context-free, per Peter's rule — which is why the bare coulomb and farad
+# are spelled out above (prefixed forms, the ones those families actually
+# use, are untouched). `degC`/`degF` stay as input aliases (the SI ASCII
+# fallback); rendering emits `C`/`F`. Affine spellings denote ABSOLUTE
+# temperature points; a temperature *difference* is a different quantity
+# and stays kelvin-only. Built-in-only (graph declarations remain
+# factor-only), and _RENDER_AFFINE lists the render-preferred spellings.
+_AFFINE = {
+    "C": ("temperature", Fraction(1), Fraction("273.15")),
+    "degC": ("temperature", Fraction(1), Fraction("273.15")),
+    "F": ("temperature", Fraction(5, 9), Fraction(45967, 180)),
+    "degF": ("temperature", Fraction(5, 9), Fraction(45967, 180)),
+}
+_RENDER_AFFINE = ("C", "F")
 _TIME = "time"  # the one non-numeric linear value space (ISO-8601 UTC)
 
 _TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
@@ -270,7 +300,7 @@ _YEAR_RE = re.compile(r"^\d{4}$")
 # A value is an integer, a decimal, or a rational n/d — then a unit suffix
 # (letters first, digits allowed after: m2, in3). The slash belongs to the
 # value, which is why suffixes are slash-free (UNITS.md).
-_NUM_RE = re.compile(r"^(\d+(?:\.\d+)?|\d+/\d+)([A-Za-z][A-Za-z0-9]*)?$")
+_NUM_RE = re.compile(r"^(-?\d+(?:\.\d+)?|-?\d+/\d+)([A-Za-z][A-Za-z0-9]*)?$")
 _PREFIX_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._\-]*$")
 
 
@@ -327,6 +357,18 @@ def _parse_scalar(text, units=None):
         raise ValueError(f"invalid value {text!r}")
     number, unit = match.groups()
     unit = unit or ""
+    affine = _AFFINE.get(unit)
+    if affine is not None:
+        family, factor, offset = affine
+        try:
+            value = Fraction(number) * factor + offset
+        except ZeroDivisionError:
+            raise ValueError(f"zero denominator in {text!r}") from None
+        if value < 0:
+            raise ValueError(
+                f"{text!r} is below absolute zero ({-offset/factor} "
+                f"{unit} at the coldest)")
+        return family, value
     hit = _lookup(unit, units)
     if hit is None:
         raise ValueError(
@@ -339,6 +381,10 @@ def _parse_scalar(text, units=None):
         value = Fraction(number) * factor
     except ZeroDivisionError:
         raise ValueError(f"zero denominator in {text!r}") from None
+    if value < 0:
+        raise ValueError(
+            f"negative quantity {text!r} — the grammar admits negatives "
+            f"only for affine temperature spellings (C/degC, F/degF)")
     return family, value
 
 
@@ -669,7 +715,8 @@ def resolve_declarations(names):
     extra = {}
 
     def register(spelling, value, raw):
-        clash = _UNITS.get(spelling) or extra.get(spelling)
+        clash = (_UNITS.get(spelling) or extra.get(spelling)
+                 or _AFFINE.get(spelling))
         if clash is not None and clash != value:
             raise ValueError(
                 f"conflicting unit declaration {raw!r}: {spelling!r} "

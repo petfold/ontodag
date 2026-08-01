@@ -46,7 +46,8 @@ def _crypto_majors():
     return tuple(declarations)
 
 
-_STABLECOINS = ("USDT", "USDC", "EURC", "PYUSD", "GUSD", "TUSD")
+_STABLECOINS = ("USDT", "USDC", "EURC", "PYUSD", "GUSD", "TUSD",
+                "LUSD")
 
 _ISO4217 = (
     "AED AFN ALL AMD ANG AOA ARS AUD AWG AZN BAM BBD BDT BGN BHD BIF "

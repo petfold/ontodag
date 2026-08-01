@@ -1,0 +1,62 @@
+issues
+
+User Guide
+
+start with Quickstart section
+
+installation, few sentences introduction and super simple example for command line, even useful for non-programmers, also simple python, simple API example
+
+pet dog example replace with something more relevant to potential users (even as a tiny example to introduce the whole system)
+
+command line version first, possibly? simpler, even for non-programmers, Python later
+
+example should be related to how you organise your files and messages and real life rather than Pet and Dog (the robot pet is also unexpected and unusual. The point is to show real, useful use cases, even if on a very small example.)
+e.g. by media (image, video, work topics, people categories (colleagues, friends, family, age, male/female, work projects, admin, property related, travel related (tickets, accommodation, bookings), automatic emails (utility companies, etc.)
+person has different media usernames, email address but same person
+events (calendar)
+
+transport(from(Sao Paulo), to(Rome))
+computed values (not stored but used in query), e.g.
+duration(process) = end_time(process) - begin_time(process)
+transport_duration(transport) = time(arrival_time(transport)) - time(departure_time(transport))
+is this becoming a programming or declarative language? from a simple query format to a knowledge representation system?
+simple query language to some reasoning system?
+how far should ontodag go?
+
+upper ontologies to import, should we make a useful upper, consensual ontology? Or find one? where from,  OpenCyc (abandoned project but they worked a lot on the upper ontology), maybe relevant repo
+https://github.com/asanchez75/opencyc or find better
+What are the best current upper ontologies? public knowledge graphs we could use?
+But try to keep it simple
+
+Ubuntu first errors on my Ubuntu laptop:
+$ pip install ontodag
+error: externally-managed-environment
+× This environment is externally managed
+╰─> To install Python packages system-wide, try apt install
+    python3-xyz, where xyz is the package you are trying to
+    install.
+$ pipx install ontodag
+'ontodag' already seems to be installed. Not modifying existing installation
+in '/home/test/.local/share/pipx/venvs/ontodag'. Pass '--force' to force
+installation.
+
+cut part of a dag? what is it called, a view? or projection? not sure of the correct technical term
+
+visualise? Andras Aranyi worked on this. it's in the repo. Is this still up to date, tested? Does it work with new features? should be mentioned in User Guide
+
+
+Python example simplification. no "for item in" loop in the simplest example query
+should empty query means returning everything, not error
+"set" command to set node, every option, even environment variables
+set file for saving from "set" command line and from set command
+sensible defaults.
+default should be local storage but swarm defauls should be sensible too, easy to switch on
+
+set command without parameters should list all settings that can be set
+
+wasm in browser ontodag? possibly Pyodide (WebAssembly)
+Can this be done?
+
+
+
+

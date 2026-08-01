@@ -44,10 +44,10 @@ class TestTable(unittest.TestCase):
             self.assertEqual(once, expected, suffix)
 
     def test_registry_version_and_compatibility(self):
-        self.assertEqual(REGISTRY_VERSION, "3.2")
-        self.assertTrue(registry_compatible("3.9"))
-        self.assertFalse(registry_compatible("2"))
-        self.assertFalse(registry_compatible("4.0"))
+        self.assertEqual(REGISTRY_VERSION, "4.0")
+        self.assertTrue(registry_compatible("4.9"))
+        self.assertFalse(registry_compatible("3.2"))
+        self.assertFalse(registry_compatible("5.0"))
 
 
 class TestFlagshipExactness(unittest.TestCase):
@@ -113,9 +113,33 @@ class TestFlagshipExactness(unittest.TestCase):
         self.assertEqual(canonicalize("n(50pct)", KIND_LINEAR), "n(1/2)")
         self.assertEqual(canonicalize("n(25bp)", KIND_LINEAR), "n(1/400)")
     def test_honest_exclusions(self):
-        for bad in ("t(20degC)", "t(70degF)", "a(1rad)"):
-            with self.assertRaises(ValueError):
-                canonicalize(bad, KIND_LINEAR)
+        # the affine exclusion was retracted in registry 4.0 (Celsius and
+        # Fahrenheit parse exactly); the transcendental one stands
+        with self.assertRaises(ValueError):
+            canonicalize("a(1rad)", KIND_LINEAR)
+
+    def test_affine_temperatures(self):
+        # bare C/F are Celsius/Fahrenheit, context-free (Peter's rule,
+        # registry 4.0); the kelvin scale stays canonical underneath
+        self.assertEqual(canonicalize("t(24C)", KIND_LINEAR),
+                         "t(5943/20K)")
+        self.assertEqual(canonicalize("t(24degC)", KIND_LINEAR),
+                         canonicalize("t(24C)", KIND_LINEAR))
+        self.assertEqual(canonicalize("t(-40C)", KIND_LINEAR),
+                         canonicalize("t(-40F)", KIND_LINEAR))
+        self.assertEqual(canonicalize("t(0C..100C)", KIND_LINEAR),
+                         "t(5463/20K..7463/20K)")
+        self.assertTrue(contains("t(0C..30C)", "t(75F)", KIND_LINEAR))
+        # below absolute zero refuses; negatives stay refused elsewhere
+        with self.assertRaises(ValueError):
+            canonicalize("t(-300C)", KIND_LINEAR)
+        with self.assertRaises(ValueError):
+            canonicalize("w(-3kg)", KIND_LINEAR)
+        # the bare SI coulomb/farad are spelled out; prefixes untouched
+        self.assertEqual(canonicalize("q(5000mC)", KIND_LINEAR),
+                         "q(5coulomb)")
+        self.assertEqual(canonicalize("c(1000000uF)", KIND_LINEAR),
+                         "c(1farad)")
 
 
 class TestMigration(unittest.TestCase):

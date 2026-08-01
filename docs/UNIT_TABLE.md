@@ -1,10 +1,16 @@
 # The Unit Table (generated — do not edit)
 
-Registry **3.2**. Built-in suffixes: **247** —
+Registry **4.0**. Built-in suffixes: **247** —
 physical and digital measurement only (PACKS.md Q10): anything
 market-shaped lives in packs, listed at the bottom. Factors are exact
 rationals of each family's anchor (bold). Regenerate with the snippet
 in the commit that produced this file.
+
+Temperature additionally accepts the **affine spellings** `C`, `degC`,
+`F`, `degF` (Celsius/Fahrenheit as absolute points, mapped exactly onto
+the kelvin scale; negatives allowed, below absolute zero refused) —
+input and rendering vocabulary, never canonical. The bare coulomb and
+farad are therefore spelled `coulomb` / `farad`.
 
 | family | anchor | suffixes (ascending) |
 |---|---|---|
@@ -12,9 +18,9 @@ in the commit that produced this file.
 | amount | `mol` | pmol, nmol, umol, mmol, **mol** |
 | angle | `deg` | mas, arcsec, arcmin, grad, **deg**, turn |
 | area | `m2` | mm2, cm2, in2, ft2, yd2, **m2**, ac, ha, km2, mi2 |
-| capacitance | `F` | pF, nF, uF, mF, **F** |
+| capacitance | `farad` | pF, nF, uF, mF, **farad** |
 | catalytic-activity | `kat` | nkat, ukat, **kat** |
-| charge | `C` | pC, nC, uC, mC, **C**, mAh, Ah |
+| charge | `coulomb` | pC, nC, uC, mC, **coulomb**, mAh, Ah |
 | compute-rate | `FLOPS` | **FLOPS**, MFLOPS, GFLOPS, TFLOPS, PFLOPS, EFLOPS |
 | conductance | `sie` | usie, msie, **sie** |
 | count | `(bare number)` | ppm, bp, pct, **(bare)**, dz |
@@ -62,7 +68,7 @@ Subunits: `lamport=1/1000000000SOL`, `drop=1/1000000XRP`, `lovelace=1/1000000ADA
 
 `AED`, `AFN`, `ALL`, `AMD`, `ANG`, `AOA`, `ARS`, `AUD`, `AWG`, `AZN`, `BAM`, `BBD`, `BDT`, `BGN`, `BHD`, `BIF`, `BMD`, `BND`, `BOB`, `BRL`, `BSD`, `BTN`, `BWP`, `BYN`, `BZD`, `CAD`, `CDF`, `CHF`, `CLP`, `CNY`, `COP`, `CRC`, `CUP`, `CVE`, `CZK`, `DJF`, `DKK`, `DOP`, `DZD`, `EGP`, `ERN`, `ETB`, `EUR`, `FJD`, `FKP`, `GBP`, `GEL`, `GHS`, `GIP`, `GMD`, `GNF`, `GTQ`, `GYD`, `HKD`, `HNL`, `HTG`, `HUF`, `IDR`, `ILS`, `INR`, `IQD`, `IRR`, `ISK`, `JMD`, `JOD`, `JPY`, `KES`, `KGS`, `KHR`, `KMF`, `KPW`, `KRW`, `KWD`, `KYD`, `KZT`, `LAK`, `LBP`, `LKR`, `LRD`, `LSL`, `LYD`, `MAD`, `MDL`, `MGA`, `MKD`, `MMK`, `MNT`, `MOP`, `MRU`, `MUR`, `MVR`, `MWK`, `MXN`, `MYR`, `MZN`, `NAD`, `NGN`, `NIO`, `NOK`, `NPR`, `NZD`, `OMR`, `PAB`, `PEN`, `PGK`, `PHP`, `PKR`, `PLN`, `PYG`, `QAR`, `RON`, `RSD`, `RUB`, `RWF`, `SAR`, `SBD`, `SCR`, `SDG`, `SEK`, `SGD`, `SHP`, `SLE`, `SOS`, `SRD`, `SSP`, `STN`, `SYP`, `SZL`, `THB`, `TJS`, `TMT`, `TND`, `TOP`, `TRY`, `TTD`, `TWD`, `TZS`, `UAH`, `UGX`, `USD`, `UYU`, `UZS`, `VES`, `VND`, `VUV`, `WST`, `XAF`, `XCD`, `XOF`, `XPF`, `YER`, `ZAR`, `ZMW`, `ZWG`
 
-### stablecoins v1 — 6 families, 0 named subunits
+### stablecoins v1 — 7 families, 0 named subunits
 
-`USDT`, `USDC`, `EURC`, `PYUSD`, `GUSD`, `TUSD`
+`USDT`, `USDC`, `EURC`, `PYUSD`, `GUSD`, `TUSD`, `LUSD`
 

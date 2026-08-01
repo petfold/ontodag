@@ -60,12 +60,25 @@ rendered units; canonical spellings are for machines).
 
 ## 2. What stays excluded, honestly
 
-- **Affine scales: °C and °F.** They are offsets, not multiples —
-  `value × factor` cannot express them, and pretending (storing kelvin,
-  rendering Celsius) would make `temperature(20)` ambiguous in exactly the
-  way this system exists to prevent. Temperature ships **kelvin-only**
-  (`K`, `mK`, `uK` — scalar from absolute zero); an affine-dimension kind
-  is future work if anyone actually files thermostat settings.
+- ~~**Affine scales: °C and °F.**~~ **Retracted (registry 4.0,
+  2026-08-01 — Peter: "we need Celsius").** The honest blocker was only
+  the `(factor)` unit model, never determinism: with an explicit suffix
+  the map `K = n·factor + offset` is exact (20 °C = 5863⁄20 K) and
+  unambiguous — the old worry was about *bare* `temperature(20)`, which
+  stays refused as ever. So `24C`, `-40F`, `0C..100C` parse exactly onto
+  the kelvin scale, which stays canonical (`t(24C)` ≡ `t(5943/20K)`);
+  negatives are admitted for affine spellings only, and below-absolute-
+  zero refuses with the limit in the message. Bare `C` and `F` mean the
+  temperatures, **context-free** (Peter's rule: "if I type 24C it should
+  be Celsius rather than Coulomb") — which is why the bare coulomb and
+  farad are spelled out (`coulomb`, `farad`, now those families' anchors;
+  every prefixed form `mC`/`uF`/`mAh`… is untouched, and those are what
+  charge and capacitance actually use). `degC`/`degF` are accepted input
+  aliases; rendering emits `C`/`F`. One semantic line survives the
+  retraction: affine spellings denote **absolute temperature points** — a
+  temperature *difference* (ΔT) is a different quantity and would be a
+  kelvin-scalar family of its own. Affine support is built-in-only;
+  graph-declared units remain factor-only.
 - **Transcendental ratios: the radian.** 1° = π⁄180 rad — irrational, so
   degrees and radians cannot share an exact lattice, ever. The `angle`
   family is **degree-based** (deg, arcmin, arcsec, gradian = 0.9°,
@@ -357,7 +370,8 @@ have not thought of yet.
 - **D1 — Bases by computed common measure** with ×10³ margin, SI-prefixed
   names where decimal, `<unit>q` quantum names otherwise (P2/P5)?
 - **D2 — Temperature kelvin-only**, affine scales refused with a teaching
-  error (§2)?
+  error (§2)? *(Superseded 2026-08-01: the refusal half was retracted in
+  registry 4.0 — §2. The kelvin-canonical half stands.)*
 - **D3 — Angle degree-based**, radian refused (§2)?
 - **D4 — psi (and area/volume/speed customary) unified into single
   families via quantum bases** (§3) — accepting non-decimal bases in

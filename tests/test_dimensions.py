@@ -340,6 +340,6 @@ class TestRegistry:
         assert dims.DIMENSION_ROOT == "dimension"
         # MAJOR.MINOR since v3 (UNITS.md D10): same major = same
         # canonical-name arithmetic; minors add vocabulary only.
-        assert dims.REGISTRY_VERSION == "3.2"
-        assert dims.registry_compatible("3.7")
-        assert not dims.registry_compatible("2")
+        assert dims.REGISTRY_VERSION == "4.0"
+        assert dims.registry_compatible("4.7")
+        assert not dims.registry_compatible("3.2")

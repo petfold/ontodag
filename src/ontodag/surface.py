@@ -68,10 +68,22 @@ def _friendly_value(family, value, units=None):
         quotient = value / scale
         if quotient.denominator == 1 and \
                 (best is None or scale > best[0]):
-            best = (scale, unit)
+            best = (scale, unit, _dims.Fraction(0))
+    # Affine spellings (C/F) compete in the same largest-factor contest —
+    # 24C must beat 297150mK — losing plain-unit ties (300K stays 300K;
+    # a whole-kelvin point is never also whole in C or F, so ties don't
+    # actually arise for temperature). Sign is allowed: -18C.
+    for unit in _dims._RENDER_AFFINE:
+        fam, factor, offset = _dims._AFFINE[unit]
+        if fam != family:
+            continue
+        quotient = (value - offset) / factor
+        if quotient.denominator == 1 and \
+                (best is None or factor > best[0]):
+            best = (factor, unit, offset)
     if best is None:
         return _dims._render_scalar(family, value)
-    return f"{int(value / best[0])}{best[1]}"
+    return f"{int((value - best[2]) / best[0])}{best[1]}"
 
 
 def _collapse_lo(ts, calendar):

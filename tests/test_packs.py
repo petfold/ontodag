@@ -23,8 +23,8 @@ GOLDEN_ROOTS = {  # pack v1 fingerprints: everyone merging these converges
         "4d501a439e109269252300d2777145be6ef736bbe5468b7812f016acb730d566",
     "crypto-majors":
         "649b00504f6f4346a0da2cb7a422ec7b5d9caf9c91bd11c37ee09ef7a819b5a5",
-    "stablecoins":
-        "9dc3e9c7e1c19d129ba4b136f060db340b45a3b874d8d2eeda39c284154d6521",
+    "stablecoins":  # v1 finalized pre-release with LUSD (2026-08-01)
+        "71aa064725388fc8a5b0fbefa8b5053a4afdda415d23f78ef7a677d280465ff5",
     "fiat-iso4217":
         "f1a2226ca3f4bbb90437d7331bbb5aa8758673a8f8350eec8c5b3d57c7b5ba7b",
 }
