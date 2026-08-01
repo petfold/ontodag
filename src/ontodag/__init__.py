@@ -1,5 +1,10 @@
 from ontodag.dag import DAG, OntoDAG, Item, OntoDAGVisualizer
 
+# Version of the higher-layer contract this package implements
+# (docs/CONTRACT.md — what agents and inference layers may assume).
+# Bumped on any clause change; agreed at 0.1 on 2026-08-01.
+CONTRACT_VERSION = "0.1"
+
 
 def __getattr__(name):
     # OWL support needs owlready2; import it only when actually used so the

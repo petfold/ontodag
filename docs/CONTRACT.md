@@ -5,8 +5,14 @@ the same discussion recorded in `SURFACE_LAYER.md` Part II — this document is
 the one its §13 predicted. The **direction** it records is agreed (2026-08-01):
 agents are the priority consumer, the core gains no further expressiveness,
 and verification is a first-class offering. The individual clauses are marked
-**holds today** (a restatement of a tested guarantee), **committed** (agreed
-direction, not yet built), or **open** (collected in §8).
+**holds today** (a restatement of a tested guarantee) or **committed** (agreed
+direction, not yet built).
+
+**Contract version: 0.1 — reviewed and agreed 2026-08-01.** All open
+questions from the draft were resolved in the same-day review (the record is
+§8) and folded into the clauses. The version is exposed as
+`ontodag.CONTRACT_VERSION`, will be carried by the discoverability record
+once the agent surface lands, and is bumped on any clause change.
 
 Companions: `SURFACE_LAYER.md` (where the questions arose, Part II §13–§14),
 `DATABASE_DIRECTION.md` (the walls this contract leans on), `PROVENANCE.md`
@@ -52,6 +58,28 @@ Explicitly *not* part of the contract: the record schema, traversal orders,
 planner behavior, residency (eager/lazy/sparse), and any module internals.
 Those change; the list above does not, except by revising this document.
 
+### Capabilities, not tools
+
+The contract promises *capabilities* — conjunctive and disjunctive query,
+fits-within, overlap candidates, per-item description, canonical echo, and
+discoverability ("learn what a store is about without downloading it") — and
+stays silent on tool inventories. The concrete agent surface (the MCP tool
+list, request/response shapes, the discoverability record's fields) will be
+specified in `docs/AGENT_SURFACE.md` when that work starts. Two constraints
+on that surface *are* contract-level, decided at the 2026-08-01 review:
+
+- **The discoverability record never lives inside the knowledge store.** A
+  summary stored in the trie would make the root depend on a description of
+  itself (counts change the record, the record changes the root). It is
+  derived — computed on demand by the surface, or published *beside* the
+  store, manifest-style, the way cone indexes are.
+- **Answers are extensible objects, never bare lists.** Every answer carries
+  a namespaced `annotations` map (e.g.
+  `annotations.factbond = {status, confidence, capital}`); unknown
+  namespaces must be ignored; each namespace's semantics belong to its own
+  contract, not this one. The slot exists before anything fills it, so
+  answer shapes don't churn when guarantee machinery arrives.
+
 ## 3. The guarantees
 
 - **G1 — Canonical root.** Equal knowledge yields an equal root: the stored
@@ -67,6 +95,12 @@ Those change; the list above does not, except by revising this document.
   results only grow. The one documented exception: a `remove` loses to a
   concurrent re-add (the grow-only stance). **Holds today** (I7,
   `test_multiwriter.py`).
+  *Note (2026-08-01 review):* monotonicity is a property of **merge**, not
+  of the timeline — a local `remove` may shrink answers between commits.
+  Living-store answers are therefore advisory for anything that caches;
+  only root-pinned answers are stable facts (a root is immutable, so an
+  answer cited with its root is valid forever *as a statement about that
+  root*).
 - **G3 — Determinism.** Same root, same interpretation context ⇒ the same
   answer sets on any replica and any residency. **Holds today**
   (`test_lazy.py` eager-oracle equivalence; deterministic ordering pinned by
@@ -78,6 +112,20 @@ Those change; the list above does not, except by revising this document.
 - **G5 — Convergence.** Writers who fold in each other's published roots
   (`sync`) reach byte-identical roots regardless of gossip order. **Holds
   today** (two- and three-writer tests).
+- **G6 — `get_overlapping` is complete for possibility, silent on
+  satisfaction.** Defined only for parametric terms of a declared dimension
+  (`ValueError` otherwise). Returns a recall-complete candidate set — every
+  present value of the dimension whose denotation provably intersects the
+  term's (exact arithmetic, computed from names), plus everything below
+  those values — so anything that *could* satisfy the term is included, and
+  membership asserts only possible coexistence: the caller's exact check
+  (or `is_below`) decides actual satisfaction. Completeness follows from
+  the filing discipline: an item's denotation is contained in its value's,
+  so any possible satisfier sits under an intersecting value. Not a cone
+  (overlap is not transitive), never stored, grows monotonically under
+  merge like `get`, same `remove` caveat as G2. **Holds today**
+  (`get_overlapping`, 2026-07-31; loopmarket's candidate generation already
+  relies on exactly this property).
 
 ## 4. The as-of clause (root-pinning)
 
@@ -214,6 +262,20 @@ The crypto-facing half of the contract. Three tiers plus two limits.
   "contract holds an OntoDAG root, disputes settle by Merkle proof against
   it" is mostly existing pieces. Not a wall; waits only on a consumer.
 
+**Certificate policy (decided at the 2026-08-01 review).** Certificates are
+self-describing JSON envelopes — `{format, version, root, subject,
+evidence}` — whose `evidence` carries the **raw trie/record blobs**
+(hex-encoded). Verification is hash-chain recomputation over those exact
+bytes, never re-serialization, which eliminates canonicalization drift by
+construction: the bytes that hash to the root are in the envelope. Formats
+are versioned by *name*, cone-summaries style — readers ignore formats they
+don't know, so new proof formats land beside old verifiers. Transport is
+inside tool results but **opt-in** (`certify: true` on the request):
+proofs cost fetches, and most calls won't want them. Byte-level specs live
+with their implementations — trie inclusion/absence proofs in the
+recordstore repo (with `prove`/`verify`), `is_below` certificate envelopes
+here.
+
 ### Tier 3 — walls (recorded in `DATABASE_DIRECTION.md`)
 
 - **ZK proofs over private ontologies** ("my catalog contains something under
@@ -251,25 +313,36 @@ The crypto-facing half of the contract. Three tiers plus two limits.
   `REGISTRY_VERSION`, exactly as cone-index manifests already do.
   Certificates inherit the discipline; they do not escape it.
 
-## 8. Open questions
+## 8. Review record (2026-08-01 — all draft open questions resolved)
 
-1. **Certificate encodings** — format, versioning, and whether they ride
-   inside MCP tool results or beside them.
-2. **Contract versioning** — this document needs a version the moment
-   anything external depends on it; where is it pinned, and does a
-   conformance test suite (`tests/test_contract.py`, asserting G1–G5 through
-   the public API only) enforce it?
-3. **`get_overlapping`'s statement.** Overlap is not a cone and not
-   transitive; results grow under merge like `get`'s, but the "possibly
-   satisfies" modality needs its own sentence before agents rely on it.
-4. **The MCP tool list** — exact read-only surface, how `as_of` and
-   certificates appear, and what the discoverability record contains (does it
-   belong to this contract or to the MCP design?).
-5. **Does `remove` need a caveat clause of its own** beyond G2's grow-only
-   note, for higher layers that cache?
-6. **Guarantee status in answers.** Should the agent surface eventually
-   return, per fact, the economic status a bonded-claims layer (factbond)
-   assigns — asserted/certified/contested, stated confidence, capital
-   standing behind it? If so, that field's semantics belong to factbond's
-   contract, not this one — but the *slot* for it should be designed into
-   the MCP answer shape early.
+Reviewed with Peter the same day the draft landed; all six resolutions
+accepted and folded into the clauses above. Kept here so the decisions and
+their homes stay findable:
+
+1. **Certificate encodings** → the certificate policy in §7 Tier 2: JSON
+   envelopes over raw bytes, hash-chain verification (never
+   re-serialization), format-name versioning, opt-in transport
+   (`certify: true`); byte-level specs live with their implementations.
+2. **Contract versioning** → the version line in the header,
+   `ontodag.CONTRACT_VERSION` in code, carried by the discoverability
+   record once the agent surface lands. Conformance suite
+   `tests/test_contract.py` — one named test class per guarantee (G1–G6),
+   importing only the public `ontodag` API — queued as a Phase 1 work item
+   alongside the renderer.
+3. **`get_overlapping`'s statement** → G6 (complete for possibility, silent
+   on satisfaction; recall-completeness provable from the filing
+   discipline — and already what loopmarket's candidate generation relies
+   on, so the promise ratifies an existing dependency).
+4. **MCP tool list / discoverability record** → scoped out to
+   `docs/AGENT_SURFACE.md` (written when that work starts); the contract
+   keeps only the capability list and the two contract-level constraints in
+   §2 ("Capabilities, not tools"): the discoverability record never lives
+   inside the knowledge store (self-reference), and answers are extensible
+   objects.
+5. **`remove` caveat** → the note under G2: monotonicity is merge-wise, not
+   timeline-wise; agents that cite roots have no cache-invalidation problem
+   at all.
+6. **Guarantee status slot** → the namespaced `annotations` map in §2;
+   semantics belong to each namespace's own contract (factbond's, for
+   guarantee status), only the slot's existence and ignorability are
+   promised here.
