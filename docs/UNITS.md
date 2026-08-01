@@ -108,8 +108,10 @@ else the definition table throws at it. This is the piece hand-picked
 *(Historical: the "base" column below is the pre-D9 draft — under the
 accepted D9 every family's canonical suffix is simply its SI coherent
 anchor (`kg`, `m`, `Pa`, …) and the shipped spelling set is the one in
-`dimensions.py._build_units`, pinned by `tests/test_units.py`. Kept for
-the record of how the quantum-base design fell away.)*
+`dimensions.py._build_units`, pinned by `tests/test_units.py` and listed
+in full in the generated `docs/UNIT_TABLE.md`. Kept for the record of how
+the quantum-base design fell away; the temperature row predates the
+registry-4.0 affine retraction (§2).)*
 
 Every SI base quantity, every named SI derived unit as its own family
 where it names a quantity people file under, the accepted-for-use units,

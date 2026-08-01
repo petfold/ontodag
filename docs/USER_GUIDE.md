@@ -511,14 +511,15 @@ What to know:
   `weight(1/2kg)` — so `3kg`, `3000g` and `3.0kg` are one identity, nothing is
   ever rounded, and every exactly-defined unit works: `weight(1lb)`,
   `pressure(32psi)`, `storage(..2TB)` against tebibytes,
-  even `length(10/33m)` (the shaku). Beyond the built-ins, **unit packs**
+  `temperature(24C)` (Celsius and Fahrenheit ride the kelvin scale exactly —
+  `-40C` and `-40F` are one stored name), even `length(10/33m)` (the shaku). Beyond the built-ins, **unit packs**
   add vocabulary as graph data — `odag pack crypto-core` (BTC, ETH,
   BZZ — then `price(0.01sat)` works), `odag pack fiat-iso4217` (~150
   national currencies), `odag pack crypto-majors`, `odag pack` to list — and you
   can declare your own unit with one put:
   `odag put 'unit(firkin=9igal)' unit-declaration`. Declarations merge
   and travel with the store, so readers need nothing installed. Run `odag prelude` for the everyday
-  dimensions and see docs/UNITS.md for the full table.
+  dimensions and see the generated docs/UNIT_TABLE.md for the full listing.
 - **Two more kinds**: `prefix-dimension` for hierarchical codes
   (`geo(u2ed)` is inside `geo(u2)` — geohash cells, handy for "near Tokyo"), and
   `dominance-dimension` for does-it-fit tuples
@@ -1241,7 +1242,7 @@ store, no trust in you or your server. Agents request it with
 >>> root = dag.commit()
 >>> cert = prove_below(dag, "parcel", "weight(..5kg)")
 >>> cert["result"], len(cert["proofs"])
-(True, 7)
+(True, 8)
 >>> # elsewhere, holding only the certificate and the root:
 >>> verify_below(cert, root)
 True

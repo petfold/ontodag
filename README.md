@@ -36,7 +36,9 @@ and `time(2026-08-15)` becomes an ordinary category whose ordering OntoDAG
 computes — `odag get Flight 'time(2026-06-01..2026-08-31)'` finds last summer's
 flights with no edge ever stored between them, at any range, with exact
 arithmetic — values are rationals of the SI anchor units, so *every* exactly
-defined unit works: all of SI, pounds and psi, TB and TiB built in, and **unit packs one merge
+defined unit works: all of SI, pounds and psi, TB and TiB, even Celsius and
+Fahrenheit (mapped exactly onto the kelvin scale: `temperature(24C)`) built
+in, and **unit packs one merge
 away** (`odag pack crypto-core` for BTC/ETH/BZZ, `fiat-iso4217` for ~150 national
 currencies, `crypto-majors` for the market's top coins — or declare your
 own: vocabulary is graph data that travels with the store, no release
