@@ -53,6 +53,45 @@ pip install ontodag
 This installs the `odag` command and the Python library, along with its
 dependencies (`graphviz`, `owlready2`, and `recordstore`).
 
+### If that fails with `externally-managed-environment`
+
+```
+error: externally-managed-environment
+× This environment is externally managed
+```
+
+You are on Debian, Ubuntu 23.04+, Fedora, or Homebrew Python, which reserve the
+system Python for the OS package manager (PEP 668). Nothing is wrong with your
+setup — pick the route that matches what you actually want:
+
+- **Just the `odag` command.** [pipx](https://pipx.pypa.io) installs it into its
+  own private environment and puts the command on your `PATH`:
+
+  ```bash
+  sudo apt install pipx          # once, if you don't have it
+  pipx install ontodag
+  ```
+
+  Extras go in the same spec — `pipx install "ontodag[web]"` — and later
+  upgrades are `pipx upgrade ontodag`. The catch: this gives you the *command*
+  only. `import ontodag` in your own Python scripts will not find it.
+
+- **The Python library as well.** Use a virtual environment:
+
+  ```bash
+  python3 -m venv ~/.venvs/ontodag
+  source ~/.venvs/ontodag/bin/activate
+  pip install ontodag
+  ```
+
+  Both `odag` and `import ontodag` work while that environment is active.
+
+- **Override the guard**, if you accept that pip and apt then share a directory:
+
+  ```bash
+  pip install --user --break-system-packages ontodag
+  ```
+
 Three optional extras:
 
 - **Pictures.** To render your DAG as an image you also need the Graphviz *system
@@ -78,10 +117,17 @@ Three optional extras:
 
 > **Working from a source checkout instead:** `git clone
 > https://github.com/petfold/ontodag.git && cd ontodag`, then either
-> `pip install -e .` or prefix commands with `PYTHONPATH=src`, e.g.
-> `PYTHONPATH=src python3 -m ontodag show`. Everything below works
-> either way; we'll write `odag` for short, which is the same as
-> `PYTHONPATH=src python3 -m ontodag`.
+> `pip install -e .` (subject to the same PEP 668 guard as above — inside a
+> venv, or with `--user --break-system-packages`) or prefix commands with
+> `PYTHONPATH=src`, e.g. `PYTHONPATH=src python3 -m ontodag show`, which needs
+> no install at all. Everything below works either way; we'll write `odag` for
+> short, which is the same as `PYTHONPATH=src python3 -m ontodag`.
+>
+> Install the checkout *once*, one way. Two editable installs of the same
+> repository (say a venv and a `--user` one) both put an `odag` on your `PATH`
+> and the later one silently wins — they run the same code, but `odag -V`
+> reports whichever install's metadata is found, so a stale one can claim an old
+> version number indefinitely.
 
 ---
 
@@ -1010,9 +1056,25 @@ These behaviors are guarantees, not accidents. You can rely on them:
 
 ## 10. Troubleshooting
 
+**`error: externally-managed-environment` when installing**
+Your distribution reserves the system Python for its own package manager. Use
+pipx (command only), a virtual environment (command + library), or
+`--break-system-packages` — see §2.
+
+**pipx: `'ontodag' already seems to be installed`**
+A pipx environment of that name exists already. `pipx upgrade ontodag` to move
+it to the current release, `pipx install --force ontodag` to rebuild it from
+scratch, or `pipx uninstall ontodag` to drop it. If `pipx list` also says
+`odag (symlink missing or pointing to unexpected location)`, something else —
+usually a `pip install --user` of the same package — overwrote pipx's shim;
+`pipx reinstall ontodag` restores it, but decide which of the two you actually
+want on your `PATH` first.
+
 **`ModuleNotFoundError: No module named 'ontodag'`**
-Run `pip install ontodag`. If you're working from a source checkout instead,
-either `pip install -e .` or prefix with `PYTHONPATH=src` (from the repository root).
+Run `pip install ontodag`. If you installed with pipx, that deliberately gives
+you the `odag` command only, not an importable library — use a virtual
+environment instead (§2). If you're working from a source checkout, either
+`pip install -e .` or prefix with `PYTHONPATH=src` (from the repository root).
 
 **`ModuleNotFoundError: No module named 'owlready2'` (or `graphviz`, `flask`)**
 A dependency is missing — `pip install ontodag` for the basics,
