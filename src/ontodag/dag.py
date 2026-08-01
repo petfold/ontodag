@@ -418,19 +418,38 @@ class DAG:
     def topological_sort(self):
         # Iterative post-order DFS (I6: no recursion, deep graphs would hit
         # the Python recursion limit).
+        #
+        # Every iteration point is sorted by name. `neighbors` is a set, so an
+        # unsorted walk picks a different (still valid) topological order on
+        # every run -- string hashing is randomized per process. That made
+        # `odag show` and the OWL/Manchester exports, which both order their
+        # output by this function, undiffable across runs for identical
+        # content. Names are the identity at every boundary (see the identity
+        # note in CLAUDE.md), so name order is the one canonical choice
+        # available here.
+        #
+        # Root-first still holds for OntoDAG regardless of the start order:
+        # post-order pushes a node only once all its descendants are done, and
+        # every node is a descendant of the root, so the root is pushed last
+        # and reversing puts it first.
+        # Descending, because the post-order stack is reversed on the way out:
+        # sorting high-to-low here makes the returned order read low-to-high.
+        def by_name(items):
+            return sorted(items, key=lambda item: item.name, reverse=True)
+
         visited = set()
         stack = []
-        for start in self.nodes.values():
+        for start in by_name(self.nodes.values()):
             if start in visited:
                 continue
             visited.add(start)
-            path = [(start, iter(start.neighbors))]
+            path = [(start, iter(by_name(start.neighbors)))]
             while path:
                 node, neighbors = path[-1]
                 for neighbor in neighbors:
                     if neighbor not in visited:
                         visited.add(neighbor)
-                        path.append((neighbor, iter(neighbor.neighbors)))
+                        path.append((neighbor, iter(by_name(neighbor.neighbors))))
                         break
                 else:
                     stack.append(node)

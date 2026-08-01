@@ -543,19 +543,19 @@ Look at what you have:
 $ odag show
 * [root] -> Animal Machine Pet
 Animal (*) -> Cat Dog
-Pet (*) -> Aibo Cat Dog
-Dog (Animal Pet) ->
-Cat (Animal Pet) ->
 Machine (*) -> Aibo
+Pet (*) -> Aibo Cat Dog
 Aibo (Machine Pet) ->
+Cat (Animal Pet) ->
+Dog (Animal Pet) ->
 ```
 
-(Each line lists an item, its parents in brackets, then its children. The
-*children* on a line are sorted, but the **order of the lines varies between
-runs** — `show` walks the graph in topological order and ties are broken by
-Python's set iteration. Every line will be there; don't diff this output. The
-stored file is a different matter: it is sorted and byte-identical for the same
-content, which is what makes the git habit below work.)
+(Each line lists an item, its parents in brackets, then its children. Parents
+always come before their children, and items that could go in either order are
+listed alphabetically — so the same content always prints the same way, whoever
+built it and in whatever order. You can diff this output, and the stored file
+too: it is sorted and byte-identical for equal content, which is what makes the
+git habit below work.)
 
 Ask which things are both animals and pets — one name per line, straight to stdout:
 

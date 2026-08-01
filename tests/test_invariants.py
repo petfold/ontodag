@@ -262,6 +262,48 @@ class TestDeepGraphs(unittest.TestCase):
                                 f"{node.name} must come before {child.name}")
 
 
+class TestTopologicalSortIsDeterministic(unittest.TestCase):
+    """Equal content must give the equal order, whatever the build history.
+
+    `neighbors` is a set, so an unsorted walk picks a different (still valid)
+    topological order per process -- string hashing is randomized. Consumers
+    that order their *output* by this function (`odag show`, the OWL and
+    Manchester exports) were therefore undiffable across runs for identical
+    content, which contradicts the canonical-form story the rest of the
+    design rests on. Names are the identity at every boundary, so name order
+    is the canonical choice.
+    """
+
+    HISTORIES = [
+        [("Animal", []), ("Machine", []), ("Pet", []),
+         ("Dog", ["Animal", "Pet"]), ("Cat", ["Animal", "Pet"]),
+         ("Aibo", ["Machine", "Pet"])],
+        # Same content, different insertion order and different parent order.
+        [("Machine", []), ("Pet", []), ("Animal", []),
+         ("Aibo", ["Pet", "Machine"]), ("Cat", ["Pet", "Animal"]),
+         ("Dog", ["Pet", "Animal"])],
+    ]
+
+    def test_same_content_same_order(self):
+        orders = [[n.name for n in build(h).topological_sort()]
+                  for h in self.HISTORIES]
+        self.assertEqual(orders[0], orders[1])
+
+    def test_order_is_stable_across_repeated_calls(self):
+        dag = build(self.HISTORIES[0])
+        first = [n.name for n in dag.topological_sort()]
+        for _ in range(5):
+            self.assertEqual([n.name for n in dag.topological_sort()], first)
+
+    def test_root_first_and_names_ascending_within_the_order(self):
+        order = [n.name for n in build(self.HISTORIES[0]).topological_sort()]
+        self.assertEqual(order[0], "*")
+        # Ties (nodes at the same depth) resolve alphabetically, which is what
+        # makes `odag show` read sensibly rather than merely reproducibly.
+        self.assertEqual(order, ["*", "Animal", "Machine", "Pet",
+                                 "Aibo", "Cat", "Dog"])
+
+
 # ----------------------------------------------------------------------------
 # Name-identity at the public boundary: traversals must resolve the caller's
 # Item by name, not walk the caller's object (whose edges may be empty).
