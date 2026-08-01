@@ -170,7 +170,62 @@ built-in table covers what is universal and fixed; packs cover what is
 exact but local. Same P1–P3 rules; a pack may extend a family's spellings,
 never move its base.
 
-## 8. Verdicts needed (the review sheet)
+## 8. What if units change in the future? (Peter's question, 2026-08-01)
+
+Four change classes, with very different pain:
+
+- **A — Adding a unit spelling later** (furlong joins length): *painless by
+  construction*, because canonical names only ever carry the **base**
+  suffix — the whole non-base vocabulary lives in elaboration/rendering,
+  never in stored data. Old readers keep reading every stored name; they
+  merely refuse the new spelling as *input*, loudly. No root changes.
+- **B — Adding a family** (pressure appears): equally painless — new
+  suffixes, no existing name touched.
+- **D — A standards body redefining a unit** (hasn't happened since 1959;
+  2019 made things *more* exact): stored values are base-denominated, so
+  they keep meaning exactly what they meant; only the input/render mapping
+  moves. Painless.
+- **C — Refining a family's base** (mg→ng): the *only* painful class —
+  every stored name in the family changes, hence every root. Pain and
+  mitigations: the migration is **mechanical, lossless, and verifiable**
+  (scaling by a positive constant preserves containment, so the DAG shape
+  is untouched — it is a pure rename, `new_root = migrate(old_root)` is a
+  deterministic function anyone can recompute, so a signed old→new
+  **migration attestation** is checkable, not trusted); version pins keep
+  the old world coherent forever (old certificates verify against old
+  roots under the old registry); but cross-version stores don't compare,
+  and provenance subjects naming old spellings keep their meaning only
+  via their pinned basis roots. Avoidable? Mostly — but not entirely,
+  and here is the proof: the Japanese **shaku is exactly 10⁄33 m** — a 3
+  in the denominator, so *no decimal base can ever hold it*, and folding
+  it in later would force a class-C quantum-base migration of the whole
+  length family.
+
+Which motivates the structural solution:
+
+**D9 — anchor canonical values as reduced rationals of the SI coherent
+unit, and abolish bases entirely.** Canonical spelling `n/d × unit`
+(denominator 1 rendered plain): `weight(3/1000kg)`, `pressure(
+8896443230521/1290320000Pa)` for one psi, `length(10/33m)` for the shaku
+— any exact rational unit representable on day one, forever, with **no
+common-measure computation, no quantum bases, no safety margins, and no
+class-C migration ever again**. Comparisons stay exact (cross-multiply);
+ordering, reduction and canonical roots are untouched in kind. This
+*reverses* the integers-in-tiny-base decision of 2026-07-30 — hence a
+verdict, not an edit — but honors its motive better than it did: the
+motive was exactness, and rationals never round, so the "finer than the
+base unit" refusal simply loses its reason to exist (a per-family
+precision *warning* can survive as surface policy). Costs: slightly
+uglier canonical names (nobody reads them; rendering and `canon` exist),
+a modestly bigger arithmetic surface in `dimensions.py` (Fraction
+compare/intersect — still exact, still float-free), and marginally more
+work in future ZK circuits (a value is two integers, comparisons
+cross-multiply — still integer-only). If D9 is accepted, D1 and D4
+dissolve (no bases to choose), the §4 table reduces to *suffix vocabulary
++ exact definitions*, and the v3 migration becomes the **last canonical-
+name migration in the system's life**.
+
+## 9. Verdicts needed (the review sheet)
 
 - **D1 — Bases by computed common measure** with ×10³ margin, SI-prefixed
   names where decimal, `<unit>q` quantum names otherwise (P2/P5)?
@@ -189,3 +244,15 @@ never move its base.
 - **D8 — Migration timing**: registry v3 + prelude v2 + migration script
   before the next release (0.10.0), ecosystem re-canonicalized in the same
   pass?
+- **D9 — Rational anchoring** (§8): canonical values as reduced rationals
+  of the SI coherent unit, abolishing bases and class-C migrations
+  permanently — reversing the 2026-07-30 integers decision on its own
+  exactness grounds. **Recommended.** (Accepting D9 moots D1 and D4;
+  temperature's anchor is the kelvin with any tininess free — Peter's µK
+  preference is then a rendering choice, not a storage one.)
+- **D10 — Registry versioning splits major/minor**: order-affecting
+  changes (anchors, kinds, arithmetic) bump the major and refuse across
+  it, as today; vocabulary-additive changes (new suffixes, new families)
+  bump the minor and interoperate — old readers refuse unknown spellings
+  as input, loudly, but read all stored data. Makes classes A/B/D formal
+  non-events.
