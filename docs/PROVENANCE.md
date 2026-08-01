@@ -15,9 +15,13 @@ deterministic proposal token recomputed against the current root (a moved
 store refuses the stale confirmation), one signed assertion record per
 claim beside every knowledge change, and `remove` emitting its retraction
 records per §3's coupling rule; per-writer provenance lives in the
-`NAME-prov` sibling store. See `AGENT_SURFACE.md` §6. **Not yet
-implemented:** the endorsement/review workflow (§5) — required before
-writes run at any volume. §7 records
+`NAME-prov` sibling store. See `AGENT_SURFACE.md` §6. **The endorsement/review workflow is
+implemented too** (same day — Phase 2 complete): `endorse`/`retract` tools
+(signed speech acts, knowledge untouched) and a `review` tool available
+even read-only — per-author standing from signature-verified records
+only, retraction sticky per author (set-based: no trusted time exists, so
+fail-closed is the honest rule), and reader-side acceptance under an
+explicit `trust` list. Claims merge; acceptance is policy, mechanized. §7 records
 the economic extension of this layer — bonded assertions, designed in the
 **factbond** sister repo. One flagged residual: the
 `payload(name, content-hash)` subject form (§3) is sketched, not worked —

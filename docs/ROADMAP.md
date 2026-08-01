@@ -163,7 +163,13 @@ replayable answer, which the existing snapshot machinery already supports.
     already holds) → **confirm** (refused if the store moved meanwhile),
     with signed assertion records beside every change and removals
     emitting retractions — the audit trail has no silent disappearances.
-    **Still open before volume:** the endorsement/review workflow.
+    **And the review workflow (same day — this item is complete):**
+    `endorse`/`retract` sign a reader's stance on any claim without
+    touching knowledge, and `review` — available read-only — shows a
+    claim's full audit trail with every signature verified, each author's
+    standing, and an acceptance verdict under the reader's own trust
+    list. What lands in a store is never what a reader must accept:
+    claims merge, acceptance is policy.
 11. **The human track, in parallel:** a standard **prelude as a published
     ontology** (adopt common dimension declarations by merging a well-known
     root — also the answer to "which upper ontology?": publish optional

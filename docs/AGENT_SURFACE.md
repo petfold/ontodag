@@ -127,10 +127,37 @@ commits (knowledge, then provenance) are not atomic across stores; a crash
 between them loses only speech acts about a change that did land, and
 re-asserting is always safe.
 
-## 7. Deliberately absent
+## 7. The review workflow (added the same day)
 
-- **Endorsement/review tools** — the workflow that must exist before
-  writes run at any volume (`PROVENANCE.md` §5); next movement of Phase 2.
+*Claims merge; acceptance is policy* (`SURFACE_LAYER.md` §11), as tools:
+
+- **`review {sub, sup?, trust?}`** — available on any store with a
+  provenance sibling, **read-only included**: the audit view of one claim.
+  Every record about it (type, author, basis, time, group), each
+  **signature-verified**; each author's *standing* computed from verified
+  records only — a verified retraction is sticky per author (no trusted
+  time exists, so set-based and fail-closed is the honest rule); and,
+  given `trust` (a list of author addresses), the reader-side verdict:
+  `accepted` iff some trusted author stands behind the claim. Forged
+  records are listed (the audit hides nothing) but never count.
+- **`endorse {sub, sup?}`** / **`retract {sub, sup?}`** (write mode) —
+  signed speech acts about a claim, knowledge untouched: "I stand behind
+  this" / "this key no longer does". Omitting `sup` means the existence
+  claim.
+
+This is the volume-safety mechanism `PROVENANCE.md` §5 required before
+agent writes run at scale: what lands in the store is never what a reader
+must accept — acceptance is each reader's own trust list, evaluated over
+verified signatures.
+
+## 8. Deliberately absent
+
+- **Peer provenance adoption as a tool** (`ProvenanceStore.union` exists;
+  wiring "fold these writers' stores" into the surface waits for a real
+  multi-writer deployment).
+- **Guarantee status** — factbond's namespace in `annotations`.
+- **Query result certificates** and **cone-index serving** (see §2/§6
+  notes above).
 - ~~**Certificates**~~ — **landed the same day** for `is_below`
   (`ontodag.certificates`, recordstore ≥ 0.16.0; see §2). Still absent:
   `query` result certificates (cone-sized; re-execution stays the honest

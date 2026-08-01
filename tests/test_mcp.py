@@ -242,12 +242,22 @@ class WritableHarness(unittest.TestCase):
 
         self.knowledge_blobs = MemoryBytesStore()
         self.prov_store = RecordStore(MemoryBytesStore())
-        backend = SwarmBackend(
+        self.backend = SwarmBackend(
             "t",
             store_factory=lambda: RecordStore(self.knowledge_blobs),
             prov_store_factory=lambda: self.prov_store)
-        self.surface = AgentSurface("swarm:t", backend=backend,
-                                    signer=FakeSigner(), writable=True)
+
+        def fake_verify(record):
+            from ontodag.provenance import record_payload_bytes
+            expected = hashlib.sha256(
+                record["author"].encode() +
+                record_payload_bytes(record)).hexdigest()
+            return record["sig"] == expected
+
+        self.fake_verify = fake_verify
+        self.surface = AgentSurface("swarm:t", backend=self.backend,
+                                    signer=FakeSigner(), writable=True,
+                                    verifier=fake_verify)
         self.server = MCPServer(self.surface)
 
     def call(self, tool, arguments=None, expect_error=False):
@@ -357,7 +367,95 @@ class TestWriteSurface(WritableHarness):
         self.assertIn("put", names)
 
 
+class TestReviewWorkflow(WritableHarness):
+    """Claims merge, acceptance is policy: trusted authors ∩ verified
+    signatures, with retraction sticky per author."""
+
+    def setUp(self):
+        super().setUp()
+        self.write("pet")
+        self.write("cat", ["pet"])
+
+    def test_endorse_then_review_accepts_under_trust(self):
+        endorsed = self.call("endorse", {"sub": "cat", "sup": "pet"})
+        self.assertEqual(endorsed["subject"],
+                         {"claim": "below", "sub": "cat", "sup": "pet"})
+        self.assertTrue(endorsed["provenance_root"])
+        review = self.call("review", {"sub": "cat", "sup": "pet",
+                                      "trust": ["fake:agent"]})
+        types = sorted(r["type"] for r in review["records"])
+        self.assertEqual(types, ["assertion", "endorsement"])
+        self.assertTrue(all(r["verified"] for r in review["records"]))
+        self.assertEqual(review["standing"], {"fake:agent": "stands"})
+        self.assertTrue(review["accepted"])
+        self.assertEqual(review["accepted_by"], ["fake:agent"])
+
+    def test_retraction_is_sticky_and_touches_no_knowledge(self):
+        self.call("retract", {"sub": "cat", "sup": "pet"})
+        review = self.call("review", {"sub": "cat", "sup": "pet",
+                                      "trust": ["fake:agent"]})
+        self.assertEqual(review["standing"], {"fake:agent": "retracted"})
+        self.assertFalse(review["accepted"])
+        still = self.call("query", {"terms": ["pet"]})
+        self.assertIn("cat", still["items"])      # a speech act, not remove
+
+    def test_unverified_signatures_never_count_toward_standing(self):
+        import hashlib as _hl
+
+        from ontodag.provenance import ProvenanceStore, below_subject
+
+        class Mallory:
+            address = "fake:mallory"
+
+            @staticmethod
+            def sign(data):
+                return _hl.sha256(b"not-really" + data).hexdigest()
+
+        forger = ProvenanceStore(self.prov_store, signer=Mallory())
+        forger.assert_claim(below_subject("cat", "pet"), basis="x")
+        forger.commit()
+        review = self.call("review", {"sub": "cat", "sup": "pet",
+                                      "trust": ["fake:mallory"]})
+        bad = next(r for r in review["records"]
+                   if r["author"] == "fake:mallory")
+        self.assertFalse(bad["verified"])          # listed, but never
+        self.assertNotIn("fake:mallory", review["standing"])  # standing
+        self.assertFalse(review["accepted"])
+
+    def test_existence_claims_and_canonical_echo(self):
+        review = self.call("review", {"sub": "pet"})
+        self.assertEqual(review["subject"],
+                         {"claim": "below", "sub": "pet", "sup": "*"})
+        self.assertEqual([r["type"] for r in review["records"]],
+                         ["assertion"])
+
+    def test_review_works_read_only_but_endorse_does_not(self):
+        reader = AgentSurface("swarm:t", backend=self.backend,
+                              verifier=self.fake_verify)   # not writable
+        server = MCPServer(reader)
+        response = server.handle({
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "review",
+                       "arguments": {"sub": "cat", "sup": "pet"}}})
+        answer = response["result"]["structuredContent"]
+        self.assertEqual(answer["standing"], {"fake:agent": "stands"})
+        refused = server.handle({
+            "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+            "params": {"name": "endorse", "arguments": {"sub": "cat"}}})
+        self.assertTrue(refused["result"]["isError"])
+        self.assertIn("--write", refused["result"]["content"][0]["text"])
+        listed = server.handle({"jsonrpc": "2.0", "id": 3,
+                                "method": "tools/list"})
+        names = {t["name"] for t in listed["result"]["tools"]}
+        self.assertIn("review", names)
+        self.assertNotIn("endorse", names)
+
+
 class TestWriteGating(SurfaceHarness):
+    def test_review_needs_a_provenance_sibling(self):
+        text = self.call("review", {"sub": "pet"}, expect_error=True)
+        self.assertIn("provenance sibling", text)
+
     def test_read_only_surface_hides_and_refuses_write_tools(self):
         listed = self.server.handle({"jsonrpc": "2.0", "id": 1,
                                      "method": "tools/list"})

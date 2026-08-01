@@ -75,9 +75,12 @@ def _log_failure(event):
 # --------------------------------------------------------------------------- #
 
 class AgentSurface:
-    def __init__(self, spec, backend=None, signer=None, writable=False):
+    def __init__(self, spec, backend=None, signer=None, writable=False,
+                 verifier=None):
         backend = backend or _make_backend(spec)
         self._backend = backend
+        self._verifier = verifier   # signature-check seam (tests inject)
+        self._has_provenance = hasattr(backend, "provenance_record_store")
         self.described = backend.describe()
         dag = backend.load()
         if getattr(dag, "store", None) is None:
@@ -126,6 +129,13 @@ class AgentSurface:
                 "(a swarm:NAME store plus a configured signer) — "
                 "docs/AGENT_SURFACE.md")
 
+    def _require_provenance(self):
+        if not self._has_provenance:
+            raise ToolError(
+                "this store has no provenance sibling — review needs a "
+                "record-store-backed store (swarm:NAME); file stores carry "
+                "no attribution")
+
     def _provenance(self):
         if self._prov is None:
             from ontodag.provenance import ProvenanceStore
@@ -133,6 +143,29 @@ class AgentSurface:
                 self._backend.provenance_record_store(),
                 signer=self._signer)
         return self._prov
+
+    def _verify(self, record):
+        """True/False per the signature, or None when no verifier is
+        available (the `bee` package absent and none injected)."""
+        if self._verifier is not None:
+            return bool(self._verifier(record))
+        try:
+            from ontodag.provenance import verify_record
+            return bool(verify_record(record))
+        except ImportError:
+            return None
+
+    def _subject_from(self, dag, arguments):
+        """{sub, sup?} → a claim subject, canonicalized. No sup (or '*')
+        means the existence claim."""
+        from ontodag.provenance import below_subject, exists_subject
+        sub = dag._canonical_name(self._need(arguments, "sub"))
+        sup = arguments.get("sup")
+        if sup in (None, "", "*"):
+            return exists_subject(sub)
+        if not isinstance(sup, str):
+            raise ToolError("sup must be a string")
+        return below_subject(sub, dag._canonical_name(sup))
 
     def _canonical_supers(self, dag, supers):
         if supers is None:
@@ -220,8 +253,9 @@ class AgentSurface:
             "registry_version": REGISTRY_VERSION,
             "surface_version": _surface.SURFACE_VERSION,
             "server": {"name": "odag-mcp", "version": __version__},
-            "capabilities": sorted(TOOL_HANDLERS) + (
-                sorted(WRITE_TOOL_HANDLERS) if self.writable else []),
+            "capabilities": sorted(TOOL_HANDLERS)
+            + (sorted(REVIEW_TOOL_HANDLERS) if self._has_provenance else [])
+            + (sorted(WRITE_TOOL_HANDLERS) if self.writable else []),
             "author": self._signer.address if self._signer else None,
             "notes": ("writable: propose_put/put and propose_remove/remove "
                       "follow propose → canonical echo → confirm; every "
@@ -445,14 +479,86 @@ class AgentSurface:
             "provenance_root": provenance_root,
         })
 
+    # -- the review workflow (claims merge, acceptance is policy) ---------- #
+
+    def tool_review(self, arguments):
+        self._require_provenance()
+        dag = self.dag
+        subject = self._subject_from(dag, arguments)
+        trust = arguments.get("trust") or []
+        if not isinstance(trust, list) or \
+                not all(isinstance(a, str) for a in trust):
+            raise ToolError("trust must be a list of author addresses")
+        records, acts = [], {}
+        verification = "available"
+        for record in self._provenance().records(subject):
+            verified = self._verify(record)
+            if verified is None:
+                verification = "unavailable"
+            records.append({
+                "type": record["type"], "author": record["author"],
+                "basis": record.get("basis"), "time": record.get("time"),
+                "group": record.get("group"), "verified": verified,
+            })
+            if verified:   # only verified speech acts count toward standing
+                acts.setdefault(record["author"], set()).add(record["type"])
+        # Per-author stance, set-based (no trusted time exists): a verified
+        # retraction is sticky — conservative, fail-closed.
+        standing = {author: ("retracted" if "retraction" in types
+                             else "stands")
+                    for author, types in sorted(acts.items())
+                    if types & {"assertion", "endorsement", "retraction"}}
+        payload = {"subject": subject, "records": records,
+                   "standing": standing, "verification": verification}
+        if trust:
+            accepted_by = sorted(a for a in trust
+                                 if standing.get(a) == "stands")
+            payload["trust"] = trust
+            payload["accepted"] = bool(accepted_by)
+            payload["accepted_by"] = accepted_by
+        return self._envelope(self.root, payload)
+
+    def tool_endorse(self, arguments):
+        self._require_writable()
+        subject = self._subject_from(self.dag, arguments)
+        prov = self._provenance()
+        prov.endorse(subject, basis=self.root, time=_utc_now())
+        provenance_root = prov.commit()
+        return self._envelope(self.root, {
+            "op": "endorse", "subject": subject, "author": prov.author,
+            "provenance_root": provenance_root,
+        })
+
+    def tool_retract(self, arguments):
+        self._require_writable()
+        subject = self._subject_from(self.dag, arguments)
+        prov = self._provenance()
+        prov.retract(subject, basis=self.root, time=_utc_now())
+        provenance_root = prov.commit()
+        return self._envelope(self.root, {
+            "op": "retract", "subject": subject, "author": prov.author,
+            "provenance_root": provenance_root,
+            "note": "a retraction is a speech act — the knowledge itself "
+                    "is untouched (use propose_remove/remove for that)",
+        })
+
     def tool_specs(self):
-        return TOOL_SPECS + (WRITE_TOOL_SPECS if self.writable else [])
+        specs = list(TOOL_SPECS)
+        if self._has_provenance:
+            specs += REVIEW_TOOL_SPECS
+        if self.writable:
+            specs += WRITE_TOOL_SPECS
+        return specs
 
     def call(self, name, arguments):
-        handler = TOOL_HANDLERS.get(name) or WRITE_TOOL_HANDLERS.get(name)
+        handler = TOOL_HANDLERS.get(name) \
+            or REVIEW_TOOL_HANDLERS.get(name) \
+            or WRITE_TOOL_HANDLERS.get(name)
         if handler is None:
-            available = sorted(TOOL_HANDLERS) + \
-                (sorted(WRITE_TOOL_HANDLERS) if self.writable else [])
+            available = sorted(TOOL_HANDLERS) \
+                + (sorted(REVIEW_TOOL_HANDLERS) if self._has_provenance
+                   else []) \
+                + (sorted(WRITE_TOOL_HANDLERS) if self.writable else [])
             raise ToolError(f"unknown tool {name!r} "
                             f"(available: {', '.join(available)})")
         return handler(self, arguments or {})
@@ -467,11 +573,17 @@ TOOL_HANDLERS = {
     "canon": AgentSurface.tool_canon,
 }
 
+REVIEW_TOOL_HANDLERS = {
+    "review": AgentSurface.tool_review,
+}
+
 WRITE_TOOL_HANDLERS = {
     "propose_put": AgentSurface.tool_propose_put,
     "put": AgentSurface.tool_put,
     "propose_remove": AgentSurface.tool_propose_remove,
     "remove": AgentSurface.tool_remove,
+    "endorse": AgentSurface.tool_endorse,
+    "retract": AgentSurface.tool_retract,
 }
 
 _AS_OF = {"type": "string",
@@ -548,6 +660,28 @@ TOOL_SPECS = [
 _SUPERS = {"type": "array", "items": {"type": "string"},
            "description": "the supercategories (empty/omitted = top level)"}
 
+_CLAIM_ARGS = {
+    "sub": {"type": "string", "description": "the claim's subject term"},
+    "sup": {"type": "string",
+            "description": "the claim's supercategory; omit (or '*') for "
+                           "the existence claim"},
+}
+
+REVIEW_TOOL_SPECS = [
+    {"name": "review",
+     "description": "The audit view of one claim: every provenance record "
+                    "about it (assertions, endorsements, retractions, per "
+                    "author, signature-verified), each author's standing "
+                    "(a verified retraction is sticky), and — given "
+                    "`trust`, a list of author addresses — whether the "
+                    "claim is ACCEPTED under your policy. Claims merge; "
+                    "acceptance is yours.",
+     "inputSchema": {"type": "object", "required": ["sub"],
+                     "properties": {**_CLAIM_ARGS,
+                                    "trust": {"type": "array",
+                                              "items": {"type": "string"}}}}},
+]
+
 WRITE_TOOL_SPECS = [
     {"name": "propose_put",
      "description": "Step 1 of a write: see exactly what would be stored — "
@@ -580,6 +714,19 @@ WRITE_TOOL_SPECS = [
      "inputSchema": {"type": "object", "required": ["item", "proposal"],
                      "properties": {"item": {"type": "string"},
                                     "proposal": {"type": "string"}}}},
+    {"name": "endorse",
+     "description": "Sign your endorsement of a claim (sub ⊑ sup, or the "
+                    "existence claim without sup) — 'I stand behind this' "
+                    "— into the provenance store. Touches no knowledge.",
+     "inputSchema": {"type": "object", "required": ["sub"],
+                     "properties": _CLAIM_ARGS}},
+    {"name": "retract",
+     "description": "Sign a retraction of a claim: 'this key no longer "
+                    "stands behind it'. A speech act — the knowledge is "
+                    "untouched (use propose_remove/remove for that); your "
+                    "standing on the claim becomes 'retracted' in review.",
+     "inputSchema": {"type": "object", "required": ["sub"],
+                     "properties": _CLAIM_ARGS}},
 ]
 
 
