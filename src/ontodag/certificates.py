@@ -131,7 +131,8 @@ def _cover(lazy, seeds):
             name = canonical
             for value, vkind in lazy._star(head):
                 if value.name != canonical and \
-                        _dims.contains(value.name, canonical, vkind):
+                        _dims.contains(value.name, canonical, vkind,
+                                       units=lazy._declared_units()):
                     nxt.add(value.name)
         node = lazy.nodes.get(name)
         if node is not None:

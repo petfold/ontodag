@@ -44,7 +44,7 @@ class TestTable(unittest.TestCase):
             self.assertEqual(once, expected, suffix)
 
     def test_registry_version_and_compatibility(self):
-        self.assertEqual(REGISTRY_VERSION, "3.1")
+        self.assertEqual(REGISTRY_VERSION, "3.2")
         self.assertTrue(registry_compatible("3.9"))
         self.assertFalse(registry_compatible("2"))
         self.assertFalse(registry_compatible("4.0"))
@@ -110,16 +110,6 @@ class TestFlagshipExactness(unittest.TestCase):
         with self.assertRaises(ValueError):
             contains("x(..1DAI)", "x(1xDAI)", KIND_LINEAR)
 
-    def test_fiat_and_stablecoins_each_their_own_lattice(self):
-        self.assertEqual(canonicalize("p(0.99USD)", KIND_LINEAR),
-                         "p(99/100USD)")
-        self.assertTrue(contains("p(..100HUF)", "p(99.5HUF)", KIND_LINEAR))
-        # A peg is a promise, not arithmetic: USD vs USDC refuses.
-        with self.assertRaises(ValueError):
-            contains("x(..1USD)", "x(1USDC)", KIND_LINEAR)
-        with self.assertRaises(ValueError):
-            contains("x(..1USDT)", "x(1USDC)", KIND_LINEAR)
-
     def test_second_round_additions(self):
         # Torr and mmHg: near-identical, deliberately DISTINCT exact values
         # in one family — the difference is real and preserved.
@@ -138,12 +128,6 @@ class TestFlagshipExactness(unittest.TestCase):
         # percent/ppm/bp on the dimensionless family
         self.assertEqual(canonicalize("n(50pct)", KIND_LINEAR), "n(1/2)")
         self.assertEqual(canonicalize("n(25bp)", KIND_LINEAR), "n(1/400)")
-        # crypto denominations
-        self.assertEqual(canonicalize("x(1lamport)", KIND_LINEAR),
-                         "x(1/1000000000SOL)")
-        with self.assertRaises(ValueError):
-            contains("x(..1SOL)", "x(1XRP)", KIND_LINEAR)
-
     def test_honest_exclusions(self):
         for bad in ("t(20degC)", "t(70degF)", "a(1rad)"):
             with self.assertRaises(ValueError):

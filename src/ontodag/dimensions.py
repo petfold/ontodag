@@ -39,8 +39,13 @@ from fractions import Fraction
 # 3.0 (2026-08-01: rational anchoring, the full SI + customary unit table),
 # 3.1 (2026-08-01: information/data-rate/compute-rate families and the
 #      protocol-fixed crypto denominations — the first D10 minor: purely
-#      vocabulary-additive, interoperable with every 3.x reader).
-REGISTRY_VERSION = "3.1"
+#      vocabulary-additive, interoperable with every 3.x reader),
+# 3.2 (2026-08-01: GRAPH-DECLARED UNITS — `unit(spelling=value)` and
+#      `unit-family(NAME)` nodes under the registry node `unit-declaration`
+#      extend the vocabulary as DATA (UNITS.md §7); the built-in table
+#      slims to physical/digital measurement + the stack's own tokens, and
+#      currencies move to shipped packs adopted by merge).
+REGISTRY_VERSION = "3.2"
 
 
 def registry_compatible(version, other=None):
@@ -53,6 +58,7 @@ def registry_compatible(version, other=None):
 # recognizes "*". A dimension head is declared by asserting it under exactly
 # one kind node (directly or via ancestors): weight -> linear-dimension.
 DIMENSION_ROOT = "dimension"
+UNIT_DECLARATION = "unit-declaration"  # unit(...)/unit-family(...) parent
 KIND_LINEAR = "linear-dimension"
 KIND_PREFIX = "prefix-dimension"
 KIND_DOMINANCE = "dominance-dimension"
@@ -247,46 +253,9 @@ def _build_units():
         "dai": ("DAI", {"DAI": F(1)}),
         "xdai": ("xDAI", {"xDAI": F(1)}),    # Gnosis Chain's native coin
     }
-    # The major cryptocurrencies (top-of-market set, 2026-08): one family
-    # each — exchange rates are never fixed — with the chain's canonical
-    # denomination named where one exists (protocol-fixed decimals).
-    for coin, subunits in {
-        "SOL": {"lamport": F(1, 10**9)},
-        "XRP": {"drop": F(1, 10**6)},
-        "BNB": {}, "DOGE": {}, "LINK": {}, "AVAX": {}, "BCH": {},
-        "UNI": {}, "SHIB": {}, "NEAR": {}, "SUI": {},
-        "ADA": {"lovelace": F(1, 10**6)},
-        "TRX": {"sun": F(1, 10**6)},
-        "TON": {"nanoton": F(1, 10**9)},
-        "DOT": {"planck": F(1, 10**10)},
-        "LTC": {"litoshi": F(1, 10**8)},
-        "XLM": {"stroop": F(1, 10**7)},
-        "ATOM": {"uatom": F(1, 10**6)},
-        "XMR": {"piconero": F(1, 10**12)},
-        "HBAR": {"tinybar": F(1, 10**8)},
-    }.items():
-        families[coin.lower()] = (coin, {coin: F(1), **subunits})
-    # Stablecoins: each its own family (a peg is a promise, not a fixed
-    # ratio — USDC never compares to USD or USDT).
-    for coin in ("USDT", "USDC", "EURC", "PYUSD", "GUSD", "TUSD"):
-        families[coin.lower()] = (coin, {coin: F(1)})
-    # National fiat currencies (ISO 4217, active national/circulating set;
-    # the special X-codes for metals and SDRs are excluded, the circulating
-    # XAF/XOF/XCD/XPF francs and dollars kept). One family each, anchored
-    # at the code — subunits need no names, decimals are exact rationals
-    # (0.99USD stores as 99/100USD).
-    for code in (
-        "AED AFN ALL AMD ANG AOA ARS AUD AWG AZN BAM BBD BDT BGN BHD BIF "
-        "BMD BND BOB BRL BSD BTN BWP BYN BZD CAD CDF CHF CLP CNY COP CRC "
-        "CUP CVE CZK DJF DKK DOP DZD EGP ERN ETB EUR FJD FKP GBP GEL GHS "
-        "GIP GMD GNF GTQ GYD HKD HNL HTG HUF IDR ILS INR IQD IRR ISK JMD "
-        "JOD JPY KES KGS KHR KMF KPW KRW KWD KYD KZT LAK LBP LKR LRD LSL "
-        "LYD MAD MDL MGA MKD MMK MNT MOP MRU MUR MVR MWK MXN MYR MZN NAD "
-        "NGN NIO NOK NPR NZD OMR PAB PEN PGK PHP PKR PLN PYG QAR RON RSD "
-        "RUB RWF SAR SBD SCR SDG SEK SGD SHP SLE SOS SRD SSP STN SYP SZL "
-        "THB TJS TMT TND TOP TRY TTD TWD TZS UAH UGX USD UYU UZS VES VND "
-        "VUV WST XAF XCD XOF XPF YER ZAR ZMW ZWG").split():
-        families[f"fiat-{code.lower()}"] = (code, {code: F(1)})
+
+    # (Stablecoins and national fiat currencies moved to shipped PACKS —
+    # graph-declared vocabulary adopted by merge, ontodag.packs — 3.2.)
     families["count"] = ("", {"": F(1), "pct": F(1, 100),
                           "ppm": F(1, 10**6), "bp": F(1, 10**4),
                           "dz": F(12)})
@@ -348,7 +317,16 @@ def _parse_timestamp(text):
     return text
 
 
-def _parse_scalar(text):
+def _lookup(suffix, units):
+    """Suffix resolution: the built-in table, then graph declarations
+    (UNITS.md §7 — conflicts were already refused at resolve time)."""
+    hit = _UNITS.get(suffix)
+    if hit is None and units:
+        hit = units.get(suffix)
+    return hit
+
+
+def _parse_scalar(text, units=None):
     """One linear value -> (family, value). Numeric values become exact
     Fractions of the family's anchor unit — integers, decimals and
     rationals (`10/33m`) all land exactly, so nothing is ever rounded or
@@ -362,9 +340,14 @@ def _parse_scalar(text):
         raise ValueError(f"invalid value {text!r}")
     number, unit = match.groups()
     unit = unit or ""
-    if unit not in _UNITS:
-        raise ValueError(f"unknown unit {unit!r} in {text!r}")
-    family, factor = _UNITS[unit]
+    hit = _lookup(unit, units)
+    if hit is None:
+        raise ValueError(
+            f"unknown unit {unit!r} in {text!r} — not in the built-in "
+            f"table or this graph's unit declarations (merge the pack "
+            f"that defines it, or declare it: put "
+            f"'unit({unit}=<value><unit>)' unit-declaration)")
+    family, factor = hit
     try:
         value = Fraction(number) * factor
     except ZeroDivisionError:
@@ -372,7 +355,7 @@ def _parse_scalar(text):
     return family, value
 
 
-def _parse_end(text, side):
+def _parse_end(text, side, units=None):
     """A range end: bare dates expand deterministically (start -> first
     second, end -> last second of the day) — boundary sugar, DIMENSIONS.md §4.
     """
@@ -383,10 +366,10 @@ def _parse_end(text, side):
             raise ValueError(f"invalid date {text!r}")
         suffix = "T00:00:00Z" if side == "lo" else "T23:59:59Z"
         return _TIME, text + suffix
-    return _parse_scalar(text)
+    return _parse_scalar(text, units)
 
 
-def _parse_linear(param):
+def _parse_linear(param, units=None):
     """-> (family, lo, hi); closed interval; None = unbounded. Numeric
     families have no negative values (the grammar admits none), so an
     unbounded lower end IS 0 and is normalized to it — `number(..0)` and
@@ -399,8 +382,8 @@ def _parse_linear(param):
         lo_text, hi_text = parts
         if not lo_text and not hi_text:
             raise ValueError(f"range {param!r} needs at least one end")
-        lo = _parse_end(lo_text, "lo") if lo_text else None
-        hi = _parse_end(hi_text, "hi") if hi_text else None
+        lo = _parse_end(lo_text, "lo", units) if lo_text else None
+        hi = _parse_end(hi_text, "hi", units) if hi_text else None
         if lo and hi:
             if lo[0] != hi[0]:
                 raise ValueError(
@@ -411,10 +394,10 @@ def _parse_linear(param):
         lo_value = lo[1] if lo else (None if family == _TIME else Fraction(0))
         return family, lo_value, hi[1] if hi else None
     if _DATE_RE.match(param):  # bare date = the whole day, as an interval
-        lo = _parse_end(param, "lo")
-        hi = _parse_end(param, "hi")
+        lo = _parse_end(param, "lo", units)
+        hi = _parse_end(param, "hi", units)
         return _TIME, lo[1], hi[1]
-    family, value = _parse_scalar(param)
+    family, value = _parse_scalar(param, units)
     return family, value, value  # a point is a degenerate interval
 
 
@@ -472,7 +455,7 @@ def _parse_calendar(param):
     return _TIME, _calendar_end(param, "lo"), _calendar_end(param, "hi")
 
 
-def _parse_dominance(param):
+def _parse_dominance(param, units=None):
     """-> (family, tuple sorted descending). Units propagate right-to-left
     (`390x230x190mm`: the trailing unit covers unitless components); no unit
     anywhere means the dimensionless count family."""
@@ -489,7 +472,7 @@ def _parse_dominance(param):
         number, unit = match.groups()
         if unit:
             carried_unit = unit
-        families[i], values[i] = _parse_scalar(number + carried_unit)
+        families[i], values[i] = _parse_scalar(number + carried_unit, units)
     if len(set(families)) != 1:
         raise ValueError(f"components of {param!r} mix unit families")
     return families[0], tuple(sorted(values, reverse=True))
@@ -512,10 +495,11 @@ def _fraction_text(value):
 
 def _render_scalar(family, value):
     """Canonical spelling: a reduced rational plus the anchor suffix —
-    `3kg`, `1/2kg`, `10/33m` (UNITS.md D9)."""
+    `3kg`, `1/2kg`, `10/33m` (UNITS.md D9). A graph-declared family's
+    anchor IS its name (`unit-family(SOL)` → suffix `SOL`)."""
     if family == _TIME:
         return value
-    return f"{_fraction_text(value)}{_ANCHOR[family]}"
+    return f"{_fraction_text(value)}{_ANCHOR.get(family, family)}"
 
 
 def _render_linear(family, lo, hi):
@@ -531,13 +515,13 @@ def _render_linear(family, lo, hi):
     return f"{lo_text}..{hi_text}"
 
 
-def _denotation(param, kind):
+def _denotation(param, kind, units=None):
     if kind == KIND_CALENDAR:
         return _parse_calendar(param)
     if kind == KIND_LINEAR:
-        return _parse_linear(param)
+        return _parse_linear(param, units)
     if kind == KIND_DOMINANCE:
-        return _parse_dominance(param)
+        return _parse_dominance(param, units)
     if kind == KIND_PREFIX:
         return _parse_prefix(param)
     raise ValueError(f"unknown dimension kind {kind!r}")
@@ -548,25 +532,27 @@ def _render(denotation, kind):
         return _render_linear(*denotation)
     if kind == KIND_DOMINANCE:
         family, values = denotation
-        suffix = _ANCHOR[family]
+        suffix = _ANCHOR.get(family, family)
         return "x".join(_fraction_text(v) for v in values) + suffix
     return denotation  # prefix: the validated string is canonical
 
 
-def canonicalize(name, kind):
+def canonicalize(name, kind, units=None):
     """The canonical name of a parametric term (identity string). Raises
-    ValueError when the parameter is malformed for the head's kind."""
+    ValueError when the parameter is malformed for the head's kind.
+    `units` extends the suffix vocabulary with graph declarations
+    (UNITS.md §7); canonical output always uses anchor suffixes."""
     split = split_term(name)
     if split is None:
         raise ValueError(f"{name!r} is not a parametric term")
     head, param = split
-    return f"{head}({_render(_denotation(param, kind), kind)})"
+    return f"{head}({_render(_denotation(param, kind, units), kind)})"
 
 
-def space_of(name, kind):
+def space_of(name, kind, units=None):
     """Value-space tag for put-time consistency checks: every value of one
     head must share it (one family, one arity)."""
-    denotation = _denotation(split_term(name)[1], kind)
+    denotation = _denotation(split_term(name)[1], kind, units)
     if kind in _LINEARISH:
         # Calendar shares linear's tag on purpose: the two describe the same
         # value space, so re-declaring a time dimension from one to the other
@@ -604,23 +590,23 @@ def _family_mismatch(a, fam_a, b, fam_b):
     return message
 
 
-def contains(outer, inner, kind):
+def contains(outer, inner, kind, units=None):
     """denotation(inner) ⊆ denotation(outer)? Both must share the head.
     Reflexive; distinct canonical names are therefore strictly ordered or
     incomparable, never mutually contained (that is what keeps the combined
     relation a partial order — DIMENSIONS.md §11, I1)."""
     _, param_outer, param_inner = _same_head(outer, inner)
     if kind in _LINEARISH:
-        fam_o, lo_o, hi_o = _denotation(param_outer, kind)
-        fam_i, lo_i, hi_i = _denotation(param_inner, kind)
+        fam_o, lo_o, hi_o = _denotation(param_outer, kind, units)
+        fam_i, lo_i, hi_i = _denotation(param_inner, kind, units)
         if fam_o != fam_i:
             raise ValueError(_family_mismatch(outer, fam_o, inner, fam_i))
         lo_ok = lo_o is None or (lo_i is not None and lo_i >= lo_o)
         hi_ok = hi_o is None or (hi_i is not None and hi_i <= hi_o)
         return lo_ok and hi_ok
     if kind == KIND_DOMINANCE:
-        fam_o, values_o = _parse_dominance(param_outer)
-        fam_i, values_i = _parse_dominance(param_inner)
+        fam_o, values_o = _parse_dominance(param_outer, units)
+        fam_i, values_i = _parse_dominance(param_inner, units)
         if fam_o != fam_i or len(values_o) != len(values_i):
             raise ValueError(
                 f"incompatible dominance spaces: {outer!r} vs {inner!r}")
@@ -631,15 +617,15 @@ def contains(outer, inner, kind):
     raise ValueError(f"unknown dimension kind {kind!r}")
 
 
-def intersect(a, b, kind):
+def intersect(a, b, kind, units=None):
     """Canonical name of denotation(a) ∩ denotation(b), or None when the
     intersection is provably empty. Within a dimension meets are exact —
     the planner pre-intersects same-head query terms with this, and the
     disjoint-parents guard raises on None (DIMENSIONS.md §8, §9)."""
     head, param_a, param_b = _same_head(a, b)
     if kind in _LINEARISH:
-        fam_a, lo_a, hi_a = _denotation(param_a, kind)
-        fam_b, lo_b, hi_b = _denotation(param_b, kind)
+        fam_a, lo_a, hi_a = _denotation(param_a, kind, units)
+        fam_b, lo_b, hi_b = _denotation(param_b, kind, units)
         if fam_a != fam_b:
             raise ValueError(_family_mismatch(a, fam_a, b, fam_b))
         lo = lo_a if lo_b is None else lo_b if lo_a is None else max(lo_a, lo_b)
@@ -648,8 +634,8 @@ def intersect(a, b, kind):
             return None
         return f"{head}({_render_linear(fam_a, lo, hi)})"
     if kind == KIND_DOMINANCE:
-        fam_a, values_a = _parse_dominance(param_a)
-        fam_b, values_b = _parse_dominance(param_b)
+        fam_a, values_a = _parse_dominance(param_a, units)
+        fam_b, values_b = _parse_dominance(param_b, units)
         if fam_a != fam_b or len(values_a) != len(values_b):
             raise ValueError(
                 f"incompatible dominance spaces: {a!r} vs {b!r}")
@@ -664,3 +650,91 @@ def intersect(a, b, kind):
             return f"{head}({value_b})"
         return None
     raise ValueError(f"unknown dimension kind {kind!r}")
+
+
+# --------------------------------------------------------------------------- #
+# Graph-declared units (UNITS.md §7, 3.2): vocabulary as data
+#
+# A node `unit(SPELLING=VALUE)` under the registry node `unit-declaration`
+# declares SPELLING to mean exactly VALUE (a number in an already-resolvable
+# unit — chains allowed); `unit-family(NAME)` declares a new family whose
+# anchor suffix is NAME itself. Declarations are ordinary graph content, so
+# they MERGE — a "unit pack" is just a published ontology of declaration
+# nodes, and a store's vocabulary travels inside the store. Canonical names
+# for built-in families keep built-in anchors; a declared family's anchor
+# is its own name, part of the merged interpretation context exactly as
+# CONTRACT.md G1's relativity clause allows. Conflicts (a spelling defined
+# twice with different meanings, or clashing with the built-in table) and
+# unresolvable definitions are refused LOUDLY at first parametric use —
+# the conflicting-kind-declaration precedent.
+# --------------------------------------------------------------------------- #
+
+_SUFFIX_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*$")
+
+
+def resolve_declarations(names):
+    """Parse a set of declaration-node names into an extra-units map
+    ``{suffix: (family, factor)}``. Pure; raises ValueError with a
+    teaching message on malformed, conflicting, or unresolvable
+    declarations. Non-declaration names are ignored (the caller passes
+    every child of `unit-declaration`; stray nodes are someone's
+    business, not an error here)."""
+    extra = {}
+
+    def register(spelling, value, raw):
+        clash = _UNITS.get(spelling) or extra.get(spelling)
+        if clash is not None and clash != value:
+            raise ValueError(
+                f"conflicting unit declaration {raw!r}: {spelling!r} "
+                f"already means {clash!r} — two merged vocabularies "
+                f"disagree; remove one side")
+        extra[spelling] = value
+
+    pending = []
+    for raw in sorted(n for n in names if isinstance(n, str)):
+        split = split_term(raw)
+        if split is None:
+            continue
+        head, param = split
+        if head == "unit-family":
+            if not _SUFFIX_RE.match(param):
+                raise ValueError(
+                    f"invalid unit-family declaration {raw!r}: the name "
+                    f"must be letters then letters/digits (it becomes the "
+                    f"anchor suffix)")
+            register(param, (param, Fraction(1)), raw)
+        elif head == "unit":
+            spelling, eq, definition = param.partition("=")
+            if not eq or not _SUFFIX_RE.match(spelling):
+                raise ValueError(
+                    f"invalid unit declaration {raw!r}: expected "
+                    f"unit(SPELLING=<number><unit>)")
+            match = _NUM_RE.match(definition)
+            if not match or not match.group(2):
+                raise ValueError(
+                    f"invalid unit declaration {raw!r}: the definition "
+                    f"must be an exact number in a named unit")
+            pending.append((spelling, match.group(1), match.group(2), raw))
+
+    while pending:                      # chains resolve to a fixed point
+        rest, progress = [], False
+        for spelling, number, base, raw in pending:
+            source = _UNITS.get(base) or extra.get(base)
+            if source is None:
+                rest.append((spelling, number, base, raw))
+                continue
+            family, base_factor = source
+            factor = Fraction(number) * base_factor
+            if factor <= 0:
+                raise ValueError(f"non-positive factor in {raw!r}")
+            register(spelling, (family, factor), raw)
+            progress = True
+        if not progress:
+            missing = sorted({base for _, _, base, _ in rest})
+            raise ValueError(
+                f"unresolvable unit declarations "
+                f"{sorted(r for *_, r in rest)!r}: unknown base unit(s) "
+                f"{missing!r} — merge the pack that defines them, or "
+                f"declare them first")
+        pending = rest
+    return extra

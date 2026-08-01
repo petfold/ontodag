@@ -499,6 +499,22 @@ class OntoDAG(DAG):
                 f"{', '.join(sorted(kinds))} — declare exactly one")
         return next(iter(kinds), None)
 
+    def _declared_units(self):
+        """Graph-declared unit vocabulary (UNITS.md §7): the resolved map
+        from `unit(...)`/`unit-family(...)` nodes under the registry node
+        `unit-declaration`. Cached; the cache self-checks against the
+        declaration-name set, so puts, removes and merges are picked up
+        without invalidation hooks. Loud on conflicts and unresolvable
+        definitions — the conflicting-kind-declaration precedent."""
+        node = self.nodes.get(_dims.UNIT_DECLARATION)
+        names = frozenset(child.name for child in node.neighbors)             if node is not None else frozenset()
+        cached = getattr(self, "_unit_cache", None)
+        if cached is not None and cached[0] == names:
+            return cached[1]
+        units = _dims.resolve_declarations(names)
+        self._unit_cache = (names, units)
+        return units
+
     def _parse_parametric(self, name):
         """(head, kind, canonical name) when `name` is a parametric term of a
         *declared* dimension; None otherwise. This is the parse trigger:
@@ -510,7 +526,8 @@ class OntoDAG(DAG):
         kind = self._dimension_kind(split[0])
         if kind is None:
             return None
-        return split[0], kind, _dims.canonicalize(name, kind)
+        return split[0], kind, _dims.canonicalize(
+            name, kind, units=self._declared_units())
 
     def _canonical_name(self, name):
         parsed = self._parse_parametric(name)
@@ -544,7 +561,8 @@ class OntoDAG(DAG):
         head, kind, canonical = parsed
         for sibling, _ in self._star(head):
             if sibling is not node and _dims.contains(
-                    canonical, sibling.name, kind):
+                    canonical, sibling.name, kind,
+                    units=self._declared_units()):
                 yield sibling
 
     def _computed_parents(self, node):
@@ -554,7 +572,8 @@ class OntoDAG(DAG):
         head, kind, canonical = parsed
         for sibling, _ in self._star(head):
             if sibling is not node and _dims.contains(
-                    sibling.name, canonical, kind):
+                    sibling.name, canonical, kind,
+                    units=self._declared_units()):
                 yield sibling
 
     def get_overlapping(self, term):
@@ -581,7 +600,8 @@ class OntoDAG(DAG):
         head, kind, canonical = parsed
         result = set()
         for value, _ in self._star(head):
-            if _dims.intersect(canonical, value.name, kind) is not None:
+            if _dims.intersect(canonical, value.name, kind,
+                               units=self._declared_units()) is not None:
                 result.add(value)
                 result |= self.get_descendants(value)
         return result
@@ -595,7 +615,8 @@ class OntoDAG(DAG):
         (DIMENSIONS.md §8)."""
         cone = set()
         for value, _ in self._star(head):
-            if _dims.contains(canonical, value.name, kind):
+            if _dims.contains(canonical, value.name, kind,
+                              units=self._declared_units()):
                 cone.add(value)
                 cone |= self.get_descendants(value)
         return cone
@@ -608,9 +629,11 @@ class OntoDAG(DAG):
         node = self.nodes.get(canonical)
         if node is not None:
             return node
-        space = _dims.space_of(canonical, kind)
+        space = _dims.space_of(canonical, kind,
+                               units=self._declared_units())
         for sibling, _ in self._star(head):
-            sibling_space = _dims.space_of(sibling.name, kind)
+            sibling_space = _dims.space_of(sibling.name, kind,
+                                           units=self._declared_units())
             if sibling_space != space:
                 raise ValueError(
                     f"dimension {head!r} holds {sibling_space} values "
@@ -746,7 +769,8 @@ class OntoDAG(DAG):
             by_head = {}
             for name, (head, kind) in parametric.items():
                 if head in by_head:
-                    met = _dims.intersect(by_head[head][0], name, kind)
+                    met = _dims.intersect(by_head[head][0], name, kind,
+                                          units=self._declared_units())
                     if met is None:
                         return set()
                     by_head[head] = (met, kind)
@@ -887,14 +911,16 @@ class OntoDAG(DAG):
         # with a virtual side it is also complete, short of cross edges.
         if sub_parsed is not None and sup_parsed is not None \
                 and sub_parsed[0] == sup_parsed[0] \
-                and _dims.contains(sup, sub, sup_parsed[1]):
+                and _dims.contains(sup, sub, sup_parsed[1],
+                                   units=self._declared_units()):
             return True
         if sub_node is None:
             # A virtual subject relates upward only through the present
             # values that contain it.
             head, kind, _ = sub_parsed
             return any(
-                _dims.contains(value.name, sub, kind)
+                _dims.contains(value.name, sub, kind,
+                               units=self._declared_units())
                 and self.is_below(value, sup)
                 for value, _kind in self._star(head))
         if sup_node is None:
@@ -910,7 +936,8 @@ class OntoDAG(DAG):
             for ancestor in self._walk_ancestors(sub_node):
                 parsed = self._parse_parametric(ancestor.name)
                 if parsed is not None and parsed[0] == head \
-                        and _dims.contains(sup, ancestor.name, kind):
+                        and _dims.contains(sup, ancestor.name, kind,
+                                           units=self._declared_units()):
                     return True
             return False
         return self._has_ancestors(sub_node, (sup_node,))
@@ -997,7 +1024,8 @@ class OntoDAG(DAG):
                     parametric_supers[parsed[0]].append((parent.name, parsed[1]))
         for head, entries in parametric_supers.items():
             for (name_a, kind), (name_b, _) in combinations(entries, 2):
-                if _dims.intersect(name_a, name_b, kind) is None:
+                if _dims.intersect(name_a, name_b, kind,
+                                   units=self._declared_units()) is None:
                     raise ValueError(
                         f"{subcategory.name} cannot sit under both {name_a} "
                         f"and {name_b}: provably disjoint {head!r} terms — "

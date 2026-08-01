@@ -47,7 +47,7 @@ SURFACE_VERSION = "0.1"
 # Friendly spellings per kind (each must re-elaborate to the same canonical)
 # --------------------------------------------------------------------------- #
 
-def _friendly_value(family, value):
+def _friendly_value(family, value, units=None):
     """Largest unit of the family in which `value` is a whole number.
     Integers only — elaboration accepts decimals and rationals from
     humans, rendering never produces them (fewer spellings, one
@@ -55,11 +55,14 @@ def _friendly_value(family, value):
     10/33 m) keeps its canonical rational spelling."""
     if family == "count":
         return _dims._fraction_text(value)
-    anchor = _dims._ANCHOR[family]
+    anchor = _dims._ANCHOR.get(family, family)
     if value == 0:
         return "0" + anchor
     best = None                      # (factor, suffix)
-    for unit, (fam, scale) in _dims._UNITS.items():
+    candidates = dict(_dims._UNITS)
+    if units:
+        candidates.update(units)     # graph-declared vocabulary renders too
+    for unit, (fam, scale) in candidates.items():
         if fam != family:
             continue
         quotient = value / scale
@@ -108,42 +111,47 @@ def _friendly_time(lo, hi, calendar):
     return f"{lo_text}..{hi_text}"
 
 
-def _friendly_linear(denotation, kind):
+def _friendly_linear(denotation, kind, units=None):
     family, lo, hi = denotation
     if family == _dims._TIME:
         return _friendly_time(lo, hi, calendar=(kind == _dims.KIND_CALENDAR))
     if lo is not None and lo == hi:
-        return _friendly_value(family, lo)
+        return _friendly_value(family, lo, units)
     if lo == 0 and hi is not None:  # numeric families: 0 is unbounded-below
         lo = None
-    lo_text = _friendly_value(family, lo) if lo is not None else ""
-    hi_text = _friendly_value(family, hi) if hi is not None else ""
+    lo_text = _friendly_value(family, lo, units) if lo is not None else ""
+    hi_text = _friendly_value(family, hi, units) if hi is not None else ""
     return f"{lo_text}..{hi_text}"
 
 
-def _friendly_dominance(denotation):
+def _friendly_dominance(denotation, units=None):
     family, values = denotation
     if family == "count":
         return "x".join(_dims._fraction_text(v) for v in values)
     best = None
+    candidates = dict(_dims._UNITS)
+    if units:
+        candidates.update(units)
     if any(values):  # all-zero tuples keep the anchor spelling
-        for unit, (fam, scale) in _dims._UNITS.items():
+        for unit, (fam, scale) in candidates.items():
             if fam == family and \
                     all((v / scale).denominator == 1 for v in values) and \
                     (best is None or scale > best[0]):
                 best = (scale, unit)
     if best is None:                 # no single unit fits all components:
         return "x".join(_dims._fraction_text(v) for v in values) \
-            + _dims._ANCHOR[family]  # the canonical spelling
+            + _dims._ANCHOR.get(family, family)  # the canonical spelling
     return "x".join(str(int(v / best[0])) for v in values) + best[1]
 
 
-def _friendly_param(param, kind):
+def _friendly_param(param, kind, units=None):
     if kind == _dims.KIND_PREFIX:
         return param  # already the friendliest admissible spelling
     if kind == _dims.KIND_DOMINANCE:
-        return _friendly_dominance(_dims._parse_dominance(param))
-    return _friendly_linear(_dims._denotation(param, kind), kind)
+        return _friendly_dominance(_dims._parse_dominance(param, units),
+                                   units)
+    return _friendly_linear(_dims._denotation(param, kind, units), kind,
+                            units)
 
 
 # --------------------------------------------------------------------------- #
@@ -184,4 +192,5 @@ def render(name, dag=None, kind=None):
         return name
     head, resolved_kind, canonical = resolved
     param = _dims.split_term(canonical)[1]
-    return f"{head}({_friendly_param(param, resolved_kind)})"
+    units = dag._declared_units() if dag is not None else None
+    return f"{head}({_friendly_param(param, resolved_kind, units)})"

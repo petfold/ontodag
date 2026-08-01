@@ -172,7 +172,7 @@ published demos) in the same pass. Doing this before ontodag 0.10.0 means
 the break rides a normal release; doing it in a year means migrating
 strangers' data.
 
-## 7. Graph-declared units: adding units without a release
+## 7. Graph-declared units: adding units without a release — IMPLEMENTED (registry 3.2)
 
 Peter's structural objection (2026-08-01, late): needing an OntoDAG
 *release* to add a unit is not ideal — D10 minors are cheap (additive,
@@ -204,9 +204,30 @@ merges); here is the concrete mechanism, **queued as the next work item**:
   (which allocates an anchor suffix, touching canonical spellings) needs
   its own care and waits; the ~60-family table makes this the rare case.
 
-Until this lands, additions ride D10 minors — code, but cheap, additive
-code. After it lands, the built-in table is merely the vocabulary
-everyone shares without asking; everything else is data.
+**Implemented the same evening (registry 3.2):** `resolve_declarations`
+in `dimensions.py` (fixed-point over chained definitions, loud conflicts
+and unresolvables), a self-checking declared-units cache on the DAG (no
+invalidation hooks — merges, puts and removes are picked up by
+construction), the `units=` plumb through every parse/containment/
+intersection path and the renderer, and **new-family declaration included
+in v1 after all** (`unit-family(NAME)` — safe because declarations merge
+with the data, so a store's vocabulary travels inside the store; a fresh
+reader parses the store's values with nothing installed — tested).
+`ontodag.packs` ships three packs with pinned golden roots, adopted via
+`odag pack NAME`: **crypto-majors** (the top-of-market set with
+chain-canonical denominations), **stablecoins**, and **fiat-iso4217**
+(~150 currencies). Certificates keep verifying over stores that carry
+declarations (the walk covers the declaration nodes automatically).
+
+**The built-in/pack sorting, reconsidered per Peter (2026-08-01, late):**
+the built-in table now holds *physical and digital measurement* —
+timeless, universal, churn-free (259 suffixes) — plus the stack's own
+tokens (BTC, ETH, BZZ/xBZZ, DAI/xDAI: top-two by dominance and the Swarm
+postage pair). Everything **market-shaped or bulk** moved to packs: the
+crypto majors (rankings churn — a pack version bump beats a code
+release), stablecoins, and the fiat registry. The rule of thumb: *if its
+importance can change, it's a pack; if only physics can change it, it's
+built in.*
 
 ## 8. What if units change in the future? (Peter's question, 2026-08-01)
 

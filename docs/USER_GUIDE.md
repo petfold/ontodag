@@ -511,7 +511,12 @@ What to know:
   `weight(1/2kg)` — so `3kg`, `3000g` and `3.0kg` are one identity, nothing is
   ever rounded, and every exactly-defined unit works: `weight(1lb)`,
   `pressure(32psi)`, `storage(..2TB)` against tebibytes, `price(0.01sat)`,
-  ~150 national currencies, even `length(10/33m)` (the shaku). Run `odag prelude` for the everyday
+  even `length(10/33m)` (the shaku). Beyond the built-ins, **unit packs**
+  add vocabulary as graph data — `odag pack fiat-iso4217` (~150 national
+  currencies), `odag pack crypto-majors`, `odag pack` to list — and you
+  can declare your own unit with one put:
+  `odag put 'unit(firkin=9igal)' unit-declaration`. Declarations merge
+  and travel with the store, so readers need nothing installed. Run `odag prelude` for the everyday
   dimensions and see docs/UNITS.md for the full table.
 - **Two more kinds**: `prefix-dimension` for hierarchical codes
   (`geo(u2ed)` is inside `geo(u2)` — geohash cells, handy for "near Tokyo"), and

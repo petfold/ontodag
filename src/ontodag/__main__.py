@@ -560,6 +560,30 @@ def cmd_prelude(args, session, out):
     session.save()
 
 
+def cmd_pack(args, session, out):
+    # Unit packs (UNITS.md §7): graph-declared vocabulary adopted by an
+    # explicit, idempotent merge — the prelude pattern, for units. The
+    # vocabulary then travels inside the store itself.
+    from ontodag.packs import PACKS, pack_dag
+    if not args.name:
+        for name in sorted(PACKS):
+            version, declarations = PACKS[name]
+            print(f"{name} v{version} ({len(declarations)} declarations)",
+                  file=out)
+        return
+    if args.show:
+        version, declarations = PACKS.get(args.name, (None, None))
+        if declarations is None:
+            raise ValueError(f"unknown pack {args.name!r} "
+                             f"(available: {', '.join(sorted(PACKS))})")
+        print(f"# ontodag pack {args.name} v{version}", file=out)
+        for declaration in declarations:
+            print(declaration, file=out)
+        return
+    session.dag.merge(pack_dag(args.name))
+    session.save()
+
+
 def cmd_canon(args, session, out):
     # The inspectable mapping (SURFACE_LAYER.md §7): what does this surface
     # term elaborate to? Output is always canonical — that is the command's
@@ -677,6 +701,9 @@ Commands:
   prelude [--show]      adopt the standard dimension declarations (weight,
                         time, geo, size, ...) in one idempotent merge;
                         --show prints them instead
+  pack [NAME] [--show]  list unit packs, or adopt one (crypto-majors,
+                        stablecoins, fiat-iso4217) — vocabulary as graph
+                        data, no new release needed; travels with the store
   set [KEY [VALUE]]     show settings, or set one (store, bee_api,
                         bee_batch, bee_signer)
   help                  show this help
@@ -785,6 +812,15 @@ def build_parser():
     p.add_argument("-o", "--output")
     _add_surface_flags(p)
     p.set_defaults(func=cmd_list, stream_output=True)
+
+    p = sub.add_parser("pack", add_help=True,
+                       help="list unit packs, or adopt one by merge "
+                            "(--show to inspect)")
+    p.add_argument("name", nargs="?")
+    p.add_argument("--show", action="store_true",
+                   help="print the pack instead of merging it")
+    p.add_argument("-o", "--output")
+    p.set_defaults(func=cmd_pack, stream_output=True)
 
     p = sub.add_parser("prelude", add_help=True,
                        help="adopt the standard dimension declarations "

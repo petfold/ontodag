@@ -120,6 +120,11 @@ class TestCoreIsSwarmFree(unittest.TestCase):
             "and bee must stay lazy, function-local imports",
         )
 
+    def test_packs_module_imports_stay_core_only(self):
+        loaded = fresh_import("ontodag.packs", CORE_FORBIDDEN)
+        self.assertEqual(loaded, [],
+                         f"importing ontodag.packs loaded {loaded}")
+
     def test_migrate_module_imports_stay_core_only(self):
         loaded = fresh_import("ontodag.migrate", CORE_FORBIDDEN)
         self.assertEqual(loaded, [],
