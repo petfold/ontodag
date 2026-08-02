@@ -231,11 +231,21 @@ class TestQueryPlanner(unittest.TestCase):
     def test_unknown_term_returns_empty_set(self):
         self.assertEqual(set(), self.dag.get([self.items['A'], Item('nope')]))
 
-    def test_empty_query_raises_type_error(self):
-        # Pre-planner behavior (set.intersection() with no sets) also raised
-        # TypeError; the planner keeps the exception type, with a message.
-        with self.assertRaises(TypeError):
-            self.dag.get([])
+    def test_empty_query_is_everything(self):
+        # The empty intersection is the universe: no constraints, so nothing
+        # is excluded. Equivalently the root's cone — `get([])`, `get(["*"])`
+        # and the CLI's `list` must all be the same question.
+        everything = {name for name in self.dag.nodes
+                      if name != self.dag.root.name}
+        self.assertEqual(everything, {i.name for i in self.dag.get([])})
+        self.assertEqual(self.dag.get([]), self.dag.get(["*"]))
+
+    def test_adding_a_term_only_ever_narrows(self):
+        # The property that forces the line above: if every term narrows,
+        # then no terms at all must be the widest answer there is.
+        everything = self.dag.get([])
+        for name in self.dag.nodes:
+            self.assertTrue(self.dag.get([name]) <= everything)
 
     # get() chooses adaptively between two exact operators (walk the next
     # cone vs probe the surviving candidates upward); _PROBE_COST_ESTIMATE

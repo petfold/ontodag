@@ -318,9 +318,11 @@ class TestVirtualQueryTerms(unittest.TestCase):
         self.assertIn("cafe", result)
         self.assertNotIn("far-cafe", result)
 
-    def test_empty_query_still_raises(self):
-        with self.assertRaises(TypeError):
-            self._market().get(set())
+    def test_empty_query_is_everything_here_too(self):
+        # Virtual terms change what a term *means*, never what no terms mean.
+        market = self._market()
+        self.assertEqual({i.name for i in market.get(set())},
+                         {n for n in market.nodes if n != market.root.name})
 
     def test_unknown_ordinary_term_fails_closed(self):
         self.assertEqual(

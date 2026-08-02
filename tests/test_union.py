@@ -96,12 +96,18 @@ class TestGetAny(unittest.TestCase):
         result = {i.name for i in dag.get_any([{"no-such"}, {"machine"}])}
         self.assertEqual(result, {"aibo", "drone"})
 
-    def test_empty_queries_raise(self):
+    def test_empty_disjunct_is_everything_and_absorbs_the_rest(self):
+        # An unconstrained disjunct is the universe, so the union with
+        # anything else is still the universe — the superset-pruning step
+        # gets this right with no special case.
         dag = zoo()
-        with self.assertRaises(TypeError):
-            dag.get_any([])
-        with self.assertRaises(TypeError):
-            dag.get_any([set()])
+        self.assertEqual(dag.get_any([set()]), dag.get([]))
+        self.assertEqual(dag.get_any([set(), {"pet"}]), dag.get([]))
+
+    def test_no_disjuncts_at_all_is_nothing(self):
+        # The dual: a union of no sets is empty, as an intersection of no
+        # cones is everything. Both make the operation total.
+        self.assertEqual(zoo().get_any([]), set())
 
     def test_dimensions_outside_a_range(self):
         dag = OntoDAG()

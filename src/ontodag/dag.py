@@ -695,6 +695,9 @@ class OntoDAG(DAG):
         """Return all items that are subcategories of all specified super-categories.
 
         The result is the intersection of the query terms' descendant cones.
+        With no terms at all that intersection is unconstrained, so the answer
+        is every item in the DAG — the empty query is the universe, never an
+        error (see the note where it is returned).
         The cheap, reliable decisions are planned up front; the decision that
         depends on information only produced by retrieval itself is made
         adaptively between steps. Every step is result-preserving.
@@ -756,9 +759,14 @@ class OntoDAG(DAG):
                 return set()
             terms[node.name] = node
         if not terms and not parametric:
-            # Preserves the pre-planner behavior (set.intersection() with no
-            # sets raised TypeError), with an intelligible message.
-            raise TypeError("get() requires at least one super-category")
+            # The EMPTY query is the universe, not an error: an intersection
+            # of no cones is unconstrained, so everything qualifies. That is
+            # the identity of the operation `get` performs — adding a term can
+            # only ever narrow the answer, so removing every term must widen
+            # it to the top — and it makes `get` total. Equivalently it is the
+            # root's cone, so `get([])`, `get(["*"])` and the CLI's `list` are
+            # one question with one answer.
+            return self.get_descendants(self.root)
 
         # 1a. Same-head parametric terms pre-intersect EXACTLY — within a
         # dimension, meets are computable (interval intersection), so this
@@ -859,12 +867,16 @@ class OntoDAG(DAG):
         for query in queries:
             terms = frozenset(self._canonical_name(_name_of(term))
                               for term in query)
-            if not terms:
-                raise TypeError("get_any() disjuncts need at least one term")
+            # An empty disjunct is the universe (see `get`), and the pruning
+            # below then does the right thing without a special case: the
+            # empty term set is a strict subset of every other, so every
+            # other disjunct is dropped and the union is everything.
             if terms not in normalized:
                 normalized.append(terms)
         if not normalized:
-            raise TypeError("get_any() requires at least one query")
+            # The dual of the empty conjunction: a union of no disjuncts is
+            # the empty set, as an intersection of no cones is everything.
+            return set()
         minimal = [terms for terms in normalized
                    if not any(other < terms for other in normalized)]
         result = set()

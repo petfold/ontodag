@@ -86,6 +86,15 @@ class TestAnswersMatchEagerReader(unittest.TestCase):
         reader.get(["nosuchthing"])
         self.assertEqual(before, reader.fetches)
 
+    def test_empty_query_is_everything_and_costs_everything(self):
+        # Correct, and honestly expensive: the empty query is the root's
+        # whole cone, so a lazy reader must fetch the store to answer it.
+        # That is the one query for which laziness buys nothing — worth
+        # knowing before wiring `get([])` into a thin client's hot path.
+        reader = lazy(self.root, self.blobs)
+        self.assertEqual(names(self.oracle.get([])), names(reader.get([])))
+        self.assertGreaterEqual(reader.fetches, len(self.oracle.nodes) - 1)
+
     def test_descendants_and_ancestors_by_name_or_item(self):
         reader = lazy(self.root, self.blobs)
         self.assertEqual({"car", "bike", "ev", "ebike"},
