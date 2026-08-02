@@ -140,8 +140,11 @@ You need **Python 3.11 or newer**.
 pip install ontodag
 ```
 
-This installs the `odag` command and the Python library, along with its
-dependencies (`graphviz`, `owlready2`, and `recordstore`).
+This installs the `odag` command and the Python library — and **nothing
+else**. The core, the command line, the file store and the typed-value
+arithmetic are standard-library Python, so there is no compiler step, no
+system package to find, and about 650 KB on disk. Everything heavier is an
+extra you ask for.
 
 ### Which platforms
 
@@ -200,28 +203,39 @@ setup — pick the route that matches what you actually want:
   pip install --user --break-system-packages ontodag
   ```
 
-Three optional extras:
+### Extras: ask for what you need
 
-- **Pictures.** To render your DAG as an image you also need the Graphviz *system
-  program* (the Python package alone is not enough):
+| Extra | What it adds | Install |
+| --- | --- | --- |
+| `viz` | pictures — `odag visualize`, `/dag/image`, DOT and LaTeX export | `pip install "ontodag[viz]"` |
+| `owl` | OWL and Manchester import/export (§4.6) | `pip install "ontodag[owl]"` |
+| `store` | persisted content-addressed stores (§8) | `pip install "ontodag[store]"` |
+| `swarm` | keeping a store on Ethereum Swarm (§5.1, §8) | `pip install "ontodag[swarm]"` |
+| `web` | the browser interface and REST API (§6) | `pip install "ontodag[web]"` |
+| `all` | viz + owl + store | `pip install "ontodag[all]"` |
 
-  ```bash
-  sudo apt install graphviz        # Debian/Ubuntu
-  brew install graphviz            # macOS
-  ```
+Combine them in one spec: `pip install "ontodag[viz,owl]"`.
 
-- **The web app.** For the browser interface and REST API:
+**Pictures need one more thing.** The `graphviz` Python package is only a
+wrapper; the `dot` program that does the drawing comes from your operating
+system:
 
-  ```bash
-  pip install "ontodag[web]"
-  ```
+```bash
+sudo apt install graphviz        # Debian/Ubuntu
+brew install graphviz            # macOS
+```
 
-- **Swarm storage.** To keep a store on Ethereum Swarm rather than in a local
-  file (§5.1):
+If you skip an extra and then use the feature, the error tells you which one
+to install — nothing fails obscurely. And if you can't install Graphviz at
+all, `generate_dot_source()` still gives you the DOT text to render
+elsewhere.
 
-  ```bash
-  pip install "ontodag[swarm]"
-  ```
+> **Why so little in the base install?** OntoDAG is meant to be usable in
+> places where a 30 MB dependency tree is not: slim containers, embedded
+> targets, and eventually a browser (a pure-Python package with a
+> pure-Python closure is what Pyodide can install). Keeping the base
+> dependency-free is a tested property, not an aspiration — see
+> `tests/test_boundaries.py`.
 
 > **Working from a source checkout instead:** `git clone
 > https://github.com/petfold/ontodag.git && cd ontodag`, then either
@@ -469,12 +483,15 @@ viz = OntoDAGVisualizer(format="png")        # also: "svg", "pdf"
 viz.visualize(dag, filename="travel")        # writes travel.png
 ```
 
-Requires the Graphviz system program (see Installation). The root is drawn shaded;
-arrows point from general to specific.
+Needs the `viz` extra *and* the Graphviz system program (§2). If you can
+only have one of them, `viz.generate_dot_source(dag)` returns the DOT text
+for any other Graphviz implementation to draw — including one in a browser.
+The root is drawn shaded; arrows point from general to specific.
 
 ### 4.6 Saving and loading files
 
-OntoDAG reads and writes standard **OWL ontology** files, in two flavors:
+OntoDAG reads and writes standard **OWL ontology** files, in two flavors
+(needs the `owl` extra — §2):
 
 ```python
 from ontodag import OWLOntology
@@ -1482,9 +1499,10 @@ you the `odag` command only, not an importable library — use a virtual
 environment instead (§2). If you're working from a source checkout, either
 `pip install -e .` or prefix with `PYTHONPATH=src` (from the repository root).
 
-**`ModuleNotFoundError: No module named 'owlready2'` (or `graphviz`, `flask`)**
-A dependency is missing — `pip install ontodag` for the basics,
-`pip install "ontodag[web]"` for the web app.
+**"needs the `viz` extra" / "needs the `owl` extra" / "needs the `store` extra"**
+Not an error so much as an invoice: the base install is deliberately
+dependency-free, and the message names the extra to add — `pip install
+"ontodag[viz]"` and so on (§2). `ontodag[all]` covers the three.
 
 **`graphviz.backend.execute.ExecutableNotFound: failed to execute 'dot'`**
 The Graphviz *system program* isn't installed (the Python package is just a

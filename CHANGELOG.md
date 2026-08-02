@@ -16,6 +16,7 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
+- **`ontodag[viz]`, `[owl]`, `[store]`, `[all]` extras** — see Changed.
 - **A name-consumer corpus** (`tests/test_name_consumers.py`). One list of
   hazardous names — spaces, `+ & # | , : " \`, unicode, a leading dash —
   plus the canonical names the system generates itself, pushed through
@@ -40,6 +41,33 @@ the version numbers appear in commit history and docs.
   `canon`, **visualize**, export and re-import. Run it before publishing;
   run it again after, against PyPI. It fails on the published 0.10.0,
   which is the point.
+
+### Changed
+
+- **The base install has no third-party dependencies.** `pip install
+  ontodag` previously pulled 31 MB — `owlready2` alone is 28 MB plus a
+  compiled extension and two bundled Java OWL reasoners that OntoDAG never
+  invokes — to deliver a 648 KB package that used none of it. Worse,
+  owlready2 ships sdist-only, so installing OntoDAG required a C toolchain
+  and could not work under Pyodide at all, where micropip cannot build
+  sdists. That single line blocked the in-browser story the roadmap
+  describes.
+
+  `graphviz`/`Pillow` are now the **`viz`** extra, `owlready2` the **`owl`**
+  extra, `recordstore` the **`store`** extra, with **`all`** for the three
+  together; `web` and `swarm` are unchanged in spirit and pull what they
+  need. A bare install is now `ontodag` and nothing else, about 650 KB,
+  pure Python, no compiler.
+
+  **This is mildly breaking**: code doing `pip install ontodag` and then
+  using OWL, rendering or a concrete record store now needs the matching
+  extra. Each of those paths raises an error naming the extra to install
+  rather than a `ModuleNotFoundError` naming a package.
+- **`OntoDAGVisualizer` moved from `ontodag.dag` to `ontodag.viz`.**
+  Rendering is an optional consumer of a DAG, not part of one, and keeping
+  it in the core module is what made the core look like it needed a
+  renderer. `from ontodag.dag import OntoDAGVisualizer` still works — the
+  old module forwards it — and `ontodag.OntoDAGVisualizer` is unchanged.
 
 ### Fixed
 
