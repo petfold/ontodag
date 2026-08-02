@@ -33,6 +33,7 @@ python3 -m pytest tests/test_provenance.py -v               # provenance store: 
 python3 -m pytest tests/test_prelude.py -v                  # the standard prelude: golden root v2, idempotent adoption, CLI
 python3 -m pytest tests/test_units.py -v                    # registry v3 unit system: table exactness, cross-system comparisons, migration
 python3 -m pytest tests/test_packs.py -v                    # graph-declared units + shipped packs: golden roots, vocabulary-travels, conflicts
+python3 -m pytest tests/test_name_consumers.py -v           # every surface a NAME flows out through, against one nasty corpus
 
 # Live-node CLI Swarm test — skips unless BEE_API *and* BEE_BATCH are set
 # (always pass a real BEE_BATCH so nothing auto-buys; see "Bee integration status"):
@@ -235,6 +236,33 @@ Next candidates after the current task — **this list is complete (all three la
 3. ~~**Multi-writer merge rule**~~ — **done 2026-07-31** (`EagerOntoDAG.sync`, `tests/test_multiwriter.py`; see "What does not exist yet").
 
 Optional, pull-forward-anytime (agreed 2026-07-20): **in-memory cone bitmaps behind `get()`** — step (1) of `docs/SEMANTIC_CODES.md` §8's sequencing, exempted from that note's parking because it is bounded, in-memory-only, dependency-free (Python ints), schema-invisible, and oracle-tested by I5 (`popcount == descendant_count`). Do it if/when queries are measurably hot (web UI); it neither advances nor blocks items 1–3. The **`get()` query planner** — **DONE (2026-07-21), including the adaptive walk-vs-probe step**: `OntoDAG.get` resolves/dedups terms by name, drops query terms that are ancestors of other terms (upward `_has_ancestors` walk from the smaller-count term, so planning scales with the query, never the graph; `descendant_count` as the cheap necessary condition), orders cones smallest-count-first, then executes adaptively — before each remaining term it picks walk (traverse the cone, intersect) or probe (upward walk per surviving candidate settling all remaining terms at once) from the now-known running-result size, with early exit on empty. All steps are result-preserving; `_PROBE_COST_ESTIMATE` only steers operator choice (time, never correctness). Tests: `tests/testdag.py::TestQueryPlanner` — brute-force oracle over all 1/2/3-term fixture queries, forced-probe/forced-walk modes, a 60-node seeded-random DAG under all modes, and the meet-substitution guard (a node named "AB" under A and B is NOT the meet of A and B — `put(X, [A, B])` creates a *sibling* of AB — so do not "optimize" `get` through such nodes; see `SEMANTIC_CODES.md` §10).
+
+## Releasing
+
+Standing practice, in order. The first rule predates this list; the third
+was added after 0.10.1.
+
+1. **Docs before publish** (Peter's rule): README, User Guide with
+   *executed* snippets, HOW_IT_WORKS, help text, CHANGELOG entry, and a
+   stale-claim grep. Never as a follow-up.
+2. **Version bump** in `pyproject.toml`, and re-execute anything in the
+   docs that prints it (the guide's interactive-prompt banner).
+3. **`python3 scripts/release_smoke.py`** — build the wheel, install it
+   into a throwaway venv, and *use* it: prelude, typed values, query,
+   computed containment, the empty query, the cap, canon, visualize,
+   export, re-import. This exists because 0.10.0 was published unable to
+   draw any DAG containing a typed date, with a green suite, green CI and
+   a completed docs pass. What nobody did was install it and ask for a
+   picture. **A green test suite is not evidence that the artifact works.**
+4. **Upload** (`twine upload dist/...`; Claude has `~/.pypirc` for both
+   projects). Do **not** push a version tag: `.github/workflows/publish.yml`
+   fires on `v*` and has not run since v0.7.0, so a tag would attempt a
+   duplicate upload and red-fail. Either fix it with `skip-existing` or
+   delete it — right now it is a trap that looks like the mechanism.
+5. **Verify from PyPI, not from disk**: `scripts/release_smoke.py --pypi
+   VERSION`. The index takes a little while to propagate, so an immediate
+   run can install the *previous* release — the script fails on a version
+   mismatch rather than testing the wrong thing quietly.
 
 ## Working across sessions
 

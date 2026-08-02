@@ -12,6 +12,37 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Added
+
+- **A name-consumer corpus** (`tests/test_name_consumers.py`). One list of
+  hazardous names — spaces, `+ & # | , : " \`, unicode, a leading dash —
+  plus the canonical names the system generates itself, pushed through
+  every surface a name flows out through: DOT (source *and* a real
+  `dot` render), the native store, OWL, Manchester, the surface renderer,
+  and REST/URL. The 0.10.1 post-mortem's conclusion in executable form: a
+  change to the canonical-name grammar is a cross-cutting change, and the
+  fan-out needs to be written down somewhere that fails.
+- **A release smoke script** (`scripts/release_smoke.py`). Installs the
+  built wheel — or a published version, with `--pypi VERSION` — into a
+  throwaway virtualenv and drives `odag` as a new user would: prelude,
+  typed values, query, computed containment, the empty query, the cap,
+  `canon`, **visualize**, export and re-import. Run it before publishing;
+  run it again after, against PyPI. It fails on the published 0.10.0,
+  which is the point.
+
+### Fixed
+
+- **OWL export refuses names it cannot carry instead of writing a corrupt
+  file.** A node name becomes the class IRI, written straight into an XML
+  attribute, so a `"` in a name closed the attribute early and produced a
+  file that was not well-formed XML — the export reported success and the
+  damage surfaced only when something read it back. `"` is illegal in an
+  IRI, so there is nothing to escape; the export now names the offending
+  entries and points at Manchester or the native format, which carry any
+  name. Found by the corpus above on its first run.
+
 ## [0.10.1] — 2026-08-02
 
 A bug-fix release. **0.10.0 could not draw any DAG containing a typed
