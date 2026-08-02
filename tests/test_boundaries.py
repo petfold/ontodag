@@ -253,3 +253,33 @@ class TestTheBoundaryIsAlsoDeclared(unittest.TestCase):
                     self.assertIn(wanted, str(exc))
                 else:
                     self.fail(f"expected an ImportError mentioning {wanted}")
+
+    def test_every_optional_path_teaches_which_extra(self):
+        """Not just the two the first pass covered.
+
+        Making recordstore optional exposed three more paths that failed
+        with a bare ModuleNotFoundError — certificates, provenance records
+        and the whole agent surface, which needs a record store even for a
+        *file* store because every MCP answer cites a root. Found by running
+        a bare install rather than by reading the code."""
+        import ontodag
+        from ontodag import certificates, provenance, viz
+        paths = [
+            ("viz", lambda: viz._digraph()),
+            ("owl", lambda: ontodag.OWLOntology),
+            ("store", lambda: certificates._verify_imports()
+                if hasattr(certificates, "_verify_imports")
+                else provenance._canonical_bytes({"a": 1})),
+        ]
+        for extra, call in paths:
+            with mock.patch.dict(
+                sys.modules,
+                {"graphviz": None, "recordstore": None, "ontodag.owl": None},
+            ):
+                try:
+                    call()
+                except ImportError as exc:
+                    self.assertIn(f'pip install "ontodag[{extra}]"', str(exc),
+                                  f"the {extra} path should name its extra")
+                else:
+                    self.fail(f"expected the {extra} path to raise")

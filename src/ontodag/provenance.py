@@ -57,7 +57,9 @@ _PREFIX = "s/"
 
 
 def _canonical_bytes(obj) -> bytes:
-    from recordstore import canonical_bytes
+    from ontodag._extras import require
+    canonical_bytes = require("recordstore", "store",
+                              "provenance records").canonical_bytes
     return canonical_bytes(obj)
 
 
@@ -235,7 +237,9 @@ class ProvenanceStore:
             raise ValueError("union with staged records — commit() first")
         if other_root is None or other_root == self.root:
             return self.root
-        from recordstore import RecordStore
+        from ontodag._extras import require
+        RecordStore = require("recordstore", "store",
+                              "the provenance store").RecordStore
         if self.root is None:
             merged = other_root
         else:

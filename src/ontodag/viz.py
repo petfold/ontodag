@@ -12,12 +12,12 @@ Requires the `viz` extra AND the Graphviz *system* program:
     apt install graphviz    # or: brew install graphviz
 """
 
-_MISSING = (
-    "rendering needs the `viz` extra and the Graphviz system program:\n"
-    '  pip install "ontodag[viz]"\n'
+# The half of the answer the pip command alone does not give.
+_BINARY = (
+    "  ...and the Graphviz system program:\n"
     "  sudo apt install graphviz     # or: brew install graphviz\n"
-    "(the `graphviz` Python package is only a wrapper — the `dot` binary "
-    "has to come from your OS. To render elsewhere, ask for the DOT source "
+    "(the `graphviz` PyPI package is only a wrapper — the `dot` binary has "
+    "to come from your OS. To render elsewhere, ask for the DOT source "
     "instead and hand it to any Graphviz implementation.)"
 )
 
@@ -29,11 +29,8 @@ def _digraph():
     half of the answer: `pip install graphviz` alone leaves you without the
     binary that does the actual work, and the failure then moves to a
     confusing ExecutableNotFound later on."""
-    try:
-        from graphviz import Digraph
-    except ImportError as exc:
-        raise ImportError(_MISSING) from exc
-    return Digraph
+    from ontodag._extras import require
+    return require("graphviz", "viz", "rendering", hint=_BINARY).Digraph
 
 
 class OntoDAGVisualizer:

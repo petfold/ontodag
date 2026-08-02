@@ -145,7 +145,9 @@ def prove_below(dag_or_store, sub, sup):
     committed root of `dag_or_store` (an Eager/Lazy/Sparse OntoDAG over a
     RecordStore, or the RecordStore itself). JSON-ready; check it with
     ``verify_below(cert, root)``. Self-verified before being returned."""
-    from recordstore import RecordStore
+    from ontodag._extras import require
+    RecordStore = require("recordstore", "store",
+                          "proving a subsumption").RecordStore
     store = getattr(dag_or_store, "store", None) or dag_or_store
     root = store.root
     snapshot = RecordStore.at(root, store.blobs)
@@ -174,7 +176,10 @@ def verify_below(certificate, root):
     record the re-run consumes is authenticated by its carried proof.
     Raises ``CertificateError`` on any mismatch, including a registry
     version other than this interpreter's (refuse, never misinterpret)."""
-    from recordstore import ABSENT, ProofError, verify_proof
+    from ontodag._extras import require
+    _rs = require("recordstore", "store", "verifying a certificate")
+    ABSENT, ProofError, verify_proof = (
+        _rs.ABSENT, _rs.ProofError, _rs.verify_proof)
     if not isinstance(certificate, dict) or \
             certificate.get("format") != CERTIFICATE_FORMAT:
         raise CertificateError(f"not a {CERTIFICATE_FORMAT} envelope")

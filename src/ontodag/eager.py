@@ -174,13 +174,9 @@ class EagerOntoDAG(OntoDAG):
         uncommitted changes its root does not reflect, and skipping would
         silently drop them.
         """
-        try:
-            from recordstore import RecordStore
-        except ImportError as exc:
-            raise ImportError(
-                "sync() opens the peer's root through a concrete record "
-                'store: pip install "ontodag[store]"'
-            ) from exc
+        from ontodag._extras import require
+        RecordStore = require("recordstore", "store",
+                              "sync()").RecordStore
 
         if root is not None and root == self.store.root:
             return False                      # already have exactly this

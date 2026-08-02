@@ -88,7 +88,12 @@ class AgentSurface:
             # can cite a root — the same canonical fingerprint a published
             # store would have (CONTRACT.md G1 makes it comparable across
             # parties). History is not kept, so as_of serves only this root.
-            from recordstore import MemoryBytesStore, RecordStore
+            from ontodag._extras import require
+            _rs = require("recordstore", "store", "the agent surface",
+                          hint="(odag-mcp cites a root with every answer, so even"
+                               " a file store is hydrated into a record store to"
+                               " get one)")
+            MemoryBytesStore, RecordStore = _rs.MemoryBytesStore, _rs.RecordStore
             from ontodag.eager import EagerOntoDAG
             eager = EagerOntoDAG(RecordStore(MemoryBytesStore()))
             eager.merge(dag)
@@ -194,7 +199,9 @@ class AgentSurface:
             return self.dag, self.root
         if as_of in self._snapshots:
             return self._snapshots[as_of], as_of
-        from recordstore import RecordStore
+        from ontodag._extras import require
+        RecordStore = require("recordstore", "store",
+                              "as-of queries").RecordStore
         from ontodag.lazy import LazyOntoDAG
         try:
             snapshot = LazyOntoDAG(
@@ -859,7 +866,10 @@ def main(argv=None):
     try:
         surface = AgentSurface(_resolve_store(args.store),
                                writable=args.write)
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError, ImportError) as exc:
+        # ImportError included so a missing extra reads as one line of
+        # instruction, like every other startup failure here, rather than a
+        # traceback an agent operator has to parse.
         print(f"odag-mcp: {exc}", file=sys.stderr)
         return 1
     MCPServer(surface).serve()

@@ -62,7 +62,14 @@ the version numbers appear in commit history and docs.
   **This is mildly breaking**: code doing `pip install ontodag` and then
   using OWL, rendering or a concrete record store now needs the matching
   extra. Each of those paths raises an error naming the extra to install
-  rather than a `ModuleNotFoundError` naming a package.
+  rather than a `ModuleNotFoundError` naming a package — including
+  `odag-mcp`, which needs `[store]` even against a *file* store, because
+  every answer it gives cites a root and a text file has none.
+
+  What still works with nothing installed is more than it sounds: the DAG,
+  the CLI, typed values and their arithmetic, and a **persistent** store —
+  the native `.od` file is canonical line-oriented text, so a bare install
+  is not an in-memory toy.
 - **`OntoDAGVisualizer` moved from `ontodag.dag` to `ontodag.viz`.**
   Rendering is an optional consumer of a DAG, not part of one, and keeping
   it in the core module is what made the core look like it needed a
