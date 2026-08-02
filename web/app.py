@@ -77,6 +77,32 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=float(os.getenv("FL
 app.session_interface = InMemorySessionInterface()
 
 
+def current_dag():
+    """The session's DAG, created on demand.
+
+    Session state used to be initialized only by the two page routes, so an
+    API-only client — curl, a script, anything that never loads `/` — got a
+    bare KeyError traceback from its first call. The REST API is a surface in
+    its own right (User Guide §1.1), so it initializes its own state."""
+    if "my_dag" not in session:
+        session["my_dag"] = OntoDAG()
+    return session["my_dag"]
+
+
+def current_visualizer():
+    """The session's visualizer, created on demand — same reason."""
+    if "visualizer" not in session:
+        init_session_visualizer()
+    return session["visualizer"]
+
+
+def _png(img):
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return send_file(buf, mimetype="image/png")
+
+
 def init_session_visualizer():
     session["vis_color_root"] = "seashell3"
     session["vis_color_default"] = "seashell"
@@ -96,16 +122,16 @@ def create_dag():
 
 @app.route("/dag", methods=["GET"])
 def get_dag():
-    my_dag = session["my_dag"]
+    my_dag = current_dag()
     nodes = [node.to_dict() for node in my_dag.topological_sort()]
     return jsonify({"nodes": nodes})
 
 
 @app.route("/dag/image", methods=["GET"])
 def get_dag_image():
-    my_dag = session["my_dag"]
+    my_dag = current_dag()
 
-    visualizer = session["visualizer"]
+    visualizer = current_visualizer()
     img = visualizer.generate_image(my_dag)
     buf = BytesIO()
     img.save(buf, format="PNG")
@@ -116,7 +142,7 @@ def get_dag_image():
 @app.route("/dag/node", methods=["POST"])
 def add_dag_items():
     data = request.json
-    my_dag = session["my_dag"]
+    my_dag = current_dag()
     try:
         subcategories = [Item(name) for name in data.get("subcategories", [])]
         # Pass names through: put resolves them itself, which is what lets
@@ -136,7 +162,7 @@ def add_dag_items():
 @app.route("/dag/node", methods=["DELETE"])
 def remove_dag_items():
     data = request.json
-    my_dag = session["my_dag"]
+    my_dag = current_dag()
     try:
         # remove() accepts names and canonicalizes parametric sugar itself.
         for name in data.get("subcategories", []):
@@ -151,13 +177,14 @@ def remove_dag_items():
 @app.route("/dag/query", methods=["GET"])
 def get_query():
     categories = request.args.get("cat")
-    if not categories:
-        return jsonify({"error": "No categories provided"}), 400
     # `|` separates disjuncts, `,` conjoins within one:
     #   cat=Dog,Pet|Cat  ->  (Dog AND Pet) OR Cat
-    queries = [part.split(",") for part in categories.split("|")]
+    # An absent or empty `cat` is the empty query — no constraints, so every
+    # item — matching `odag get` with no terms and the MCP query tool.
+    queries = [part.split(",") for part in categories.split("|")] \
+        if categories else [[]]
 
-    my_dag = session["my_dag"]
+    my_dag = current_dag()
     # The query log SEMANTIC_CODES.md §9 waits on: one counter per queried
     # category-set (per disjunct, names as queried), across all sessions —
     # the empirical input for workload-driven index decisions. In-memory
@@ -198,7 +225,7 @@ def get_below():
     sup = request.args.get("sup")
     if not sub or not sup:
         return jsonify({"error": "need both sub and sup"}), 400
-    my_dag = session["my_dag"]
+    my_dag = current_dag()
     try:
         # Unknown names fail closed to false; malformed parametric terms
         # are a client error, as in /dag/query.
@@ -210,11 +237,15 @@ def get_below():
 @app.route("/dag/query/image", methods=["GET"])
 def get_query_dag_image():
     categories = request.args.get("cat")
+    my_dag = current_dag()
     if not categories:
-        return jsonify({"error": "No categories provided"}), 400
+        # The empty query is everything (see /dag/query), and everything
+        # already has a picture — draw that rather than the empty query
+        # DAG, whose result is just the root. The UI reaches this whenever
+        # the query box is submitted blank.
+        return _png(current_visualizer().generate_image(my_dag))
     query = categories.split(",")
 
-    my_dag = session["my_dag"]
     query_dag = OntoDAG()
     for super_category in query:
         query_dag.put(Item(super_category), [query_dag.root])
@@ -222,7 +253,7 @@ def get_query_dag_image():
     query_result_dag = my_dag.get_by_dag(query_dag)
     session["query_result_dag"] = query_result_dag
 
-    visualizer = session["visualizer"]
+    visualizer = current_visualizer()
     # Make query nodes appear with a different color
     color_mapping = {}
     for node in query_result_dag.nodes.values():
@@ -231,11 +262,7 @@ def get_query_dag_image():
         else:
             color_mapping[node] = session["vis_color_query_result"]
 
-    img = visualizer.generate_image(query_result_dag, color_mapping)
-    buf = BytesIO()
-    img.save(buf, format="PNG")
-    buf.seek(0)
-    return send_file(buf, mimetype="image/png")
+    return _png(visualizer.generate_image(query_result_dag, color_mapping))
 
 
 @app.route("/dag/query/dag/image", methods=["GET"])
@@ -243,7 +270,7 @@ def get_query_as_dag_dag_image():
     query_result_dag = session["query_result_dag"]
     query = session["query_dag"]
 
-    visualizer = session["visualizer"]
+    visualizer = current_visualizer()
     # Make query nodes appear with a different color
     color_mapping = {}
     for node in query_result_dag.nodes.values():
@@ -268,7 +295,7 @@ def import_dag():
         return jsonify({"error": "No selected file."}), 400
 
     file_content = BytesIO(file.read())
-    my_dag = session["my_dag"]
+    my_dag = current_dag()
     try:
         if file.filename.endswith('.omn'):
             imported_dag = OWLOntology.import_dag_manchester(file_content=file_content)
@@ -292,7 +319,7 @@ def import_query_dag():
     file_content = BytesIO(file.read())
 
     owl = OWLOntology(file.filename)
-    my_dag = session["my_dag"]
+    my_dag = current_dag()
     try:
         imported_query_dag = owl.import_dag(file_content=file_content)
         session["query_dag"] = imported_query_dag
@@ -307,7 +334,7 @@ def import_query_dag():
 
 @app.route("/dag/export", methods=["GET"])
 def export_dag():
-    my_dag = session["my_dag"]
+    my_dag = current_dag()
     filename = "ontodag_export.owl"
     owl = OWLOntology(filename)
     owl.export_dag(my_dag, filename)
@@ -316,7 +343,7 @@ def export_dag():
 
 @app.route("/dag/export/omn", methods=["GET"])
 def export_dag_manchester():
-    my_dag = session["my_dag"]
+    my_dag = current_dag()
     content = OWLOntology.generate_manchester_content(my_dag)
     buf = BytesIO(content.encode('utf-8'))
     buf.seek(0)
@@ -326,8 +353,8 @@ def export_dag_manchester():
 
 @app.route("/dag/export/dot", methods=["GET"])
 def export_dag_dot():
-    my_dag = session["my_dag"]
-    visualizer = session["visualizer"]
+    my_dag = current_dag()
+    visualizer = current_visualizer()
     dot_source = visualizer.generate_dot_source(my_dag)
 
     tex_file = BytesIO(dot_source.encode('utf-8'))
@@ -339,8 +366,8 @@ def export_dag_dot():
 
 @app.route("/dag/export/tex", methods=["GET"])
 def export_dag_tex():
-    my_dag = session["my_dag"]
-    visualizer = session["visualizer"]
+    my_dag = current_dag()
+    visualizer = current_visualizer()
     dot_source = visualizer.generate_dot_source(my_dag)
     tex_content = dot2tex(dot_source)
 
@@ -376,7 +403,7 @@ def export_query_dag_manchester():
 @app.route("/dag/query/export/dot", methods=["GET"])
 def export_query_dag_dot():
     query_result_dag = session["query_result_dag"]
-    visualizer = session["visualizer"]
+    visualizer = current_visualizer()
     dot_source = visualizer.generate_dot_source(query_result_dag)
 
     tex_file = BytesIO(dot_source.encode('utf-8'))
@@ -389,7 +416,7 @@ def export_query_dag_dot():
 @app.route("/dag/query/export/tex", methods=["GET"])
 def export_query_dag_tex():
     query_result_dag = session["query_result_dag"]
-    visualizer = session["visualizer"]
+    visualizer = current_visualizer()
     dot_source = visualizer.generate_dot_source(query_result_dag)
     tex_content = dot2tex(dot_source)
 
@@ -413,7 +440,12 @@ def index():
 
 @app.route("/market")
 def index_cars():
-    if "my_dag" not in session:
+    # The demo shares the `my_dag` session key with the main page, so a
+    # session that already has an ordinary DAG in it — which, since every
+    # endpoint now creates one on demand, means almost any session that
+    # touched `/` first — used to skip this load and then die on
+    # `nodes['ActiveOffer']`. Load whenever the DAG present isn't a car one.
+    if "my_dag" not in session or "ActiveOffer" not in session["my_dag"].nodes:
         owl = OWLOntology('http://127.0.0.1:5000/market/dag')
         owl.ontology.load()
         dag = owl._process_dag()

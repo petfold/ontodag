@@ -128,3 +128,63 @@ class TestDimensionsOverRest:
         assert query_names(client, "weight(..5kg)") == set()
         # parcel contracted onto the head, still present in the graph
         assert "parcel" in query_names(client, "weight")
+
+
+class TestPicturesAndExports:
+    """The rendering endpoints, which had never been covered here — and were
+    broken in two independent ways when this suite was written (2026-08-02).
+
+    Both bugs needed a *rendering* call to show up, which is why the REST
+    tests above missed them: session state was only initialized by the two
+    page routes, so an API-only client got a KeyError traceback; and
+    canonical dimension names were used as DOT node identifiers, where
+    graphviz's quoting splits them at the `:` it reads as a port separator.
+    """
+
+    def _declare(self, client):
+        put(client, "dimension")
+        put(client, "calendar-dimension", ["dimension"])
+        put(client, "linear-dimension", ["dimension"])
+        put(client, "time", ["calendar-dimension"])
+        put(client, "weight", ["linear-dimension"])
+
+    def test_api_only_session_can_render(self, client):
+        # This client never requested "/" — the REST API is a surface in its
+        # own right and initializes whatever it needs.
+        put(client, "animal")
+        response = client.get("/dag/image")
+        assert response.status_code == 200
+        assert response.data[:4] == b"\x89PNG"
+
+    def test_parametric_names_render(self, client):
+        self._declare(client)
+        put(client, "doc", ["time(2026-08-15)", "weight(3kg)"])
+        for endpoint in ("/dag/image", "/dag/export/dot", "/dag/export/tex"):
+            response = client.get(endpoint)
+            assert response.status_code == 200, \
+                f"{endpoint}: {response.get_json()}"
+
+    def test_empty_cat_draws_everything(self, client):
+        # The empty query is everything, so its picture is everything's —
+        # the UI hits this whenever the query box is submitted blank.
+        put(client, "animal")
+        blank = client.get("/dag/query/image", query_string={"cat": ""})
+        assert blank.status_code == 200
+        assert blank.data == client.get("/dag/image").data
+
+    def test_query_image_of_a_virtual_term(self, client):
+        self._declare(client)
+        put(client, "parcel", ["weight(3kg)"])
+        response = client.get("/dag/query/image",
+                              query_string={"cat": "weight(..5kg)"})
+        assert response.status_code == 200
+        assert response.data[:4] == b"\x89PNG"
+
+    def test_a_name_that_needs_url_encoding_survives(self, client):
+        # `+` decodes to a space unless encoded; the page's JS now encodes
+        # each term (`,` and `|` stay separators). Flask's test client
+        # encodes query_string for us, so this pins the server side.
+        put(client, "C++ notes")
+        put(client, "chapter1", ["C++ notes"])
+        assert query_names(client, "C++ notes") == {"chapter1"}
+
