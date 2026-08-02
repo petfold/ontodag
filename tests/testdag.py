@@ -300,5 +300,50 @@ class TestQueryPlanner(unittest.TestCase):
                     f"estimate {estimate}")
 
 
+class TestVisualizerRendersEveryName(unittest.TestCase):
+    """Parametric canonical names contain characters DOT gives meaning to.
+
+    A timestamp range like time(2026-...T00:00:00Z..) used as a DOT node
+    *identifier* is split by the graphviz package's quoting at the `:` it
+    reads as a port separator, and the render dies with a syntax error —
+    which is exactly what happened to `odag visualize` and the web app's
+    /dag/image once dimensions shipped. Names therefore live in labels and
+    identifiers are synthetic. This is the regression guard."""
+
+    def setUp(self):
+        try:
+            import graphviz  # noqa: F401
+        except ImportError:
+            self.skipTest("graphviz not installed")
+        self.dag = OntoDAG()
+        for name, parents in (("dimension", []),
+                              ("calendar-dimension", ["dimension"]),
+                              ("linear-dimension", ["dimension"]),
+                              ("time", ["calendar-dimension"]),
+                              ("weight", ["linear-dimension"])):
+            self.dag.put(name, parents)
+        self.dag.put("doc", ["time(2026-08-15)", "weight(3kg)"])
+
+    def test_dot_source_carries_names_as_labels(self):
+        source = OntoDAGVisualizer().generate_dot_source(self.dag)
+        # The full canonical name survives, intact, inside a quoted label...
+        self.assertIn(
+            '"time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z): 1"', source)
+        # ...and never appears as a bare identifier before an edge arrow.
+        for line in source.splitlines():
+            if "->" in line:
+                self.assertNotIn("(", line, f"name used as an id: {line}")
+
+    def test_the_image_actually_renders(self):
+        # The end-to-end check: graphviz's `dot` has to accept the source.
+        # Without this the bug is invisible — bad DOT is only a syntax error
+        # once something parses it.
+        try:
+            image = OntoDAGVisualizer().generate_image(self.dag)
+        except ImportError:
+            self.skipTest("PIL not installed")
+        self.assertGreater(image.size[0], 0)
+
+
 if __name__ == '__main__':
     unittest.main()

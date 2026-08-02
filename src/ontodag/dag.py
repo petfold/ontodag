@@ -1310,11 +1310,28 @@ class OntoDAG(DAG):
 
 
 class OntoDAGVisualizer:
+    """Renders a DAG through Graphviz.
+
+    Node *identifiers* in the emitted DOT are synthetic (`n0`, `n1`, ...) and
+    the item name lives in the label. That indirection is not cosmetic: DOT
+    gives `:` a meaning inside an identifier (the port separator), and the
+    graphviz package's quoting splits on it — so a canonical timestamp name
+    like `time(2026-01-01T00:00:00Z..2026-12-31T23:59:59Z)` used as an
+    identifier emits `"time(2026-01-01T00":00:00Z...` and the render dies
+    with a syntax error. Labels are quoted correctly, so putting names there
+    makes every name renderable whatever characters a dimension canonical
+    form happens to use. Ids are assigned in the DAG's own iteration order,
+    which is deterministic, so the DOT output stays diffable."""
+
     def __init__(self, format="png", layout="TB", default_color="seashell", root_color="seashell3"):
         self.format = format
         self.layout = layout
         self.default_color = default_color
         self.root_color = root_color
+
+    @staticmethod
+    def _ids(dag):
+        return {name: f"n{index}" for index, name in enumerate(dag.nodes)}
 
     def visualize(self, dag, filename="ontodag_vis", color_mapping=None):
         from graphviz import Digraph
@@ -1322,8 +1339,9 @@ class OntoDAGVisualizer:
         graph = Digraph(comment=dag_type, format=self.format)
         graph.attr(rankdir=self.layout)
 
+        ids = self._ids(dag)
         for node in dag.nodes.values():
-            self._render_node(graph, node, is_root=node.name == dag.root.name, color_mapping=color_mapping)
+            self._render_node(graph, node, ids, is_root=node.name == dag.root.name, color_mapping=color_mapping)
 
         # Render the graph to a file
         output_path = graph.render(filename)
@@ -1335,8 +1353,9 @@ class OntoDAGVisualizer:
         graph = Digraph(comment=dag_type, format="dot")
         graph.attr(rankdir=self.layout)
 
+        ids = self._ids(dag)
         for node in dag.nodes.values():
-            self._render_node(graph, node, is_root=node.name == dag.root.name, color_mapping=color_mapping)
+            self._render_node(graph, node, ids, is_root=node.name == dag.root.name, color_mapping=color_mapping)
 
         # Return the DOT source string
         return graph.source
@@ -1350,19 +1369,21 @@ class OntoDAGVisualizer:
         graph = Digraph(comment=dag_type, format=self.format)
         graph.attr(rankdir=self.layout)
 
+        ids = self._ids(dag)
         for node in dag.nodes.values():
-            self._render_node(graph, node, is_root=node.name == dag.root.name, color_mapping=color_mapping)
+            self._render_node(graph, node, ids, is_root=node.name == dag.root.name, color_mapping=color_mapping)
 
         png_data = graph.pipe(format="png")
         return Image.open(BytesIO(png_data))
 
-    def _render_node(self, graph, node, is_root=False, color_mapping=None):
+    def _render_node(self, graph, node, ids, is_root=False, color_mapping=None):
         if color_mapping is None:
             color = self.root_color if is_root else self.default_color
         else:
             color = self.root_color if is_root else color_mapping.get(node, self.default_color)
-        # Add nodes
-        graph.node(node.name, f'{node.name}: {node.descendant_count}', style="filled", fillcolor=color)
+        # Add nodes: synthetic id, real name in the label (see the class note)
+        graph.node(ids[node.name], f'{node.name}: {node.descendant_count}',
+                   style="filled", fillcolor=color)
         # Add edges for each super-category-to-subcategory relationship
-        for subcategory in node.neighbors:
-            graph.edge(node.name, subcategory.name)
+        for subcategory in sorted(node.neighbors, key=lambda n: n.name):
+            graph.edge(ids[node.name], ids[subcategory.name])
