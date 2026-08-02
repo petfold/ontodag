@@ -322,6 +322,21 @@ Positions recorded 2026-08-01 (from the strategy discussion) are marked
    whenever stdout is not a terminal, *and* a `--render` opt-in for when it
    isn't; `--raw` forces canonical on a terminal. Table and consequences in
    §7. This was the only thing blocking the renderer (§10.1).
+   *Extended 2026-08-02: the rule turned out to generalize past spelling.*
+   When the empty query became the universe (`odag get` with no terms), a
+   terminal needed protecting from a whole-store dump — and the answer was
+   the same rule again: cap at 50 lines when stdout is a tty, never in a
+   pipe, `-n N` / `-n 0` to override, withheld count on stderr. So §7 is
+   better read as a rule about **audience** than about rendering: a
+   terminal gets output shaped for a person, everything else gets the
+   complete canonical answer. The two settings (`render`, `limit`) share
+   the `auto` default and the same precedence chain, which is now the
+   general settings rule (flag > env > config > default) rather than a
+   surface-layer special case. Note the agent surface deliberately
+   diverges: MCP `query` has no default cap, because a caller that cannot
+   see a terminal cannot see a truncation either — it must opt in and is
+   told (`truncated`, with `count` still complete). See `AGENT_SURFACE.md`
+   §2.
 5. **Surface versioning.** The surface needs its own version, separate from
    `REGISTRY_VERSION` — rendering changes are harmless, but changing elaboration
    changes what identical input stores. Does that version need to appear

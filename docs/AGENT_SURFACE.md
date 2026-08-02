@@ -42,7 +42,7 @@ Every successful answer is one JSON object:
 | tool | in | out (beyond the envelope) |
 |---|---|---|
 | `about` | — | store description, item count, top-level categories (≤100), declared dimensions `{head: kind}`, registry + surface versions, server info, capability list. **Read this first** — the discoverability record. |
-| `query` | `terms` (conjunction) **xor** `any_of` (list of conjunctions, answered as their union); `as_of?`, `certify?` | `items` (sorted canonical names), `count`, and the **canonical echo** of the terms actually answered |
+| `query` | `terms` (conjunction) **or** `any_of` (list of conjunctions, answered as their union) — at most one, and neither means the empty query; `limit?`, `as_of?`, `certify?` | `items` (sorted canonical names), `count`, `truncated`, and the **canonical echo** of the terms actually answered |
 | `is_below` | `sub`, `sup`; `as_of?`, `certify?` | `result` (fail-closed boolean), canonical echo of both sides |
 | `overlapping` | `term`; `as_of?` | `candidates`, `count`, and a `note` naming the modality (G6: recall-complete candidacy, not satisfaction) |
 | `describe` | `term`; `as_of?` | canonical `name`, rendered `display`, `exists`, `parents`, `children`, `descendant_count` |
@@ -57,6 +57,21 @@ Decisions embedded there:
   it), applied to agents.
 - **`show` did not become a tool.** A whole-graph dump is not agent-shaped;
   `about` + `describe` + `query` cover it in bounded pieces.
+- **Truncation is opt-in and self-declaring** (2026-08-02). `query` has no
+  default cap: a silently shortened answer is a *wrong* answer to a caller
+  that reasons from it, and an agent cannot see a terminal to know it was
+  protected. A caller that wants a bound passes `limit`; the answer then
+  sets `truncated: true` while `count` keeps reporting the size of the
+  complete result, so what is held is always distinguishable from what
+  exists. This is the deliberate divergence from the CLI, where the cap is
+  on by default at a terminal — there, a person is reading, and can see
+  the note. Same underlying answer, different defaults for different
+  readers.
+- **The empty query is the universe, here too.** `query` with neither
+  `terms` nor `any_of` returns every item — the intersection of no
+  constraints. It is the natural "what is in this store" follow-up to
+  `about`, and refusing it would only push agents into inventing a
+  root-term convention.
 - **Unknown names fail closed** (empty results, `false`), exactly like the
   core; *malformed* parametric terms raise the core's teaching errors,
   passed through verbatim as tool errors (`isError: true`), never protocol
