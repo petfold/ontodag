@@ -285,10 +285,14 @@ owlready2 was a hard dependency, since micropip cannot build sdists);
 `src/ontodag/browser.py` implements the four methods recordstore needs over
 a JS bridge; `ontodag[swarm]` can **never** run in a browser (25 packages
 including compiled `coincurve`/`pycryptodome`), so Swarm is reached through
-JavaScript permanently. The obstacle is sync-over-async, and milestone one
-sidesteps it by putting the boundary at load/save rather than per blob —
-`EagerOntoDAG` hydrates whole and commits in a batch, so no JSPI and no
-COOP/COEP headers are needed. Blocked on two questions about Peter's
+JavaScript permanently. The obstacle is sync-over-async, and **miss-and-replay** solves it with no
+JSPI and no COOP/COEP headers (blobs are immutable, so replaying a query
+over a growing cache is free). Whole-store load was rejected — the shared
+ontology is too large. Cost measured in `experiments/browser_rounds.py`:
+~12 sequential round trips for a session's first query, 4–5 after, on a
+3,221-node store. The cone index is **mandatory** there (305 rounds → 10),
+and frontier batching is the one code change needed — `lazy.py` has the
+`_expand_many` seam and nothing calls it (47 rounds → 8). Blocked on two questions about Peter's
 in-browser node (§7 there) and on releasing the pure-Python base install:
 the wheel on PyPI still has the old hard dependencies, so a demo must serve
 its own wheel until then. Nothing has run in a browser; the adapters are

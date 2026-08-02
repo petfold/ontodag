@@ -222,13 +222,24 @@ replayable answer, which the existing snapshot machinery already supports.
     JavaScript, permanently, which is why the adapter is a JS bridge rather
     than a port of `BeeBytesStore`.
 
-    The one real obstacle is that `BytesStore` is synchronous and every
-    browser network API is not, and Python cannot block on a promise from
-    the main thread. First milestone sidesteps it entirely by putting the
-    async boundary at load and save — `EagerOntoDAG` already hydrates whole
-    and commits in a batch — which needs no JSPI and no COOP/COEP headers.
-    The lazy thin client (querying a large published ontology without
-    downloading it) is milestone two and does need a synchronous bridge.
+    Downloading the store is not an option — a shared ontology on Swarm is
+    far too large — so the browser must fetch only the fragment each query
+    touches. The cost of that is now **measured** rather than guessed
+    (`experiments/browser_rounds.py`, 3,221-node store, counting sequential
+    round trips because that is the only number a browser feels): a session
+    costs ~12 round trips for the first query and **4–5 for each one
+    after**, about 250 ms per query at 50 ms latency, against a store that
+    was never downloaded.
+
+    Three things get it there. The **cone index is mandatory**, not an
+    optimisation — broad queries go from 305 round trips to 10, because a
+    published summary answers them instead of walking the cone. **Frontier
+    batching** is the one real code change needed: `lazy.py` has the seam
+    (`_expand_many`) and nothing calls it, so each node currently costs its
+    own round trip; expanding level-order takes specific queries from 47 to
+    8. And **miss-and-replay** — blobs are immutable, so a query can be
+    replayed for free until its cache is complete — removes any need for
+    JSPI or a cross-origin-isolated worker.
 
     Full implementation record, including what a first page should
     demonstrate and in what order, in [BROWSER.md](BROWSER.md). Blocked on

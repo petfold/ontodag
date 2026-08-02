@@ -1,12 +1,21 @@
 # OntoDAG in a browser, against Swarm
 
-**Status: adapters written and unit-tested; nothing has run in a browser.**
-Everything below is either a measurement (marked as such) or a design
-awaiting a first run. Two questions for Peter are open in §7 and they change
-what §4 should target, so read those before building the page.
+**Status: adapters written and unit-tested, cost measured, nothing has run
+in a browser.** Everything below is either a measurement (marked as such, and
+reproducible with `experiments/browser_rounds.py`) or a design awaiting a
+first run. Two questions for Peter are open in §7.
 
 Written 2026-08-02, after making the base install pure-Python — which is
 what turned this from impossible into a page you can open.
+
+**The short version.** A shared ontology on Swarm is too large to download,
+so the browser fetches only the fragment each query touches. Measured on a
+3,221-node store, a session costs **~12 sequential round trips for the first
+query and 4–5 for each one after** — roughly 250 ms per query at 50 ms
+latency, against a store that was never downloaded. Three things get it
+there: the cone index (mandatory, not an optimisation), frontier batching
+(the one real code change needed — `lazy.py` has the seam and does not use
+it), and miss-and-replay (which removes any need for JSPI).
 
 ---
 
@@ -77,64 +86,103 @@ asynchronous. Python cannot block on a JS promise from the main thread —
 the event loop that would resolve it is the one being blocked. **This is the
 platform, not a Pyodide quirk.**
 
-Three ways out:
+Four ways out. §5 explains why the last one wins:
 
 | | works | costs |
 |---|---|---|
 | **JSPI** — `pyodide.ffi.run_sync` | recent Chromium | narrow support matrix; check current Pyodide docs before relying on it |
 | **Worker + `Atomics.wait`** | broadly | needs COOP/COEP headers on the page; awkward for a local file |
-| **Move the boundary to load/save** | everywhere, today | fetches the whole store rather than walking it lazily |
+| ~~**Load/save boundary**~~ | — | **rejected**: it downloads the whole store, and the shared ontology is far too large for that. Survives only as a cache for a user's own small DAG |
+| **Miss-and-replay** | everywhere, today | a few free in-memory replays; needs the store to raise instead of block |
 
 `JsBytesStore` takes the bridge as a constructor argument precisely so this
 choice belongs to the deployment rather than to the library.
 
-## 4. Recommended first milestone: async at load/save only
+## 4. The requirement is lazy, and it is measured
 
-`EagerOntoDAG` already hydrates the whole store on construction and commits
-in a batch, so the network is touched at exactly two moments — both of which
-JavaScript can `await` before handing control to Python:
+A shared ontology on Swarm can be far too large to download, so the browser
+must fetch **only the fragment a query touches**. That rules out
+whole-store load as the first milestone; it survives only as a cache for a
+user's *own* small DAG, never for the shared one.
+
+The number that decides feasibility is not fetches but **sequential round
+trips**: fetches issued together cost one, only dependencies cost more.
+Measured by `experiments/browser_rounds.py` on a 3,221-node store —
+
+| query | plain | + cone index | + batching | both |
+|---|---|---|---|---|
+| one specific term | 47 | 51 | **8** | 12 |
+| two mid terms | 65 | 69 | **13** | 17 |
+| one broad term | 305 | **10** | 14 | 10 |
+| two broad terms | 366 | **14** | 19 | 14 |
+
+and the number that actually matters, a session sharing one cache (both
+features on), because blobs are immutable so nothing is ever re-fetched:
+
+| query | rounds | cache after |
+|---|---|---|
+| 1 — `mid5` | 12 | 51 blobs |
+| 2 — `top0` | 5 | 56 |
+| 3 — `mid5, mid12` | 5 | 74 |
+| 4 — `top0, top1` | 4 | 78 |
+| 5 — `mid7` | 5 | 108 |
+| 6 — `top3` | 4 | 112 |
+
+**First query ~12 round trips, every one after 4–5.** At 50 ms that is
+0.6 s then ~250 ms — an interactive experience against a store you never
+downloaded. Six queries cost 112 blobs.
+
+Three things make that work, and all three are needed:
+
+**(a) The cone index is mandatory, not an optimisation.** Broad queries go
+from 305/366 rounds to 10/14, because a published summary answers the query
+instead of walking the cone — 622 records become 2. Any browser deployment
+must publish `odag index` alongside the data.
+
+**(b) Frontier batching, which `lazy.py` does not do yet.** `_expand_many`
+exists as the seam and *nothing calls it*: the traversals in
+`get_descendants`/`get_ancestors` pop one node at a time, so each node costs
+a round trip. Expanding a whole frontier per level takes specific queries
+from 47 to 8 rounds. `experiments/browser_rounds.py` contains
+`BatchedLazy`, a level-order subclass, which is the shape the change should
+take. This is the one real code change the browser path needs.
+
+Note the two are complementary rather than additive, and the index is not
+free: on a *cold* cache it costs a few rounds of manifest that a specific
+query never recoups (8 → 12). In a session that overhead is paid once, which
+is why the session table is the honest one.
+
+**(c) Miss-and-replay, which removes the need for JSPI entirely.**
+
+## 5. Bridging sync and async without JSPI
+
+Blobs are immutable and content-addressed, so a query can be *replayed for
+free* — in-memory work over data that cannot change underneath it:
 
 ```
-open :  await node.download(root)  ->  seed a MemoryBytesStore
-        (or LocalStorageBytesStore, so a reload needs no network)
-work :  put / get / below / certificates — pure Python, no network
-save :  dag.commit() -> canonical root -> await node.upload(new blobs)
+cache = {}
+while True:
+    try:    answer = dag.get(terms)      # pure sync, over the cache
+    except Missing as m:
+        await node.download(m.refs)      # one round trip, many refs
+        continue                          # replay: free
 ```
 
-Between load and save it is an ordinary in-memory DAG with real canonical
-roots. Blobs are content-addressed, so a save pushes only what is new and
-re-uploading is idempotent.
+No JSPI, no worker, no COOP/COEP headers, no fork of the query planner. The
+store raises instead of blocking; the loop supplies what was missing and
+tries again. The measurements above are exactly this scheme.
 
-Sketch:
+JSPI (`pyodide.ffi.run_sync`) remains a *nice-to-have*: it removes the
+replay, so the same query costs the same round trips with less CPU. It is
+no longer a prerequisite, which matters because its support matrix is
+narrow.
 
-```html
-<script src="https://cdn.jsdelivr.net/pyodide/vX.Y.Z/full/pyodide.js"></script>
-<script type="module">
-  const pyodide = await loadPyodide();
-  await pyodide.loadPackage("micropip");
-  await pyodide.runPythonAsync(`
-      import micropip
-      await micropip.install("ontodag")     # brings recordstore
-  `);
-  pyodide.globals.set("swarm", myBrowserBeeNode);
-</script>
-```
+What the store must provide, beyond `ontodag.browser.JsBytesStore`:
 
-**Trade-off, stated plainly:** the whole store is fetched. Fine to a few
-thousand nodes. Beyond that the answer is milestone two, not a bigger
-download.
-
-## 5. Second milestone: the lazy thin client
-
-`LazyOntoDAG` fetching records as a query walks is the real prize — it is
-what makes a browser able to query a large published ontology without
-downloading it, and the cone-summary index (`ontodag.cones`) already exists
-to keep broad queries cheap. Measured on a 447-record fixture: a two-broad-
-term query drops from 375 record fetches to 3 records + 3 index fetches.
-
-This one **does** need a synchronous bridge (JSPI or worker), because the
-fetches happen mid-traversal and there is no batch boundary to hoist them
-to. Do it after milestone one proves the plumbing.
+- a cache-or-raise `get`, carrying the wanted refs on the exception;
+- collection of misses across a frontier, so a level is one round trip
+  (needs (b) above to be worth anything);
+- `download_many` on the JS side, so a round trip is one request.
 
 ## 6. Feeds and signing
 
@@ -167,8 +215,10 @@ Ordered by how much each proves:
    core is intact under wasm, including the dimension arithmetic.
 3. Print the canonical root, and check it equals the one the same
    knowledge produces on a laptop — proves peerhood (§2).
-4. Save to the node, reload the page, restore from the root alone — proves
-   the round trip.
+4. Query a **large published store lazily** — the point of the exercise.
+   Confirm the round-trip count matches §4 in the real world; latency and
+   HTTP overhead will make it worse than the simulation, and by how much is
+   the number nobody has yet.
 5. Produce an `is_below` certificate in the browser and verify it against
    the root — proves the browser can make claims a stranger can check.
 
@@ -186,3 +236,12 @@ the encoding differs under wasm and everything else is built on sand.
   Until it ships, a demo must install from a locally-served wheel.
 - Pyodide's own size (~10 MB, cached after first load) dominates the
   transfer; ontodag's 896 KB is noise beside it.
+- The round-trip counts in §4 are a *simulation* on an in-memory store: they
+  count dependencies exactly but model no latency, no HTTP overhead, no
+  connection limits, and no Swarm retrieval variance. A real node fetching
+  from the network will be worse, and the interesting question is whether
+  it is worse by a constant or by a lot.
+- Frontier batching (§4b) is measured via a subclass in the experiment, not
+  implemented in `lazy.py`. Landing it there needs the traversals to go
+  level-order, and `_expand_many` to become a real batched store call —
+  `recordstore` has `get_many`, so the plumbing exists on both sides.
