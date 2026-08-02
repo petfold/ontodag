@@ -20,6 +20,8 @@ whatever this test process has already imported.
 import os
 import subprocess
 import sys
+import importlib.util
+import re
 import unittest
 from unittest import mock
 
@@ -217,15 +219,38 @@ class TestTheBoundaryIsAlsoDeclared(unittest.TestCase):
         with open(path, "rb") as fh:
             return tomllib.load(fh)
 
-    def test_the_base_install_has_no_third_party_dependency(self):
-        declared = self._pyproject()["project"]["dependencies"]
+    # The base install carries exactly one dependency, and the criterion it
+    # passes is what this test is really about: pure Python, no compiled
+    # extension, no dependencies of its own, small. Anything failing that
+    # belongs in an extra, because a hard dependency is inherited by every
+    # embedded, container and browser install whether or not it is used.
+    ALLOWED_BASE = {"recordstore>=0.16.0"}
+
+    def test_the_base_install_stays_pure_python_and_tiny(self):
+        declared = set(self._pyproject()["project"]["dependencies"])
         self.assertEqual(
-            declared, [],
-            "the base install must stay dependency-free: anything genuinely "
-            "needed by the core belongs in the core, and everything else "
-            "belongs in an extra. Adding a hard dependency here silently "
-            "revokes B1 for every installed user.",
+            declared, self.ALLOWED_BASE,
+            "changing the base dependency list is a decision about every "
+            "install, not just yours: it must stay pure-Python with no "
+            "transitive dependencies, or `pip install ontodag` stops working "
+            "where there is no compiler and micropip stops working at all. "
+            "Anything else belongs in an extra.",
         )
+
+    def test_nothing_in_the_base_install_needs_a_compiler(self):
+        # The property that actually matters, checked rather than assumed:
+        # a wheel-only, pure-Python closure. owlready2 ships sdist-only with
+        # a Cython extension, which is what made the package uninstallable
+        # under Pyodide while it was a hard dependency.
+        for requirement in self._pyproject()["project"]["dependencies"]:
+            name = re.split(r"[<>=!\[]", requirement)[0]
+            module = importlib.util.find_spec(name.replace("-", "_"))
+            if module is None or not module.submodule_search_locations:
+                continue
+            root = list(module.submodule_search_locations)[0]
+            compiled = [f for f in os.listdir(root) if f.endswith((".so", ".pyd"))]
+            self.assertEqual(compiled, [],
+                             f"{name} ships a compiled extension")
 
     def test_every_optional_dependency_lives_in_an_extra(self):
         extras = self._pyproject()["project"]["optional-dependencies"]

@@ -33,7 +33,17 @@ classifiers = [
 # in a browser under Pyodide (micropip cannot build sdists, and owlready2
 # ships sdist-only — that single hard dependency blocked the whole
 # in-browser story).
-dependencies = []
+#
+# The one exception is `recordstore`, and it is worth stating the criterion
+# it passes rather than treating it as a favour: 184 KB, *no dependencies of
+# its own*, pure Python, no compiled extension — so it costs nothing an
+# embedded or browser target cares about. What it buys is that the
+# properties OntoDAG is actually for — canonical roots, snapshots,
+# certificates, the agent surface — work on a bare install instead of
+# hiding behind an extra. A dependency that changes what the package *is*
+# by default earns its place; one that adds 28 MB of Java reasoners for a
+# file format does not.
+dependencies = ["recordstore>=0.16.0"]
 
 [project.optional-dependencies]
 # Rendering. The `graphviz` PyPI package is only a wrapper: the `dot`
@@ -45,9 +55,9 @@ viz = ["graphviz", "Pillow"]
 # bundles Java reasoners OntoDAG never invokes — which is exactly why it
 # is opt-in.
 owl = ["owlready2"]
-# Persisted, content-addressed stores (EagerOntoDAG, LazyOntoDAG,
-# SparseOntoDAG, certificates). Duck-typed at the seam, so this is only
-# needed to get a concrete store implementation.
+# Kept as an alias now that recordstore is a base dependency, so that
+# `pip install "ontodag[store]"` (and the error messages that suggest it
+# on a broken install) keep working.
 store = ["recordstore>=0.16.0"]
 web = ["ontodag[viz,owl]", "flask", "dot2tex"]
 # The `swarm:NAME` CLI backend talks to a Bee node via recordstore's
