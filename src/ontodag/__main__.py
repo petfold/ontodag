@@ -17,6 +17,7 @@ imported lazily only when a command actually needs them.
 """
 
 import argparse
+import collections
 import errno
 import os
 import shlex
@@ -96,17 +97,71 @@ def _default_store_path():
     return os.path.join(_home_dir(), "store.od")
 
 
-def _resolve_store(override):
-    """Store precedence: -f flag > $ONTODAG_STORE > config > default."""
-    if override:
-        return _normalize_spec(override)
-    env = os.environ.get("ONTODAG_STORE")
+# --------------------------------------------------------------------------- #
+# Settings: one table, one precedence rule
+# --------------------------------------------------------------------------- #
+#
+# Every setting is settable four ways and resolved the same way:
+#
+#     command-line flag  >  environment variable  >  config file  >  default
+#
+# The first two are per-invocation; the config file (written by `set`) is the
+# durable one. `auto` is a real value, not a missing one: it means "decide from
+# whether output is a terminal", which is what makes `odag get | odag put`
+# round-trip while an interactive session stays readable.
+
+_Setting = collections.namedtuple("_Setting", "env default flag doc")
+
+_SETTINGS = {
+    "store": _Setting(
+        "ONTODAG_STORE", "", "-f PATH",
+        "active store: a file path or a swarm:NAME URI"),
+    "bee_api": _Setting(
+        "BEE_API", "http://localhost:1633", "--bee-api URL",
+        "Bee node API endpoint, for swarm: stores"),
+    "bee_batch": _Setting(
+        "BEE_BATCH", "", "--bee-batch ID",
+        "postage batch to pay for Swarm writes"),
+    "bee_signer": _Setting(
+        "BEE_SIGNER", "", "--bee-signer KEY",
+        "private key; when set, the latest root lives in a signed feed"),
+    "render": _Setting(
+        "ONTODAG_SURFACE", "auto", "--render / --raw",
+        "readable output (auto = on at a terminal, off in a pipe)"),
+    "limit": _Setting(
+        "ONTODAG_LIMIT", "auto", "-n N",
+        "max result lines (auto = 50 at a terminal, all in a pipe; 0 = all)"),
+}
+
+# Settings given as flags on this invocation. Global flags are recorded here by
+# main(); per-command flags stay on `args` and outrank these (the closer the
+# flag is to the command, the more specific the intent).
+_OVERRIDES = {}
+
+
+def _configured(key, flag=None):
+    """The configured value of a setting, by the one precedence rule above.
+
+    `flag` is a per-command flag value, or None if the command has none.
+    Empty strings count as unset, so `BEE_BATCH=` does not shadow config."""
+    if flag:
+        return flag
+    if _OVERRIDES.get(key):
+        return _OVERRIDES[key]
+    env = os.environ.get(_SETTINGS[key].env)
     if env:
-        return _normalize_spec(env)
+        return env
     cfg = _read_config()
-    if cfg.get("store"):
-        return _normalize_spec(cfg["store"])
-    return _default_store_path()
+    if cfg.get(key):
+        return cfg[key]
+    return _SETTINGS[key].default
+
+
+def _resolve_store(override=None):
+    """The active store spec. `store`'s only peculiarity is that its default
+    is computed (a path under the home dir) rather than a constant."""
+    spec = _configured("store", override)
+    return _normalize_spec(spec) if spec else _default_store_path()
 
 
 # --------------------------------------------------------------------------- #
@@ -322,10 +377,12 @@ class SwarmBackend:
         return os.path.join(_home_dir(), self.name + ".root")
 
     def _record_store(self):
-        cfg = _read_config()
-        api = os.environ.get("BEE_API") or cfg.get("bee_api") or "http://localhost:1633"
-        batch = os.environ.get("BEE_BATCH") or cfg.get("bee_batch") or "auto"
-        signer = os.environ.get("BEE_SIGNER") or cfg.get("bee_signer") or ""
+        api = _configured("bee_api")
+        # "auto" (ask the node for a usable batch) is this call site's default,
+        # not the setting's: `set bee_batch` showing "auto" would misreport an
+        # unconfigured batch as a configured one.
+        batch = _configured("bee_batch") or "auto"
+        signer = _configured("bee_signer")
         try:
             if self._store_factory is not None:
                 return self._store_factory()
@@ -362,10 +419,8 @@ class SwarmBackend:
             # opening the store and reading it lands here, not above.
             return EagerOntoDAG(store)
         except OSError as exc:
-            cfg = _read_config()
-            api = (os.environ.get("BEE_API") or cfg.get("bee_api")
-                   or "http://localhost:1633")
-            raise _swarm_open_error(self.name, api, exc) from exc
+            raise _swarm_open_error(self.name, _configured("bee_api"),
+                                    exc) from exc
 
     def save(self, dag):
         dag.commit()
@@ -418,32 +473,59 @@ class Session:
 
 
 # --------------------------------------------------------------------------- #
-# The surface rule (SURFACE_LAYER.md §7, decided 2026-08-01): rendered output
-# on a terminal, canonical bytes everywhere else — so `odag get | odag put`
-# round-trips by default. Precedence: per-command flag (--render/--raw) >
-# leading global flag > $ONTODAG_SURFACE (0/1/auto) > the tty test on the
-# actual output stream (-o FILE is not a terminal). Output-only: input
-# elaboration never depends on where stdout goes.
+# The two output settings that default to `auto` (SURFACE_LAYER.md §7, decided
+# 2026-08-01, extended to `limit` 2026-08-02): a terminal gets output meant for
+# a person — readable spellings, and only as many lines as are worth reading —
+# while anything else gets the complete canonical answer, so `odag get | wc -l`
+# counts right and `odag get | odag put` round-trips. Both are OUTPUT-only:
+# input elaboration and the query itself never depend on where stdout goes,
+# and the tty test is on the actual stream, so `-o FILE` gets canonical bytes.
 # --------------------------------------------------------------------------- #
 
-_SURFACE_OVERRIDE = [None]  # set by main() from a leading --raw/--render
+_TTY_LIMIT = 50   # generous enough that ordinary stores never notice it
+
+
+def _isatty(out):
+    try:
+        return out.isatty()
+    except (AttributeError, ValueError):
+        return False
 
 
 def _want_render(args, out):
     flag = getattr(args, "render_mode", None)
     if flag is not None:
         return flag
-    if _SURFACE_OVERRIDE[0] is not None:
-        return _SURFACE_OVERRIDE[0]
-    env = os.environ.get("ONTODAG_SURFACE", "").strip().lower()
-    if env in ("0", "off", "raw"):
+    value = _configured("render").strip().lower()
+    if value in ("0", "off", "raw", "false", "no"):
         return False
-    if env in ("1", "on", "render"):
+    if value in ("1", "on", "render", "true", "yes"):
         return True
-    try:
-        return out.isatty()
-    except (AttributeError, ValueError):
-        return False
+    return _isatty(out)
+
+
+def _want_limit(args, out):
+    """How many result lines to print; 0 means all of them.
+
+    A cap exists so that an interactive query cannot flood the terminal —
+    which is what makes the empty query (`odag get`, everything) a safe thing
+    to type. It is a DISPLAY cap only: the query itself is always complete,
+    the withheld count is always reported, and a pipe is never capped."""
+    flag = getattr(args, "limit", None)
+    value = _configured("limit", flag)
+    if isinstance(value, str):
+        value = value.strip().lower()
+        if value in ("auto", ""):
+            return _TTY_LIMIT if _isatty(out) else 0
+        if value in ("all", "none", "off"):
+            return 0
+        try:
+            value = int(value)
+        except ValueError:
+            raise ValueError(
+                f"limit must be a number, `all` or `auto`, not {value!r}"
+            ) from None
+    return max(0, int(value))
 
 
 def _namer(args, session, out):
@@ -453,6 +535,26 @@ def _namer(args, session, out):
     if _want_render(args, out):
         return lambda name: _surface.render(name, session.dag)
     return lambda name: name
+
+
+def _print_names(names, args, session, out):
+    """Print result names one per line under the display cap.
+
+    Sorting is on canonical names — the identity — so the prefix a cap keeps
+    is the same whether or not output is being rendered. The withheld count
+    goes to stderr: it is a message to the person, never part of the answer,
+    so it cannot contaminate a pipe even when `-n` was asked for explicitly."""
+    fmt = _namer(args, session, out)
+    names = sorted(names)
+    limit = _want_limit(args, out)
+    shown = names[:limit] if limit else names
+    for name in shown:
+        print(fmt(name), file=out)
+    withheld = len(names) - len(shown)
+    if withheld:
+        print(f"odag: {withheld} more not shown "
+              f"(-n 0 for all, or `odag count` for the total)",
+              file=sys.stderr)
 
 
 # --------------------------------------------------------------------------- #
@@ -478,26 +580,45 @@ def cmd_put(args, session, out):
     session.save()
 
 
-def cmd_get(args, session, out):
-    # The literal argument `or` separates disjuncts:
-    #   odag get Dog Pet or Cat     ->  (Dog AND Pet) OR Cat
-    # (`or` is therefore reserved as a category name on the command line;
-    # a plain AND query is the one-disjunct case.)
+def _query(categories, dag):
+    """Run a command-line query and return the matching items.
+
+    The literal argument `or` separates disjuncts:
+        odag get Dog Pet or Cat     ->  (Dog AND Pet) OR Cat
+    (`or` is therefore reserved as a category name on the command line;
+    a plain AND query is the one-disjunct case.)
+
+    No categories at all is the EMPTY query, which is everything — the
+    intersection of no constraints (see `OntoDAG.get`). A *dangling* `or`
+    still fails: at that point the empty disjunct is a typo, not a request
+    for the universe, and taking it literally would silently turn a narrow
+    query into a full dump."""
     queries, current = [], []
-    for category in args.categories:
+    for category in categories:
         if category == "or":
             queries.append(current)
             current = []
         else:
             current.append(category)
     queries.append(current)
-    if any(not query for query in queries):
+    if len(queries) > 1 and any(not query for query in queries):
         raise ValueError("empty query around 'or'")
-    result = session.dag.get(queries[0]) if len(queries) == 1 \
-        else session.dag.get_any(queries)
-    fmt = _namer(args, session, out)
-    for name in sorted(item.name for item in result):
-        print(fmt(name), file=out)
+    if len(queries) == 1:
+        return dag.get(queries[0])
+    return dag.get_any(queries)
+
+
+def cmd_get(args, session, out):
+    result = _query(args.categories, session.dag)
+    _print_names((item.name for item in result), args, session, out)
+
+
+def cmd_count(args, session, out):
+    # How many, and nothing else. Deliberately its own command rather than a
+    # flag on `get`: it is the complete answer to "how big is this" — never
+    # capped, never rendered — for exactly the cases where printing the answer
+    # is what you are trying to avoid.
+    print(len(_query(args.categories, session.dag)), file=out)
 
 
 def cmd_below(args, session, out):
@@ -540,9 +661,10 @@ def cmd_show(args, session, out):
 
 
 def cmd_list(args, session, out):
-    fmt = _namer(args, session, out)
-    for name in sorted(n for n in session.dag.nodes if n != session.dag.root.name):
-        print(fmt(name), file=out)
+    # `list` is the empty query under a discoverable name — one code path, so
+    # `odag list`, `odag get` and `odag get '*'` cannot drift apart.
+    _print_names((item.name for item in session.dag.get([])),
+                 args, session, out)
 
 
 def cmd_prelude(args, session, out):
@@ -617,37 +739,29 @@ def cmd_visualize(args, session, out):
     OntoDAGVisualizer(format=args.format).visualize(session.dag, filename=base)
 
 
-# Settings `set` can show and change. `store` is the active store spec;
-# bee_api/bee_batch configure the Swarm backend's Bee node; bee_signer, when
-# present, switches the swarm backend to a signed feed for the latest root
-# (recordstore.swarm_store / SwarmFeedPointer) instead of a local file.
-_SETTINGS = ("store", "bee_api", "bee_batch", "bee_signer")
-
-
 def _effective_setting(session, key):
-    """The value currently in effect, honoring env/config precedence."""
+    """The value currently in effect, by the settings table's one rule.
+
+    `store` is the exception worth having: what is in effect is the store this
+    session actually opened, which is not the configured spec if a `set store`
+    was saved but could not be switched to."""
     if key == "store":
         return session.describe()
-    cfg = _read_config()
-    if key == "bee_api":
-        return os.environ.get("BEE_API") or cfg.get("bee_api") or "http://localhost:1633"
-    if key == "bee_batch":
-        return os.environ.get("BEE_BATCH") or cfg.get("bee_batch") or ""
-    if key == "bee_signer":
-        return os.environ.get("BEE_SIGNER") or cfg.get("bee_signer") or ""
-    return cfg.get(key, "")
+    return _configured(key)
 
 
 def cmd_set(args, session, out):
     # No key: show every setting. Key but no value: show that one. Both:
-    # change it. Displaying on a missing value never errors.
+    # change it — writing to the config file, which is the durable layer;
+    # a flag or an environment variable still outranks it for that run.
+    # Displaying on a missing value never errors.
     if not args.key:
-        for key in _SETTINGS:
+        for key in sorted(_SETTINGS):
             print(f"{key} = {_effective_setting(session, key)}", file=out)
         return
     if args.key not in _SETTINGS:
         raise ValueError(f"unknown setting: {args.key} "
-                         f"(known: {', '.join(_SETTINGS)})")
+                         f"(known: {', '.join(sorted(_SETTINGS))})")
     if args.value is None:
         print(f"{args.key} = {_effective_setting(session, args.key)}", file=out)
         return
@@ -667,6 +781,10 @@ def cmd_set(args, session, out):
                 f"this session keeps using {session.spec}"
             ) from exc
     else:
+        # Validate now, not at the next command that reads it: a setting that
+        # only fails later is a setting you debug in the wrong place.
+        if args.key == "limit":
+            _want_limit(argparse.Namespace(limit=args.value), out)
         cfg = _read_config()
         cfg[args.key] = args.value
         _write_config(cfg)
@@ -677,17 +795,21 @@ Usage: odag [-f STORE] <command> [args]
 
 Commands:
   put SUB [PARENT...]   add SUB under the PARENT categories (or the root)
-  get CAT [CAT...]      print items below all of the CATs, one per line
+  get [CAT...]          print items below all of the CATs, one per line
                         (the literal word `or` separates alternatives:
-                        `get Dog Pet or Cat` = (Dog AND Pet) OR Cat)
-  below SUB SUP         does SUB fit within SUP? prints true/false and
+                        `get Dog Pet or Cat` = (Dog AND Pet) OR Cat).
+                        With no CAT at all the query is unconstrained, so
+                        it prints everything — the same as `list`
+  count [CAT...]        how many items that same query matches: one number,
+                        complete, never capped
+  below SUB SUP       does SUB fit within SUP? prints true/false and
                         exits 0/1 (grep-style), so `odag below A B && ...`
                         works; `?` is a synonym at the interactive prompt.
                         Works on typed values from the names alone:
                         below 'weight(3kg)' 'weight(..5kg)' -> true
   remove ITEM           remove ITEM from the store
   show                  print the DAG structure
-  list                  print every item name
+  list                  print every item name (the empty query, named)
   merge FILE            merge FILE into the store
   import FILE           replace the store with the contents of FILE
   export FILE           write the store to FILE
@@ -704,8 +826,8 @@ Commands:
   pack [NAME] [--show]  list unit packs, or adopt one (crypto-majors,
                         stablecoins, fiat-iso4217) — vocabulary as graph
                         data, no new release needed; travels with the store
-  set [KEY [VALUE]]     show settings, or set one (store, bee_api,
-                        bee_batch, bee_signer)
+  set [KEY [VALUE]]     show settings, or set one durably (store, bee_api,
+                        bee_batch, bee_signer, render, limit)
   help                  show this help
 
 With no command odag reads commands from a pipe, or opens an interactive
@@ -723,12 +845,22 @@ instead of linear-dimension: then 'time(2026)' is the year,
 'time(2026-08)' the month, 'time(2026-08-15)' the day, and each
 contains the finer ones. See docs/DIMENSIONS.md.
 
-Readable output: on a terminal, names print in friendly spellings —
-weight(3kg), time(2026) — while pipes, files and -o always get the exact
-canonical bytes, so `odag get ... | odag` round-trips. Override per
-command or globally with --render / --raw, or set ONTODAG_SURFACE=0/1
-(flag > env > terminal test; input is never affected). `canon TERM`
-shows the exact stored form of any spelling. See docs/SURFACE_LAYER.md.
+Output for people vs output for programs: on a terminal, names print in
+friendly spellings — weight(3kg), time(2026) — and long answers stop at 50
+lines with a note on stderr saying how many were withheld. Pipes, files and
+-o get the complete answer in exact canonical bytes, so `odag get ... | odag`
+round-trips and `odag get ... | wc -l` counts right. Override with
+--render / --raw and -n N (-n 0 for all). `canon TERM` shows the exact
+stored form of any spelling. See docs/SURFACE_LAYER.md.
+
+Settings: store, bee_api, bee_batch, bee_signer, render, limit. Each can be
+given four ways, and the first that is present wins:
+
+  flag  >  environment  >  config file (`set`)  >  default
+
+so a flag is for one command, an environment variable for one shell, and
+`odag set KEY VALUE` is the durable one (it writes ~/.ontodag/config).
+`odag set` with no arguments prints what is currently in effect.
 
 A store may also be `swarm:NAME`, persisted on Ethereum Swarm (content on a
 Bee node, latest root in ~/.ontodag/NAME.root). `set store swarm:NAME` makes
@@ -742,9 +874,18 @@ The store can also be browsed as a filesystem (paths as category queries,
 FUSE-mountable) with `odag-fs`, which shares these settings — see
 https://github.com/petfold/ontodag-fs.
 
-Options:
+Options (before the command; they apply to every command in a batch):
   -f, --store PATH      use PATH (or swarm:NAME) as the store for this run
+  -n, --limit N         show at most N results (0 for all)
+  --render, --raw       force friendly or canonical names
+  --bee-api URL         Bee node endpoint, for swarm: stores
+  --bee-batch ID        postage batch to pay for Swarm writes
+  --bee-signer KEY      publish the latest root to a signed Swarm feed
+
+Per command:
   -o, --output FILE     write output to FILE instead of stdout (get/show/list)
+  -n, --limit N         as above, for this command only (get/list)
+  --render, --raw       as above, for this command only
 """
 
 
@@ -767,6 +908,13 @@ def _add_surface_flags(p):
     p.set_defaults(render_mode=None)
 
 
+def _add_limit_flag(p):
+    """-n on every command that prints a list of names. Overrides
+    $ONTODAG_LIMIT, the `limit` setting and the tty default; 0 means all."""
+    p.add_argument("-n", "--limit", metavar="N",
+                   help="show at most N results (0 for all)")
+
+
 def build_parser():
     parser = argparse.ArgumentParser(prog="odag", add_help=False,
                                      description="Manipulate an OntoDAG store.")
@@ -781,10 +929,17 @@ def build_parser():
     p.set_defaults(func=cmd_put)
 
     p = sub.add_parser("get", add_help=True, help="query common subcategories")
-    p.add_argument("categories", nargs="+")
+    p.add_argument("categories", nargs="*")
     p.add_argument("-o", "--output")
     _add_surface_flags(p)
+    _add_limit_flag(p)
     p.set_defaults(func=cmd_get, stream_output=True)
+
+    p = sub.add_parser("count", add_help=True,
+                       help="how many items a query matches")
+    p.add_argument("categories", nargs="*")
+    p.add_argument("-o", "--output")
+    p.set_defaults(func=cmd_count, stream_output=True)
 
     p = sub.add_parser("below", add_help=True,
                        help="test whether SUB fits within SUP (exit 0/1)")
@@ -811,6 +966,7 @@ def build_parser():
     p = sub.add_parser("list", add_help=True, help="print all item names")
     p.add_argument("-o", "--output")
     _add_surface_flags(p)
+    _add_limit_flag(p)
     p.set_defaults(func=cmd_list, stream_output=True)
 
     p = sub.add_parser("pack", add_help=True,
@@ -881,6 +1037,7 @@ def dispatch(argv, session):
         return exc.code or 0
 
     out = sys.stdout
+
     handle = None
     outpath = getattr(args, "output", None)
     try:
@@ -897,7 +1054,6 @@ def dispatch(argv, session):
     finally:
         if handle is not None:
             handle.close()
-
 
 # --------------------------------------------------------------------------- #
 # Interactive and batch (stdin) modes
@@ -937,18 +1093,22 @@ def _run_stream(session, stream, interactive):
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
 
-    store_override = None
-    while argv and argv[0] in ("-f", "--store", "--file", "--raw", "--render"):
+    # Leading global options: they apply to every command this invocation
+    # runs, including a whole stdin batch, and they are the flag layer of the
+    # settings table — one option per setting, no exceptions.
+    _OVERRIDES.clear()
+    valued = {"-f": "store", "--store": "store", "--file": "store",
+              "--bee-api": "bee_api", "--bee-batch": "bee_batch",
+              "--bee-signer": "bee_signer", "-n": "limit", "--limit": "limit"}
+    while argv and (argv[0] in valued or argv[0] in ("--raw", "--render")):
         if argv[0] in ("--raw", "--render"):
-            # Global surface switch (SURFACE_LAYER.md §7): applies to every
-            # command this invocation runs, including a whole stdin batch.
-            _SURFACE_OVERRIDE[0] = argv[0] == "--render"
+            _OVERRIDES["render"] = "on" if argv[0] == "--render" else "off"
             argv = argv[1:]
             continue
         if len(argv) < 2:
-            print("odag: option requires a path", file=sys.stderr)
+            print(f"odag: {argv[0]} requires a value", file=sys.stderr)
             sys.exit(2)
-        store_override = argv[1]
+        _OVERRIDES[valued[argv[0]]] = argv[1]
         argv = argv[2:]
 
     if argv and argv[0] in ("-V", "--version"):
@@ -962,7 +1122,7 @@ def main(argv=None):
     # network I/O — so it gets the same treatment dispatch() gives commands:
     # one line on stderr and a non-zero exit, never a traceback.
     try:
-        session = Session(_resolve_store(store_override))
+        session = Session(_resolve_store())
     except (ValueError, OSError) as exc:
         print(f"odag: {exc}", file=sys.stderr)
         sys.exit(1)

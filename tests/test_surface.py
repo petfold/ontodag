@@ -25,7 +25,7 @@ from contextlib import redirect_stdout
 import ontodag
 from ontodag import dimensions as dims
 from ontodag import surface
-from ontodag.__main__ import Session, dispatch, _SURFACE_OVERRIDE
+from ontodag.__main__ import Session, dispatch, _OVERRIDES
 
 REPO_SRC = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
@@ -214,7 +214,7 @@ class TestSurfaceCLI(unittest.TestCase):
         self.store = os.path.join(self.tmp.name, "store.od")
         self.session = Session(self.store)
         self._env = os.environ.pop("ONTODAG_SURFACE", None)
-        _SURFACE_OVERRIDE[0] = None
+        _OVERRIDES.clear()
         for line in ("put dimension", "put calendar-dimension dimension",
                      "put linear-dimension dimension",
                      "put time calendar-dimension",
@@ -228,7 +228,7 @@ class TestSurfaceCLI(unittest.TestCase):
             os.environ["ONTODAG_SURFACE"] = self._env
         else:
             os.environ.pop("ONTODAG_SURFACE", None)
-        _SURFACE_OVERRIDE[0] = None
+        _OVERRIDES.clear()
         self.tmp.cleanup()
 
     def run_cmd(self, argv):
@@ -259,7 +259,7 @@ class TestSurfaceCLI(unittest.TestCase):
         self.assertNotIn("time(2026)", lines)
 
     def test_global_override_applies_to_plain_commands(self):
-        _SURFACE_OVERRIDE[0] = True                 # what a leading --render
+        _OVERRIDES["render"] = "on"                 # what a leading --render
         _, lines = self.run_cmd(["list"])           # in main() sets
         self.assertIn("time(2026)", lines)
 

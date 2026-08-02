@@ -293,7 +293,7 @@ class TestSwarmNodeDown(unittest.TestCase):
             raise cli._swarm_open_error("pets", "http://localhost:1633", boom)
 
         with mock.patch.object(cli, "Session", raising_session), \
-             mock.patch.object(cli, "_resolve_store", lambda o: "swarm:pets"), \
+             mock.patch.object(cli, "_resolve_store", lambda *a: "swarm:pets"), \
              redirect_stderr(err):
             with self.assertRaises(SystemExit) as ctx:
                 cli.main(["get", "Dog"])
@@ -392,6 +392,127 @@ class TestGetOr(unittest.TestCase):
             # A trailing/leading `or` is a usage error, not a silent empty.
             code, _ = _run(["get", "animal", "or"], session)
             self.assertNotEqual(code, 0)
+
+
+class TestEmptyQueryAndCount(unittest.TestCase):
+    """`get` with no terms is everything, `list` is the same question under
+    another name, and `count` answers it as a number."""
+
+    def _session(self, home):
+        session = cli.Session(os.path.join(home, "zoo.od"))
+        for argv in (["put", "animal"], ["put", "machine"], ["put", "pet"],
+                     ["put", "dog", "animal", "pet"],
+                     ["put", "drone", "machine"]):
+            self.assertEqual(_run(argv, session)[0], 0)
+        return session
+
+    ALL = "animal\ndog\ndrone\nmachine\npet\n"
+
+    def test_get_with_no_terms_is_everything(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            self.assertEqual(_run(["get"], session), (0, self.ALL))
+
+    def test_list_get_and_get_star_are_one_answer(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            answers = {_run(argv, session)[1]
+                       for argv in (["get"], ["list"], ["get", "*"])}
+            self.assertEqual(answers, {self.ALL})
+
+    def test_dangling_or_is_still_an_error(self):
+        # The empty query is a request; an empty *disjunct* is a typo, and
+        # reading it as "everything" would silently widen a narrow query.
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            self.assertNotEqual(_run(["get", "animal", "or"], session)[0], 0)
+
+    def test_count_is_a_number_for_the_same_queries(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            self.assertEqual(_run(["count"], session), (0, "5\n"))
+            self.assertEqual(_run(["count", "animal"], session), (0, "1\n"))
+            self.assertEqual(_run(["count", "animal", "or", "machine"],
+                                  session), (0, "2\n"))
+            self.assertEqual(_run(["count", "nope"], session), (0, "0\n"))
+
+
+class TestDisplayLimit(unittest.TestCase):
+    """The cap is a display decision: a pipe is never capped, the query is
+    always complete, and what was withheld is always said out loud."""
+
+    def _session(self, home, n=10):
+        session = cli.Session(os.path.join(home, "many.od"))
+        for i in range(n):
+            _run(["put", f"item{i:02d}"], session)
+        return session
+
+    def _run_err(self, argv, session):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.dispatch(argv, session)
+        return code, out.getvalue(), err.getvalue()
+
+    def setUp(self):
+        cli._OVERRIDES.clear()
+        self._env = os.environ.pop("ONTODAG_LIMIT", None)
+
+    def tearDown(self):
+        cli._OVERRIDES.clear()
+        os.environ.pop("ONTODAG_LIMIT", None)
+        if self._env is not None:
+            os.environ["ONTODAG_LIMIT"] = self._env
+
+    def test_a_pipe_is_never_capped(self):
+        # StringIO is not a tty, which is exactly the pipe case.
+        with tempfile.TemporaryDirectory() as home:
+            code, out, err = self._run_err(["get"], self._session(home))
+            self.assertEqual((code, len(out.splitlines()), err), (0, 10, ""))
+
+    def test_explicit_limit_truncates_and_says_so(self):
+        with tempfile.TemporaryDirectory() as home:
+            code, out, err = self._run_err(["get", "-n", "3"],
+                                           self._session(home))
+            self.assertEqual(code, 0)
+            # A deterministic prefix of the canonical sort, not an arbitrary
+            # three: the same command twice gives the same three.
+            self.assertEqual(out.splitlines(), ["item00", "item01", "item02"])
+            self.assertIn("7 more not shown", err)
+
+    def test_the_withheld_note_never_lands_in_the_data(self):
+        with tempfile.TemporaryDirectory() as home:
+            _, out, _ = self._run_err(["get", "-n", "3"], self._session(home))
+            self.assertNotIn("not shown", out)
+
+    def test_limit_zero_means_all(self):
+        with tempfile.TemporaryDirectory() as home:
+            code, out, err = self._run_err(["get", "-n", "0"],
+                                           self._session(home))
+            self.assertEqual((code, len(out.splitlines()), err), (0, 10, ""))
+
+    def test_count_ignores_the_cap_entirely(self):
+        # The point of `count` is to be the complete answer when printing
+        # the results is what you are trying to avoid.
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            os.environ["ONTODAG_LIMIT"] = "3"
+            self.assertEqual(self._run_err(["count"], session)[1], "10\n")
+
+    def test_env_sets_it_and_a_flag_beats_the_env(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            os.environ["ONTODAG_LIMIT"] = "2"
+            self.assertEqual(len(self._run_err(["get"], session)[1]
+                                 .splitlines()), 2)
+            self.assertEqual(len(self._run_err(["get", "-n", "5"], session)[1]
+                                 .splitlines()), 5)
+
+    def test_a_bad_limit_is_refused_when_it_is_set_not_later(self):
+        with tempfile.TemporaryDirectory() as home:
+            code, _, err = self._run_err(["get", "-n", "banana"],
+                                         self._session(home))
+            self.assertEqual(code, 1)
+            self.assertIn("limit", err)
 
 
 class TestBelow(unittest.TestCase):
