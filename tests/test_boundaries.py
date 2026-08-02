@@ -21,6 +21,7 @@ import os
 import subprocess
 import sys
 import unittest
+from unittest import mock
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(REPO_ROOT, "src")
@@ -191,3 +192,64 @@ class TestRecordstoreIsOntodagFree(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheBoundaryIsAlsoDeclared(unittest.TestCase):
+    """B1 in the packaging metadata, not just in the import graph.
+
+    B1 above proves the core *imports* without optional dependencies. It
+    cannot prove the core does not *require* them, because in any dev
+    environment they are installed and nothing fails. Until 2026-08-02 that
+    gap was real: `pyproject.toml` declared graphviz and owlready2 as hard
+    dependencies, so `pip install ontodag` fetched 31 MB, a compiled
+    extension and two bundled Java reasoners to deliver a 648 KB package
+    that used none of them — and, because owlready2 ships sdist-only, it
+    also demanded a C toolchain and made the package uninstallable under
+    Pyodide, where micropip cannot build sdists.
+
+    A boundary asserted in code but not in metadata is not a boundary.
+    """
+
+    @staticmethod
+    def _pyproject():
+        import tomllib
+        path = os.path.join(os.path.dirname(__file__), "..", "pyproject.toml")
+        with open(path, "rb") as fh:
+            return tomllib.load(fh)
+
+    def test_the_base_install_has_no_third_party_dependency(self):
+        declared = self._pyproject()["project"]["dependencies"]
+        self.assertEqual(
+            declared, [],
+            "the base install must stay dependency-free: anything genuinely "
+            "needed by the core belongs in the core, and everything else "
+            "belongs in an extra. Adding a hard dependency here silently "
+            "revokes B1 for every installed user.",
+        )
+
+    def test_every_optional_dependency_lives_in_an_extra(self):
+        extras = self._pyproject()["project"]["optional-dependencies"]
+        for package, extra in (("graphviz", "viz"), ("owlready2", "owl"),
+                               ("recordstore", "store")):
+            declared = " ".join(extras.get(extra, []))
+            self.assertIn(package, declared,
+                          f"{package} should be reachable via [{extra}]")
+
+    def test_a_missing_extra_teaches_instead_of_traceback(self):
+        # The failure a user actually meets. A ModuleNotFoundError names a
+        # package; what they need is the pip command, and for rendering they
+        # also need to know a system binary is involved.
+        import ontodag
+        from ontodag import viz
+        for get, wanted in (
+            (lambda: viz._digraph(), "ontodag[viz]"),
+            (lambda: ontodag.OWLOntology, "ontodag[owl]"),
+        ):
+            with mock.patch.dict(sys.modules,
+                                 {"graphviz": None, "ontodag.owl": None}):
+                try:
+                    get()
+                except ImportError as exc:
+                    self.assertIn(wanted, str(exc))
+                else:
+                    self.fail(f"expected an ImportError mentioning {wanted}")

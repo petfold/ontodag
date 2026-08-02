@@ -20,14 +20,36 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries",
 ]
-dependencies = [
-    "graphviz",
-    "owlready2",
-    "recordstore>=0.16.0",  # prove/verify_proof (is_below certificates consume them)
-]
+# Nothing. The core data structure, the CLI, the native text store and the
+# dimension arithmetic are standard library only, and the B1 boundary
+# (tests/test_boundaries.py) exists to keep them that way — a promise that
+# was true in the code but not in this list until 2026-08-02, when a bare
+# `pip install ontodag` still pulled 31 MB, a compiled extension and two
+# bundled Java reasoners for a 648 KB package.
+#
+# Consequences worth keeping: no C toolchain is needed to install this, so
+# it works in slim containers and on embedded targets; and the wheel is
+# pure-Python with a pure-Python closure, which is what makes it installable
+# in a browser under Pyodide (micropip cannot build sdists, and owlready2
+# ships sdist-only — that single hard dependency blocked the whole
+# in-browser story).
+dependencies = []
 
 [project.optional-dependencies]
-web = ["flask", "dot2tex", "Pillow"]
+# Rendering. The `graphviz` PyPI package is only a wrapper: the `dot`
+# binary has to come from your OS (apt/brew install graphviz). Pillow is
+# needed only by generate_image(), which returns an image object; writing
+# a file and emitting DOT source both work without it.
+viz = ["graphviz", "Pillow"]
+# OWL and Manchester import/export. By far the heaviest thing here — it
+# bundles Java reasoners OntoDAG never invokes — which is exactly why it
+# is opt-in.
+owl = ["owlready2"]
+# Persisted, content-addressed stores (EagerOntoDAG, LazyOntoDAG,
+# SparseOntoDAG, certificates). Duck-typed at the seam, so this is only
+# needed to get a concrete store implementation.
+store = ["recordstore>=0.16.0"]
+web = ["ontodag[viz,owl]", "flask", "dot2tex"]
 # The `swarm:NAME` CLI backend talks to a Bee node via recordstore's
 # BeeBytesStore (needs `requests`, recordstore's [bee] extra); resolves the
 # postage batch with the default `bee_batch = auto` (needs `swarmfs`, the
@@ -40,7 +62,9 @@ web = ["flask", "dot2tex", "Pillow"]
 # exist earlier, and pip only warns on unknown extras; the floor is 0.16.0
 # now because ontodag.certificates consumes prove/verify_proof.)
 swarm = ["recordstore[bee,feeds,stamps]>=0.16.0"]
-test = ["pytest"]
+# Everything a developer wants in one go.
+all = ["ontodag[viz,owl,store]"]
+test = ["pytest", "ontodag[viz,owl,store]"]
 
 [project.scripts]
 odag = "ontodag.__main__:main"

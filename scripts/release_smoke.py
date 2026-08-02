@@ -88,6 +88,37 @@ class Env:
         return self.run(self.odag, *args, expect=expect)
 
 
+def bare_install(spec, tmp):
+    """What `pip install ontodag` alone drags in.
+
+    Checked here rather than only in the test suite because this is the one
+    place the *installed* package exists: B1 proves the core imports without
+    optional dependencies, but a dev environment has them all installed, so
+    nothing there can notice a hard dependency creeping back into
+    pyproject. Until 2026-08-02 one had — 31 MB, a compiled extension and
+    two bundled Java reasoners, for a package that used none of it."""
+    venv = os.path.join(tmp, "bare")
+    subprocess.run([sys.executable, "-m", "venv", venv], check=True)
+    python = os.path.join(venv, "bin", "python")
+    subprocess.run([python, "-m", "pip", "-q", "install", "--no-cache-dir",
+                    spec], check=True)
+    listed = subprocess.run(
+        [python, "-m", "pip", "list", "--format=freeze"],
+        capture_output=True, text=True, check=True).stdout.split()
+    ignore = ("pip", "setuptools", "wheel", "ontodag")
+    extra = [line for line in listed
+             if not line.lower().startswith(ignore)]
+    assert not extra, f"a bare install pulled in {extra}"
+
+    # ...and it has to actually work with nothing else present.
+    subprocess.run([python, "-c",
+                    "from ontodag import OntoDAG; d=OntoDAG();"
+                    "d.put('a',[]); d.put('b',['a']);"
+                    "assert [i.name for i in d.get(['a'])] == ['b']"],
+                   check=True)
+    return "ontodag and nothing else, and the core works"
+
+
 def smoke(env, expect_version):
     o = env.odag_run
 
@@ -215,6 +246,8 @@ def main():
     print(f"smoke-testing {source}\n", flush=True)
     tmp = tempfile.mkdtemp(prefix="ontodag-smoke-")
     try:
+        check("a bare install pulls in nothing else",
+              lambda: bare_install(spec, tmp))
         env = Env(tmp)
         env.pip(spec, *EXTRA_DEPS)
         smoke(env, expect)
