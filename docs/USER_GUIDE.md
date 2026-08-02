@@ -140,10 +140,13 @@ You need **Python 3.11 or newer**.
 pip install ontodag
 ```
 
-This installs the `odag` command and the Python library — and **nothing
-else**. The core, the command line, the file store and the typed-value
-arithmetic are standard-library Python, so there is no compiler step, no
-system package to find, and about 650 KB on disk. Everything heavier is an
+This installs the `odag` command, the Python library and one small
+dependency (`recordstore`, 184 KB of pure Python with no dependencies of its
+own). No compiler step, no system package to find, under a megabyte on disk.
+
+That one dependency is deliberate: it is what gives you **canonical roots,
+snapshots and verifiable answers** out of the box rather than behind a flag
+(§5.1, §8). Everything heavier — pictures, OWL, Swarm, the web app — is an
 extra you ask for.
 
 ### Which platforms
@@ -209,10 +212,9 @@ setup — pick the route that matches what you actually want:
 | --- | --- | --- |
 | `viz` | pictures — `odag visualize`, `/dag/image`, DOT and LaTeX export | `pip install "ontodag[viz]"` |
 | `owl` | OWL and Manchester import/export (§4.6) | `pip install "ontodag[owl]"` |
-| `store` | persisted content-addressed stores (§8) | `pip install "ontodag[store]"` |
 | `swarm` | keeping a store on Ethereum Swarm (§5.1, §8) | `pip install "ontodag[swarm]"` |
 | `web` | the browser interface and REST API (§6) | `pip install "ontodag[web]"` |
-| `all` | viz + owl + store | `pip install "ontodag[all]"` |
+| `all` | viz + owl | `pip install "ontodag[all]"` |
 
 Combine them in one spec: `pip install "ontodag[viz,owl]"`.
 
@@ -685,6 +687,31 @@ The store is a canonical, line-oriented text file (one item per line, `name
 parent1 parent2 …`), so it diffs and merges cleanly in git. Point at a different
 store for one command with `-f PATH`, or change the default permanently with
 `set store PATH`:
+
+**Three kinds of store, and the middle one is the interesting one.** A plain
+path gives you the text file above. `rs:PATH` gives you a *content-addressed*
+store on ordinary disk, and `swarm:NAME` gives you the same thing distributed
+on Ethereum Swarm (§8):
+
+```console
+$ odag set store rs:~/work/travel
+$ odag put Travel
+$ odag put Japan Travel
+$ cat ~/work/travel/root
+b0652ce734f3886a04e6713cd19fbbaf75a509b57aafbb0190a536bafd2ce213
+```
+
+That hash is the whole point. It is a **canonical root**: build the same
+knowledge in any order, on any machine, and you get the same hash — so it
+names a body of knowledge the way a file name never can. From it you get
+immutable snapshots, `is_below` certificates a stranger can check without
+your store (§9.2), and two writers merging to a byte-identical result.
+
+Those are the properties Swarm is *for*, and `rs:` gives you all of them
+with no node, no wallet and no network. When you want the same store shared
+rather than local, `swarm:NAME` is a change of backend, not a change of
+model — run `odag swarm` first and it will tell you what your machine still
+needs (§8).
 
 ```console
 $ odag set store ~/work/travel.od      # writes ~/.ontodag/config; silent

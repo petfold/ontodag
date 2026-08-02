@@ -105,18 +105,35 @@ def bare_install(spec, tmp):
     listed = subprocess.run(
         [python, "-m", "pip", "list", "--format=freeze"],
         capture_output=True, text=True, check=True).stdout.split()
-    ignore = ("pip", "setuptools", "wheel", "ontodag")
+    ignore = ("pip", "setuptools", "wheel", "ontodag", "recordstore")
     extra = [line for line in listed
              if not line.lower().startswith(ignore)]
     assert not extra, f"a bare install pulled in {extra}"
 
-    # ...and it has to actually work with nothing else present.
+    # recordstore is allowed, but only because of what it is: pure Python
+    # with no dependencies of its own. Assert the property rather than
+    # trusting the name — a compiled extension anywhere in the base closure
+    # is what breaks embedded targets and Pyodide.
+    site = subprocess.run(
+        [python, "-c", "import sysconfig;"
+                       "print(sysconfig.get_paths()['purelib'])"],
+        capture_output=True, text=True, check=True).stdout.strip()
+    compiled = []
+    for base, _dirs, files in os.walk(site):
+        if os.path.basename(base) in ("pip", "setuptools", "wheel"):
+            _dirs[:] = []
+            continue
+        compiled += [f for f in files if f.endswith((".so", ".pyd"))]
+    assert not compiled, f"the base install ships compiled code: {compiled}"
+
+    # ...and it has to actually work with nothing else present — including
+    # the content-addressed store, which is the reason recordstore is here.
     subprocess.run([python, "-c",
                     "from ontodag import OntoDAG; d=OntoDAG();"
                     "d.put('a',[]); d.put('b',['a']);"
                     "assert [i.name for i in d.get(['a'])] == ['b']"],
                    check=True)
-    return "ontodag and nothing else, and the core works"
+    return "ontodag + recordstore, pure Python, and the core works"
 
 
 def smoke(env, expect_version):
@@ -216,6 +233,35 @@ def smoke(env, expect_version):
 
     check("import what was exported", reimport)
 
+    def local_record_store():
+        # The middle rung: canonical roots with no node, out of the box.
+        path = os.path.join(env.work, "rs")
+        o("-f", f"rs:{path}", "put", "Travel")
+        o("-f", f"rs:{path}", "put", "Japan", "Travel")
+        with open(os.path.join(path, "root")) as fh:
+            root = fh.read().strip()
+        assert len(root) == 64, root
+        # Same knowledge, different build order, same name.
+        other = os.path.join(env.work, "rs2")
+        o("-f", f"rs:{other}", "put", "Travel")
+        o("-f", f"rs:{other}", "put", "spare")
+        o("-f", f"rs:{other}", "remove", "spare")
+        o("-f", f"rs:{other}", "put", "Japan", "Travel")
+        with open(os.path.join(other, "root")) as fh:
+            assert fh.read().strip() == root, "roots diverged"
+        return f"canonical root {root[:12]}... reproduced from another order"
+
+    check("rs: local content-addressed store", local_record_store)
+
+    def swarm_doctor():
+        # It must run and diagnose rather than crash, with no node present.
+        text = o("swarm", expect=1)
+        assert "FAIL" in text, text
+        assert "rs:" in text, "the doctor should offer the local rung"
+        return "diagnoses a missing node and offers rs:"
+
+    check("odag swarm diagnoses", swarm_doctor)
+
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
@@ -246,7 +292,7 @@ def main():
     print(f"smoke-testing {source}\n", flush=True)
     tmp = tempfile.mkdtemp(prefix="ontodag-smoke-")
     try:
-        check("a bare install pulls in nothing else",
+        check("the base install stays pure Python",
               lambda: bare_install(spec, tmp))
         env = Env(tmp)
         env.pip(spec, *EXTRA_DEPS)

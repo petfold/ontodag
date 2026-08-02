@@ -16,7 +16,32 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
-- **`ontodag[viz]`, `[owl]`, `[store]`, `[all]` extras** — see Changed.
+- **`rs:PATH` — a content-addressed store on ordinary disk.** The rung that
+  was missing between a text file and Swarm. Canonical roots, immutable
+  snapshots, `is_below` certificates and multi-writer `sync` were all
+  reachable only through a Bee node, so seeing what OntoDAG is *for* meant
+  first funding a wallet and buying postage. The same semantics now run on
+  a directory, which makes `swarm:NAME` a change of backend rather than a
+  new concept. `odag index` accepts it too.
+- **`odag swarm`** — walks the Swarm setup in dependency order (extra
+  installed → node reachable → healthy → chain synced → wallet funded →
+  usable postage batch) and stops at the first failure with the command
+  that fixes it, including the two waits nobody expects: a fresh node needs
+  ~8 minutes before its chainstate answers, and a bought batch needs ~70
+  seconds before it is usable. Uses only the standard library, so it still
+  runs when the swarm extra is the missing piece. When the answer is "not
+  today", it points at `rs:PATH` instead.
+- **`ontodag.browser`** — `JsBytesStore`, `JsFeedPointer` and
+  `LocalStorageBytesStore`: the four methods recordstore needs, implemented
+  over a JavaScript bridge, so OntoDAG can run in Pyodide against Swarm
+  through bee-js without a fork. **Written, not yet run in a browser** —
+  the logic is tested against a fake bridge (including that a
+  JS-backed store computes the same canonical root as an on-disk one),
+  but no Pyodide or bee-js has touched it. The module docstring records
+  the one real obstacle: `BytesStore` is synchronous and every browser
+  network API is not, so the caller supplies a bridge — a web worker with
+  `Atomics.wait`, or JSPI's `run_sync`.
+- **`ontodag[viz]`, `[owl]`, `[all]` extras** — see Changed.
 - **A name-consumer corpus** (`tests/test_name_consumers.py`). One list of
   hazardous names — spaces, `+ & # | , : " \`, unicode, a leading dash —
   plus the canonical names the system generates itself, pushed through
@@ -53,11 +78,18 @@ the version numbers appear in commit history and docs.
   sdists. That single line blocked the in-browser story the roadmap
   describes.
 
-  `graphviz`/`Pillow` are now the **`viz`** extra, `owlready2` the **`owl`**
-  extra, `recordstore` the **`store`** extra, with **`all`** for the three
-  together; `web` and `swarm` are unchanged in spirit and pull what they
-  need. A bare install is now `ontodag` and nothing else, about 650 KB,
-  pure Python, no compiler.
+  `graphviz`/`Pillow` are now the **`viz`** extra and `owlready2` the
+  **`owl`** extra, with **`all`** for both; `web` and `swarm` are unchanged
+  in spirit and pull what they need.
+
+  `recordstore` stays a base dependency, and the criterion it passes is
+  worth stating: 184 KB, pure Python, no compiled extension, no
+  dependencies of its own. It costs nothing an embedded or browser target
+  cares about, and it is what makes canonical roots, snapshots,
+  certificates and `odag-mcp` work on a plain install instead of hiding
+  behind a flag. A dependency that changes what the package *is* by
+  default earns its place; one that adds 28 MB of Java reasoners for a
+  file format does not.
 
   **This is mildly breaking**: code doing `pip install ontodag` and then
   using OWL, rendering or a concrete record store now needs the matching

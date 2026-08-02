@@ -276,6 +276,43 @@ Note on `skip-existing`: it makes a duplicate upload a no-op *success*, so
 the publish job passing means "PyPI has this version", not "this run put it
 there". The authority on the latter is step 5.
 
+## Swarm adoption: the funnel, not the dependency edge (2026-08-02)
+
+Peter's concern was that making Swarm optional would mean fewer people try
+it. The measurement says the extra is not what stops them: the repo's own
+Bee logs record ~8.5 minutes before a fresh node's chainstate answers, ~70
+seconds between buying a postage batch and being able to use it, mainnet
+refusing batches under ~1 day of validity, and xDAI + xBZZ needed first.
+`pip install "ontodag[swarm]"` is five seconds of that. Bundling it removes
+none of the wall and puts `requests`/`swarmfs`/`swarm-bee` into every
+embedded and browser install.
+
+What was actually missing was a **middle rung**. `recordstore` shipped
+`DirBytesStore` and `FilePointer` — a local content-addressed store — and
+the CLI never exposed them, so the only way to see a canonical root, a
+snapshot, a certificate or a `sync` was to stand up a node first. The
+infrastructure wall stood in front of the ideas. Hence `rs:PATH`
+(`LocalRecordBackend`): the same semantics on a directory, so `swarm:NAME`
+becomes a backend swap. Three tiers that each pay for themselves —
+
+    file (.od)   a DAG that persists. Works anywhere, no dependency.
+    rs:PATH      canonical roots, snapshots, certificates, sync. No node.
+    swarm:NAME   the same store, shared.
+
+and `odag swarm` turns the last step from a wall into a checklist. It uses
+urllib, not requests, because a doctor that needs the patient healthy is no
+use; it stops at the first failure; and when the answer is "not today" it
+points at `rs:` rather than leaving the user with nothing.
+
+**`recordstore` went back to being a base dependency** in the same pass —
+184 KB, pure Python, no compiled extension, no dependencies of its own, so
+it costs nothing Pyodide or an embedded target cares about, and it is what
+makes the differentiating properties default-on. The earlier move to an
+extra lumped it with owlready2 (28 MB, sdist-only, C extension, bundled
+Java reasoners); that was over-correction. The criterion, recorded for the
+next dependency question: *a dependency that changes what the package is by
+default earns its place; one that adds weight for a file format does not.*
+
 ## Working across sessions
 
 This is a multi-session project. At the start of each session:
