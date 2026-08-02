@@ -13,3 +13,7 @@ ontodag_export.owl
 ontodag_query_export_*.owl
 ontodag_vis
 ontodag_vis.*
+
+# setuptools build output — accidentally committed 2026-07-28 in 4ba635e and
+# stale ever since (it never tracked later source changes).
+build/
