@@ -24,6 +24,15 @@ the version numbers appear in commit history and docs.
   and REST/URL. The 0.10.1 post-mortem's conclusion in executable form: a
   change to the canonical-name grammar is a cross-cutting change, and the
   fan-out needs to be written down somewhere that fails.
+- **The publish workflow works again.** `.github/workflows/publish.yml`
+  fires on `v*` tags but had not run since v0.7.0, and would have
+  red-failed on any version already uploaded by hand. It now has
+  `skip-existing`, plus three things it never had: a check that the tag
+  matches `pyproject`'s version (otherwise a `v0.10.2` tag quietly
+  publishes 0.10.1, and PyPI never gives a version back), a smoke test of
+  the built wheel before upload, and a job that re-runs the smoke test
+  against what PyPI actually serves afterwards. Tagging is the preferred
+  release path again.
 - **A release smoke script** (`scripts/release_smoke.py`). Installs the
   built wheel — or a published version, with `--pypi VERSION` — into a
   throwaway virtualenv and drives `odag` as a new user would: prelude,
