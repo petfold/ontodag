@@ -188,3 +188,71 @@ class TestPicturesAndExports:
         put(client, "chapter1", ["C++ notes"])
         assert query_names(client, "C++ notes") == {"chapter1"}
 
+
+class TestQueryPictureAgreesWithTheAnswer:
+    """The query image is built from `get()`, not from a name-intersection.
+
+    Found by clicking through the UI (2026-08-02): the old `get_by_dag`
+    route matched query terms by NAME, so a *virtual* parametric term —
+    one with no node of its own, which is the entire point of dimensions —
+    silently dropped out of the query. `weight(..5kg)` drew an empty graph,
+    and `Japan,weight(..5kg)` drew all of Japan: a picture that contradicted
+    the result list printed beside it. A picture that disagrees with the
+    answer is worse than no picture, so these tests compare the two.
+    """
+
+    def _fixture(self, client):
+        put(client, "dimension")
+        put(client, "calendar-dimension", ["dimension"])
+        put(client, "linear-dimension", ["dimension"])
+        put(client, "time", ["calendar-dimension"])
+        put(client, "weight", ["linear-dimension"])
+        put(client, "Flight")
+        put(client, "Hotel")
+        put(client, "Japan")
+        put(client, "jp-flight.pdf",
+            ["Flight", "Japan", "weight(3kg)", "time(2026-08-15)"])
+        put(client, "kyoto-hotel.pdf", ["Hotel", "Japan", "time(2026-08-16)"])
+
+    def _pictured(self, client, cat):
+        # The endpoint stashes the DAG it drew; that is what the PNG shows.
+        assert client.get("/dag/query/image",
+                          query_string={"cat": cat}).status_code == 200
+        from flask import session as flask_session
+        with client.session_transaction() as sess:
+            drawn = sess["query_result_dag"]
+        return {name for name in drawn.nodes if name != "*"}
+
+    def test_a_virtual_term_appears_with_its_matches(self, client):
+        self._fixture(client)
+        drawn = self._pictured(client, "weight(..5kg)")
+        assert "weight(..5kg)" in drawn      # the term, though no node exists
+        assert "jp-flight.pdf" in drawn
+        assert "kyoto-hotel.pdf" not in drawn
+
+    def test_a_parametric_constraint_is_not_silently_dropped(self, client):
+        # The bad case: not an empty picture but a WRONG one — the old code
+        # drew every Japan item, weight constraint and all.
+        self._fixture(client)
+        drawn = self._pictured(client, "Japan,weight(..5kg)")
+        answer = query_names(client, "Japan,weight(..5kg)")
+        assert answer == {"jp-flight.pdf"}
+        assert "kyoto-hotel.pdf" not in drawn
+        assert answer <= drawn
+
+    def test_union_is_drawn_as_two_branches(self, client):
+        # The image endpoint split on "," only, so `Japan|Hotel` became one
+        # node with that literal name and matched nothing.
+        self._fixture(client)
+        drawn = self._pictured(client, "Flight,Japan|Hotel")
+        assert not any("|" in name for name in drawn)
+        assert {"Flight", "Japan", "Hotel"} <= drawn
+        assert query_names(client, "Flight,Japan|Hotel") <= drawn
+
+    def test_the_picture_contains_the_answer_for_plain_queries_too(self, client):
+        self._fixture(client)
+        assert query_names(client, "Japan") <= self._pictured(client, "Japan")
+
+    def test_an_unknown_term_draws_itself_and_nothing_else(self, client):
+        self._fixture(client)
+        assert self._pictured(client, "no-such-thing") == {"no-such-thing"}

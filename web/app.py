@@ -234,6 +234,51 @@ def get_below():
         return jsonify({"error": str(e)}), 400
 
 
+def _query_picture(my_dag, queries):
+    """The drawable form of a query: its answer, under a node per query term.
+
+    `queries` is DNF, exactly as /dag/query takes it — a list of conjunctions
+    whose results union. Each term hangs above the answers *its own disjunct*
+    produced, so a union reads as the two branches it is.
+
+    Built from `get()` — the authoritative query path — because the obvious
+    alternative is wrong. `get_by_dag` intersects by *name*, so a parametric
+    term with no node of its own (a virtual term like `weight(..5kg)`, which
+    is the whole point of dimensions) simply vanished from the query: asking
+    for `weight(..5kg)` drew an empty graph, and asking for
+    `Japan,weight(..5kg)` drew all of Japan — a picture that contradicted the
+    result list beside it. A picture that disagrees with the answer is worse
+    than no picture.
+
+    Query terms become nodes here even when no such node exists in the store.
+    That is sound because this DAG is a *view*: it is drawn and discarded,
+    never merged or committed, so inventing a node to draw the constraint
+    costs nothing and is the only way to show what was asked."""
+    results = my_dag.get(queries[0]) if len(queries) == 1 \
+        else my_dag.get_any(queries)
+    # Cones are downward-closed under intersection — everything below a
+    # result is also a result — so the answer copies with its own structure
+    # intact, and copy_subdag's descendant closure adds nothing extra.
+    picture = my_dag.copy_subdag(list(results))
+
+    for terms in queries:
+        branch = my_dag.get(terms)
+        names = {item.name for item in branch}
+        # Hang each term above the topmost answers of its own disjunct;
+        # deeper answers keep the real edges copied above, so the shape of
+        # the answer survives.
+        tops = [item for item in branch
+                if not any(parent.name in names for parent in item.parents)]
+        for term in terms:
+            node = picture.nodes.get(term) or Item(term)
+            picture.add_node(node)
+            picture.root.neighbors.add(node)
+            for top in tops:
+                if top.name != term:
+                    node.neighbors.add(picture.nodes[top.name])
+    return picture
+
+
 @app.route("/dag/query/image", methods=["GET"])
 def get_query_dag_image():
     categories = request.args.get("cat")
@@ -244,24 +289,25 @@ def get_query_dag_image():
         # DAG, whose result is just the root. The UI reaches this whenever
         # the query box is submitted blank.
         return _png(current_visualizer().generate_image(my_dag))
-    query = categories.split(",")
+    # Same DNF spelling as /dag/query — `|` between disjuncts, `,` within
+    # one. The picture used to split on `,` alone, so a union drew a single
+    # node named "Japan|Hotel" and matched nothing.
+    query = [part.split(",") for part in categories.split("|")]
 
-    query_dag = OntoDAG()
-    for super_category in query:
-        query_dag.put(Item(super_category), [query_dag.root])
-
-    query_result_dag = my_dag.get_by_dag(query_dag)
+    query_result_dag = _query_picture(my_dag, query)
     session["query_result_dag"] = query_result_dag
 
+    # Before reading the vis_color_* settings: they are set by the same
+    # lazy initializer that builds the visualizer.
     visualizer = current_visualizer()
-    # Make query nodes appear with a different color
-    color_mapping = {}
-    for node in query_result_dag.nodes.values():
-        if node.name in query:
-            color_mapping[node] = session["vis_color_query"]
-        else:
-            color_mapping[node] = session["vis_color_query_result"]
-
+    # Shade the query terms differently from what they matched. `query` is
+    # now a list of disjuncts, so the membership test flattens it.
+    asked = {term for terms in query for term in terms}
+    color_mapping = {
+        node: session["vis_color_query"] if node.name in asked
+        else session["vis_color_query_result"]
+        for node in query_result_dag.nodes.values()
+    }
     return _png(visualizer.generate_image(query_result_dag, color_mapping))
 
 
