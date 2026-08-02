@@ -173,7 +173,11 @@
       document.getElementById("query-form").addEventListener("submit", async (evt) => {
         evt.preventDefault();
         const superCats = to_list(document.getElementById("query-categories").value);
-        const params = superCats.join(",");
+        // Encode: category names are arbitrary text, and `&`, `#` or `+` in
+        // one would otherwise split the query string, truncate it, or arrive
+        // as a space. `,` and `|` (conjunction and union) are separators, so
+        // they are encoded per-term and joined afterwards, not encoded away.
+        const params = superCats.map(encodeURIComponent).join(",");
         const response = await fetch("/dag/query?cat=" + params, {
           method: "GET",
           headers: {"Content-Type": "application/json"},
