@@ -276,6 +276,25 @@ Note on `skip-existing`: it makes a duplicate upload a no-op *success*, so
 the publish job passing means "PyPI has this version", not "this run put it
 there". The authority on the latter is step 5.
 
+## Browser + Swarm: queued, with the details written down (2026-08-02)
+
+`docs/BROWSER.md` is the implementation record — read it before touching
+this. Headlines: the base install going pure Python is what makes
+`micropip.install("ontodag")` possible at all (it failed outright while
+owlready2 was a hard dependency, since micropip cannot build sdists);
+`src/ontodag/browser.py` implements the four methods recordstore needs over
+a JS bridge; `ontodag[swarm]` can **never** run in a browser (25 packages
+including compiled `coincurve`/`pycryptodome`), so Swarm is reached through
+JavaScript permanently. The obstacle is sync-over-async, and milestone one
+sidesteps it by putting the boundary at load/save rather than per blob —
+`EagerOntoDAG` hydrates whole and commits in a batch, so no JSPI and no
+COOP/COEP headers are needed. Blocked on two questions about Peter's
+in-browser node (§7 there) and on releasing the pure-Python base install:
+the wheel on PyPI still has the old hard dependencies, so a demo must serve
+its own wheel until then. Nothing has run in a browser; the adapters are
+tested against a fake bridge, including the byte-identical-canonical-root
+property that makes a browser a peer rather than a silo.
+
 ## Swarm adoption: the funnel, not the dependency edge (2026-08-02)
 
 Peter's concern was that making Swarm optional would mean fewer people try

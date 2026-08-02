@@ -40,7 +40,8 @@ the version numbers appear in commit history and docs.
   but no Pyodide or bee-js has touched it. The module docstring records
   the one real obstacle: `BytesStore` is synchronous and every browser
   network API is not, so the caller supplies a bridge — a web worker with
-  `Atomics.wait`, or JSPI's `run_sync`.
+  `Atomics.wait`, or JSPI's `run_sync`. Implementation record and
+  sequencing: `docs/BROWSER.md`.
 - **`ontodag[viz]`, `[owl]`, `[all]` extras** — see Changed.
 - **A name-consumer corpus** (`tests/test_name_consumers.py`). One list of
   hazardous names — spaces, `+ & # | , : " \`, unicode, a leading dash —

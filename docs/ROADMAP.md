@@ -204,8 +204,43 @@ replayable answer, which the existing snapshot machinery already supports.
     tests, which they never had — the reason the first bug survived a
     release — and the picture ones assert the drawn graph against the
     query's own answer rather than against a status code.
-    Remaining wishes (wasm/Pyodide, upper ontologies, computed values)
-    stay on the list, not on this item.
+    Remaining wishes (upper ontologies, computed values) stay on the
+    list, not on this item; the wasm/Pyodide one became the next item.
+
+12. **OntoDAG in a browser, on Swarm.** Two things landed on 2026-08-02
+    that turn this from an aspiration into a queued task. The base install
+    became pure Python — measured: 2 packages, 896 KB, no compiled code —
+    so `micropip.install("ontodag")` is possible, where before it failed
+    outright because `owlready2` ships sdist-only and micropip cannot build
+    sdists. And `ontodag.browser` now implements the four methods
+    `recordstore` actually needs (`BytesStore.put/get`, `Pointer.get/set`)
+    over a JavaScript bridge, so no fork or special build is required.
+
+    The structural constraint worth knowing: **`ontodag[swarm]` can never
+    run in a browser.** It brings 25 further packages including `coincurve`
+    and `pycryptodome` — compiled crypto. The browser reaches Swarm through
+    JavaScript, permanently, which is why the adapter is a JS bridge rather
+    than a port of `BeeBytesStore`.
+
+    The one real obstacle is that `BytesStore` is synchronous and every
+    browser network API is not, and Python cannot block on a promise from
+    the main thread. First milestone sidesteps it entirely by putting the
+    async boundary at load and save — `EagerOntoDAG` already hydrates whole
+    and commits in a batch — which needs no JSPI and no COOP/COEP headers.
+    The lazy thin client (querying a large published ontology without
+    downloading it) is milestone two and does need a synchronous bridge.
+
+    Full implementation record, including what a first page should
+    demonstrate and in what order, in [BROWSER.md](BROWSER.md). Blocked on
+    two questions about the in-browser Swarm node (what it exposes to page
+    JavaScript, and whether it can sign feeds) and on releasing the
+    pure-Python base install — the wheel currently on PyPI still carries
+    the old hard dependencies, so a demo must serve its own wheel until
+    then. **Nothing here has run in a browser yet**; the adapters are
+    unit-tested against a fake bridge, including the property that matters
+    most — that a JS-backed store computes the byte-identical canonical
+    root to an on-disk one, which is what makes a browser a peer and not a
+    silo.
 
 ## Then: more capability, still no model change
 
