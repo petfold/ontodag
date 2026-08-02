@@ -1,6 +1,9 @@
 import os
 import unittest
 
+# Deliberately the OLD import path: `OntoDAGVisualizer` moved to
+# ontodag.viz, and dag.py forwards it. Keeping one caller here means
+# the compatibility shim is exercised rather than assumed.
 from ontodag.dag import OntoDAG, OntoDAGVisualizer, Item
 
 

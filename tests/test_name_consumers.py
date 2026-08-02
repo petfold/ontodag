@@ -28,7 +28,8 @@ import tempfile
 
 import pytest
 
-from ontodag.dag import OntoDAG, OntoDAGVisualizer
+from ontodag.dag import OntoDAG
+from ontodag.viz import OntoDAGVisualizer
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "web"))
 

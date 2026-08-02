@@ -6,7 +6,8 @@ from collections import Counter
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from ontodag.dag import OntoDAG, Item, OntoDAGVisualizer
+from ontodag.dag import OntoDAG, Item
+from ontodag.viz import OntoDAGVisualizer
 from datetime import datetime, timedelta
 from dot2tex import dot2tex
 from flask import Flask, request, jsonify, render_template, send_file, session, send_from_directory

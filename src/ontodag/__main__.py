@@ -403,7 +403,7 @@ class SwarmBackend:
             raise ValueError(
                 f"the swarm backend needs an optional dependency that is not "
                 f"installed ({missing!r}); install the swarm extra with:  "
-                f"pip install -e \".[swarm]\"   "
+                f"pip install \"ontodag[swarm]\"   "
                 f"(that covers all three: `requests` for the Bee blob store, "
                 f"`swarmfs` for resolving bee_batch=auto against the node, and "
                 f"`swarm-bee` for publishing the latest root to a Swarm feed)"
@@ -734,7 +734,7 @@ def cmd_export(args, session, out):
 
 
 def cmd_visualize(args, session, out):
-    from ontodag.dag import OntoDAGVisualizer
+    from ontodag.viz import OntoDAGVisualizer
     base = args.out or os.path.splitext(session.path)[0]
     OntoDAGVisualizer(format=args.format).visualize(session.dag, filename=base)
 
