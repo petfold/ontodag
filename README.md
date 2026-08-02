@@ -52,7 +52,10 @@ Values are stored in an exact canonical form and shown to you in a friendly
 one: on a terminal `odag` prints `time(2026)` and `weight(3kg)`, while pipes
 and files always get the exact bytes, so `odag get ... | odag` round-trips
 (`--render`/`--raw` override; `odag canon TERM` shows what any spelling
-actually stores).
+actually stores). The same split governs how much you get: a terminal stops
+at 50 results with a note saying how many were withheld, a pipe is never
+truncated. A query with no terms at all is the empty intersection — no
+constraints, so every item (`odag count` gives just the size).
 
 ## For AI agents
 

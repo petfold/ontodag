@@ -97,6 +97,39 @@ and can have things under it. Today's item is tomorrow's category — file a fli
 confirmation, and later file the boarding pass under *it*. This is deliberate, and
 it is how the trip's paperwork ends up organizing itself.
 
+### 1.1 Ways in and out
+
+The same DAG is reachable five ways. They are surfaces over one store, not
+separate products — point them at the same store and they see the same thing.
+
+| Surface | What it is | Where |
+| --- | --- | --- |
+| **Python** | `from ontodag import OntoDAG` — the library everything else wraps | §3, §4 |
+| **Command line** | `odag`, a Unix tool: silent on success, pipes cleanly | §5 |
+| **Web** | a browser UI with live pictures, plus a REST API for `curl` | §6 |
+| **Agents** | `odag-mcp`, the store as MCP tools, with verifiable answers | §9 |
+| **Filesystem** | [ontodag-fs](https://github.com/petfold/ontodag-fs): paths as queries, FUSE-mountable | separate repo |
+
+Not everything is available everywhere. The gaps are deliberate rather than
+accidental — each surface exposes what makes sense for who is using it:
+
+| | Python | CLI | Web | MCP |
+| --- | --- | --- | --- | --- |
+| put / remove | ✓ | ✓ | ✓ | ✓ (with `--write`) |
+| query, union (`or`), `below` | ✓ | ✓ | ✓ | ✓ |
+| typed values (`weight(3kg)`) | ✓ | ✓ | ✓ | ✓ |
+| readable rendering | ✓ (`ontodag.surface`) | ✓ | — | ✓ (beside the exact name) |
+| import / export / merge | ✓ | ✓ | ✓ | — |
+| pictures | ✓ | ✓ | ✓ | — |
+| Swarm stores | ✓ | ✓ | — | ✓ |
+| as-of (query a past root) | ✓ | — | — | ✓ |
+| certificates, provenance, review | ✓ | — | — | ✓ |
+
+The two surfaces with the most on them are Python (which has everything, being
+the thing the others call) and MCP (which is deliberately the *verifiable*
+surface — see §9). The CLI is the one to reach for interactively; the web app
+is the one to show someone.
+
 ---
 
 ## 2. Installation
@@ -109,6 +142,24 @@ pip install ontodag
 
 This installs the `odag` command and the Python library, along with its
 dependencies (`graphviz`, `owlready2`, and `recordstore`).
+
+### Which platforms
+
+The core is pure Python with no compiled extensions, and paths are resolved
+portably — `~` means your home directory on every platform, including
+`C:\Users\you` on Windows. What differs is how much has actually been *run*:
+
+| Platform | Status |
+| --- | --- |
+| Linux | Tested — the full suite runs here on every change. |
+| macOS | Expected to work, not routinely tested. Install Graphviz with `brew install graphviz`. |
+| Windows | Core, CLI and file store are expected to work; not tested. The Swarm *signer* needs the `bee` package, which builds a native secp256k1 extension — the least likely piece to install cleanly. |
+
+Nothing in the store itself is platform-specific: it is a canonical text file
+(§5.1), so the same store works on any of the three, and `$ONTODAG_HOME`
+overrides its location if you want it somewhere other than your home directory.
+If you hit a platform problem, please report it — that is how the table above
+gets shorter.
 
 ### If that fails with `externally-managed-environment`
 
@@ -575,10 +626,13 @@ ontodag` from the repository root.
 odag <command> ...
 
   put SUB [PARENT...]   add SUB under the PARENT categories (or the root)
-  get CAT [CAT...]      print items below all of the CATs, one per line
+  get [CAT...]          print items below all of the CATs, one per line
                         (the literal word `or` separates alternatives:
-                        `get Flight Japan or Hotel` = (Flight AND Japan) OR Hotel)
-  below SUB SUP         does SUB fit within SUP? prints true/false and
+                        `get Flight Japan or Hotel` = (Flight AND Japan) OR Hotel).
+                        With no CAT at all: everything (§5.6)
+  count [CAT...]        how many items that query matches — one number,
+                        complete, never capped
+  below SUB SUP       does SUB fit within SUP? prints true/false and
                         exits 0/1 (grep-style); `?` works at the prompt
   index [--threshold N] for swarm: stores — publish cone summaries (a
                         derived index in a sibling NAME-index store) so
@@ -586,7 +640,7 @@ odag <command> ...
                         fetches; prints the data and index roots
   remove ITEM           remove ITEM from the store
   show                  print the DAG structure
-  list                  print every item name
+  list                  print every item name (the empty query, named)
   merge FILE            merge FILE into the store
   import FILE           replace the store with the contents of FILE
   export FILE           write the store to FILE
@@ -597,8 +651,8 @@ odag <command> ...
   prelude [--show]      adopt the standard dimension declarations (weight,
                         time, geo, size, ...) in one idempotent merge;
                         --show prints them without merging
-  set [KEY [VALUE]]     show settings, or set one (store, bee_api,
-                        bee_batch, bee_signer)
+  set [KEY [VALUE]]     show settings, or set one durably (store, bee_api,
+                        bee_batch, bee_signer, render, limit — see §5.7)
   help                  show this help
 ```
 
@@ -691,7 +745,7 @@ Swarm store first and start the node afterwards.
 
 ### 5.2 A complete worked session
 
-Build the pet shop from nothing — each `put` is silent on success:
+Build the travel store from nothing — each `put` is silent on success:
 
 ```console
 $ odag put Flight
@@ -890,8 +944,100 @@ $ odag canon "time(2026-08-15)"
 time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)
 $ odag canon
 surface 0.1
-registry 2
+registry 4.0
 ```
+
+### 5.6 Asking for everything, and how much output you get
+
+A query with **no categories is not an error — it is everything**. Asking for
+items below all of nothing places no constraints, so nothing is excluded. That
+makes these three the same question, and `list` is simply the discoverable name
+for it:
+
+```console
+$ odag get
+Flight
+Hotel
+Japan
+japan-hotel.pdf
+japan-outbound.pdf
+$ odag list          # identical
+$ odag get '*'       # identical (`*` is the root every item sits under)
+```
+
+The one thing that is still an error is a **dangling `or`** — `odag get Flight
+or`. At that point the empty part is a typo, and reading it as "everything"
+would silently turn a narrow query into a full dump.
+
+When you only want the size of an answer, `count` gives it as one number. It
+runs the same queries as `get` and is never truncated:
+
+```console
+$ odag count
+5
+$ odag count Japan
+2
+```
+
+**The display cap.** Because `odag get` can now print your whole store, results
+stop at 50 lines when you are typing at a terminal, with a note on stderr saying
+what was held back:
+
+```console
+$ odag get -n 2
+Flight
+Hotel
+odag: 3 more not shown (-n 0 for all, or `odag count` for the total)
+```
+
+This is a *display* decision and follows the same rule as readable output
+(§5.5): **a pipe is never capped.** The query is always complete, so `odag get |
+wc -l` counts every result and `odag get | odag put` still round-trips — the cap
+exists to protect your screen, never to shorten an answer something else is
+going to read. Use `-n N` for a different cap, `-n 0` for all of it. The
+withheld note goes to stderr, so it never lands in the data even when you pass
+`-n` with a pipe.
+
+### 5.7 Settings: four ways to set them, one rule
+
+There are six settings, and every one of them can be given in the same four
+ways. The first that is present wins:
+
+**flag → environment variable → config file → default**
+
+| Setting | Flag | Environment | What it does |
+| --- | --- | --- | --- |
+| `store` | `-f PATH` | `ONTODAG_STORE` | which store to use: a path or `swarm:NAME` |
+| `limit` | `-n N` | `ONTODAG_LIMIT` | max result lines (§5.6) |
+| `render` | `--render` / `--raw` | `ONTODAG_SURFACE` | readable or canonical names (§5.5) |
+| `bee_api` | `--bee-api URL` | `BEE_API` | Bee node endpoint (§8) |
+| `bee_batch` | `--bee-batch ID` | `BEE_BATCH` | postage batch paying for Swarm writes |
+| `bee_signer` | `--bee-signer KEY` | `BEE_SIGNER` | key that publishes the root to a signed feed |
+
+The layers differ in **how long they last**, which is the useful way to choose
+between them: a flag is for one command, an environment variable for one shell,
+and `odag set KEY VALUE` is the durable one — it writes `~/.ontodag/config` and
+applies to every later invocation. `odag set` with no arguments prints what is
+currently in effect, whichever layer it came from:
+
+```console
+$ odag set
+bee_api = http://localhost:1633
+bee_batch =
+bee_signer =
+limit = auto
+render = auto
+store = /home/you/.ontodag/store.od
+```
+
+`auto` is a real value, not a missing one: it means *decide from whether output
+is a terminal*. Setting `limit` or `render` explicitly overrides that decision
+in both directions.
+
+The flags all go **before** the command (`odag -n 5 get Japan`), where they
+apply to every command in a batch or interactive session; `get`, `list` and
+`show` also accept `-n` and `--render`/`--raw` after the command, for that one
+command only.
 
 ---
 
@@ -905,11 +1051,33 @@ cd web
 python3 app.py          # starts http://localhost:5000  (needs the [web] extra)
 ```
 
-Open **http://localhost:5000** for the interactive UI: add items, run queries,
-watch the graph redraw, import and export files. There is also a self-contained
-demo of a used-car marketplace built on OntoDAG at **http://localhost:5000/market**
-— categories like fuel type, body style and price band form the DAG, and buyer
-searches are DAG queries.
+Open **http://localhost:5000** in any browser for the interactive UI: add items,
+run queries, watch the graph redraw, import and export files. There is also a
+self-contained demo of a used-car marketplace built on OntoDAG at
+**http://localhost:5000/market** — categories like fuel type, body style and
+price band form the DAG, and buyer searches are DAG queries.
+
+**What the page gives you.** Two panels. The top one is the whole DAG: a text
+listing, a picture that redraws after every change (click it for full size),
+and buttons to start a new DAG, import a file, or export OWL / Manchester /
+DOT / LaTeX. The bottom one is a query: type comma-separated categories, and
+you get the matching items plus a picture of the query and its results, with
+the query terms shaded differently from what they matched.
+
+Typed values work in both boxes exactly as they do everywhere else — file
+something under `weight(3kg)` and `time(2026-08-15)`, then query
+`weight(..5kg)`, and the virtual term resolves without any node existing for
+it; the query picture shows the term itself above what it matched, even
+though no such node is stored. Union is available too, with `|` between
+alternatives (`Flight,Japan|Hotel`), drawn as the two branches it is, and an
+empty query box means everything.
+
+Two limitations worth knowing, both deliberate rather than broken: the browser
+UI shows **canonical** names, not the friendly spellings the CLI renders on a
+terminal (so you will see the full timestamp range rather than `time(2026)`),
+and the web app keeps its DAG **in server memory per session** — it is not
+backed by your `odag` store and cannot use Swarm. It is a workbench and a
+demo, not a second front end onto the same data.
 
 ### 6.1 Scripting it with curl
 
@@ -999,9 +1167,10 @@ $ curl -s -b cookies.txt http://localhost:5000/dag/image -o dag.png
 $ curl -s -b cookies.txt "http://localhost:5000/dag/query/image?cat=Flight,Japan" -o result.png
 ```
 
-> **Gotcha:** the image endpoints need the session's visualizer, which is set up
-> when a browser page first loads. If you use *only* curl, hit the front page once
-> first: `curl -s -b cookies.txt -c cookies.txt http://localhost:5000/ -o /dev/null`.
+> **You don't need to load the page first.** Every endpoint sets up whatever
+> session state it needs, so a curl-only client works from its first call.
+> (Before 2026-08-02 the image and DOT/LaTeX endpoints returned a `KeyError:
+> 'visualizer'` traceback unless a browser had loaded `/` in the same session.)
 
 Endpoint summary:
 
@@ -1011,7 +1180,7 @@ Endpoint summary:
 | `GET /dag`                   | The whole DAG as JSON                          |
 | `POST /dag/node`             | Add item(s): `{"subcategories": [...], "super_categories": [...]}` |
 | `DELETE /dag/node`           | Remove item(s): `{"subcategories": [...]}`     |
-| `GET /dag/query?cat=A,B`     | Everything under all the listed categories (`\|` for OR: `cat=A,B\|C` = (A AND B) OR C) |
+| `GET /dag/query?cat=A,B`     | Everything under all the listed categories (`\|` for OR: `cat=A,B\|C` = (A AND B) OR C). Omit `cat` for the empty query — every item (§5.6) |
 | `GET /dag/below?sub=A&sup=B` | Yes/no: does A fit within B? → `{"below": true}` |
 | `GET /dag/stats/queries`     | Query workload so far, most-asked first (per category-set) |
 | `GET /dag/image`             | PNG of the DAG                                 |
@@ -1321,8 +1490,6 @@ A dependency is missing — `pip install ontodag` for the basics,
 The Graphviz *system program* isn't installed (the Python package is just a
 wrapper). `sudo apt install graphviz` / `brew install graphviz`.
 
-**Image endpoints return an error page (KeyError: 'visualizer')**
-Load `http://localhost:5000/` once in that session first — see the gotcha in §6.1.
 
 **`ValueError: One or more super-categories do not exist.`**
 Parents must be added before children. Check spelling — names are case-sensitive.
@@ -1331,8 +1498,9 @@ Parents must be added before children. Check spelling — names are case-sensiti
 Check the names (case matters: `flight` ≠ `Flight`). An unknown category makes the whole
 answer empty, because nothing can be under a category that doesn't exist.
 
-**`TypeError: get() requires at least one super-category`**
-You passed an empty query. Ask for at least one category.
+**A query with no categories printed my whole store**
+That is what it means: no constraints, nothing excluded (§5.6). `odag count`
+tells you how big the answer is without printing it.
 
 **`odag: cannot reach the Bee node at http://localhost:1633 …`**
 Your store is set to `swarm:NAME` and the node isn't running. Start Bee, or work

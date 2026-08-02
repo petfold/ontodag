@@ -179,9 +179,33 @@ replayable answer, which the existing snapshot machinery already supports.
     upper-ontology answer: publish optional vocabularies, don't bake one
     in. The User Guide opens with a two-minute Quick Start — install,
     file travel documents under overlapping categories and a typed date,
-    ask, check — every output executed for real. Remaining `issues.txt`
-    wishes (empty query = everything, further guide polish) stay on the
-    list, not on this item.
+    ask, check — every output executed for real. Two of the `issues.txt`
+    wishes landed after it (2026-08-02): the **empty query is now the
+    universe** rather than an error — `odag get`, `odag list` and `odag
+    get '*'` are one question, with a new `odag count` and a
+    terminal-only display cap so a full store can't flood a screen — and
+    **settings were unified**: all six (store, limit, render, bee_api,
+    bee_batch, bee_signer) now take a flag, an environment variable, a
+    config entry and `set`, resolved by one precedence rule, with the
+    surface and settings matrices written into the guide. The **web app
+    was then verified end to end** (same day) and turned out to be
+    broken by the dimensions release: canonical names were used as DOT
+    node identifiers, and DOT reads `:` as a port separator, so any store
+    holding a typed date could not be drawn at all — `odag visualize`,
+    `/dag/image` and the DOT/LaTeX exports were dead. Fixed (names in
+    labels, synthetic identifiers), along with two smaller ones: the REST
+    API needed a browser to have loaded the page first, and the UI did
+    not URL-encode query terms. Clicking through it in a real browser then
+    found three more that HTTP checks had missed, because the endpoints
+    answered 200 with wrong content: the query picture ignored parametric
+    terms entirely (so it could draw a graph that contradicted the result
+    list beside it), it had no union, and the car-market demo failed in any
+    session that had used the main page. Rendering endpoints now have
+    tests, which they never had — the reason the first bug survived a
+    release — and the picture ones assert the drawn graph against the
+    query's own answer rather than against a status code.
+    Remaining wishes (wasm/Pyodide, upper ontologies, computed values)
+    stay on the list, not on this item.
 
 ## Then: more capability, still no model change
 
