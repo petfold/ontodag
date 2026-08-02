@@ -17,7 +17,33 @@ class OWLOntology:
         self.ontology = get_ontology(ontology)
 
     @staticmethod
+    def _check_iri_safe(dag):
+        """Refuse names OWL cannot carry, before writing anything.
+
+        A node name becomes the class IRI, which owlready2 writes straight
+        into an XML attribute — `rdf:about="#NAME"`. A double quote in the
+        name therefore closes the attribute early and produces a file that
+        is not well-formed XML: the export "succeeds", and the corruption
+        only surfaces when something tries to read it back. `"` is also
+        illegal in an IRI (RFC 3987), so there is nothing to escape our way
+        out of; the honest answer is that this name has no OWL form.
+
+        Manchester syntax is unaffected (it quotes differently) and the
+        native store carries any name at all, so this is a limit of the OWL
+        serialization, not of OntoDAG. Found by the name-consumer corpus
+        after the 0.10.1 post-mortem.
+        """
+        bad = sorted(n for n in dag.nodes if '"' in n)
+        if bad:
+            raise ValueError(
+                "cannot export to OWL: a class IRI may not contain a double "
+                "quote, and these names do: " + ", ".join(repr(n) for n in bad)
+                + ". Use Manchester syntax (.omn) or the native format, "
+                  "which carry any name.")
+
+    @staticmethod
     def export_dag(dag, file_name="new_ontology.owl", unique_id=None):
+        OWLOntology._check_iri_safe(dag)
         if unique_id is None:
             unique_id = str(uuid.uuid4())
         urn_iri = f'urn:ontodag_{unique_id}'
