@@ -18,6 +18,7 @@ imported lazily only when a command actually needs them.
 
 import argparse
 import collections
+import importlib.util
 import errno
 import os
 import shlex
@@ -82,12 +83,22 @@ def _is_swarm(spec):
     return spec.startswith("swarm:")
 
 
+def _is_record_store(spec):
+    """`rs:PATH` — a content-addressed record store on local disk."""
+    return spec.startswith("rs:")
+
+
 def _normalize_spec(spec):
     """A store spec is either a `swarm:NAME` URI or a filesystem path.
 
     Swarm specs are kept verbatim; file paths are made absolute so a spec
-    saved to config resolves the same from any working directory."""
-    return spec if _is_swarm(spec) else _abspath(spec)
+    saved to config resolves the same from any working directory, and an
+    `rs:` path is absolutised inside its prefix for the same reason."""
+    if _is_swarm(spec):
+        return spec
+    if _is_record_store(spec):
+        return "rs:" + _abspath(spec[len("rs:"):])
+    return _abspath(spec)
 
 
 def _default_store_path():
@@ -429,9 +440,72 @@ class SwarmBackend:
         return f"swarm:{self.name}"
 
 
+class LocalRecordBackend:
+    """A content-addressed record store on ordinary disk (`rs:PATH`).
+
+    The rung that was missing between a text file and Swarm. The native
+    `.od` store persists perfectly well but has no *identity*: a file has no
+    name for its contents, no history, and nothing to prove. Everything that
+    makes OntoDAG worth distributing — canonical roots (equal knowledge,
+    equal root), immutable snapshots, `is_below` certificates, two writers
+    converging under `sync` — is a property of the record store, not of
+    Swarm.
+
+    Before this, seeing any of that meant first standing up a Bee node,
+    funding a wallet and buying a postage batch: the whole infrastructure
+    wall in front of the ideas. Here the same semantics run on a directory,
+    which makes `swarm:NAME` a backend swap rather than a new concept.
+
+    Layout, self-contained so the store moves by copying one directory:
+
+        PATH/blobs/         content-addressed data blobs
+        PATH/root           the latest root
+        PATH/index/...      published cone summaries (`odag index`)
+        PATH/prov/...       provenance records, if any
+    """
+
+    def __init__(self, path, store_factory=None):
+        if not path:
+            raise ValueError("a local record store needs a path, "
+                             "e.g. rs:~/work/travel")
+        self.path = _abspath(path)
+        self._store_factory = store_factory
+
+    def _store_at(self, directory):
+        from ontodag._extras import require
+        rs = require("recordstore", "store", "a local record store (rs:)")
+        os.makedirs(directory, exist_ok=True)
+        return rs.RecordStore(
+            rs.DirBytesStore(os.path.join(directory, "blobs")),
+            pointer=rs.FilePointer(os.path.join(directory, "root")))
+
+    def _record_store(self):
+        if self._store_factory is not None:
+            return self._store_factory()
+        return self._store_at(self.path)
+
+    def index_record_store(self):
+        return self._store_at(os.path.join(self.path, "index"))
+
+    def provenance_record_store(self):
+        return self._store_at(os.path.join(self.path, "prov"))
+
+    def load(self):
+        from ontodag.eager import EagerOntoDAG
+        return EagerOntoDAG(self._record_store())
+
+    def save(self, dag):
+        dag.commit()
+
+    def describe(self):
+        return f"rs:{self.path}"
+
+
 def _make_backend(spec):
     if _is_swarm(spec):
         return SwarmBackend(spec[len("swarm:"):])
+    if _is_record_store(spec):
+        return LocalRecordBackend(spec[len("rs:"):])
     return FileBackend(spec)
 
 
@@ -631,15 +705,160 @@ def cmd_below(args, session, out):
     return 0 if result else 1
 
 
+# --------------------------------------------------------------------------- #
+# `odag swarm` — the on-ramp, because the wall is the node, not the pip install
+# --------------------------------------------------------------------------- #
+#
+# Putting a DAG on Swarm is five seconds of `pip install` followed by a long
+# tail of infrastructure: a node that needs minutes before its chainstate
+# answers, a wallet that needs xDAI *and* xBZZ on Gnosis, and a postage batch
+# that mainnet refuses to sell below about a day of validity and that stays
+# unusable for another minute after you buy it. Each of those used to surface
+# as a different error at a different moment, none of them saying which step
+# of the sequence you were actually stuck on.
+#
+# This walks the chain in order and stops at the first thing that is wrong,
+# with the command that fixes it. It uses urllib rather than requests on
+# purpose: it has to keep working when the swarm extra is the missing piece.
+
+_BEE_INSTALL = (
+    "  install Bee: "
+    "https://docs.ethswarm.org/docs/bee/installation/quick-start\n"
+    "  or Swarm Desktop, which bundles a node: "
+    "https://www.ethswarm.org/build/desktop"
+)
+
+
+def _bee_get(api, path, timeout=4):
+    """GET a Bee endpoint using only the standard library."""
+    import json
+    import urllib.request
+    with urllib.request.urlopen(f"{api.rstrip('/')}{path}",
+                                timeout=timeout) as response:
+        return json.loads(response.read() or b"{}")
+
+
+def _swarm_checks(api):
+    """Yield (ok, label, detail) in dependency order, stopping at the first
+    failure — later checks say nothing useful once an earlier one fails."""
+    missing = [name for name in ("requests", "swarmfs", "bee")
+               if importlib.util.find_spec(name) is None]
+    if missing:
+        yield (False, "swarm extra installed",
+               f"missing {', '.join(missing)}\n"
+               '  pip install "ontodag[swarm]"')
+        return
+    yield (True, "swarm extra installed", "requests, swarmfs, bee")
+
+    try:
+        _bee_get(api, "/")
+    except Exception as exc:                              # noqa: BLE001
+        yield (False, "node reachable",
+               f"nothing answering at {api} ({type(exc).__name__})\n"
+               "  start your node, or point odag at another one:\n"
+               "    odag set bee_api http://HOST:1633\n" + _BEE_INSTALL)
+        return
+    yield (True, "node reachable", api)
+
+    try:
+        status = _bee_get(api, "/health").get("status", "?")
+    except Exception as exc:                              # noqa: BLE001
+        yield (False, "node healthy", f"/health failed ({exc})")
+        return
+    yield (status == "ok", "node healthy", f"status={status}")
+
+    # Peers connect long before the chainstate does, and uploads fail until
+    # it is up: the single most confusing wait in the whole setup.
+    try:
+        block = _bee_get(api, "/chainstate").get("block", 0)
+    except Exception as exc:                              # noqa: BLE001
+        yield (False, "chain synced", f"/chainstate failed ({exc})")
+        return
+    if not block:
+        yield (False, "chain synced",
+               "no chainstate yet — a freshly started node can take ~8 "
+               "minutes to reach this.\n"
+               "  Peers connecting is NOT the signal to wait for; this is.")
+        return
+    yield (True, "chain synced", f"block {block}")
+
+    try:
+        wallet = _bee_get(api, "/wallet")
+        bzz = int(wallet.get("bzzBalance", 0) or 0)
+        native = int(wallet.get("nativeTokenBalance", 0) or 0)
+    except Exception as exc:                              # noqa: BLE001
+        yield (False, "wallet funded", f"/wallet failed ({exc})")
+        return
+    if not (bzz and native):
+        yield (False, "wallet funded",
+               f"xBZZ={bzz} xDAI={native} — buying postage needs both "
+               "(xDAI for gas, xBZZ for the batch).\n"
+               f"  the address to fund:  curl -s {api.rstrip('/')}/addresses")
+        return
+    yield (True, "wallet funded", f"xBZZ={bzz} xDAI={native}")
+
+    try:
+        batches = _bee_get(api, "/stamps").get("stamps", [])
+    except Exception as exc:                              # noqa: BLE001
+        yield (False, "usable postage batch", f"/stamps failed ({exc})")
+        return
+    usable = [b for b in batches if b.get("usable")]
+    if not usable:
+        yield (False, "usable postage batch",
+               f"{len(batches)} batch(es), none usable.\n"
+               "  buy one (depth 17 is a reasonable start; mainnet refuses "
+               "less than ~1 day of validity):\n"
+               f"    curl -sXPOST {api.rstrip('/')}/stamps/2400000000/17\n"
+               "  then wait ~70s — bought and usable are not the same "
+               "moment.")
+        return
+    best = max(usable, key=lambda b: b.get("batchTTL", 0))
+    yield (True, "usable postage batch",
+           f"{str(best.get('batchID', '?'))[:16]}... "
+           f"TTL {best.get('batchTTL', 0) / 86400:.1f} days")
+
+    configured = _configured("bee_batch")
+    yield (True, "odag will pay with",
+           f"batch {configured}" if configured else
+           "batch auto — odag asks the node for a usable one. Pin it with "
+           "`odag set bee_batch <id>` to control what gets spent.")
+    yield (True, "latest root goes to",
+           "a signed Swarm feed, followable by others"
+           if _configured("bee_signer") else
+           f"a local file in {_home_dir()}. To publish it instead: "
+           "odag set bee_signer <private-key>")
+
+
+def cmd_swarm(args, session, out):
+    api = _configured("bee_api")
+    print(f"Bee node: {api}", file=out)
+    failed = False
+    for ok, label, detail in _swarm_checks(api):
+        first, _, rest = detail.partition("\n")
+        print(f"  [{'ok  ' if ok else 'FAIL'}] {label:22} {first}", file=out)
+        if rest:
+            print(rest, file=out)
+        failed = failed or not ok
+    if failed:
+        print("\nFix the first FAIL above, then run `odag swarm` again.\n"
+              "Not ready to run a node? `odag set store rs:~/work/mydag` "
+              "gives you the same\ncanonical roots, snapshots and "
+              "certificates on local disk, with no node at all.", file=out)
+        return 1
+    print("\nReady:  odag set store swarm:mydag", file=out)
+    return 0
+
+
 def cmd_index(args, session, out):
     # Publish cone summaries next to the store (CONE_SUMMARIES_PLAN step E):
     # a derived index in a SEPARATE record store, so the data root is
     # untouched. Prints the manifest pair — hand both roots to lazy readers.
     backend = session.backend
-    if not isinstance(backend, SwarmBackend):
+    if not isinstance(backend, (SwarmBackend, LocalRecordBackend)):
         raise ValueError(
-            "index needs a record-store backend (a swarm:NAME store); "
-            "file stores are loaded whole and never benefit from one")
+            "index needs a record-store backend (rs:PATH or swarm:NAME); "
+            "the native text store is loaded whole and never benefits "
+            "from one")
     from ontodag.cones import build_index
 
     data_root = session.dag.store.root
@@ -814,6 +1033,8 @@ Commands:
   import FILE           replace the store with the contents of FILE
   export FILE           write the store to FILE
   visualize [--out B]   render the DAG to an image
+  swarm                 check the Swarm setup step by step (node, chain,
+                        wallet, postage batch) and print what to fix next
   index [--threshold N] publish cone summaries for a swarm: store into the
                         sibling NAME-index store (a derived index: the data
                         root is untouched); prints both roots for readers
@@ -861,6 +1082,17 @@ given four ways, and the first that is present wins:
 so a flag is for one command, an environment variable for one shell, and
 `odag set KEY VALUE` is the durable one (it writes ~/.ontodag/config).
 `odag set` with no arguments prints what is currently in effect.
+
+Beyond a plain file, a store can be:
+
+  rs:PATH        a content-addressed record store on local disk. Gives you
+                 canonical roots (equal knowledge, equal root), snapshots,
+                 verifiable is_below certificates and multi-writer sync —
+                 all of it with no node and no network. The step to take
+                 before Swarm, and the way to see what Swarm is for.
+  swarm:NAME     the same store, on Ethereum Swarm. Run `odag swarm` first:
+                 it checks the node, chain, wallet and postage batch in
+                 order and tells you which one to fix.
 
 A store may also be `swarm:NAME`, persisted on Ethereum Swarm (content on a
 Bee node, latest root in ~/.ontodag/NAME.root). `set store swarm:NAME` makes
@@ -946,6 +1178,12 @@ def build_parser():
     p.add_argument("sub")
     p.add_argument("sup")
     p.set_defaults(func=cmd_below, stream_output=True)
+
+    p = sub.add_parser("swarm", add_help=True,
+                       help="check whether this machine can talk to Swarm, "
+                            "and say what to fix")
+    p.add_argument("-o", "--output")
+    p.set_defaults(func=cmd_swarm, stream_output=True)
 
     p = sub.add_parser("index", add_help=True,
                        help="publish cone summaries for a swarm store")

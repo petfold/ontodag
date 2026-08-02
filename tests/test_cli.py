@@ -21,6 +21,7 @@ import io
 import os
 import tempfile
 import unittest
+from unittest import mock
 from contextlib import redirect_stderr, redirect_stdout
 
 import ontodag.__main__ as cli
@@ -670,3 +671,152 @@ class TestSwarmSignerWiring(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLocalRecordStore(unittest.TestCase):
+    """`rs:PATH` — the rung between a text file and Swarm.
+
+    Its reason to exist is that canonical roots, snapshots and certificates
+    used to require a Bee node, a funded wallet and a postage batch before
+    you could see any of them. Everything asserted here runs on a directory.
+    """
+
+    def _run(self, argv, session):
+        return _run(argv, session)
+
+    def test_routing_and_normalization(self):
+        backend = cli._make_backend("rs:/tmp/x")
+        self.assertIsInstance(backend, cli.LocalRecordBackend)
+        # The path is absolutised inside the prefix, so a spec saved to
+        # config means the same thing from any working directory.
+        self.assertTrue(
+            cli._normalize_spec("rs:./rel").startswith("rs:/"))
+        self.assertEqual(cli._normalize_spec("swarm:x"), "swarm:x")
+
+    def test_it_persists_and_has_a_real_root(self):
+        with tempfile.TemporaryDirectory() as home:
+            spec = f"rs:{os.path.join(home, 'store')}"
+            session = cli.Session(spec)
+            for argv in (["put", "Travel"], ["put", "Japan", "Travel"],
+                         ["put", "doc", "Japan"]):
+                self.assertEqual(_run(argv, session)[0], 0)
+            root = session.dag.store.root
+            self.assertTrue(root, "a record store must produce a root")
+
+            reopened = cli.Session(spec)          # a fresh process would
+            self.assertEqual(_run(["get", "Travel"], reopened)[1],
+                             "Japan\ndoc\n")
+            self.assertEqual(reopened.dag.store.root, root)
+
+    def test_the_root_is_canonical_across_build_orders(self):
+        # The property the whole content-addressed story rests on, available
+        # here with no node: equal knowledge, equal name.
+        def build(path, order):
+            session = cli.Session(f"rs:{path}")
+            for argv in order:
+                _run(argv, session)
+            return session.dag.store.root
+
+        with tempfile.TemporaryDirectory() as home:
+            first = build(os.path.join(home, "a"),
+                          [["put", "Travel"], ["put", "Japan", "Travel"],
+                           ["put", "doc", "Japan"]])
+            second = build(os.path.join(home, "b"),
+                           [["put", "Travel"], ["put", "Japan", "Travel"],
+                            ["put", "other"], ["remove", "other"],
+                            ["put", "doc", "Japan"]])
+            self.assertEqual(first, second)
+
+    def test_index_accepts_it_where_a_text_store_is_refused(self):
+        with tempfile.TemporaryDirectory() as home:
+            record = cli.Session(f"rs:{os.path.join(home, 's')}")
+            _run(["put", "a"], record)
+            self.assertEqual(_run(["index"], record)[0], 0)
+
+            plain = cli.Session(os.path.join(home, "s.od"))
+            _run(["put", "a"], plain)
+            code, _ = _run(["index"], plain)
+            self.assertEqual(code, 1)
+
+    def test_describe_round_trips_through_set(self):
+        with tempfile.TemporaryDirectory() as home:
+            path = os.path.join(home, "store")
+            session = cli.Session(f"rs:{path}")
+            self.assertEqual(session.describe(), f"rs:{path}")
+
+
+class TestSwarmDoctor(unittest.TestCase):
+    """`odag swarm` walks the setup in dependency order and stops at the
+    first failure. The failures are the product here, not the successes."""
+
+    def _diagnose(self, session):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.dispatch(["swarm"], session)
+        return code, out.getvalue()
+
+    def test_it_reports_a_missing_extra_before_touching_the_network(self):
+        with tempfile.TemporaryDirectory() as home, \
+             mock.patch.object(cli.importlib.util, "find_spec",
+                               return_value=None):
+            code, text = self._diagnose(cli.Session(os.path.join(home, "s.od")))
+        self.assertEqual(code, 1)
+        self.assertIn('pip install "ontodag[swarm]"', text)
+        # ...and does not pretend to know anything about the node.
+        self.assertNotIn("node reachable", text)
+
+    def test_an_unreachable_node_names_the_next_step(self):
+        with tempfile.TemporaryDirectory() as home, \
+             mock.patch.object(cli.importlib.util, "find_spec",
+                               return_value=object()), \
+             mock.patch.object(cli, "_bee_get",
+                               side_effect=OSError("refused")):
+            code, text = self._diagnose(cli.Session(os.path.join(home, "s.od")))
+        self.assertEqual(code, 1)
+        self.assertIn("nothing answering", text)
+        self.assertIn("odag set bee_api", text)
+
+    def test_a_healthy_node_with_no_batch_says_how_to_buy_one(self):
+        replies = {
+            "/": {}, "/health": {"status": "ok"},
+            "/chainstate": {"block": 42},
+            "/wallet": {"bzzBalance": "10", "nativeTokenBalance": "10"},
+            "/stamps": {"stamps": [{"usable": False}]},
+        }
+        with tempfile.TemporaryDirectory() as home, \
+             mock.patch.object(cli.importlib.util, "find_spec",
+                               return_value=object()), \
+             mock.patch.object(cli, "_bee_get",
+                               side_effect=lambda api, path, **kw: replies[path]):
+            code, text = self._diagnose(cli.Session(os.path.join(home, "s.od")))
+        self.assertEqual(code, 1)
+        self.assertIn("none usable", text)
+        self.assertIn("/stamps/", text)      # the command to run
+        self.assertIn("~70s", text)          # and the wait nobody expects
+
+    def test_a_fully_ready_node_exits_zero(self):
+        replies = {
+            "/": {}, "/health": {"status": "ok"},
+            "/chainstate": {"block": 42},
+            "/wallet": {"bzzBalance": "10", "nativeTokenBalance": "10"},
+            "/stamps": {"stamps": [{"usable": True, "batchID": "ab" * 16,
+                                    "batchTTL": 86400 * 3}]},
+        }
+        with tempfile.TemporaryDirectory() as home, \
+             mock.patch.object(cli.importlib.util, "find_spec",
+                               return_value=object()), \
+             mock.patch.object(cli, "_bee_get",
+                               side_effect=lambda api, path, **kw: replies[path]):
+            code, text = self._diagnose(cli.Session(os.path.join(home, "s.od")))
+        self.assertEqual(code, 0)
+        self.assertIn("TTL 3.0 days", text)
+        self.assertIn("odag set store swarm:", text)
+
+    def test_the_unready_path_offers_the_local_record_store(self):
+        # The adoption point: someone who cannot run a node today should
+        # still be told how to get the properties Swarm is *for*.
+        with tempfile.TemporaryDirectory() as home, \
+             mock.patch.object(cli.importlib.util, "find_spec",
+                               return_value=None):
+            _, text = self._diagnose(cli.Session(os.path.join(home, "s.od")))
+        self.assertIn("rs:", text)
