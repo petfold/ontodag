@@ -12,6 +12,62 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [0.10.1] — 2026-08-02
+
+A bug-fix release. **0.10.0 could not draw any DAG containing a typed
+date** — the one published release with the fault, though it had been in
+the code since calendar dimensions landed in 0.8.0 (never published).
+
+### Fixed
+
+- **Visualization of parametric time values.** Canonical names like
+  `time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)` were used as DOT node
+  *identifiers*, where `:` is the port separator; the graphviz package's
+  quoting split them and the render died with a syntax error. So
+  `odag visualize`, `OntoDAGVisualizer.generate_image`, and the DOT and
+  LaTeX exports all failed on any store holding a date. Names now live in
+  labels and identifiers are synthetic (`n0`, `n1`, …), which makes every
+  name renderable whatever a future canonical form contains rather than
+  fixing this one character. Ids follow the DAG's deterministic iteration
+  order, so DOT output stays diffable. Linear dimensions (`weight(3kg)`)
+  were never affected — timestamps are the only canonical names with a
+  colon in them.
+- **The web app** (not shipped in the wheel; affects checkouts): session
+  state is created on demand, so the REST API works without a browser
+  having loaded the page first; `/market` no longer 500s in a session that
+  used the main page; the query picture is built from `get()` instead of a
+  name-intersection, so virtual parametric terms are no longer silently
+  dropped from it (`Japan,weight(..5kg)` used to draw a picture that
+  contradicted its own result list) and `|` union is drawn as two
+  branches; the UI URL-encodes query terms, so a name containing `+`, `&`
+  or `#` queries what you typed.
+
+### Added
+
+- **The empty query is the universe.** `get([])` returns everything rather
+  than raising: an intersection of no cones is unconstrained. `odag get`,
+  `odag list` and `odag get '*'` are now one code path, and the REST and
+  MCP query surfaces agree. A dangling `or` remains an error.
+- **`odag count [CAT...]`** — the same queries as one number, never
+  capped.
+- **A terminal display cap.** Results stop at 50 lines when stdout is a
+  terminal, with the withheld count on stderr; pipes are never capped, so
+  `odag get | wc -l` still counts everything. `-n N` / `-n 0` override.
+  MCP deliberately differs: no default cap, an explicit `limit`, and a
+  `truncated` flag beside a `count` that always reports the complete size.
+- **One settings table.** All six settings (`store`, `limit`, `render`,
+  `bee_api`, `bee_batch`, `bee_signer`) resolve by one rule — flag >
+  environment > config file > default — where three regimes existed
+  before. `auto` is a real value meaning "decide from the tty", and bad
+  values are refused at `set` time.
+
+### Notes
+
+- Registry unchanged at **4.0**; no migration.
+- First test coverage of any rendering endpoint (`TestPicturesAndExports`,
+  `TestVisualizerRendersEveryName`, `TestQueryPictureAgreesWithTheAnswer`)
+  — the absence of it is why the DOT bug survived a release.
+
 ## [0.10.0] — 2026-08-01
 
 The agents-first release, part 2 (writes + vocabulary), plus the full unit
