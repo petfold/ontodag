@@ -226,11 +226,27 @@ class AgentSurface:
             raise ToolError(f"missing required argument {key!r} (a string)")
         return value
 
-    def _canonical_terms(self, dag, terms):
-        if not isinstance(terms, list) or not terms or \
+    def _canonical_terms(self, dag, terms, allow_empty=False):
+        if not isinstance(terms, list) or (not terms and not allow_empty) or \
                 not all(isinstance(t, str) and t for t in terms):
-            raise ToolError("terms must be a non-empty list of strings")
+            what = "a list of strings" if allow_empty \
+                else "a non-empty list of strings"
+            raise ToolError(f"terms must be {what}")
         return [dag._canonical_name(t) for t in terms]
+
+    @staticmethod
+    def _limit(arguments):
+        """An agent's result cap: explicit, or absent. There is deliberately
+        no default — a silently truncated answer is a wrong answer to a
+        caller that reasons from it, so completeness is what you get unless
+        you asked otherwise, and when you do ask, the answer says so."""
+        limit = arguments.get("limit")
+        if limit is None:
+            return None
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit < 0:
+            raise ToolError("limit must be a non-negative integer "
+                            "(omit it, or 0, for the complete answer)")
+        return limit or None
 
     # -- tools ------------------------------------------------------------- #
 
@@ -273,12 +289,15 @@ class AgentSurface:
         dag, root = self._dag_at(arguments.get("as_of"))
         terms = arguments.get("terms")
         any_of = arguments.get("any_of")
-        if (terms is None) == (any_of is None):
+        if terms is not None and any_of is not None:
             raise ToolError(
-                "pass exactly one of `terms` (a conjunction) or `any_of` "
+                "pass at most one of `terms` (a conjunction) or `any_of` "
                 "(a list of conjunctions, answered as their union)")
-        if terms is not None:
-            echo = self._canonical_terms(dag, terms)
+        if any_of is None:
+            # No terms at all — including neither argument — is the empty
+            # query: an intersection of no constraints, so every item.
+            terms = [] if terms is None else terms
+            echo = self._canonical_terms(dag, terms, allow_empty=True)
             result = dag.get(terms)
             payload = {"terms": echo}
         else:
@@ -289,7 +308,13 @@ class AgentSurface:
             result = dag.get_any(any_of)
             payload = {"any_of": echo}
         items = sorted(item.name for item in result)
-        payload.update({"items": items, "count": len(items)})
+        # `count` is always the size of the complete answer, `items` may be a
+        # prefix of it — so a caller can always tell what it is holding.
+        payload.update({"items": items, "count": len(items),
+                        "truncated": False})
+        limit = self._limit(arguments)
+        if limit is not None and len(items) > limit:
+            payload.update({"items": items[:limit], "truncated": True})
         return self._envelope(root, payload)
 
     def tool_is_below(self, arguments):
@@ -604,15 +629,24 @@ TOOL_SPECS = [
      "description": "Items below ALL given terms (`terms`), or below any of "
                     "several conjunctions (`any_of`). Terms may be virtual "
                     "parametric values like weight(..5kg). Unknown names "
-                    "fail closed to an empty result. Echoes the canonical "
-                    "terms it answered.",
+                    "fail closed to an empty result. With no terms at all "
+                    "the query is unconstrained and returns every item. "
+                    "Echoes the canonical terms it answered. `count` is "
+                    "always the size of the complete answer; `items` is a "
+                    "prefix of it when `truncated` is true.",
      "inputSchema": {"type": "object", "properties": {
          "terms": {"type": "array", "items": {"type": "string"},
-                   "description": "conjunction of category terms"},
+                   "description": "conjunction of category terms "
+                                  "(omit or empty for everything)"},
          "any_of": {"type": "array",
                     "items": {"type": "array",
                               "items": {"type": "string"}},
                     "description": "union of conjunctions (DNF)"},
+         "limit": {"type": "integer", "minimum": 0,
+                   "description": "at most this many items; the answer "
+                                  "still reports the full count and sets "
+                                  "truncated. Omit for the complete answer "
+                                  "— there is no default cap."},
          "as_of": _AS_OF, "certify": _CERTIFY}}},
     {"name": "is_below",
      "description": "Does SUB fit within SUP? Fail-closed: true only with "

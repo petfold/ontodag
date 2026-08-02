@@ -133,12 +133,35 @@ class TestTools(SurfaceHarness):
         empty = self.call("query", {"terms": ["no-such-thing"]})
         self.assertEqual(empty["items"], [])
 
-    def test_query_needs_exactly_one_shape(self):
-        text = self.call("query", {}, expect_error=True)
-        self.assertIn("exactly one", text)
+    def test_query_refuses_both_shapes_at_once(self):
         text = self.call("query", {"terms": ["a"], "any_of": [["b"]]},
                          expect_error=True)
-        self.assertIn("exactly one", text)
+        self.assertIn("at most one", text)
+
+    def test_no_terms_is_everything_not_an_error(self):
+        # The empty query is the universe; an agent asking "what is in this
+        # store" should get the store, not a usage error.
+        everything = self.call("query", {})
+        self.assertEqual(everything, self.call("query", {"terms": []}))
+        self.assertIn("pet", everything["items"])
+        self.assertEqual(everything["count"], len(everything["items"]))
+
+    def test_limit_truncates_visibly_and_count_stays_complete(self):
+        full = self.call("query", {})
+        capped = self.call("query", {"limit": 3})
+        self.assertEqual(capped["items"], full["items"][:3])
+        self.assertTrue(capped["truncated"])
+        # The whole point: the caller can still see how much it is missing.
+        self.assertEqual(capped["count"], full["count"])
+        self.assertFalse(full["truncated"])
+
+    def test_a_limit_that_does_not_bite_is_not_reported_as_truncation(self):
+        answer = self.call("query", {"terms": ["pet"], "limit": 1000})
+        self.assertFalse(answer["truncated"])
+
+    def test_a_bad_limit_is_a_teaching_error(self):
+        text = self.call("query", {"limit": -1}, expect_error=True)
+        self.assertIn("non-negative", text)
 
     def test_is_below_fail_closed_with_canonical_echo(self):
         answer = self.call("is_below", {"sub": "weight(3kg)",
