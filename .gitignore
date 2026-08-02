@@ -6,3 +6,10 @@ __pycache__/
 .idea/
 dist/
 build/
+
+# Artifacts written by the web app's export endpoints and the visualizer,
+# which render to a file beside the process rather than to a temp dir.
+ontodag_export.owl
+ontodag_query_export_*.owl
+ontodag_vis
+ontodag_vis.*
