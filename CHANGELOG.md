@@ -12,6 +12,19 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Fixed
+
+- **`odag help` works with the node down.** The store now opens lazily — on
+  the first command that touches it, under the usual one-line error contract
+  — instead of at startup. Before this, a configured `swarm:` store with an
+  unreachable node made *every* invocation fail, including `odag help` (what
+  you type to find the way out) and `odag set store <local>` (the way out
+  itself). `set store` still validates eagerly at set time, and a failed
+  switch still leaves the session on its old store. The help text also now
+  ends with the documentation URL.
+
 ## [0.13.0] — 2026-08-03
 
 ### Added
