@@ -249,6 +249,28 @@ class TestSwarmBackend(unittest.TestCase):
 
 
 class TestSetCommand(unittest.TestCase):
+    """Settings resolve by flag > environment > config file > default, so these
+    tests have to own the environment: with `BEE_API` exported — which is what
+    the User Guide's setup step tells you to do — an assertion about what the
+    *config file* holds is testing the wrong layer, and the suite went red for
+    anyone who had followed the instructions. The neighbouring swarm classes
+    already save and restore these; this one did not."""
+
+    _ENV = ("BEE_API", "BEE_BATCH", "BEE_SIGNER", "ONTODAG_STORE",
+            "ONTODAG_LIMIT", "ONTODAG_SURFACE")
+
+    def setUp(self):
+        self._saved = {k: os.environ.get(k) for k in self._ENV}
+        for key in self._ENV:
+            os.environ.pop(key, None)
+
+    def tearDown(self):
+        for key, value in self._saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
     def _session(self, d):
         return cli.Session(os.path.join(d, "store.od"))
 
@@ -994,3 +1016,83 @@ class TestSwarmDoctor(unittest.TestCase):
         self.assertTrue(checks.get("swarm extra installed"), checks)
         self.assertTrue(checks.get("node reachable"), checks)
         self.assertTrue(checks.get("node healthy"), checks)
+
+
+class TestConfigSecrecy(unittest.TestCase):
+    """`bee_signer` is a private key that can publish to your feed, so the two
+    places it could leak are closed: the file it is written to, and the command
+    that reads settings back."""
+
+    _ENV = ("BEE_API", "BEE_BATCH", "BEE_SIGNER", "ONTODAG_HOME")
+    KEY = "1" * 60 + "abcd"
+
+    def setUp(self):
+        self._home = tempfile.TemporaryDirectory()
+        self._saved = {k: os.environ.get(k) for k in self._ENV}
+        for key in self._ENV:
+            os.environ.pop(key, None)
+        os.environ["ONTODAG_HOME"] = self._home.name
+
+    def tearDown(self):
+        for key, value in self._saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        self._home.cleanup()
+
+    def _session(self):
+        return cli.Session(cli._resolve_store(None))
+
+    def test_the_config_file_is_owner_only(self):
+        session = self._session()
+        self.assertEqual(_run(["set", "bee_signer", self.KEY], session),
+                         (0, ""))
+        mode = os.stat(cli._config_path()).st_mode & 0o777
+        self.assertEqual(mode, 0o600, f"config is {oct(mode)}, not 0o600")
+
+    def test_a_config_written_before_this_gets_repaired(self):
+        """The case that matters: the key is already on disk, world-readable,
+        written by an older version. The next write must tighten it."""
+        os.makedirs(self._home.name, exist_ok=True)
+        path = cli._config_path()
+        with open(path, "w") as fh:
+            fh.write("bee_api = http://n:1633\n")
+        os.chmod(path, 0o644)
+        _run(["set", "bee_signer", self.KEY], self._session())
+        self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+
+    def test_showing_all_settings_does_not_print_the_key(self):
+        session = self._session()
+        _run(["set", "bee_signer", self.KEY], session)
+        _code, out = _run(["set"], session)
+        self.assertNotIn(self.KEY, out)
+        self.assertIn("bee_signer = <hidden, ends abcd>", out)
+
+    def test_showing_the_key_alone_does_not_print_it_either(self):
+        session = self._session()
+        _run(["set", "bee_signer", self.KEY], session)
+        _code, out = _run(["set", "bee_signer"], session)
+        self.assertNotIn(self.KEY, out)
+        self.assertIn("<hidden, ends abcd>", out)
+
+    def test_an_unset_signer_reads_as_empty_not_as_hidden(self):
+        _code, out = _run(["set", "bee_signer"], self._session())
+        self.assertEqual(out, "bee_signer = \n")
+
+    def test_a_signer_from_the_environment_is_masked_too(self):
+        os.environ["BEE_SIGNER"] = self.KEY
+        _code, out = _run(["set"], self._session())
+        self.assertNotIn(self.KEY, out)
+
+    def test_the_stored_value_is_still_the_real_key(self):
+        """Masking is display-only: the config remains the place to read it."""
+        _run(["set", "bee_signer", self.KEY], self._session())
+        self.assertEqual(cli._read_config()["bee_signer"], self.KEY)
+        self.assertEqual(cli._configured("bee_signer"), self.KEY)
+
+    def test_non_secret_settings_are_still_shown_in_full(self):
+        session = self._session()
+        _run(["set", "bee_batch", "c0ffee"], session)
+        _code, out = _run(["set", "bee_batch"], session)
+        self.assertEqual(out, "bee_batch = c0ffee\n")

@@ -70,10 +70,21 @@ def _read_config():
 
 
 def _write_config(cfg):
-    os.makedirs(_home_dir(), exist_ok=True)
-    with open(_config_path(), "w") as fh:
+    """Write the config file, readable only by its owner.
+
+    It can hold `bee_signer` — a private key that can publish to your feed —
+    and was previously written with default permissions, which under a typical
+    umask left a key group- and world-readable. O_CREAT's mode covers a file
+    this call creates; the explicit chmod also repairs one written before this
+    (or by an older version), which is the case that actually matters since
+    the leak is already on disk by then."""
+    os.makedirs(_home_dir(), mode=0o700, exist_ok=True)
+    path = _config_path()
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as fh:
         for key in sorted(cfg):
             fh.write(f"{key} = {cfg[key]}\n")
+    os.chmod(path, 0o600)
 
 
 def _abspath(path):
@@ -122,7 +133,11 @@ def _default_store_path():
 # whether output is a terminal", which is what makes `odag get | odag put`
 # round-trip while an interactive session stays readable.
 
-_Setting = collections.namedtuple("_Setting", "env default flag doc")
+# `secret` marks a value that must not be printed back: `odag set` is the
+# routine "what is configured?" command, so anything it echoes lands in
+# scrollback, screen shares and captured terminal output.
+_Setting = collections.namedtuple("_Setting", "env default flag doc secret")
+_Setting.__new__.__defaults__ = (False,)
 
 _SETTINGS = {
     "store": _Setting(
@@ -136,7 +151,8 @@ _SETTINGS = {
         "postage batch to pay for Swarm writes"),
     "bee_signer": _Setting(
         "BEE_SIGNER", "", "--bee-signer KEY",
-        "private key; when set, the latest root lives in a signed feed"),
+        "private key; when set, the latest root lives in a signed feed",
+        secret=True),
     "render": _Setting(
         "ONTODAG_SURFACE", "auto", "--render / --raw",
         "readable output (auto = on at a terminal, off in a pipe)"),
@@ -1007,6 +1023,20 @@ def _effective_setting(session, key):
     return _configured(key)
 
 
+def _shown_setting(session, key):
+    """A setting's effective value, in a form safe to print.
+
+    A secret is reported as set, with its last four characters so two keys can
+    be told apart, and never in full: `odag set` is what you run to see your
+    configuration, so whatever it prints ends up in scrollback and screen
+    shares. The value itself stays in the config file, which is the place to
+    read it from — deliberately not through a display command."""
+    value = _effective_setting(session, key)
+    if _SETTINGS[key].secret and value:
+        return f"<hidden, ends {value[-4:]}>"
+    return value
+
+
 def cmd_set(args, session, out):
     # No key: show every setting. Key but no value: show that one. Both:
     # change it — writing to the config file, which is the durable layer;
@@ -1014,13 +1044,13 @@ def cmd_set(args, session, out):
     # Displaying on a missing value never errors.
     if not args.key:
         for key in sorted(_SETTINGS):
-            print(f"{key} = {_effective_setting(session, key)}", file=out)
+            print(f"{key} = {_shown_setting(session, key)}", file=out)
         return
     if args.key not in _SETTINGS:
         raise ValueError(f"unknown setting: {args.key} "
                          f"(known: {', '.join(sorted(_SETTINGS))})")
     if args.value is None:
-        print(f"{args.key} = {_effective_setting(session, args.key)}", file=out)
+        print(f"{args.key} = {_shown_setting(session, args.key)}", file=out)
         return
     if args.key == "store":
         spec = _normalize_spec(args.value)

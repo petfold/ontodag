@@ -12,6 +12,38 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Fixed
+
+- **The config file is written owner-only, and an existing one is repaired.**
+  `~/.ontodag/config` can hold `bee_signer` — a secp256k1 private key that can
+  publish a new root to your feed, i.e. change what everyone following your
+  ontology sees — and it was written with default permissions, which under a
+  typical umask left that key group- and world-readable. It is now created
+  `0600` (via `O_CREAT`'s mode, so there is no window where it exists looser),
+  and `chmod`ed on every write, which is what repairs a config written by an
+  earlier version — the case that matters, since by then the key is already on
+  disk. New home directories are created `0700`.
+- **`odag set` no longer prints the signer key.** It is the routine "what is
+  configured?" command, so what it echoes ends up in scrollback, screen shares
+  and captured output — and it printed the full 64-character key, both in the
+  all-settings listing and when asked for `bee_signer` alone. Secrets now
+  display as `<hidden, ends 1234>`: enough to confirm one is set and to tell two
+  apart, without the value. Marked per-setting (`secret=True`) rather than by
+  name-matching, so a future credential inherits the behaviour. Display-only —
+  the config file remains the place to read the real value from, deliberately
+  not a display command.
+- **The test suite no longer fails when `BEE_API` is exported.**
+  `TestSetCommand` wrote `bee_api` to the config and asserted on reading it
+  back, but settings resolve flag > environment > config > default, so an
+  exported `BEE_API` correctly won and the assertion was reading the wrong
+  layer. Since the User Guide's setup step tells you to export exactly that
+  variable, the suite went red for anyone who had followed the instructions —
+  and CI never saw it, having no such variable. The class now owns its
+  environment in `setUp`/`tearDown`, as the neighbouring swarm classes already
+  did.
+
 ## [0.11.0] — 2026-08-03
 
 The install-and-try-it release. `pip install ontodag` no longer pulls 31 MB of
