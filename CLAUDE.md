@@ -339,14 +339,18 @@ default earns its place; one that adds weight for a file format does not.*
 
 ## Release state
 
-Latest published: **ontodag 0.13.0** (2026-08-03, by tag `v0.13.0` through
-the publish workflow — all four jobs green incl. the downstream ontodag-fs
-gate and the PyPI-serve verify). Release story: the count kind (registry
-4.1, prelude v3), ranges-as-uncertainty docs, REFERENCE.md + the pinning
-test + docs/plans/, `[all]` meaning all, the getting-a-node help. Earlier
-the same day: 0.11.0 and 0.12.0 (signing-key generation + key-leak fixes,
-rs: stores, the swarm doctor — see CHANGELOG.md, which is the authoritative
-release history).
+Latest published: **ontodag 0.14.0** (2026-08-03, by tag through the publish
+workflow — all four jobs green incl. the downstream ontodag-fs gate and the
+PyPI-serve verify). 0.14.0: lazy store opening (`odag help`/`set` work with
+the node down; `Session` opens on first touch, `switch` stays eager-atomic)
++ the docs URL in help. Same day, 0.13.0: the count kind (registry 4.1,
+prelude v3), ranges-as-uncertainty docs, REFERENCE.md + the pinning test +
+docs/plans/, `[all]` meaning all, the getting-a-node help — and both sister
+repos' floors raised to 0.13.0 (ontodag-fs `>=0.13.0,<0.15.0` per its
+ceiling policy — **raise that ceiling with each ontodag release its
+downstream gate passes**, done for 0.14.0; loopmarket `>=0.13.0`). Earlier the same day:
+0.11.0 and 0.12.0 (signing-key generation + key-leak fixes, rs: stores, the
+swarm doctor). CHANGELOG.md is the authoritative release history.
 
 ## Documentation layout (2026-08-03)
 
