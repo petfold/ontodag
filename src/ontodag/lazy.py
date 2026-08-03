@@ -33,7 +33,7 @@ cones it touches (so plausibly local), has not been tested under partial
 residency. Until both are settled: use `EagerOntoDAG` to edit and publish,
 `LazyOntoDAG` to query what was published. Groundwork in
 `experiments/RESULTS.md` on the `experiment/delta-counts` branch; status in
-`docs/ROADMAP.md` item 2.
+`docs/plans/ROADMAP.md` item 2.
 
 **Nodes exist in two states.** A *stub* is an `Item` that is known to exist
 (some record referenced it) but whose record has not been fetched: it has a

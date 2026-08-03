@@ -57,7 +57,7 @@ returned records are deep copies (mutating them never mutates the store).
   proportional to the *difference*, not the dataset — the same structural trie diff
   `merge` uses, pruning subtrees whose refs match, so equal roots read zero blobs.
   Compare two arbitrary roots with `RecordStore.at(a, blobs).diff(b)`. Requested by
-  `docs/MERKLE_NOTES.md`; **nothing in OntoDAG consumes it yet** (the floor moved past
+  `docs/plans/MERKLE_NOTES.md`; **nothing in OntoDAG consumes it yet** (the floor moved past
   0.15.0 for the proofs below, not for `diff`).
 - `prove(key, addressing=None)` **(needs ≥ 0.16.0)** — a verifiable inclusion-or-absence
   proof for `key` against the *committed* root: a self-describing, JSON-ready dict

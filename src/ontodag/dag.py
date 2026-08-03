@@ -737,7 +737,7 @@ class OntoDAG(DAG):
         NOT the meet of A and B — put(X, [A, B]) creates a *sibling* of such a
         node, never a child of it — so rewriting a query through "meet-named"
         nodes (answering get([A, B, C]) as cone(AB) ∩ cone(C)) silently loses
-        results. See docs/SEMANTIC_CODES.md §10 before adding such a rewrite;
+        results. See docs/plans/SEMANTIC_CODES.md §10 before adding such a rewrite;
         it is sound only with a canonical-placement invariant on put().
         """
         # 1. Resolve and deduplicate; terms may be name strings or Items

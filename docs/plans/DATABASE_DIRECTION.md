@@ -335,7 +335,7 @@ future session recognizes the moment instead of pre-building:
 ## Merkle structures: see `MERKLE_NOTES.md`
 
 Whether to use hash trees to find "which parts changed" is answered
-separately in `docs/MERKLE_NOTES.md`. Short version: not for counts (a hash
+separately in `docs/plans/MERKLE_NOTES.md`. Short version: not for counts (a hash
 answers equality, not arithmetic or membership, and a writer already knows
 where its own change is), but **yes** for change detection — which is now the
 principal blocker to lazy writes, and for which recordstore already has the

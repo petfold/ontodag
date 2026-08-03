@@ -2,7 +2,7 @@
 
 Delivered work first, then near-term, mid-term, and research horizon. Written for
 a broad audience — the mechanisms behind the terms used here are explained in
-[HOW_IT_WORKS.md](HOW_IT_WORKS.md), whose section numbers (§2 canonical form, §4
+[HOW_IT_WORKS.md](../HOW_IT_WORKS.md), whose section numbers (§2 canonical form, §4
 query planning, §5 merge, §6 persistence) are referenced throughout.
 
 Where the other documents fit: the **day-to-day task list** is in `CLAUDE.md`
@@ -22,8 +22,8 @@ that can be checked, eventually with cryptographic certificates), and
 four properties an AI model's knowledge lacks, and exactly what agent
 ecosystems are missing. The agreed priority is therefore the **agent-facing
 surface**: a written contract of what a higher layer may assume
-([CONTRACT.md](CONTRACT.md)), verifiable answers, and provenance-gated agent
-writes ([PROVENANCE.md](PROVENANCE.md)) — while keeping a decent human
+([CONTRACT.md](../CONTRACT.md)), verifiable answers, and provenance-gated agent
+writes ([PROVENANCE.md](../PROVENANCE.md)) — while keeping a decent human
 interface (the surface layer's readable rendering serves both audiences; its
 canonical echo is the same mechanism as the agent-facing one).
 
@@ -94,7 +94,7 @@ replayable answer, which the existing snapshot machinery already supports.
    merge, re-reduced, then recommitted); writers syncing each other's roots land
    on the byte-identical root. Several writers, one shared ontology, no server —
    with the documented union semantics (removals lose to concurrent re-adds).
-5. **The higher-layer contract** — [CONTRACT.md](CONTRACT.md), drafted and
+5. **The higher-layer contract** — [CONTRACT.md](../CONTRACT.md), drafted and
    **reviewed & agreed the same day (2026-08-01, contract version 0.1)**:
    the operations and guarantees a higher layer or agent may rely on
    (G1–G6, including `get_overlapping`'s candidate semantics), the
@@ -104,7 +104,7 @@ replayable answer, which the existing snapshot machinery already supports.
    policy. The conformance test suite asserting the guarantees through the
    public API only landed the same day (`tests/test_contract.py`, 15 tests
    covering G1–G6, the as-of clause, and the version constant).
-6. **Provenance design** — [PROVENANCE.md](PROVENANCE.md), drafted and
+6. **Provenance design** — [PROVENANCE.md](../PROVENANCE.md), drafted and
    **reviewed & agreed the same day (2026-08-01)**: attribution in a
    parallel provenance store (never in the knowledge record, so agreement-
    by-fingerprint survives); **subjects are claims, not edges** (stable
@@ -373,7 +373,7 @@ Not "someday" items — each is worked out in a design note and waits on a trigg
   said so, irreplaceable; `derived` = a learner proposed it, regenerable), which
   in turn drives what must be stored durably versus what can be recomputed.
   *Note 2026-08-01: the provenance machinery itself is no longer horizon — it
-  moved to the queue ([PROVENANCE.md](PROVENANCE.md)) because agent writes
+  moved to the queue ([PROVENANCE.md](../PROVENANCE.md)) because agent writes
   need it first; the learner integration stays here.*
 - **Namespaces.** Reconciling different people's naming — spelling, language, and
   the same word used for different things — so DAGs built independently can be

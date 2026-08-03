@@ -7,8 +7,11 @@ both a Flight document and part of the Japan trip."*
 
 This guide is for everyday users. It assumes you can open a terminal and copy-paste
 commands, but not much more. Every example in it has been run for real — the outputs
-you see are genuine. If you want to know how OntoDAG works internally,
-read [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) afterwards.
+you see are genuine. It is a *tutorial*: it teaches by doing. When you already know
+what you're doing and just need to look something up — a flag, a setting, an
+endpoint, a grammar rule — use the compact [`REFERENCE.md`](REFERENCE.md) instead.
+If you want to know how OntoDAG works internally, read
+[`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) afterwards.
 
 ---
 
@@ -1183,19 +1186,11 @@ withheld note goes to stderr, so it never lands in the data even when you pass
 
 ### 5.7 Settings: four ways to set them, one rule
 
-There are six settings, and every one of them can be given in the same four
-ways. The first that is present wins:
-
-**flag → environment variable → config file → default**
-
-| Setting | Flag | Environment | What it does |
-| --- | --- | --- | --- |
-| `store` | `-f PATH` | `ONTODAG_STORE` | which store to use: a path or `swarm:NAME` |
-| `limit` | `-n N` | `ONTODAG_LIMIT` | max result lines (§5.6) |
-| `render` | `--render` / `--raw` | `ONTODAG_SURFACE` | readable or canonical names (§5.5) |
-| `bee_api` | `--bee-api URL` | `BEE_API` | Bee node endpoint (§8) |
-| `bee_batch` | `--bee-batch ID` | `BEE_BATCH` | postage batch paying for Swarm writes |
-| `bee_signer` | `--bee-signer KEY` | `BEE_SIGNER` | key that publishes the root to a signed feed (§8, *Making a signing key*) |
+Every setting can be given in the same four ways, and the first present
+wins: **flag → environment variable → config file → default**. The full
+table (all six settings with their flags, variables, and defaults) is in
+[REFERENCE.md §4](REFERENCE.md); what matters here is how to choose a
+layer.
 
 The layers differ in **how long they last**, which is the useful way to choose
 between them: a flag is for one command, an environment variable for one shell,

@@ -294,7 +294,7 @@ them, one edge each.
 
 The project's roadmap — what is delivered, what is queued next, what is parked
 behind explicit triggers, and what is research horizon — lives in its own file:
-**[ROADMAP.md](ROADMAP.md)**. Longer-term goals for OntoDAG as a database, and the
+**[ROADMAP.md](plans/ROADMAP.md)**. Longer-term goals for OntoDAG as a database, and the
 conventional database features deliberately *not* being built yet, are in
 `DATABASE_DIRECTION.md`; the day-to-day task list is in `CLAUDE.md`.
 

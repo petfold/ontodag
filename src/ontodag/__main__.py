@@ -1211,7 +1211,7 @@ lines with a note on stderr saying how many were withheld. Pipes, files and
 -o get the complete answer in exact canonical bytes, so `odag get ... | odag`
 round-trips and `odag get ... | wc -l` counts right. Override with
 --render / --raw and -n N (-n 0 for all). `canon TERM` shows the exact
-stored form of any spelling. See docs/SURFACE_LAYER.md.
+stored form of any spelling. See docs/plans/SURFACE_LAYER.md.
 
 Settings: store, bee_api, bee_batch, bee_signer, render, limit. Each can be
 given four ways, and the first that is present wins:

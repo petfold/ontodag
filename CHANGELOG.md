@@ -16,6 +16,17 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
+- **A Reference Manual, and a documentation map.** `docs/REFERENCE.md` is the
+  compact lookup side of the docs (every command, setting, store spec, kind,
+  REST endpoint, MCP tool, extra and pack, definition-first) — and its tables
+  are **pinned to the code** by `tests/test_reference.py`, so a feature that
+  isn't referenced fails the suite (the pin caught its first omission,
+  `get_by_dag`, on its first run). The User Guide stays the tutorial and
+  drops the tables it had absorbed. `docs/README.md` maps every document's
+  single job, and the discussion drafts and direction papers (ROADMAP,
+  BINDING, EVOLUTION, PACKS, SURFACE_LAYER, DATABASE_DIRECTION, and friends)
+  moved to **`docs/plans/`** — nothing in that folder is shipped.
+
 - **The count kind (registry 4.1, prelude v3).** A fifth dimension kind,
   `count-dimension`: whole numbers ≥ 1 of discrete things — `count(3)`,
   `count(2..)` ("at least two"), `count(2dz)` (= 24). Three teaching
@@ -158,7 +169,7 @@ the recordstore backend can.
   the one real obstacle: `BytesStore` is synchronous and every browser
   network API is not, so the caller supplies a bridge — a web worker with
   `Atomics.wait`, or JSPI's `run_sync`. Implementation record and
-  sequencing: `docs/BROWSER.md`.
+  sequencing: `docs/plans/BROWSER.md`.
 - **`ontodag[viz]`, `[owl]`, `[all]` extras** — see Changed.
 - **A name-consumer corpus** (`tests/test_name_consumers.py`). One list of
   hazardous names — spaces, `+ & # | , : " \`, unicode, a leading dash —
@@ -405,7 +416,7 @@ system. **Registry 4.0** (see migration notes below).
   with the exact remedy (`odag pack fiat-iso4217`), for value parsing and
   declaration bases alike.
 - `docs/UNIT_TABLE.md`: the generated full listing of built-in suffixes
-  and pack contents. `docs/PROVENANCE.md`, `docs/PACKS.md`,
+  and pack contents. `docs/PROVENANCE.md`, `docs/plans/PACKS.md`,
   `docs/UNITS.md` design records; User Guide Quick Start.
 
 ### Changed

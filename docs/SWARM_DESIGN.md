@@ -174,7 +174,7 @@ which keys get traversed together — because that data is exactly what a
 leaf-packing policy needs to be designed well, and guessing now would be
 premature. The `RecordStore.get`/`put`/`commit` interface must not change
 when this happens; only what's behind it does. (One likely first customer
-identified since: the semantic-code cone index of `docs/SEMANTIC_CODES.md`
+identified since: the semantic-code cone index of `docs/plans/SEMANTIC_CODES.md`
 §4 — dense, uniformly co-accessed records with a known access pattern from
 day one, unlike node records.)
 
@@ -505,7 +505,7 @@ storage, access-weighted).
 
 ### Related design note: semantic codes / the binary cone index
 
-A separate note, **`docs/SEMANTIC_CODES.md`** (2026-07-20), works out a derived
+A separate note, **`docs/plans/SEMANTIC_CODES.md`** (2026-07-20), works out a derived
 binary index for the graph: each node's reflexive ancestor set as a bitvector
 (= its FCA intent; subsumption is containment, `get()` is bitwise AND over
 per-category cone bitmaps), with a canonical spanning-tree numbering that makes
@@ -517,7 +517,7 @@ regenerable, losable, never authoritative. It would also enable an index-only
 query path over Swarm (O(query + result) chunk fetches instead of full
 hydration, revising §6) and is the first natural customer for §4's deferred
 leaf-packing. Design note only — gated on real usage data, no code exists.
-Historical/inspirational companion: `docs/PHILOSOPHICAL_LANGUAGES.md`.
+Historical/inspirational companion: `docs/plans/PHILOSOPHICAL_LANGUAGES.md`.
 
 ## 9. Sequencing (what comes after `recordstore`)
 

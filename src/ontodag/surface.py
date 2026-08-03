@@ -1,6 +1,6 @@
 """The surface layer, output half: readable rendering of canonical names.
 
-Design record: docs/SURFACE_LAYER.md (§4 the round-trip law, §6 rendering,
+Design record: docs/plans/SURFACE_LAYER.md (§4 the round-trip law, §6 rendering,
 §7 who sees which layer). This module is the opt-in `ontodag.surface` of §7:
 the core never imports it (`dag.py` prints nothing and stores only canonical
 names); the CLI and any other human-facing surface may.

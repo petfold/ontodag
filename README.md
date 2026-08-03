@@ -8,16 +8,18 @@ Associative memory and categories based on a directed acyclic graph data structu
 
 ## Documentation
 
-- **[User Guide](docs/USER_GUIDE.md)** — installation, tutorial, Python API,
-  command line, web app/REST, file formats, AI agents, troubleshooting. Start here.
+- **[User Guide](docs/USER_GUIDE.md)** — tutorial and how-to: installation, Python,
+  command line, web app/REST, AI agents, troubleshooting. Start here.
+- **[Reference](docs/REFERENCE.md)** — every command, setting, kind, endpoint and
+  tool, compact; its tables are pinned to the code by the test suite.
 - **[How It Works Inside](docs/HOW_IT_WORKS.md)** — the design in plain language
   (canonical form, query planning, content-addressed persistence, verifiable answers).
-- **[Roadmap](docs/ROADMAP.md)** — delivered, queued, parked, and research horizon.
 - **[Changelog](CHANGELOG.md)** — what each release added, with registry migration notes.
 - **[The contract](docs/CONTRACT.md)** — what programs (and AI agents) built on
   OntoDAG may rely on: the guarantees, versioned.
-- `docs/SWARM_DESIGN.md`, `docs/SEMANTIC_CODES.md`, `docs/AGENT_SURFACE.md` —
-  engineering design documents.
+- **[docs/README.md](docs/README.md)** — the full documentation map: design records
+  (`docs/`) and discussion drafts / future directions (`docs/plans/`, including the
+  [Roadmap](docs/plans/ROADMAP.md)).
 
 See also **[ontodag-fs](https://github.com/petfold/ontodag-fs)**: any OntoDAG
 store can be browsed as a filesystem — paths are category queries, files are
@@ -77,9 +79,9 @@ the tool shapes in [docs/AGENT_SURFACE.md](docs/AGENT_SURFACE.md).
 ## Roadmap
 
 The roadmap — what is done, what is queued next, what is parked and why — is in
-**[docs/ROADMAP.md](docs/ROADMAP.md)**.
+**[docs/plans/ROADMAP.md](docs/plans/ROADMAP.md)**.
 Longer-term goals for the database direction (and the features deliberately not
-built yet) are in [docs/DATABASE_DIRECTION.md](docs/DATABASE_DIRECTION.md); the
+built yet) are in [docs/plans/DATABASE_DIRECTION.md](docs/plans/DATABASE_DIRECTION.md); the
 day-to-day task list is in `CLAUDE.md`.
 
 ## Potential Applications

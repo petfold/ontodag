@@ -1,4 +1,4 @@
-"""The surface layer's output half (docs/SURFACE_LAYER.md §4, §6, §7).
+"""The surface layer's output half (docs/plans/SURFACE_LAYER.md §4, §6, §7).
 
 The one law, fuzzed here in its only promised direction:
 

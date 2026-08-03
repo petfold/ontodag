@@ -156,7 +156,7 @@ class TestQueryPlanner(unittest.TestCase):
     """get() plans queries (term elimination, count-ordered traversal, early
     exit); every planning step must be result-preserving. These tests pin the
     results to a brute-force oracle and guard the known unsound "shortcut"
-    (rewriting a query through a meet-named node — see docs/SEMANTIC_CODES.md
+    (rewriting a query through a meet-named node — see docs/plans/SEMANTIC_CODES.md
     §10)."""
 
     def setUp(self):
@@ -211,7 +211,7 @@ class TestQueryPlanner(unittest.TestCase):
         # X is placed directly under A and B: a *sibling* of AB, invisible to
         # any plan that rewrites get([A, B]) as cone(AB). This test fails
         # loudly if such a rewrite is ever added without the canonical-
-        # placement invariant (docs/SEMANTIC_CODES.md §10).
+        # placement invariant (docs/plans/SEMANTIC_CODES.md §10).
         i = self.items
         x = Item('X')
         self.dag.put(x, [i['A'], i['B']])
