@@ -249,10 +249,20 @@ query legs, join into journeys) or true nested parsing in the core.
    (`unit-declaration`-style bundle-head declarations that travel with
    the data), and does PACKS.md's collision analysis carry over
    unchanged?
-5. **The count head**: declare `count` in the prelude (it is one
-   declaration away), independent of everything else here? Cheap, and
-   useful the moment anyone wants `part`-style lines even in payload
-   form.
+5. **The count head**: declare `count` in the prelude? Started as "one
+   declaration away", but the discussion deepened (2026-08-03): the
+   bare-number family admits all rationals and suffixes are globally
+   owned, so natural-number semantics needs a `count-dimension` *kind*
+   (per-head constraints don't exist; per-family can't split count from
+   ratios) — and the kind edge is permanent, so the choice must be made
+   at declaration time. Proposed semantics: value must be an integer
+   ≥ 1 after scaling; `count(0)` refused with a teaching error (a zero
+   multiplicity is an absence claim — negation, which the open-world
+   store cannot mean); no `amount` head (continuous stuff has
+   dimensional heads; a second bare-number head would be a G1 synonym
+   hazard). See `EVOLUTION.md` §3 (decoupling: the kind can later gain
+   an `integer-valued-dimension` parent additively) and its §8.8 for
+   whether this proceeds now or waits on the math-pack scope.
 6. **Merged-duplicate ambiguity** (§5 limit 3): document as residue, or
    add a convention (one line per maximal kind per writer) knowing
    conventions are unenforceable under merge?
