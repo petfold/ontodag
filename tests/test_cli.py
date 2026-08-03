@@ -980,9 +980,17 @@ class TestSwarmDoctor(unittest.TestCase):
         thread.start()
         try:
             api = f"http://127.0.0.1:{server.server_port}"
-            checks = dict((label, ok) for ok, label, _ in cli._swarm_checks(api))
+            # The walk stops at the first failure, and its first check is that
+            # the swarm extra is installed — which it is not in a plain test
+            # environment. Satisfy that one so this test is about the probe it
+            # names, rather than about how the suite happens to be installed.
+            with mock.patch.object(cli.importlib.util, "find_spec",
+                                   return_value=object()):
+                checks = dict((label, ok)
+                              for ok, label, _ in cli._swarm_checks(api))
         finally:
             server.shutdown()
             server.server_close()
+        self.assertTrue(checks.get("swarm extra installed"), checks)
         self.assertTrue(checks.get("node reachable"), checks)
         self.assertTrue(checks.get("node healthy"), checks)
