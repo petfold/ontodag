@@ -1135,8 +1135,19 @@ class TestGenerateSigner(unittest.TestCase):
         self.assertEqual((code, out), (0, ""))      # silent on stdout
         key = cli._read_config()["bee_signer"]
         self.assertEqual(len(key), 64)
-        from bee.swarm.keys import PrivateKey
-        PrivateKey.from_hex(key)                    # the real parser accepts it
+        self.assertTrue(cli._looks_like_a_signer(key))
+
+    def test_the_generated_key_parses_with_the_real_signer_library(self):
+        """The shape check above is the contract; this is the cross-check
+        against the library that will actually consume it. It needs the `swarm`
+        extra, so it skips on a plain test install rather than making the whole
+        suite depend on an optional dependency."""
+        try:
+            from bee.swarm.keys import PrivateKey
+        except ImportError:
+            self.skipTest("needs the swarm extra (bee) for the real parser")
+        self._set("bee_signer", "generate")
+        PrivateKey.from_hex(cli._read_config()["bee_signer"])
 
     def test_two_generations_differ(self):
         self._set("bee_signer", "generate")
