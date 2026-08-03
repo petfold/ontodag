@@ -14,6 +14,40 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Added
+
+- **`odag set bee_signer generate`** — makes a signing key, stores it, and never
+  shows it to you. The alternative was telling people to type
+  `odag set bee_signer "$(python3 -c 'import secrets; …')"`, which is hostile,
+  platform-dependent (a stock Windows has no `openssl`, the usual suggestion),
+  and easy to get subtly wrong: a stray character on a paste gives a
+  65-character string. `generate` cannot collide with a real value, since a
+  signer is always 64 hex characters. It reports the key's last four characters
+  and where it went **on stderr** — `set` is silent on success by convention,
+  but a secret you will never be shown again is the one case where silence
+  stops you doing the necessary thing, which is backing it up.
+
+  Generating over an existing key is **refused** unless `--force`: the feed's
+  address derives from the key, so replacing it strands everyone following the
+  old feed at the last root published there, irreversibly if the old key was not
+  backed up. That is not something to do as a side effect of a command that
+  looks like it sets a preference. It also warns when `BEE_SIGNER` is set in the
+  environment, since that outranks the config file and the new key would
+  otherwise silently not take effect.
+
+  User Guide §8 now documents key creation, with `generate` as the whole
+  procedure and the same three lines on every platform.
+
+### Changed
+
+- **A `bee_signer` you supply by hand is checked when you set it**, not at the
+  next command that opens the store — the principle `set` already applied to
+  `limit`, extended to the setting where a mistake is least visible. 64 hex
+  characters, `0x` prefix optional; anything else is refused with a message
+  pointing at `generate`. **Mildly breaking**: a value that is not a well-formed
+  key used to be stored happily and fail later, so a script storing junk now
+  fails at the point it stores it.
+
 ### Fixed
 
 - **The config file is written owner-only, and an existing one is repaired.**

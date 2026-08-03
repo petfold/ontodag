@@ -1023,6 +1023,64 @@ def _effective_setting(session, key):
     return _configured(key)
 
 
+_GENERATE = "generate"
+_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+
+
+def _looks_like_a_signer(value):
+    """32 bytes as hex, `0x` prefix optional — what `PrivateKey.from_hex` takes."""
+    raw = value[2:] if value[:2].lower() == "0x" else value
+    return len(raw) == 64 and all(c in _HEX_DIGITS for c in raw)
+
+
+def _signer_to_store(value, force):
+    """The value to write for `bee_signer`: generated on request, checked always.
+
+    `odag set bee_signer generate` exists because the alternative is asking
+    people to type a shell incantation to produce 32 random bytes, which is
+    both hostile and easy to get subtly wrong — a stray character gives a
+    65-character string that only fails later, at the first command that opens
+    the store. `generate` cannot collide with a real value: a signer is always
+    64 hex characters.
+
+    Generating over an existing key is refused by default. The feed's address
+    is derived from the key, so replacing it strands whoever follows the old
+    feed at the last root published there, and the old key is unrecoverable
+    unless it was backed up. That is not something to do as a side effect of a
+    command that looks like it sets a preference.
+    """
+    if value != _GENERATE:
+        if not _looks_like_a_signer(value):
+            raise ValueError(
+                f"bee_signer must be 32 bytes as hex — 64 characters, "
+                f"optionally 0x-prefixed; got {len(value)}.\n"
+                f"  to make one: odag set bee_signer {_GENERATE}")
+        return value
+
+    if _read_config().get("bee_signer") and not force:
+        raise ValueError(
+            "a signing key is already configured, and replacing it would "
+            "strand the feed the current one publishes: anyone following it "
+            "stays at the last root you pushed, and the old key is gone "
+            "unless you backed it up.\n"
+            f"  if you mean it: odag set bee_signer {_GENERATE} --force")
+
+    import secrets                      # stdlib, but only this path needs it
+    key = secrets.token_hex(32)
+    # On stderr, not stdout: `set` is silent on success by convention. But a
+    # secret the user will never be shown again is exactly the case where
+    # silence is unhelpful — they have to know it exists to back it up.
+    print(f"odag: generated a signing key, stored in {_config_path()} "
+          f"(<hidden, ends {key[-4:]}>).\n"
+          f"  back it up — the feed address comes from this key, so losing it "
+          f"means that feed can never be updated again.", file=sys.stderr)
+    if os.environ.get("BEE_SIGNER"):
+        print("  note: BEE_SIGNER is set in this environment and outranks the "
+              "config file, so the generated key will not take effect until "
+              "you unset it.", file=sys.stderr)
+    return key
+
+
 def _shown_setting(session, key):
     """A setting's effective value, in a form safe to print.
 
@@ -1072,8 +1130,11 @@ def cmd_set(args, session, out):
         # only fails later is a setting you debug in the wrong place.
         if args.key == "limit":
             _want_limit(argparse.Namespace(limit=args.value), out)
+        value = args.value
+        if args.key == "bee_signer":
+            value = _signer_to_store(value, getattr(args, "force", False))
         cfg = _read_config()
-        cfg[args.key] = args.value
+        cfg[args.key] = value
         _write_config(cfg)
 
 
@@ -1116,7 +1177,9 @@ Commands:
                         stablecoins, fiat-iso4217) — vocabulary as graph
                         data, no new release needed; travels with the store
   set [KEY [VALUE]]     show settings, or set one durably (store, bee_api,
-                        bee_batch, bee_signer, render, limit)
+                        bee_batch, bee_signer, render, limit).
+                        `set bee_signer generate` makes a signing key for you
+                        and stores it without displaying it
   help                  show this help
 
 With no command odag reads commands from a pipe, or opens an interactive
@@ -1320,6 +1383,9 @@ def build_parser():
                        help="show settings, or change one")
     p.add_argument("key", nargs="?")
     p.add_argument("value", nargs="?")
+    p.add_argument("--force", action="store_true",
+                   help="allow `set bee_signer generate` to replace a key that "
+                        "is already configured (this strands the old feed)")
     p.set_defaults(func=cmd_set)
 
     p = sub.add_parser("help", add_help=True, help="show help")

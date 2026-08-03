@@ -758,6 +758,68 @@ signing key:
   resolves to your newest version, so others can follow the store rather than
   chase hashes. Same command, one setting.
 
+#### Making a signing key
+
+The key is 32 random bytes, written as 64 hex characters. You do not need to buy
+one, register it, or fund it: it is not a wallet. What it *is* is a **publish
+capability** — the feed's address is derived from it, so whoever holds the key
+decides what everyone following your store sees as the latest version.
+
+`odag` will make one for you. You never see it, never paste it, and never have
+to find a tool that produces random bytes:
+
+```console
+$ odag set bee_signer generate
+odag: generated a signing key, stored in /home/you/.ontodag/config
+  (<hidden, ends 3f9c>).
+  back it up — the feed address comes from this key, so losing it means that
+  feed can never be updated again.
+```
+
+That is the whole procedure, and it is the same on Linux, macOS and Windows —
+it uses Python's `secrets`, the standard cryptographic random source, which you
+already have because it is how you installed OntoDAG. (If you would rather bring
+your own key, `odag set bee_signer <64-hex-characters>` still works, and is
+checked immediately rather than at the next command that opens the store. Any
+tool that produces 32 random bytes will do: `openssl rand -hex 32` if you have
+OpenSSL — it ships with macOS and most Linux distributions and is absent from a
+stock Windows, which is why it is not the recommended route.)
+
+Check what is configured at any time. The value is deliberately not shown:
+
+```console
+$ odag set bee_signer
+bee_signer = <hidden, ends 3f9c>
+```
+
+Generating a second key over a first is refused, because the feed address comes
+from the key and replacing it strands everyone following the old feed:
+
+```console
+$ odag set bee_signer generate
+odag: a signing key is already configured, and replacing it would strand the
+  feed the current one publishes: anyone following it stays at the last root
+  you pushed, and the old key is gone unless you backed it up.
+  if you mean it: odag set bee_signer generate --force
+```
+
+Four things worth knowing before you use it for anything real:
+
+- **Back it up**, in whatever you keep credentials in. The feed's address comes
+  from the key, so losing it means that feed can never be updated again — your
+  followers are frozen at the last root you published.
+- **Use a fresh key, not your Bee node's wallet key.** Feed signing needs no
+  funds, so reusing a funded key adds risk for no benefit.
+- **It lives in `~/.ontodag/config`**, which `odag` writes owner-only (`0600`).
+  A `BEE_SIGNER` environment variable overrides it for one shell, which is the
+  better choice if you keep secrets in a manager and would rather nothing sat on
+  disk. Avoid `--bee-signer KEY` outside tests: command lines land in shell
+  history and are visible to other local users through `ps`.
+- **If it ever escapes** — pasted into an issue, a chat, an AI assistant, a
+  screenshot — treat it as spent and make a new one. Recovery is cheap but not
+  free: a new key means a new feed address, so anyone following the old one has
+  to be pointed at the new one.
+
 Point `odag` at your node with the `BEE_API` and `BEE_BATCH` environment
 variables, or `bee_api` / `bee_batch` lines in `~/.ontodag/config`; the batch
 defaults to `auto`, which picks the usable batch with the longest TTL on the
@@ -1056,7 +1118,7 @@ ways. The first that is present wins:
 | `render` | `--render` / `--raw` | `ONTODAG_SURFACE` | readable or canonical names (§5.5) |
 | `bee_api` | `--bee-api URL` | `BEE_API` | Bee node endpoint (§8) |
 | `bee_batch` | `--bee-batch ID` | `BEE_BATCH` | postage batch paying for Swarm writes |
-| `bee_signer` | `--bee-signer KEY` | `BEE_SIGNER` | key that publishes the root to a signed feed |
+| `bee_signer` | `--bee-signer KEY` | `BEE_SIGNER` | key that publishes the root to a signed feed (§8, *Making a signing key*) |
 
 The layers differ in **how long they last**, which is the useful way to choose
 between them: a flag is for one command, an environment variable for one shell,
@@ -1077,6 +1139,14 @@ store = /home/you/.ontodag/store.od
 `auto` is a real value, not a missing one: it means *decide from whether output
 is a terminal*. Setting `limit` or `render` explicitly overrides that decision
 in both directions.
+
+One setting reads back differently from how it is written. `bee_signer` is a
+private key, and `odag set` is what you run to see your configuration, so its
+output would otherwise end up in scrollback and screen shares. A configured
+signer therefore shows as `<hidden, ends 3f9c>` — enough to confirm one is set
+and to tell two apart. The config file remains the place to read the real value
+from, and `odag` writes that file owner-only (`0600`). See §8, *Making a signing
+key*, for generating one without displaying it.
 
 The flags all go **before** the command (`odag -n 5 get Japan`), where they
 apply to every command in a batch or interactive session; `get`, `list` and

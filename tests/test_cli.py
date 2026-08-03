@@ -1096,3 +1096,107 @@ class TestConfigSecrecy(unittest.TestCase):
         _run(["set", "bee_batch", "c0ffee"], session)
         _code, out = _run(["set", "bee_batch"], session)
         self.assertEqual(out, "bee_batch = c0ffee\n")
+
+
+class TestGenerateSigner(unittest.TestCase):
+    """`odag set bee_signer generate` — because the alternative was asking
+    people to type a shell incantation that produces 32 random bytes, which is
+    hostile and easy to get subtly wrong in a way that only fails later."""
+
+    _ENV = ("BEE_API", "BEE_BATCH", "BEE_SIGNER", "ONTODAG_HOME")
+
+    def setUp(self):
+        self._home = tempfile.TemporaryDirectory()
+        self._saved = {k: os.environ.get(k) for k in self._ENV}
+        for key in self._ENV:
+            os.environ.pop(key, None)
+        os.environ["ONTODAG_HOME"] = self._home.name
+
+    def tearDown(self):
+        for key, value in self._saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        self._home.cleanup()
+
+    def _session(self):
+        return cli.Session(cli._resolve_store(None))
+
+    def _set(self, *argv):
+        """Run `set`, returning (code, stdout, stderr)."""
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.dispatch(["set", *argv], self._session())
+        return code, out.getvalue(), err.getvalue()
+
+    def test_it_generates_a_usable_key(self):
+        code, out, _err = self._set("bee_signer", "generate")
+        self.assertEqual((code, out), (0, ""))      # silent on stdout
+        key = cli._read_config()["bee_signer"]
+        self.assertEqual(len(key), 64)
+        from bee.swarm.keys import PrivateKey
+        PrivateKey.from_hex(key)                    # the real parser accepts it
+
+    def test_two_generations_differ(self):
+        self._set("bee_signer", "generate")
+        first = cli._read_config()["bee_signer"]
+        self._set("bee_signer", "generate", "--force")
+        self.assertNotEqual(cli._read_config()["bee_signer"], first)
+
+    def test_the_key_is_never_printed(self):
+        _code, out, err = self._set("bee_signer", "generate")
+        key = cli._read_config()["bee_signer"]
+        self.assertNotIn(key, out)
+        self.assertNotIn(key, err)
+        self.assertIn(f"ends {key[-4:]}", err)      # only the tail, to identify
+
+    def test_it_says_where_the_key_went_and_to_back_it_up(self):
+        """A secret the user will never be shown again is the one case where
+        silence is unhelpful."""
+        _code, _out, err = self._set("bee_signer", "generate")
+        self.assertIn(cli._config_path(), err)
+        self.assertIn("back it up", err)
+
+    def test_the_file_is_owner_only(self):
+        self._set("bee_signer", "generate")
+        self.assertEqual(os.stat(cli._config_path()).st_mode & 0o777, 0o600)
+
+    def test_replacing_a_key_is_refused_by_default(self):
+        self._set("bee_signer", "generate")
+        original = cli._read_config()["bee_signer"]
+        code, _out, err = self._set("bee_signer", "generate")
+        self.assertEqual(code, 1)
+        self.assertIn("--force", err)
+        self.assertIn("strand", err)
+        # and it really did not touch the stored key
+        self.assertEqual(cli._read_config()["bee_signer"], original)
+
+    def test_force_replaces_it(self):
+        self._set("bee_signer", "generate")
+        original = cli._read_config()["bee_signer"]
+        code, _out, _err = self._set("bee_signer", "generate", "--force")
+        self.assertEqual(code, 0)
+        self.assertNotEqual(cli._read_config()["bee_signer"], original)
+
+    def test_it_warns_when_the_environment_would_win(self):
+        os.environ["BEE_SIGNER"] = "ab" * 32
+        _code, _out, err = self._set("bee_signer", "generate")
+        self.assertIn("BEE_SIGNER", err)
+        self.assertIn("outranks", err)
+
+    def test_a_malformed_key_is_refused_at_set_time(self):
+        """The failure a real user hit: a stray character on a paste gives 65
+        characters, and without this it is accepted here and blows up later at
+        the first command that opens the store."""
+        code, _out, err = self._set("bee_signer", "a" * 65)
+        self.assertEqual(code, 1)
+        self.assertIn("64 characters", err)
+        self.assertIn("generate", err)              # points at the easy way
+        self.assertNotIn("bee_signer", cli._read_config())
+
+    def test_a_real_key_is_still_accepted_either_spelling(self):
+        for value in ("cd" * 32, "0x" + "cd" * 32):
+            code, _out, _err = self._set("bee_signer", value, "--force")
+            self.assertEqual(code, 0, value)
+            self.assertEqual(cli._read_config()["bee_signer"], value)
