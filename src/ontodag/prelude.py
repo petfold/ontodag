@@ -27,7 +27,13 @@ from ontodag.dag import OntoDAG
 # canonical fingerprint, so a bump is visible, never silent.
 # v2 (2026-08-01, UNITS.md D7): heads for the everyday families the full
 # unit table (registry v3) brought in.
-PRELUDE_VERSION = 2
+# v3 (2026-08-03, registry 4.1 / EVOLUTION.md §3): the count kind and the
+# `count` head — whole numbers >= 1 of discrete things; count(0) refuses
+# (an absence claim), fractions refuse (continuous stuff has dimensional
+# heads). The kind can later gain an `integer-valued-dimension` parent
+# additively when the math reflection lands (kind resolution stops at
+# kind nodes, so structure above them is invisible to it).
+PRELUDE_VERSION = 3
 
 DECLARATIONS = (
     # the kind registry (names dimensions.py recognizes)
@@ -36,6 +42,7 @@ DECLARATIONS = (
     ("calendar-dimension", ("dimension",)),
     ("prefix-dimension", ("dimension",)),
     ("dominance-dimension", ("dimension",)),
+    ("count-dimension", ("dimension",)),
     # everyday heads, one per family where that is the obvious reading
     ("weight", ("linear-dimension",)),      # mass, anchored at kg
     ("length", ("linear-dimension",)),      # anchored at m
@@ -46,6 +53,7 @@ DECLARATIONS = (
     ("pressure", ("linear-dimension",)),    # anchored at Pa; psi welcome
     ("temperature", ("linear-dimension",)), # kelvin-only (UNITS.md §2)
     ("energy", ("linear-dimension",)),      # anchored at J
+    ("count", ("count-dimension",)),        # whole numbers of things, >= 1
     ("time", ("calendar-dimension",)),      # 2026 means the year
     ("geo", ("prefix-dimension",)),         # geohash-style cells
     ("size", ("dominance-dimension",)),     # does-it-fit tuples

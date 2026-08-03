@@ -592,12 +592,21 @@ What to know:
   have to memorize any of this: typing `price(5USD)` before adopting a pack
   refuses with the exact command (`odag pack fiat-iso4217`). Run `odag prelude` for the everyday
   dimensions and see the generated docs/UNIT_TABLE.md for the full listing.
-- **Two more kinds**: `prefix-dimension` for hierarchical codes
-  (`geo(u2ed)` is inside `geo(u2)` — geohash cells, handy for "near Tokyo"), and
+- **Three more kinds**: `prefix-dimension` for hierarchical codes
+  (`geo(u2ed)` is inside `geo(u2)` — geohash cells, handy for "near Tokyo"),
   `dominance-dimension` for does-it-fit tuples
-  (`size(19x23x39cm)` fits `size(20x30x40cm)` — cabin baggage, rotation free).
-  `linear-dimension` is the fourth: numbers with units, which is what
-  `weight(3kg)` above uses.
+  (`size(19x23x39cm)` fits `size(20x30x40cm)` — cabin baggage, rotation free),
+  and `count-dimension` for whole numbers of discrete things
+  (`count(3)` is below `count(2..)` — "at least two"; the prelude's `count`
+  head uses it). `linear-dimension` is the fifth: numbers with units, which
+  is what `weight(3kg)` above uses.
+- **Counts are whole and start at one.** `count(2dz)` is fine (that's 24);
+  `count(2.5)` refuses — continuous stuff belongs under a dimensional head
+  like `weight` or `volume`. `count(0)` also refuses, with a reason worth
+  knowing: "zero of them" is an *absence* claim, and an open-world store
+  cannot assert absence — omit the claim instead. A pleasant consequence:
+  `count(1..)` ("at least one") is exactly the same constraint as saying
+  nothing at all.
 - **A point is not a range.** `weight(3kg)` is *not* below `weight(5kg)` —
   a 3 kg bag is not a special case of a 5 kg one. Use `weight(..5kg)`.
 - **An item sits in the intersection of its parents**, so filing one thing

@@ -399,3 +399,48 @@ have not thought of yet.
   bump the minor and interoperate — old readers refuse unknown spellings
   as input, loudly, but read all stored data. Makes classes A/B/D formal
   non-events.
+
+## 11. Addendum: registry 4.1 — the count kind
+(2026-08-03, accepted by Peter in the BINDING.md/EVOLUTION.md session)
+
+A fifth kind, `count-dimension`: linear over the dimensionless `count`
+family with one added rule — **the scaled value must be a whole number
+≥ 1**. `count(3)`, `count(2..)`, `count(2dz)` (= 24, an input courtesy
+that renders back as the bare integer) all work; three refusals teach:
+
+- **`count(0)`** — a zero multiplicity is an *absence* claim ("there are
+  none"), which an open-world store cannot assert; the error says to omit
+  the claim, or ask the closed-world question at a pinned root (the as-of
+  clause). With 1 as the floor, `count(1..)` ("at least one") coincides
+  exactly with the coordinate being absent — the lattice top is the plain
+  existential.
+- **fractions** (`count(1/2)`, `count(50pct)`) — counts are whole numbers
+  of discrete things; continuous quantities have dimensional heads
+  (weight, volume). This is what makes `count` semantically distinct from
+  a plain linear head over bare numbers, and why it earns a kind: per-head
+  constraints don't exist and the bare-number suffix is globally owned by
+  one family, so the kind is the only place integrality can attach
+  (the below-absolute-zero refusal is the precedent).
+- **units** (`count(3kg)`) — quantities of stuff go under that family's
+  own head.
+
+The floor is semantic, not cosmetic: `count(..5) ⊑ count(1..)` holds
+(everything in a count space is ≥ 1) where plain linear's 0-floor rightly
+denies it; `count(..5)` and `count(1..5)` are one denotation and
+canonicalize to one name. Counts share linear's space tag
+(`linear:count`), so a bare-number linear head can be re-declared under
+the count kind without a stored name changing — the count grammar is a
+subset of the linear one. Kind resolution stops at kind nodes, so
+`count-dimension` can later gain an `integer-valued-dimension` parent
+additively when the math reflection of EVOLUTION.md §3 lands.
+
+Vocabulary is untouched (no new suffixes), but a new kind is
+order-affecting machinery on names that previously refused — additive,
+so **registry "4.1"** per D10, interoperating with 4.0 stores. Prelude v3
+declares `count-dimension` and the everyday `count` head (golden root
+re-pinned in `tests/test_prelude.py`). Deliberately **no `amount` head**:
+a second bare-number head would be a G1 synonym hazard (`count(2)` vs
+`amount(2)` never compare across heads), and continuous stuff already has
+dimensional heads; anyone needing signed or rational bare numbers can
+declare their own head under `linear-dimension` — which stays exactly as
+permissive as before.

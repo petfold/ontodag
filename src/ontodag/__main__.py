@@ -1200,7 +1200,10 @@ exact unit works, psi to shaku — see docs/UNITS.md); ranges
 are lo..hi with either end open. For dates use calendar-dimension
 instead of linear-dimension: then 'time(2026)' is the year,
 'time(2026-08)' the month, 'time(2026-08-15)' the day, and each
-contains the finer ones. See docs/DIMENSIONS.md.
+contains the finer ones. For whole numbers of things use the prelude's
+count head: put bouquet 'count(24)', get 'count(20..)' — counts start
+at 1 (count(0) would claim an absence, which an open-world store
+cannot assert) and fractions refuse. See docs/DIMENSIONS.md.
 
 Output for people vs output for programs: on a terminal, names print in
 friendly spellings — weight(3kg), time(2026) — and long answers stop at 50

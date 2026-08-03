@@ -467,5 +467,44 @@ class TestCalendarDimensionInDAG(unittest.TestCase):
             self.dag.put("impossible.pdf", ["time(2025)", "time(2026)"])
 
 
+class TestCountDimensionInDAG(unittest.TestCase):
+    """Registry 4.1: the multiplicity coordinate of BINDING.md §5, in the
+    graph — counts as ordinary parametric values with the whole->=1 rule,
+    alongside plain multi-parent taxonomy."""
+
+    def setUp(self):
+        self.dag = OntoDAG()
+        self.dag.put("dimension", [])
+        self.dag.put("count-dimension", ["dimension"])
+        self.dag.put("count", ["count-dimension"])
+        self.dag.put("rose", [])
+        self.dag.put("red", [])
+        self.dag.put("red-rose", ["rose", "red"])
+
+    def test_bouquet_multiplicity_queries(self):
+        self.dag.put("bq", ["red-rose", "count(2dz)"])
+        self.assertTrue(self.dag.is_below("bq", "count(2..)"))
+        self.assertTrue(self.dag.is_below("bq", "count(24)"))
+        self.assertFalse(self.dag.is_below("bq", "count(25..)"))
+        self.assertIn("bq", names(self.dag.get(["rose", "count(20..)"])))
+
+    def test_zero_refused_at_put_and_query(self):
+        with self.assertRaises(ValueError):
+            self.dag.put("empty", ["count(0)"])
+        with self.assertRaises(ValueError):
+            self.dag.is_below("rose", "count(..0)")
+
+    def test_the_top_is_the_plain_existential(self):
+        self.dag.put("bq", ["count(3)"])
+        self.assertTrue(self.dag.is_below("bq", "count(1..)"))
+
+    def test_conflicting_kinds_surface_loudly(self):
+        self.dag.put("linear-dimension", ["dimension"])
+        self.dag.put("count", ["linear-dimension"])   # now inherits both
+        with self.assertRaises(ValueError) as ctx:
+            self.dag.put("x", ["count(3)"])
+        self.assertIn("multiple kinds", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

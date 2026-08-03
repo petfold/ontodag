@@ -8,7 +8,7 @@ import pytest
 
 from ontodag import dimensions as dims
 from ontodag.dimensions import (
-    KIND_CALENDAR, KIND_DOMINANCE, KIND_LINEAR, KIND_PREFIX,
+    KIND_CALENDAR, KIND_COUNT, KIND_DOMINANCE, KIND_LINEAR, KIND_PREFIX,
     canonicalize, contains, intersect, space_of, split_term,
 )
 
@@ -333,13 +333,98 @@ class TestCalendarCanonicalization:
         assert KIND_CALENDAR in message
 
 
+class TestCountKind:
+    """Registry 4.1 (EVOLUTION.md §3 / BINDING.md §9.5): whole numbers
+    >= 1 of discrete things. Zero is an absence claim and refuses;
+    fractions refuse (continuous stuff has dimensional heads); the floor
+    is 1, so an omitted lower end IS 1 — one denotation, one name."""
+
+    @pytest.mark.parametrize("raw,canonical", [
+        ("count(3)", "count(3)"),
+        ("count(3.0)", "count(3)"),
+        ("count(03)", "count(3)"),
+        ("count(2dz)", "count(24)"),          # input courtesy, bare output
+        ("count(200pct)", "count(2)"),        # whole after scaling: fine
+        ("count(2.5dz)", "count(30)"),
+        ("count(..5)", "count(..5)"),
+        ("count(1..5)", "count(..5)"),        # the floor collapses lo == 1
+        ("count(1..)", "count(1..)"),         # bare `..` invalid: keep lo
+        ("count(2..)", "count(2..)"),
+        ("count(3..3)", "count(3)"),          # degenerate -> point
+        ("count(2..1dz)", "count(2..12)"),
+    ])
+    def test_canonicalization(self, raw, canonical):
+        assert canonicalize(raw, KIND_COUNT) == canonical
+
+    @pytest.mark.parametrize("raw,teaching", [
+        ("count(0)", "absence claim"),        # negation, refused loudly
+        ("count(..0)", "absence claim"),
+        ("count(0..5)", "absence claim"),
+        ("count(1/2)", "not a whole count"),
+        ("count(2.5)", "not a whole count"),
+        ("count(50pct)", "not a whole count"),
+        ("count(3kg)", "unit family"),        # stuff has dimensional heads
+        ("count(-2)", "negative"),
+        ("count(5..2)", "empty range"),
+        ("count(..)", "at least one end"),
+    ])
+    def test_refusals_teach(self, raw, teaching):
+        with pytest.raises(ValueError) as excinfo:
+            canonicalize(raw, KIND_COUNT)
+        assert teaching in str(excinfo.value)
+
+    def test_the_floor_is_semantic_not_cosmetic(self):
+        # Under the count kind every value is >= 1, so "at most five"
+        # sits inside "at least one" — which plain linear (floor 0)
+        # rightly denies. This is the one place the kinds' orders differ.
+        assert contains("count(1..)", "count(..5)", KIND_COUNT)
+        assert not contains("n(1..)", "n(..5)", KIND_LINEAR)
+        # And the lattice top coincides with the absent coordinate:
+        assert contains("count(1..)", "count(3)", KIND_COUNT)
+
+    def test_contains_and_intersect_match_the_integer_oracle(self):
+        # Materialized sets over 1..24 — the independent-oracle style of
+        # the other kinds' tests.
+        universe = set(range(1, 25))
+        terms = {
+            "count(2)": {2}, "count(3)": {3}, "count(12)": {12},
+            "count(..5)": set(range(1, 6)),
+            "count(2..)": set(range(2, 25)),
+            "count(3..12)": set(range(3, 13)),
+            "count(1..)": universe,
+        }
+        for (a, set_a), (b, set_b) in itertools.product(
+                terms.items(), repeat=2):
+            assert contains(a, b, KIND_COUNT) == (set_b <= set_a), (a, b)
+            met = intersect(a, b, KIND_COUNT)
+            if not (set_a & set_b):
+                assert met is None, (a, b)
+            else:
+                assert met == canonicalize(met, KIND_COUNT), (a, b)
+
+    def test_disjoint_scalars_meet_empty(self):
+        assert intersect("count(2)", "count(3)", KIND_COUNT) is None
+        assert intersect("count(..2)", "count(4..)", KIND_COUNT) is None
+        assert intersect("count(..5)", "count(3..)",
+                         KIND_COUNT) == "count(3..5)"
+        # lo == 1 in a computed meet renders canonically too:
+        assert intersect("count(1..)", "count(..5)",
+                         KIND_COUNT) == "count(..5)"
+
+    def test_shares_the_linear_count_space_tag(self):
+        # Re-declaring a bare-number linear head under the count kind
+        # leaves stored names valid (the count grammar is a subset).
+        assert space_of("count(3)", KIND_COUNT) == "linear:count"
+
+
 class TestRegistry:
     def test_reserved_names(self):
         assert dims.KINDS == {"linear-dimension", "prefix-dimension",
-                              "dominance-dimension", "calendar-dimension"}
+                              "dominance-dimension", "calendar-dimension",
+                              "count-dimension"}
         assert dims.DIMENSION_ROOT == "dimension"
         # MAJOR.MINOR since v3 (UNITS.md D10): same major = same
         # canonical-name arithmetic; minors add vocabulary only.
-        assert dims.REGISTRY_VERSION == "4.0"
+        assert dims.REGISTRY_VERSION == "4.1"
         assert dims.registry_compatible("4.7")
         assert not dims.registry_compatible("3.2")

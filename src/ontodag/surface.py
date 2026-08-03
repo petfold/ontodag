@@ -159,6 +159,10 @@ def _friendly_dominance(denotation, units=None):
 def _friendly_param(param, kind, units=None):
     if kind == _dims.KIND_PREFIX:
         return param  # already the friendliest admissible spelling
+    if kind == _dims.KIND_COUNT:
+        # Bare whole numbers are already the friendliest spelling — never
+        # `2dz` for 24: dozens are an input courtesy, not a display unit.
+        return _dims._render(_dims._denotation(param, kind, units), kind)
     if kind == _dims.KIND_DOMINANCE:
         return _friendly_dominance(_dims._parse_dominance(param, units),
                                    units)

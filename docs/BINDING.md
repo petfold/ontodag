@@ -249,8 +249,12 @@ query legs, join into journeys) or true nested parsing in the core.
    (`unit-declaration`-style bundle-head declarations that travel with
    the data), and does PACKS.md's collision analysis carry over
    unchanged?
-5. **The count head**: declare `count` in the prelude? Started as "one
-   declaration away", but the discussion deepened (2026-08-03): the
+5. ~~**The count head**~~ **DONE (2026-08-03): registry 4.1 + prelude
+   v3** — `count-dimension` kind (whole numbers ≥ 1, teaching refusals
+   for zero/fractions/units), `count` head in the prelude, golden root
+   re-pinned; design record UNITS.md §11. The §5 bouquet lines can now
+   be written today. History of the decision, kept because the
+   reasoning generalizes: the
    bare-number family admits all rationals and suffixes are globally
    owned, so natural-number semantics needs a `count-dimension` *kind*
    (per-head constraints don't exist; per-family can't split count from

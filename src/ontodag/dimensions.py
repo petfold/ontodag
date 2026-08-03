@@ -54,7 +54,7 @@ from fractions import Fraction
 #      MAJOR because two canonical anchors change and bare C/F change
 #      meaning: a 3.x store carrying bare-C/F values must rewrite them to
 #      coulomb/farad spellings before an ontodag.migrate replay).
-REGISTRY_VERSION = "4.0"
+REGISTRY_VERSION = "4.1"
 
 
 def registry_compatible(version, other=None):
@@ -82,8 +82,19 @@ KIND_DOMINANCE = "dominance-dimension"
 # so a store that declared `time -> linear-dimension` can be re-declared under
 # this kind without a single stored name changing.
 KIND_CALENDAR = "calendar-dimension"
-KINDS = frozenset({KIND_LINEAR, KIND_PREFIX, KIND_DOMINANCE, KIND_CALENDAR})
+# Count is linear over the dimensionless family with one added rule: the
+# scaled value must be a whole number >= 1 (registry 4.1, EVOLUTION.md §3 /
+# BINDING.md §9.5). Zero is refused because a zero multiplicity is an
+# absence claim — negation, which an open-world store cannot assert — and
+# with 1 as the floor, `count(1..)` (at least one) coincides exactly with
+# the coordinate being absent: the lattice top is the plain existential.
+# An unbounded lower end therefore normalizes to 1 the way plain numeric
+# families normalize theirs to 0 (`count(..5)` == `count(1..5)`, one name).
+KIND_COUNT = "count-dimension"
+KINDS = frozenset({KIND_LINEAR, KIND_PREFIX, KIND_DOMINANCE, KIND_CALENDAR,
+                   KIND_COUNT})
 _LINEARISH = frozenset({KIND_LINEAR, KIND_CALENDAR})
+_INTERVALISH = _LINEARISH | {KIND_COUNT}
 
 
 # --------------------------------------------------------------------------- #
@@ -487,6 +498,50 @@ def _parse_calendar(param):
     return _TIME, _calendar_end(param, "lo"), _calendar_end(param, "hi")
 
 
+def _count_value(text, units=None):
+    """One count end -> a whole Fraction >= 1, with teaching refusals for
+    the three ways a count can go wrong (unit, fraction, zero)."""
+    family, value = _parse_scalar(text, units)
+    if family != "count":
+        raise ValueError(
+            f"{text!r} carries the {family!r} unit family — a count is a "
+            f"bare whole number of discrete things; for a quantity of "
+            f"stuff use that family's own head")
+    if value == 0:
+        raise ValueError(
+            f"{text!r} is a zero count — an absence claim ('there are "
+            f"none'), which an open-world store cannot assert; omit the "
+            f"claim instead, or ask the closed-world question at a "
+            f"pinned root (the as-of clause)")
+    if value.denominator != 1:
+        raise ValueError(
+            f"{text!r} is not a whole count (= {_fraction_text(value)}) — "
+            f"counts are whole numbers of discrete things; for continuous "
+            f"quantities use a dimensional head (weight, volume, ...)")
+    return value
+
+
+def _parse_count(param, units=None):
+    """-> ("count", lo, hi); whole numbers, closed interval, None = no
+    upper bound. The lower bound is never None: counts start at one, so
+    an omitted lower end IS 1 (same normalization move as the numeric
+    families' 0 — one denotation, one canonical name)."""
+    if ".." in param:
+        parts = param.split("..")
+        if len(parts) != 2:
+            raise ValueError(f"malformed range {param!r}")
+        lo_text, hi_text = parts
+        if not lo_text and not hi_text:
+            raise ValueError(f"range {param!r} needs at least one end")
+        lo = _count_value(lo_text, units) if lo_text else Fraction(1)
+        hi = _count_value(hi_text, units) if hi_text else None
+        if hi is not None and lo > hi:
+            raise ValueError(f"empty range {param!r} (lo > hi)")
+        return "count", lo, hi
+    value = _count_value(param, units)
+    return "count", value, value
+
+
 def _parse_dominance(param, units=None):
     """-> (family, tuple sorted descending). Units propagate right-to-left
     (`390x230x190mm`: the trailing unit covers unitless components); no unit
@@ -547,11 +602,27 @@ def _render_linear(family, lo, hi):
     return f"{lo_text}..{hi_text}"
 
 
+def _render_count(family, lo, hi):
+    """Counts render like linear ranges, except the floor is 1, not 0:
+    `count(1..5)` and `count(..5)` are one denotation, spelled `..5` —
+    unless the upper end is also unbounded, where `1..` stays parseable
+    (a bare `..` is invalid)."""
+    if lo == hi:
+        return _render_scalar(family, lo)
+    if lo == 1 and hi is not None:
+        lo = None
+    lo_text = _render_scalar(family, lo) if lo is not None else ""
+    hi_text = _render_scalar(family, hi) if hi is not None else ""
+    return f"{lo_text}..{hi_text}"
+
+
 def _denotation(param, kind, units=None):
     if kind == KIND_CALENDAR:
         return _parse_calendar(param)
     if kind == KIND_LINEAR:
         return _parse_linear(param, units)
+    if kind == KIND_COUNT:
+        return _parse_count(param, units)
     if kind == KIND_DOMINANCE:
         return _parse_dominance(param, units)
     if kind == KIND_PREFIX:
@@ -562,6 +633,8 @@ def _denotation(param, kind, units=None):
 def _render(denotation, kind):
     if kind in _LINEARISH:
         return _render_linear(*denotation)
+    if kind == KIND_COUNT:
+        return _render_count(*denotation)
     if kind == KIND_DOMINANCE:
         family, values = denotation
         suffix = _ANCHOR.get(family, family)
@@ -585,10 +658,13 @@ def space_of(name, kind, units=None):
     """Value-space tag for put-time consistency checks: every value of one
     head must share it (one family, one arity)."""
     denotation = _denotation(split_term(name)[1], kind, units)
-    if kind in _LINEARISH:
+    if kind in _INTERVALISH:
         # Calendar shares linear's tag on purpose: the two describe the same
         # value space, so re-declaring a time dimension from one to the other
-        # leaves every stored value and every canonical name untouched.
+        # leaves every stored value and every canonical name untouched. Count
+        # shares it for the same reason: a linear head over bare numbers can
+        # be re-declared under the count kind without a stored name changing
+        # (the count grammar admits a subset of the linear one).
         return f"linear:{denotation[0]}"
     if kind == KIND_DOMINANCE:
         return f"dominance:{denotation[0]}:{len(denotation[1])}"
@@ -628,7 +704,7 @@ def contains(outer, inner, kind, units=None):
     incomparable, never mutually contained (that is what keeps the combined
     relation a partial order — DIMENSIONS.md §11, I1)."""
     _, param_outer, param_inner = _same_head(outer, inner)
-    if kind in _LINEARISH:
+    if kind in _INTERVALISH:
         fam_o, lo_o, hi_o = _denotation(param_outer, kind, units)
         fam_i, lo_i, hi_i = _denotation(param_inner, kind, units)
         if fam_o != fam_i:
@@ -655,7 +731,7 @@ def intersect(a, b, kind, units=None):
     the planner pre-intersects same-head query terms with this, and the
     disjoint-parents guard raises on None (DIMENSIONS.md §8, §9)."""
     head, param_a, param_b = _same_head(a, b)
-    if kind in _LINEARISH:
+    if kind in _INTERVALISH:
         fam_a, lo_a, hi_a = _denotation(param_a, kind, units)
         fam_b, lo_b, hi_b = _denotation(param_b, kind, units)
         if fam_a != fam_b:
@@ -664,7 +740,7 @@ def intersect(a, b, kind, units=None):
         hi = hi_a if hi_b is None else hi_b if hi_a is None else min(hi_a, hi_b)
         if lo is not None and hi is not None and lo > hi:
             return None
-        return f"{head}({_render_linear(fam_a, lo, hi)})"
+        return f"{head}({_render((fam_a, lo, hi), kind)})"
     if kind == KIND_DOMINANCE:
         fam_a, values_a = _parse_dominance(param_a, units)
         fam_b, values_b = _parse_dominance(param_b, units)

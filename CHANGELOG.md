@@ -14,6 +14,23 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Added
+
+- **The count kind (registry 4.1, prelude v3).** A fifth dimension kind,
+  `count-dimension`: whole numbers ≥ 1 of discrete things — `count(3)`,
+  `count(2..)` ("at least two"), `count(2dz)` (= 24). Three teaching
+  refusals: `count(0)` (a zero multiplicity is an absence claim, which an
+  open-world store cannot assert), fractions (continuous stuff has
+  dimensional heads), and unit-bearing values. The floor is semantic:
+  `count(..5) ⊑ count(1..)` is a theorem, and `count(1..)` coincides with
+  the coordinate being absent. The prelude declares the kind and an
+  everyday `count` head (v3, golden root re-pinned). Registry minor 4.0 →
+  4.1: additive, interoperates with 4.0 stores; counts share linear's
+  space tag so a bare-number linear head can be re-declared under the
+  count kind without a stored name changing. UNITS.md §11 is the design
+  record; the multiplicity use case (bouquets: 2 red roses as
+  `part`-style lines) is BINDING.md §5.
+
 ### Changed
 
 - **`ontodag[all]` now means all** — it installs `swarm` and `web` alongside

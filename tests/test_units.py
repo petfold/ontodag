@@ -44,7 +44,7 @@ class TestTable(unittest.TestCase):
             self.assertEqual(once, expected, suffix)
 
     def test_registry_version_and_compatibility(self):
-        self.assertEqual(REGISTRY_VERSION, "4.0")
+        self.assertEqual(REGISTRY_VERSION, "4.1")
         self.assertTrue(registry_compatible("4.9"))
         self.assertFalse(registry_compatible("3.2"))
         self.assertFalse(registry_compatible("5.0"))

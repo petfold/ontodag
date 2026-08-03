@@ -279,6 +279,11 @@ provenance design's stance, earning its keep.
    "deprecate filing under the coarse node" — is deprecation a
    convention in docs, a provenance record type, or a node under a
    registry-known `deprecated` category?
-8. **Does BINDING.md's `count` decision proceed now** under
+8. ~~**Does BINDING.md's `count` decision proceed now** under
    `count-dimension` (the §3 decoupling says it can), or wait for the
-   math-pack scope question 3?
+   math-pack scope question 3?~~ **Proceeded (2026-08-03, Peter: "it's
+   safe to add count even if we may want to add more maths above it").**
+   Registry 4.1 + prelude v3: `count-dimension` (whole numbers ≥ 1;
+   `count(0)` refused as an absence claim; fractions refused), the
+   `count` head, golden root re-pinned. Design record: UNITS.md §11.
+   The future `integer-valued-dimension` parent remains an addition.
