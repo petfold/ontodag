@@ -941,3 +941,48 @@ class TestSwarmDoctor(unittest.TestCase):
                                return_value=None):
             _, text = self._diagnose(cli.Session(os.path.join(home, "s.od")))
         self.assertIn("rs:", text)
+
+    def test_a_healthy_node_is_reported_reachable(self):
+        """The bug this guards: reachability was asked of `/`, which Bee serves
+        as `text/plain` ("Ethereum Swarm Bee"), and the probe parsed every
+        response as JSON. So a healthy node raised JSONDecodeError and was
+        reported as "nothing answering" — and because the walk stops at the
+        first failure, that ended the diagnosis and told the user to start a
+        node that was already running.
+
+        It needs a real socket: any test that stubs `_bee_get` shares the
+        parsing assumption that was wrong, and sees nothing.
+        """
+        import http.server
+        import threading
+
+        class Bee(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):                       # noqa: N802
+                if self.path == "/":                # plain text, like Bee
+                    body, kind = b"Ethereum Swarm Bee\n", "text/plain"
+                elif self.path == "/health":
+                    body, kind = (b'{"status":"ok","version":"2.8.1"}',
+                                  "application/json")
+                else:
+                    self.send_error(404)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", kind)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):           # keep the test quiet
+                pass
+
+        server = http.server.HTTPServer(("127.0.0.1", 0), Bee)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            api = f"http://127.0.0.1:{server.server_port}"
+            checks = dict((label, ok) for ok, label, _ in cli._swarm_checks(api))
+        finally:
+            server.shutdown()
+            server.server_close()
+        self.assertTrue(checks.get("node reachable"), checks)
+        self.assertTrue(checks.get("node healthy"), checks)

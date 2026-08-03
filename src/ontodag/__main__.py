@@ -787,8 +787,15 @@ def _swarm_checks(api):
         return
     yield (True, "swarm extra installed", "requests, swarmfs, bee")
 
+    # Reachability is asked of /health, not of /: Bee serves the root as
+    # `text/plain` ("Ethereum Swarm Bee"), so parsing it as JSON raised
+    # JSONDecodeError and reported a perfectly healthy node as "nothing
+    # answering" — and since the walk stops at the first failure, that ended
+    # the diagnosis and told the user to start a node already running.
+    # /health answers JSON, and a 200 from it proves reachability anyway, so
+    # the two questions collapse into one honest check.
     try:
-        _bee_get(api, "/")
+        status = _bee_get(api, "/health").get("status", "?")
     except Exception as exc:                              # noqa: BLE001
         yield (False, "node reachable",
                f"nothing answering at {api} ({type(exc).__name__})\n"
@@ -796,12 +803,6 @@ def _swarm_checks(api):
                "    odag set bee_api http://HOST:1633\n" + _BEE_INSTALL)
         return
     yield (True, "node reachable", api)
-
-    try:
-        status = _bee_get(api, "/health").get("status", "?")
-    except Exception as exc:                              # noqa: BLE001
-        yield (False, "node healthy", f"/health failed ({exc})")
-        return
     yield (status == "ok", "node healthy", f"status={status}")
 
     # Peers connect long before the chainstate does, and uploads fail until

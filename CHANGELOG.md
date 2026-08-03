@@ -12,7 +12,15 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
-## [Unreleased]
+## [0.11.0] — 2026-08-03
+
+The install-and-try-it release. `pip install ontodag` no longer pulls 31 MB of
+compiled extensions and Java reasoners it never invokes, `rs:PATH` gives the
+canonical roots and snapshots on an ordinary directory with no node at all, and
+`odag swarm` walks the Swarm setup in dependency order when you do want one.
+Plus the native `.od` format learning to carry node metadata, which it should
+always have done — without it the text format could not represent a DAG that
+the recordstore backend can.
 
 ### Added
 
@@ -146,6 +154,17 @@ the version numbers appear in commit history and docs.
   still drops it. It lives on `EagerOntoDAG`, not on the node, so a plain
   `OntoDAG` has none to write — worth a separate pass rather than a partial
   one alongside this.
+- **`odag swarm` no longer reports a healthy node as unreachable.** The
+  reachability probe asked for `/` and parsed the reply as JSON, but Bee serves
+  its root as `text/plain` ("Ethereum Swarm Bee"), so a working node raised
+  `JSONDecodeError` and was reported as "nothing answering at …". Since the
+  walk stops at the first failure, that ended the diagnosis and advised
+  starting a node that was already running — the one thing a diagnostic must
+  never do. Reachability is now asked of `/health`, which answers JSON and
+  whose 200 proves reachability anyway, so two checks collapse into one honest
+  one. Caught only because the fix landed in the same session as a live node:
+  the regression test drives a real socket serving `text/plain` at `/`, since
+  anything that stubs the fetch helper shares the assumption that was wrong.
 - **The native store reads and writes UTF-8 explicitly** rather than relying
   on the platform's default encoding, which made a store containing a
   non-ASCII name unloadable on any system whose default is not UTF-8 — the
@@ -158,6 +177,17 @@ the version numbers appear in commit history and docs.
   IRI, so there is nothing to escape; the export now names the offending
   entries and points at Manchester or the native format, which carry any
   name. Found by the corpus above on its first run.
+
+### Notes
+
+- Registry unchanged at **4.0**; no migration.
+- The base-install change is **mildly breaking**: code that did
+  `pip install ontodag` and then used OWL, rendering, or a concrete record
+  store now needs `[owl]`, `[viz]` or `[store]`. Each of those paths raises an
+  error naming the extra rather than a bare `ModuleNotFoundError`.
+- `.od` stores written by this version carry `#:meta` lines. Older readers skip
+  them as comments and see the same edges they always did, so the files stay
+  readable by 0.10.x — without the metadata, exactly as before.
 
 ## [0.10.1] — 2026-08-02
 
