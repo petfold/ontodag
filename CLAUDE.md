@@ -337,6 +337,17 @@ Java reasoners); that was over-correction. The criterion, recorded for the
 next dependency question: *a dependency that changes what the package is by
 default earns its place; one that adds weight for a file format does not.*
 
+## Release state
+
+Latest published: **ontodag 0.13.0** (2026-08-03, by tag `v0.13.0` through
+the publish workflow — all four jobs green incl. the downstream ontodag-fs
+gate and the PyPI-serve verify). Release story: the count kind (registry
+4.1, prelude v3), ranges-as-uncertainty docs, REFERENCE.md + the pinning
+test + docs/plans/, `[all]` meaning all, the getting-a-node help. Earlier
+the same day: 0.11.0 and 0.12.0 (signing-key generation + key-leak fixes,
+rs: stores, the swarm doctor — see CHANGELOG.md, which is the authoritative
+release history).
+
 ## Documentation layout (2026-08-03)
 
 The docs follow the Diátaxis split, mapped in `docs/README.md` (one job per
