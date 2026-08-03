@@ -12,7 +12,7 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
-## [Unreleased]
+## [0.13.0] — 2026-08-03
 
 ### Added
 
@@ -42,16 +42,16 @@ the version numbers appear in commit history and docs.
   record; the multiplicity use case (bouquets: 2 red roses as
   `part`-style lines) is BINDING.md §5.
 
-### Changed
-
-- **`ontodag[all]` now means all** — it installs `swarm` and `web` alongside
-  `viz`, `owl` and `store`. It previously covered three of the five, which left
-  the one extra this project is most about as the one `[all]` did not deliver.
-  The narrow extras are unchanged, the base install stays lean, and `[test]`
-  still deliberately excludes `swarm` so CI keeps proving the suite passes when
-  Swarm is absent.
-
-### Added
+- **Ranges as honest uncertainty — documented.** A stored range is a claim
+  about bounds, and the machinery composes correctly around that reading:
+  `is_below` answers certain matches fail-closed, `get_overlapping` answers
+  possible ones, narrowing to the exact value later prunes the range edge
+  automatically while the old claim stays entailed, and a "correction"
+  outside the stated bounds refuses (vagueness is repairable by precision;
+  wrongness only by deliberate removal). New guide section with executed
+  snippets, including the two limits: ranges are bounds, never probability,
+  and overlapping same-head claims are not auto-combined (assert the meet
+  yourself).
 
 - **Help getting a node.** A "Getting a node" table in the User Guide §5.1 —
   Swarm Desktop, Bee on its own, or Freedom Browser's bundled node — and `odag
@@ -60,6 +60,15 @@ the version numbers appear in commit history and docs.
   `odag set bee_api http://127.0.0.1:11633`: a node that is running while
   `odag` reports nothing at Bee's default 1633 is the one failure that costs
   real time. OntoDAG against Ant is untested and the guide says so.
+
+### Changed
+
+- **`ontodag[all]` now means all** — it installs `swarm` and `web` alongside
+  `viz`, `owl` and `store`. It previously covered three of the five, which left
+  the one extra this project is most about as the one `[all]` did not deliver.
+  The narrow extras are unchanged, the base install stays lean, and `[test]`
+  still deliberately excludes `swarm` so CI keeps proving the suite passes when
+  Swarm is absent.
 
 ## [0.12.0] — 2026-08-03
 
