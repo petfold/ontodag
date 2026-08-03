@@ -214,7 +214,7 @@ setup — pick the route that matches what you actually want:
 | `owl` | OWL and Manchester import/export (§4.6) | `pip install "ontodag[owl]"` |
 | `swarm` | keeping a store on Ethereum Swarm (§5.1, §8) | `pip install "ontodag[swarm]"` |
 | `web` | the browser interface and REST API (§6) | `pip install "ontodag[web]"` |
-| `all` | viz + owl | `pip install "ontodag[all]"` |
+| `all` | every extra in this table — Swarm and web included | `pip install "ontodag[all]"` |
 
 Combine them in one spec: `pip install "ontodag[viz,owl]"`.
 
@@ -731,6 +731,34 @@ below — `bee_api`, `bee_batch` and `bee_signer`.
 Files ending in `.owl` or `.omn` are read and written as OWL / Manchester syntax
 instead of the native format — so `odag -f travel.omn get Flight` works directly on an
 ontology file, and `export`/`import` convert between them.
+
+**Getting a node.** Swarm stores talk to a node on your own machine; the
+dependencies are five seconds, the node is the part that takes a little
+patience (a fresh one needs a few minutes to sync before it answers, and an
+upload needs a funded [postage
+batch](https://docs.ethswarm.org/docs/develop/access-the-swarm/buy-a-stamp-batch)).
+Three ways in, easiest first:
+
+| Option | Good for | Where |
+| --- | --- | --- |
+| **Swarm Desktop** | first node, nothing to configure — bundles Bee with a UI for funding and stamps | [docs.ethswarm.org/docs/desktop/introduction](https://docs.ethswarm.org/docs/desktop/introduction/) ([download](https://www.ethswarm.org/build/desktop)) |
+| **Bee itself** | servers, always-on nodes, full control | [Bee quick start](https://docs.ethswarm.org/docs/bee/installation/quick-start) |
+| **Freedom Browser** | already browsing `bzz://` — it runs a bundled node for you | [freedombrowser.eth.limo](https://freedombrowser.eth.limo/), [source](https://github.com/solardev-xyz/freedom-browser) |
+
+Whichever you pick, `odag swarm` is the checklist: it reports the extra,
+whether the node answers, its chain and wallet state, and whether a usable
+postage batch exists — stopping at the first thing that needs doing, so you
+never guess which of the five it was. Two notes on the third option: Freedom
+bundles **Ant** (`antd`), a Bee-compatible node, and serves its API on
+`http://127.0.0.1:11633` rather than Bee's 1633 — so point `odag` at it with
+`odag set bee_api http://127.0.0.1:11633` (a second browser profile takes the
+next port up). We have not yet run OntoDAG against Ant; the API is
+Bee-compatible, so the store should work, but treat it as untried and please
+report what you find. Everything below is verified against Bee.
+
+**And if today is not the day for a node:** `odag set store rs:~/work/mydag`
+gives you canonical roots, snapshots, `sync` and certificates on local disk,
+with no node and no network. Moving to `swarm:NAME` later is a backend swap.
 
 **Storing on Swarm.** A store can also live on [Ethereum Swarm](https://www.ethswarm.org/)
 instead of a local file. It needs a few extra dependencies — install them once with
@@ -1599,7 +1627,7 @@ environment instead (§2). If you're working from a source checkout, either
 **"needs the `viz` extra" / "needs the `owl` extra" / "needs the `store` extra"**
 Not an error so much as an invoice: the base install is deliberately
 dependency-free, and the message names the extra to add — `pip install
-"ontodag[viz]"` and so on (§2). `ontodag[all]` covers the three.
+"ontodag[viz]"` and so on (§2). `ontodag[all]` covers every extra there is.
 
 **`graphviz.backend.execute.ExecutableNotFound: failed to execute 'dot'`**
 The Graphviz *system program* isn't installed (the Python package is just a

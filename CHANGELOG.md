@@ -12,6 +12,27 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Changed
+
+- **`ontodag[all]` now means all** — it installs `swarm` and `web` alongside
+  `viz`, `owl` and `store`. It previously covered three of the five, which left
+  the one extra this project is most about as the one `[all]` did not deliver.
+  The narrow extras are unchanged, the base install stays lean, and `[test]`
+  still deliberately excludes `swarm` so CI keeps proving the suite passes when
+  Swarm is absent.
+
+### Added
+
+- **Help getting a node.** A "Getting a node" table in the User Guide §5.1 —
+  Swarm Desktop, Bee on its own, or Freedom Browser's bundled node — and `odag
+  swarm` now points at the same three. Freedom runs **Ant** (`antd`,
+  Bee-compatible) on port **11633**, so both places name
+  `odag set bee_api http://127.0.0.1:11633`: a node that is running while
+  `odag` reports nothing at Bee's default 1633 is the one failure that costs
+  real time. OntoDAG against Ant is untested and the guide says so.
+
 ## [0.12.0] — 2026-08-03
 
 Signing keys you do not have to handle. `odag set bee_signer generate` makes one

@@ -775,10 +775,15 @@ def cmd_below(args, session, out):
 # purpose: it has to keep working when the swarm extra is the missing piece.
 
 _BEE_INSTALL = (
-    "  install Bee: "
-    "https://docs.ethswarm.org/docs/bee/installation/quick-start\n"
-    "  or Swarm Desktop, which bundles a node: "
-    "https://www.ethswarm.org/build/desktop"
+    "  no node yet? Swarm Desktop is the easiest, it bundles one:\n"
+    "    https://docs.ethswarm.org/docs/desktop/introduction/\n"
+    "  Bee on its own (servers, always-on nodes):\n"
+    "    https://docs.ethswarm.org/docs/bee/installation/quick-start\n"
+    # Freedom bundles Ant, which is Bee-compatible but listens on 11633, so
+    # naming the port here saves the one confusing failure: a node that is
+    # running while odag reports nothing at 1633.
+    "  already running Freedom Browser? it has a node on port 11633:\n"
+    "    odag set bee_api http://127.0.0.1:11633"
 )
 
 

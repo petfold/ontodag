@@ -72,8 +72,16 @@ web = ["ontodag[viz,owl]", "flask", "dot2tex"]
 # exist earlier, and pip only warns on unknown extras; the floor is 0.16.0
 # now because ontodag.certificates consumes prove/verify_proof.)
 swarm = ["recordstore[bee,feeds,stamps]>=0.16.0"]
-# Everything a developer wants in one go.
-all = ["ontodag[viz,owl,store]"]
+# Everything, and it means everything: `all` is a promise about coverage, not
+# a curated selection. Leaving `swarm` out made it a lie about the one feature
+# this project is most about, and left the reader to notice that `[all]` still
+# could not reach a Bee node. It is heavier than the rest (`swarm-bee` brings
+# compiled coincurve/pycryptodome) — which is an argument for the base install
+# staying lean and for the narrow extras existing, not for `all` under-
+# delivering. Targets that cannot take a compiler (Pyodide, embedded) ask for
+# what they need; `test` deliberately stays without `swarm`, so CI keeps
+# proving the suite passes when Swarm is absent.
+all = ["ontodag[viz,owl,store,swarm,web]"]
 test = ["pytest", "ontodag[viz,owl,store]"]
 
 [project.scripts]
