@@ -252,9 +252,16 @@ query legs, join into journeys) or true nested parsing in the core.
 5. ~~**The count head**~~ **DONE (2026-08-03): registry 4.1 + prelude
    v3** — `count-dimension` kind (whole numbers ≥ 1, teaching refusals
    for zero/fractions/units), `count` head in the prelude, golden root
-   re-pinned; design record UNITS.md §11. The §5 bouquet lines can now
-   be written today. History of the decision, kept because the
-   reasoning generalizes: the
+   re-pinned; design record UNITS.md §11. Note what this does and does
+   not unlock: the *count coordinate* of the §5 lines exists now
+   (single-count items work: `bq ⊑ bouquet, red-rose, count(12)`), but
+   the `part(...)` bundles remain this document's unbuilt proposal —
+   and the flat spelling cannot substitute, since three counts on one
+   item are refused as provably disjoint (the §2 grouping problem in
+   miniature: without a bundle, nothing says which kind each count
+   belongs to). The mixed bouquet today is the legs pattern: one item
+   per part-line, joined at query time. History of the decision, kept
+   because the reasoning generalizes: the
    bare-number family admits all rationals and suffixes are globally
    owned, so natural-number semantics needs a `count-dimension` *kind*
    (per-head constraints don't exist; per-family can't split count from

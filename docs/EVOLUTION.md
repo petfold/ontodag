@@ -354,3 +354,21 @@ provenance design's stance, earning its keep.
     ordinal-scaled` nodes from day one (making the computed-values
     type check a graph lookup), or is that reflection deferred until
     computed values actually consume it?
+11. **Meet synthesis in `is_below`** (found 2026-08-03, the
+    ranges-as-uncertainty session): an item under two *overlapping*
+    same-head range claims — `count(20..30)` and `count(25..40)`, e.g.
+    from two writers via merge — is not answered below their meet
+    (`count(25..30)`), because the upward check compares ancestor terms
+    one at a time. Sound and fail-closed, but incomplete for
+    conjunctive entailment. Workaround (documented in the guide):
+    assert the meet explicitly, which prunes both originals. Candidate
+    fix: pre-intersect same-head ancestor terms (the planner already
+    pre-intersects same-head *query* terms — same `intersect`
+    machinery, other side of the check). Build it, or leave the
+    documented workaround?
+12. **A blessed shape for confidence**: ranges are bounds, never
+    probability (the guide now says so) — the lattice reads an interval
+    as committed truth, and "how sure the author was" belongs to the
+    trust stack. Should the provenance `ext` map get a *blessed*
+    confidence field shape (which factbond would price), or does
+    blessing anything invite confidence-in-the-graph creep?

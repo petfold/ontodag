@@ -637,6 +637,46 @@ Overlap can't be expressed as a category (it isn't transitive), which is why
 it's its own method rather than more `get` syntax; use it to generate
 candidates, then check the survivors exactly.
 
+**Ranges carry honest uncertainty.** A stored range is a claim about
+*bounds*: "the true value lies in here", nothing more. That makes it the
+right way to file something you haven't measured exactly — and the two query
+modes above turn out to be exactly the certain/possible pair uncertainty
+needs:
+
+```python
+dag.put("bouquet", ["count(20..30)"])   # didn't count — somewhere in there
+
+dag.is_below("bouquet", "count(10..)")  # True  — certain: every value the
+                                        #         bounds admit satisfies it
+dag.is_below("bouquet", "count(25..)")  # False — fail-closed: might be 22
+dag.get_overlapping("count(25..)")      # lists it — possibly
+
+dag.put("bouquet", ["count(24)"])       # counted at last — the range edge
+                                        # is pruned automatically, and the
+dag.is_below("bouquet", "count(20..30)")  # old claim stays True (entailed)
+
+dag.put("bouquet", ["count(35)"])       # outside your stated bounds:
+                                        # refused — provably disjoint
+```
+
+Narrowing uncertainty is therefore free and safe: put the exact value when
+you learn it, and the graph rewires itself while every earlier claim stays
+true. But a "correction" *outside* the bounds you stated refuses loudly —
+the store distinguishes being **vague** (repairable by more precision,
+forever) from being **wrong** (only repairable by deliberately removing the
+false claim). The discipline that follows: state bounds you are *sure* of,
+generously. `time(2026-08)` — "sometime in August" — has always worked the
+same way.
+
+Two things a range is not: it is not a probability (no most-likely value,
+no confidence level — the store reads your interval as committed truth, so
+if reality can fall outside it, the claim is false, not fuzzy; "how sure
+the author was" belongs with *who said it*, in the provenance layer), and
+two overlapping range claims on one item are not automatically combined —
+each is checked on its own, so if separate sources gave you `20..30` and
+`25..40`, assert the intersection `25..30` yourself to make the combined
+knowledge queryable (the graph then prunes both originals).
+
 The full design (why the order is computed rather than stored, and what that
 preserves) is in [DIMENSIONS.md](DIMENSIONS.md).
 
