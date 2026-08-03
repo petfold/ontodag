@@ -567,22 +567,57 @@ def _make_backend(spec):
 # --------------------------------------------------------------------------- #
 
 class Session:
+    """The store, opened lazily on first use.
+
+    Opening is I/O — for a `swarm:` spec, network I/O — so it belongs to
+    the commands that touch the store, where dispatch()'s error contract
+    already applies. Commands that never do (`help`, bare `canon`,
+    `set KEY VALUE`, `prelude --show`, `swarm`) must work with the node
+    down: a user whose node is unreachable and who types `odag help` to
+    find the way out has to get help, not the error they came to fix."""
+
     def __init__(self, spec):
-        self.switch(spec)
+        self.spec = spec
+        self._backend = None
+        self._dag = None
+
+    def _load(self):
+        backend = _make_backend(self.spec)
+        dag = backend.load()
+        self._backend, self._dag = backend, dag
+
+    @property
+    def backend(self):
+        if self._backend is None:
+            self._load()
+        return self._backend
+
+    @property
+    def dag(self):
+        if self._dag is None:
+            self._load()
+        return self._dag
 
     def switch(self, spec):
-        # Atomic: build and load first, assign only once nothing can fail. A
-        # store that won't open (node down) must leave the session on the one
-        # it already had, not half-switched to a backend whose load failed.
+        # Atomic, and deliberately EAGER: build and load first, assign only
+        # once nothing can fail. A store that won't open (node down) must
+        # leave the session on the one it already had, not half-switched to
+        # a backend whose load failed — and `set store` validating at set
+        # time is the feature.
         backend = _make_backend(spec)
         dag = backend.load()
-        self.spec, self.backend, self.dag = spec, backend, dag
+        self.spec, self._backend, self._dag = spec, backend, dag
 
     def save(self):
         self.backend.save(self.dag)
 
     def describe(self):
-        return self.backend.describe()
+        # Describing must not open the store (`odag set` runs with the node
+        # down). An unloaded session describes the spec it would open —
+        # the same string every backend's describe() echoes back.
+        if self._backend is None:
+            return self.spec
+        return self._backend.describe()
 
     def import_from(self, incoming):
         """Replace the store's contents with `incoming`, in place.
@@ -1501,14 +1536,10 @@ def main(argv=None):
         sys.stdout.write(HELP_TEXT)
         sys.exit(0)
 
-    # Opening the store is I/O like any command, and for a swarm: spec it is
-    # network I/O — so it gets the same treatment dispatch() gives commands:
-    # one line on stderr and a non-zero exit, never a traceback.
-    try:
-        session = Session(_resolve_store())
-    except (ValueError, OSError) as exc:
-        print(f"odag: {exc}", file=sys.stderr)
-        sys.exit(1)
+    # Constructing a Session does no I/O: the store opens lazily, on the
+    # first command that touches it, inside dispatch()'s error contract —
+    # so `odag help` works even when the configured store's node is down.
+    session = Session(_resolve_store())
 
     if not argv:
         _run_stream(session, sys.stdin, interactive=sys.stdin.isatty())

@@ -197,8 +197,8 @@ def _mem_swarm_session(shared):
     factory = lambda: RecordStore(shared["bytes"], pointer=shared["pointer"])
     session = cli.Session.__new__(cli.Session)
     session.spec = "swarm:t"
-    session.backend = cli.SwarmBackend("t", store_factory=factory)
-    session.dag = session.backend.load()
+    session._backend = cli.SwarmBackend("t", store_factory=factory)
+    session._dag = session._backend.load()
     return session
 
 
@@ -346,11 +346,13 @@ class TestSwarmMissingDependency(unittest.TestCase):
 
 class TestSwarmNodeDown(unittest.TestCase):
     """Opening a `swarm:NAME` store is network I/O, so it fails whenever the
-    node is down — and it happens in main(), before dispatch()'s handler. The
-    CLI contract (one line on stderr, non-zero exit) must hold there too, and
-    the message must name the way out: start the node, or use the local
-    default store. It must NOT quietly switch to the local store, which would
-    let two stores diverge with no signal about which one is authoritative."""
+    node is down. The store opens lazily — on the first command that touches
+    it, inside dispatch()'s handler — so the CLI contract (one line on
+    stderr, non-zero exit) holds, the message names the way out (start the
+    node, or use the local default store), and commands that never touch the
+    store (`help`, `set`) keep working with the node down. It must NOT
+    quietly switch to the local store, which would let two stores diverge
+    with no signal about which one is authoritative."""
 
     _ENV = ("ONTODAG_HOME", "BEE_API", "BEE_BATCH", "BEE_SIGNER")
 
@@ -433,10 +435,8 @@ class TestSwarmNodeDown(unittest.TestCase):
         err = io.StringIO()
         boom = self._aiohttp_style_refusal()
 
-        def raising_session(spec):
-            raise cli._swarm_open_error("pets", "http://localhost:1633", boom)
-
-        with mock.patch.object(cli, "Session", raising_session), \
+        with mock.patch.object(cli, "_make_backend", lambda spec: cli.SwarmBackend(
+                "pets", store_factory=self._raiser(boom))), \
              mock.patch.object(cli, "_resolve_store", lambda *a: "swarm:pets"), \
              redirect_stderr(err):
             with self.assertRaises(SystemExit) as ctx:
@@ -447,6 +447,35 @@ class TestSwarmNodeDown(unittest.TestCase):
         self.assertTrue(text.startswith("odag: "), text)
         self.assertNotIn("Traceback", text)
         self.assertIn("start your Bee node", text)
+
+    def test_help_and_set_work_with_the_node_down(self):
+        # The reason the store opens lazily: `odag help` is what a user
+        # types to find the way out, and `odag set store <local>` IS the
+        # way out — neither may fail because the node is unreachable.
+        from unittest import mock
+
+        boom = self._aiohttp_style_refusal()
+        with mock.patch.object(cli, "_make_backend", lambda spec: cli.SwarmBackend(
+                "pets", store_factory=self._raiser(boom))):
+            session = cli.Session("swarm:pets")
+
+            code, out = _run(["help"], session)
+            self.assertEqual(code, 0)
+            self.assertIn("Documentation:", out)
+
+            code, out = _run(["set"], session)          # show settings
+            self.assertEqual(code, 0)
+            self.assertIn("swarm:pets", out)            # described, unopened
+
+            code, _ = _run(["set", "limit", "10"], session)
+            self.assertEqual(code, 0)
+
+            # A command that DOES touch the store still gets the contract:
+            err = io.StringIO()
+            with redirect_stderr(err):
+                code, _ = _run(["get", "Dog"], session)
+            self.assertEqual(code, 1)
+            self.assertIn("start your Bee node", err.getvalue())
 
     def test_failed_switch_leaves_the_session_on_its_old_store(self):
         from unittest import mock
@@ -711,8 +740,8 @@ class TestIndexCommand(unittest.TestCase):
             index_store_factory=lambda: RecordStore(index_blobs,
                                                     pointer=index_pointer))
         session = cli.Session.__new__(cli.Session)
-        session.spec, session.backend = "swarm:pets", backend
-        session.dag = backend.load()
+        session.spec, session._backend = "swarm:pets", backend
+        session._dag = backend.load()
         for i in range(70):   # enough descendants to clear the threshold
             self.assertEqual(_run(["put", f"dog-{i}", "animal"]
                                   if i else ["put", "animal"], session)[0], 0)
