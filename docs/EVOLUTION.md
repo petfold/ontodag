@@ -132,7 +132,63 @@ Mercury problem, stable on the timescale of centuries.
 **Decoupling:** none of this blocks `count`. Shipping `count` under a
 `count-dimension` kind now and filing that kind under
 `integer-valued-dimension` when the reflection lands is an *addition* —
-the sequence composes.
+the sequence composes. (Done 2026-08-03 — registry 4.1, prelude v3;
+see §8.8.)
+
+**Levels of measurement (Peter's question, 2026-08-03: should we care
+about Stevens' scale typology?).** Yes — and the registry has been
+rediscovering it empirically, from the arithmetic end, without naming
+it. The mapping: nominal = plain categories (the DAG itself); interval
+= registry 4.0's affine temperatures, exactly; ratio = the linear
+families (the no-negatives rule *is* the true-zero commitment);
+absolute (the later extension: identity is the only admissible
+transformation) = the count kind, whose orbit has size one — no unit
+freedom at all. The identity underneath: **canonicalization is the
+quotient by the scale's admissible transformations** — a canonical name
+is the orbit representative (`3000g`/`3kg`/`1lb`-as-exact-rational are
+one ratio-scale orbit, the anchor form its chosen representative;
+`24C → kelvin` is the affine orbit). G1 forced this without Stevens:
+"two spellings of one denotation are one identity" *is* the
+transformation group. Measurement theory's meaningfulness criterion
+(claims invariant under admissible transformations) is satisfied by
+construction, because OntoDAG only ever computes order and containment,
+never differences or ratios — every expressible query is meaningful at
+ordinal level and above.
+
+Three consequences, in descending urgency:
+
+1. **The ordinal gap.** The one Stevens level with no kind: ordered,
+   finite, magnitude-free scales — clothing sizes, Likert answers, CEFR
+   levels, Mohs, star ratings, condition grades. Today's options are
+   both wrong-ish: fake linear integer ranks (order-only queries make
+   the harm bounded, but meaningless `rank(2.5)` is admitted — the
+   count kind's integrality makes it the less dishonest surrogate) or
+   materialize the chain as edges (fine for five sizes, ugly beyond).
+   A future `ordinal-dimension` kind fits the existing pattern: the
+   chain declared **in the graph** like unit declarations (vocabulary
+   travels and merges), order computed by position, ranges allowed
+   (`size(..M)`), no arithmetic — and conflicting order declarations
+   are *detectably* wrong, the same loud-conflict property that made
+   units the easy case. Parked on the tripwire: someone faking ranks
+   as linear in a real store (loopmarket-shaped data — ratings,
+   condition grades — is the likely first consumer).
+2. **Guidance now, mechanism later**: a docs paragraph mapping scale
+   level → kind, so Mohs-as-linear-with-a-fake-unit stays a documented
+   smell rather than an invited pattern.
+3. **The gate for computed values.** The moment the parked
+   computed-values item wakes, scale level becomes a *type check*:
+   differences need interval+, sums and means need ratio, medians only
+   ordinal. That is when the levels turn load-bearing, and their home
+   is this section's registry reflection — kinds classified under
+   `ratio-scaled ⊑ interval-scaled ⊑ ordinal-scaled` nodes: Stevens'
+   hierarchy as literal graph structure in the math skeleton.
+
+Caveat carried deliberately: Stevens' four-bucket *taxonomy* is
+contested in statistics (Velleman & Wilkinson's critique — real data
+wanders between levels); the underlying representational measurement
+theory (Krantz–Luce–Suppes–Tversky: transformation groups and
+meaningfulness) is solid. Adopt the transformation-group framing —
+which the registry de facto already has — not the taxonomy dogma.
 
 ## 4. Refinement, verified: the safe operation
 
@@ -287,3 +343,14 @@ provenance design's stance, earning its keep.
    `count(0)` refused as an absence claim; fractions refused), the
    `count` head, golden root re-pinned. Design record: UNITS.md §11.
    The future `integer-valued-dimension` parent remains an addition.
+9. **The ordinal kind** (§3, levels of measurement): build
+   `ordinal-dimension` — graph-declared finite chains, order by
+   position, ranges, no arithmetic, loud order-conflicts — or wait for
+   the tripwire (someone faking ranks as linear in a real store)?
+   And does the scale-level → kind guidance paragraph go into UNITS.md
+   or the User Guide's dimensions section?
+10. **Scale levels in the reflection**: when the math skeleton lands,
+    do kinds get classified under `ratio-scaled ⊑ interval-scaled ⊑
+    ordinal-scaled` nodes from day one (making the computed-values
+    type check a graph lookup), or is that reflection deferred until
+    computed values actually consume it?
