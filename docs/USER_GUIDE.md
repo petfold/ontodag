@@ -907,11 +907,14 @@ node — it only ever *selects*, never buys, so no command spends your xBZZ
 behind your back. Writes need a funded
 [postage batch](https://docs.ethswarm.org/docs/develop/access-the-swarm/buy-a-stamp-batch).
 
-**When the node is down.** Every command on a `swarm:` store opens the store
-before it does anything else, and opening talks to the node: `auto` has to ask
-it which batches exist, and a non-empty store has to be read back. So with Bee
-stopped, even `odag get` fails — but it fails cleanly, with one line on stderr,
-exit status 1, nothing written, and a reminder of the ways out:
+**When the node is down.** Every command that *touches* a `swarm:` store
+opens it first, and opening talks to the node: `auto` has to ask it which
+batches exist, and a non-empty store has to be read back. So with Bee
+stopped, `odag get` fails — but it fails cleanly, with one line on stderr,
+exit status 1, nothing written, and a reminder of the ways out. Commands
+that never touch the store keep working: `odag help` still helps, and
+`odag set` still shows and changes settings — including `set store`, which
+is one of the ways out:
 
 ```console
 $ odag get Flight

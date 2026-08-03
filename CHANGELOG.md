@@ -12,7 +12,7 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
-## [Unreleased]
+## [0.14.0] — 2026-08-03
 
 ### Fixed
 
