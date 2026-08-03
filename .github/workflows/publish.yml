@@ -56,8 +56,59 @@ jobs:
           name: dist
           path: dist/
 
-  publish:
+  # Does this candidate break its consumer? Answered before upload, because
+  # afterwards is too late: PyPI never lets a version be replaced.
+  #
+  # This is the gap that let ontodag 0.10.x ship a new canonical-name grammar
+  # into a broken ontodag-fs. Both repos were green the whole time — ontodag-fs's
+  # own CI runs on pushes to ontodag-fs, so a change here never ran its tests,
+  # and its floor was `>=0.4.0` with no ceiling, so pip installed the new
+  # grammar happily. Nobody executed the suite that would have failed for two
+  # days.
+  #
+  # It tests ontodag-fs's `main`, which is what its next release will be built
+  # from. The cost is real and accepted: an ontodag release is blocked while
+  # ontodag-fs's main is red, for any reason. That is the correct default for
+  # two repos where one is the other's index — and it is cheap to see, because
+  # this job names which suite failed.
+  downstream:
     needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: actions/checkout@v5
+        with:
+          repository: petfold/ontodag-fs
+          path: consumer
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # Order matters. Installing the consumer first resolves *its* declared
+      # ontodag from PyPI; force-reinstalling the built wheel over it, without
+      # dependencies, puts the candidate under test instead. pip may warn that
+      # the consumer's pin is no longer satisfied — that is this job doing its
+      # job, not a problem: the ceiling in ontodag-fs is deliberately raised by
+      # hand once this gate has passed.
+      - name: Install ontodag-fs, then the candidate ontodag over it
+        working-directory: consumer
+        run: |
+          pip install -e ".[test]"
+          pip install --force-reinstall --no-deps ../dist/*.whl
+          python -c "from importlib.metadata import version; print('ontodag-fs is being tested against ontodag', version('ontodag'))"
+
+      # Only one Python version: ontodag-fs's own CI covers its matrix against
+      # released ontodag, and what this gate asks is a semantic question about
+      # the candidate, not a per-interpreter one.
+      - name: ontodag-fs's suite against this candidate
+        working-directory: consumer
+        run: pytest
+
+  publish:
+    needs: [build, downstream]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
