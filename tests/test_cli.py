@@ -25,6 +25,7 @@ from unittest import mock
 from contextlib import redirect_stderr, redirect_stdout
 
 import ontodag.__main__ as cli
+from ontodag.dag import Item, OntoDAG
 from recordstore import MemoryBytesStore, MemoryPointer, RecordStore
 
 
@@ -67,6 +68,126 @@ class TestFileBackend(unittest.TestCase):
             # A fresh session reads it back from disk.
             code, out = _run(["get", "Animal"], cli.Session(path))
             self.assertEqual((code, out), (0, "Dog\n"))
+
+
+class TestNativeStoreMetadata(unittest.TestCase):
+    """The native format persists node metadata (`#:meta` lines).
+
+    It did not, and dropped it on save with no diagnostic, so the format could
+    not represent a DAG that the recordstore backend can: `_record_for` puts
+    `meta` in the record, hence in the canonical root, while `_save_native`
+    wrote names and edges only. A save+load therefore *changed the root*, and
+    any consumer keeping data in metadata — ontodag-fs marks objects and
+    carries display labels there — silently lost it through a file store.
+    """
+
+    def _roundtrip(self, dag, tmp):
+        path = os.path.join(tmp, "store.od")
+        cli._save_native(dag, path)
+        return path, cli._load_native(path)
+
+    def test_metadata_survives_a_round_trip(self):
+        dag = OntoDAG()
+        dag.put("dog", [])
+        dag.put(Item("rex", metadata={"object": True, "label": "rex.txt",
+                                      "count": 7}), ["dog"])
+        with tempfile.TemporaryDirectory() as tmp:
+            _path, back = self._roundtrip(dag, tmp)
+        self.assertEqual(back.nodes["rex"].metadata,
+                         {"object": True, "label": "rex.txt", "count": 7})
+        self.assertEqual(back.nodes["dog"].metadata, {})   # absent stays absent
+
+    def test_hostile_values_survive(self):
+        """A label is an arbitrary string, and the format is line-oriented —
+        so a newline in a value is the hazard that matters. JSON escapes it,
+        which is why the annotation is one token rather than free text."""
+        nasty = 'said "hi"\nnewline\ttab café \'quoted\' 100% a/b \\ #:meta'
+        dag = OntoDAG()
+        dag.put(Item("n", metadata={"label": nasty}), [])
+        with tempfile.TemporaryDirectory() as tmp:
+            path, back = self._roundtrip(dag, tmp)
+            with open(path, encoding="utf-8") as fh:
+                body = fh.read()
+        self.assertEqual(back.nodes["n"].metadata["label"], nasty)
+        # one physical line per record: the value's newline must not split it
+        self.assertEqual(len([ln for ln in body.splitlines()
+                              if ln.startswith(cli._META_LINE)]), 1)
+
+    def test_the_file_stays_canonical(self):
+        """Saving twice is byte-identical, so the store still diffs and merges
+        — metadata keys are sorted for the same reason node names are."""
+        dag = OntoDAG()
+        dag.put(Item("n", metadata={"z": 1, "a": 2, "m": 3}), [])
+        with tempfile.TemporaryDirectory() as tmp:
+            one = os.path.join(tmp, "a.od")
+            two = os.path.join(tmp, "b.od")
+            cli._save_native(dag, one)
+            cli._save_native(cli._load_native(one), two)
+            with open(one, "rb") as fh, open(two, "rb") as gh:
+                self.assertEqual(fh.read(), gh.read())
+
+    def test_a_file_written_before_this_still_loads(self):
+        """Backward compatibility: no `#:meta` lines is a valid store."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "old.od")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("# ontodag store v1\ndog '*'\npuppy dog\n")
+            dag = cli._load_native(path)
+        self.assertEqual(sorted(n for n in dag.nodes if n != dag.root.name),
+                         ["dog", "puppy"])
+        self.assertEqual(dag.nodes["dog"].metadata, {})
+
+    def test_a_reader_that_predates_metadata_sees_no_junk(self):
+        """Forward compatibility, and the reason the annotation is a comment:
+        every released reader skips `#` lines, so it reads a metadata-bearing
+        file as edges only — not as nodes named after a JSON blob."""
+        dag = OntoDAG()
+        dag.put(Item("rex", metadata={"label": "rex.txt"}), [])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "store.od")
+            cli._save_native(dag, path)
+            with open(path, encoding="utf-8") as fh:
+                lines = [ln.strip() for ln in fh
+                         if ln.strip() and not ln.strip().startswith("#")]
+        self.assertEqual(lines, ["rex '*'"])
+
+    def test_a_malformed_annotation_is_an_error_not_a_shrug(self):
+        """Ignoring an unreadable annotation would be the same silent loss this
+        line type exists to end, so it fails loudly and names the line."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "bad.od")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("# ontodag store v1\n#:meta dog {not json}\ndog '*'\n")
+            with self.assertRaises(ValueError) as caught:
+                cli._load_native(path)
+        self.assertIn(":2:", str(caught.exception))
+
+    def test_the_canonical_root_survives_a_round_trip(self):
+        """The property the whole change is for: routing a DAG through the text
+        format no longer changes what it hashes to."""
+        from ontodag.eager import EagerOntoDAG
+
+        def commit(source):
+            eager = EagerOntoDAG(RecordStore(MemoryBytesStore()))
+            for node in source.topological_sort():
+                if node.name == source.root.name:
+                    continue
+                parents = sorted(
+                    p.name for p in node.parents
+                    if source.nodes.get(p.name) is p
+                    and p.name != source.root.name)
+                eager.put(Item(node.name, metadata=dict(node.metadata)),
+                          parents)
+            return eager.commit()
+
+        dag = OntoDAG()
+        dag.put("dog", [])
+        dag.put(Item("rex", metadata={"object": True, "label": "rex.txt"}),
+                ["dog"])
+        before = commit(dag)
+        with tempfile.TemporaryDirectory() as tmp:
+            _path, back = self._roundtrip(dag, tmp)
+        self.assertEqual(before, commit(back))
 
 
 def _mem_swarm_session(shared):

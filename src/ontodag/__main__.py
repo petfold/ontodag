@@ -20,6 +20,7 @@ import argparse
 import collections
 import importlib.util
 import errno
+import json
 import os
 import shlex
 import socket
@@ -188,22 +189,48 @@ def _detect_format(path):
     return "native"
 
 
+# Node metadata rides on a comment line, which is what makes the extension
+# safe in both directions. Readers released before it existed skip every line
+# starting with `#`, so they read a metadata-bearing file exactly as they read
+# one without: edges only, nothing corrupted. Putting the annotation on the
+# node's own line instead — `name parent1 | {...}` — would have every existing
+# reader take the JSON for a list of parent names and invent nodes from it.
+# The file therefore stays a valid v1 store and the header does not move: the
+# edge grammar is unchanged, and metadata is optional enrichment.
+_META_LINE = "#:meta"
+
+
 def _load_native(path):
-    """Read the native store: one line per node, `name parent1 parent2 ...`.
+    """Read the native store: one line per node, `name parent1 parent2 ...`,
+    plus a `#:meta <name> <json>` line for each node carrying metadata.
 
     A missing file is an empty DAG (the default store need not exist yet).
-    The format is canonical (nodes and parents sorted on save) and the graph
-    is rebuilt via add_edge, so even a hand-edited, non-reduced file loads as
-    its unique transitive reduction.
+    The format is canonical (nodes, parents and metadata keys sorted on save)
+    and the graph is rebuilt via add_edge, so even a hand-edited, non-reduced
+    file loads as its unique transitive reduction.
     """
     dag = OntoDAG()
     if not os.path.exists(path):
         return dag
     edges = []
-    with open(path) as fh:
-        for line in fh:
+    metadata = {}
+    with open(path, encoding="utf-8") as fh:
+        for number, line in enumerate(fh, 1):
             line = line.strip()
-            if not line or line.startswith("#"):
+            if not line:
+                continue
+            if line.startswith(_META_LINE):
+                # Strict on purpose: dropping an unreadable annotation is the
+                # silent data loss this line type exists to end.
+                try:
+                    _, name, blob = shlex.split(line)
+                    metadata[name] = json.loads(blob)
+                except (ValueError, json.JSONDecodeError) as exc:
+                    raise ValueError(
+                        f"{path}:{number}: malformed {_META_LINE} line ({exc})"
+                    ) from exc
+                continue
+            if line.startswith("#"):
                 continue
             tokens = shlex.split(line)
             name = tokens[0]
@@ -215,6 +242,10 @@ def _load_native(path):
                 edges.append((parent, name))
     for parent, child in edges:
         dag.add_edge(dag.nodes[parent], dag.nodes[child])
+    for name, values in metadata.items():
+        node = dag.nodes.get(name)
+        if node is not None:          # an annotation for a node with no edges
+            node.metadata.update(values)
     return dag
 
 
@@ -224,11 +255,17 @@ def _save_native(dag, path):
         if name == dag.root.name:
             continue
         node = dag.nodes[name]
+        if node.metadata:
+            # sort_keys so the file is byte-stable; json escapes newlines, so
+            # the token cannot break the line-oriented parse whatever a label
+            # contains.
+            blob = json.dumps(node.metadata, sort_keys=True, ensure_ascii=False)
+            lines.append(f"{_META_LINE} {shlex.quote(name)} {shlex.quote(blob)}")
         parents = sorted(
             p.name for p in node.parents if dag.nodes.get(p.name) is p
         )
         lines.append(" ".join(shlex.quote(t) for t in [name] + parents))
-    with open(path, "w") as fh:
+    with open(path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
 
 

@@ -111,6 +111,45 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **The native `.od` store persists node metadata.** It did not, and dropped
+  it on save with no warning and no error, so the text format could not
+  represent a DAG that the recordstore backend can: `_record_for` puts `meta`
+  into the record and therefore into the canonical root, while `_save_native`
+  wrote names and edges only. The measurable consequence was that **a
+  save-and-load changed the root** — the same knowledge hashing to two
+  different values depending on which backend it travelled through — and any
+  consumer keeping data in metadata lost it silently. ontodag-fs is one: it
+  marks objects with `metadata["object"]` and carries display filenames in
+  `metadata["label"]`, so browsing a file store showed no files at all, and
+  because empty extents also suppress the concept directories, a store with a
+  hundred objects in it presented as an empty one.
+
+  Metadata now rides on a `#:meta <name> <json>` line per annotated node.
+  Riding on a *comment* is what makes the extension safe in both directions:
+  every already-released reader skips `#` lines, so it reads a
+  metadata-bearing file exactly as before — edges only, nothing corrupted —
+  whereas putting the annotation on the node's own line would have older
+  readers take the JSON for a list of parent names and invent nodes from it.
+  The edge grammar is unchanged, so the header stays `v1` and metadata is
+  optional enrichment rather than a new version. Values are JSON with sorted
+  keys, so the file stays byte-stable for diffing, and JSON escaping is what
+  lets a display label contain a newline without splitting the record — the
+  one hazard a metadata value has that a node name does not. A malformed
+  annotation now raises with the file and line rather than being skipped;
+  silently ignoring it would be the same data loss in a new place.
+  `tests/test_cli.py::TestNativeStoreMetadata` covers the round trip,
+  canonicality, both compatibility directions, and the root-preservation
+  property; the name-consumer corpus now runs its whole hazard list through
+  metadata values as well as node names.
+
+  Not fixed here: `payload` is persisted in records too and the text format
+  still drops it. It lives on `EagerOntoDAG`, not on the node, so a plain
+  `OntoDAG` has none to write — worth a separate pass rather than a partial
+  one alongside this.
+- **The native store reads and writes UTF-8 explicitly** rather than relying
+  on the platform's default encoding, which made a store containing a
+  non-ASCII name unloadable on any system whose default is not UTF-8 — the
+  Windows tier the platform matrix claims core support for.
 - **OWL export refuses names it cannot carry instead of writing a corrupt
   file.** A node name becomes the class IRI, written straight into an XML
   attribute, so a `"` in a name closed the attribute early and produced a

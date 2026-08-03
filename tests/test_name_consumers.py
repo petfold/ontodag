@@ -28,7 +28,7 @@ import tempfile
 
 import pytest
 
-from ontodag.dag import OntoDAG
+from ontodag.dag import Item, OntoDAG
 from ontodag.viz import OntoDAGVisualizer
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "web"))
@@ -154,6 +154,32 @@ class TestNativeStoreConsumer:
             _save_native(dag, first)
             _save_native(dag, second)
             assert open(first).read() == open(second).read()
+
+    def test_metadata_values_are_names_too(self):
+        """The store carries node metadata, and a display label in it is as
+        arbitrary as a node name — so the corpus belongs on both sides of the
+        annotation, not just in the node column.
+
+        A metadata value has one hazard a name does not: the store is
+        line-oriented, so an embedded newline would split the record. Every
+        entry here is therefore also tried with a newline glued on.
+        """
+        from ontodag.__main__ import _load_native, _save_native
+        dag = OntoDAG()
+        dag.put("parent", [])
+        expected = {}
+        for hazard, name in NASTY_NAMES.items():
+            for suffix, tag in (("", "plain"), ("\nsecond line", "newline")):
+                node = f"holder-{hazard}-{tag}"
+                value = name + suffix
+                expected[node] = value
+                dag.put(Item(node, metadata={"label": value}), ["parent"])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "store.od")
+            _save_native(dag, path)
+            back = _load_native(path)
+        for node, value in expected.items():
+            assert back.nodes[node].metadata["label"] == value, node
 
 
 class TestOwlConsumers:
