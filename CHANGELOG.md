@@ -12,7 +12,12 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
-## [Unreleased]
+## [0.12.0] — 2026-08-03
+
+Signing keys you do not have to handle. `odag set bee_signer generate` makes one
+and stores it without ever showing it to you, and the two ways the old path
+leaked a key — a world-readable config file, and `odag set` echoing it in full —
+are closed.
 
 ### Added
 
