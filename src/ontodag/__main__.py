@@ -1257,6 +1257,9 @@ Per command:
   -o, --output FILE     write output to FILE instead of stdout (get/show/list)
   -n, --limit N         as above, for this command only (get/list)
   --render, --raw       as above, for this command only
+
+Documentation: https://github.com/petfold/ontodag/tree/main/docs
+(USER_GUIDE.md is the tutorial, REFERENCE.md the compact lookup.)
 """
 
 
