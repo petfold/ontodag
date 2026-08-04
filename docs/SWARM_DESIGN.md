@@ -203,6 +203,43 @@ the same reason: a real feed update needs client-side SOC signing
 out of the stdlib-only first cut. `FilePointer`/`MemoryPointer` stand in
 until then.
 
+> **Update (2026-08-04): the fold is now delta-driven, the reduction is
+> complete, and the concurrent-delete gap is closed.** Three changes to
+> the state of this section:
+>
+> - **Complete reduction (the I7 precondition, fixed).** The convergence
+>   claim below rests on "canonical state = the transitive reduction of
+>   the union", but `add_edge`'s prune was one-sided (upward/same-child
+>   only), so an edge bypassed *through* a newly added edge survived —
+>   stored form depended on insertion order, and two writers syncing each
+>   other's roots could land on different roots whenever the redundancy
+>   spanned them (verified). `_remove_unneeded_edges` now covers the full
+>   redundancy rectangle (x ∈ {from} ∪ ancestors(from), y ∈ {to} ∪
+>   descendants(to), combined order), making add_edge replay
+>   order-independent — verified against a brute-force reduction oracle
+>   and a seeded two-writer commutativity fuzz. Golden roots unchanged;
+>   `ontodag.migrate` re-canonicalizes stores carrying bug-era shapes.
+> - **`merge_delta` (Eager + Sparse).** `sync` no longer hydrates the
+>   peer's root whole: `RecordStore.diff` between the dag's own lineage
+>   (`base_root`) and the peer's root drives the fold, so the cost is
+>   O(divergence × ancestor cones) — and `SparseOntoDAG.sync` therefore
+>   exists now (the O(|other|) parking reason is gone; the sparse fold
+>   requires the store handle at the writer's own lineage, since lazy
+>   expansions mid-fold read through it). The complete reduction is what
+>   makes this well-defined: a delta fold cannot reproduce full merge's
+>   global replay order, so the target had to be order-free.
+> - **Union-vs-head commits (the delete gap).** Under transient windows a
+>   save commits onto the *moved head*, but the commit baseline described
+>   the session's own lineage — a record the peer deleted and this
+>   session still held staged nothing, so the deletion silently won in
+>   the store while the union kept the node in memory. The same diff walk
+>   now rebases the baseline onto the head being committed onto: commit
+>   stages exactly union-vs-head, and the grow-only stance (a removal
+>   loses to a concurrent *holder*, not just to a re-add) holds in the
+>   store, not only in memory. The tombstone/observed-remove decision
+>   below stays open — this makes the *implemented* stance coherent, it
+>   does not decide the eventual one.
+
 > **Update (2026-07-31): the OntoDAG half now exists too** —
 > `EagerOntoDAG.sync(other_root)` implements the merge rule described
 > below as *state-based reconcile*: hydrate the peer's published root,

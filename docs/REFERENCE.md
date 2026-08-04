@@ -138,9 +138,9 @@ Persistence adapters (all reachable as `ontodag.X`, imported lazily):
 
 | class | residency | writes | for |
 |---|---|---|---|
-| `EagerOntoDAG(store)` | full hydration | yes, `commit()` diffs | canonical roots, `sync(other_root)` multi-writer merge |
+| `EagerOntoDAG(store)` | full hydration | yes, `commit()` diffs | canonical roots, `sync(other_root)` multi-writer merge (diff-driven: reads the divergence, not the store) |
 | `LazyOntoDAG(store)` | fetch-as-walked | read-only | querying a published store at query cost; `as-of` via `store.at(root)` |
-| `SparseOntoDAG(store)` | resident set | yes | writing into a large store without hydrating it |
+| `SparseOntoDAG(store)` | resident set | yes | writing into a large store without hydrating it; `sync(other_root)` folds a peer at divergence cost (store must sit at the writer's own lineage) |
 
 Related modules: `ontodag.prelude` (`apply(dag)`), `ontodag.packs`
 (`crypto-core`, `crypto-majors`, `stablecoins`, `fiat-iso4217`),

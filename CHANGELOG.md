@@ -14,7 +14,53 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Transitive reduction is now complete, making stored form — and the
+  multi-writer merge — order-independent.** `add_edge` pruned only edges
+  from ancestors of the new parent into the new child; an existing edge
+  whose only witness path runs *through* the new edge (`p→B` bypassed by
+  adding `p→Z` with `Z⇝B`, computed hops included) was kept. Same
+  knowledge could therefore hash to two different roots depending on
+  insertion order, and two writers syncing each other's roots could land
+  on *different* roots whenever the redundancy spanned them (an I7
+  violation, verified before the fix). The prune now covers the full
+  redundancy rectangle; verified against a brute-force reduction oracle
+  over randomized replay orders, plus a seeded two-writer commutativity
+  fuzz. All shipped golden roots (prelude, packs) are unchanged. A store
+  that carries a bug-era non-reduced shape keeps its bytes (hydration is
+  verbatim) and re-canonicalizes under an explicit `ontodag.migrate`
+  replay — after this fix, re-filing the same knowledge yields the
+  reduced root.
+- **`migrate_record_store` crashed on every real store** (it replayed
+  the store's own `*` root record back into `put`). Fixed and now
+  tested; it is the sanctioned re-canonicalization path above.
+- **A peer's concurrent delete no longer silently wins in the store.**
+  Saving onto a moved head that deleted a record this session still
+  holds used to stage nothing for it — the union (grow-only: a removal
+  loses to a concurrent holder, same stance as remove-loses-to-readd)
+  kept the node in memory while the committed root lost it. The fold now
+  rebases the commit baseline onto the head it commits onto, so the
+  surviving copy is re-staged.
+
 ### Changed
+
+- **Merging a peer costs the divergence, never the store.**
+  `EagerOntoDAG.sync` no longer hydrates the peer's entire root: the
+  fold is driven by `RecordStore.diff` between the dag's own lineage and
+  the peer's root (`merge_delta`), reading only the records that moved
+  plus the ancestor cones the replayed edges touch. Union semantics are
+  unchanged. This is the first consumer of recordstore's `diff`.
+
+### Added
+
+- **`SparseOntoDAG.sync`** — the partially-resident multi-writer fold.
+  The same diff-driven union, expanding only what it touches, so a
+  writer resident on a handful of records can fold a peer's divergence
+  into a large store without hydrating it. The store handle must sit at
+  the writer's own lineage (folding through a handle rebound to another
+  root is refused with a teaching error — that flow belongs to
+  `EagerOntoDAG`). Peer payloads survive the fold.
 
 - **`swarm:` stores are local-first** (recordstore 0.19's
   `local_first_store`): commits land in a store directory under

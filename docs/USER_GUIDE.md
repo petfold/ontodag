@@ -1467,11 +1467,18 @@ merged_root = my_dag.sync(their_root)   # fold theirs in, commit the union
 `sync` is `merge` (§4.4) plus persistence: assertions union, redundant links
 are re-pruned, order never matters, and syncing something you already have
 changes nothing. Two things follow from "the union wins" that are worth
-knowing: a removal does not survive a collaborator's concurrent re-assertion,
+knowing: a removal does not survive a collaborator's concurrent re-assertion
+(or their merely still *holding* the item — the union keeps it either way),
 and typed values renormalize across writers — if you filed a ticket under
 `time(2026-08-01..2026-08-31)` and your collaborator filed it under
 `time(2026-08-15)`, after syncing both of you hold just the `time(2026-08-15)`
 link, because the coarser one is implied (§4.7).
+
+`sync` reads only what actually *diverged* between you and the peer (plus
+the links it has to re-check), so folding a collaborator's afternoon of
+edits into a hundred-thousand-record ontology costs the afternoon, not the
+ontology. The partially-resident writer (`SparseOntoDAG`, below) has the
+same `sync` for the same reason.
 
 ### Cone summaries: making broad queries cheap for readers
 
@@ -1539,9 +1546,10 @@ ancestors, whatever the tidy-graph rules need to check — and `commit()`
 stages only the records that really changed: adding one item to a
 447-record store costs about 7 fetches and writes about 7 records, and the
 resulting root is byte-identical to what a fully-loaded editor would have
-produced. Use `EagerOntoDAG` when you are editing most of a graph anyway
-(or merging whole ontologies), `SparseOntoDAG` for surgical edits to big
-published ones, `LazyOntoDAG` to only ask questions.
+produced. It syncs, too: `dag.sync(their_root)` folds a collaborator's
+divergence in at the same touch-what-it-needs cost. Use `EagerOntoDAG`
+when you are editing most of a graph anyway, `SparseOntoDAG` for surgical
+edits to big published ones, `LazyOntoDAG` to only ask questions.
 
 Once a store lives on Swarm, it can also be **browsed as a filesystem** with
 [ontodag-fs](https://github.com/petfold/ontodag-fs): directory paths are
