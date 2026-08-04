@@ -161,7 +161,7 @@ portably — `~` means your home directory on every platform, including
 | Platform | Status |
 | --- | --- |
 | Linux | Tested — the full suite runs here on every change. |
-| macOS | Expected to work, not routinely tested. Install Graphviz with `brew install graphviz`. |
+| macOS | Tested (2026-08-04, `[all,test]` install, full core suite green on Python 3.13). Install Graphviz with `brew install graphviz`, and see "Which Python" below. |
 | Windows | Core, CLI and file store are expected to work; not tested. The Swarm *signer* needs the `bee` package, which builds a native secp256k1 extension — the least likely piece to install cleanly. |
 
 Nothing in the store itself is platform-specific: it is a canonical text file
@@ -169,6 +169,40 @@ Nothing in the store itself is platform-specific: it is a canonical text file
 overrides its location if you want it somewhere other than your home directory.
 If you hit a platform problem, please report it — that is how the table above
 gets shorter.
+
+### Which Python
+
+**3.11 or newer** for OntoDAG itself, and that is the whole story for the base
+install — it is pure Python, so it installs on anything from 3.11 to the
+newest release the day that release lands.
+
+The heavy extras are a different question, because they are not ours. The
+Swarm signer (`ontodag[swarm]`, and therefore `[all]`) reaches `swarm-bee`,
+which needs **`coincurve`** — a compiled secp256k1 binding. A brand-new Python
+has no prebuilt `coincurve` wheel on PyPI for the first months of its life, so
+pip falls back to building it from source, and that build currently fails.
+Python **3.14** is in that window today; 3.13 has wheels for every dependency.
+
+So: if you want the Swarm, OWL or web extras on a very new Python, create the
+environment against the previous release explicitly.
+
+```bash
+python3.13 -m venv .venv          # not bare `python3`, if that is 3.14
+source .venv/bin/activate
+pip install "ontodag[all]"
+```
+
+One trap worth naming, because it cost a tester an hour: re-running
+`python3 -m venv .venv` **over an existing venv does not rebuild it**. You can
+end up with `pyvenv.cfg` claiming 3.14 while the `python3` symlink still points
+at 3.13 and `pip`'s shebang is hardcoded to 3.14 — so `python3 --version` tells
+you one thing and installs quietly happen under another, which is exactly the
+state in which "but I *am* on 3.13" stops being true. Use `--clear` (or delete
+the directory) whenever you recreate one:
+
+```bash
+python3.13 -m venv --clear .venv
+```
 
 ### If that fails with `externally-managed-environment`
 
