@@ -969,6 +969,13 @@ class OntoDAG(DAG):
         return copy_dag
 
     def _remove_duplicate_root_edges(self):
+        # No longer load-bearing since _remove_unneeded_edges covers the
+        # full redundancy rectangle (2026-08-04): instrumented across the
+        # suite and the replay fuzz, this never fires on graphs built
+        # through add_edge. Kept as a safety net for merges ON TOP OF a
+        # hydrated legacy store, whose pre-existing duplicate root edge
+        # sits outside every replayed edge's rectangle (hydrate is
+        # verbatim by design; ontodag.migrate is the real fix there).
         edges_to_remove = set()
         root = self.root
         for root_neighbor in root.neighbors:

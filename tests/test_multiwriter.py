@@ -103,6 +103,68 @@ class TestConvergence(unittest.TestCase):
         self.assertEqual(r0, r2)
 
 
+class TestConvergenceFuzz(unittest.TestCase):
+    def test_random_divergent_writers_converge_both_ways(self):
+        """Randomized commutativity (I7 in persisted form): for seeded
+        random divergent writer pairs, the two sync directions must land
+        on byte-identical roots. This is the property the one-sided prune
+        broke on shapes no hand-written test had; seeded so any failure
+        reproduces. Every edge respects the name-index order (supers only
+        from lower-indexed names), so the union is acyclic by construction
+        and every seed exercises a real merge rather than a refusal."""
+        import random
+
+        names = [f"n{i}" for i in range(10)]
+        for seed in range(12):
+            rng = random.Random(seed)
+            blobs = MemoryBytesStore()
+            base_puts = []
+            for i, name in enumerate(names):
+                supers = rng.sample(names[:i], k=min(i, rng.randint(0, 2)))
+                base_puts.append((name, supers))
+            base = base_graph(blobs, base_puts)
+
+            def diverge(rng2):
+                w = writer(blobs, base)
+                for _ in range(4):
+                    i = rng2.randint(1, len(names))
+                    if i == len(names):          # a fresh sink node
+                        target = f"x{rng2.randint(0, 3)}"
+                        pool = names
+                    else:                        # reparent an existing one
+                        target = names[i]
+                        pool = names[:i]
+                    supers = rng2.sample(pool,
+                                         k=min(len(pool), rng2.randint(0, 2)))
+                    w.put(target, supers)
+                return w, w.commit()
+
+            alice, root_a = diverge(random.Random(seed * 2 + 1))
+            bob, root_b = diverge(random.Random(seed * 2 + 2))
+            self.assertEqual(alice.sync(root_b), bob.sync(root_a),
+                             f"sync directions diverged at seed {seed}")
+
+    def test_union_cycle_refused_from_both_directions(self):
+        """When the UNION of two acyclic replicas contains a cycle, the
+        merge must refuse from EITHER direction — one side refusing while
+        the other commits would be divergence by another name. (Which edge
+        the error names is replay-order-dependent and deliberately
+        unpinned.)"""
+        blobs = MemoryBytesStore()
+        base = base_graph(blobs, [("a", []), ("b", [])])
+        alice = writer(blobs, base)
+        alice.put("b", ["a"])
+        root_a = alice.commit()
+        bob = writer(blobs, base)
+        bob.put("a", ["b"])
+        root_b = bob.commit()
+
+        with self.assertRaises(ValueError):
+            alice.sync(root_b)
+        with self.assertRaises(ValueError):
+            bob.sync(root_a)
+
+
 class TestUnionSemantics(unittest.TestCase):
     def test_divergent_parents_union_and_reduce(self):
         blobs = MemoryBytesStore()
