@@ -139,6 +139,32 @@ class TestTransitiveReduction(unittest.TestCase):
         assert_transitively_reduced(self, dag_ab)
         assert_transitively_reduced(self, dag_ba)
 
+    def test_new_edge_prunes_the_edges_it_bypasses(self):
+        """Adding p->Z must prune the pre-existing p->B once Z reaches B.
+
+        BUG (pre-fix, 2026-08-04): _remove_unneeded_edges pruned only
+        upward/same-child — edges from ancestors of the new parent INTO the
+        new child. An existing edge whose redundancy witness runs THROUGH
+        the new edge (p->Z->B) was kept, so the stored form was not the
+        transitive reduction, and which form you got depended on insertion
+        order — the shape behind the order-dependent multi-writer merge.
+        """
+        dag = build([("p", []), ("Z", []), ("B", ["p", "Z"])])
+        dag.put(Item("Z"), [Item("p")])
+        assert_transitively_reduced(self, dag)
+        self.assertNotIn(dag.nodes["B"], dag.nodes["p"].neighbors)
+        assert_counts_consistent(self, dag)
+
+    def test_bypassed_grandparent_edge_is_pruned_too(self):
+        """The downward prune must cover every ancestor of the new parent:
+        with g->p and g->B in place, adding p->Z (where Z->B exists) makes
+        g->B redundant via g->p->Z->B."""
+        dag = build([("g", []), ("p", ["g"]), ("Z", []), ("B", ["g", "Z"])])
+        dag.put(Item("Z"), [Item("p")])
+        assert_transitively_reduced(self, dag)
+        self.assertNotIn(dag.nodes["B"], dag.nodes["g"].neighbors)
+        assert_counts_consistent(self, dag)
+
     def test_remove_preserves_reduction(self):
         """Contracting a node (reconnect supers to subs) must stay reduced."""
         dag = build([

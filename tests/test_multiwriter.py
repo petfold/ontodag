@@ -53,6 +53,35 @@ class TestConvergence(unittest.TestCase):
         # Idempotence: folding what you already have moves nothing.
         self.assertEqual(alice.sync(merged_b), merged_a)
 
+    def test_converges_when_the_redundancy_spans_writers(self):
+        """The bypassed-edge shape: base holds Z->B; alice asserts p->B,
+        bob asserts Z->p. Only the UNION makes Z->B redundant (via the
+        cross-writer path Z->p->B), so a one-sided prune cannot see it.
+
+        BUG (pre-fix, 2026-08-04): _remove_unneeded_edges pruned only
+        edges into the new child, so whichever writer folded second kept
+        or dropped Z->B depending on replay order — sync(a<-b) and
+        sync(b<-a) landed on DIFFERENT roots (8861f5ae vs 0a819aa0),
+        breaking I7's byte-identical convergence."""
+        blobs = MemoryBytesStore()
+        base = base_graph(blobs, [("Z", []), ("B", ["Z"])])
+
+        alice = writer(blobs, base)
+        alice.put("p", [])
+        alice.put("B", ["p"])
+        root_a = alice.commit()
+
+        bob = writer(blobs, base)
+        bob.put("p", ["Z"])
+        root_b = bob.commit()
+
+        merged_a = alice.sync(root_b)
+        merged_b = bob.sync(root_a)
+        self.assertEqual(merged_a, merged_b)
+        # And the surviving form is the reduction: Z->p->B, no Z->B.
+        self.assertEqual(parents(alice, "B"), {"p"})
+        self.assertEqual(parents(bob, "B"), {"p"})
+
     def test_three_writers_any_gossip_order(self):
         blobs = MemoryBytesStore()
         base = base_graph(blobs, [("thing", [])])

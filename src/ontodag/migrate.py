@@ -73,6 +73,8 @@ def migrate_record_store(old_store, new_store):
     from ontodag.eager import EagerOntoDAG
     entries = {}
     for key, record in old_store.items():
+        if key == "*":     # the implicit root has a record but is never replayed
+            continue
         entries[key] = [p for p in record.get("up", []) if p != "*"]
     new = EagerOntoDAG(new_store)
     new.merge(_replay(entries))

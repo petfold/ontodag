@@ -175,6 +175,26 @@ class TestReductionModuloComputed(unittest.TestCase):
         shuffled = build([steps[3], steps[2], steps[1], steps[0]])
         self.assertEqual(edge_set(forward), edge_set(shuffled))
 
+    def test_downward_prune_crosses_computed_hops(self):
+        """An edge bypassed through a COMPUTED hop is pruned like any other,
+        whichever order the assertions arrive in: once premium sits above
+        weight(..5kg), the direct premium->box is implied via the computed
+        weight(..5kg) => weight(3kg) hop and must not be stored."""
+        def build(flip):
+            dag = make_dag()
+            dag.put("box", ["weight(3kg)"])
+            dag.put("premium", [])
+            steps = [("box", ["premium"]),
+                     ("weight(..5kg)", ["premium"])]
+            for step in (reversed(steps) if flip else steps):
+                dag.put(*step)
+            return dag
+
+        forward, flipped = build(False), build(True)
+        self.assertEqual(names(forward.nodes["box"].parents),
+                         {"weight(3kg)"})
+        self.assertEqual(edge_set(forward), edge_set(flipped))
+
     def test_same_dimension_asserted_edge_refused(self):
         dag = make_dag()
         dag.put("weight(..5kg)", [])

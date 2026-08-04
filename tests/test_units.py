@@ -167,6 +167,44 @@ class TestMigration(unittest.TestCase):
             migrate_native(path)                # idempotent
             self.assertEqual(open(path).read(), first)
 
+    def test_migrate_record_store_replays_and_renormalizes(self):
+        """migrate_record_store must actually run on a real store — it used
+        to crash on every one (`put("*")` from the yielded root record) —
+        and its replay-through-put is the sanctioned re-canonicalization:
+        a store holding a bug-era non-reduced shape (p->B kept alongside
+        p->Z->B) comes out as the unique reduction."""
+        from ontodag.eager import EagerOntoDAG
+        from ontodag.migrate import migrate_record_store
+        from recordstore import MemoryBytesStore, RecordStore
+
+        blobs = MemoryBytesStore()
+        canonical = EagerOntoDAG(RecordStore(blobs))
+        canonical.put("p", [])
+        canonical.put("Z", ["p"])
+        canonical.put("B", ["Z"])
+        canonical_root = canonical.commit()
+
+        # Forge the non-reduced sibling: same knowledge plus redundant p->B.
+        forged = RecordStore(MemoryBytesStore())
+        for key, record in RecordStore.at(canonical_root, blobs).items():
+            forged.put(key, record)
+        record = dict(forged.get("B"))
+        record["up"] = sorted(record["up"] + ["p"])
+        forged.put("B", record)
+        record = dict(forged.get("p"))
+        record["down"] = sorted(record["down"] + ["B"])
+        forged.put("p", record)
+        forged.commit()
+
+        migrated = migrate_record_store(
+            forged, RecordStore(MemoryBytesStore()))
+        self.assertEqual(migrated, canonical_root)
+        # Idempotent: migrating the canonical store returns its own root.
+        self.assertEqual(
+            migrate_record_store(RecordStore.at(canonical_root, blobs),
+                                 RecordStore(MemoryBytesStore())),
+            canonical_root)
+
     def test_cli_entry_point(self):
         import os
         import tempfile

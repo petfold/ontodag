@@ -980,17 +980,47 @@ class OntoDAG(DAG):
             self.remove_edge(root, root_neighbor)
 
     def _remove_unneeded_edges(self, from_node, to_node):
-        """Remove edges made redundant by the from -> to edge: a direct edge
-        from any *combined-order* ancestor of `from_node` down to `to_node`
-        is now implied. Anchor edges (head -> value) are schema and never
-        pruned — they are the dimension's enumeration index (DIMENSIONS.md
-        §5), and pruning them would leave stored form dependent on which
-        other values happen to exist."""
+        """Remove every edge made redundant by the new from -> to edge.
+
+        An edge (x, y) is *newly* redundant exactly when its only witness
+        paths run through the new edge, i.e. x reaches `from_node` and
+        `to_node` reaches y — both in the combined (asserted + computed)
+        order. So x ∈ {from} ∪ ancestors(from) and y ∈ {to} ∪
+        descendants(to), and the two loops below cover that rectangle:
+        the upward rule handles y = to, the downward twin y below to.
+        (The witness path can never traverse (x, y) itself — either
+        segment doing so would close a cycle through the new edge — so
+        every rectangle edge is genuinely redundant, and nothing outside
+        it can be.) This completeness is what keeps the stored form the
+        unique transitive reduction of the asserted union whatever order
+        edges arrive in — the precondition for canonical roots and for
+        the multi-writer merge converging byte-identically (I2/I3/I7).
+
+        Anchor edges (head -> value) are schema and never pruned — they
+        are the dimension's enumeration index (DIMENSIONS.md §5), and
+        pruning them would leave stored form dependent on which other
+        values happen to exist. They remain valid witness-path steps."""
         ancestors = self.get_ancestors(from_node)  # combined order
         for ancestor in ancestors:
             if to_node in ancestor.neighbors \
                     and not self._is_anchor(ancestor, to_node):
                 self.remove_edge(ancestor, to_node)
+        # Downward twin. A fresh ordinary leaf has nothing below it — the
+        # overwhelmingly common put(item, supers) case costs nothing. A
+        # parametric to_node can reach siblings through computed hops even
+        # with no asserted children, so it never takes the shortcut.
+        if not to_node.neighbors \
+                and self._parse_parametric(to_node.name) is None:
+            return
+        uppers = ancestors | {from_node}
+        for descendant in self.get_descendants(to_node):  # combined order
+            # Snapshot: remove_edge mutates the parent set mid-iteration.
+            # _live_parents is the seam the partially-resident writer
+            # overrides, so this walk stays fetch-on-touch there.
+            for parent in list(self._live_parents(descendant)):
+                if parent in uppers \
+                        and not self._is_anchor(parent, descendant):
+                    self.remove_edge(parent, descendant)
 
     def put(self, subcategory, super_categories, optimized=False):
         # Names are the identity at the public boundary: plain strings are
