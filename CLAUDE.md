@@ -345,9 +345,15 @@ default earns its place; one that adds weight for a file format does not.*
 
 ## Release state
 
-Latest published: **ontodag 0.14.0** (2026-08-03, by tag through the publish
+Latest published: **ontodag 0.15.0** (2026-08-04, by tag through the publish
 workflow — all four jobs green incl. the downstream ontodag-fs gate and the
-PyPI-serve verify). 0.14.0: lazy store opening (`odag help`/`set` work with
+PyPI-serve verify). 0.15.0: complete transitive reduction (order-independent
+stored form and multi-writer merge — I7 holds byte-identically now),
+`merge_delta` (sync reads the divergence, never the store; first consumer of
+recordstore's diff), `SparseOntoDAG.sync`, the concurrent-delete gap fix,
+and the `migrate_record_store` fix. ontodag-fs's ceiling raised to <0.16.0
+the same evening (gate + full suite green). Before it, 0.14.1 and 0.14.0
+(2026-08-03/04): lazy store opening (`odag help`/`set` work with
 the node down; `Session` opens on first touch, `switch` stays eager-atomic)
 + the docs URL in help. Same day, 0.13.0: the count kind (registry 4.1,
 prelude v3), ranges-as-uncertainty docs, REFERENCE.md + the pinning test +
