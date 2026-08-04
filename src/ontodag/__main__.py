@@ -557,9 +557,24 @@ class SwarmBackend:
 
     def save(self, dag):
         store = self._record_store()  # transient writer window
-        dag.store = store
         try:
-            dag.commit()  # local, instant, offline-safe
+            # Multi-writer convergence is MERGE, not locking: if another
+            # window moved the head past this dag's own lineage
+            # (`base_root`, the root it last hydrated from or committed),
+            # fold the moved head in with the commutative, idempotent DAG
+            # merge (I7 — the CRDT property) before committing, so
+            # same-node concurrent edits union their parents instead of
+            # last-write-wins. An unmoved head commits plainly — that keeps
+            # replace-shaped flows (`odag import`) superseding rather than
+            # merging back what they just replaced. Rebind before syncing:
+            # sync() commits through dag.store, and the previous window
+            # is closed.
+            head = store.root
+            dag.store = store
+            if head is not None and head != dag.base_root:
+                dag.sync(head, bytes_store=store.blobs)
+            else:
+                dag.commit()  # local, instant, offline-safe
             # Best-effort barrier: a CLI run is short-lived, so give the
             # background syncer a chance to land the commit on Swarm before
             # the window closes. Offline (or slow) is not an error — the

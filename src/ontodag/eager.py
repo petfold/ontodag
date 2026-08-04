@@ -34,6 +34,13 @@ class EagerOntoDAG(OntoDAG):
     def __init__(self, record_store):
         super().__init__()
         self.store = record_store
+        # The root of this dag's own hydrate/commit lineage — what its
+        # in-memory state is a mutation of. `store.root` is not a substitute:
+        # a transient-window deployment rebinds `store` to a fresh handle
+        # (possibly already at a peer's moved head), and a shared pointer can
+        # move under a live handle, so only the dag itself can say which
+        # root it last synced with.
+        self.base_root = getattr(record_store, "root", None)
         self._synced = {}          # key -> record as of the last commit/hydrate
         self._payloads = {}        # name -> swarm ref
         # node meta lives on Item.metadata (records' "meta" field)
@@ -53,6 +60,7 @@ class EagerOntoDAG(OntoDAG):
                 self.store.delete(name)
         root = self.store.commit()
         self._synced = current
+        self.base_root = root
         return root
 
     def _record_for(self, node):
@@ -159,10 +167,15 @@ class EagerOntoDAG(OntoDAG):
         anything came of it.
 
         Roots are canonical (same knowledge ⇒ same root), which turns "do I
-        already have this?" into a string comparison: if `root` equals ours,
-        that version's content is exactly our committed content, so the union
+        already have this?" into a string comparison: if `root` equals ours
+        — `base_root`, the root of our own hydrate/commit lineage — that
+        version's content is exactly our committed content, so the union
         adds nothing and no records are read at all. Otherwise the other root
-        is opened over the same blobs and merged normally.
+        is opened over the same blobs and merged normally. (`store.root`
+        would be the wrong side of the comparison: under transient windows
+        the handle is rebound to a fresh window whose root is the *peer's*
+        moved head — equality there means "this is the thing to merge",
+        the opposite of "already have it".)
 
         Note the short-circuit stays correct even when *we* have uncommitted
         changes: our current graph is then a superset of our committed content,
@@ -178,7 +191,7 @@ class EagerOntoDAG(OntoDAG):
         RecordStore = require("recordstore", "store",
                               "sync()").RecordStore
 
-        if root is not None and root == self.store.root:
+        if root is not None and root == self.base_root:
             return False                      # already have exactly this
         other = EagerOntoDAG(
             RecordStore.at(root, bytes_store or self.store.blobs))

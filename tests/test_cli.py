@@ -1337,3 +1337,28 @@ class TestSwarmBackendLocalFirst(unittest.TestCase):
             store.close()
         backendless = cli.SwarmBackend("pets").load()
         self.assertEqual(set(backendless.nodes), set(dag.nodes))
+
+    def test_concurrent_windows_converge_by_merge_not_lww(self):
+        """Multi-writer convergence is the CRDT merge, not locking: two
+        sessions hydrate the same store, edit the SAME node under
+        different parents, and save in turn — the second save merges the
+        moved head, so the parents union instead of last-write-wins."""
+        b1, b2 = cli.SwarmBackend("pets"), cli.SwarmBackend("pets")
+        dag1 = b1.load()
+        dag2 = b2.load()                    # concurrent session, no lock held
+
+        dag1.put("p1", [])
+        dag1.put("child", ["p1"])
+        import io
+        from contextlib import redirect_stderr
+        with redirect_stderr(io.StringIO()):
+            b1.save(dag1)
+
+        dag2.put("p2", [])
+        dag2.put("child", ["p2"])           # same node, different parent
+        with redirect_stderr(io.StringIO()):
+            b2.save(dag2)                   # head moved -> CRDT merge
+
+        dag3 = cli.SwarmBackend("pets").load()
+        parents = {p.name for p in dag3.nodes["child"].parents}
+        self.assertEqual(parents, {"p1", "p2"})
