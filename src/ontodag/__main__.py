@@ -315,19 +315,31 @@ def _save(dag, path):
 #
 # A backend hides *where* the store lives behind load()/save(dag)/describe().
 # The default is a local file (native/OWL/Manchester by extension). A
-# `swarm:NAME` spec persists through EagerOntoDAG over a RecordStore, in one
-# of two modes:
+# `swarm:NAME` spec persists through EagerOntoDAG over a **local-first**
+# record store (recordstore[local-first-swarm], 0.19+): commits land in a
+# store directory under ~/.ontodag instantly — offline is the normal mode —
+# and a background syncer pushes them to Swarm and confirms peer-to-peer.
+# save() adds a best-effort sync barrier so a short-lived CLI run still
+# gets its data onto the network before exiting; when the node is down the
+# commit is safe locally and the next run's syncer picks it up. Two modes:
 #
-#   with a signer  -> recordstore.swarm_store(): blobs on a Bee node AND the
-#                     mutable "latest root" in a Swarm feed, so the store has
-#                     a stable address others can follow.
-#   without one    -> blobs on Bee, latest root in a local FilePointer. No key
-#                     needed, but nothing is publishable: readers would have
-#                     to be handed a root hash by hand.
+#   with a signer  -> additionally publishes the head to a Swarm feed —
+#                     and only after network confirmation, so the feed
+#                     never points readers at content the network cannot
+#                     serve yet (publish_pointer=SwarmFeedPointer).
+#   without one    -> nothing publishable; the head lives in the store
+#                     directory's HEAD file. (Pre-local-first stores kept
+#                     it in NAME.root — migrated on first open.)
 #
 # recordstore and the adapter are imported lazily here, so `import ontodag`
 # and the native path stay dependency-free (tests/test_boundaries.py B1).
 # --------------------------------------------------------------------------- #
+
+#: How long save() waits for the background syncer to confirm the commit
+#: on Swarm before letting the process move on (the commit is durable
+#: locally either way; tests shrink this).
+_SYNC_TIMEOUT = 60
+
 
 class FileBackend:
     def __init__(self, path):
@@ -438,10 +450,37 @@ class SwarmBackend:
         return SwarmBackend(self.name + "-index")._record_store()
 
     def pointer_path(self):
+        # the pre-local-first head file (<= ontodag 0.14.x); still read once
+        # for migration into the store directory's HEAD
         return os.path.join(_home_dir(), self.name + ".root")
 
+    def store_dir(self):
+        return os.path.join(_home_dir(), self.name + ".store")
+
+    def _migrate_legacy_root(self):
+        """Seed the local-first store's HEAD from the old NAME.root file,
+        once: a pre-local-first store had its blobs on Bee and its head in
+        NAME.root. Writing HEAD before the first open makes the new store
+        resume at that root — reads then heal lazily from Swarm through
+        the syncer's fetcher, so the store hydrates itself."""
+        head = os.path.join(self.store_dir(), "HEAD")
+        if os.path.exists(head):
+            return
+        try:
+            with open(self.pointer_path()) as f:
+                legacy = f.read().strip()
+        except FileNotFoundError:
+            return
+        if legacy:
+            os.makedirs(self.store_dir(), exist_ok=True)
+            with open(head, "w") as f:
+                f.write(legacy)
+
     def _record_store(self):
-        api = _configured("bee_api")
+        # BeeRemote resolves this order itself, but being explicit keeps
+        # `describe`/errors honest about which endpoint is in play
+        api = _configured("bee_api") or os.environ.get(
+            "BEE_API_URL", "http://localhost:1633")
         # "auto" (ask the node for a usable batch) is this call site's default,
         # not the setting's: `set bee_batch` showing "auto" would misreport an
         # unconfigured batch as a configured one.
@@ -450,27 +489,24 @@ class SwarmBackend:
         try:
             if self._store_factory is not None:
                 return self._store_factory()
-            # BeeBytesStore imports `requests` in its constructor, so a missing
-            # optional dependency surfaces here rather than at module import.
-            # It also resolves batch="auto" against the node, so this line is
-            # the first one that needs Bee to be up.
-            if signer:
-                from recordstore import swarm_store
-                return swarm_store(self.name, api_url=api, stamp=batch,
-                                   signer=signer)
-            from recordstore import RecordStore, BeeBytesStore, FilePointer
+            from recordstore import local_first_store
             os.makedirs(_home_dir(), exist_ok=True)
-            return RecordStore(BeeBytesStore(api, batch),
-                               pointer=FilePointer(self.pointer_path()))
+            self._migrate_legacy_root()
+            publish_pointer = None
+            if signer:
+                from recordstore import SwarmFeedPointer
+                publish_pointer = SwarmFeedPointer(
+                    api, self.name, signer=signer, postage_batch_id=batch)
+            return local_first_store(self.store_dir(), api, stamp=batch,
+                                     publish_pointer=publish_pointer)
         except ImportError as exc:
-            missing = exc.name or "requests"
+            missing = exc.name or "swarmfs"
             raise ValueError(
                 f"the swarm backend needs an optional dependency that is not "
                 f"installed ({missing!r}); install the swarm extra with:  "
                 f"pip install \"ontodag[swarm]\"   "
-                f"(that covers all three: `requests` for the Bee blob store, "
-                f"`swarmfs` for resolving bee_batch=auto against the node, and "
-                f"`swarm-bee` for publishing the latest root to a Swarm feed)"
+                f"(that covers the local-first store machinery — swarmfs — "
+                f"plus `requests` and `swarm-bee` for feed publication)"
             ) from exc
         except OSError as exc:
             raise _swarm_open_error(self.name, api, exc) from exc
@@ -487,7 +523,21 @@ class SwarmBackend:
                                     exc) from exc
 
     def save(self, dag):
-        dag.commit()
+        dag.commit()  # local, instant, offline-safe
+        # Best-effort barrier: a CLI run is short-lived, so give the
+        # background syncer a chance to land the commit on Swarm before
+        # the process exits. Offline (or slow) is not an error — the
+        # commit is durable locally and the next run's syncer resumes it.
+        sync = getattr(dag.store, "sync", None)
+        if sync is not None:
+            try:
+                sync(timeout=_SYNC_TIMEOUT)
+            except Exception as exc:  # TimeoutError, node down, ...
+                print(
+                    f"note: committed locally; not yet confirmed on Swarm "
+                    f"({exc}). It will sync on the next use of this store.",
+                    file=sys.stderr,
+                )
 
     def describe(self):
         return f"swarm:{self.name}"
@@ -606,7 +656,14 @@ class Session:
         # time is the feature.
         backend = _make_backend(spec)
         dag = backend.load()
+        # A local-first store holds a writer lock and a sync thread; release
+        # them when the session moves on (switching back to the same store
+        # in one session would otherwise hit its own lock).
+        old = getattr(self._dag, "store", None)
         self.spec, self._backend, self._dag = spec, backend, dag
+        close = getattr(old, "close", None)
+        if close is not None:
+            close()
 
     def save(self):
         self.backend.save(self.dag)

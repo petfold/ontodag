@@ -12,6 +12,23 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Changed
+
+- **`swarm:` stores are local-first** (recordstore 0.19's
+  `local_first_store`): commits land in a store directory under
+  `~/.ontodag` instantly — the node being down no longer blocks a save —
+  and a background syncer pushes them to Swarm and confirms
+  peer-to-peer; `save()` adds a best-effort sync barrier (60 s) and
+  prints a note when the commit will sync on a later run instead. With
+  a signer the head publishes to the Swarm feed only after network
+  confirmation, so the feed never points readers at content the network
+  cannot serve yet. Pre-local-first stores migrate automatically: the
+  old `NAME.root` head seeds the new store directory's `HEAD` on first
+  open, and reads heal lazily from Swarm. The `swarm` extra is now
+  `recordstore[swarm-only,local-first-swarm]>=0.19.0`.
+
 ## [0.14.1] — 2026-08-04
 
 ### Changed

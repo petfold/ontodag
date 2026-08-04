@@ -71,7 +71,10 @@ web = ["ontodag[viz,owl]", "flask", "dot2tex"]
 # the [stamps] extra is why the floor was once pinned at 0.14.0 — it does not
 # exist earlier, and pip only warns on unknown extras; the floor is 0.16.0
 # now because ontodag.certificates consumes prove/verify_proof.)
-swarm = ["recordstore[bee,feeds,stamps]>=0.16.0"]
+# both Swarm use cases: local-first store dirs that sync in the background
+# (the swarm: backend since 0.15) and direct-on-Swarm (feed publication,
+# batch "auto"). recordstore 0.19 renamed/bundled its extras accordingly.
+swarm = ["recordstore[swarm-only,local-first-swarm]>=0.19.0"]
 # Everything, and it means everything: `all` is a promise about coverage, not
 # a curated selection. Leaving `swarm` out made it a lie about the one feature
 # this project is most about, and left the reader to notice that `[all]` still

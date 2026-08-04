@@ -37,7 +37,7 @@ Base install (`pip install ontodag`) is pure Python: the core plus
 | `viz` | graphviz, Pillow | `visualize`, images |
 | `owl` | owlready2 | `.owl` / `.omn` import and export |
 | `store` | recordstore | alias of the base dependency |
-| `swarm` | recordstore[bee,feeds,stamps] | `swarm:` stores on a Bee node |
+| `swarm` | recordstore[swarm-only,local-first-swarm] ≥ 0.19 | `swarm:` stores — local-first: commits land in a store directory instantly (offline works) and sync to Swarm in the background; with a signer the head publishes to a feed after network confirmation |
 | `web` | flask, dot2tex, viz, owl | the web app and REST API |
 | `all` | everything above | |
 | `test` | pytest + viz, owl, store | the suite (deliberately no swarm) |

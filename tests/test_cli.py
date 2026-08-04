@@ -312,17 +312,18 @@ class TestSetCommand(unittest.TestCase):
 
 
 class TestSwarmMissingDependency(unittest.TestCase):
-    def test_missing_requests_gives_actionable_error(self):
-        # BeeBytesStore imports `requests` in its constructor; if it's not
-        # installed the swarm backend must fail with a clear message pointing
-        # at the extra, not a raw ModuleNotFoundError.
+    def test_missing_swarmfs_gives_actionable_error(self):
+        # local_first_store imports swarmfs's localstore machinery; if it's
+        # not installed the swarm backend must fail with a clear message
+        # pointing at the extra, not a raw ModuleNotFoundError.
         import builtins
 
         real_import = builtins.__import__
 
         def block(name, *args, **kwargs):
-            if name == "requests" or name.startswith("requests."):
-                raise ModuleNotFoundError("No module named 'requests'")
+            if name == "swarmfs" or name.startswith("swarmfs."):
+                raise ModuleNotFoundError("No module named 'swarmfs'",
+                                          name="swarmfs")
             return real_import(name, *args, **kwargs)
 
         with tempfile.TemporaryDirectory() as home:
@@ -340,7 +341,7 @@ class TestSwarmMissingDependency(unittest.TestCase):
                     os.environ["ONTODAG_HOME"] = old_home
 
         msg = str(ctx.exception)
-        self.assertIn("requests", msg)
+        self.assertIn("swarmfs", msg)
         self.assertIn("swarm extra", msg)
 
 
@@ -773,11 +774,11 @@ class TestIndexCommand(unittest.TestCase):
 
 
 class TestSwarmSignerWiring(unittest.TestCase):
-    """The published-root pointer (roadmap item 2, DIMENSIONS-era queue):
-    with a signer configured the backend builds its store through
-    recordstore.swarm_store — blobs on Bee AND the latest root in a signed
-    Swarm feed (SwarmFeedPointer), a followable address. Without one it
-    stays BeeBytesStore + local FilePointer. Wiring only; the live feed
+    """The swarm: backend is local-first (recordstore 0.19): commits land
+    in a store directory and sync in the background. With a signer the
+    head is additionally published to a Swarm feed — only after network
+    confirmation (publish_pointer=SwarmFeedPointer). Without one, nothing
+    is publishable and publish_pointer stays None. Wiring only; the live
     cycle is tests/test_swarm_bee.py's (gated) job."""
 
     _ENV = ("ONTODAG_HOME", "BEE_API", "BEE_BATCH", "BEE_SIGNER")
@@ -798,19 +799,24 @@ class TestSwarmSignerWiring(unittest.TestCase):
                 os.environ[key] = value
         self._home.cleanup()
 
-    def test_signer_routes_to_swarm_store(self):
+    def test_signer_routes_to_feed_publication(self):
         from unittest import mock
         import recordstore
 
         os.environ["BEE_SIGNER"] = "0x" + "11" * 32
-        sentinel = object()
-        with mock.patch.object(recordstore, "swarm_store",
-                               return_value=sentinel) as factory:
+        sentinel, feed = object(), object()
+        with mock.patch.object(recordstore, "local_first_store",
+                               return_value=sentinel) as factory, \
+             mock.patch.object(recordstore, "SwarmFeedPointer",
+                               return_value=feed) as pointer:
             store = cli.SwarmBackend("pets")._record_store()
         self.assertIs(store, sentinel)
+        pointer.assert_called_once_with(
+            "http://node:1633", "pets", signer="0x" + "11" * 32,
+            postage_batch_id="beef" * 16)
         factory.assert_called_once_with(
-            "pets", api_url="http://node:1633", stamp="beef" * 16,
-            signer="0x" + "11" * 32)
+            cli.SwarmBackend("pets").store_dir(), "http://node:1633",
+            stamp="beef" * 16, publish_pointer=feed)
 
     def test_signer_from_config_file(self):
         from unittest import mock
@@ -818,21 +824,54 @@ class TestSwarmSignerWiring(unittest.TestCase):
 
         _, out = _run(["set", "bee_signer", "0x" + "22" * 32],
                       cli.Session(os.path.join(self._home.name, "ignore.od")))
-        with mock.patch.object(recordstore, "swarm_store",
-                               return_value=object()) as factory:
+        with mock.patch.object(recordstore, "local_first_store",
+                               return_value=object()), \
+             mock.patch.object(recordstore, "SwarmFeedPointer",
+                               return_value=object()) as pointer:
             cli.SwarmBackend("pets")._record_store()
-        self.assertEqual(factory.call_args.kwargs["signer"], "0x" + "22" * 32)
+        self.assertEqual(pointer.call_args.kwargs["signer"], "0x" + "22" * 32)
 
-    def test_without_signer_uses_local_file_pointer(self):
+    def test_without_signer_no_publication(self):
         from unittest import mock
         import recordstore
 
-        with mock.patch.object(recordstore, "BeeBytesStore",
-                               lambda api, batch: MemoryBytesStore()), \
-             mock.patch.object(recordstore, "FilePointer") as pointer:
+        with mock.patch.object(recordstore, "local_first_store",
+                               return_value=object()) as factory:
             cli.SwarmBackend("pets")._record_store()
-        pointer.assert_called_once_with(
-            cli.SwarmBackend("pets").pointer_path())
+        self.assertIsNone(factory.call_args.kwargs["publish_pointer"])
+        self.assertEqual(factory.call_args.args[0],
+                         cli.SwarmBackend("pets").store_dir())
+
+    def test_legacy_root_migrates_into_head(self):
+        from unittest import mock
+        import recordstore
+
+        backend = cli.SwarmBackend("pets")
+        os.makedirs(os.path.dirname(backend.pointer_path()), exist_ok=True)
+        with open(backend.pointer_path(), "w") as f:
+            f.write("ab" * 32)
+        with mock.patch.object(recordstore, "local_first_store",
+                               return_value=object()):
+            backend._record_store()
+        with open(os.path.join(backend.store_dir(), "HEAD")) as f:
+            self.assertEqual(f.read(), "ab" * 32)
+
+    def test_head_not_overwritten_by_stale_legacy_root(self):
+        from unittest import mock
+        import recordstore
+
+        backend = cli.SwarmBackend("pets")
+        os.makedirs(backend.store_dir(), exist_ok=True)
+        with open(os.path.join(backend.store_dir(), "HEAD"), "w") as f:
+            f.write("cd" * 32)
+        os.makedirs(os.path.dirname(backend.pointer_path()), exist_ok=True)
+        with open(backend.pointer_path(), "w") as f:
+            f.write("ab" * 32)
+        with mock.patch.object(recordstore, "local_first_store",
+                               return_value=object()):
+            backend._record_store()
+        with open(os.path.join(backend.store_dir(), "HEAD")) as f:
+            self.assertEqual(f.read(), "cd" * 32)
 
     def test_set_shows_bee_signer(self):
         session = cli.Session(os.path.join(self._home.name, "ignore.od"))
@@ -1240,3 +1279,63 @@ class TestGenerateSigner(unittest.TestCase):
             code, _out, _err = self._set("bee_signer", value, "--force")
             self.assertEqual(code, 0, value)
             self.assertEqual(cli._read_config()["bee_signer"], value)
+
+
+class TestSwarmBackendLocalFirst(unittest.TestCase):
+    """End to end, offline: the swarm: backend is local-first — a commit
+    succeeds with the node unreachable (durable in the store directory,
+    synced by a later run), and reopening resumes at the committed head."""
+
+    def setUp(self):
+        try:
+            import swarmfs.localstore  # noqa: F401
+        except ImportError:
+            self.skipTest("swarmfs not installed")
+        self._home = tempfile.TemporaryDirectory()
+        self._saved = {k: os.environ.get(k)
+                       for k in ("ONTODAG_HOME", "BEE_API", "BEE_BATCH")}
+        os.environ["ONTODAG_HOME"] = self._home.name
+        os.environ["BEE_API"] = "http://127.0.0.1:9"  # nothing listens here
+        os.environ["BEE_BATCH"] = "beef" * 16
+        self._timeout = cli._SYNC_TIMEOUT
+        cli._SYNC_TIMEOUT = 0.2
+
+    def tearDown(self):
+        cli._SYNC_TIMEOUT = self._timeout
+        for key, value in self._saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        self._home.cleanup()
+
+    def test_commit_offline_then_reopen(self):
+        import io
+        from contextlib import redirect_stderr
+
+        class DagStub:
+            def __init__(self, store):
+                self.store = store
+
+            def commit(self):
+                return self.store.commit()
+
+        backend = cli.SwarmBackend("pets")
+        store = backend._record_store()
+        try:
+            store.put("cat", {"kind": "animal"})
+            err = io.StringIO()
+            with redirect_stderr(err):
+                backend.save(DagStub(store))     # node down: still succeeds
+            self.assertIn("committed locally", err.getvalue())
+            head = store.root
+            self.assertIsNotNone(head)
+        finally:
+            store.close()
+
+        again = cli.SwarmBackend("pets")._record_store()
+        try:
+            self.assertEqual(again.root, head)   # HEAD survived the reopen
+            self.assertEqual(again.get("cat"), {"kind": "animal"})
+        finally:
+            again.close()
