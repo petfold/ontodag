@@ -26,9 +26,14 @@ the version numbers appear in commit history and docs.
   odag, a long-lived odag-fs mount, and the MCP server interleave
   freely — brief overlaps retry on `StoreLocked` for up to 5 s, and
   the `odag index` / MCP provenance stores get the same
-  window discipline. Committing onto a head another writer moved is a
-  record-level rebase (only records changed since this session's
-  hydrate are staged). `save()` adds a best-effort sync barrier (60 s)
+  window discipline. Saving onto a head another writer moved **folds
+  the moved head in with the CRDT DAG merge** (invariant I7 —
+  commutative, idempotent union via `EagerOntoDAG.sync`), never
+  last-writer-wins and never locking: same-node concurrent edits union
+  their parents. The dag tracks `base_root` — the root of its own
+  hydrate/commit lineage — and merges only when the head moved past
+  it, so replace-shaped flows (`odag import`) still supersede rather
+  than merge back what they replaced. `save()` adds a best-effort sync barrier (60 s)
   and prints a note when the commit will sync on a later run instead. With
   a signer the head publishes to the Swarm feed only after network
   confirmation, so the feed never points readers at content the network
