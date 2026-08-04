@@ -25,6 +25,7 @@ import os
 import shlex
 import socket
 import sys
+import time
 
 from ontodag.dag import OntoDAG, Item
 from ontodag import surface as _surface
@@ -319,9 +320,20 @@ def _save(dag, path):
 # record store (recordstore[local-first-swarm], 0.19+): commits land in a
 # store directory under ~/.ontodag instantly — offline is the normal mode —
 # and a background syncer pushes them to Swarm and confirms peer-to-peer.
-# save() adds a best-effort sync barrier so a short-lived CLI run still
-# gets its data onto the network before exiting; when the node is down the
-# commit is safe locally and the next run's syncer picks it up. Two modes:
+#
+# The store is opened in TRANSIENT WINDOWS, never held: the local-first
+# store carries a single-writer lock, and the hydrated in-memory DAG is
+# what actually serves a session, so load() opens-hydrates-closes and
+# save() opens-commits-syncs-closes (rebinding dag.store for the window).
+# Between windows no lock is held — odag, odag-fs mounts, and the MCP
+# server interleave freely; simultaneous windows retry briefly on
+# StoreLocked. Committing onto a head another writer moved is a clean
+# record-level rebase: EagerOntoDAG stages only records changed since its
+# own hydrate, so the other writer's untouched records survive (per-record
+# last-write-wins on true conflicts). save()'s best-effort sync barrier
+# gets the commit onto the network before a short-lived CLI run exits;
+# when the node is down the commit is safe locally and the next window's
+# syncer picks it up. Two modes:
 #
 #   with a signer  -> additionally publishes the head to a Swarm feed —
 #                     and only after network confirmation, so the feed
@@ -339,6 +351,9 @@ def _save(dag, path):
 #: on Swarm before letting the process move on (the commit is durable
 #: locally either way; tests shrink this).
 _SYNC_TIMEOUT = 60
+#: How long to retry when another transient window briefly holds the
+#: store's writer lock.
+_LOCK_RETRY = 5.0
 
 
 class FileBackend:
@@ -497,8 +512,20 @@ class SwarmBackend:
                 from recordstore import SwarmFeedPointer
                 publish_pointer = SwarmFeedPointer(
                     api, self.name, signer=signer, postage_batch_id=batch)
-            return local_first_store(self.store_dir(), api, stamp=batch,
-                                     publish_pointer=publish_pointer)
+            # Transient windows may overlap for a moment (odag saving while
+            # an odag-fs mount rehydrates): the writer lock is only ever
+            # held briefly, so a short retry absorbs it.
+            deadline = time.monotonic() + _LOCK_RETRY
+            while True:
+                try:
+                    return local_first_store(self.store_dir(), api,
+                                             stamp=batch,
+                                             publish_pointer=publish_pointer)
+                except Exception as exc:
+                    if type(exc).__name__ != "StoreLocked" or \
+                            time.monotonic() > deadline:
+                        raise
+                    time.sleep(0.2)
         except ImportError as exc:
             missing = exc.name or "swarmfs"
             raise ValueError(
@@ -521,23 +548,38 @@ class SwarmBackend:
         except OSError as exc:
             raise _swarm_open_error(self.name, _configured("bee_api"),
                                     exc) from exc
+        finally:
+            # transient window: the in-memory DAG serves the session;
+            # save() reopens and rebinds. (No-op for factory test stores.)
+            close = getattr(store, "close", None)
+            if close is not None:
+                close()
 
     def save(self, dag):
-        dag.commit()  # local, instant, offline-safe
-        # Best-effort barrier: a CLI run is short-lived, so give the
-        # background syncer a chance to land the commit on Swarm before
-        # the process exits. Offline (or slow) is not an error — the
-        # commit is durable locally and the next run's syncer resumes it.
-        sync = getattr(dag.store, "sync", None)
-        if sync is not None:
-            try:
-                sync(timeout=_SYNC_TIMEOUT)
-            except Exception as exc:  # TimeoutError, node down, ...
-                print(
-                    f"note: committed locally; not yet confirmed on Swarm "
-                    f"({exc}). It will sync on the next use of this store.",
-                    file=sys.stderr,
-                )
+        store = self._record_store()  # transient writer window
+        dag.store = store
+        try:
+            dag.commit()  # local, instant, offline-safe
+            # Best-effort barrier: a CLI run is short-lived, so give the
+            # background syncer a chance to land the commit on Swarm before
+            # the window closes. Offline (or slow) is not an error — the
+            # commit is durable locally and the next window's syncer
+            # resumes it.
+            sync = getattr(store, "sync", None)
+            if sync is not None:
+                try:
+                    sync(timeout=_SYNC_TIMEOUT)
+                except Exception as exc:  # TimeoutError, node down, ...
+                    print(
+                        f"note: committed locally; not yet confirmed on "
+                        f"Swarm ({exc}). It will sync on the next use of "
+                        f"this store.",
+                        file=sys.stderr,
+                    )
+        finally:
+            close = getattr(store, "close", None)
+            if close is not None:
+                close()
 
     def describe(self):
         return f"swarm:{self.name}"
@@ -1015,8 +1057,15 @@ def cmd_index(args, session, out):
     data_root = session.dag.store.root
     if not data_root:
         raise ValueError("nothing committed yet — put something first")
-    index_root = build_index(session.dag, backend.index_record_store(),
-                             data_root, threshold=args.threshold)
+    index_store = backend.index_record_store()
+    try:
+        index_root = build_index(session.dag, index_store,
+                                 data_root, threshold=args.threshold)
+    finally:
+        # transient window: a local-first index store holds a writer lock
+        close = getattr(index_store, "close", None)
+        if close is not None:
+            close()
     print(f"data  {data_root}", file=out)
     print(f"index {index_root}", file=out)
 

@@ -1313,29 +1313,27 @@ class TestSwarmBackendLocalFirst(unittest.TestCase):
         import io
         from contextlib import redirect_stderr
 
-        class DagStub:
-            def __init__(self, store):
-                self.store = store
-
-            def commit(self):
-                return self.store.commit()
-
         backend = cli.SwarmBackend("pets")
-        store = backend._record_store()
+        dag = backend.load()                 # transient: lock released here
+        dag.put("cat", [])
+        err = io.StringIO()
+        with redirect_stderr(err):
+            backend.save(dag)                # node down: still succeeds
+        self.assertIn("committed locally", err.getvalue())
+
+        dag2 = cli.SwarmBackend("pets").load()   # reopen at the same head
+        self.assertIn("cat", dag2.nodes)
+
+    def test_no_lock_held_between_windows(self):
+        """The transient-window contract: after load()/save() return, the
+        store's writer lock is free — a second opener never blocks."""
+        b1 = cli.SwarmBackend("pets")
+        dag = b1.load()
+        # while dag serves from memory, another process-alike opens freely
+        store = cli.SwarmBackend("pets")._record_store()
         try:
-            store.put("cat", {"kind": "animal"})
-            err = io.StringIO()
-            with redirect_stderr(err):
-                backend.save(DagStub(store))     # node down: still succeeds
-            self.assertIn("committed locally", err.getvalue())
-            head = store.root
-            self.assertIsNotNone(head)
+            self.assertIsNotNone(store)
         finally:
             store.close()
-
-        again = cli.SwarmBackend("pets")._record_store()
-        try:
-            self.assertEqual(again.root, head)   # HEAD survived the reopen
-            self.assertEqual(again.get("cat"), {"kind": "animal"})
-        finally:
-            again.close()
+        backendless = cli.SwarmBackend("pets").load()
+        self.assertEqual(set(backendless.nodes), set(dag.nodes))

@@ -20,8 +20,16 @@ the version numbers appear in commit history and docs.
   `local_first_store`): commits land in a store directory under
   `~/.ontodag` instantly — the node being down no longer blocks a save —
   and a background syncer pushes them to Swarm and confirms
-  peer-to-peer; `save()` adds a best-effort sync barrier (60 s) and
-  prints a note when the commit will sync on a later run instead. With
+  peer-to-peer. The store is opened in **transient windows, never
+  held**: the hydrated in-memory DAG serves the session, `load()` and
+  `save()` each open-and-close (releasing the single-writer lock), so
+  odag, a long-lived odag-fs mount, and the MCP server interleave
+  freely — brief overlaps retry on `StoreLocked` for up to 5 s, and
+  the `odag index` / MCP provenance stores get the same
+  window discipline. Committing onto a head another writer moved is a
+  record-level rebase (only records changed since this session's
+  hydrate are staged). `save()` adds a best-effort sync barrier (60 s)
+  and prints a note when the commit will sync on a later run instead. With
   a signer the head publishes to the Swarm feed only after network
   confirmation, so the feed never points readers at content the network
   cannot serve yet. Pre-local-first stores migrate automatically: the

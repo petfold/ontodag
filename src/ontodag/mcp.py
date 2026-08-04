@@ -107,7 +107,6 @@ class AgentSurface:
         # — every write is a signed speech act beside a knowledge change.
         self.writable = bool(writable)
         self._signer = signer
-        self._prov = None
         if self.writable:
             if not hasattr(backend, "provenance_record_store"):
                 raise ValueError(
@@ -142,12 +141,20 @@ class AgentSurface:
                 "no attribution")
 
     def _provenance(self):
-        if self._prov is None:
-            from ontodag.provenance import ProvenanceStore
-            self._prov = ProvenanceStore(
-                self._backend.provenance_record_store(),
-                signer=self._signer)
-        return self._prov
+        # NOT cached: a local-first provenance store holds a writer lock,
+        # and the MCP server is long-running — open a transient window per
+        # use so odag can write provenance while the server is up. Callers
+        # close via _close_provenance (or the context of one request).
+        from ontodag.provenance import ProvenanceStore
+        return ProvenanceStore(
+            self._backend.provenance_record_store(),
+            signer=self._signer)
+
+    @staticmethod
+    def _close_provenance(prov):
+        close = getattr(getattr(prov, "_store", None), "close", None)
+        if close is not None:
+            close()
 
     def _verify(self, record):
         """True/False per the signature, or None when no verifier is
@@ -431,12 +438,15 @@ class AgentSurface:
         dag.put(item_c, supers_c)      # the core validates; errors teach
         new_root = dag.commit()
         prov = self._provenance()
-        stamp = _utc_now()
-        claims = self._claims_for_put(item_c, supers_c)
-        for claim in claims:
-            prov.assert_claim(claim, basis=basis, time=stamp,
-                              group=proposal)
-        provenance_root = prov.commit()
+        try:
+            stamp = _utc_now()
+            claims = self._claims_for_put(item_c, supers_c)
+            for claim in claims:
+                prov.assert_claim(claim, basis=basis, time=stamp,
+                                  group=proposal)
+            provenance_root = prov.commit()
+        finally:
+            self._close_provenance(prov)
         self.root = new_root
         return self._envelope(new_root, {
             "op": "put", "item": item_c, "supers": supers_c,
@@ -498,12 +508,15 @@ class AgentSurface:
         # knowledge-level remove MUST emit its retraction records — the
         # audit trail never has silent disappearances.
         prov = self._provenance()
-        stamp = _utc_now()
-        claims = [below_subject(item_c, p) for p in parents]
-        claims.append(exists_subject(item_c))
-        for claim in claims:
-            prov.retract(claim, basis=basis, time=stamp, group=proposal)
-        provenance_root = prov.commit()
+        try:
+            stamp = _utc_now()
+            claims = [below_subject(item_c, p) for p in parents]
+            claims.append(exists_subject(item_c))
+            for claim in claims:
+                prov.retract(claim, basis=basis, time=stamp, group=proposal)
+            provenance_root = prov.commit()
+        finally:
+            self._close_provenance(prov)
         self.root = new_root
         return self._envelope(new_root, {
             "op": "remove", "item": item_c, "records": len(claims),
@@ -523,7 +536,12 @@ class AgentSurface:
             raise ToolError("trust must be a list of author addresses")
         records, acts = [], {}
         verification = "available"
-        for record in self._provenance().records(subject):
+        prov = self._provenance()
+        try:
+            prov_records = list(prov.records(subject))
+        finally:
+            self._close_provenance(prov)
+        for record in prov_records:
             verified = self._verify(record)
             if verified is None:
                 verification = "unavailable"
@@ -554,8 +572,11 @@ class AgentSurface:
         self._require_writable()
         subject = self._subject_from(self.dag, arguments)
         prov = self._provenance()
-        prov.endorse(subject, basis=self.root, time=_utc_now())
-        provenance_root = prov.commit()
+        try:
+            prov.endorse(subject, basis=self.root, time=_utc_now())
+            provenance_root = prov.commit()
+        finally:
+            self._close_provenance(prov)
         return self._envelope(self.root, {
             "op": "endorse", "subject": subject, "author": prov.author,
             "provenance_root": provenance_root,
@@ -565,8 +586,11 @@ class AgentSurface:
         self._require_writable()
         subject = self._subject_from(self.dag, arguments)
         prov = self._provenance()
-        prov.retract(subject, basis=self.root, time=_utc_now())
-        provenance_root = prov.commit()
+        try:
+            prov.retract(subject, basis=self.root, time=_utc_now())
+            provenance_root = prov.commit()
+        finally:
+            self._close_provenance(prov)
         return self._envelope(self.root, {
             "op": "retract", "subject": subject, "author": prov.author,
             "provenance_root": provenance_root,
