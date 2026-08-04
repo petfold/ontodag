@@ -12,6 +12,18 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [0.14.1] — 2026-08-04
+
+### Changed
+
+- **Docs**: `docs/recordstore-interface.md` is now only the consumer-side
+  view — recordstore (0.18.2+) and swarmfs (0.7.1+) ship their own
+  authoritative `docs/REFERENCE.md`, each pinned against its code by a
+  `tests/test_reference.py` (the pattern this repo's REFERENCE.md
+  started), so the full-API half of the manual-sync burden is retired.
+  The doc index, REFERENCE.md's install section, and CLAUDE.md point
+  upstream accordingly. No code change.
+
 ## [0.14.0] — 2026-08-03
 
 ### Fixed
