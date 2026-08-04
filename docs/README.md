@@ -23,7 +23,7 @@ to add a section somewhere, check it isn't another document's job.
 | [DIMENSIONS.md](DIMENSIONS.md) | Parametric values: computed order, kinds, anchors. |
 | [UNITS.md](UNITS.md) | The unit registry: rational anchoring, families, packs, registry versioning. |
 | [SWARM_DESIGN.md](SWARM_DESIGN.md) | Persistence architecture: recordstore, the node schema, multi-writer merge. |
-| [recordstore-interface.md](recordstore-interface.md) | Public API of the external `recordstore` dependency (manually synced). |
+| [recordstore-interface.md](recordstore-interface.md) | Consumer-side view of the `recordstore` dependency (what OntoDAG uses, with floor notes). The full, current API is upstream's test-pinned [recordstore REFERENCE.md](https://github.com/petfold/recordstore/blob/main/docs/REFERENCE.md) (likewise [swarmfs's](https://github.com/petfold/swarmfs/blob/main/docs/REFERENCE.md)). |
 
 ## [plans/](plans/) — future features and directions
 

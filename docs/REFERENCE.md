@@ -42,6 +42,11 @@ Base install (`pip install ontodag`) is pure Python: the core plus
 | `all` | everything above | |
 | `test` | pytest + viz, owl, store | the suite (deliberately no swarm) |
 
+The dependencies keep their own test-pinned references:
+[recordstore REFERENCE.md](https://github.com/petfold/recordstore/blob/main/docs/REFERENCE.md)
+and [swarmfs REFERENCE.md](https://github.com/petfold/swarmfs/blob/main/docs/REFERENCE.md);
+`docs/recordstore-interface.md` here is only the consumer-side view.
+
 ## 3. Query semantics
 
 | operation | answer | notes |

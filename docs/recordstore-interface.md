@@ -5,14 +5,23 @@ extracted from this repo in July 2026 with history preserved. OntoDAG depends on
 from PyPI in `pyproject.toml` (`recordstore>=0.14.0`, both in the base dependencies and
 in the `swarm` extra, which asks for `recordstore[bee,feeds,stamps]`).
 
-**This is a manually-synced reference doc**, not generated and not a submodule: if the
-required version changes, re-check this summary against the tagged source. Last synced
-against **0.15.0**, verified signature-by-signature on 2026-08-01 against a checkout of
-the `v0.15.0` tag.
+> **The authoritative reference now lives upstream.** Since recordstore
+> 0.18.2 the repo ships its own
+> [`docs/REFERENCE.md`](https://github.com/petfold/recordstore/blob/main/docs/REFERENCE.md)
+> (local checkout: `../../recordstore/docs/REFERENCE.md`) — definition-first
+> tables of every export, signature, error and extra, **pinned against the
+> code by its `tests/test_reference.py`**, so unlike this file it cannot
+> drift. For anything current — the local-first surface
+> (`local_first_store`, pin/fetch, `squash_history`), `CachedBytesStore`,
+> `RecordUnavailable` — go there. swarmfs (pulled in by the `swarm` extra's
+> `[stamps]` path, and by `recordstore[local]`) has the same:
+> [`docs/REFERENCE.md`](https://github.com/petfold/swarmfs/blob/main/docs/REFERENCE.md).
 
-The sync point is deliberately *ahead* of the floor: the floor says what OntoDAG needs,
-this doc describes what the current release offers. Anything requiring more than 0.14.0
-is marked **(needs ≥ x.y.z)** below — everything unmarked is available at the floor.
+**This file's remaining role is the consumer-side view**: the subset OntoDAG
+actually uses, with floor annotations. It is manually synced and no longer
+chases the full upstream API. Last full signature-by-signature sync:
+**0.15.0** (2026-08-01); anything requiring more than the 0.14.0-era floor
+is marked **(needs ≥ x.y.z)** below.
 
 ## What OntoDAG uses it for
 
