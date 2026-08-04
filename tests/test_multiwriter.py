@@ -165,6 +165,101 @@ class TestConvergenceFuzz(unittest.TestCase):
             bob.sync(root_a)
 
 
+class _CountingBytes:
+    """Duck-typed bytes-store wrapper counting every blob read."""
+
+    def __init__(self, store):
+        self._store = store
+        self.reads = 0
+
+    def get(self, ref):
+        self.reads += 1
+        return self._store.get(ref)
+
+    def get_many(self, refs):
+        refs = list(refs)
+        self.reads += len(refs)
+        return self._store.get_many(refs)   # keep the mapping contract
+
+    def __getattr__(self, name):
+        return getattr(self._store, name)
+
+
+class TestDeltaFold(unittest.TestCase):
+    """merge_delta must be indistinguishable from the full-hydration fold
+    in RESULT (byte-identical roots) and proportional to the DIVERGENCE in
+    cost (blob reads)."""
+
+    def _full_merge_root(self, blobs, base, other_root):
+        """The full-hydration oracle: hydrate the peer whole, merge()."""
+        from recordstore import RecordStore
+        oracle = writer(blobs, base)
+        oracle.merge(EagerOntoDAG(RecordStore.at(other_root, blobs)))
+        return oracle.commit()
+
+    def test_delta_fold_equals_full_hydration_merge(self):
+        import random
+
+        names = [f"n{i}" for i in range(12)]
+        for seed in range(8):
+            rng = random.Random(1000 + seed)
+            blobs = MemoryBytesStore()
+            base_puts = [(name, rng.sample(names[:i],
+                                           k=min(i, rng.randint(0, 2))))
+                         for i, name in enumerate(names)]
+            base = base_graph(blobs, base_puts)
+
+            def diverge(rng2):
+                w = writer(blobs, base)
+                for _ in range(3):
+                    i = rng2.randint(1, len(names) - 1)
+                    w.put(names[i], rng2.sample(names[:i],
+                                                k=min(i, rng2.randint(0, 2))))
+                if rng2.random() < 0.5:
+                    w.remove(names[rng2.randint(1, len(names) - 1)])
+                return w, w.commit()
+
+            alice, root_a = diverge(random.Random(seed * 3 + 1))
+            _bob, root_b = diverge(random.Random(seed * 3 + 2))
+
+            expected = self._full_merge_root(blobs, root_a, root_b)
+            self.assertEqual(alice.sync(root_b), expected,
+                             f"delta != full merge at seed {seed}")
+
+    def test_fold_reads_only_the_divergence(self):
+        """One peer put on a ~300-record store: the fold's blob reads are
+        bounded by the divergence (records + trie path + the touched
+        cones), never by the store."""
+        blobs = MemoryBytesStore()
+        puts = [("top", [])]
+        puts += [(f"mid{i}", ["top"]) for i in range(20)]
+        puts += [(f"leaf{i}", [f"mid{i % 20}"]) for i in range(280)]
+        base = base_graph(blobs, puts)
+
+        alice = writer(blobs, base)
+        alice.put("mine", ["mid3"])
+
+        bob = writer(blobs, base)
+        bob.put("theirs", ["mid7"])
+        root_b = bob.commit()
+
+        counting = _CountingBytes(blobs)
+        alice.sync(root_b, bytes_store=counting)
+        self.assertIn("theirs", alice.nodes)
+        self.assertLess(counting.reads, 60,
+                        "fold read like a hydration, not like a diff")
+
+    def test_sync_into_empty_writer(self):
+        """base_root None (hydrated empty): the diff degenerates to the
+        peer's full content and the fold is a plain adoption."""
+        blobs = MemoryBytesStore()
+        published = base_graph(blobs, [("animal", []), ("dog", ["animal"])])
+        fresh = writer(blobs)                     # empty, base_root None
+        merged = fresh.sync(published)
+        self.assertEqual(merged, published)       # canonical: same content
+        self.assertEqual(parents(fresh, "dog"), {"animal"})
+
+
 class TestUnionSemantics(unittest.TestCase):
     def test_divergent_parents_union_and_reduce(self):
         blobs = MemoryBytesStore()

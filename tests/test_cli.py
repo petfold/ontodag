@@ -227,6 +227,21 @@ class TestSwarmBackend(unittest.TestCase):
         code, out = _run(["get", "Animal"], _mem_swarm_session(self.shared))
         self.assertEqual((code, out), (0, ""))
 
+    def test_concurrent_remove_survivor_reaches_the_store(self):
+        """The concurrent-delete gap, without swarmfs: session 2 hydrates
+        while Dog exists, session 1 removes Dog (head moves), session 2
+        saves an unrelated put — the union keeps Dog, and the committed
+        root must too (see the local-first twin of this test for the
+        full story)."""
+        s1 = _mem_swarm_session(self.shared)
+        _run(["put", "Animal"], s1)
+        _run(["put", "Dog", "Animal"], s1)
+        s2 = _mem_swarm_session(self.shared)      # hydrates holding Dog
+        _run(["remove", "Dog"], s1)               # head moves: Dog deleted
+        _run(["put", "Cat", "Animal"], s2)        # merge on save
+        code, out = _run(["get", "Animal"], _mem_swarm_session(self.shared))
+        self.assertEqual((code, out), (0, "Cat\nDog\n"))
+
     def test_swarm_import_replaces_in_place(self):  # C6
         s = _mem_swarm_session(self.shared)
         _run(["put", "Old"], s)
@@ -1362,3 +1377,35 @@ class TestSwarmBackendLocalFirst(unittest.TestCase):
         dag3 = cli.SwarmBackend("pets").load()
         parents = {p.name for p in dag3.nodes["child"].parents}
         self.assertEqual(parents, {"p1", "p2"})
+
+    def test_concurrent_remove_loses_and_the_survivor_reaches_the_store(self):
+        """A peer deletes a record another session still holds; union says
+        the held copy survives (the grow-only stance, same as
+        remove-loses-to-readd) — and it must survive IN THE STORE, not
+        just in memory. commit() used to diff against the session's base
+        lineage, stage nothing for the held-but-unchanged record, and so
+        silently keep the head's deletion in the committed root: the
+        store said remove-WINS while memory said remove-LOSES."""
+        import io
+        from contextlib import redirect_stderr
+
+        b1, b2 = cli.SwarmBackend("pets"), cli.SwarmBackend("pets")
+        seed = b1.load()
+        seed.put("p1", [])
+        seed.put("child", ["p1"])
+        with redirect_stderr(io.StringIO()):
+            b1.save(seed)
+
+        dag1 = b1.load()
+        dag2 = b2.load()                    # still holds child
+        dag1.remove("child")
+        with redirect_stderr(io.StringIO()):
+            b1.save(dag1)                   # head moves: child deleted
+
+        dag2.put("p2", [])                  # unrelated concurrent edit
+        with redirect_stderr(io.StringIO()):
+            b2.save(dag2)                   # merge: child must be re-staged
+
+        dag3 = cli.SwarmBackend("pets").load()
+        self.assertIn("p2", dag3.nodes)
+        self.assertIn("child", dag3.nodes)

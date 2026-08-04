@@ -141,10 +141,11 @@ class EagerOntoDAG(OntoDAG):
         Reconciliation is deliberately graph-level, not per-record:
         transitive reduction and descendant counts are properties of the
         whole graph, so no per-key resolver can uphold them. Divergent
-        versions are hydrated and folded through ``OntoDAG.merge`` (the I7
-        semantics — commutative, idempotent, union of assertions re-reduced
-        against the combined order, parametric dimension terms included),
-        then recommitted; the canonical trie turns convergence into a string
+        versions are folded with the I7 semantics — commutative,
+        idempotent, union of assertions re-reduced against the combined
+        order, parametric dimension terms included — reading only the
+        records that actually diverged (``merge_delta``), then
+        recommitted; the canonical trie turns convergence into a string
         comparison — two writers syncing each other's roots land on the
         byte-identical root.
 
@@ -186,14 +187,102 @@ class EagerOntoDAG(OntoDAG):
         live `EagerOntoDAG` by comparing `store.root`: the other object may hold
         uncommitted changes its root does not reflect, and skipping would
         silently drop them.
-        """
-        from ontodag._extras import require
-        RecordStore = require("recordstore", "store",
-                              "sync()").RecordStore
 
+        The fold itself is delta-driven (`merge_delta`): only the records
+        that actually moved between our lineage and `root` are read, so
+        folding a peer costs the divergence, never the store.
+        """
         if root is not None and root == self.base_root:
             return False                      # already have exactly this
-        other = EagerOntoDAG(
-            RecordStore.at(root, bytes_store or self.store.blobs))
-        self.merge(other)
-        return True
+        return self.merge_delta(root, bytes_store)
+
+    def merge_delta(self, other_root, bytes_store=None) -> bool:
+        """Fold the state at `other_root` in by walking only the DIVERGENCE.
+
+        Semantically the same union as hydrating the peer and calling
+        ``merge()`` — fresh ``Item``s, ours-win metadata and payloads,
+        edges replayed through ``add_edge`` so reduction (combined order)
+        and counts are re-derived, never reconciled (SWARM_DESIGN.md §5's
+        count rule) — but driven by ``RecordStore.diff`` between our own
+        lineage (``base_root``) and the peer's root, so the cost is
+        O(divergence × ancestor cones) instead of O(store). Replay order
+        is irrelevant because ``add_edge`` maintains the complete
+        redundancy rectangle (the 2026-08-04 reduction fix): the result
+        is the unique reduction of the asserted union either way.
+
+        The one diff walk yields two products:
+
+        - **The fold.** Keys whose record moved between base and peer are
+          folded from the peer's side; peer-ABSENT keys fold nothing (the
+          union keeps ours — the grow-only stance). Locally *dirty* keys
+          (including local uncommitted removals) are re-unioned from
+          ``_synced`` — their peer-side record provably equals that
+          baseline whenever they are absent from the diff, so no fetch.
+        - **The rebase.** When this dag's store window is already AT
+          ``other_root`` (the transient-window save flow rebinds the
+          store to a fresh window at the moved head before syncing),
+          ``_synced`` is rewritten to describe that head, restoring
+          ``commit()``'s invariant that the baseline matches the root
+          being committed onto. Without it, a record the peer deleted
+          and we still hold stages nothing — the deletion silently wins
+          in the store while memory keeps the node, and store and memory
+          diverge. With it, commit stages exactly union-vs-head.
+
+        Unlike ``merge()``, no trailing duplicate-root-edge sweep runs:
+        after the reduction fix the sweep is a no-op on any store built
+        through ``add_edge``, and folding must not pay a whole-graph walk
+        to clean legacy hand-forged shapes (``ontodag.migrate`` is the
+        tool for those).
+        """
+        from ontodag._extras import require
+        rs = require("recordstore", "store", "sync()")
+
+        blobs = bytes_store or self.store.blobs
+        snapshot = rs.RecordStore.at(self.base_root, blobs)
+        diff = list(snapshot.diff(other_root))
+        diff_keys = {key for key, _, _ in diff}
+
+        touched = {}                     # name -> the peer-side record
+        for key, _mine, theirs in diff:
+            if theirs is not rs.ABSENT:
+                touched[key] = theirs
+        for key, record in self._synced.items():
+            if key in diff_keys:
+                continue
+            node = self.nodes.get(key)
+            if node is None or self._record_for(node) != record:
+                touched[key] = record    # peer's copy equals our baseline
+
+        # Pass 1: nodes, ours-win metadata and payloads (merge()'s policy).
+        for key in sorted(touched):
+            if key == self.root.name:
+                continue                 # the root always exists; up is []
+            record = touched[key]
+            node = self.nodes.get(key)
+            if node is None:
+                self.add_node(Item(key, metadata=record.get("meta") or {}))
+            else:
+                for meta_key, value in (record.get("meta") or {}).items():
+                    node.metadata.setdefault(meta_key, value)
+            if record.get("payload") is not None:
+                self._payloads.setdefault(key, record["payload"])
+        # Pass 2: replay the peer's asserted edges. Every parent a peer
+        # record names exists by now: an unchanged-in-both parent is
+        # already ours, a changed or peer-new one is in the diff, and a
+        # locally-removed one is dirty — all land in pass 1.
+        for key in sorted(touched):
+            if key == self.root.name:
+                continue
+            node = self.nodes[key]
+            for parent_name in touched[key]["up"]:
+                parent = self.nodes.get(parent_name)
+                if parent is not None:
+                    self.add_edge(parent, node)
+
+        if getattr(self.store, "root", None) == other_root:
+            for key, _mine, theirs in diff:
+                if theirs is rs.ABSENT:
+                    self._synced.pop(key, None)
+                else:
+                    self._synced[key] = theirs
+        return bool(touched)
