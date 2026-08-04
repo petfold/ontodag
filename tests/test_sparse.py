@@ -200,6 +200,110 @@ class TestLocality(unittest.TestCase):
         self.assertNotIn("x5", again.nodes)
 
 
+class TestSparseSync(unittest.TestCase):
+    """SparseOntoDAG.sync — the partially-resident multi-writer fold.
+
+    Same oracle discipline as the writer itself: the sparse fold, the
+    eager delta fold and the full-hydration merge must land on ONE
+    byte-identical root (canonical roots make the three-way check three
+    string comparisons); and the fold's cost is the divergence plus the
+    touched cones, never the store."""
+
+    def test_three_way_oracle(self):
+        rng = random.Random(42)
+        names = [f"n{i}" for i in range(12)]
+        for trial in range(6):
+            puts = [(name, rng.sample(names[:i], k=min(i, rng.randint(0, 2))))
+                    for i, name in enumerate(names)]
+            base, blobs = publish(puts)
+
+            peer = EagerOntoDAG(RecordStore(blobs, root=base))
+            for _ in range(3):
+                i = rng.randint(1, len(names) - 1)
+                peer.put(names[i],
+                         rng.sample(names[:i], k=min(i, rng.randint(0, 2))))
+            peer.put(f"peer-only-{trial}", [names[rng.randint(0, 5)]])
+            other_root = peer.commit()
+
+            sparse, eager = writers(base, blobs)
+            for w in (sparse, eager):
+                w.put("local", [names[3]])
+
+            # The full-hydration oracle: same base, same local edit,
+            # whole peer hydrated and merged.
+            oracle = EagerOntoDAG(RecordStore(blobs, root=base))
+            oracle.put("local", [names[3]])
+            oracle.merge(EagerOntoDAG(RecordStore.at(other_root, blobs)))
+            expected = oracle.commit()
+
+            self.assertEqual(sparse.sync(other_root), expected,
+                             f"sparse fold diverged at trial {trial}")
+            self.assertEqual(eager.sync(other_root), expected,
+                             f"eager delta fold diverged at trial {trial}")
+
+    def test_local_remove_resurrected_by_union(self):
+        """A local uncommitted remove loses to the peer's still-held copy —
+        same union-of-states stance as the eager fold."""
+        base, blobs = publish([("animal", []), ("dog", ["animal"])])
+        peer = EagerOntoDAG(RecordStore(blobs, root=base))
+        peer.put("cat", ["animal"])
+        other_root = peer.commit()
+
+        sparse, eager = writers(base, blobs)
+        for w in (sparse, eager):
+            w.remove("dog")
+        self.assertEqual(sparse.sync(other_root), eager.sync(other_root))
+        self.assertIn("dog", sparse.nodes)
+
+    def test_peer_payload_survives_the_fold(self):
+        """A peer record's payload must reach the committed union even
+        though the sparse writer has no payload channel of its own."""
+        base, blobs = publish([("docs", [])])
+        peer = EagerOntoDAG(RecordStore(blobs, root=base))
+        peer.put("report", ["docs"], payload="swarm-ref-123")
+        other_root = peer.commit()
+
+        sparse = SparseOntoDAG(RecordStore(blobs, root=base))
+        sparse.put("local", ["docs"])
+        merged = sparse.sync(other_root)
+        again = EagerOntoDAG(RecordStore.at(merged, blobs))
+        self.assertEqual(again._payloads.get("report"), "swarm-ref-123")
+
+    def test_fold_cost_is_the_divergence(self):
+        """One peer put on the 447-record store: the sparse fold's record
+        fetches stay bounded by the touched cones, never the store."""
+        base, blobs = publish(broad_fixture())
+        peer = EagerOntoDAG(RecordStore(blobs, root=base))
+        peer.put("theirs", ["m7"])
+        other_root = peer.commit()
+
+        sparse = SparseOntoDAG(RecordStore(blobs, root=base))
+        sparse.put("mine", ["m3"])
+        sparse.sync(other_root)
+        self.assertIn("theirs", sparse.nodes)
+        self.assertLess(sparse.fetches, 60,
+                        f"the fold fetched {sparse.fetches} records")
+
+    def test_rebound_store_is_refused(self):
+        """The store must sit at this writer's own lineage: a handle at
+        another root would serve foreign records to lazy expansions
+        mid-fold (a raw, reduction-blind merge through the back door)."""
+        base, blobs = publish([("a", [])])
+        peer = EagerOntoDAG(RecordStore(blobs, root=base))
+        peer.put("b", ["a"])
+        other_root = peer.commit()
+
+        sparse = SparseOntoDAG(RecordStore(blobs, root=base))
+        sparse.store = RecordStore(blobs, root=other_root)   # rebound
+        with self.assertRaises(ValueError):
+            sparse.merge_delta(other_root)
+
+    def test_plain_lazy_reader_has_no_sync(self):
+        base, blobs = publish([("thing", [])])
+        reader = LazyOntoDAG(RecordStore.at(base, blobs))
+        self.assertFalse(hasattr(reader, "sync"))
+
+
 class TestSparseSemantics(unittest.TestCase):
     def test_reader_stays_read_only(self):
         base, blobs = publish([("thing", [])])

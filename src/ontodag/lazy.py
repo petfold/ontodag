@@ -397,13 +397,22 @@ class SparseOntoDAG(LazyOntoDAG):
     Construct it over a WRITABLE store at the published base
     (``RecordStore(blobs, root=base)``), not a read-only snapshot. Cone
     caching and published cone indexes are disabled — both describe an
-    immutable snapshot, which a writer is not. `merge`/`sync` of whole
-    peers remain EagerOntoDAG's job (they are O(|other|) by nature).
+    immutable snapshot, which a writer is not. Whole-peer ``merge`` (an
+    O(|other|) hydration) remains EagerOntoDAG's job, but ``sync`` does
+    not need it: the diff-driven fold (``merge_delta``) reads only the
+    records that diverged, which is exactly the cost shape a partially
+    resident writer exists for.
     """
 
     def __init__(self, record_store):
         super().__init__(record_store, cache_cones=False)
         self._deleted = set()   # store-backed names removed since last commit
+        self._payloads = {}     # payloads adopted from a peer fold; the
+        #                         as-loaded record's payload always wins
+        # The root of this writer's own hydrate/commit lineage — same role
+        # as EagerOntoDAG.base_root (see there for why `store.root` is not
+        # a substitute).
+        self.base_root = getattr(record_store, "root", None)
 
     # ------------------------------------------------ expansion-aware seams
     #
@@ -498,12 +507,15 @@ class SparseOntoDAG(LazyOntoDAG):
 
     def _record_for(self, node):
         loaded = self._records.get(node.name) or {}
+        payload = loaded.get("payload")     # preserved, never edited here
+        if payload is None:                 # adopted from a peer fold
+            payload = self._payloads.get(node.name)
         return {
             "up": sorted(p.name for p in node.parents
                          if dict.get(self.nodes, p.name) is p),
             "down": sorted(child.name for child in node.neighbors),
             "count": node.descendant_count,
-            "payload": loaded.get("payload"),   # preserved, never edited here
+            "payload": payload,
             "meta": dict(node.metadata),
         }
 
@@ -526,4 +538,103 @@ class SparseOntoDAG(LazyOntoDAG):
             if self._records.get(name) != record:
                 self.store.put(name, record)
                 self._records[name] = record
-        return self.store.commit()
+        root = self.store.commit()
+        self.base_root = root
+        return root
+
+    # ----------------------------------------------------------------- sync
+
+    def sync(self, other_root, bytes_store=None) -> str:
+        """Fold a peer's published root in and commit the union — the same
+        multi-writer merge rule as ``EagerOntoDAG.sync`` (I7: commutative,
+        idempotent, union re-reduced against the combined order), at the
+        cost shape this writer exists for: only the diverged records are
+        read (``merge_delta``), never the store."""
+        if other_root is not None and other_root != self.base_root:
+            self.merge_delta(other_root, bytes_store)
+        return self.commit()
+
+    def merge_delta(self, other_root, bytes_store=None) -> bool:
+        """The diff-driven fold, partially resident (see
+        ``EagerOntoDAG.merge_delta`` for the semantics — union of states,
+        ours-win metadata and payloads, edges replayed through the
+        expansion-aware ``add_edge`` so reduction and counts re-derive).
+
+        One deliberate difference: this writer folds and commits onto its
+        OWN lineage, so its store handle must still be at ``base_root``.
+        Everything this graph lazily loads mid-fold comes through that
+        handle, and a handle rebound to the peer's moved head would serve
+        the PEER's records to plain expansions — a raw, reduction-blind
+        merge through the back door. The rebind-to-moved-head flow
+        (transient windows) is the eager writer's; a sparse writer that
+        needs it should hand off to one.
+        """
+        if getattr(self.store, "root", None) != self.base_root:
+            raise ValueError(
+                "sparse sync needs the store at this writer's own lineage "
+                f"(base_root {self.base_root!r}); a store rebound to "
+                "another root would serve foreign records to lazy "
+                "expansions mid-fold. Fold through EagerOntoDAG for the "
+                "rebind-to-moved-head flow.")
+        from ontodag._extras import require
+        rs = require("recordstore", "store", "sync()")
+
+        blobs = bytes_store or self.store.blobs
+        snapshot = rs.RecordStore.at(self.base_root, blobs)
+        diff = list(snapshot.diff(other_root))
+        diff_keys = {key for key, _, _ in diff}
+
+        touched = {}                     # name -> the peer-side record
+        for key, _mine, theirs in diff:
+            if theirs is not rs.ABSENT:
+                touched[key] = theirs
+            # theirs ABSENT: the union keeps ours, and committing onto our
+            # own base keeps it with no staging — nothing to do.
+        # Locally dirty residents and uncommitted removals: the peer's
+        # record equals the as-loaded baseline whenever the key is not in
+        # the diff. A removal destroyed its baseline (`_records[k] = None`),
+        # so it re-reads the one record from the base snapshot.
+        for name in sorted(self._expanded | self._deleted):
+            if name in diff_keys or name in touched \
+                    or name == self.root.name:
+                continue
+            baseline = self._records.get(name)
+            if name in self._deleted:
+                if baseline is None:
+                    try:
+                        baseline = snapshot.get(name)
+                    except KeyError:
+                        baseline = None
+                if baseline is not None:
+                    touched[name] = baseline
+                continue
+            node = dict.get(self.nodes, name)
+            if node is not None and baseline is not None \
+                    and self._record_for(node) != baseline:
+                touched[name] = baseline
+
+        # Pass 1: nodes, ours-win metadata and payloads.
+        for key in sorted(touched):
+            if key == self.root.name:
+                continue
+            record = touched[key]
+            node = self.nodes.get(key)   # loads-and-expands from OUR base
+            if node is None:
+                self.add_node(Item(key, metadata=record.get("meta") or {}))
+            else:
+                for meta_key, value in (record.get("meta") or {}).items():
+                    node.metadata.setdefault(meta_key, value)
+            if record.get("payload") is not None \
+                    and key not in self._payloads:
+                self._payloads[key] = record["payload"]
+        # Pass 2: replay the peer's asserted edges (order-free: add_edge
+        # maintains the complete redundancy rectangle).
+        for key in sorted(touched):
+            if key == self.root.name:
+                continue
+            node = self.nodes[key]
+            for parent_name in touched[key]["up"]:
+                parent = self.nodes.get(parent_name)
+                if parent is not None:
+                    self.add_edge(parent, node)
+        return bool(touched)
