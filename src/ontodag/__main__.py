@@ -42,6 +42,34 @@ except Exception:  # pragma: no cover - importlib.metadata always present on 3.8
 
 
 # --------------------------------------------------------------------------- #
+# Stream encoding
+# --------------------------------------------------------------------------- #
+
+def _force_utf8_streams():
+    """Make the standard streams UTF-8, matching the store's own encoding.
+
+    On Windows a *console* stdout is written through WriteConsoleW, so a term
+    like `árvíztűrő tükörfúrógép` appears correctly on screen — but the moment
+    stdout is a file or a pipe, Python falls back to the locale codepage and
+    the same term comes out mangled (`odag get dokumentum > out.txt`). The
+    store is read and written as UTF-8 unconditionally, so the streams should
+    agree with it rather than with whatever codepage the console happens to
+    have. No-op on POSIX, where UTF-8 is already the default.
+
+    Only real file objects have `reconfigure`; under `redirect_stdout` a test
+    may have substituted a StringIO, which has no encoding to fix.
+    """
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        current = (getattr(stream, "encoding", None) or "").lower()
+        if current.replace("-", "").replace("_", "") == "utf8":
+            continue
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
+# --------------------------------------------------------------------------- #
 # Home directory, config and store resolution
 # --------------------------------------------------------------------------- #
 
@@ -60,7 +88,7 @@ def _read_config():
     path = _config_path()
     if not os.path.exists(path):
         return cfg
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
@@ -82,7 +110,7 @@ def _write_config(cfg):
     os.makedirs(_home_dir(), mode=0o700, exist_ok=True)
     path = _config_path()
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as fh:
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
         for key in sorted(cfg):
             fh.write(f"{key} = {cfg[key]}\n")
     os.chmod(path, 0o600)
@@ -482,13 +510,13 @@ class SwarmBackend:
         if os.path.exists(head):
             return
         try:
-            with open(self.pointer_path()) as f:
+            with open(self.pointer_path(), encoding="utf-8") as f:
                 legacy = f.read().strip()
         except FileNotFoundError:
             return
         if legacy:
             os.makedirs(self.store_dir(), exist_ok=True)
-            with open(head, "w") as f:
+            with open(head, "w", encoding="utf-8") as f:
                 f.write(legacy)
 
     def _record_store(self):
@@ -1581,7 +1609,7 @@ def dispatch(argv, session):
     outpath = getattr(args, "output", None)
     try:
         if outpath and getattr(args, "stream_output", False):
-            handle = open(outpath, "w")
+            handle = open(outpath, "w", encoding="utf-8")
             out = handle
         # A command may return an int to set the exit code (below's
         # true/false is 0/1, grep-style); None keeps the usual 0.
@@ -1630,6 +1658,7 @@ def _run_stream(session, stream, interactive):
 # --------------------------------------------------------------------------- #
 
 def main(argv=None):
+    _force_utf8_streams()
     argv = list(sys.argv[1:] if argv is None else argv)
 
     # Leading global options: they apply to every command this invocation

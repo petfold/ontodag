@@ -43,7 +43,7 @@ def _replay(entries) -> OntoDAG:
 
 def _native_entries(path):
     entries = {}
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
             if not line or line.startswith("#"):

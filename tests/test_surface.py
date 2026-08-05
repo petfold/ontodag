@@ -14,7 +14,6 @@ CLI coverage: the §9.4 pipe rule (canonical when stdout is not a terminal,
 
 import io
 import os
-import pty
 import random
 import select
 import subprocess
@@ -22,6 +21,15 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
+
+# Windows has no pty (`import pty` -> `import tty` -> no `termios`), and a
+# module-level import would fail *collection*, taking the whole suite down with
+# it — everything else in this file is platform-neutral and must still run.
+# Only TestTtyDefault needs a terminal; it skips itself when there is none.
+try:
+    import pty
+except ImportError:  # pragma: no cover - exercised only on Windows
+    pty = None
 
 import ontodag
 from ontodag import dimensions as dims
@@ -295,6 +303,7 @@ class TestSurfaceCLI(unittest.TestCase):
             self.assertEqual(surface.elaborate(name, self.session.dag), name)
 
 
+@unittest.skipIf(pty is None, "the tty default needs a pty (POSIX only)")
 class TestTtyDefault(unittest.TestCase):
     """The default path of the §9.4 rule needs a real pty: on a terminal,
     names render friendly with no flag and no env."""

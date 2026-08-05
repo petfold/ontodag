@@ -64,7 +64,7 @@ def _log_failure(event):
     path = os.environ.get("ONTODAG_MCP_LOG")
     if path:
         try:
-            with open(path, "a") as fh:
+            with open(path, "a", encoding="utf-8") as fh:
                 fh.write(line + "\n")
         except OSError:
             pass  # the log is telemetry, never load-bearing
