@@ -276,6 +276,13 @@ def main():
     else:
         wheel = args.wheel
         if not wheel:
+            try:
+                import build  # noqa: F401
+            except ImportError:
+                print('this script builds the wheel itself and needs the '
+                      '`build` package, which is not part of ontodag\'s own '
+                      'install: pip install build', file=sys.stderr)
+                return 1
             print("building ...", flush=True)
             subprocess.run([sys.executable, "-m", "build", "--wheel",
                             "--outdir", os.path.join(ROOT, "dist")],

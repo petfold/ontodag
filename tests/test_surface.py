@@ -16,6 +16,7 @@ import io
 import os
 import pty
 import random
+import select
 import subprocess
 import sys
 import tempfile
@@ -316,23 +317,38 @@ class TestTtyDefault(unittest.TestCase):
                                   env=env, timeout=60)
             self.assertEqual(proc.returncode, 0, proc.stderr)
             return proc.stdout.splitlines()
+        # Drain the pty WHILE the child runs, and drop our own copy of the
+        # slave fd straight away so that the child holds the only writer.
+        # Reading only after the child has exited — which is what
+        # subprocess.run forces — works on Linux and returns nothing at all on
+        # macOS: there the kernel discards whatever is still sitting in a pty's
+        # buffer once the last writer reference goes away, so the test read an
+        # empty terminal and blamed the renderer for it. Draining first also
+        # removes the deadlock that would otherwise appear if the output ever
+        # outgrew the pty buffer.
         master, slave = pty.openpty()
-        try:
-            proc = subprocess.run(argv, stdout=slave, stderr=subprocess.PIPE,
-                                  env=env, timeout=60)
-        finally:
-            os.close(slave)
-        self.assertEqual(proc.returncode, 0, proc.stderr)
+        proc = subprocess.Popen(argv, stdout=slave, stderr=subprocess.PIPE,
+                                env=env)
+        os.close(slave)
         chunks = []
-        while True:
-            try:
-                data = os.read(master, 65536)
-            except OSError:
-                break
-            if not data:
-                break
-            chunks.append(data)
-        os.close(master)
+        try:
+            while True:
+                if not select.select([master], [], [], 60)[0]:
+                    raise AssertionError("timed out draining the pty")
+                try:
+                    data = os.read(master, 65536)
+                except OSError:
+                    break               # EIO: the writing end is gone
+                if not data:
+                    break               # EOF
+                chunks.append(data)
+            stderr = proc.communicate(timeout=60)[1]
+        finally:
+            os.close(master)
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait()
+        self.assertEqual(proc.returncode, 0, stderr)
         text = b"".join(chunks).decode()
         return [line.strip() for line in text.replace("\r", "").splitlines()]
 
