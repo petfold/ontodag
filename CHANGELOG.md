@@ -45,7 +45,7 @@ the version numbers appear in commit history and docs.
   zero claims lost — so a vanished edge is reported only when its claim vanished
   too, settled by `is_below` on the other side), and **parents locate a change**
   (a multi-parent DAG has no single path to root). Claim cascades (a leaf twelve
-  levels down is +14 claims) are a count on the summary line, which goes to
+  levels down is +13 claims) are a count on the summary line, which goes to
   stderr like the display cap's. A trailing category list scopes both sides to
   the set an `excerpt --context` would take. A missing file is refused rather
   than read as an empty store, which a typo would otherwise turn into "your
@@ -75,6 +75,17 @@ the version numbers appear in commit history and docs.
   removals, the command says how many it left out rather than shipping a
   fragment that looks like the whole change. Removals belong to a base-pinned
   three-way apply and travel as attributed retractions (PROVENANCE.md).
+- **`ontodag.compare`** — the diff logic as a library: `compare(ours, theirs,
+  queries=None)` returns a `Comparison` with `only_ours`/`only_theirs`,
+  `added`/`removed` (claim changes at edge grain, a re-routed edge never reported
+  as a deletion), the lazily-computed `entailed_added`/`entailed_removed`
+  cascade, and `additions()` — their additions as a DAG that `merge` applies. An
+  opt-in consumer of the core like `ontodag.surface` and `ontodag.viz`: it
+  imports **nothing**, the DAGs being duck-typed, so it works over an `OntoDAG`,
+  an `EagerOntoDAG`, a `SparseOntoDAG` or a read-only `LazyOntoDAG` view of a
+  published root. `odag diff` keeps only presentation (line shape, the stderr
+  summary, the note about what `--additions` leaves out), and its tests pass
+  unchanged, which is the extraction's own proof.
 - **`OntoDAG.excerpt(queries, context=False)`, `excerpt_names(...)` and
   `contested(a, b)`** — the excerpt logic and the two-states-at-once query as
   core methods, so Python gets what was CLI-only and the CLI, the web app and

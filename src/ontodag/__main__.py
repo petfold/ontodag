@@ -1449,39 +1449,6 @@ def cmd_excerpt(args, session, out):
                               context=args.context), args.file)
 
 
-def _parents_in(dag, name):
-    node = dag.nodes[name]
-    return sorted(p.name for p in node.parents
-                  if dag.nodes.get(p.name) is p and p.name != dag.root.name)
-
-
-def _asserted_edges(dag, scope):
-    """Asserted parent→child pairs with BOTH ends in scope, as (child, parent)."""
-    return {(name, parent)
-            for name in scope if name in dag.nodes
-            for parent in _parents_in(dag, name) if parent in scope}
-
-
-def _entailed_claims(dag, scope):
-    """Every `sub ⊑ sup` the store entails within scope — the honest unit.
-
-    Combined order (asserted edges *and* the computed order between parametric
-    values), because that is what the store answers `below` with, and a
-    difference in what two stores entail is a real difference even when no edge
-    moved. Restricted to scope on both ends so a scoped comparison stays
-    bounded: the unscoped case walks every cone, which is a report's cost, not
-    a query's."""
-    claims = set()
-    for name in scope:
-        node = dag.nodes.get(name)
-        if node is None:
-            continue
-        for descendant in dag.get_descendants(node):
-            if descendant.name != name and descendant.name in scope:
-                claims.add((descendant.name, name))
-    return claims
-
-
 def cmd_diff(args, session, out):
     """What OTHER has that this store doesn't, and the other way round.
 
@@ -1489,38 +1456,15 @@ def cmd_diff(args, session, out):
     what would arrive if you merged it (bar the removals, which `merge` cannot
     apply: it is grow-only by design).
 
-    Two decisions, both measured rather than assumed (see CHANGELOG):
+    The comparison itself lives in `ontodag.compare`, which documents the two
+    decisions behind it: **claims decide what is reported, edges display it**
+    (a re-routed edge is not a deletion — measured), and cascades are counted
+    rather than listed. What stays here is presentation: line shape, the stderr
+    summary, and the sentence about what `--additions` leaves out.
 
-    * **Claims decide, edges display.** Comparing reduced edge sets accuses
-      people of deletions they did not make: adding one edge can prune two
-      others while entailing strictly more — one `put` measured as
-      `edges +1 -2` with *zero* claims lost. So an edge that vanished is
-      reported only when the claim it carried vanished too (`is_below` on the
-      other side settles it). Conversely, claims alone cascade with depth (a
-      leaf added twelve levels down is +14 claims), so the listing stays at
-      edge grain and the cascade is a count on the summary line.
-    * **Parents, not paths, locate a change.** In a multi-parent DAG there is
-      no single path to root, so the honest locator is where the item hangs.
-      `odag show` and `odag visualize CAT...` give the surroundings.
-
-    Scope: with categories, both sides are cut to the same set an
-    `excerpt --context` would take (the answer plus its asserted ancestors),
-    which is what makes comparing a cut against the store it came from
-    meaningful — unscoped, everything outside the cut reads as a deletion.
-
-    `--additions PATH` writes OTHER's additions as an ordinary store file that
-    `merge` applies. It is called `--additions` and not `--patch` because
-    that is exactly what it is *and what it is not*: merging the fragment was
-    measured to reach the byte-identical root to merging OTHER whole, so the
-    additive half of a patch is not a new mechanism — but removals cannot be
-    in it. Not "not yet": a removal is lossy (`remove X` contracts children
-    onto X's parents, and putting X back does not restore them) and does not
-    commute with a concurrent addition (`remove` then `add` fails outright,
-    `add` then `remove` silently gives a different graph), so a file whose
-    effect depends on when you apply it cannot be a fold. Removals belong to
-    a base-pinned three-way apply, and travel as attributed retractions
-    (PROVENANCE.md) rather than as graph operations. When there are any, this
-    says so rather than shipping a file that quietly drops them.
+    **Parents, not paths, locate a change.** In a multi-parent DAG there is no
+    single path to root, so the honest locator is where the item hangs.
+    `odag show` and `odag visualize CAT...` give the surroundings.
 
     NOTE this is two-way. It cannot distinguish "they deleted it" from "I added
     it after sending" — that needs the base you sent (three-way), which `rs:`
@@ -1535,59 +1479,31 @@ def cmd_diff(args, session, out):
             f"{args.other}: no such file — refusing to compare against an "
             f"empty store, which would report everything here as removed")
 
-    mine, theirs = session.dag, _load(args.other)
+    from ontodag import compare as _compare
 
-    if args.categories:
-        queries = _disjuncts(args.categories)
-        scope = (mine.excerpt_names(queries, context=True)
-                 | theirs.excerpt_names(queries, context=True))
-    else:
-        scope = ((set(mine.nodes) | set(theirs.nodes))
-                 - {mine.root.name, theirs.root.name})
-
-    only_mine = sorted(n for n in scope if n in mine.nodes and n not in theirs.nodes)
-    only_theirs = sorted(n for n in scope if n in theirs.nodes and n not in mine.nodes)
-    common = scope - set(only_mine) - set(only_theirs)
-
-    # Edge changes between items BOTH sides have; an item that only one side
-    # has carries its parents on its own line, so listing its edges as well
-    # would say the same thing twice.
-    added = sorted(edge for edge in _asserted_edges(theirs, common)
-                   - _asserted_edges(mine, common)
-                   if not mine.is_below(*edge))
-    removed = sorted(edge for edge in _asserted_edges(mine, common)
-                     - _asserted_edges(theirs, common)
-                     if not theirs.is_below(*edge))
-
+    diff = _compare.compare(session.dag, _load(args.other),
+                            _disjuncts(args.categories)
+                            if args.categories else None)
     fmt = _namer(args, session, out)
 
-    def item_line(sign, dag, name):
-        parents = " ".join(fmt(p) for p in _parents_in(dag, name))
-        return f"{sign} item {fmt(name)}" + (f" ({parents})" if parents else "")
+    def item_line(sign, parents, name):
+        shown = " ".join(fmt(parent) for parent in parents)
+        return f"{sign} item {fmt(name)}" + (f" ({shown})" if shown else "")
 
-    lines = [item_line("-", mine, name) for name in only_mine]
-    lines += [item_line("+", theirs, name) for name in only_theirs]
-    lines += [f"- below {fmt(sub)} {fmt(sup)}" for sub, sup in removed]
-    lines += [f"+ below {fmt(sub)} {fmt(sup)}" for sub, sup in added]
+    lines = [item_line("-", diff.parents_ours(name), name)
+             for name in diff.only_ours]
+    lines += [item_line("+", diff.parents_theirs(name), name)
+              for name in diff.only_theirs]
+    lines += [f"- below {fmt(sub)} {fmt(sup)}" for sub, sup in diff.removed]
+    lines += [f"+ below {fmt(sub)} {fmt(sup)}" for sub, sup in diff.added]
     for line in lines:
         print(line, file=out)
 
     if args.additions:
-        # Their new items with the parents they hang from, plus both ends of
-        # each new claim: the minimum that merges to the same place. The
-        # parents need no ancestors of their own — an item that arrives
-        # parentless here already exists properly in the receiving store, and
-        # the redundant root edge is dropped by reduction on merge (the same
-        # property that makes a plain excerpt absorb).
-        names = set(only_theirs)
-        for name in only_theirs:
-            names |= set(_parents_in(theirs, name))
-        for sub, sup in added:
-            names |= {sub, sup}
         # Written even when empty, so a script can merge it unconditionally.
-        _save(theirs.induced_subdag(names), args.additions)
+        _save(diff.additions(), args.additions)
 
-    if not lines:
+    if not diff:
         return 0                        # identical in scope: silent, like diff(1)
 
     # The cascade, and the scope it was measured over — a message to the
@@ -1597,17 +1513,15 @@ def cmd_diff(args, session, out):
     flush = getattr(out, "flush", None)
     if flush is not None:
         flush()
-    ours = _entailed_claims(mine, scope)
-    yours = _entailed_claims(theirs, scope)
-    print(f"odag: +{len(only_theirs)}/-{len(only_mine)} items, "
-          f"+{len(added)}/-{len(removed)} claims listed; "
-          f"+{len(yours - ours)}/-{len(ours - yours)} entailed claims "
-          f"over {len(scope)} names", file=sys.stderr)
+    print(f"odag: +{len(diff.only_theirs)}/-{len(diff.only_ours)} items, "
+          f"+{len(diff.added)}/-{len(diff.removed)} claims listed; "
+          f"+{len(diff.entailed_added)}/-{len(diff.entailed_removed)} entailed "
+          f"claims over {len(diff.scope)} names", file=sys.stderr)
 
     # Said out loud, always: a fragment that silently dropped the removals
     # would look like the whole change to whoever merges it next.
-    if args.additions and (only_mine or removed):
-        dropped = len(only_mine) + len(removed)
+    if args.additions and (diff.only_ours or diff.removed):
+        dropped = len(diff.only_ours) + len(diff.removed)
         print(f"odag: {dropped} removal{'' if dropped == 1 else 's'} "
               f"{'is' if dropped == 1 else 'are'} NOT in {args.additions} — "
               f"merge only ever adds. The `- ` lines above are the whole of "

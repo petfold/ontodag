@@ -133,6 +133,30 @@ class TestCoreIsSwarmFree(unittest.TestCase):
         self.assertEqual(loaded, [],
                          f"importing ontodag.migrate loaded {loaded}")
 
+    def test_compare_module_imports_stay_core_only(self):
+        loaded = fresh_import("ontodag.compare", CORE_FORBIDDEN)
+        self.assertEqual(loaded, [],
+                         f"importing ontodag.compare loaded {loaded}")
+
+    def test_compare_is_reached_only_by_asking_for_it(self):
+        # Like ontodag.surface and ontodag.viz: a consumer of the core, not a
+        # part of it. The arrow points one way, so a store that never compares
+        # anything carries none of this.
+        code = (
+            "import sys\n"
+            "import ontodag\n"
+            "from ontodag.dag import OntoDAG\n"
+            "d = OntoDAG(); d.put('a', []); d.put('b', ['a'])\n"
+            "assert 'ontodag.compare' not in sys.modules, "
+            "'the core imported ontodag.compare'\n"
+        )
+        env = dict(os.environ, PYTHONPATH=SRC)
+        proc = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True,
+            env=env,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+
     def test_core_never_imports_the_surface(self):
         # SURFACE_LAYER.md §7: ontodag.surface is opt-in by import — the
         # human-facing rendering layer. The core must never call it, or

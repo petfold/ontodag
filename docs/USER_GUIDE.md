@@ -124,7 +124,7 @@ accidental — each surface exposes what makes sense for who is using it:
 | **move** (reclassify) | ✓ `reclassify` | ✓ `move` | ✓ `PATCH /dag/node` | — |
 | **delete a cone** (item + contents) | ✓ `remove_cone` | ✓ `remove --cone` | ✓ `DELETE …?cone=1` | — |
 | **excerpt** (query-scoped export) | ✓ `excerpt` | ✓ `excerpt` | ✓ `/dag/query/export*` | — |
-| **diff two stores** | — | ✓ `diff` | — | — |
+| **diff two stores** | ✓ `ontodag.compare` | ✓ `diff` | — | — |
 | readable rendering | ✓ (`ontodag.surface`) | ✓ | — | ✓ (beside the exact name) |
 | import / export / merge | ✓ | ✓ | ✓ | — |
 | pictures | ✓ | ✓ | ✓ | — |
@@ -135,9 +135,9 @@ accidental — each surface exposes what makes sense for who is using it:
 The empty cells are decisions, not oversights. **MCP** has no move or cone
 delete because on the agent surface a retraction owes a signed retraction record
 per claim it withdraws (§9.1), which is a provenance decision rather than a
-transcription of the CLI. **diff** has no Python API yet — its logic still lives
-in the command line, so a library consumer would have to reimplement it; that is
-the one gap here that is simply not done.
+transcription of the CLI. **diff** has no web surface because the second store
+has to come from somewhere — an upload is a design question, not a missing
+endpoint.
 
 The two surfaces with the most on them are Python (which has everything, being
 the thing the others call) and MCP (which is deliberately the *verifiable*
@@ -1441,7 +1441,7 @@ Two things about that output are deliberate:
   with zero facts lost, because a reduction re-routed them. An edge that
   disappeared is therefore reported only if the fact it carried disappeared too.
   The reverse also holds: counting facts alone cascades (a leaf added twelve
-  levels down is fourteen new facts), so the listing stays one line per change
+  levels down is thirteen new facts), so the listing stays one line per change
   and the cascade is the `entailed claims` count on the summary line.
 - **The summary goes to stderr**, like the display cap's withheld count, so
   `odag diff back.od | wc -l` counts changes and nothing else.

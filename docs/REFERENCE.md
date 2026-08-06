@@ -138,6 +138,18 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `copy_subdag` / `induced_subdag` / `intersection_dag` / `prune_to_common_descendants` | derived DAGs, never aliasing (`copy_subdag` closes downward, `induced_subdag` copies exactly the names given) |
 | `excerpt(queries, context=False)` / `excerpt_names(...)` | a query's answer as a standalone DAG (query terms never added; `context` also brings the categories it hangs from) |
 | `contested(a, b)` | items below both — the two-states-at-once list; empty when one entails the other |
+
+Comparing two stores (`from ontodag.compare import compare` — an opt-in
+consumer, imported by nothing in the core):
+
+| call | one line |
+|---|---|
+| `compare(ours, theirs, queries=None)` | → `Comparison`; `queries` (DNF) scopes both sides to the set an `excerpt --context` would take |
+| `Comparison.only_ours` / `.only_theirs` | items one side has and the other does not |
+| `Comparison.added` / `.removed` | claim changes about items both sides have, as `(sub, sup)`; a re-routed edge is **not** reported |
+| `Comparison.entailed_added` / `.entailed_removed` | the cascade — every claim gained/lost in scope (computed on first access) |
+| `Comparison.additions()` | their additions as a DAG `merge` applies; merging it reaches the same root as merging their whole store. Never removals |
+| `bool(Comparison)` | whether anything differs |
 | `topological_sort()` | deterministic (sorted) order |
 | `add_node` / `add_edge` / `remove_edge` | low level; `remove_edge` can orphan — prefer `remove`/`put` |
 
