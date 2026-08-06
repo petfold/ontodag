@@ -1655,3 +1655,294 @@ class TestVisualizeScoping(unittest.TestCase):
         self.assertEqual(cli._image_base("/store/trips.od"), "/store/trips")
         self.assertEqual(cli._image_base("swarm:pets"), "pets")
         self.assertEqual(cli._image_base("rs:/store/pets/"), "/store/pets")
+
+
+class TestExcerptContext(unittest.TestCase):
+    """`excerpt --context` is the sendable form: the answer *plus the
+    categories it hangs from*, so it merges — and diffs — into a store that
+    shares them.
+
+    The default cut drops exactly the edges that pointed at the query terms,
+    which are the classification. Merged elsewhere it files the items at top
+    level; this class pins the difference rather than describing it.
+    """
+
+    TRAVEL = ("Travel", "Japan", "Flight Travel", "Hotel Travel",
+              "JAL Flight Japan", "JAL-cheap JAL", "Ryokan Hotel Japan",
+              "BA Flight")
+
+    def _session(self, home, name="orig.od", rows=None):
+        session = cli.Session(os.path.join(home, name))
+        for row in (self.TRAVEL if rows is None else rows):
+            self.assertEqual(_run(["put"] + row.split(), session)[0], 0)
+        return session
+
+    def _cut(self, home, session, *categories, context=False):
+        path = os.path.join(home, "ctx.od" if context else "plain.od")
+        argv = ["excerpt", path] + list(categories) + (["--context"] if context
+                                                       else [])
+        self.assertEqual(_run(argv, session), (0, ""))
+        return path, cli._load(path)
+
+    def _parents(self, dag):
+        return {name: sorted(p.name for p in node.parents
+                             if dag.nodes.get(p.name) is p)
+                for name, node in dag.nodes.items() if name != dag.root.name}
+
+    def test_it_carries_the_categories_the_answers_hang_from(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            _, cut = self._cut(home, session, "Travel", "Japan", context=True)
+            self.assertEqual(self._parents(cut), {
+                "Travel": ["*"], "Japan": ["*"], "Flight": ["Travel"],
+                "Hotel": ["Travel"], "JAL": ["Flight", "Japan"],
+                "JAL-cheap": ["JAL"], "Ryokan": ["Hotel", "Japan"]})
+
+    def test_nothing_is_invented(self):
+        # Every edge in the file is an edge of the source. The plain cut has to
+        # invent root edges to be well-formed; this one never does.
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            _, cut = self._cut(home, session, "Travel", "Japan", context=True)
+            source = self._parents(session.dag)
+            for name, parents in self._parents(cut).items():
+                self.assertTrue(set(parents) <= set(source[name]), name)
+
+    def test_siblings_do_not_leak(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            _, cut = self._cut(home, session, "Travel", "Japan", context=True)
+            self.assertNotIn("BA", cut.nodes)     # under Flight, not an answer
+
+    def test_the_classification_survives_the_journey(self):
+        # THE point of the flag, and the measurement that motivated it: with a
+        # plain cut this same merge files JAL at top level and `get Japan`
+        # comes back empty.
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            plain, _ = self._cut(home, session, "Travel", "Japan")
+            ctx, _ = self._cut(home, session, "Travel", "Japan", context=True)
+
+            upper = ["Travel", "Japan", "Flight Travel", "Hotel Travel"]
+            with_plain = self._session(home, "a.od", upper)
+            self.assertEqual(_run(["merge", plain], with_plain)[0], 0)
+            self.assertEqual(_run(["get", "Japan"], with_plain), (0, ""))
+
+            with_ctx = self._session(home, "b.od", upper)
+            self.assertEqual(_run(["merge", ctx], with_ctx)[0], 0)
+            self.assertEqual(_run(["get", "Japan"], with_ctx),
+                             (0, "JAL\nJAL-cheap\nRyokan\n"))
+            self.assertNotIn("BA", with_ctx.dag.nodes)
+
+    def test_it_stands_alone_too(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            ctx, _ = self._cut(home, session, "Travel", "Japan", context=True)
+            fresh = cli.Session(os.path.join(home, "fresh.od"))
+            self.assertEqual(_run(["import", ctx], fresh)[0], 0)
+            self.assertEqual(_run(["get", "Travel", "Japan"], fresh),
+                             (0, "JAL\nJAL-cheap\nRyokan\n"))
+
+    def test_declarations_travel_with_a_typed_answer(self):
+        # A head like `weight` is a real asserted parent of its values, so the
+        # kind declaration is an ancestor and rides along — which is what lets
+        # the receiving store recompute the order instead of storing it.
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "boxes.od"))
+            for argv in (["prelude"], ["put", "crate", "weight(3kg)"]):
+                self.assertEqual(_run(argv, session)[0], 0)
+            path = os.path.join(home, "cut.od")
+            self.assertEqual(
+                _run(["excerpt", path, "weight(..5kg)", "--context"],
+                     session)[0], 0)
+            fresh = cli.Session(os.path.join(home, "fresh.od"))
+            self.assertEqual(_run(["import", path], fresh)[0], 0)
+            self.assertIn("linear-dimension", fresh.dag.nodes)
+            # The computed order works in the fresh store, from names alone.
+            self.assertEqual(_run(["get", "weight(..4kg)"], fresh),
+                             (0, "crate\nweight(3kg)\n"))
+            self.assertEqual(_run(["below", "weight(3kg)", "weight(..5kg)"],
+                                  fresh), (0, "true\n"))
+
+    def test_both_cuts_are_absorbed_by_the_store_they_came_from(self):
+        # Merging an excerpt back must be a no-op at the level that counts:
+        # the canonical root. The invented root edges of the plain cut are
+        # redundant there, so reduction drops them.
+        from ontodag.eager import EagerOntoDAG
+
+        def root_of(dag):
+            eager = EagerOntoDAG(RecordStore(MemoryBytesStore()))
+            eager.merge(dag)
+            return eager.commit()
+
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            before = root_of(session.dag)
+            for context in (False, True):
+                path, _ = self._cut(home, session, "Travel", "Japan",
+                                    context=context)
+                self.assertEqual(_run(["merge", path], session)[0], 0)
+                self.assertEqual(root_of(session.dag), before,
+                                 f"context={context} changed the store")
+
+    def test_the_empty_query_with_context_is_still_the_whole_store(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            ctx, _ = self._cut(home, session, context=True)
+            exported = os.path.join(home, "exp.od")
+            self.assertEqual(_run(["export", exported], session)[0], 0)
+            with open(ctx, encoding="utf-8") as a, \
+                    open(exported, encoding="utf-8") as b:
+                self.assertEqual(a.read(), b.read())
+
+
+class TestDiff(unittest.TestCase):
+    """`diff OTHER [CAT...]`: `+` is OTHER, `-` is here.
+
+    The design claim under test is that claims decide and edges display —
+    an edge that vanished is reported only when the knowledge it carried
+    vanished with it.
+    """
+
+    TRAVEL = ("Travel", "Japan", "Flight Travel", "Hotel Travel",
+              "JAL Flight Japan", "JAL-cheap JAL", "Ryokan Hotel Japan",
+              "BA Flight")
+
+    def _store(self, home, name, rows):
+        session = cli.Session(os.path.join(home, name))
+        for row in rows:
+            self.assertEqual(_run(["put"] + row.split(), session)[0], 0)
+        return session
+
+    def _diff(self, session, other, *categories):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.dispatch(["diff", other] + list(categories), session)
+        return code, out.getvalue().splitlines(), err.getvalue()
+
+    def _copy(self, home, session, name, extra=(), removed=()):
+        """A sibling store: this one's contents, plus/minus some edits."""
+        path = os.path.join(home, name)
+        self.assertEqual(_run(["export", path], session)[0], 0)
+        other = cli.Session(path)
+        for row in extra:
+            self.assertEqual(_run(["put"] + row.split(), other)[0], 0)
+        for name_ in removed:
+            self.assertEqual(_run(["remove", name_], other)[0], 0)
+        return path
+
+    def test_identical_stores_say_nothing_and_exit_zero(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._store(home, "a.od", self.TRAVEL)
+            other = self._copy(home, session, "b.od")
+            self.assertEqual(self._diff(session, other), (0, [], ""))
+
+    def test_an_added_item_arrives_with_its_parents(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._store(home, "a.od", self.TRAVEL)
+            other = self._copy(home, session, "b.od",
+                               extra=["JAL-window-seat JAL-cheap"])
+            code, lines, err = self._diff(session, other)
+            self.assertEqual(code, 1)                     # grep-style
+            self.assertEqual(lines, ["+ item JAL-window-seat (JAL-cheap)"])
+            self.assertIn("+1/-0 items", err)
+
+    def test_a_removed_item_is_reported_from_this_side(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._store(home, "a.od", self.TRAVEL)
+            other = self._copy(home, session, "b.od", removed=["Ryokan"])
+            code, lines, _ = self._diff(session, other)
+            self.assertEqual((code, lines), (1, ["- item Ryokan (Hotel Japan)"]))
+
+    def test_a_new_parent_is_a_claim_line(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._store(home, "a.od", self.TRAVEL)
+            other = self._copy(home, session, "b.od",
+                               extra=["JAL-cheap Ryokan"])
+            code, lines, err = self._diff(session, other)
+            self.assertEqual((code, lines), (1, ["+ below JAL-cheap Ryokan"]))
+            # One asserted edge, two claims gained (Ryokan and its parent Hotel).
+            self.assertIn("+2/-0 entailed claims", err)
+
+    def test_reduction_churn_is_not_reported_as_deletion(self):
+        # THE reason claims decide. `put Z B` prunes p->Z and B->leaf, so an
+        # edge-set comparison would report two deletions; nothing was lost.
+        rows = ("p", "B p", "Z p", "leaf B", "leaf Z")
+        with tempfile.TemporaryDirectory() as home:
+            session = self._store(home, "a.od", rows)
+            other = self._copy(home, session, "b.od", extra=["Z B"])
+            self.assertEqual(
+                {(n, tuple(sorted(c.name for c in i.neighbors)))
+                 for n, i in cli._load(other).nodes.items()},
+                {("*", ("p",)), ("p", ("B",)), ("B", ("Z",)),
+                 ("Z", ("leaf",)), ("leaf", ())})   # the edges really did move
+            code, lines, err = self._diff(session, other)
+            self.assertEqual((code, lines), (1, ["+ below Z B"]))
+            self.assertIn("+1/-0 entailed claims", err)
+
+    def test_direction_is_mine_then_theirs(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._store(home, "a.od", self.TRAVEL)
+            other = self._copy(home, session, "b.od", extra=["Sleeper Flight"],
+                               removed=["BA"])
+            _, lines, _ = self._diff(session, other)
+            self.assertEqual(lines, ["- item BA (Flight)",
+                                     "+ item Sleeper (Flight)"])
+
+    def test_a_query_scopes_both_sides(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._store(home, "a.od", self.TRAVEL)
+            other = self._copy(home, session, "b.od", removed=["BA"],
+                               extra=["Ryokan-Kyoto Ryokan"])
+            _, unscoped, _ = self._diff(session, other)
+            self.assertIn("- item BA (Flight)", unscoped)
+            # BA is under Flight but not below Japan, so it leaves the scope.
+            _, scoped, err = self._diff(session, other, "Travel", "Japan")
+            self.assertEqual(scoped, ["+ item Ryokan-Kyoto (Ryokan)"])
+            self.assertIn("names", err)
+
+    def test_a_contexted_cut_is_an_exact_subview(self):
+        # The pair that makes review possible: with --context the cut diffs
+        # clean against its source; the plain cut reads as mass deletion.
+        with tempfile.TemporaryDirectory() as home:
+            session = self._store(home, "a.od", self.TRAVEL)
+            ctx = os.path.join(home, "ctx.od")
+            plain = os.path.join(home, "plain.od")
+            for path, argv in ((ctx, ["--context"]), (plain, [])):
+                self.assertEqual(
+                    _run(["excerpt", path, "Travel", "Japan"] + argv,
+                         session)[0], 0)
+            self.assertEqual(
+                self._diff(session, ctx, "Travel", "Japan")[:2], (0, []))
+            code, lines, _ = self._diff(session, plain, "Travel", "Japan")
+            self.assertEqual(code, 1)
+            self.assertTrue(all(line.startswith("- item") for line in lines),
+                            lines)
+
+    def test_the_summary_never_lands_on_stdout(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._store(home, "a.od", self.TRAVEL)
+            other = self._copy(home, session, "b.od", removed=["BA"])
+            _, lines, err = self._diff(session, other)
+            self.assertFalse([line for line in lines if line.startswith("odag:")])
+            self.assertTrue(err.startswith("odag: "))
+
+    def test_typed_values_compare_by_canonical_name(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "a.od"))
+            for argv in (["prelude"], ["put", "crate", "weight(3kg)"]):
+                self.assertEqual(_run(argv, session)[0], 0)
+            other = self._copy(home, session, "b.od",
+                               extra=["pallet weight(3000g)"])   # same value
+            code, lines, _ = self._diff(session, other)
+            self.assertEqual((code, lines), (1, ["+ item pallet (weight(3kg))"]))
+
+    def test_a_missing_file_is_refused(self):
+        # Everywhere else a missing native store is an empty one; here that
+        # would report the whole store as deleted because of a typo.
+        with tempfile.TemporaryDirectory() as home:
+            session = self._store(home, "a.od", self.TRAVEL)
+            code, lines, err = self._diff(session,
+                                          os.path.join(home, "nope.od"))
+            self.assertEqual((code, lines), (1, []))
+            self.assertIn("no such file", err)

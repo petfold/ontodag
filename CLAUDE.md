@@ -252,7 +252,49 @@ shipped bug: bare `odag visualize` (no `--out`) had raised `AttributeError`
 since 0.12.0, when `rs:` stores removed `Session.path` — fixed via
 `_image_base(spec)`, which names the image after the store for all three
 backend spellings. Nothing caught it because no test ever omitted `--out`;
-`scripts/release_smoke.py` calls `visualize` *with* one.
+`scripts/release_smoke.py` now omits one deliberately.
+
+**Then the send-and-review pair (2026-08-06, same session, from Peter's "can I
+email it to someone who can merge it?" / "would a diff be useful?").** Both
+answers were *measured* first, and the measurements are the design record:
+
+- Merging a plain excerpt back into its own store is a no-op **at the canonical
+  root** — the invented `* → x` edges are redundant there, so complete reduction
+  drops them (pinned by `test_both_cuts_are_absorbed_by_the_store_they_came_from`).
+- But merging it into a store that has your upper categories and *not* the items
+  files them at TOP LEVEL: `get Japan` → empty. The edges a plain cut drops are
+  the ones that pointed at the query terms, and those are the classification. So
+  **`odag excerpt --context`**: answer ∪ *asserted* ancestors, induced subgraph,
+  nothing invented (root edges real too). Asserted-only deliberately — computed
+  parents are star siblings, and copying them in would drag unrelated coarse
+  values along, while the *declarations* travel anyway because a head like
+  `weight` is a real asserted parent of its values (tested: a fresh store
+  importing a contexted cut answers computed queries).
+- A plain cut is **not diffable** against its source: unscoped it reads as 18
+  spurious deletions, and it cannot even be scoped by the query it came from
+  because the terms are not in it. A contexted cut scoped to its own names diffs
+  to `+[] -[]` — an exact subview. That is the second, non-obvious reason for
+  the flag, and it is why the two features shipped together.
+- **`odag diff OTHER [CAT…]`**: claims decide, edges display. Numbers behind
+  that: one `put` measured `edges +1 -2` with **zero** claims lost (reduction
+  re-routed them), so an edge-grain diff accuses people of deletions they did
+  not make; conversely a leaf added twelve levels down is **+14 claims** and one
+  edge high in a chain is +11, so claim-grain listing cascades. Hence the
+  listing is edge-grain filtered by `is_below` on the *other* side, and the
+  cascade is a count on the stderr summary. Scope with categories = exactly the
+  `excerpt --context` name set of both sides. Exit 0/1 grep-style like `below`.
+  A missing file is refused (elsewhere a missing native store is an empty one;
+  for a comparison that turns a typo into "your whole store was deleted").
+- Deliberately NOT built, and written down instead (guide §5.8, CHANGELOG): the
+  diff is **two-way**, so it cannot separate "they deleted it" from "you added
+  it after sending" — that is three-way, needs the base you sent, and `rs:`/
+  `swarm:` stores already record it as the root you were at. recordstore has
+  shipped canonical three-way `merge(base, ours, theirs)` since 0.8.0, so the
+  substrate is there; wiring it needs a resolver policy and touches retraction,
+  so it waits for two real people doing it.
+- `OntoDAG.induced_subdag(names)` is the new core primitive (third derived-DAG
+  operation beside `intersection_dag` and `copy_subdag`); `excerpt` is one code
+  path over it in both modes. 20 new tests (`TestExcerptContext`, `TestDiff`).
 - **Parked, tripwire-gated:** EL/relations canonicalization research (now observable via MCP traffic) — **discussion draft exists as of 2026-08-03: `docs/plans/BINDING.md`** (prompted by Peter's London→Rome → two-leg → bouquet probes; scope rule for flat roles, ground bundles as a proposed scoped contract amendment with two consumers — multi-instance grouping and multiplicity — the §6 coordinate-order fork, the compile-down baseline; nothing decided, grammar work gated on discussing it with Peter); computed values (passes the admissibility axes, no consumer — the itinerary's derived from/to/summed-duration is noted in BINDING.md §3 as another appearance), languages/lexicon (fork recorded in `SURFACE_LAYER.md` §12).
 
 Previous milestone — **dimension lattices (parametric items), done and released** — design, implementation, docs and PyPI release all on 2026-07-30. `docs/DIMENSIONS.md` is the design record and tracks its own §12 sequencing (steps 1–5 and 7 done; step 6, the per-dimension sorted index, stays parked until profiling asks). One-line summary: values like `weight(3kg)` are ordinary categories whose order is computed from the canonical name (containment of denotations, exact integers in base units), never materialized as edges; anchor stars enumerate each dimension; virtual query terms cost no writes; `get_overlapping` is the possibly-satisfies mode. Works through the CLI (quote the parentheses), the web REST API (names now pass through to put/get — `tests/test_web.py`), `EagerOntoDAG` (canonical roots verified across put orders) and `LazyOntoDAG` (bounded fetches). Adoption notes for the sister projects are in loopmarket ARCHITECTURE.md §3 (update note) and ontodag-fs ROADMAP.md. Headline decisions: parametric items (`weight(..5000000mg)`) ordered by containment of denoted value sets — computed at query time, **never materialized as edges**; kinds declared by ordinary edges under registry-known nodes (`weight → linear-dimension → dimension`), nothing in `meta`, no callables in data; values are integers in per-family base units (agreed 2026-07-30 — no decimals; sub-base precision is a boundary error, the UI renders friendly units); anchor/star edges under the head node are schema, exempt from reduction; `add_edge`/`_remove_unneeded_edges` consult combined (asserted + computed) reachability; only exact-arithmetic kinds ever enter the canonical order (geo discs stay application-side — see loopmarket). This fired the "exact arithmetic" wall's tripwire — recorded in `DATABASE_DIRECTION.md` — via the `../loopmarket` sister project (marketplace matching is a main OntoDAG goal); overlap matching (`get_overlapping`) is deliberately the *first follow-up*, not v1, because overlap is not transitive and therefore not a cone.

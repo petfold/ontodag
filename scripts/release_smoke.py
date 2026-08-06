@@ -257,6 +257,26 @@ def smoke(env, expect_version):
 
     check("excerpt a query and read it back", excerpt)
 
+    def contexted_excerpt_and_diff():
+        # The send-and-review round trip, end to end: a contexted cut merges
+        # into a store that has only the categories, and diffs clean against
+        # the store it came from.
+        o("excerpt", "sendable.od", "Japan", "--context")
+        cut = os.path.join(env.work, "sendable.od")
+        colleague = os.path.join(env.work, "colleague.od")
+        env.odag_run("-f", colleague, "merge", cut)
+        assert env.odag_run("-f", colleague, "get", "Japan").split() == \
+            o("get", "Japan").split(), "the classification did not survive"
+        env.odag_run("diff", cut, "Japan", expect=0)       # identical in scope
+        env.odag_run("-f", colleague, "put", "extra-note", "Japan")
+        env.odag_run("-f", colleague, "excerpt", "back.od", "Japan", "--context")
+        changed = env.odag_run("diff", os.path.join(env.work, "back.od"),
+                               "Japan", expect=1)          # differences: exit 1
+        assert "+ item extra-note" in changed, changed
+        return "send, merge, edit, diff — exit 0 clean / 1 changed"
+
+    check("a contexted excerpt survives a round trip", contexted_excerpt_and_diff)
+
     def reimport():
         o("export", "round.omn")
         o("-f", os.path.join(env.work, "round.omn"), "get", "Japan")

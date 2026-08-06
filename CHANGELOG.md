@@ -27,6 +27,31 @@ the version numbers appear in commit history and docs.
   Answers with no parent inside the answer hang under the root, so the
   imported store sees them. With no categories the result is byte-identical
   to `export`.
+- **`odag excerpt --context`** — the *sendable* cut: the answer plus the
+  categories it hangs from, ancestor-closed, with nothing invented (every node
+  and edge is real, root edges included). Measured motivation: merging a plain
+  cut into a store that has your upper categories but not the items files them
+  at top level, and `get Japan` comes back empty — the dropped edges pointed at
+  the query terms, which are the classification. With `--context` the answers
+  arrive classified as they were, siblings do not leak, and typed values bring
+  their declarations along (a head like `weight` is a real parent of its
+  values, hence an ancestor), so the reader recomputes the order. It also makes
+  the file *diffable* against the store it came from instead of reading as a
+  wholesale deletion of everything outside it.
+- **`odag diff OTHER [CAT…]`** — compare this store with another file; `+` is
+  theirs, `-` is ours; exits 0 identical / 1 different (grep-shaped, like
+  `below`). Two measured design decisions: **claims decide, edges display** (one
+  `put` can prune two edges while entailing strictly more — `edges +1 -2` with
+  zero claims lost — so a vanished edge is reported only when its claim vanished
+  too, settled by `is_below` on the other side), and **parents locate a change**
+  (a multi-parent DAG has no single path to root). Claim cascades (a leaf twelve
+  levels down is +14 claims) are a count on the summary line, which goes to
+  stderr like the display cap's. A trailing category list scopes both sides to
+  the set an `excerpt --context` would take. A missing file is refused rather
+  than read as an empty store, which a typo would otherwise turn into "your
+  whole store was deleted". Deliberately two-way: telling "they deleted it"
+  from "you added it after sending" needs the base you sent, which `rs:`/
+  `swarm:` stores already record.
 - **`odag visualize [CAT…]`** — the drawn twin: with categories it renders
   just that query's answer, with the query *terms* drawn above the answers of
   their own disjunct. That is the deliberate difference from `excerpt`: a
@@ -36,6 +61,10 @@ the version numbers appear in commit history and docs.
   The shaping moved out of the web app into `ontodag.viz.query_picture`, so
   the CLI and the web query image cannot drift into drawing different
   pictures of one answer.
+- **`OntoDAG.induced_subdag(names)`** — the third derived-DAG operation:
+  `intersection_dag` intersects, `copy_subdag` closes downward, this copies
+  exactly the names given (root edges kept where they are real). `excerpt` is
+  now one code path over it.
 
 ### Fixed
 

@@ -1205,6 +1205,26 @@ def cmd_export(args, session, out):
     _save(session.dag, args.file)
 
 
+def _excerpt_names(dag, categories, context):
+    """The name set an excerpt covers: the answer, optionally ancestor-closed.
+
+    `--context` adds the *asserted* ancestors of every answer — the categories
+    the answers hang from, up to the root. Asserted only, deliberately: the
+    computed order (a value below a coarser value of its dimension) is derived
+    from names plus declarations, so the reader recomputes it, and copying
+    those coarser values in would drag unrelated star members along with it.
+    The declarations themselves DO travel, because a head node like `weight`
+    is a real asserted parent of its values and therefore an ancestor.
+    """
+    answer = _query(categories, dag)
+    names = {item.name for item in answer}
+    if context:
+        for item in answer:
+            names |= {a.name for a in dag.get_ancestors(item, computed=False)}
+    names.discard(dag.root.name)
+    return names
+
+
 def cmd_excerpt(args, session, out):
     """Write a query's answer, with its own structure, to a file.
 
@@ -1213,7 +1233,7 @@ def cmd_excerpt(args, session, out):
     under a name. `export` writes the whole store; this writes one principal
     down-set of it (order theory's ideal, the descendant cone).
 
-    Two deliberate properties:
+    Two deliberate properties of the default:
 
     * Query terms are NOT added as nodes, even though the web surface's
       *picture* does exactly that. A picture is drawn and discarded, so
@@ -1226,14 +1246,151 @@ def cmd_excerpt(args, session, out):
       real edges *within* the answer are copied, so the shape survives:
       cones are downward-closed under intersection, which is why the answer
       carries its structure at all.
+
+    `--context` is for sending it somewhere. Measured, not assumed: merging a
+    plain cut into a store that has your upper categories but not these items
+    files them at TOP LEVEL — `get Japan` comes back empty, because the edges
+    that made them answers pointed at the query terms, which the default drops.
+    With `--context` the answers arrive classified exactly as here, nothing is
+    invented (every node and edge is real, root edges included), siblings do
+    not leak, and the file becomes *diffable* against this store instead of
+    reading as a wholesale deletion of everything outside it. The cost is that
+    it discloses the shape of the categories above the answer.
     """
-    result = _query(args.categories, session.dag)
-    excerpt = session.dag.copy_subdag(list(result))
+    names = _excerpt_names(session.dag, args.categories, args.context)
+    excerpt = session.dag.induced_subdag(names)
     for name in sorted(excerpt.nodes):
         node = excerpt.nodes[name]
         if node is not excerpt.root and not node.parents:
             excerpt.add_edge(excerpt.root, node)
     _save(excerpt, args.file)
+
+
+def _parents_in(dag, name):
+    node = dag.nodes[name]
+    return sorted(p.name for p in node.parents
+                  if dag.nodes.get(p.name) is p and p.name != dag.root.name)
+
+
+def _asserted_edges(dag, scope):
+    """Asserted parent→child pairs with BOTH ends in scope, as (child, parent)."""
+    return {(name, parent)
+            for name in scope if name in dag.nodes
+            for parent in _parents_in(dag, name) if parent in scope}
+
+
+def _entailed_claims(dag, scope):
+    """Every `sub ⊑ sup` the store entails within scope — the honest unit.
+
+    Combined order (asserted edges *and* the computed order between parametric
+    values), because that is what the store answers `below` with, and a
+    difference in what two stores entail is a real difference even when no edge
+    moved. Restricted to scope on both ends so a scoped comparison stays
+    bounded: the unscoped case walks every cone, which is a report's cost, not
+    a query's."""
+    claims = set()
+    for name in scope:
+        node = dag.nodes.get(name)
+        if node is None:
+            continue
+        for descendant in dag.get_descendants(node):
+            if descendant.name != name and descendant.name in scope:
+                claims.add((descendant.name, name))
+    return claims
+
+
+def cmd_diff(args, session, out):
+    """What OTHER has that this store doesn't, and the other way round.
+
+    `+` is OTHER, `-` is here — `diff mine theirs` order, so the lines read as
+    what would arrive if you merged it (bar the removals, which `merge` cannot
+    apply: it is grow-only by design).
+
+    Two decisions, both measured rather than assumed (see CHANGELOG):
+
+    * **Claims decide, edges display.** Comparing reduced edge sets accuses
+      people of deletions they did not make: adding one edge can prune two
+      others while entailing strictly more — one `put` measured as
+      `edges +1 -2` with *zero* claims lost. So an edge that vanished is
+      reported only when the claim it carried vanished too (`is_below` on the
+      other side settles it). Conversely, claims alone cascade with depth (a
+      leaf added twelve levels down is +14 claims), so the listing stays at
+      edge grain and the cascade is a count on the summary line.
+    * **Parents, not paths, locate a change.** In a multi-parent DAG there is
+      no single path to root, so the honest locator is where the item hangs.
+      `odag show` and `odag visualize CAT...` give the surroundings.
+
+    Scope: with categories, both sides are cut to the same set an
+    `excerpt --context` would take (the answer plus its asserted ancestors),
+    which is what makes comparing a cut against the store it came from
+    meaningful — unscoped, everything outside the cut reads as a deletion.
+
+    NOTE this is two-way. It cannot distinguish "they deleted it" from "I added
+    it after sending" — that needs the base you sent (three-way), which `rs:`
+    and `swarm:` stores record for free as the root you were at.
+    """
+    # A missing native store reads as empty everywhere else (a fresh store need
+    # not exist yet), but for a comparison that convention is a trap: a typo in
+    # the path would report the entire store as deleted, which is exactly the
+    # answer someone reviewing a merge must not be handed by accident.
+    if not os.path.exists(args.other):
+        raise ValueError(
+            f"{args.other}: no such file — refusing to compare against an "
+            f"empty store, which would report everything here as removed")
+
+    mine, theirs = session.dag, _load(args.other)
+
+    if args.categories:
+        scope = (_excerpt_names(mine, args.categories, context=True)
+                 | _excerpt_names(theirs, args.categories, context=True))
+    else:
+        scope = ((set(mine.nodes) | set(theirs.nodes))
+                 - {mine.root.name, theirs.root.name})
+
+    only_mine = sorted(n for n in scope if n in mine.nodes and n not in theirs.nodes)
+    only_theirs = sorted(n for n in scope if n in theirs.nodes and n not in mine.nodes)
+    common = scope - set(only_mine) - set(only_theirs)
+
+    # Edge changes between items BOTH sides have; an item that only one side
+    # has carries its parents on its own line, so listing its edges as well
+    # would say the same thing twice.
+    added = sorted(edge for edge in _asserted_edges(theirs, common)
+                   - _asserted_edges(mine, common)
+                   if not mine.is_below(*edge))
+    removed = sorted(edge for edge in _asserted_edges(mine, common)
+                     - _asserted_edges(theirs, common)
+                     if not theirs.is_below(*edge))
+
+    fmt = _namer(args, session, out)
+
+    def item_line(sign, dag, name):
+        parents = " ".join(fmt(p) for p in _parents_in(dag, name))
+        return f"{sign} item {fmt(name)}" + (f" ({parents})" if parents else "")
+
+    lines = [item_line("-", mine, name) for name in only_mine]
+    lines += [item_line("+", theirs, name) for name in only_theirs]
+    lines += [f"- below {fmt(sub)} {fmt(sup)}" for sub, sup in removed]
+    lines += [f"+ below {fmt(sub)} {fmt(sup)}" for sub, sup in added]
+    for line in lines:
+        print(line, file=out)
+
+    if not lines:
+        return 0                        # identical in scope: silent, like diff(1)
+
+    # The cascade, and the scope it was measured over — a message to the
+    # person, so stderr, exactly like the display cap's withheld count.
+    # Flushed first: a block-buffered stdout (any pipe) would otherwise put
+    # the summary above the changes it summarizes under `2>&1 | less`.
+    flush = getattr(out, "flush", None)
+    if flush is not None:
+        flush()
+    ours = _entailed_claims(mine, scope)
+    yours = _entailed_claims(theirs, scope)
+    print(f"odag: +{len(only_theirs)}/-{len(only_mine)} items, "
+          f"+{len(added)}/-{len(removed)} claims listed; "
+          f"+{len(yours - ours)}/-{len(ours - yours)} entailed claims "
+          f"over {len(scope)} names", file=sys.stderr)
+    return 1                            # differences found (grep-style, like `below`)
 
 
 def _image_base(spec):
@@ -1428,7 +1585,15 @@ Commands:
   export FILE           write the store to FILE
   excerpt FILE [CAT...] write just that query's answer to FILE, with the
                         edges among the answers kept — an importable cut of
-                        the store (`export` is the whole thing)
+                        the store (`export` is the whole thing).
+                        --context also writes the categories the answers
+                        hang from, which is what makes the file usable
+                        somewhere else: merged into another store the
+                        answers keep their classification, and it can be
+                        diffed against the store it came from
+  diff FILE [CAT...]    compare this store with FILE: `+ ` is FILE's, `- `
+                        is ours; exits 0 if identical, 1 if not. A CAT list
+                        compares only that part of both stores
   visualize [CAT...]    render an image (--out B, --format png|svg|pdf).
                         With CATs, draws just that query's answer, with
                         the query terms shown above it — a picture is
@@ -1652,12 +1817,26 @@ def build_parser():
     p.add_argument("file")
     p.set_defaults(func=cmd_export)
 
+    p = sub.add_parser("diff", add_help=True,
+                       help="compare this store with another (exit 0/1)")
+    p.add_argument("other", help="the file to compare against")
+    p.add_argument("categories", nargs="*",
+                   help="compare only this query's answer and the categories "
+                        "it hangs from")
+    p.add_argument("-o", "--output")
+    _add_surface_flags(p)
+    p.set_defaults(func=cmd_diff, stream_output=True)
+
     p = sub.add_parser("excerpt", add_help=True,
                        help="write a query's answer to a file")
     # FILE first, because the categories are variadic: with `excerpt CAT... FILE`
     # there is no way to tell the last category from the destination.
     p.add_argument("file")
     p.add_argument("categories", nargs="*")
+    p.add_argument("--context", action="store_true",
+                   help="include the categories the answers hang from, so the "
+                        "file merges (and diffs) into another store that "
+                        "shares them")
     p.set_defaults(func=cmd_excerpt)
 
     p = sub.add_parser("visualize", add_help=True, help="render an image")

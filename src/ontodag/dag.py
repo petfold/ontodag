@@ -1281,6 +1281,53 @@ class OntoDAG(DAG):
                         self.remove_edge(n, subcategory)
                         print(f'Removed edge {n.name} -> {subcategory.name}')
 
+    def induced_subdag(self, names):
+        """The subgraph induced on `names`: fresh nodes, the real edges among them.
+
+        The third member of the derived-DAG family, and the most literal:
+        `intersection_dag` intersects two DAGs, `copy_subdag` closes
+        *downward* over descendants, and this copies exactly the set it is
+        given. The caller chose the set, so nothing is added to it — which is
+        what makes it usable for cuts whose boundary matters (`odag excerpt`)
+        and for scoping a comparison (`odag diff`).
+
+        Edges from the root are kept where a kept node's parent is this DAG's
+        root, so an ancestor-closed set arrives already hanging from `*`.
+        A node whose parents were all left out arrives parentless: that is
+        information, not a defect, and what it means is the caller's business
+        (an excerpt hangs such nodes under `*`; a diff never materializes them).
+
+        The result is reduced whenever this DAG is, because deleting nodes can
+        only remove paths, and an edge with no bypass keeps having none.
+        Unknown names are ignored — a caller computing a name set from queries
+        and closures should not have to filter it first. Never aliases (I4).
+        """
+        new_dag = OntoDAG()
+        kept = {name for name in names if name in self.nodes}
+        kept.discard(self.root.name)
+
+        mapping = {}
+        for name in sorted(kept):                     # sorted: deterministic
+            node = self.nodes[name]
+            copy_item = Item(name, metadata=node.metadata)
+            mapping[name] = copy_item
+            new_dag.add_node(copy_item)
+
+        for name, copy_item in mapping.items():
+            for parent in self.nodes[name].parents:
+                if self.nodes.get(parent.name) is not parent:
+                    continue                          # not ours (see get_ancestors)
+                if parent.name == self.root.name:
+                    new_dag.root.neighbors.add(copy_item)
+                elif parent.name in mapping:
+                    mapping[parent.name].neighbors.add(copy_item)
+
+        for copy_item in new_dag.nodes.values():
+            copy_item.descendant_count = len(
+                new_dag.get_descendants(copy_item, computed=False))
+
+        return new_dag
+
     def copy_subdag(self, nodes_to_copy):
         new_dag = OntoDAG()
         root_to_copy = None

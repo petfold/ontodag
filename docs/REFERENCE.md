@@ -79,7 +79,8 @@ results one per line on stdout. No command = read commands from stdin
 | `remove NAME` | remove an item (children reattach to its parents) |
 | `merge PATH` | merge another store/file into this one |
 | `import` / `export PATH` | native `.od`, or OWL/Manchester by extension (`.owl`/`.omn`) |
-| `excerpt PATH [CAT…]` | write just that query's answer (with the edges among the answers) to PATH — an importable cut; FILE comes first because CATs are variadic |
+| `excerpt PATH [CAT…] [--context]` | write just that query's answer (with the edges among the answers) to PATH — an importable cut; FILE comes first because CATs are variadic. `--context` adds the categories the answers hang from, which is what makes the file merge *and* diff into another store |
+| `diff OTHER [CAT…]` | compare this store with OTHER: `+` is theirs, `-` is ours; exits 0 identical / 1 different. Claims decide what is reported, edges display it; cascade counts on stderr |
 | `visualize [CAT…] [--out NAME]` | render an image (needs the `viz` extra); with CATs, draws that query's answer under its terms — the drawn twin of `excerpt`, which omits them |
 | `canon [TERM]` | the stored (canonical) form of TERM; bare: surface+registry versions |
 | `prelude [--show]` | adopt (or preview) the standard declarations |
@@ -131,7 +132,7 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `get_descendants` / `get_ancestors` | one cone, either direction |
 | `remove(name)` | remove with contraction (children keep coarser parents) |
 | `merge(other)` | commutative, idempotent union with re-reduction |
-| `copy_subdag` / `intersection_dag` / `prune_to_common_descendants` | derived DAGs, never aliasing |
+| `copy_subdag` / `induced_subdag` / `intersection_dag` / `prune_to_common_descendants` | derived DAGs, never aliasing (`copy_subdag` closes downward, `induced_subdag` copies exactly the names given) |
 | `topological_sort()` | deterministic (sorted) order |
 | `add_node` / `add_edge` / `remove_edge` | low level; `remove_edge` can orphan — prefer `remove`/`put` |
 

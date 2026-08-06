@@ -751,7 +751,11 @@ odag <command> ...
   export FILE           write the store to FILE
   excerpt FILE [CAT...] write just that query's answer to FILE, with the
                         edges among the answers kept — an importable cut
-                        of the store (see §5.4)
+                        of the store (see §5.4); --context also writes the
+                        categories the answers hang from, which is what
+                        makes it usable elsewhere (see §5.8)
+  diff FILE [CAT...]    compare this store with FILE (+ is FILE's, - is
+                        ours); exits 0 if identical, 1 if not (see §5.8)
   visualize [CAT...]    render an image (--out B, --format png|svg|pdf);
                         with CATs, draws just that query's answer with
                         the query terms shown above it (see §5.4)
@@ -1148,7 +1152,9 @@ Ryokan (*) ->
 ```
 
 The format follows the extension here too, so `odag excerpt japan.omn Travel Japan`
-writes the same cut as Manchester syntax. With no categories at all the query is
+writes the same cut as Manchester syntax. To send a cut to someone else, add
+`--context` — see §5.8, which also covers `odag diff` for reading back what they
+changed. With no categories at all the query is
 unconstrained (the same rule as `get`), so the file you get is byte-identical to
 `export`'s.
 
@@ -1323,6 +1329,79 @@ The flags all go **before** the command (`odag -n 5 get Japan`), where they
 apply to every command in a batch or interactive session; `get`, `list` and
 `show` also accept `-n` and `--render`/`--raw` after the command, for that one
 command only.
+
+### 5.8 Sending someone a piece of your store, and seeing what came back
+
+A plain `excerpt` (§5.4) answers "what matched". To *send* it, add `--context`,
+which also writes the categories the answers hang from:
+
+```console
+$ odag -f travel.od excerpt japan.od Travel Japan --context
+$ cat japan.od
+# ontodag store v1
+Flight Travel
+Hotel Travel
+JAL Flight Japan
+JAL-cheap JAL
+Japan '*'
+Ryokan Hotel Japan
+Travel '*'
+```
+
+Nothing there is invented — every node and edge, root edges included, is one of
+yours. The difference matters because the edges a plain cut drops are exactly
+the ones that pointed at the query terms, and those *are* the classification.
+Merge a plain cut into a store that has your categories but not your trips and
+the trips land at top level: `get Japan` comes back empty. With `--context` they
+arrive filed as they were filed here:
+
+```console
+$ odag -f theirs.od merge japan.od
+$ odag -f theirs.od get Japan
+JAL
+JAL-cheap
+Ryokan
+```
+
+`BA` did not travel — it hangs under `Flight`, but it was never an answer, so
+siblings do not leak. Typed values bring their declarations along for free (a
+head like `weight` is a real parent of its values, hence an ancestor), so the
+receiving store can recompute the order rather than being told it.
+
+Then they edit their copy, send it back, and you ask what changed:
+
+```console
+$ odag -f travel.od diff back.od Travel Japan
++ item Ryokan-Kyoto (Ryokan)
++ below JAL-cheap Ryokan
+odag: +1/-0 items, +1/-0 claims listed; +6/-0 entailed claims over 8 names
+```
+
+`+` is theirs, `-` is yours — `diff mine theirs` order, so the lines read as
+what would arrive if you merged it. The exit code is grep-shaped: 0 identical,
+1 different, so `odag diff other.od && echo unchanged` works. The trailing
+category list scopes both sides to the same part of the store; without it, a
+partial file reports everything outside itself as removed, which is true but
+never what you wanted to know.
+
+Two things about that output are deliberate:
+
+- **What gets listed is decided by meaning, not by edges.** Adding one edge can
+  prune two others while the store knows strictly more — measured: `edges +1 -2`
+  with zero facts lost, because a reduction re-routed them. An edge that
+  disappeared is therefore reported only if the fact it carried disappeared too.
+  The reverse also holds: counting facts alone cascades (a leaf added twelve
+  levels down is fourteen new facts), so the listing stays one line per change
+  and the cascade is the `entailed claims` count on the summary line.
+- **The summary goes to stderr**, like the display cap's withheld count, so
+  `odag diff back.od | wc -l` counts changes and nothing else.
+
+One honest limitation, worth knowing before you rely on it: this is a *two-way*
+comparison, so it cannot tell "they deleted it" from "you added it after
+sending". Deciding that needs the version you sent as a baseline — which an
+`rs:` or `swarm:` store keeps for free, since the root you were at is recorded.
+And `merge` unions — it only ever adds (§4.4) — so removals in a returned file are
+information, never something a merge will apply for you.
 
 ---
 
