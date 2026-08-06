@@ -498,6 +498,28 @@ the removed item itself:
 `gate-info.txt` silently moved up to where the flight used to hang — still a
 flight document, still part of the trip.
 
+That is *contraction*, and it is the right default: it removes a category
+without losing anything filed under it. When you mean the opposite — the
+category **and its contents** — use `remove_cone`:
+
+```python
+>>> dag.cone_removal_plan(["Japan"])       # pure: ask before you act
+({'Japan', 'JAL', 'JAL-cheap', 'Ryokan', 'Onsen'}, {'Japan', 'Onsen'})
+>>> dag.remove_cone(["Japan"])
+{'Japan', 'Onsen'}
+```
+
+The first set is the cone; the second is what actually goes. In a DAG an item
+can hang in several places, so "delete the subgraph" needs a rule, and the rule
+is: **something is deleted when the root can no longer reach it.** `Onsen` was
+only in Japan, so it goes; `JAL` is also a Flight, so it stays exactly where it
+still belongs. Survivors are *detached*, never reattached upward — reattaching
+would file `JAL` under whatever was above `Japan`, which is a claim nobody made.
+
+The walk uses asserted edges only, so deleting the cone of a typed value like
+`weight(..5kg)` takes what was filed under that spelling, not every lighter
+value in the store.
+
 ### 4.4 Combining two DAGs: `merge`
 
 ```python
@@ -743,7 +765,10 @@ odag <command> ...
                         derived index in a sibling NAME-index store) so
                         lazy readers answer broad queries in a few
                         fetches; prints the data and index roots
-  remove ITEM           remove ITEM from the store
+  remove ITEM...        remove items by contraction: each goes, its
+                        children reattach to its parents (see §5.9).
+                        --cone deletes the item and whatever only existed
+                        under it; --dry-run shows what would go
   show                  print the DAG structure
   list                  print every item name (the empty query, named)
   merge FILE            merge FILE into the store
@@ -1439,6 +1464,73 @@ sending". Deciding that needs the version you sent as a baseline — which an
 And `merge` unions — it only ever adds (§4.4) — so removals in a returned file are
 information, never something a merge will apply for you.
 
+### 5.9 Removing more than one thing, and removing contents
+
+`remove` takes several names and contracts each one — the categories go, what
+was filed under them stays:
+
+```console
+$ odag -f travel.od remove Flight Hotel
+$ odag -f travel.od show
+* [root] -> Japan Travel
+Japan (*) -> JAL Onsen Ryokan
+Onsen (Japan) ->
+Travel (*) -> BA JAL Ryokan
+BA (Travel) ->
+JAL (Japan Travel) -> JAL-cheap
+JAL-cheap (JAL) ->
+Ryokan (Japan Travel) ->
+```
+
+The trips are all still there, now filed directly under `Travel`. The order you
+name them in cannot matter: removing a set is order-independent, which is why
+several names are allowed at all.
+
+`--cone` is the other operation — the category *and its contents* — and since
+this one destroys things, look first:
+
+```console
+$ odag -f travel.od remove --cone Japan --dry-run
+Japan
+Onsen
+odag: would delete 2 items; kept 3 that hang elsewhere too (JAL JAL-cheap Ryokan)
+```
+
+`Onsen` was only in Japan, so it would go. `JAL`, `JAL-cheap` and `Ryokan` are
+also Flights and Hotels, so they stay where they still belong — in a DAG an item
+hangs in several places, and the rule is that something is deleted when the root
+can no longer reach it. Nothing is ever reattached upward: `JAL` does not
+inherit whatever was above `Japan`.
+
+Back it up first, and you have an undo:
+
+```console
+$ odag -f travel.od excerpt japan-backup.od Japan --context
+$ odag -f travel.od remove --cone Japan
+odag: deleted 2 items; kept 3 that hang elsewhere too (JAL JAL-cheap Ryokan)
+$ odag -f travel.od get Flight
+BA
+JAL
+JAL-cheap
+
+$ odag -f travel.od merge japan-backup.od
+$ odag -f travel.od get Japan
+JAL
+JAL-cheap
+Onsen
+Ryokan
+```
+
+The store is back at the identical canonical root it had before the deletion.
+That is worth knowing generally: additions are the direction that always works,
+so a contexted excerpt (§5.8) is the cheapest undo there is. A `swarm:` or `rs:`
+store gives you the same safety net from its history, since the root you were at
+is recorded.
+
+Both forms take `--dry-run`, and both resolve every name before touching
+anything — so `odag remove Flight nope` removes nothing at all rather than
+leaving the job half done.
+
 ---
 
 ## 6. The web app and REST API
@@ -1855,6 +1947,9 @@ These behaviors are guarantees, not accidents. You can rely on them:
 6. **Removal never orphans.** Children of a removed item reattach to its parents
    — including the computed ones: remove `time(2026-08-15)` and a ticket that
    was once explicitly under `time(2026-06-01..2026-08-31)` is under it again.
+   The deleting form (`remove --cone`) never orphans either, by the other route:
+   anything that would be left unreachable is deleted with the cone, and
+   anything that survives keeps a real parent.
 7. **One dimension, one meaning.** A dimension's values must share one unit
    family (no seconds in a mass dimension), links *between* two values of the
    same dimension are refused (their order is computed, not asserted), and

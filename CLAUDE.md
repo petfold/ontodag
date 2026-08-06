@@ -318,6 +318,51 @@ are absorbed by reduction on merge, the same property that makes a plain excerpt
 a no-op. Written even when empty so scripts can merge unconditionally.
 `TestDiffAdditions` (9 tests, incl. the same-root and idempotence properties);
 the release smoke now applies a fragment end to end.
+
+**Then bulk + cone removal (2026-08-06, from Peter's "if we can remove one
+concept, we can remove a whole subgraph too, right?").** Yes — but it is *two*
+operations, and conflating them destroys data: looping the existing contraction
+over a cone deletes multi-parent members (measured: contracting the cone of
+`Japan` also removed `JAL`, which was a Flight). So `remove NAME...` stayed
+contraction (verified order-independent over 12 random DAGs × 6 orders × 5
+victims → identical canonical roots, which is *why* several names are allowed:
+the result is a function of the set), and the deleting form is `--cone`, per
+Peter's choice of a flag over a separate verb. **Survival rule** (what makes
+"delete the subgraph" well defined at all in a multi-parent DAG): a cone member
+is deleted **iff the root can no longer reach it once the targets are gone** —
+orphan-collection, verified equal to a brute-force reachability oracle over 25
+random DAGs. Survivors are **detached, never contracted**: contraction would
+file them under whatever sat above the deleted node (`JAL` under `Asia`), a
+claim nobody made. Cone walk is **asserted-only** — the computed order would
+sweep every finer value of a dimension into a deletion no stored edge asserted.
+New core API: `remove_cone(names)` + the pure `cone_removal_plan(names)` (so
+`--dry-run` and the CLI's kept/deleted note need no dry-run parameter in the
+core). Two findings worth keeping:
+- **The count-delta trick does not generalize to deletion.** `remove`/`add_edge`
+  can use a per-ancestor delta because contraction preserves everything below;
+  deletion can additionally *strand a surviving subtree* from an ancestor that
+  reached it only through a deleted node. Assuming −1 per deleted node left 22
+  of 25 random cases with wrong `descendant_count`s. Counts are now recomputed
+  for the affected ancestors (root's is free: `len(nodes) - 1`), measured
+  1.3–1.5 ms on the 3,221-node fixture — acceptable because deletion is rare
+  and deliberate, unlike the per-write case the delta machinery exists for.
+- **A sloppy delete corrupts upward silently.** The first prototype dropped
+  nodes from `self.nodes` and discarded them from their parents' `neighbors`,
+  leaving stale objects in their *children's* `parents` sets; since
+  `Item.__eq__` is by name, a later re-add is then **shadowed** by the stale
+  entry, so the graph reads correct by `neighbors` and wrong by `parents` (and
+  `EagerOntoDAG._record_for` silently drops the `up` entry). Hence the real
+  implementation goes through `remove_edge` in both directions. Pinned by
+  `test_a_deleted_name_can_be_used_again`.
+Tests: `TestConeRemoval` (10, in `test_invariants.py` — oracle agreement, I2/I5
+plus parent/child symmetry over 25 random deletions, the Asia case, typed
+values), `TestRemoveMany` (9, CLI — order independence, all-or-nothing,
+`--dry-run`, stderr notes, and **excerpt-as-undo**: back up the cone, delete,
+merge back, identical root), `test_cone_removal_persists` in `test_eager.py`
+(records deleted, survivors reparented, root equals a store that never filed
+them). MCP's `remove` tool is untouched — a cone deletion there would need a
+retraction record per deleted claim, which is a provenance decision, not a
+transcription.
 - **Parked, tripwire-gated:** EL/relations canonicalization research (now observable via MCP traffic) — **discussion draft exists as of 2026-08-03: `docs/plans/BINDING.md`** (prompted by Peter's London→Rome → two-leg → bouquet probes; scope rule for flat roles, ground bundles as a proposed scoped contract amendment with two consumers — multi-instance grouping and multiplicity — the §6 coordinate-order fork, the compile-down baseline; nothing decided, grammar work gated on discussing it with Peter); computed values (passes the admissibility axes, no consumer — the itinerary's derived from/to/summed-duration is noted in BINDING.md §3 as another appearance), languages/lexicon (fork recorded in `SURFACE_LAYER.md` §12).
 
 Previous milestone — **dimension lattices (parametric items), done and released** — design, implementation, docs and PyPI release all on 2026-07-30. `docs/DIMENSIONS.md` is the design record and tracks its own §12 sequencing (steps 1–5 and 7 done; step 6, the per-dimension sorted index, stays parked until profiling asks). One-line summary: values like `weight(3kg)` are ordinary categories whose order is computed from the canonical name (containment of denotations, exact integers in base units), never materialized as edges; anchor stars enumerate each dimension; virtual query terms cost no writes; `get_overlapping` is the possibly-satisfies mode. Works through the CLI (quote the parentheses), the web REST API (names now pass through to put/get — `tests/test_web.py`), `EagerOntoDAG` (canonical roots verified across put orders) and `LazyOntoDAG` (bounded fetches). Adoption notes for the sister projects are in loopmarket ARCHITECTURE.md §3 (update note) and ontodag-fs ROADMAP.md. Headline decisions: parametric items (`weight(..5000000mg)`) ordered by containment of denoted value sets — computed at query time, **never materialized as edges**; kinds declared by ordinary edges under registry-known nodes (`weight → linear-dimension → dimension`), nothing in `meta`, no callables in data; values are integers in per-family base units (agreed 2026-07-30 — no decimals; sub-base precision is a boundary error, the UI renders friendly units); anchor/star edges under the head node are schema, exempt from reduction; `add_edge`/`_remove_unneeded_edges` consult combined (asserted + computed) reachability; only exact-arithmetic kinds ever enter the canonical order (geo discs stay application-side — see loopmarket). This fired the "exact arithmetic" wall's tripwire — recorded in `DATABASE_DIRECTION.md` — via the `../loopmarket` sister project (marketplace matching is a main OntoDAG goal); overlap matching (`get_overlapping`) is deliberately the *first follow-up*, not v1, because overlap is not transitive and therefore not a cone.

@@ -312,6 +312,30 @@ class TestRemoval(unittest.TestCase):
         never = build(fresh_store(), [p for p in VEHICLES if p[0] != "ev"])
         self.assertEqual(root, never.commit())
 
+    def test_cone_removal_persists(self):
+        # The deleting removal, through the adapter: the records of everything
+        # that only existed under the target must go, the survivors must stay,
+        # and the result must be indistinguishable from never having filed them.
+        blobs = MemoryBytesStore()
+        dag = build(RecordStore(blobs), VEHICLES + [("scooter", ["electric"])])
+        dag.commit()
+        self.assertEqual(dag.remove_cone(["electric"]), {"electric", "scooter"})
+        root = dag.commit()
+
+        again = EagerOntoDAG(RecordStore.at(root, blobs))
+        self.assertNotIn("electric", again.nodes)
+        self.assertNotIn("scooter", again.nodes)
+        self.assertFalse(again.store.contains("scooter"))
+        self.assertIn("ev", again.nodes)          # also a car: survives
+        self.assertEqual({p.name for p in again.nodes["ev"].parents
+                          if again.nodes.get(p.name) is p}, {"car"})
+
+        never = build(fresh_store(), [(name, [s for s in supers
+                                              if s != "electric"])
+                                      for name, supers in VEHICLES
+                                      if name != "electric"])
+        self.assertEqual(root, never.commit())
+
 
 class CountingStore:
     """Wrapper that counts read calls, and can hide `items()` from the adapter.

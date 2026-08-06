@@ -395,3 +395,154 @@ class TestMergeAlgebra(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ----------------------------------------------------------------------------
+# Cone removal — the *other* removal, held to every invariant above
+# ----------------------------------------------------------------------------
+
+class TestConeRemoval(unittest.TestCase):
+    """`remove_cone` deletes; `remove` contracts. Both must leave the graph
+    exactly as sound as they found it.
+
+    The survival rule is the part that could be wrong in a multi-parent DAG, so
+    it is checked against an independent oracle: a cone member must be deleted
+    iff the root can no longer reach it once the targets are gone.
+    """
+
+    def _travel(self):
+        return build([
+            ("Travel", []), ("Japan", []),
+            ("Flight", ["Travel"]), ("Hotel", ["Travel"]),
+            ("JAL", ["Flight", "Japan"]), ("JAL-cheap", ["JAL"]),
+            ("Ryokan", ["Hotel", "Japan"]), ("Onsen", ["Japan"]),
+            ("BA", ["Flight"]),
+        ])
+
+    def _random(self, seed, n=30):
+        import random
+        rnd = random.Random(seed)
+        dag = OntoDAG()
+        names = [f"n{i}" for i in range(n)]
+        for index, name in enumerate(names):
+            pool = names[:index]
+            dag.put(name, rnd.sample(pool,
+                                     min(len(pool), rnd.choice([0, 1, 1, 2, 3]))))
+        return dag, names
+
+    def _reachable_avoiding(self, dag, banned):
+        """Independent oracle: what the root still sees with `banned` gone."""
+        seen, frontier = set(), [dag.root]
+        while frontier:
+            node = frontier.pop()
+            for child in node.neighbors:
+                if child.name in banned or child.name in seen:
+                    continue
+                seen.add(child.name)
+                frontier.append(child)
+        return seen
+
+    def test_multi_parent_members_survive(self):
+        dag = self._travel()
+        cone, deleted = dag.cone_removal_plan(["Japan"])
+        self.assertEqual(cone, {"Japan", "JAL", "JAL-cheap", "Ryokan", "Onsen"})
+        self.assertEqual(deleted, {"Japan", "Onsen"})
+        self.assertEqual(dag.remove_cone(["Japan"]), {"Japan", "Onsen"})
+        self.assertEqual(set(dag.nodes) - {"*"},
+                         {"Travel", "Flight", "Hotel", "JAL", "JAL-cheap",
+                          "Ryokan", "BA"})
+
+    def test_survivors_are_detached_never_contracted(self):
+        # Contraction would file JAL under Japan's parents — a claim nobody
+        # made. Here Japan's parent is Asia, so the mistake would be visible.
+        dag = build([
+            ("Asia", []), ("Japan", ["Asia"]), ("Travel", []),
+            ("Flight", ["Travel"]), ("JAL", ["Flight", "Japan"]),
+        ])
+        dag.remove_cone(["Japan"])
+        self.assertEqual({p.name for p in dag.nodes["JAL"].parents
+                          if dag.nodes.get(p.name) is p}, {"Flight"})
+        self.assertNotIn("Asia", {p.name for p in dag.nodes["JAL"].parents})
+
+    def test_the_whole_cone_can_go(self):
+        dag = build([("A", []), ("B", ["A"]), ("C", ["B"]), ("D", [])])
+        self.assertEqual(dag.remove_cone(["A"]), {"A", "B", "C"})
+        self.assertEqual(set(dag.nodes) - {"*"}, {"D"})
+
+    def test_several_targets_at_once(self):
+        # X survives Japan alone (it is also a Flight) but not Japan+Flight.
+        dag = self._travel()
+        self.assertEqual(dag.remove_cone(["Japan", "Flight"]),
+                         {"Japan", "Flight", "Onsen", "JAL", "JAL-cheap", "BA"})
+        self.assertEqual(set(dag.nodes) - {"*"},
+                         {"Travel", "Hotel", "Ryokan"})
+
+    def test_invariants_hold_over_random_deletions(self):
+        import random
+        for seed in range(25):
+            dag, names = self._random(seed)
+            targets = [n for n in random.Random(seed + 100).sample(
+                names, random.Random(seed).choice([1, 2, 3])) if n in dag.nodes]
+            cone, deleted = dag.cone_removal_plan(targets)
+
+            survivors = self._reachable_avoiding(dag, set(targets))
+            self.assertEqual(deleted, {n for n in cone if n not in survivors},
+                             f"seed {seed}: survival rule disagrees with the "
+                             f"reachability oracle")
+
+            self.assertEqual(dag.remove_cone(targets), deleted)
+            assert_acyclic(self, dag)
+            assert_transitively_reduced(self, dag)
+            assert_counts_consistent(self, dag)          # I5
+            for name, node in dag.nodes.items():
+                for parent in node.parents:
+                    self.assertIs(dag.nodes.get(parent.name), parent,
+                                  f"seed {seed}: {name} kept a dangling parent")
+                    self.assertIn(node, parent.neighbors)
+                for child in node.neighbors:
+                    self.assertIs(dag.nodes.get(child.name), child)
+                    self.assertIn(node, child.parents)
+
+    def test_a_deleted_name_can_be_used_again(self):
+        # The trap a naive implementation falls into: Item equality is by name,
+        # so a stale parent reference left behind by a sloppy delete SHADOWS the
+        # re-added node — the graph then reads correct downward, wrong upward.
+        dag = self._travel()
+        dag.remove_cone(["Japan"])
+        dag.put("Japan", [])
+        dag.put("JAL", ["Japan"])
+        self.assertEqual({p.name for p in dag.nodes["JAL"].parents
+                          if dag.nodes.get(p.name) is p}, {"Flight", "Japan"})
+        assert_counts_consistent(self, dag)
+
+    def test_the_root_and_unknown_names_are_refused_before_anything_moves(self):
+        dag = self._travel()
+        before = edge_set(dag)
+        for bad in (["*"], ["Japan", "nope"], ["nope"]):
+            with self.assertRaises(ValueError):
+                dag.remove_cone(bad)
+            self.assertEqual(edge_set(dag), before)
+            with self.assertRaises(ValueError):
+                dag.cone_removal_plan(bad)
+
+    def test_the_plan_changes_nothing(self):
+        dag = self._travel()
+        before = edge_set(dag)
+        dag.cone_removal_plan(["Japan", "Flight"])
+        self.assertEqual(edge_set(dag), before)
+
+    def test_asserted_only_so_a_typed_value_sweeps_nothing_extra(self):
+        # The computed order is derived from names; deleting by it would take
+        # every finer value ever filed, which no stored edge asserted.
+        from ontodag.prelude import apply as apply_prelude
+        dag = OntoDAG()
+        apply_prelude(dag)
+        dag.put("crate", ["weight(3kg)"])
+        dag.put("pallet", ["weight(..5kg)"])
+        cone, deleted = dag.cone_removal_plan(["weight(..5kg)"])
+        self.assertEqual(cone, {"weight(..5kg)", "pallet"})
+        self.assertNotIn("crate", deleted)
+        self.assertNotIn("weight(3kg)", deleted)
+        dag.remove_cone(["weight(..5kg)"])
+        self.assertIn("crate", dag.nodes)
+        assert_counts_consistent(self, dag)

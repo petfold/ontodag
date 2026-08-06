@@ -75,6 +75,29 @@ the version numbers appear in commit history and docs.
   removals, the command says how many it left out rather than shipping a
   fragment that looks like the whole change. Removals belong to a base-pinned
   three-way apply and travel as attributed retractions (PROVENANCE.md).
+- **`odag remove NAME…`, and `remove --cone`** — two removals, deliberately one
+  command with the destructive one behind a word you have to type. The default
+  **contracts** (each category goes, its children reattach to its parents) and
+  now takes several names: removing a set was measured order-independent over
+  random DAGs and every removal order, so it is a function of the set. `--cone`
+  **deletes** the categories and whatever only existed under them, per the
+  survival rule that makes this well defined in a multi-parent DAG: *a cone
+  member is deleted iff the root can no longer reach it*. Deleting `Japan` takes
+  an item filed only there and spares one that is also a Flight. Survivors are
+  detached, never contracted — contraction would file them under whatever was
+  above the deleted node, a claim nobody made. `--dry-run` prints what would go
+  and changes nothing; both forms resolve every name before touching anything,
+  so an unknown name removes nothing. New core API:
+  `OntoDAG.remove_cone(names)` and the pure `OntoDAG.cone_removal_plan(names)`.
+  The cone walk is asserted-only, so deleting a typed value's cone does not
+  sweep in every finer value the computed order would reach.
+  *Implementation note for future work:* the per-ancestor count **delta** that
+  `remove` and `add_edge` use does not generalize to deletion — deletion can
+  strand a surviving subtree from an ancestor that reached it only through a
+  deleted node (assuming −1 per deleted node left 22 of 25 random cases with
+  wrong `descendant_count`s). Counts are therefore recomputed for the affected
+  ancestors, with the root's taken for free; measured at 1.3–1.5 ms on a
+  3,221-node store.
 - **`OntoDAG.induced_subdag(names)`** — the third derived-DAG operation:
   `intersection_dag` intersects, `copy_subdag` closes downward, this copies
   exactly the names given (root edges kept where they are real). `excerpt` is

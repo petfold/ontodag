@@ -2107,3 +2107,122 @@ class TestDiffAdditions(unittest.TestCase):
             frag = os.path.join(home, "add.omn")
             self._diff(mine, theirs, additions=frag)
             self.assertIn("Ryokan-Kyoto", cli._load(frag).nodes)
+
+
+class TestRemoveMany(unittest.TestCase):
+    """`remove NAME...` contracts; `remove --cone` deletes.
+
+    The destructive form is behind a word you have to type, and both forms
+    resolve every name before touching anything.
+    """
+
+    TRAVEL = ("Travel", "Japan", "Flight Travel", "Hotel Travel",
+              "JAL Flight Japan", "JAL-cheap JAL", "Ryokan Hotel Japan",
+              "Onsen Japan", "BA Flight")
+
+    def _session(self, home, name="t.od"):
+        session = cli.Session(os.path.join(home, name))
+        for row in self.TRAVEL:
+            self.assertEqual(_run(["put"] + row.split(), session)[0], 0)
+        return session
+
+    def _run_err(self, argv, session):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.dispatch(argv, session)
+        return code, out.getvalue(), err.getvalue()
+
+    def _root(self, dag):
+        from ontodag.eager import EagerOntoDAG
+        eager = EagerOntoDAG(RecordStore(MemoryBytesStore()))
+        eager.merge(dag)
+        return eager.commit()
+
+    def test_contracting_several_is_order_independent(self):
+        with tempfile.TemporaryDirectory() as home:
+            one = self._session(home, "a.od")
+            self.assertEqual(_run(["remove", "Flight", "Hotel"], one)[0], 0)
+            other = self._session(home, "b.od")
+            self.assertEqual(_run(["remove", "Hotel", "Flight"], other)[0], 0)
+            self.assertEqual(self._root(one.dag), self._root(other.dag))
+
+    def test_contraction_keeps_what_was_below(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            self.assertEqual(_run(["remove", "Flight"], session)[0], 0)
+            self.assertIn("JAL", session.dag.nodes)
+            self.assertEqual(_run(["get", "Travel"], session)[0], 0)
+
+    def test_one_unknown_name_removes_nothing(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            before = self._root(session.dag)
+            code, _, err = self._run_err(["remove", "Flight", "nope"], session)
+            self.assertEqual(code, 1)
+            self.assertIn("does not exist", err)
+            self.assertEqual(self._root(session.dag), before)
+            # and the store on disk is untouched too
+            self.assertIn("Flight", cli.Session(session.spec).dag.nodes)
+
+    def test_cone_deletes_and_spares_the_multi_parent_members(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            code, out, err = self._run_err(["remove", "--cone", "Japan"],
+                                           session)
+            self.assertEqual((code, out), (0, ""))
+            self.assertIn("deleted 2 items", err)
+            self.assertIn("kept 3 that hang elsewhere", err)
+            self.assertEqual(set(session.dag.nodes) - {"*"},
+                             {"Travel", "Flight", "Hotel", "JAL", "JAL-cheap",
+                              "Ryokan", "BA"})
+
+    def test_dry_run_lists_and_changes_nothing(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            before = self._root(session.dag)
+            code, out, err = self._run_err(
+                ["remove", "--cone", "Japan", "--dry-run"], session)
+            self.assertEqual((code, out.split()), (0, ["Japan", "Onsen"]))
+            self.assertIn("would delete 2 items", err)
+            self.assertEqual(self._root(session.dag), before)
+            self.assertIn("Japan", cli.Session(session.spec).dag.nodes)
+
+    def test_dry_run_works_for_contraction_too(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            before = self._root(session.dag)
+            code, out, _ = self._run_err(
+                ["remove", "Flight", "Hotel", "--dry-run"], session)
+            self.assertEqual((code, out.split()), (0, ["Flight", "Hotel"]))
+            self.assertEqual(self._root(session.dag), before)
+
+    def test_a_contexted_excerpt_undoes_a_cone_deletion(self):
+        # The standing advice, pinned: back up the cone, delete, merge it back,
+        # and the store returns to the exact same canonical root.
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            before = self._root(session.dag)
+            backup = os.path.join(home, "japan.od")
+            self.assertEqual(
+                _run(["excerpt", backup, "Japan", "--context"], session)[0], 0)
+            with redirect_stderr(io.StringIO()):
+                self.assertEqual(_run(["remove", "--cone", "Japan"],
+                                      session)[0], 0)
+            self.assertNotEqual(self._root(session.dag), before)
+            self.assertEqual(_run(["merge", backup], session)[0], 0)
+            self.assertEqual(self._root(session.dag), before)
+
+    def test_the_note_never_lands_on_stdout(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            _, out, err = self._run_err(["remove", "--cone", "Onsen"], session)
+            self.assertEqual(out, "")
+            self.assertTrue(err.startswith("odag: deleted 1 item"))
+
+    def test_the_root_is_refused(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            for argv in (["remove", "*"], ["remove", "--cone", "*"]):
+                code, _, err = self._run_err(argv, session)
+                self.assertEqual(code, 1)
+                self.assertIn("root", err)

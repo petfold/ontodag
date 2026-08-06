@@ -281,6 +281,23 @@ def smoke(env, expect_version):
 
     check("a contexted excerpt survives a round trip", contexted_excerpt_and_diff)
 
+    def cone_removal():
+        # The destructive one: look first, back up, delete, put it back.
+        planned = env.odag_run("remove", "--cone", "Japan", "--dry-run").split()
+        assert "Japan" in planned, planned
+        assert "hotel.pdf" in o("get", "Japan").split()
+        o("excerpt", "japan.od", "Japan", "--context")
+        o("remove", "--cone", "Japan")
+        assert "Japan" not in o("get").split(), "the cone survived"
+        # boarding-pass.pdf is also a Flight, so it must NOT have gone with it
+        assert "boarding-pass.pdf" in o("get", "Flight").split(), \
+            "a multi-parent member was deleted with the cone"
+        o("merge", os.path.join(env.work, "japan.od"))
+        assert "hotel.pdf" in o("get", "Japan").split(), "the undo did not undo"
+        return "dry-run, delete, multi-parent survivor, undo by merge"
+
+    check("cone removal spares what hangs elsewhere", cone_removal)
+
     def reimport():
         o("export", "round.omn")
         o("-f", os.path.join(env.work, "round.omn"), "get", "Japan")

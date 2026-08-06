@@ -1212,6 +1212,119 @@ class OntoDAG(DAG):
             for subcategory in subcategories:
                 self.add_edge(container, subcategory)
 
+    def _resolve_for_removal(self, names):
+        """Canonical names of removable nodes, or raise before anything moves."""
+        resolved = []
+        for name in names:
+            name = self._canonical_name(_name_of(name))
+            if name == self.root.name:
+                raise ValueError("Cannot remove the root.")
+            if name not in self.nodes:
+                raise ValueError(f"Item {name} does not exist.")
+            resolved.append(name)
+        return resolved
+
+    def cone_removal_plan(self, names):
+        """What `remove_cone(names)` would touch: (in the cone, deleted).
+
+        The survival rule is what makes cone deletion well defined in a
+        multi-parent DAG: a member of the cone is deleted **iff the root can no
+        longer reach it once the targets are gone**. So deleting `Japan` takes
+        an item filed only under Japan, and leaves one that is also a Flight
+        exactly where it still belongs. Everything in the cone that is not
+        deleted is a node that hangs somewhere else too.
+
+        The walk is over **asserted** edges only, deliberately. The computed
+        order between parametric values is derived from names, so a coarse term
+        would otherwise sweep in every finer value ever filed — a far larger
+        claim than the one being made, and one no stored edge asserted. It also
+        keeps this consistent with `descendant_count`, which is asserted-only.
+
+        Pure: nothing is mutated, so a caller can show the plan first."""
+        targets = self._resolve_for_removal(names)
+        cone = set(targets)
+        for name in targets:
+            cone |= {node.name for node in
+                     self.get_descendants(self.nodes[name], computed=False)}
+
+        deleted = set(targets)
+        changed = True
+        while changed:                      # orphan collection == unreachability
+            changed = False
+            for name in sorted(cone - deleted):
+                if not any(self.nodes.get(parent.name) is parent
+                           and parent.name not in deleted
+                           for parent in self.nodes[name].parents):
+                    deleted.add(name)
+                    changed = True
+        return cone, deleted
+
+    def remove_cone(self, names):
+        """Delete these categories and whatever only existed underneath them.
+
+        The *other* removal: `remove` CONTRACTS (the node goes, its children
+        reattach to its parents, nothing below it is lost), this DELETES. Both
+        are needed and they are not variants of one operation — looping
+        `remove` over a cone would destroy multi-parent members too, because
+        contracting a leaf just drops it.
+
+        Surviving children are **detached, never contracted**. Contraction here
+        would invent claims: if `Japan` hung under `Asia`, reattaching a
+        surviving `JAL` to Japan's parents would file it as `Asia` — something
+        no one asserted and the deletion certainly did not imply.
+
+        Returns the set of deleted names. Removal is not a merge operation
+        (it is lossy and does not commute with a concurrent addition), so
+        this is a local edit like `remove`; take an `excerpt --context` of the
+        cone first if you want it back — merging that restores the exact root.
+        """
+        cone, deleted = self.cone_removal_plan(names)
+
+        # Whose counts can move: the asserted ancestors of everything going.
+        # Captured before the graph moves, recomputed after it — because the
+        # per-ancestor *delta* that `remove` and `add_edge` use does NOT
+        # generalize to deletion. Contraction preserves everything below the
+        # removed node, so each ancestor loses exactly one item; deletion can
+        # also strand a SURVIVING subtree, when an ancestor reached it only
+        # through a node that is going. (Measured: assuming -1 per deleted node
+        # left 22 of 25 random cases with wrong counts.) An exact delta needs
+        # per-ancestor reachability, which is the recomputation anyway.
+        affected = set()
+        for name in deleted:
+            affected |= {node for node
+                         in self.get_ancestors(self.nodes[name], computed=False)
+                         if node.name not in deleted}
+
+        with self._counts_unchanged():
+            for name in sorted(deleted):
+                node = self.nodes[name]
+                # Edges to children: removed here whether the child is doomed
+                # or surviving — a surviving child cannot be orphaned by this,
+                # since a node whose every parent is doomed is doomed itself.
+                for child in list(node.neighbors):
+                    self.remove_edge(node, child)
+                # Edges from live parents; a doomed parent's edge is removed by
+                # its own pass above, so this never double-removes.
+                for parent in list(node.parents):
+                    if (self.nodes.get(parent.name) is parent
+                            and parent.name not in deleted):
+                        self.remove_edge(parent, node)
+
+        for name in deleted:
+            del self.nodes[name]
+
+        # The root reaches everything by construction (a survivor always keeps
+        # a live parent), so its count is free — which matters, since the root
+        # is an ancestor of every deletion and its cone is the whole graph.
+        for node in affected:
+            if node is self.root:
+                node.descendant_count = len(self.nodes) - 1
+            else:
+                node.descendant_count = len(
+                    self.get_descendants(node, computed=False))
+
+        return deleted
+
     def merge(self, other_dag):
         """Merge another OntoDAG into this one.
 

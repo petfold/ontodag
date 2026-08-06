@@ -1124,8 +1124,67 @@ def cmd_index(args, session, out):
 
 
 def cmd_remove(args, session, out):
-    session.dag.remove(args.item)
+    """Remove items — by contraction, or with `--cone` by deletion.
+
+    Two operations, deliberately under one command with the destructive one
+    behind a word you have to type:
+
+    * Default: **contract**. Each named category goes and its children reattach
+      to its parents, so nothing below it is lost. Removing several is
+      order-independent (measured over random DAGs and every removal order), so
+      it is a function of the set — which is why several names are allowed at
+      all, and why the order they are typed in cannot matter.
+    * `--cone`: **delete** the category and whatever only existed underneath it.
+      A cone member that also hangs elsewhere survives; one whose every parent
+      was in the cone goes with it (`OntoDAG.cone_removal_plan`). This is what
+      "remove the whole subgraph" has to mean in a multi-parent DAG — looping
+      the default over a cone would destroy the multi-parent members too.
+
+    Names are all resolved before anything moves, so an unknown name leaves the
+    store untouched rather than half-removed. `--dry-run` prints what would go
+    and changes nothing; the counts afterwards go to stderr, since they are a
+    message to the person and not the answer to anything.
+    """
+    dag = session.dag
+    if not args.cone:
+        names = dag._resolve_for_removal(args.items)     # all-or-nothing
+        if args.dry_run:
+            _print_names(names, args, session, out)
+            return 0
+        for name in names:
+            dag.remove(name)
+        session.save()
+        return 0
+
+    cone, deleted = dag.cone_removal_plan(args.items)
+    if args.dry_run:
+        _print_names(deleted, args, session, out)
+        _cone_note(len(deleted), cone - deleted, args, session,
+                   "would delete", out)
+        return 0
+
+    dag.remove_cone(args.items)
     session.save()
+    _cone_note(len(deleted), cone - deleted, args, session, "deleted")
+    return 0
+
+
+def _cone_note(deleted, survivors, args, session, verb, out=None):
+    """What a cone removal did, and what it deliberately spared."""
+    # Flushed first, or a block-buffered stdout (any pipe) prints the note
+    # above the list it is about — same reason `diff`'s summary flushes.
+    flush = getattr(out, "flush", None)
+    if flush is not None:
+        flush()
+    fmt = _namer(args, session, sys.stderr)
+    kept = ""
+    if survivors:
+        shown = sorted(survivors)[:5]
+        more = f", +{len(survivors) - len(shown)} more" if len(survivors) > len(shown) else ""
+        kept = (f"; kept {len(survivors)} that hang elsewhere too "
+                f"({' '.join(fmt(name) for name in shown)}{more})")
+    print(f"odag: {verb} {deleted} item{'' if deleted == 1 else 's'}{kept}",
+          file=sys.stderr)
 
 
 def cmd_show(args, session, out):
@@ -1615,7 +1674,13 @@ Commands:
                         works; `?` is a synonym at the interactive prompt.
                         Works on typed values from the names alone:
                         below 'weight(3kg)' 'weight(..5kg)' -> true
-  remove ITEM           remove ITEM from the store
+  remove ITEM...        remove items: each one goes and its children
+                        reattach to its parents, so nothing below is lost
+                        (the order you name them in cannot matter).
+                        --cone instead DELETES each item and whatever only
+                        existed under it — a member of the cone that also
+                        hangs elsewhere survives. --dry-run prints what
+                        would go and changes nothing
   show                  print the DAG structure
   list                  print every item name (the empty query, named)
   merge FILE            merge FILE into the store
@@ -1807,9 +1872,18 @@ def build_parser():
                         "descendants (default 64)")
     p.set_defaults(func=cmd_index, stream_output=True)
 
-    p = sub.add_parser("remove", add_help=True, help="remove an item")
-    p.add_argument("item")
-    p.set_defaults(func=cmd_remove)
+    p = sub.add_parser("remove", add_help=True,
+                       help="remove items (contract), or --cone (delete)")
+    p.add_argument("items", nargs="+")
+    p.add_argument("--cone", action="store_true",
+                   help="delete each item and whatever only existed under it, "
+                        "instead of reattaching its children to its parents")
+    p.add_argument("--dry-run", action="store_true",
+                   help="print what would go and change nothing")
+    p.add_argument("-o", "--output")
+    _add_surface_flags(p)
+    _add_limit_flag(p)
+    p.set_defaults(func=cmd_remove, stream_output=True)
 
     p = sub.add_parser("show", add_help=True, help="print the DAG structure")
     p.add_argument("-o", "--output")
