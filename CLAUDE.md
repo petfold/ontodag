@@ -453,9 +453,25 @@ pure preview). PATCH is the verb the REST API never had: POST only adds a
 category, DELETE removes the item, so no client could move anything. Tests:
 `TestQueryExportIsTheExcerptNotThePicture`, `TestMoveOverRest`,
 `TestConeRemovalOverRest` in `tests/test_web.py` (15), all exercised over HTTP
-first with curl against the running app. The UI itself is unchanged — the page
-has no move or cone-delete control yet; that is a front-end job, not an API one.
-MCP still deliberately has neither.
+first with curl against the running app. **The UI followed the same day**: a **Move Item** row (*Move to* / *out of*,
+blank *out of* = replace every category), **Delete + Contents** (previews via
+`GET /dag/removal` and confirms, listing what it would delete *and* keep), a
+**with context** checkbox on the query exports, and a `#notice` bar — news is
+not failure, so the contested set and the kept-items report do not go through
+the error modal. Query downloads now carry the query on screen rather than
+whatever the session remembered. **Browser caveat, stated because it matters:
+this UI was NOT clicked through in a real browser** — that needs a session
+started with `claude --chrome`, and the 2026-08-02 pass is the standing evidence
+that a browser finds what HTTP cannot (three bugs behind 200s). Compensating
+static checks were added instead (`TestThePageIsWiredUp` in `tests/test_web.py`,
+6 tests): every `getElementById` id must exist in the markup, every URL the
+script fetches must be a registered Flask route, the new controls must be
+present with the right methods, and the script must pass `node --check`. Those
+catch the silent-dead-button failure modes (typo'd id, typo'd URL, syntax
+error); they do not catch layout or rendering, so a browser pass is still owed.
+Every request the buttons make was driven by hand with curl against the running
+app first, including a name containing `+`, `&` and spaces. MCP still
+deliberately has neither operation.
 - **Parked, tripwire-gated:** EL/relations canonicalization research (now observable via MCP traffic) — **discussion draft exists as of 2026-08-03: `docs/plans/BINDING.md`** (prompted by Peter's London→Rome → two-leg → bouquet probes; scope rule for flat roles, ground bundles as a proposed scoped contract amendment with two consumers — multi-instance grouping and multiplicity — the §6 coordinate-order fork, the compile-down baseline; nothing decided, grammar work gated on discussing it with Peter); computed values (passes the admissibility axes, no consumer — the itinerary's derived from/to/summed-duration is noted in BINDING.md §3 as another appearance), languages/lexicon (fork recorded in `SURFACE_LAYER.md` §12).
 
 Previous milestone — **dimension lattices (parametric items), done and released** — design, implementation, docs and PyPI release all on 2026-07-30. `docs/DIMENSIONS.md` is the design record and tracks its own §12 sequencing (steps 1–5 and 7 done; step 6, the per-dimension sorted index, stays parked until profiling asks). One-line summary: values like `weight(3kg)` are ordinary categories whose order is computed from the canonical name (containment of denotations, exact integers in base units), never materialized as edges; anchor stars enumerate each dimension; virtual query terms cost no writes; `get_overlapping` is the possibly-satisfies mode. Works through the CLI (quote the parentheses), the web REST API (names now pass through to put/get — `tests/test_web.py`), `EagerOntoDAG` (canonical roots verified across put orders) and `LazyOntoDAG` (bounded fetches). Adoption notes for the sister projects are in loopmarket ARCHITECTURE.md §3 (update note) and ontodag-fs ROADMAP.md. Headline decisions: parametric items (`weight(..5000000mg)`) ordered by containment of denoted value sets — computed at query time, **never materialized as edges**; kinds declared by ordinary edges under registry-known nodes (`weight → linear-dimension → dimension`), nothing in `meta`, no callables in data; values are integers in per-family base units (agreed 2026-07-30 — no decimals; sub-base precision is a boundary error, the UI renders friendly units); anchor/star edges under the head node are schema, exempt from reduction; `add_edge`/`_remove_unneeded_edges` consult combined (asserted + computed) reachability; only exact-arithmetic kinds ever enter the canonical order (geo discs stay application-side — see loopmarket). This fired the "exact arithmetic" wall's tripwire — recorded in `DATABASE_DIRECTION.md` — via the `../loopmarket` sister project (marketplace matching is a main OntoDAG goal); overlap matching (`get_overlapping`) is deliberately the *first follow-up*, not v1, because overlap is not transitive and therefore not a cone.

@@ -1625,6 +1625,27 @@ DOT / LaTeX. The bottom one is a query: type comma-separated categories, and
 you get the matching items plus a picture of the query and its results, with
 the query terms shaded differently from what they matched.
 
+**Editing.** The item box drives four operations, and the difference between
+them matters:
+
+- **Add Item** files the items under the super-categories beside them.
+- **Remove Item** removes them by *contraction*: the category goes, whatever was
+  filed under it reattaches to its parents (§4.3).
+- **Delete + Contents** is the other removal: the items *and* whatever only
+  existed under them. It asks first, listing what would go — and what it would
+  keep, because a member of the cone that also hangs somewhere else survives,
+  which is the part nobody expects.
+- **Move Item** reclassifies: fill in *Move to* and, optionally, *out of*.
+  Blank *out of* replaces every category the items are under. Everything below
+  an item travels with it, and if a shared item ends up under both the old and
+  the new category the page says so — that is true rather than broken, and
+  nothing can decide it for you (§5.10).
+
+The query panel's **with context** checkbox switches the download from the bare
+answer to the sendable form that also carries the categories the answers hang
+from (§5.8). Either way a query export contains the *answer*, never the query
+terms, so re-importing it does not file your question as knowledge.
+
 Typed values work in both boxes exactly as they do everywhere else — file
 something under `weight(3kg)` and `time(2026-08-15)`, then query
 `weight(..5kg)`, and the virtual term resolves without any node existing for

@@ -82,3 +82,13 @@ form {
 .close:hover {
   color: black;
 }
+/* Non-error messages: what a move left in two states, what a deletion
+   spared. News, not failure — so not the error modal. */
+.notice {
+  margin: 6px 0 0;
+  padding: 6px 10px;
+  border-left: 3px solid #4a90d9;
+  background: #eef4fb;
+  font-size: 13px;
+  color: #234;
+}

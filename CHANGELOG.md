@@ -137,6 +137,13 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **The web page has controls for both** — a **Move Item** row (*Move to* /
+  *out of*, reporting the contested set in a new notice bar rather than the
+  error modal, since news is not failure) and **Delete + Contents**, which
+  previews through `GET /dag/removal` and asks for confirmation, listing what it
+  would delete *and* what it would keep. Plus a **with context** checkbox on the
+  query exports. The query download now carries the query that is on screen
+  instead of whatever the session last remembered.
 - **A query export from the web app contained the query terms.** The four
   `/dag/query/export*` routes served `session["query_result_dag"]`, which
   `/dag/query/image` sets to the *picture* — the drawn view, with query terms

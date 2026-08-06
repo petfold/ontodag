@@ -398,3 +398,71 @@ class TestConeRemovalOverRest:
         assert client.get("/dag/removal",
                           query_string={"name": "nope", "cone": "1"}
                           ).status_code == 400
+
+
+class TestThePageIsWiredUp:
+    """Static checks on index.html, because the failure mode of a button is a
+    typo: an id the script looks up but the markup never defines, or a URL the
+    app does not route. Both give a control that silently does nothing, which no
+    status-code test can see.
+
+    (Clicking through in a real browser is still the only way to see layout and
+    rendering — that pass found three bugs in 2026-08-02 that HTTP checks had
+    called green. These checks are the cheap floor, not a substitute.)
+    """
+
+    def _page(self, client):
+        response = client.get("/")
+        assert response.status_code == 200
+        return response.data.decode()
+
+    def _script(self, page):
+        import re
+        return re.search(r"<script>(.*)</script>", page, re.S).group(1)
+
+    def test_every_id_the_script_uses_exists_in_the_markup(self, client):
+        import re
+        page = self._page(client)
+        defined = set(re.findall(r'id="([^"]+)"', page))
+        used = set(re.findall(r'getElementById\("([^"]+)"\)',
+                              self._script(page)))
+        assert used <= defined, f"referenced but never defined: {used - defined}"
+
+    def test_every_url_the_page_calls_is_a_real_route(self, client):
+        import re
+        script = self._script(self._page(client))
+        urls = set(re.findall(r'(?:fetch|href = )\s*\(?\s*"(/[^"?]*)', script))
+        # Paths built by helper functions, which the regex cannot see.
+        urls |= {"/dag/query/export", "/dag/query/export/omn",
+                 "/dag/query/export/dot", "/dag/query/export/tex"}
+        routes = {rule.rule for rule in app.url_map.iter_rules()}
+        assert urls <= routes, f"no such route(s): {sorted(urls - routes)}"
+
+    def test_the_new_controls_are_present(self, client):
+        page = self._page(client)
+        for control in ("move-item-form", "move-to", "move-from",
+                        "delete-cone-button", "export-with-context", "notice"):
+            assert f'id="{control}"' in page, control
+
+    def test_the_move_and_cone_handlers_use_the_right_methods(self, client):
+        script = self._script(self._page(client))
+        assert '"PATCH"' in script                      # move
+        assert "/dag/removal?cone=1&" in script         # preview before deleting
+        assert '"/dag/node?cone=1"' in script           # then the deletion
+        # The destructive one asks first; the contracting one never did.
+        assert "window.confirm" in script
+
+    def test_the_script_is_valid_javascript(self, client):
+        import shutil
+        import subprocess
+        import tempfile
+        node = shutil.which("node") or shutil.which("nodejs")
+        if node is None:
+            pytest.skip("node not installed")
+        script = self._script(self._page(client))
+        with tempfile.NamedTemporaryFile("w", suffix=".js") as handle:
+            handle.write(script)
+            handle.flush()
+            result = subprocess.run([node, "--check", handle.name],
+                                    capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr

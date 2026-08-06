@@ -30,8 +30,15 @@
         <input type="text" id="subcategory" placeholder="Subcategories (comma-separated)" size="30"/>
         <input type="text" id="super-categories" placeholder="Super-categories (comma-separated)" size="34"/>
         <button type="submit">Add Item</button>
-        <button type="button" id="remove-item-button">Remove Item</button>
+        <button type="button" id="remove-item-button" title="Remove the item; its children reattach to its parents">Remove Item</button>
+        <button type="button" id="delete-cone-button" title="Delete the item AND whatever only existed under it">Delete + Contents</button>
       </form>
+      <form id="move-item-form">
+        <input type="text" id="move-to" placeholder="Move to (comma-separated)" size="30"/>
+        <input type="text" id="move-from" placeholder="out of (blank = all of them)" size="34"/>
+        <button type="submit" title="Reclassify the items named above: file them under `to`, retract `out of`">Move Item</button>
+      </form>
+      <p id="notice" class="notice" style="display: none;"></p>
       <img id="dag-image" class="dag-visual" src="/dag/image" alt="DAG Visualization" />
       <div id="dag"></div>
     </div>
@@ -44,6 +51,7 @@
        <input type="file" id="query-file-input" name="file" />
         <button type="submit">Import File</button>
         Export
+        <label title="Also include the categories the answers hang from, so the file merges into a store that shares them"><input type="checkbox" id="export-with-context"/> with context</label>
         <button type="button" id="export-query-dag-button">OWL</button>
         <button type="button" id="export-query-dag-omn-button">OMN</button>
         <button type="button" id="export-query-dag-dot-button">DOT</button>
@@ -116,6 +124,26 @@
         return inputString.split(",").map(cat => cat.trim()).filter(cat => cat !== "")
       }
 
+      // Not every message is an error. A move that leaves an item in two
+      // states, or a deletion that spared something, is news the person needs
+      // without being told something went wrong.
+      function showNotice(message) {
+        const notice = document.getElementById("notice");
+        notice.textContent = message;
+        notice.style.display = message ? "block" : "none";
+      }
+
+      // Names are arbitrary text: `&`, `#` or `+` in one would otherwise split
+      // the query string, truncate it, or arrive as a space. `,` and `|` are
+      // separators, so they are encoded per-term and joined afterwards.
+      function catParam(names) {
+        return names.map(encodeURIComponent).join(",");
+      }
+
+      function queryParams() {
+        return catParam(to_list(document.getElementById("query-categories").value));
+      }
+
       const dagImage = document.getElementById("dag-image");
       const dagQueryImage = document.getElementById("dag-query-image");
       const fullSizeDagImage = document.getElementById("full-size-dag-image");
@@ -161,6 +189,60 @@
         reloadDagImage();
       });
 
+      document.getElementById("delete-cone-button").addEventListener("click", async () => {
+        const names = to_list(document.getElementById("subcategory").value);
+        if (!names.length) { return; }
+        // Look before leaping: this is the destructive removal, and what it
+        // spares (cone members that hang elsewhere too) is the part nobody
+        // expects. The preview changes nothing.
+        const params = names.map(n => "name=" + encodeURIComponent(n)).join("&");
+        const preview = await fetch("/dag/removal?cone=1&" + params)
+          .then(response => handleError(response));
+        if (!preview.ok) { return; }
+        const plan = await preview.json();
+        const kept = plan.kept.length
+          ? "\n\nKept (they hang elsewhere too): " + plan.kept.join(", ") : "";
+        if (!window.confirm("Delete " + plan.deleted.length + " item(s): "
+                            + plan.deleted.join(", ") + kept)) { return; }
+        const response = await fetch("/dag/node?cone=1", {
+          method: "DELETE",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ subcategories: names })
+        }).then(response => handleError(response));
+        if (response.ok) {
+          const result = await response.json();
+          showNotice("Deleted " + result.deleted.join(", ")
+            + (result.kept.length
+               ? "; kept " + result.kept.join(", ") + " (filed elsewhere too)"
+               : ""));
+        }
+        await loadDAG();
+        reloadDagImage();
+      });
+
+      document.getElementById("move-item-form").addEventListener("submit", async (evt) => {
+        evt.preventDefault();
+        const subcategories = to_list(document.getElementById("subcategory").value);
+        const to = to_list(document.getElementById("move-to").value);
+        const from = to_list(document.getElementById("move-from").value);
+        const response = await fetch("/dag/node", {
+          method: "PATCH",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ subcategories, to, from })
+        }).then(response => handleError(response));
+        if (response.ok) {
+          const result = await response.json();
+          // The contested set: items now under both an old and a new category,
+          // which is true rather than broken (a shared item really is in both
+          // situations) and which nothing here can decide for you.
+          showNotice(result.contested.length
+            ? "Moved. Still in both states: " + result.contested.join(", ")
+            : "Moved.");
+        }
+        await loadDAG();
+        reloadDagImage();
+      });
+
       document.getElementById("new-dag-button").addEventListener("click", async () => {
         await fetch("/dag", {
           method: "POST",
@@ -172,12 +254,7 @@
 
       document.getElementById("query-form").addEventListener("submit", async (evt) => {
         evt.preventDefault();
-        const superCats = to_list(document.getElementById("query-categories").value);
-        // Encode: category names are arbitrary text, and `&`, `#` or `+` in
-        // one would otherwise split the query string, truncate it, or arrive
-        // as a space. `,` and `|` (conjunction and union) are separators, so
-        // they are encoded per-term and joined afterwards, not encoded away.
-        const params = superCats.map(encodeURIComponent).join(",");
+        const params = queryParams();
         const response = await fetch("/dag/query?cat=" + params, {
           method: "GET",
           headers: {"Content-Type": "application/json"},
@@ -240,17 +317,28 @@
         window.location.href = "/dag/export/tex";
       });
 
+      // The download is of the query on screen, not of whatever the session
+      // last remembered — and it is the EXCERPT: the answer, never the query
+      // terms, so re-importing it does not file the question as knowledge.
+      function queryExportUrl(path) {
+        const params = ["cat=" + queryParams()];
+        if (document.getElementById("export-with-context").checked) {
+          params.push("context=1");
+        }
+        return path + "?" + params.join("&");
+      }
+
       document.getElementById("export-query-dag-button").addEventListener("click", () => {
-        window.location.href = "/dag/query/export";
+        window.location.href = queryExportUrl("/dag/query/export");
       });
       document.getElementById("export-query-dag-omn-button").addEventListener("click", () => {
-        window.location.href = "/dag/query/export/omn";
+        window.location.href = queryExportUrl("/dag/query/export/omn");
       });
       document.getElementById("export-query-dag-dot-button").addEventListener("click", () => {
-        window.location.href = "/dag/query/export/dot";
+        window.location.href = queryExportUrl("/dag/query/export/dot");
       });
       document.getElementById("export-query-dag-tex-button").addEventListener("click", () => {
-        window.location.href = "/dag/query/export/tex";
+        window.location.href = queryExportUrl("/dag/query/export/tex");
       });
 
       window.onload = loadDAG;
