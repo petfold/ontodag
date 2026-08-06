@@ -684,7 +684,21 @@ default earns its place; one that adds weight for a file format does not.*
 
 ## Release state
 
-**0.16.0 is prepared but NOT published** (2026-08-06): version bumped, CHANGELOG
+**PUBLISHED 2026-08-06: ontodag 0.16.0 and recordstore 0.20.1**, both by tag
+through the publish workflows, both verified from PyPI rather than from disk
+(`release_smoke.py --pypi 0.16.0` → 23/23 against what the index serves; a fresh
+venv install of `recordstore==0.20.1`). All four ontodag jobs green, the
+**downstream ontodag-fs gate included**. Follow-ups done the same hour:
+ontodag-fs's range raised to `>=0.16.0,<0.17.0` (ceiling because the gate passed,
+floor because it adopted `Backend.load_at`) and it gained **`--as-of ROOT`** — the
+one 0.16.0 feature that fits a browse-only surface; writes, files and candidate
+sets were deliberately not adopted, with reasons in its own CLAUDE.md. recordstore
+0.20.1 is docs-only: 0.20.0 went out with the README — i.e. the PyPI landing page
+— un-updated, which is the miss it repairs and the reason a docs-only patch was
+worth cutting. **Lesson reinforced: the docs-before-publish rule has to include
+the README, because that is the page people read first.**
+
+Prep record for 0.16.0 (kept): version bumped, CHANGELOG
 cut, docs swept (README gained the editing/sharing/history/tiers sections with
 executed output; DIMENSIONS §4 rewritten off the superseded integers-in-tiny-bases
 text; HOW_IT_WORKS §5 gained cone-removal + move and §6 "Going back"; pets
@@ -696,7 +710,7 @@ gate is green, and note that **recordstore's README was updated only AFTER
 0.20.0 went out** — the PyPI page for 0.20.0 describes the package without undo,
 which a 0.20.1 (docs only) would fix.
 
-Latest published: **ontodag 0.15.0** (2026-08-04, by tag through the publish
+Previously: **ontodag 0.15.0** (2026-08-04, by tag through the publish
 workflow — all four jobs green incl. the downstream ontodag-fs gate and the
 PyPI-serve verify). 0.15.0: complete transitive reduction (order-independent
 stored form and multi-writer merge — I7 holds byte-identically now),
