@@ -760,6 +760,66 @@ PHILOSOPHICAL_LANGUAGES, SWARM_DESIGN_update — nothing there is shipped;
 new discussion drafts go there. (Paths throughout this file were updated in
 the same pass.)
 
+## Papers (`paper/`)
+
+Two manuscripts, both LaTeX, both built in place. Neither is submitted
+anywhere; they are the long-form write-ups the design docs are too granular
+to be.
+
+- **`main.tex` — "OntoDAG: A Semantic Layer for Distributed Storage"**
+  (July 2026, two-column). The systems story: the data structure, the Swarm
+  persistence mapping, coordination-free merge, and MDL learning as the
+  source of categories.
+- **`ontodag-fca.tex` — "Concepts, Codes and Canonical Forms"**
+  (2026-08-06, 80 pages, one column, tutorial style; `make` builds it).
+  The theory companion, written from Peter's question about the FCA
+  connection. Structure: Part I teaches order theory, the neural-code origin,
+  then FCA and OntoDAG side by side on one six-document example; Part II
+  gives the exact correspondence; Part III the two lists (adopt / keep);
+  Part IV agents and crypto; Part V directions D1–D16.
+
+  **The three results worth remembering from it**, because they are things
+  this repo did not previously have written down:
+  1. **FCA's derivation operator *is* `get`.** In the context
+     `K(P) = (nodes, nodes, reachability)`, the attribute-derivation `B'` is
+     literally the intersection of cones. So a formal concept is a *query in
+     balance with its own answer*, and the two systems compute the same
+     function — they differ only in *when* (FCA closes everything in advance,
+     OntoDAG per query). This upgrades SEMANTIC_CODES §2's "FCA maps
+     directly" from an analogy to an identity.
+  2. **The concept lattice of an OntoDAG is its Dedekind–MacNeille
+     completion** (MacNeille 1937; Ganter & Wille). So the gap between the
+     two formalisms is *exactly* the meets the DAG never named — measured on
+     the running example as 17 concepts = 11 nodes + 4 genuine unnamed meets
+     + 2 bookends. That also re-states the meet-substitution guard
+     (SEMANTIC_CODES §10) in standard terms: OntoDAG nodes are not the meets;
+     the meets live in the completion.
+  3. **OntoDAG's parametric dimensions are an *interval pattern structure***
+     (Ganter & Kuznetsov 2001; Kaytoue et al. 2011) — arrived at
+     independently. Free consequences: the semilattice condition on `⊓` is
+     the same thing as "only exact-arithmetic kinds enter the canonical
+     order"; the projection theory is the principled version of the parked
+     per-dimension index; and the open multi-coordinate question
+     (BINDING.md §6) has a ready answer — product semilattice, componentwise
+     meet. This is direction D1 and it costs nothing but writing.
+
+  Also recorded there and worth acting on eventually: the scale/Stevens table
+  reveals OntoDAG has **no ordinal kind** (D2); attribute exploration with an
+  LLM as the expert is the paper's best idea for the review problem, because
+  it makes review of machine-written knowledge bounded, ordered and
+  terminating (D6, single-writer case buildable today); and `merge` not
+  enforcing the disjoint-parents guard is repeated there as a documentation
+  gap, not a bug.
+
+  **Everything quantitative in it is executed**, not asserted:
+  `paper/experiments/fca_experiments.py` (stdlib + ontodag; NextClosure and
+  the FCA operators implemented in-file and checked against brute-force
+  oracles) writes `experiments/results.txt`, which the appendix includes
+  verbatim, plus `explosion.dat` and four of the seven Graphviz figures. The
+  CLI and MCP transcripts in it are real sessions. Build needs `pdflatex`,
+  `bibtex`, `graphviz`, `dot2tex`; `make` runs four LaTeX passes because the
+  cross-references do not settle in three.
+
 ## Working across sessions
 
 This is a multi-session project. At the start of each session:
