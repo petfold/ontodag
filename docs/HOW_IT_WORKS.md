@@ -151,6 +151,21 @@ only be learned by doing* — and never let either change the answer.
 "contracts" over the hole, so no knowledge below the removed item is lost, and the
 result is again the unique minimal form.
 
+There are two other ways to unfile something, and the difference between them is
+worth stating because conflating them destroys data. **Removing a cone**
+(`remove --cone`) deletes an item *and its contents*, where "its contents" has to
+mean something precise in a graph where things hang in several places at once:
+a member of the cone goes **iff the root can no longer reach it** once the target
+is gone. So archiving a finished project deletes the notes that only belonged to
+it and spares the spec another live project still uses — and survivors are
+*detached*, never reattached upward, because inheriting the deleted item's parents
+would assert something nobody said. **Moving** (`move`) is the retracting twin of
+`put`: assert the new category, retract the old one, and everything below the item
+travels with it for free, since membership is reachability rather than a stored
+subtree. A move can leave a shared item under both the old and the new category;
+that is true rather than broken — subsumption inherits, exclusive status cannot —
+so the tool names those items instead of silently deciding.
+
 **Merge** takes another OntoDAG and folds it in: add every missing item, then
 replay every arrow through the same careful `put` machinery (so redundancies
 introduced by the union are pruned). Because both inputs were canonical and the
@@ -230,6 +245,20 @@ a signing key the latest root is published to a Swarm *feed* — a stable
 address others can follow — and collaborators converge without a server by
 folding each other's published versions in (`sync`): assertions union,
 redundant links re-prune, and equal knowledge lands on the equal fingerprint.
+
+**Going back.** Fingerprints also make undo almost free, and it is worth seeing
+why. A version is not a list of changes to replay: the fingerprint *is* the state,
+and old fingerprints keep working because nothing content-addressed is ever
+overwritten. So a store only has to remember **which fingerprints it has been at**
+— then going back is pointing back. `odag history` lists them (newest first, with
+the label `-m` gave them), `odag undo` steps back, `odag redo` forward, and the
+state you left is still listed and still readable. That also explains what undo is
+*not*: it moves your pointer, so it does not travel through a merge — a peer who
+merges your store afterwards re-adds what you undid, because merge only ever adds.
+The same wall as removing something, and the same reason it is cheap. (Labels are
+local, deliberately: a fingerprint hashes state alone, so the same facts written
+down with different words still agree — which is exactly what makes the merge
+above work.)
 
 **Proving it to a stranger.** Fingerprints buy one more thing (2026-08-01):
 answers that can be *checked* by someone who has never seen your store.

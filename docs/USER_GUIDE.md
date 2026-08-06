@@ -1148,7 +1148,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.15.0 - type help for help
+Ontodag 0.16.0 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png
@@ -2047,9 +2047,9 @@ edits to big published ones, `LazyOntoDAG` to only ask questions.
 
 Once a store lives on Swarm, it can also be **browsed as a filesystem** with
 [ontodag-fs](https://github.com/petfold/ontodag-fs): directory paths are
-category queries (`/pet/dog` = everything that is a pet AND a dog), files are
+category queries (`/Travel/Japan` = everything filed under both), files are
 classified objects, and the whole thing FUSE-mounts. Its `odag-fs` command
-shares odag's store settings, so `odag set store swarm:pets` configures both.
+shares odag's store settings, so `odag set store swarm:travel` configures both.
 
 ---
 

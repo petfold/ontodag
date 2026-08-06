@@ -850,7 +850,7 @@ class OntoDAG(DAG):
         terms included); the result is everything matching AT LEAST ONE of
         the conjunctions:
 
-            get_any([{"dog", "pet"}, {"cat"}])   # (dog AND pet) OR cat
+            get_any([{"Flight", "Japan"}, {"Hotel"}])  # (Flight AND Japan) OR Hotel
 
         Query-side only: no stored state, no new edge kind, canonical form
         untouched (DATABASE_DIRECTION.md "Pure now" item 3 — union is a

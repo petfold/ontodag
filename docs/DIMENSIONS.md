@@ -12,7 +12,7 @@ fired escape hatch of the "exact arithmetic" wall, recorded there.
 
 ## 1. What and why
 
-OntoDAG's order has so far been entirely asserted: `Dog < Animal` exists
+OntoDAG's order has so far been entirely asserted: `JAL < Flight` exists
 because someone put an edge there. Nothing in the graph knows that a 3 kg
 parcel satisfies a courier's 5 kg limit — `5` in a name is an opaque
 string. Marketplace matching (the loopmarket sister project — offers
@@ -34,7 +34,7 @@ edges.
 A parametric item **denotes a set of values**: `weight(3000g)` denotes
 {3000 g}; `weight(..5000g)` denotes (0, 5000] g. The computed order is
 **containment of denotations** — and that is not a second kind of order:
-the DAG's asserted order was always extension inclusion (`Dog < Animal`
+the DAG's asserted order was always extension inclusion (`JAL < Flight`
 = every dog is an animal). `A < B` reads "A is a solution to query B."
 
 Consequences worth stating explicitly, because they are easy to get
@@ -114,29 +114,29 @@ name; meta is annotation no query traverses.**
   unit family (checked at `put`). Product arity is inferred from values
   and checked for consistency. Nothing is configured per node.
 
-## 4. Values are integers
+## 4. Values are exact
 
-Decision 2026-07-30: measured quantities are **integers in a per-family
-base unit** — the bank/crypto move (cents, wei). Tiny base units, large
-> **Superseded 2026-08-01 (registry v3, `UNITS.md` D9):** values are now
-> **reduced rationals of the SI coherent anchor** (`weight(3kg)`,
-> `weight(1/2000kg)`, `length(10/33m)`) — the same exactness with no base
-> to choose and no future base migration; the full SI + customary unit
-> table and all decisions live in `docs/UNITS.md`. The §-references to
-> integer base units below are kept as the historical record.
-numbers; rendering in friendly units is the UI's job, the canonical name
-keeps the integer.
+Measured quantities are **reduced rationals of the SI coherent anchor**:
+`weight(3kg)`, `weight(1/2000kg)`, `length(10/33m)`. No floats anywhere,
+so comparisons are exact and platform-independent, and there is no base
+unit to choose — which also means no future base migration exists as a
+class of problem. `docs/UNITS.md` is the authority: the full unit table
+(~30 families, every spelling exact), the registry version and its
+compatibility rule, affine temperatures, graph-declared units and packs.
 
-- Input in any accepted unit of the family is scaled exactly to base:
-  `weight(3kg)` → canonical `weight(3000000mg)`. If the scaled value is
-  not an integer (`weight(0.0005g)` with base mg), the boundary raises —
-  no silent rounding, ever.
-- v1 unit families (registry content, amendable until code lands):
-  mass base `mg` (mg, g, kg, t); length base `mm` (mm, cm, m, km);
-  duration base `s` (s, min, h, d); dimensionless base `1` (bare
-  integer, head decides meaning). Money/currencies: deferred —
-  loopmarket prices in personal tokens, not modeled here.
-- Timestamps are the one non-integer linear value space: fixed-format
+> **History, for anyone reading old stores or old notes:** the original
+> 2026-07-30 decision was *integers in a per-family base unit* (mass in
+> `mg`, length in `mm` — the cents/wei move), and canonical names looked
+> like `weight(3000000mg)`. Registry v3 (2026-08-01, `UNITS.md` D9)
+> reversed it: rationals are equally exact, need no base, and cannot
+> round at sub-base precision. Old spellings remain valid *input*, and
+> `ontodag.migrate` replays a pre-v3 store into the current form. The
+> examples below use the current canonical form.
+
+- Input in any accepted unit of the family is scaled exactly, and the
+  canonical name is the reduced rational: `weight(3000g)` → `weight(3kg)`,
+  `weight(500g)` → `weight(1/2kg)`. Nothing is ever rounded.
+- Timestamps are the one non-numeric linear value space: fixed-format
   ISO-8601 UTC (`YYYY-MM-DDTHH:MM:SSZ`), where lexicographic order *is*
   chronological order — comparison is exact string comparison. Boundary
   sugar: a bare date expands deterministically (range start →
@@ -148,7 +148,7 @@ keeps the integer.
   edges only, exactly today's record schema (`up`/`down`/`count`/
   `payload`/`meta` — unchanged).
 - **Anchor edges are schema, not assertions.** Every parametric node
-  carries exactly one asserted edge to its head node (`weight(3000000mg)
+  carries exactly one asserted edge to its head node (`weight(3kg)
   → weight`), exempt from transitive-reduction pruning. The star under
   the head is the dimension's existence-and-enumeration index (it is
   what virtual queries and `LazyOntoDAG` walk); the computed relation
@@ -157,8 +157,8 @@ keeps the integer.
 - **Reduction modulo the computed relation.** `add_edge`'s cycle check
   and `_remove_unneeded_edges` consult *combined* reachability (asserted
   edges ∪ computed pairs among present same-dimension nodes — finite,
-  deterministic). So asserting `parcel7 → weight(3000000mg)` prunes an
-  earlier `parcel7 → weight(..5000000mg)` as redundant; without this,
+  deterministic). So asserting `parcel7 → weight(3kg)` prunes an
+  earlier `parcel7 → weight(..5kg)` as redundant; without this,
   assertion history would leak into roots. The canonical stored form —
   asserted edges reduced modulo computed order, anchors exempt — remains
   unique because the computed relation is a pure function of present
@@ -252,7 +252,7 @@ going forward. The grammar is defined recursively (terms as parameters)
 though v1 kinds are flat. CLI note: parentheses need shell quoting.
 
 Boundary sugar (CLI/web, never the identity): friendly units
-(`3kg` → `3000000mg`), bare dates, bare numbers → `number(...)`,
+(`3000g` → `3kg`), bare dates, bare numbers → `number(...)`,
 user-defined aliases like `max_weight(x) := weight(..x)` — all
 normalized before names are formed.
 
@@ -261,7 +261,7 @@ normalized before names are formed.
 - **Present nodes only.** Parametric nodes exist only when used;
   queries quantify over what is present. "All integers" can never be an
   answer.
-- **Virtual terms.** `get(weight(..5000000mg))` needs no such node to
+- **Virtual terms.** `get(weight(..5kg))` needs no such node to
   exist: its cone = the head's present instances (the anchor star's
   `down` list) filtered by containment, unioned with their asserted
   cones. Cost ∝ matching used values; log-time with a per-dimension

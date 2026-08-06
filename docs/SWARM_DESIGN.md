@@ -535,7 +535,7 @@ where `retrieval_freq` comes from the query log. This term is identically zero
 in the in-memory setting (no retrieval cost) and collapses to nothing when the
 query distribution mirrors the data distribution; it only earns its place when
 the workload diverges from the corpus — likely common for a personal tool,
-where users repeatedly query statistically-rare pet categories. This is a
+where users repeatedly query statistically-rare categories. This is a
 research direction, not a committed feature; the real design decision to pin
 down before acting on it is the free parameter **λ** (bits per byte-second of
 storage, access-weighted).

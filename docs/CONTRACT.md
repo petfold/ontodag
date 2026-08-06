@@ -208,7 +208,7 @@ What the layer above must do *instead of* asking the core for more:
   disjointness vocabulary, say) merge like any claim; refusing or warning on
   a violation is per-reader policy, never a merge precondition. Merge stays
   total; an inconsistency arriving via merge is visible, queryable structure
-  — `get(Cat, Dog)` being non-empty *is* the consistency check.
+  — `get(Flight, Hotel)` being non-empty *is* the consistency check.
 
 ## 7. Verifiability
 

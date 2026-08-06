@@ -478,7 +478,7 @@ class SwarmBackend:
     def __init__(self, name, store_factory=None, index_store_factory=None,
                  prov_store_factory=None):
         if not name:
-            raise ValueError("swarm store needs a name, e.g. swarm:mydag")
+            raise ValueError("swarm store needs a name, e.g. swarm:travel")
         if os.sep in name or (os.altsep and os.altsep in name) or name == "..":
             raise ValueError(f"invalid swarm store name: {name!r}")
         self.name = name
@@ -990,7 +990,7 @@ def _query(categories, dag):
     """Run a command-line query and return the matching items.
 
     The literal argument `or` separates disjuncts:
-        odag get Dog Pet or Cat     ->  (Dog AND Pet) OR Cat
+        odag get Flight Japan or Hotel  ->  (Flight AND Japan) OR Hotel
     (`or` is therefore reserved as a category name on the command line;
     a plain AND query is the one-disjunct case.)
 
@@ -1174,7 +1174,7 @@ def cmd_swarm(args, session, out):
               "gives you the same\ncanonical roots, snapshots and "
               "certificates on local disk, with no node at all.", file=out)
         return 1
-    print("\nReady:  odag set store swarm:mydag", file=out)
+    print("\nReady:  odag set store swarm:travel", file=out)
     return 0
 
 
@@ -1894,7 +1894,8 @@ Commands:
   put SUB [PARENT...]   add SUB under the PARENT categories (or the root)
   get [CAT...]          print items below all of the CATs, one per line
                         (the literal word `or` separates alternatives:
-                        `get Dog Pet or Cat` = (Dog AND Pet) OR Cat).
+                        `get Flight Japan or Hotel` = (Flight AND
+                        Japan) OR Hotel).
                         With no CAT at all the query is unconstrained, so
                         it prints everything — the same as `list`
   count [CAT...]        how many items that same query matches: one number,
@@ -2276,8 +2277,8 @@ PARSER = build_parser()
 def dispatch(argv, session):
     """Parse one command line and run it. Returns a process-style exit code."""
     if argv and argv[0] == "?":
-        # Interactive-prompt sugar for the subsumption test (`? Spaniel
-        # Animal`); works from a shell too if you quote the glob character.
+        # Interactive-prompt sugar for the subsumption test (`? JAL
+        # Flight`); works from a shell too if you quote the glob character.
         argv = ["below"] + list(argv[1:])
     try:
         args = PARSER.parse_args(argv)

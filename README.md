@@ -59,6 +59,81 @@ at 50 results with a note saying how many were withheld, a pipe is never
 truncated. A query with no terms at all is the empty intersection — no
 constraints, so every item (`odag count` gives just the size).
 
+## Changing your mind
+
+Filing things is the easy half. Categories move, projects finish, and mistakes
+happen, so the operations that *unfile* are first-class:
+
+```console
+$ odag -m "archiving Q2" move ProjectA --from active --to archive
+odag: moved: 2 items left active, 1 still in both active and archive (shared-spec.md)
+$ odag remove Flight                              # the category goes, its contents stay
+$ odag remove --cone Japan --dry-run              # the category AND its contents
+Japan
+Onsen
+odag: would delete 2 items; kept 3 that hang elsewhere too (JAL JAL-cheap Ryokan)
+```
+
+Everything below a moved item travels with it — membership is reachability, so
+there is no subtree to walk. Two things in that output are the point rather than
+the detail. A move reports what ended up in **both** states: in a multi-parent
+DAG a shared item really can be in two, because subsumption inherits and
+exclusive status cannot, so it is named rather than silently decided. And a cone
+deletion spares what hangs elsewhere — the rule is *deleted iff the root can no
+longer reach it*, the only reading of "delete the subgraph" that does not quietly
+destroy multi-parent members.
+
+On a store that keeps history (see below) none of it is a one-way door:
+
+```console
+$ odag history
+* 24f60cdef46b  2026-08-06 12:34:56  archiving Q2
+  7cffeb02f241  2026-08-06 12:34:56  set up the projects
+$ odag undo
+odag: undid to 7cffeb02f241 — 2 classifications changed
+$ odag get active
+ProjectA
+ProjectB
+a-notes.md
+shared-spec.md
+```
+
+A root is a hash of the whole state, so a past version is not a diff to be
+replayed — it is a state that still exists, and undo *points* at it. `redo` comes
+forward again, `-m` labels a state, and `odag status` says what is possible.
+
+## Sending someone a piece of your store
+
+```console
+$ odag excerpt japan.od Travel Japan --context    # the answer, plus how it hangs
+$ odag diff back.od Travel Japan                  # what came back changed
++ item Ryokan-Kyoto (Ryokan)
++ below JAL-cheap Ryokan
+odag: +1/-0 items, +1/-0 claims listed; +6/-0 entailed claims over 8 names
+```
+
+`--context` is what makes the cut mergeable *and* diffable elsewhere; `diff
+--additions` writes the additive half as a file `odag merge` applies — and
+merging it lands on the byte-identical root that merging the whole store would,
+which is why there is no patch format. Comparison decides by *meaning*: adding
+one edge can prune others without losing anything, so a re-routed edge is never
+reported as a deletion.
+
+## Where a store lives
+
+Three tiers, each paying for itself, and the same commands throughout:
+
+```
+file (.od)   a DAG that persists. Works anywhere, no dependencies.
+rs:PATH      canonical roots, snapshots, version history, certificates. No node.
+swarm:NAME   the same store, shared — content on Swarm, head in a signed feed.
+```
+
+`odag swarm` walks you through the last step and tells you what to fix next.
+Equal knowledge always yields an equal root, whatever order it arrived in, which
+is what makes stores diffable, mergeable between writers, and verifiable by
+someone holding nothing but the root.
+
 ## For AI agents
 
 Serve any store to an agent over MCP with **`odag-mcp`**

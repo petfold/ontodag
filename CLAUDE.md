@@ -651,6 +651,18 @@ default earns its place; one that adds weight for a file format does not.*
 
 ## Release state
 
+**0.16.0 is prepared but NOT published** (2026-08-06): version bumped, CHANGELOG
+cut, docs swept (README gained the editing/sharing/history/tiers sections with
+executed output; DIMENSIONS §4 rewritten off the superseded integers-in-tiny-bases
+text; HOW_IT_WORKS §5 gained cone-removal + move and §6 "Going back"; pets
+examples retired in favour of the travel narrative), release smoke 22/22 on the
+0.16.0 wheel, and **ontodag-fs's suite run locally against this source: 282
+passed**, so the publish workflow's downstream gate should pass. Two follow-ups
+belong to whoever publishes: raise ontodag-fs's ceiling from `<0.16.0` once the
+gate is green, and note that **recordstore's README was updated only AFTER
+0.20.0 went out** — the PyPI page for 0.20.0 describes the package without undo,
+which a 0.20.1 (docs only) would fix.
+
 Latest published: **ontodag 0.15.0** (2026-08-04, by tag through the publish
 workflow — all four jobs green incl. the downstream ontodag-fs gate and the
 PyPI-serve verify). 0.15.0: complete transitive reduction (order-independent
