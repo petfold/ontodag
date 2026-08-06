@@ -75,6 +75,27 @@ the version numbers appear in commit history and docs.
   removals, the command says how many it left out rather than shipping a
   fragment that looks like the whole change. Removals belong to a base-pinned
   three-way apply and travel as attributed retractions (PROVENANCE.md).
+- **`odag move NAME… --to CAT… [--from CAT…]`** — reclassification, the
+  retracting counterpart of `put`. Without it the only way to move something was
+  remove-then-put, which loses the subtree: the children reattach to the old
+  category and stay there while the item moves on alone. `--from` omitted
+  retracts *all* current classifications (so `--to` alone means "under this and
+  nothing else"); `--to` omitted is a pure unfiling, and the item becomes
+  top-level rather than orphaned. Asserts before retracting, so a cycle or an
+  unknown name leaves the store untouched — and because adding the new parent
+  can make the old edge redundant, an edge already pruned by reduction counts as
+  retracted (moving to a finer category under the same parent would otherwise
+  fail). Any placement `put` refuses, `move` refuses too: the dimension guards
+  moved into a shared `_check_parametric_placement`, so a forbidden parent set
+  cannot be reached by moving into it, and a refused move leaves no new
+  vocabulary behind. New core API `OntoDAG.reclassify(names, to, from_=None)`.
+  **The contested-set report** is the part worth reading: a move can leave a
+  shared item under both the old and the new category — true, since subsumption
+  inherits and exclusive status cannot — so it is counted and named on stderr
+  rather than hidden, and it is the same answer as `get old new`. Refinement
+  (moving to a category *below* the old one) is deliberately not reported.
+  `--dry-run` performs the move on a copy, so the preview and its refusals
+  cannot drift from the act.
 - **`odag remove NAME…`, and `remove --cone`** — two removals, deliberately one
   command with the destructive one behind a word you have to type. The default
   **contracts** (each category goes, its children reattach to its parents) and

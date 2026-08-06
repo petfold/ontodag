@@ -546,3 +546,127 @@ class TestConeRemoval(unittest.TestCase):
         dag.remove_cone(["weight(..5kg)"])
         self.assertIn("crate", dag.nodes)
         assert_counts_consistent(self, dag)
+
+
+class TestReclassify(unittest.TestCase):
+    """`reclassify` is the retracting counterpart of `put` — the operation a
+    lifecycle needs (`active` -> `archive`).
+
+    What it must never do: leave the graph half-moved on a refusal, orphan
+    anything, or produce a placement `put` itself would refuse.
+    """
+
+    def _projects(self):
+        return build([
+            ("active", []), ("archive", []),
+            ("A", ["active"]), ("B", ["active"]),
+            ("C", ["A", "B"]), ("a-only", ["A"]), ("b-only", ["B"]),
+        ])
+
+    def _parents(self, dag, name):
+        return {p.name for p in dag.nodes[name].parents
+                if dag.nodes.get(p.name) is p}
+
+    def test_the_subtree_travels_with_it(self):
+        dag = self._projects()
+        self.assertEqual(dag.reclassify(["A"], to=["archive"], from_=["active"]),
+                         {("active", "A")})
+        self.assertEqual({i.name for i in dag.get(["archive"])},
+                         {"A", "C", "a-only"})
+        self.assertEqual({i.name for i in dag.get(["active"])},
+                         {"B", "C", "b-only"})
+
+    def test_a_shared_child_ends_up_in_both_states(self):
+        # Not a bug: C really is part of an archived project and a live one.
+        # Subsumption inherits; exclusive status cannot.
+        dag = self._projects()
+        dag.reclassify(["A"], to=["archive"], from_=["active"])
+        self.assertEqual({i.name for i in dag.get(["active", "archive"])}, {"C"})
+        assert_counts_consistent(self, dag)
+        assert_transitively_reduced(self, dag)
+
+    def test_to_alone_replaces_every_classification(self):
+        dag = self._projects()
+        dag.reclassify(["C"], to=["archive"])
+        self.assertEqual(self._parents(dag, "C"), {"archive"})
+
+    def test_from_alone_unfiles_and_never_orphans(self):
+        dag = self._projects()
+        dag.reclassify(["A"], from_=["active"])
+        self.assertEqual(self._parents(dag, "A"), {"*"})
+        self.assertIn("A", {i.name for i in dag.get([])})    # still visible
+        assert_counts_consistent(self, dag)
+
+    def test_moving_to_a_finer_category_under_the_same_parent(self):
+        # Adding the new parent makes the old edge redundant, so reduction
+        # prunes it before the retraction gets there. That must count as done.
+        dag = build([("active", []), ("recent", ["active"]), ("X", ["active"])])
+        dag.reclassify(["X"], to=["recent"], from_=["active"])
+        self.assertEqual(self._parents(dag, "X"), {"recent"})
+        self.assertTrue(dag.is_below("X", "active"))         # still, by entailment
+        assert_transitively_reduced(self, dag)
+
+    def test_invariants_hold_and_nothing_moves_on_a_refusal(self):
+        cases = [
+            (["A"], ["B"], None),                      # would create a cycle
+            (["A"], ["nowhere"], None),                # unknown destination
+            (["nope"], ["archive"], None),             # unknown item
+            (["*"], ["archive"], None),                # the root
+            (["C"], ["archive"], ["active"]),          # not a direct parent
+            (["A"], ["archive"], ["nowhere"]),         # unknown source
+        ]
+        dag = build([("active", []), ("archive", []), ("A", ["active"]),
+                     ("B", ["A"]), ("C", ["A"])])
+        before = edge_set(dag)
+        for items, to, from_ in cases:
+            with self.assertRaises(ValueError, msg=f"{items} -> {to}"):
+                dag.reclassify(items, to=to, from_=from_)
+            self.assertEqual(edge_set(dag), before, f"{items} -> {to} mutated")
+        assert_counts_consistent(self, dag)
+
+    def test_the_inherited_case_says_what_to_do_instead(self):
+        dag = self._projects()
+        with self.assertRaises(ValueError) as caught:
+            dag.reclassify(["C"], to=["archive"], from_=["active"])
+        self.assertIn("not filed directly under active", str(caught.exception))
+        self.assertIn("A, B", str(caught.exception))
+
+    def test_a_placement_put_refuses_is_not_reachable_by_moving(self):
+        from ontodag.prelude import apply as apply_prelude
+        dag = OntoDAG()
+        apply_prelude(dag)
+        dag.put("shelf", [])
+        dag.put("crate", ["weight(3kg)", "shelf"])
+        with self.assertRaises(ValueError) as caught:
+            dag.reclassify(["crate"], to=["weight(10kg)"], from_=["shelf"])
+        self.assertIn("provably disjoint", str(caught.exception))
+        # ...and the refusal left no new vocabulary behind
+        self.assertNotIn("weight(10kg)", dag.nodes)
+        # replacing the value instead is fine, and materializes it
+        dag.reclassify(["crate"], to=["weight(10kg)"])
+        self.assertEqual(self._parents(dag, "crate"), {"weight(10kg)"})
+        assert_counts_consistent(self, dag)
+
+    def test_counts_and_reduction_survive_random_moves(self):
+        import random
+        for seed in range(15):
+            rnd = random.Random(seed)
+            dag = OntoDAG()
+            names = [f"n{i}" for i in range(20)]
+            for index, name in enumerate(names):
+                pool = names[:index]
+                dag.put(name, rnd.sample(pool, min(len(pool),
+                                                   rnd.choice([0, 1, 2]))))
+            for _ in range(6):
+                item, destination = rnd.sample(names, 2)
+                try:
+                    dag.reclassify([item], to=[destination])
+                except ValueError:
+                    continue                     # cycles are legitimately refused
+                assert_acyclic(self, dag)
+                assert_transitively_reduced(self, dag)
+                assert_counts_consistent(self, dag)
+                for name in dag.nodes:
+                    self.assertTrue(
+                        name == dag.root.name or self._parents(dag, name),
+                        f"seed {seed}: {name} was orphaned")

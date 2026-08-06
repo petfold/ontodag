@@ -2226,3 +2226,146 @@ class TestRemoveMany(unittest.TestCase):
                 code, _, err = self._run_err(argv, session)
                 self.assertEqual(code, 1)
                 self.assertIn("root", err)
+
+
+class TestMove(unittest.TestCase):
+    """`odag move` — reclassify, with the contested set reported.
+
+    The contested set is the reason this command has a report at all: a move can
+    leave a shared item under both the old and the new category, which is true
+    and cannot be resolved by the DAG, so it is named rather than hidden.
+    """
+
+    PROJECTS = ("active", "archive", "A active", "B active", "C A B",
+                "a-only.md A", "b-only.md B")
+
+    def _session(self, home, name="proj.od", rows=None):
+        session = cli.Session(os.path.join(home, name))
+        for row in (self.PROJECTS if rows is None else rows):
+            self.assertEqual(_run(["put"] + row.split(), session)[0], 0)
+        return session
+
+    def _move(self, session, *argv):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.dispatch(["move"] + list(argv), session)
+        return code, out.getvalue().splitlines(), err.getvalue()
+
+    def _root(self, dag):
+        from ontodag.eager import EagerOntoDAG
+        eager = EagerOntoDAG(RecordStore(MemoryBytesStore()))
+        eager.merge(dag)
+        return eager.commit()
+
+    def test_it_moves_the_item_and_everything_under_it(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            code, out, err = self._move(session, "A", "--from", "active",
+                                        "--to", "archive")
+            self.assertEqual((code, out), (0, []))
+            self.assertEqual(_run(["get", "archive"], session),
+                             (0, "A\nC\na-only.md\n"))
+            self.assertEqual(_run(["get", "active"], session),
+                             (0, "B\nC\nb-only.md\n"))
+
+    def test_the_contested_set_is_reported(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            _, _, err = self._move(session, "A", "--from", "active",
+                                   "--to", "archive")
+            self.assertIn("2 items left active", err)
+            self.assertIn("1 still in both active and archive (C)", err)
+            # ...and it is the same set the query gives
+            self.assertEqual(_run(["get", "active", "archive"], session),
+                             (0, "C\n"))
+
+    def test_refinement_is_not_reported_as_contested(self):
+        # Moving something to a category *below* the one it left keeps it under
+        # both by entailment. Crying wolf there would make the report useless.
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home, "r.od",
+                                    ["active", "recent active", "X active"])
+            _, _, err = self._move(session, "X", "--from", "active",
+                                   "--to", "recent")
+            self.assertNotIn("still in both", err)
+
+    def test_dry_run_lists_what_changes_and_changes_nothing(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            before = self._root(session.dag)
+            code, out, err = self._move(session, "A", "--from", "active",
+                                        "--to", "archive", "--dry-run")
+            # Not just A: everything whose classification changes.
+            self.assertEqual((code, out), (0, ["A", "C", "a-only.md"]))
+            self.assertIn("would move", err)
+            self.assertIn("1 still in both active and archive (C)", err)
+            self.assertEqual(self._root(session.dag), before)
+            self.assertIn("A", {item.name for item
+                                in cli.Session(session.spec).dag.get(["active"])})
+
+    def test_dry_run_refuses_exactly_what_the_real_move_would(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            for extra in ([], ["--dry-run"]):
+                code, _, err = self._move(session, "C", "--from", "active",
+                                          "--to", "archive", *extra)
+                self.assertEqual(code, 1)
+                self.assertIn("not filed directly under active", err)
+
+    def test_to_alone_replaces_every_classification(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            self.assertEqual(self._move(session, "C", "--to", "archive")[0], 0)
+            self.assertEqual({p.name for p in session.dag.nodes["C"].parents
+                              if session.dag.nodes.get(p.name) is p},
+                             {"archive"})
+
+    def test_from_alone_unfiles_to_the_top_level(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            self.assertEqual(self._move(session, "A", "--from", "active")[0], 0)
+            self.assertEqual({p.name for p in session.dag.nodes["A"].parents
+                              if session.dag.nodes.get(p.name) is p}, {"*"})
+            self.assertIn("A", _run(["list"], session)[1].split())
+
+    def test_several_items_at_once(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            self.assertEqual(self._move(session, "A", "B", "--from", "active",
+                                        "--to", "archive")[0], 0)
+            self.assertEqual(_run(["get", "active"], session), (0, ""))
+
+    def test_it_persists(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            self.assertEqual(self._move(session, "A", "--from", "active",
+                                        "--to", "archive")[0], 0)
+            reopened = cli.Session(session.spec)
+            self.assertEqual({item.name for item in reopened.dag.get(["archive"])},
+                             {"A", "C", "a-only.md"})
+
+    def test_neither_to_nor_from_is_an_error(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            code, _, err = self._move(session, "A")
+            self.assertEqual(code, 1)
+            self.assertIn("nothing to do", err)
+
+    def test_the_note_never_lands_on_stdout(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            _, out, err = self._move(session, "A", "--from", "active",
+                                     "--to", "archive")
+            self.assertEqual(out, [])
+            self.assertTrue(err.startswith("odag: moved: "))
+
+    def test_a_typed_destination_works(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "boxes.od"))
+            for argv in (["prelude"], ["put", "shelf"],
+                         ["put", "crate", "shelf"]):
+                self.assertEqual(_run(argv, session)[0], 0)
+            self.assertEqual(
+                self._move(session, "crate", "--to", "weight(3kg)")[0], 0)
+            self.assertEqual(_run(["get", "weight(..5kg)"], session),
+                             (0, "crate\nweight(3kg)\n"))

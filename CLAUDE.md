@@ -363,6 +363,53 @@ merge back, identical root), `test_cone_removal_persists` in `test_eager.py`
 them). MCP's `remove` tool is untouched — a cone deletion there would need a
 retraction record per deleted claim, which is a provenance decision, not a
 transcription.
+
+**Then `odag move` / `OntoDAG.reclassify` (2026-08-06, from Peter's active →
+archive question), with the contested-set report.** The gap was real: `put` only
+adds a parent and `remove` deletes the item, so the CLI could not reclassify
+anything, and remove-then-put **loses the subtree** (children reattach to the old
+category and stay there — measured). Shapes: `--from X --to Y` surgical,
+`--to Y` alone = "under Y and nothing else", `--from X` alone = unfile (top-level
+via the never-orphan rule, needed because `--to '*'` cannot express it: a root
+edge is redundant while any parent exists, so `put X '*'` is a measured no-op).
+Design points, each forced by a measurement:
+- **Assert before retract**, so a refusal leaves nothing half-moved — and because
+  adding the new parent can make the old edge *redundant*, which reduction prunes
+  for us. An already-gone edge counts as retracted; without that, moving to a
+  finer category under the same parent (`active` → `recent`) died on
+  `Edge does not exist`.
+- **`put`'s dimension guards are now shared** (`_check_parametric_placement`,
+  extracted from `put`, called by both against the *final* parent set): a
+  placement `put` refuses must not be reachable by moving into it. Materializing
+  a typed destination is deferred until after validation, or a refused move left
+  new vocabulary behind.
+- **The contested set** is the report: moving `A` to archive leaves a child that
+  also hangs under a live `B` in *both* states. That is true and unresolvable
+  here — **subsumption inherits, exclusive status cannot** — so it is counted and
+  named on stderr, and it is the same answer as `get old new` (the intersection
+  query *is* the review list). Refinement pairs (`new ⊑ old` or `old ⊑ new`) are
+  excluded, or the most ordinary move would cry wolf.
+- `--dry-run` performs the real move on a `deepcopy`, so preview and refusals
+  cannot drift from the act.
+**The price of retraction, measured and now written in the guide (§5.10):**
+canonical form, merge commutativity/idempotence, totality and convergence *all
+survive* — a moved store is byte-identical to one that was always that way (put-
+then-move == filed-directly), and moved-there-and-back == never-moved. The single
+loss is that **a retraction does not propagate through merge or sync**: a peer
+that still holds the old edge resurrects it, in both directions (verified through
+`EagerOntoDAG.sync`, not just file merge). This is exactly the price `remove`
+already paid, so `move` widens no wall; it is paid only by *concurrent writers*
+(single-writer and publish-to-readers keep the move permanently), and the
+monotone escape hatch is to encode the transition as a dated *addition* with the
+current value decided at read time. **Separate finding for Peter, unfixed:**
+`merge` does NOT enforce the disjoint-parents guard — merging two stores that
+each file `crate` under a different `weight` value yields the state `put` refuses.
+Arguably correct (a refusing merge would not be total, which would break I7), but
+`DIMENSIONS.md` §9 documents the guard without saying it stops at the merge
+boundary. Tests: `TestReclassify` (9, `test_invariants.py` — subtree travel, the
+shared-child case, all six refusal shapes leaving `edge_set` unchanged, the
+put-parity guard, and counts/reduction/no-orphans over 15 seeded random move
+sequences), `TestMove` (12, CLI). Release smoke: 21 checks.
 - **Parked, tripwire-gated:** EL/relations canonicalization research (now observable via MCP traffic) — **discussion draft exists as of 2026-08-03: `docs/plans/BINDING.md`** (prompted by Peter's London→Rome → two-leg → bouquet probes; scope rule for flat roles, ground bundles as a proposed scoped contract amendment with two consumers — multi-instance grouping and multiplicity — the §6 coordinate-order fork, the compile-down baseline; nothing decided, grammar work gated on discussing it with Peter); computed values (passes the admissibility axes, no consumer — the itinerary's derived from/to/summed-duration is noted in BINDING.md §3 as another appearance), languages/lexicon (fork recorded in `SURFACE_LAYER.md` §12).
 
 Previous milestone — **dimension lattices (parametric items), done and released** — design, implementation, docs and PyPI release all on 2026-07-30. `docs/DIMENSIONS.md` is the design record and tracks its own §12 sequencing (steps 1–5 and 7 done; step 6, the per-dimension sorted index, stays parked until profiling asks). One-line summary: values like `weight(3kg)` are ordinary categories whose order is computed from the canonical name (containment of denotations, exact integers in base units), never materialized as edges; anchor stars enumerate each dimension; virtual query terms cost no writes; `get_overlapping` is the possibly-satisfies mode. Works through the CLI (quote the parentheses), the web REST API (names now pass through to put/get — `tests/test_web.py`), `EagerOntoDAG` (canonical roots verified across put orders) and `LazyOntoDAG` (bounded fetches). Adoption notes for the sister projects are in loopmarket ARCHITECTURE.md §3 (update note) and ontodag-fs ROADMAP.md. Headline decisions: parametric items (`weight(..5000000mg)`) ordered by containment of denoted value sets — computed at query time, **never materialized as edges**; kinds declared by ordinary edges under registry-known nodes (`weight → linear-dimension → dimension`), nothing in `meta`, no callables in data; values are integers in per-family base units (agreed 2026-07-30 — no decimals; sub-base precision is a boundary error, the UI renders friendly units); anchor/star edges under the head node are schema, exempt from reduction; `add_edge`/`_remove_unneeded_edges` consult combined (asserted + computed) reachability; only exact-arithmetic kinds ever enter the canonical order (geo discs stay application-side — see loopmarket). This fired the "exact arithmetic" wall's tripwire — recorded in `DATABASE_DIRECTION.md` — via the `../loopmarket` sister project (marketplace matching is a main OntoDAG goal); overlap matching (`get_overlapping`) is deliberately the *first follow-up*, not v1, because overlap is not transitive and therefore not a cone.

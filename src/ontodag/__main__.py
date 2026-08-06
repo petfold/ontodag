@@ -1169,6 +1169,113 @@ def cmd_remove(args, session, out):
     return 0
 
 
+def cmd_move(args, session, out):
+    """Reclassify items: file them under new categories, retract the old ones.
+
+    `put` only adds a parent and `remove` deletes the item, so this is the
+    missing third operation — and the one a lifecycle needs. Doing it by hand as
+    remove-then-put loses the subtree: the children reattach to the old parent
+    and stay there while the item moves on alone.
+
+    Three shapes, from the two optional halves:
+
+        move X --to archive                 X is under archive, and nothing else
+        move X --from active --to archive   surgical: that one classification
+        move X --from active                unfile it (top-level if that was all)
+
+    The **contested set** is the report worth reading: moving `A` moves
+    everything below it, but a child that also hangs under a still-active `B`
+    ends up archived *and* active. That is true — a shared document really is in
+    both situations — and it is not something the DAG can decide, because
+    subsumption inherits and exclusive status cannot. So it is named, counted,
+    and left to you. `--dry-run` shows it before you commit, computed by
+    performing the move on a copy, so the preview cannot drift from the act.
+    """
+    if not args.to and not args.from_:
+        raise ValueError("nothing to do: give --to, --from, or both")
+
+    dag = session.dag
+    news = [dag._canonical_name(name) for name in args.to]
+    if args.from_:
+        olds = sorted({dag._canonical_name(name) for name in args.from_})
+    else:
+        # No --from: the old categories are whatever they are under now, which
+        # has to be read before the move, not after.
+        olds = sorted({name
+                       for item in args.items
+                       for name in dag._live_parent_names(
+                           dag._canonical_name(item))
+                       if name != dag.root.name})
+    before = {old: {item.name for item in dag.get([old])}
+              for old in olds if old in dag.nodes}
+
+    # A dry run performs the real move on a copy, so the preview cannot drift
+    # from the act — including its refusals, which are raised either way.
+    target = dag.deepcopy() if args.dry_run else dag
+    target.reclassify(args.items, to=args.to, from_=args.from_ or None)
+
+    if args.dry_run:
+        _print_names(_reclassified(dag, target), args, session, out)
+        _move_note(target, before, news, args, session, "would move", out)
+        return 0
+
+    session.save()
+    _move_note(target, before, news, args, session, "moved", None)
+    return 0
+
+
+def _reclassified(before, after):
+    """Items whose classification differs between two versions of a store.
+
+    The answer to "what does this actually change?", which is never only the
+    items named: everything below them travels with them."""
+    def ancestors(dag, name):
+        return {node.name for node in dag.get_ancestors(name, computed=False)}
+
+    return {name for name in set(before.nodes) & set(after.nodes)
+            if ancestors(before, name) != ancestors(after, name)}
+
+
+def _move_note(dag, before, news, args, session, verb, out):
+    """What left each old category, and what is now in two states at once.
+
+    The second half is the point (see `cmd_move`): a move can leave a shared
+    item under both the old and the new category, which is a true statement the
+    DAG cannot resolve for you, so it gets named rather than hidden."""
+    flush = getattr(out, "flush", None)
+    if flush is not None:
+        flush()                      # or the note prints above its own listing
+    fmt = _namer(args, session, sys.stderr)
+
+    segments = []
+    for old, members in sorted(before.items()):
+        remaining = ({item.name for item in dag.get([old])}
+                     if old in dag.nodes else set())
+        departed = len(members - remaining)
+        segment = (f"{departed} item{'' if departed == 1 else 's'} "
+                   f"left {fmt(old)}")
+        # Only pairs that are genuinely in tension. Moving something to a
+        # category *below* the one it left keeps it under both by entailment —
+        # that is refinement, not a contested state, and reporting it would cry
+        # wolf on the most ordinary move there is.
+        contested = sorted({item.name for new in news
+                            if new != old and new in dag.nodes
+                            and not dag.is_below(new, old)
+                            and not dag.is_below(old, new)
+                            for item in dag.get([old, new])})
+        if contested:
+            shown = " ".join(fmt(name) for name in contested[:5])
+            more = f" +{len(contested) - 5} more" if len(contested) > 5 else ""
+            others = " and ".join(fmt(new) for new in sorted(set(news))
+                                  if new != old)
+            segment += (f", {len(contested)} still in both {fmt(old)} and "
+                        f"{others} ({shown}{more})")
+        segments.append(segment)
+    if not segments:
+        segments = ["nothing was filed anywhere else"]
+    print(f"odag: {verb}: {'; '.join(segments)}", file=sys.stderr)
+
+
 def _cone_note(deleted, survivors, args, session, verb, out=None):
     """What a cone removal did, and what it deliberately spared."""
     # Flushed first, or a block-buffered stdout (any pipe) prints the note
@@ -1674,6 +1781,14 @@ Commands:
                         works; `?` is a synonym at the interactive prompt.
                         Works on typed values from the names alone:
                         below 'weight(3kg)' 'weight(..5kg)' -> true
+  move ITEM... --to CAT [--from CAT]
+                        reclassify: file the items under --to and retract
+                        their old categories. --from picks which one to
+                        retract (default: all of them, so --to alone means
+                        `under this and nothing else`); --to alone omitted
+                        unfiles them. Everything below an item travels with
+                        it, and anything left under BOTH the old and new
+                        category is reported. --dry-run to look first
   remove ITEM...        remove items: each one goes and its children
                         reattach to its parents, so nothing below is lost
                         (the order you name them in cannot matter).
@@ -1871,6 +1986,23 @@ def build_parser():
                    help="summarize categories with at least this many "
                         "descendants (default 64)")
     p.set_defaults(func=cmd_index, stream_output=True)
+
+    p = sub.add_parser("move", add_help=True,
+                       help="reclassify items: file under new categories, "
+                            "retract the old ones")
+    p.add_argument("items", nargs="+")
+    p.add_argument("--to", nargs="+", default=[], metavar="CAT",
+                   help="the categories the items should be under now")
+    p.add_argument("--from", dest="from_", nargs="+", default=[], metavar="CAT",
+                   help="which classifications to retract (default: all of "
+                        "them, so `--to` alone means `under this and nothing "
+                        "else`)")
+    p.add_argument("--dry-run", action="store_true",
+                   help="print what would be reclassified and change nothing")
+    p.add_argument("-o", "--output")
+    _add_surface_flags(p)
+    _add_limit_flag(p)
+    p.set_defaults(func=cmd_move, stream_output=True)
 
     p = sub.add_parser("remove", add_help=True,
                        help="remove items (contract), or --cone (delete)")

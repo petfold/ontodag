@@ -499,8 +499,17 @@ the removed item itself:
 flight document, still part of the trip.
 
 That is *contraction*, and it is the right default: it removes a category
-without losing anything filed under it. When you mean the opposite — the
-category **and its contents** — use `remove_cone`:
+without losing anything filed under it. To *move* an item to a different
+category rather than remove it, see `reclassify` (§5.10 shows it on the command
+line):
+
+```python
+>>> dag.reclassify(["ProjectA"], to=["archive"], from_=["active"])
+{('active', 'ProjectA')}
+```
+
+When you mean the opposite — the category **and its contents** — use
+`remove_cone`:
 
 ```python
 >>> dag.cone_removal_plan(["Japan"])       # pure: ask before you act
@@ -765,6 +774,9 @@ odag <command> ...
                         derived index in a sibling NAME-index store) so
                         lazy readers answer broad queries in a few
                         fetches; prints the data and index roots
+  move ITEM... --to CAT [--from CAT]
+                        reclassify: file under --to, retract the old
+                        categories (see §5.10); --dry-run to look first
   remove ITEM...        remove items by contraction: each goes, its
                         children reattach to its parents (see §5.9).
                         --cone deletes the item and whatever only existed
@@ -1530,6 +1542,63 @@ is recorded.
 Both forms take `--dry-run`, and both resolve every name before touching
 anything — so `odag remove Flight nope` removes nothing at all rather than
 leaving the job half done.
+
+### 5.10 Moving things: `active` → `archive`
+
+`put` only ever adds a category and `remove` deletes the item, so reclassifying
+is its own operation. Doing it by hand as remove-then-put is the trap: the item
+moves on alone and its contents stay behind under the old category.
+
+```console
+$ odag -f work.od move ProjectA --from active --to archive --dry-run
+ProjectA
+a-notes.md
+shared-spec.md
+odag: would move: 2 items left active, 1 still in both active and archive (shared-spec.md)
+```
+
+Three points in that one output.
+
+**Everything below travels.** You named `ProjectA`; `a-notes.md` moved with it,
+because membership is reachability — there is no subtree to walk.
+
+**`shared-spec.md` is now in both states, and that is correct.** It belongs to
+the archived `ProjectA` *and* to the still-running `ProjectB`. Archiving one
+project must not archive a document another live project depends on. The general
+rule: **subsumption inherits, exclusive status cannot** — anything modelled as a
+category is inherited by everything below it, and an item below two things
+inherits from both. So read `archive` as "is in the archive", not as "is not
+active", and nothing is contradictory.
+
+**The report is the review list.** It is the same answer as
+`odag get active archive` — the intersection query finds exactly the shared items
+whose owner just finished, which is a real list of decisions rather than noise. A
+count of zero means your states are clean.
+
+The three shapes:
+
+```console
+$ odag move X --from active --to archive    # retract that one classification
+$ odag move X --to archive                  # under archive and nothing else
+$ odag move X --from active                  # unfile it (top-level if that was all)
+```
+
+Nothing is orphaned: an item left with no category becomes top-level, exactly as
+`odag put X` would file it. Moving to a *finer* category under the same parent
+works and is not reported as contested (`recent` under `active` still entails
+`active` — that is refinement, not tension). Anything `put` would refuse, `move`
+refuses too — you cannot reach a forbidden placement by moving into it.
+
+**One price, stated plainly.** A move is a *retraction*, and retractions do not
+survive a merge: fold in a replica that still has the old classification and it
+comes back, in both directions (see §5.8 — the same wall `remove` has always
+had). Everything else is untouched — the canonical root, the merge algebra, the
+unique reduced form — and a moved store is byte-identical to one that was always
+that way. So the price is paid only by **concurrent writers**: a single writer,
+or a publisher whose readers hydrate the root, keeps the move permanently. If a
+lifecycle must survive multi-writer sync, encode the transition as an *addition*
+(a dated state assertion, current value decided at read time) instead of a
+retraction.
 
 ---
 

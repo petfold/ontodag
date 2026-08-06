@@ -76,6 +76,7 @@ results one per line on stdout. No command = read commands from stdin
 | `below SUB SUP` | prints `true`/`false`, exits 0/1 (grep-style); alias `?` at the prompt |
 | `list` | everything (same path as the empty `get`) |
 | `show` | the whole DAG as indented text |
+| `move NAME… --to CAT… [--from CAT…] [--dry-run]` | reclassify: assert the new categories, retract the old ones (`--from` omitted = all of them, so `--to` alone means "under this and nothing else"; `--to` omitted = unfile, becoming top-level). Reports the **contested set** — items now under both the old and new category, which subsumption cannot resolve |
 | `remove NAME… [--cone] [--dry-run]` | contract: the items go, their children reattach to their parents (order-independent, so several at once is a function of the set). `--cone` deletes instead: each item plus whatever only existed under it, sparing cone members that hang elsewhere |
 | `merge PATH` | merge another store/file into this one |
 | `import` / `export PATH` | native `.od`, or OWL/Manchester by extension (`.owl`/`.omn`) |
@@ -131,6 +132,7 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `get_overlapping(term)` | possibly-satisfies candidates |
 | `get_descendants` / `get_ancestors` | one cone, either direction |
 | `remove(name)` | remove with contraction (children keep coarser parents) |
+| `reclassify(names, to, from_=None)` | assert new classifications, retract old ones; asserts before retracting, never orphans, and refuses any placement `put` would refuse |
 | `cone_removal_plan(names)` / `remove_cone(names)` | the *deleting* removal: the categories plus whatever only existed under them; a cone member that hangs elsewhere survives. The plan is pure, so it can be previewed |
 | `merge(other)` | commutative, idempotent union with re-reduction |
 | `copy_subdag` / `induced_subdag` / `intersection_dag` / `prune_to_common_descendants` | derived DAGs, never aliasing (`copy_subdag` closes downward, `induced_subdag` copies exactly the names given) |

@@ -1029,19 +1029,24 @@ class OntoDAG(DAG):
                         and not self._is_anchor(parent, descendant):
                     self.remove_edge(parent, descendant)
 
-    def put(self, subcategory, super_categories, optimized=False):
-        # Names are the identity at the public boundary: plain strings are
-        # accepted anywhere an Item is (see "Identity" in CLAUDE.md), and
-        # parametric sugar resolves to the canonical name before anything
-        # else looks at it (weight(3000g) -> weight(3kg), §7).
-        if isinstance(subcategory, str):
-            subcategory = Item(subcategory)
-        sub_parsed = self._parse_parametric(subcategory.name)
-        if sub_parsed is not None and subcategory.name != sub_parsed[2]:
-            subcategory = Item(sub_parsed[2], metadata=subcategory.metadata)
-        super_names = [self._canonical_name(_name_of(sc))
-                       for sc in super_categories]
+    def _live_parent_names(self, name):
+        """Names of a node's own parents (empty for a name not in the graph)."""
+        node = self.nodes.get(name)
+        if node is None:
+            return []
+        return [parent.name for parent in node.parents
+                if self.nodes.get(parent.name) is parent]
 
+    def _check_parametric_placement(self, sub_name, super_names, also=()):
+        """Refuse a placement the dimension arithmetic can prove wrong.
+
+        Shared by `put` and `reclassify`, because a placement that `put`
+        refuses must not be reachable by moving instead. `also` names parents
+        the item would *keep* — its existing ones for `put`, the survivors of a
+        retraction for `reclassify` — since the guard is about the parent set
+        the item ends up with, not about one edge.
+        """
+        sub_parsed = self._parse_parametric(sub_name)
         parametric_supers = {}  # head -> [(canonical name, kind), ...]
         for name in super_names:
             parsed = self._parse_parametric(name)
@@ -1055,31 +1060,44 @@ class OntoDAG(DAG):
         if sub_parsed is not None and sub_parsed[0] in parametric_supers:
             raise ValueError(
                 f"within dimension {sub_parsed[0]!r} the order is computed: "
-                f"refusing {subcategory.name} under "
+                f"refusing {sub_name} under "
                 f"{parametric_supers[sub_parsed[0]][0][0]}")
 
         # The disjoint-parents guard (DIMENSIONS.md §9): an item sits in the
         # INTERSECTION of its parents, so provably disjoint same-dimension
         # parents assert membership of an empty concept — the
-        # union-vs-intersection footgun, caught exactly. Existing parametric
-        # parents of the node participate too.
-        existing_node = self.nodes.get(subcategory.name)
-        if existing_node is not None:
-            for parent in existing_node.parents:
-                if self.nodes.get(parent.name) is not parent:
-                    continue
-                parsed = self._parse_parametric(parent.name)
-                if parsed is not None and parsed[0] in parametric_supers:
-                    parametric_supers[parsed[0]].append((parent.name, parsed[1]))
+        # union-vs-intersection footgun, caught exactly. Parents it keeps
+        # participate too.
+        for name in also:
+            parsed = self._parse_parametric(name)
+            if parsed is not None and parsed[0] in parametric_supers:
+                parametric_supers[parsed[0]].append((name, parsed[1]))
         for head, entries in parametric_supers.items():
             for (name_a, kind), (name_b, _) in combinations(entries, 2):
                 if _dims.intersect(name_a, name_b, kind,
                                    units=self._declared_units()) is None:
                     raise ValueError(
-                        f"{subcategory.name} cannot sit under both {name_a} "
+                        f"{sub_name} cannot sit under both {name_a} "
                         f"and {name_b}: provably disjoint {head!r} terms — "
                         "an item is in the intersection of its parents; for "
                         "a union, use a region node (DIMENSIONS.md §9)")
+
+    def put(self, subcategory, super_categories, optimized=False):
+        # Names are the identity at the public boundary: plain strings are
+        # accepted anywhere an Item is (see "Identity" in CLAUDE.md), and
+        # parametric sugar resolves to the canonical name before anything
+        # else looks at it (weight(3000g) -> weight(3kg), §7).
+        if isinstance(subcategory, str):
+            subcategory = Item(subcategory)
+        sub_parsed = self._parse_parametric(subcategory.name)
+        if sub_parsed is not None and subcategory.name != sub_parsed[2]:
+            subcategory = Item(sub_parsed[2], metadata=subcategory.metadata)
+        super_names = [self._canonical_name(_name_of(sc))
+                       for sc in super_categories]
+
+        self._check_parametric_placement(
+            subcategory.name, super_names,
+            also=self._live_parent_names(subcategory.name))
 
         # Materialize parametric super-categories on first use, anchored
         # under their head (declare-the-dimension-first is enforced by the
@@ -1211,6 +1229,123 @@ class OntoDAG(DAG):
         for container in computed_containers:
             for subcategory in subcategories:
                 self.add_edge(container, subcategory)
+
+    def reclassify(self, names, to=(), from_=None):
+        """Move items: assert the new classifications, retract the old ones.
+
+        The retracting counterpart of `put`, and the operation a lifecycle needs
+        (`active` -> `archive`). `put` only ever adds a parent, and `remove`
+        deletes the item itself, so without this the only way to reclassify is
+        remove-then-put, which loses everything filed *under* the item: its
+        children reattach to the old parent and stay there.
+
+        * `to` — the categories it should be under now.
+        * `from_` — which classifications to retract. `None` means *all* of its
+          current ones, so `reclassify(["X"], to=["archive"])` reads as "X is
+          archived, and nothing else". Naming them makes it surgical.
+        * `to=()` with `from_` given is a pure retraction (an unfiling).
+
+        Order is not an implementation detail: **assert before retract**, so a
+        cycle or an unknown name leaves the store untouched — and because
+        adding the new parent can make the old edge *redundant*, which prunes it
+        for us. An edge that is already gone by the time we retract it counts as
+        retracted; treating that as an error would fail on the legitimate case
+        of moving something to a finer category under the same parent.
+
+        Nothing is ever orphaned: an item left with no parent becomes top-level
+        under `*`, exactly as `put(name, [])` would file it. Reachability from
+        the root is what makes an item visible at all.
+
+        What the DAG will NOT do is decide a contested state for you. Moving `A`
+        to `archive` moves everything below it — but a child that also hangs
+        under a still-active `B` ends up *both* archived and active, because
+        subsumption inherits and exclusive status cannot. That is a true
+        statement about a shared item, and `get([old, new])` lists exactly those
+        items (the CLI reports them). Nothing here enforces exclusivity;
+        nothing in the core can.
+
+        Returns the set of retracted `(parent, item)` name pairs.
+        """
+        items = []
+        for name in names:
+            name = self._canonical_name(_name_of(name))
+            if name == self.root.name:
+                raise ValueError("Cannot reclassify the root.")
+            if name not in self.nodes:
+                raise ValueError(f"Item {name} does not exist.")
+            items.append(name)
+
+        destinations, pending = [], []
+        for name in to:
+            name = self._canonical_name(_name_of(name))
+            if name not in self.nodes:
+                # A typed value materializes on first use here exactly as it
+                # does under `put`, anchored beneath its head — otherwise
+                # `move X --to 'weight(10kg)'` would be impossible until
+                # something else had been filed there. An opaque name (no
+                # declared dimension) must exist, like any other category.
+                # Deferred until validation has passed: a refused move must not
+                # leave new vocabulary behind, which `put` also avoids by
+                # checking first.
+                parsed = self._parse_parametric(name)
+                if parsed is None:
+                    raise ValueError(f"Category {name} does not exist.")
+                pending.append((name, parsed[0], parsed[1]))
+            destinations.append(name)
+
+        # Everything is validated against the pre-move graph before a single
+        # edge moves, so a refusal never leaves half a move behind.
+        retract = {}
+        for item in items:
+            if from_ is None:
+                retract[item] = [name for name in self._live_parent_names(item)
+                                 if name != self.root.name
+                                 and name not in destinations]
+            else:
+                wanted = []
+                for name in from_:
+                    name = self._canonical_name(_name_of(name))
+                    if name not in self.nodes:
+                        raise ValueError(f"Category {name} does not exist.")
+                    if self.nodes[item] not in self.nodes[name].neighbors:
+                        if self.is_below(item, name):
+                            raise ValueError(
+                                f"{item} is not filed directly under {name}: it "
+                                f"is below it through "
+                                f"{', '.join(sorted(self._live_parent_names(item)))}"
+                                f" — reclassify that instead")
+                        raise ValueError(f"{item} is not under {name}.")
+                    wanted.append(name)
+                retract[item] = wanted
+
+            for destination in destinations:
+                if self.is_below(destination, item):     # reflexive: catches self
+                    raise ValueError(
+                        f"Edge {destination} -> {item} would create a cycle.")
+            keeping = [name for name in self._live_parent_names(item)
+                       if name not in retract[item] and name != self.root.name]
+            self._check_parametric_placement(item, destinations, also=keeping)
+
+        for name, head, kind in pending:
+            self._ensure_parametric_node(name, head, kind)
+
+        for item in items:
+            for destination in destinations:
+                self.add_edge(self.nodes[destination], self.nodes[item])
+
+        retracted = set()
+        for item, olds in retract.items():
+            for old in olds:
+                # Already gone means the new parent implied it — see above.
+                if self.nodes[item] in self.nodes[old].neighbors:
+                    self.remove_edge(self.nodes[old], self.nodes[item])
+                    retracted.add((old, item))
+
+        for item in items:
+            if not self._live_parent_names(item):
+                self.add_edge(self.root, self.nodes[item])
+
+        return retracted
 
     def _resolve_for_removal(self, names):
         """Canonical names of removable nodes, or raise before anything moves."""

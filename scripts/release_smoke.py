@@ -298,6 +298,21 @@ def smoke(env, expect_version):
 
     check("cone removal spares what hangs elsewhere", cone_removal)
 
+    def reclassify():
+        # The lifecycle move, and the fact that the contents follow.
+        o("put", "active")
+        o("put", "ProjectA", "active")
+        o("put", "spec.md", "ProjectA")
+        o("put", "archive")
+        note = env.run(env.odag, "move", "ProjectA", "--from", "active",
+                       "--to", "archive")
+        assert "ProjectA" in o("get", "archive").split(), "the move did nothing"
+        assert "spec.md" in o("get", "archive").split(), "the subtree stayed"
+        assert "ProjectA" not in o("get", "active").split(), "still active"
+        return "the item and its contents moved together"
+
+    check("move reclassifies an item and everything under it", reclassify)
+
     def reimport():
         o("export", "round.omn")
         o("-f", os.path.join(env.work, "round.omn"), "get", "Japan")
