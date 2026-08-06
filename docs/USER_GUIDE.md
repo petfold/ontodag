@@ -118,15 +118,26 @@ accidental — each surface exposes what makes sense for who is using it:
 
 | | Python | CLI | Web | MCP |
 | --- | --- | --- | --- | --- |
-| put / remove | ✓ | ✓ | ✓ | ✓ (with `--write`) |
+| put / remove (contraction) | ✓ | ✓ | ✓ | ✓ (with `--write`) |
 | query, union (`or`), `below` | ✓ | ✓ | ✓ | ✓ |
 | typed values (`weight(3kg)`) | ✓ | ✓ | ✓ | ✓ |
+| **move** (reclassify) | ✓ `reclassify` | ✓ `move` | ✓ `PATCH /dag/node` | — |
+| **delete a cone** (item + contents) | ✓ `remove_cone` | ✓ `remove --cone` | ✓ `DELETE …?cone=1` | — |
+| **excerpt** (query-scoped export) | ✓ `excerpt` | ✓ `excerpt` | ✓ `/dag/query/export*` | — |
+| **diff two stores** | — | ✓ `diff` | — | — |
 | readable rendering | ✓ (`ontodag.surface`) | ✓ | — | ✓ (beside the exact name) |
 | import / export / merge | ✓ | ✓ | ✓ | — |
 | pictures | ✓ | ✓ | ✓ | — |
 | Swarm stores | ✓ | ✓ | — | ✓ |
 | as-of (query a past root) | ✓ | — | — | ✓ |
 | certificates, provenance, review | ✓ | — | — | ✓ |
+
+The empty cells are decisions, not oversights. **MCP** has no move or cone
+delete because on the agent surface a retraction owes a signed retraction record
+per claim it withdraws (§9.1), which is a provenance decision rather than a
+transcription of the CLI. **diff** has no Python API yet — its logic still lives
+in the command line, so a library consumer would have to reimplement it; that is
+the one gap here that is simply not done.
 
 The two surfaces with the most on them are Python (which has everything, being
 the thing the others call) and MCP (which is deliberately the *verifiable*
