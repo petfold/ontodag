@@ -884,6 +884,25 @@ def cmd_put(args, session, out):
     session.save()
 
 
+def _disjuncts(categories):
+    """Split a command line into DNF — the list of conjunctions `get_any` takes.
+
+    See `_query` for the rules; this is the parse on its own, because the
+    commands that *draw* a query need the terms as well as the answer.
+    """
+    queries, current = [], []
+    for category in categories:
+        if category == "or":
+            queries.append(current)
+            current = []
+        else:
+            current.append(category)
+    queries.append(current)
+    if len(queries) > 1 and any(not query for query in queries):
+        raise ValueError("empty query around 'or'")
+    return queries
+
+
 def _query(categories, dag):
     """Run a command-line query and return the matching items.
 
@@ -897,16 +916,7 @@ def _query(categories, dag):
     still fails: at that point the empty disjunct is a typo, not a request
     for the universe, and taking it literally would silently turn a narrow
     query into a full dump."""
-    queries, current = [], []
-    for category in categories:
-        if category == "or":
-            queries.append(current)
-            current = []
-        else:
-            current.append(category)
-    queries.append(current)
-    if len(queries) > 1 and any(not query for query in queries):
-        raise ValueError("empty query around 'or'")
+    queries = _disjuncts(categories)
     if len(queries) == 1:
         return dag.get(queries[0])
     return dag.get_any(queries)
@@ -1226,10 +1236,45 @@ def cmd_excerpt(args, session, out):
     _save(excerpt, args.file)
 
 
+def _image_base(spec):
+    """Default output name for `visualize`: named after the store.
+
+    Every backend gets a name from this, because there is no `--out`-less
+    fallback that works otherwise. `visualize` read `session.path` until
+    `rs:` stores arrived and Session stopped having one, which made bare
+    `odag visualize` raise AttributeError from 0.12.0 to 0.15.0 — nothing
+    caught it because no test ever omitted `--out`.
+    """
+    if _is_swarm(spec):
+        return spec[len("swarm:"):]                 # cwd/NAME.png
+    if _is_record_store(spec):
+        return os.path.normpath(spec[len("rs:"):])  # the store dir, +.png
+    return os.path.splitext(spec)[0]                # beside the .od file
+
+
 def cmd_visualize(args, session, out):
-    from ontodag.viz import OntoDAGVisualizer
-    base = args.out or os.path.splitext(session.path)[0]
-    OntoDAGVisualizer(format=args.format).visualize(session.dag, filename=base)
+    """Draw the store, or — given categories — draw just that query.
+
+    The drawn twin of `excerpt`, and deliberately not the same view. An
+    excerpt is a file that gets imported back, so it must not contain the
+    constraint you searched with; a picture is drawn and discarded, so the
+    query terms ARE drawn (as nodes, even when the store has no such node —
+    a virtual term like `weight(..5kg)` never does), because a picture of an
+    answer that does not show what was asked is half a picture. Shaping lives
+    in `ontodag.viz.query_picture`, shared with the web surface so the two
+    cannot drift.
+
+    With no categories the query is unconstrained, and everything already has
+    a picture: draw the store itself rather than the empty query's view,
+    whose root node would be an invented `*` above a copy of `*`.
+    """
+    from ontodag.viz import OntoDAGVisualizer, query_picture
+    base = args.out or _image_base(session.describe())
+    dag = session.dag
+    queries = _disjuncts(args.categories)
+    if any(queries):
+        dag = query_picture(dag, queries)
+    OntoDAGVisualizer(format=args.format).visualize(dag, filename=base)
 
 
 def _effective_setting(session, key):
@@ -1384,7 +1429,11 @@ Commands:
   excerpt FILE [CAT...] write just that query's answer to FILE, with the
                         edges among the answers kept — an importable cut of
                         the store (`export` is the whole thing)
-  visualize [--out B]   render the DAG to an image
+  visualize [CAT...]    render an image (--out B, --format png|svg|pdf).
+                        With CATs, draws just that query's answer, with
+                        the query terms shown above it — a picture is
+                        discarded, so unlike `excerpt` it can show what
+                        was asked
   swarm                 check the Swarm setup step by step (node, chain,
                         wallet, postage batch) and print what to fix next
   index [--threshold N] publish cone summaries for a swarm: store into the
@@ -1612,6 +1661,9 @@ def build_parser():
     p.set_defaults(func=cmd_excerpt)
 
     p = sub.add_parser("visualize", add_help=True, help="render an image")
+    p.add_argument("categories", nargs="*",
+                   help="draw just this query's answer (with the query terms "
+                        "shown); no categories draws the whole store")
     p.add_argument("--out", help="output filename without extension")
     p.add_argument("--format", default="png", choices=["png", "svg", "pdf"])
     p.set_defaults(func=cmd_visualize)

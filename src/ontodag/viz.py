@@ -33,6 +33,61 @@ def _digraph():
     return require("graphviz", "viz", "rendering", hint=_BINARY).Digraph
 
 
+def query_picture(dag, queries):
+    """The drawable form of a query: its answer, under a node per query term.
+
+    `queries` is DNF — a list of conjunctions whose results union, the same
+    shape `get_any` takes. Each term hangs above the answers *its own
+    disjunct* produced, so a union reads as the two branches it is.
+
+    Built from `get()` — the authoritative query path — because the obvious
+    alternative is wrong. `get_by_dag` intersects by *name*, so a parametric
+    term with no node of its own (a virtual term like `weight(..5kg)`, which
+    is the whole point of dimensions) simply vanished from the query: asking
+    for `weight(..5kg)` drew an empty graph, and asking for
+    `Japan,weight(..5kg)` drew all of Japan — a picture that contradicted the
+    result list beside it. A picture that disagrees with the answer is worse
+    than no picture.
+
+    Query terms become nodes here even when no such node exists in the store.
+    That is sound because this DAG is a *view*: it is drawn and discarded,
+    never merged or committed, so inventing a node to draw the constraint
+    costs nothing and is the only way to show what was asked. It is also
+    exactly why `odag excerpt` — the *materialized* cut of the same answer —
+    does the opposite: a file that gets imported back must not carry the
+    constraint as though it were knowledge.
+
+    Lives here rather than in the web app because the CLI's `visualize` and
+    the web's query image must not drift into drawing different pictures of
+    the same answer. It needs no Graphviz — this is the shaping step that
+    precedes rendering.
+    """
+    from ontodag.dag import Item
+
+    results = dag.get(queries[0]) if len(queries) == 1 else dag.get_any(queries)
+    # Cones are downward-closed under intersection — everything below a
+    # result is also a result — so the answer copies with its own structure
+    # intact, and copy_subdag's descendant closure adds nothing extra.
+    picture = dag.copy_subdag(list(results))
+
+    for terms in queries:
+        branch = dag.get(terms)
+        names = {item.name for item in branch}
+        # Hang each term above the topmost answers of its own disjunct;
+        # deeper answers keep the real edges copied above, so the shape of
+        # the answer survives.
+        tops = [item for item in branch
+                if not any(parent.name in names for parent in item.parents)]
+        for term in terms:
+            node = picture.nodes.get(term) or Item(term)
+            picture.add_node(node)
+            picture.root.neighbors.add(node)
+            for top in tops:
+                if top.name != term:
+                    node.neighbors.add(picture.nodes[top.name])
+    return picture
+
+
 class OntoDAGVisualizer:
     """Renders a DAG through Graphviz.
 

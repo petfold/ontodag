@@ -27,6 +27,21 @@ the version numbers appear in commit history and docs.
   Answers with no parent inside the answer hang under the root, so the
   imported store sees them. With no categories the result is byte-identical
   to `export`.
+- **`odag visualize [CAT…]`** — the drawn twin: with categories it renders
+  just that query's answer, with the query *terms* drawn above the answers of
+  their own disjunct. That is the deliberate difference from `excerpt`: a
+  picture is discarded, so inventing a node to show the constraint costs
+  nothing and is the only way to see a term the store has no node for (a
+  virtual `weight(..5kg)`); a file that gets imported back must not carry it.
+  The shaping moved out of the web app into `ontodag.viz.query_picture`, so
+  the CLI and the web query image cannot drift into drawing different
+  pictures of one answer.
+
+### Fixed
+
+- **`odag visualize` with no `--out` raised `AttributeError`** (since 0.12.0,
+  when `rs:` stores removed `Session.path`). It now names the image after the
+  store, for every backend spelling. No test had ever omitted `--out`.
 
 ## [0.15.0] — 2026-08-04
 

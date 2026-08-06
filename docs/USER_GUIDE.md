@@ -752,7 +752,9 @@ odag <command> ...
   excerpt FILE [CAT...] write just that query's answer to FILE, with the
                         edges among the answers kept — an importable cut
                         of the store (see §5.4)
-  visualize [--out B]   render the DAG to an image
+  visualize [CAT...]    render an image (--out B, --format png|svg|pdf);
+                        with CATs, draws just that query's answer with
+                        the query terms shown above it (see §5.4)
   canon [TERM]          print TERM's canonical form — what would actually
                         be stored; with no TERM, the surface/registry
                         versions (see §5.5)
@@ -1150,8 +1152,26 @@ writes the same cut as Manchester syntax. With no categories at all the query is
 unconstrained (the same rule as `get`), so the file you get is byte-identical to
 `export`'s.
 
-`visualize` accepts `--format png|svg|pdf` and `--out NAME` for the output name.
-`put` accepts `--optimized` (see §4.1). `get`, `show` and `list` accept `-o FILE`
+`visualize` takes the same query, and draws it:
+
+```console
+$ odag -f travel.od visualize                        # the whole store
+$ odag -f travel.od visualize Travel Japan --format svg --out cut
+$ odag -f travel.od visualize Hotel or Flight --out union
+```
+
+The picture is the *drawn* twin of the excerpt, with one deliberate difference:
+it shows the query terms too, as nodes above the answers each disjunct produced
+(so a union reads as the two branches it is). A picture is drawn and thrown away,
+so inventing a node to show what was asked costs nothing — and it is the only way
+to see a constraint that has no node in the store at all, such as
+`weight(..5kg)`. An excerpt gets imported back, so it stays silent about the
+question. Both are built from the same `get`, so the picture and the result list
+beside it always agree.
+
+`visualize` accepts `--format png|svg|pdf` and `--out NAME` for the output name;
+with neither, the image is named after the store. `put` accepts `--optimized`
+(see §4.1). `get`, `show` and `list` accept `-o FILE`
 to write to a file instead of stdout.
 
 Useful habits:

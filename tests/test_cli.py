@@ -1542,3 +1542,116 @@ class TestExcerpt(unittest.TestCase):
             with open(cut, encoding="utf-8") as a, \
                     open(exported, encoding="utf-8") as b:
                 self.assertEqual(a.read(), b.read())
+
+
+class TestVisualizeScoping(unittest.TestCase):
+    """`visualize CAT...` draws the query, not the store — and draws the
+    query *terms* too, which is exactly where it differs from `excerpt`.
+
+    Graphviz is never invoked here: the shaping is what can be wrong, and
+    asserting on it keeps the test free of the `viz` extra and the `dot`
+    binary.
+    """
+
+    def _session(self, home):
+        session = cli.Session(os.path.join(home, "trips.od"))
+        for argv in (["put", "Travel"], ["put", "Japan"],
+                     ["put", "Flight", "Travel"],
+                     ["put", "Hotel", "Travel"],
+                     ["put", "JAL", "Flight", "Japan"],
+                     ["put", "Ryokan", "Hotel", "Japan"]):
+            self.assertEqual(_run(argv, session)[0], 0)
+        return session
+
+    def _drawn(self, session, *categories):
+        """The DAG `visualize` handed the renderer."""
+        drawn = []
+
+        class FakeVisualizer:
+            def __init__(self, format=None):
+                pass
+
+            def visualize(self, dag, filename=None):
+                drawn.append(dag)
+
+        with mock.patch("ontodag.viz.OntoDAGVisualizer", FakeVisualizer):
+            code, _ = _run(["visualize"] + list(categories), session)
+        self.assertEqual(code, 0)
+        self.assertEqual(len(drawn), 1)
+        return drawn[0]
+
+    def test_no_categories_draws_the_store_itself(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            self.assertIs(self._drawn(session), session.dag)
+
+    def test_a_query_draws_its_answer_under_its_terms(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            picture = self._drawn(session, "Travel", "Japan")
+            self.assertEqual(set(picture.nodes) - {picture.root.name},
+                             {"Travel", "Japan", "JAL", "Ryokan"})
+            for term in ("Travel", "Japan"):
+                self.assertEqual(
+                    {n.name for n in picture.nodes[term].neighbors},
+                    {"JAL", "Ryokan"})
+
+    def test_the_picture_is_a_view_not_the_store(self):
+        # It invents nodes; nothing about that may reach the real DAG.
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            before = _run(["show"], session)
+            self._drawn(session, "weight(..5kg)")
+            self.assertEqual(_run(["show"], session), before)
+
+    def test_a_union_draws_two_branches(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            picture = self._drawn(session, "Flight", "or", "Hotel")
+            self.assertEqual({n.name for n in picture.nodes["Flight"].neighbors},
+                             {"JAL"})
+            self.assertEqual({n.name for n in picture.nodes["Hotel"].neighbors},
+                             {"Ryokan"})
+
+    def test_a_virtual_term_is_drawn_even_with_no_such_node(self):
+        # The bug that made every query picture untrustworthy: a parametric
+        # term has no node, so a name-based intersection dropped it.
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "boxes.od"))
+            for argv in (["prelude"], ["put", "box", "weight(3kg)"]):
+                self.assertEqual(_run(argv, session)[0], 0)
+            picture = self._drawn(session, "weight(..5kg)")
+            self.assertIn("weight(..5kg)", picture.nodes)
+            self.assertIn("box", picture.nodes)
+            self.assertNotIn("weight(..5kg)", session.dag.nodes)
+
+    def test_a_dangling_or_is_still_an_error(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            with mock.patch("ontodag.viz.OntoDAGVisualizer"):
+                self.assertNotEqual(
+                    _run(["visualize", "Japan", "or"], session)[0], 0)
+
+    def test_it_names_the_file_after_the_store_when_told_nothing(self):
+        # Regression: `visualize` read `session.path`, which stopped existing
+        # when `rs:` stores landed, so bare `odag visualize` raised
+        # AttributeError for four releases. No test had ever omitted --out.
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            written = []
+
+            class FakeVisualizer:
+                def __init__(self, format=None):
+                    pass
+
+                def visualize(self, dag, filename=None):
+                    written.append(filename)
+
+            with mock.patch("ontodag.viz.OntoDAGVisualizer", FakeVisualizer):
+                self.assertEqual(_run(["visualize"], session)[0], 0)
+            self.assertEqual(written, [os.path.join(home, "trips")])
+
+    def test_every_backend_spelling_yields_a_name(self):
+        self.assertEqual(cli._image_base("/store/trips.od"), "/store/trips")
+        self.assertEqual(cli._image_base("swarm:pets"), "pets")
+        self.assertEqual(cli._image_base("rs:/store/pets/"), "/store/pets")

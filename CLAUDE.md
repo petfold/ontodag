@@ -239,7 +239,20 @@ to draw a constraint, which is free because it is discarded, but an excerpt roun
 answers are hung under the excerpt root, without which they import as orphans
 invisible to `list`/`get`. The empty query gives a file byte-identical to
 `export`'s (pinned). 11 tests in `TestExcerpt` (`tests/test_cli.py`), each
-asserted against the query answer rather than an exit code.
+asserted against the query answer rather than an exit code. **`odag visualize
+[CAT…]` followed** (same day, Peter's ask): the drawn twin, which *does* draw
+the query terms — the one deliberate asymmetry with `excerpt`, on the grounds
+that a picture is discarded (so inventing a node for a virtual term costs
+nothing and is the only way to show it) while a file round-trips. The web app's
+`_query_picture` moved into `ontodag.viz.query_picture` and `web/app.py` now
+imports it, so the two surfaces cannot draw different pictures of one answer;
+`tests/test_cli.py::TestVisualizeScoping` asserts the *shaping* with a fake
+visualizer, so it needs neither the `viz` extra nor `dot`. That work surfaced a
+shipped bug: bare `odag visualize` (no `--out`) had raised `AttributeError`
+since 0.12.0, when `rs:` stores removed `Session.path` — fixed via
+`_image_base(spec)`, which names the image after the store for all three
+backend spellings. Nothing caught it because no test ever omitted `--out`;
+`scripts/release_smoke.py` calls `visualize` *with* one.
 - **Parked, tripwire-gated:** EL/relations canonicalization research (now observable via MCP traffic) — **discussion draft exists as of 2026-08-03: `docs/plans/BINDING.md`** (prompted by Peter's London→Rome → two-leg → bouquet probes; scope rule for flat roles, ground bundles as a proposed scoped contract amendment with two consumers — multi-instance grouping and multiplicity — the §6 coordinate-order fork, the compile-down baseline; nothing decided, grammar work gated on discussing it with Peter); computed values (passes the admissibility axes, no consumer — the itinerary's derived from/to/summed-duration is noted in BINDING.md §3 as another appearance), languages/lexicon (fork recorded in `SURFACE_LAYER.md` §12).
 
 Previous milestone — **dimension lattices (parametric items), done and released** — design, implementation, docs and PyPI release all on 2026-07-30. `docs/DIMENSIONS.md` is the design record and tracks its own §12 sequencing (steps 1–5 and 7 done; step 6, the per-dimension sorted index, stays parked until profiling asks). One-line summary: values like `weight(3kg)` are ordinary categories whose order is computed from the canonical name (containment of denotations, exact integers in base units), never materialized as edges; anchor stars enumerate each dimension; virtual query terms cost no writes; `get_overlapping` is the possibly-satisfies mode. Works through the CLI (quote the parentheses), the web REST API (names now pass through to put/get — `tests/test_web.py`), `EagerOntoDAG` (canonical roots verified across put orders) and `LazyOntoDAG` (bounded fetches). Adoption notes for the sister projects are in loopmarket ARCHITECTURE.md §3 (update note) and ontodag-fs ROADMAP.md. Headline decisions: parametric items (`weight(..5000000mg)`) ordered by containment of denoted value sets — computed at query time, **never materialized as edges**; kinds declared by ordinary edges under registry-known nodes (`weight → linear-dimension → dimension`), nothing in `meta`, no callables in data; values are integers in per-family base units (agreed 2026-07-30 — no decimals; sub-base precision is a boundary error, the UI renders friendly units); anchor/star edges under the head node are schema, exempt from reduction; `add_edge`/`_remove_unneeded_edges` consult combined (asserted + computed) reachability; only exact-arithmetic kinds ever enter the canonical order (geo discs stay application-side — see loopmarket). This fired the "exact arithmetic" wall's tripwire — recorded in `DATABASE_DIRECTION.md` — via the `../loopmarket` sister project (marketplace matching is a main OntoDAG goal); overlap matching (`get_overlapping`) is deliberately the *first follow-up*, not v1, because overlap is not transitive and therefore not a cone.

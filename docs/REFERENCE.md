@@ -80,7 +80,7 @@ results one per line on stdout. No command = read commands from stdin
 | `merge PATH` | merge another store/file into this one |
 | `import` / `export PATH` | native `.od`, or OWL/Manchester by extension (`.owl`/`.omn`) |
 | `excerpt PATH [CAT…]` | write just that query's answer (with the edges among the answers) to PATH — an importable cut; FILE comes first because CATs are variadic |
-| `visualize [PATH]` | render an image (needs the `viz` extra) |
+| `visualize [CAT…] [--out NAME]` | render an image (needs the `viz` extra); with CATs, draws that query's answer under its terms — the drawn twin of `excerpt`, which omits them |
 | `canon [TERM]` | the stored (canonical) form of TERM; bare: surface+registry versions |
 | `prelude [--show]` | adopt (or preview) the standard declarations |
 | `pack [NAME] [--show]` | adopt (or preview) a shipped vocabulary pack |

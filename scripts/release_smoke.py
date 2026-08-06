@@ -215,6 +215,25 @@ def smoke(env, expect_version):
 
     check("visualize a DAG containing a typed date", picture)
 
+    def default_named_picture():
+        # The 0.12.0–0.15.0 regression, in the same spirit: bare `visualize`
+        # crashed for four releases because every test passed --out.
+        o("visualize")
+        path = os.path.join(env.home, "store.png")   # beside the default store
+        assert os.path.exists(path), f"nothing at {path}"
+        return os.path.basename(path)
+
+    check("visualize with no --out names itself after the store",
+          default_named_picture)
+
+    def query_picture():
+        o("visualize", "Japan", "--out", "scoped")
+        path = os.path.join(env.work, "scoped.png")
+        assert os.path.exists(path), "no image written"
+        return f"{os.path.getsize(path)} bytes of PNG"
+
+    check("visualize one query", query_picture)
+
     def exports():
         written = []
         for name in ("out.owl", "out.omn"):
@@ -225,6 +244,18 @@ def smoke(env, expect_version):
         return ", ".join(written)
 
     check("export to OWL and Manchester", exports)
+
+    def excerpt():
+        answer = sorted(o("get", "Japan").split())
+        o("excerpt", "cut.od", "Japan")
+        cut = os.path.join(env.work, "cut.od")
+        assert os.path.getsize(cut) > 0, "empty excerpt"
+        # The property that matters: it imports back as the same answer.
+        got = sorted(env.odag_run("-f", cut, "list").split())
+        assert got == answer, f"{got} != {answer}"
+        return f"{len(answer)} items, importable"
+
+    check("excerpt a query and read it back", excerpt)
 
     def reimport():
         o("export", "round.omn")
