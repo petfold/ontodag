@@ -87,6 +87,9 @@ results one per line on stdout. No command = read commands from stdin
 | `prelude [--show]` | adopt (or preview) the standard declarations |
 | `pack [NAME] [--show]` | adopt (or preview) a shipped vocabulary pack |
 | `index` | publish cone summaries for the current store |
+| `history [-n N]` | the states this store has been in, newest first (`*` = where it is now); needs `rs:`/`swarm:` |
+| `status` | store, root, item count, and how much can be undone/redone |
+| `undo` / `redo` [--dry-run] | step back / forward one state; the pointer moves, nothing is destroyed |
 | `set [KEY [VALUE]]` | show or persist a setting (table below) |
 | `swarm` | doctor: is a Bee node reachable and usable, step by step |
 | `help` | the built-in help text |
@@ -104,6 +107,11 @@ default**. `auto` means "decide from whether output is a terminal".
 | `bee_signer` | `BEE_SIGNER` | `--bee-signer KEY` | (unset; secret — never echoed) |
 | `render` | `ONTODAG_SURFACE` | `--render` / `--raw` | `auto` |
 | `limit` | `ONTODAG_LIMIT` | `-n N` | `auto` (50 at a tty, all in a pipe, 0 = all) |
+
+**`-m MESSAGE`** is the one pre-command flag that is not a setting: it labels
+whatever state this invocation commits, readable back with `odag history`. The
+label lives in the store's timeline and never in the root — equal content
+commits to equal roots whatever the words.
 
 **Store specs** (for `-f`, `$ONTODAG_STORE`, `set store`):
 

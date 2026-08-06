@@ -473,7 +473,50 @@ Every request the buttons make was driven by hand with curl against the running
 app first, including a name containing `+`, `&` and spaces. MCP still
 deliberately has neither operation.
 
-**`ontodag.compare` (2026-08-06, last of the day): the diff logic extracted to a
+**Undo/redo/history (2026-08-06, from Peter's "should there be an undo, and where
+— here or recordstore?"). Answer: recordstore first, and it shipped as 0.20.0.**
+The diagnosis was the useful part: undo was **not** a data-recovery problem.
+Measured on an `rs:` store — every past root still reads perfectly (blobs are
+content-addressed and nothing collects them), and writing an old root back into
+the pointer file *is* undo. What was missing was the ability to **name** the
+previous state: `store/root` is 64 bytes, the current root and nothing else,
+while local-first stores journal lineage that `RecordStore` never exposed. So the
+mechanism belongs where the mutable pointer lives, not in a consumer keeping a
+parallel log.
+- **recordstore 0.20.0** (published, verified from PyPI): a `Pointer` keeps a
+  *timeline* (FilePointer → a `<path>.timeline` JSON sibling; MemoryPointer → in
+  memory), giving `RecordStore.history()` → `Version(root, at, message,
+  current)`, `undo()`, `redo()`, `checkout(root)`, `status()`, and
+  `commit(message=…)`. Local-first stores get it free — their HEAD *is* a
+  FilePointer. Semantics are an **editor's**: a line of states plus a position, a
+  commit after an undo abandons the redo tail, and the journal remains the deeper
+  audit (this timeline is the branch, the journal is the reflog). Two bugs the
+  tests caught: an undo at the start of the line returned None but still moved
+  the root (emptying the store's view of itself), and a **no-op commit recorded a
+  duplicate state** — which `odag` would have hit immediately, since it commits
+  after every command.
+- **Messages: yes, but never in the content** (Peter was unsure; this is the
+  recommendation, now implemented and documented). A git commit hashes its
+  message, so the same change described differently is a different commit. A root
+  here hashes state alone, which is what makes equal content converge, dedup and
+  merge. So `-m` labels a transition in *this replica's* timeline; attribution
+  that must travel is a signed provenance record about the claim.
+- **ontodag side**: `odag history` / `status` / `undo` / `redo` (`--dry-run` on
+  the last two, counted with `ontodag.compare` over the two roots), global `-m`,
+  floor raised to `recordstore>=0.20.0` (base, `store`, `swarm` extras + the
+  boundary test's ALLOWED_BASE). Backends gained `open_store()` — `FileBackend`
+  raises a teaching error naming the tiers that keep history, which is the funnel
+  argument again. `SwarmBackend.publish_head()` republishes after a HEAD move,
+  because publication rides confirmation events and moving a head backwards
+  produces none — without it an undo would be invisible to followers, a silent
+  disagreement between what a replica shows and what it publishes. **Verified
+  against the live node**: undo on a `swarm:` store moved the signed feed back
+  too. `TestHistoryAndUndo` (13, `test_cli.py`); release smoke now 22 checks
+  (label → cone-delete → undo → redo, plus the file store explaining itself).
+  Undo is **local**: a peer merging afterwards re-adds what it took out — the
+  third appearance of that wall today, and the reason undo is cheap.
+
+**`ontodag.compare` (2026-08-06): the diff logic extracted to a
 library.** `compare(ours, theirs, queries=None)` → a `Comparison` carrying
 `only_ours`/`only_theirs`, `added`/`removed` (edge grain, claim-filtered), the
 **lazily computed** `entailed_added`/`entailed_removed` cascade (the expensive

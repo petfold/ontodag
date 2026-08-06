@@ -2,7 +2,7 @@
 
 `recordstore` lives in its own repo, [github.com/petfold/recordstore](https://github.com/petfold/recordstore),
 extracted from this repo in July 2026 with history preserved. OntoDAG depends on it
-from PyPI in `pyproject.toml` (`recordstore>=0.14.0`, both in the base dependencies and
+from PyPI in `pyproject.toml` (`recordstore>=0.20.0`, both in the base dependencies and
 in the `swarm` extra, which asks for `recordstore[bee,feeds,stamps]`).
 
 > **The authoritative reference now lives upstream.** Since recordstore
@@ -47,13 +47,25 @@ returned records are deep copies (mutating them never mutates the store).
   windows: value blobs are fetched a window at a time, so over a network store with
   `get_many` the reads parallelise while memory stays bounded to one window. This is the
   fast path for hydrating a whole store, and what `EagerOntoDAG._hydrate` uses.
-- `commit(*, reconcile=False, resolver=None, retries=5) → root` — flush staged changes,
+- `commit(*, message=None, reconcile=False, resolver=None, retries=5) → root` — flush staged changes,
   return the new root reference, and update the pointer (if any). The pointer moves only
   after every blob write succeeds, so a reader sees all of a commit or none of it. Value
   blobs and trie levels are written in concurrent batches (roots stay byte-identical to
   serial commits). With `reconcile=True`, a pointer that moved past this commit's base
   root is three-way-merged and the commit retried until it lands, so concurrent writers
   converge.
+- `history(limit=None) → [Version]` **(needs ≥ 0.20.0)** — the states this store has been
+  in, newest first, as `Version(root, at, message, current)`. `[]` when the pointer keeps
+  no timeline. Every entry is a whole state, so `RecordStore.at(v.root, blobs)` reopens any
+  of them — which is why undo needs no diff replay.
+- `undo()` / `redo() → root|None` **(needs ≥ 0.20.0)** — step the pointer back or forward
+  along that line; `None` at either end, and the store is left where it was. A commit made
+  after an undo abandons the redo tail. `checkout(root)` jumps to a state the timeline
+  holds and refuses any other root; `status()` reports
+  `{root, staged, readonly, history, position, undoable, redoable}`.
+  `commit(message=…)` labels the state — in the timeline, **never** in the content, so
+  equal content still commits to equal roots. This is what `odag history` / `status` /
+  `undo` / `redo` / `-m` are made of.
 - `merge(bytes_store, base, ours, theirs, resolver=None) → root` (static) — canonical
   three-way merge of two roots, O(divergence) via structural trie diff. Conflicts raise
   `MergeConflict` unless `resolver(key, base, ours, theirs)` settles them (sentinels
@@ -215,11 +227,15 @@ only the blobs go to Swarm, which is exactly the keyless mode's documented limit
 ## Version history relevant to OntoDAG
 
 All releases since `v0.3.0` have been additive — no breaking API changes — which is why
-OntoDAG's dependency is a floor (`>=0.16.0` in `pyproject.toml`, in the base dependencies
+OntoDAG's dependency is a floor (`>=0.20.0` in `pyproject.toml`, in the base dependencies
 and the `swarm` extra alike) rather than an exact pin. One behavioural tightening rather
 than a signature change: 0.14.0 made `"auto"` refuse batches with under a day of validity
 left, so a batch that older versions would have selected can now be rejected.
 
+- **v0.20.0** — (the floor since 2026-08-06) `history()`, `undo()`, `redo()`,
+  `checkout()`, `status()`, `commit(message=…)` and a timeline-keeping `FilePointer`
+  — the version-history surface `odag undo` is built on. Nothing existing changed
+  except `commit()` gaining an optional keyword.
 - **v0.4.0/0.4.1** — the real `SwarmFeedPointer` (above), replacing a documented stub.
 - **v0.5.0–v0.7.1** — concurrent bulk I/O: `items()`, `get_many`/`put_many`, lazily
   streamed `keys()`/`items()`, pooled HTTP connections in `BeeBytesStore`, and batched

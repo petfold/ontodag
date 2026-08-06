@@ -2430,3 +2430,150 @@ class TestSwarmBootstrapDecision(unittest.TestCase):
     def test_nothing_published_yet_is_not_an_error(self):
         backend = cli.SwarmBackend("pets")
         self.assertIsNone(backend._bootstrap_root(self.Pointer(None)))
+
+
+class TestHistoryAndUndo(unittest.TestCase):
+    """`history`, `status`, `undo`, `redo` — over an `rs:` store, which is the
+    cheapest tier that keeps history at all.
+
+    A root *is* the state, so undo moves a pointer and destroys nothing: the
+    state it left is still in `history` and still readable. What it does not do
+    is travel — a peer merging afterwards re-adds what was undone, which is the
+    same wall `remove` and `move` have.
+    """
+
+    def setUp(self):
+        self._home = tempfile.TemporaryDirectory()
+        self._saved = os.environ.get("ONTODAG_HOME")
+        os.environ["ONTODAG_HOME"] = self._home.name
+        cli._OVERRIDES.clear()
+        self.spec = "rs:" + os.path.join(self._home.name, "store")
+
+    def tearDown(self):
+        cli._OVERRIDES.clear()
+        if self._saved is None:
+            os.environ.pop("ONTODAG_HOME", None)
+        else:
+            os.environ["ONTODAG_HOME"] = self._saved
+        self._home.cleanup()
+
+    def _run(self, argv, message=None):
+        """A fresh Session per call, as separate `odag` invocations are."""
+        cli._OVERRIDES.pop("message", None)
+        if message is not None:
+            cli._OVERRIDES["message"] = message
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.dispatch(argv, cli.Session(self.spec))
+        return code, out.getvalue(), err.getvalue()
+
+    def _trip(self):
+        self._run(["put", "Travel"], message="start the trip")
+        self._run(["put", "Japan", "Travel"], message="add Japan")
+        self._run(["put", "Flight", "Travel"], message="add a flight")
+
+    def test_history_lists_the_states_newest_first_with_messages(self):
+        self._trip()
+        code, out, _ = self._run(["history"])
+        lines = out.splitlines()
+        self.assertEqual(code, 0)
+        self.assertEqual(len(lines), 3)
+        self.assertTrue(lines[0].startswith("*"))          # current is newest
+        self.assertIn("add a flight", lines[0])
+        self.assertIn("start the trip", lines[2])
+
+    def test_status_says_what_can_be_undone(self):
+        self._trip()
+        _, out, _ = self._run(["status"])
+        fields = dict(line.split(" = ", 1) for line in out.splitlines()
+                      if " = " in line)
+        self.assertEqual(fields["items"], "3")
+        self.assertEqual(fields["versions"], "3")
+        self.assertEqual(fields["undoable"], "2")
+        self.assertEqual(fields["redoable"], "0")
+
+    def test_undo_then_redo(self):
+        self._trip()
+        code, _, err = self._run(["undo"])
+        self.assertEqual(code, 0)
+        self.assertIn("undid to", err)
+        self.assertIn("-1 item", err)
+        self.assertEqual(self._run(["list"])[1].split(), ["Japan", "Travel"])
+        code, _, err = self._run(["redo"])
+        self.assertEqual(code, 0)
+        self.assertIn("+1 item", err)
+        self.assertEqual(self._run(["list"])[1].split(),
+                         ["Flight", "Japan", "Travel"])
+
+    def test_the_current_marker_moves_with_the_undo(self):
+        self._trip()
+        self._run(["undo"])
+        lines = self._run(["history"])[1].splitlines()
+        self.assertFalse(lines[0].startswith("*"))         # newest is not current
+        self.assertTrue(lines[1].startswith("*"))
+
+    def test_a_dry_run_says_what_would_happen_and_changes_nothing(self):
+        self._trip()
+        code, out, err = self._run(["undo", "--dry-run"])
+        self.assertEqual((code, out), (0, ""))
+        self.assertIn("would undo to", err)
+        self.assertEqual(len(self._run(["list"])[1].split()), 3)
+
+    def test_the_ends_of_the_line_are_reported_not_guessed(self):
+        self._trip()
+        self.assertEqual(self._run(["redo"])[0], 1)        # already at the tip
+        self.assertIn("nothing to redo", self._run(["redo"])[2])
+        for _ in range(2):
+            self._run(["undo"])
+        code, _, err = self._run(["undo"])
+        self.assertEqual(code, 1)
+        self.assertIn("nothing to undo", err)
+        self.assertEqual(self._run(["list"])[1].split(), ["Travel"])
+
+    def test_committing_after_an_undo_abandons_the_redo_tail(self):
+        self._trip()
+        self._run(["undo"])
+        self._run(["put", "Hotel", "Travel"], message="a hotel instead")
+        self.assertEqual(self._run(["redo"])[0], 1)
+        self.assertEqual(self._run(["list"])[1].split(),
+                         ["Hotel", "Japan", "Travel"])
+
+    def test_a_command_that_changes_nothing_is_not_a_state(self):
+        # `odag` commits after every command; a no-op must not become a version
+        # you can "undo" to, or undo would appear to do nothing.
+        self._trip()
+        before = len(self._run(["history"])[1].splitlines())
+        self._run(["put", "Japan", "Travel"])              # already there
+        self.assertEqual(len(self._run(["history"])[1].splitlines()), before)
+
+    def test_undoing_a_removal_brings_the_items_back(self):
+        self._trip()
+        self._run(["remove", "--cone", "Travel"])
+        self.assertEqual(self._run(["list"])[1], "")
+        self._run(["undo"])
+        self.assertEqual(self._run(["list"])[1].split(),
+                         ["Flight", "Japan", "Travel"])
+
+    def test_a_plain_file_says_which_stores_keep_history(self):
+        path = os.path.join(self._home.name, "plain.od")
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.dispatch(["history"], cli.Session(path))
+        self.assertEqual(code, 1)
+        self.assertIn("keeps no version history", err.getvalue())
+        self.assertIn("rs:", err.getvalue())
+
+    def test_status_works_on_a_file_store_too(self):
+        path = os.path.join(self._home.name, "plain.od")
+        out = io.StringIO()
+        with redirect_stdout(out), redirect_stderr(io.StringIO()):
+            cli.dispatch(["put", "A"], cli.Session(path))
+            cli.dispatch(["status"], cli.Session(path))
+        self.assertIn("history = none", out.getvalue())
+
+    def test_a_message_is_optional(self):
+        self._run(["put", "Travel"])
+        line = self._run(["history"])[1].splitlines()[0]
+        self.assertTrue(line.startswith("*"))
+        # marker, root, date, time — and no message on the end
+        self.assertEqual(len(line.split()), 4)

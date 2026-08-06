@@ -815,6 +815,11 @@ odag <command> ...
   prelude [--show]      adopt the standard dimension declarations (weight,
                         time, geo, size, ...) in one idempotent merge;
                         --show prints them without merging
+  history [-n N]        the states this store has been in, newest first;
+                        needs rs:PATH or swarm:NAME (see §5.11)
+  status                root, item count, and what can be undone
+  undo / redo           step back a state, or forward again (--dry-run to
+                        look first)
   set [KEY [VALUE]]     show settings, or set one durably (store, bee_api,
                         bee_batch, bee_signer, render, limit — see §5.7)
   help                  show this help
@@ -1610,6 +1615,78 @@ or a publisher whose readers hydrate the root, keeps the move permanently. If a
 lifecycle must survive multi-writer sync, encode the transition as an *addition*
 (a dated state assertion, current value decided at read time) instead of a
 retraction.
+
+### 5.11 Undo, redo, and looking at versions
+
+A store that keeps history gives you the safety net the rest of this section
+keeps warning you about. Label what you do with `-m`, and read it back:
+
+```console
+$ odag -m "start the trip" put Travel
+$ odag -m "file the flight" put Flight Travel
+$ odag -m "and the hotel" put Hotel Travel
+$ odag history
+* a932961b8d77  2026-08-06 11:39:00  and the hotel
+  6626972cd59d  2026-08-06 11:39:00  file the flight
+  44a8eb26b06d  2026-08-06 11:39:00  start the trip
+```
+
+Then the useful part — the destructive command you regret:
+
+```console
+$ odag remove --cone Travel
+odag: deleted 3 items
+$ odag list
+$ odag undo --dry-run
+odag: would undo to a932961b8d77 — +3 items
+$ odag undo
+odag: undid to a932961b8d77 — +3 items
+$ odag list
+Flight
+Hotel
+Travel
+```
+
+`odag redo` steps forward again, and `odag status` says where you are:
+
+```console
+$ odag status
+store = rs:/home/you/work/travel
+root = a932961b8d77175633fc9215c9361e29355b8b6498fe0c11c65dc9436908ade6
+items = 3
+versions = 4
+undoable = 2
+redoable = 1
+```
+
+**Why this needs no magic.** A root is a hash of the whole state, so a past
+version is not a diff to be replayed — it is a state that still exists. Undo
+*points* at it; nothing is recovered and nothing is rewritten. That is also why
+the `*` in `history` can sit below the top line: after an undo the store is at an
+older state and the newer one is still listed, still readable, ready for `redo`.
+
+Four things worth knowing:
+
+- **A plain `.od` file has no history**, because it holds exactly one state.
+  `odag history` there tells you which store specs do (§5.1) — this is one of
+  the things `rs:PATH` buys you for nothing.
+- **Committing after an undo abandons the redo tail**, exactly as typing after
+  undo does in an editor. The abandoned state is not destroyed — it is still
+  readable by its root — but `redo` will not offer it.
+- **A command that changes nothing is not a version.** Re-filing something that
+  is already there commits no new state, so it never clutters `history` and
+  never makes an undo look broken.
+- **An undo is local.** It moves your pointer (and, on a published `swarm:`
+  store, the feed your followers read), but it does not travel through a
+  *merge*: a peer who merges your store afterwards re-adds whatever the undo
+  took out, because merge only ever adds. Same wall as `remove` and `move`
+  (§5.10) — and the reason it is a wall is the same reason undo is cheap.
+
+**Messages are labels, not content.** `-m` records the message in the store's
+timeline and never in the root, so two people who file the same facts with
+different words still agree on the state — which is what makes canonical roots,
+dedup and merge work. If attribution has to *travel*, that is a signed
+provenance record about the claim (§9), not a commit message.
 
 ---
 

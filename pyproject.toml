@@ -45,7 +45,7 @@ classifiers = [
 # hiding behind an extra. A dependency that changes what the package *is*
 # by default earns its place; one that adds 28 MB of Java reasoners for a
 # file format does not.
-dependencies = ["recordstore>=0.16.0"]
+dependencies = ["recordstore>=0.20.0"]
 
 [project.optional-dependencies]
 # Rendering. The `graphviz` PyPI package is only a wrapper: the `dot`
@@ -60,7 +60,7 @@ owl = ["owlready2"]
 # Kept as an alias now that recordstore is a base dependency, so that
 # `pip install "ontodag[store]"` (and the error messages that suggest it
 # on a broken install) keep working.
-store = ["recordstore>=0.16.0"]
+store = ["recordstore>=0.20.0"]
 web = ["ontodag[viz,owl]", "flask", "dot2tex"]
 # The `swarm:NAME` CLI backend talks to a Bee node via recordstore's
 # BeeBytesStore (needs `requests`, recordstore's [bee] extra); resolves the
@@ -76,7 +76,7 @@ web = ["ontodag[viz,owl]", "flask", "dot2tex"]
 # both Swarm use cases: local-first store dirs that sync in the background
 # (the swarm: backend since 0.15) and direct-on-Swarm (feed publication,
 # batch "auto"). recordstore 0.19 renamed/bundled its extras accordingly.
-swarm = ["recordstore[swarm-only,local-first-swarm]>=0.19.0"]
+swarm = ["recordstore[swarm-only,local-first-swarm]>=0.20.0"]
 # Everything, and it means everything: `all` is a promise about coverage, not
 # a curated selection. Leaving `swarm` out made it a lie about the one feature
 # this project is most about, and left the reader to notice that `[all]` still

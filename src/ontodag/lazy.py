@@ -527,7 +527,7 @@ class SparseOntoDAG(LazyOntoDAG):
             "meta": dict(node.metadata),
         }
 
-    def commit(self):
+    def commit(self, message=None):
         """Stage the resident diff, commit, return the new root.
 
         Sweeps only `self._expanded` — every node a mutation could have
@@ -546,7 +546,8 @@ class SparseOntoDAG(LazyOntoDAG):
             if self._records.get(name) != record:
                 self.store.put(name, record)
                 self._records[name] = record
-        root = self.store.commit()
+        root = (self.store.commit(message=message) if message is not None
+                else self.store.commit())
         self.base_root = root
         return root
 

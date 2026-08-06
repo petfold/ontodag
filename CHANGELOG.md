@@ -75,6 +75,23 @@ the version numbers appear in commit history and docs.
   removals, the command says how many it left out rather than shipping a
   fragment that looks like the whole change. Removals belong to a base-pinned
   three-way apply and travel as attributed retractions (PROVENANCE.md).
+- **`odag history`, `odag status`, `odag undo`, `odag redo`, and a `-m` label**
+  — version history for stores that keep it (`rs:` and `swarm:`), on
+  recordstore 0.20's timeline. A root is the whole state, so undo *points* at a
+  past version rather than replaying a diff: nothing is recovered and nothing is
+  rewritten, the state you left stays listed and readable, and `redo` comes
+  forward again. `undo --dry-run` says what it would change, counted with
+  `ontodag.compare` over the two roots. `-m MESSAGE` is a pre-command flag
+  labelling whatever state the run commits — recorded in the timeline, never in
+  the root, so equal content still commits to equal roots. A `.od` file answers
+  `history` by naming the store specs that keep one (it holds a single state);
+  a command that changes nothing does not become a version; and on a published
+  `swarm:` store an undo republishes the older head, so followers see it too
+  (verified against a live node) — because publication normally rides a
+  confirmation event and moving a head backwards produces none.
+  **An undo is local**: a peer merging afterwards re-adds what it took out, the
+  same wall `remove` and `move` have.
+- Floor: **`recordstore>=0.20.0`**.
 - **`ontodag.compare`** — the diff logic as a library: `compare(ours, theirs,
   queries=None)` returns a `Comparison` with `only_ours`/`only_theirs`,
   `added`/`removed` (claim changes at edge grain, a re-routed edge never reported

@@ -8,6 +8,7 @@ Design goals (see the module docstring history in CLAUDE.md):
     work with no file argument;
   * stdin / stdout / pipes: `odag` with no command reads commands from a pipe,
     or drops into an interactive prompt on a tty;
+  * `-m MESSAGE` labels the state this run commits (see `history`);
   * `-o FILE` redirects query output; `-f STORE` picks the store for one run;
   * `set store PATH` changes the persistent default.
 
@@ -391,7 +392,20 @@ class FileBackend:
     def load(self):
         return _load(self.path)
 
-    def save(self, dag):
+    def open_store(self):
+        """There is no store here, and therefore no history.
+
+        A `.od` file holds one state: the current one. Undo needs to be able to
+        *name* the previous state, which is what a content-addressed store gives
+        for free — so this is a tier answer, not a missing feature."""
+        raise ValueError(
+            f"{self.path} is a plain file: it keeps no version history, so "
+            f"there is nothing to undo, redo or list.\n"
+            f"  a store that does:  odag set store rs:{os.path.splitext(self.path)[0]}\n"
+            f"  (or swarm:NAME to share it — see `odag swarm`)")
+
+    def save(self, dag, message=None):
+        # A message labels a state in a store's timeline; a file has neither.
         _save(dag, self.path)
 
     def describe(self):
@@ -459,6 +473,8 @@ def _swarm_open_error(name, api, exc):
 
 
 class SwarmBackend:
+    _publish_pointer = None
+
     def __init__(self, name, store_factory=None, index_store_factory=None,
                  prov_store_factory=None):
         if not name:
@@ -579,6 +595,7 @@ class SwarmBackend:
                 from recordstore import SwarmFeedPointer
                 publish_pointer = SwarmFeedPointer(
                     api, self.name, signer=signer, postage_batch_id=batch)
+            self._publish_pointer = publish_pointer
             # Asked before opening (the answer depends on the directory being
             # untouched), used after (cloning needs an open store).
             bootstrap = self._bootstrap_root(publish_pointer)
@@ -629,7 +646,24 @@ class SwarmBackend:
             if close is not None:
                 close()
 
-    def save(self, dag):
+    def open_store(self):
+        """A store handle for history operations (a transient window, as ever)."""
+        return self._record_store()
+
+    def publish_head(self, store):
+        """After a HEAD move, point the feed at it too.
+
+        Publication normally rides a confirmation event, and moving HEAD
+        backwards produces none — so without this an undo would be invisible to
+        anyone following the feed, which is a silent disagreement between what
+        this replica shows and what it publishes."""
+        pointer = self._publish_pointer
+        publish = getattr(store, "publish", None)
+        if pointer is None or publish is None:
+            return None
+        return publish(pointer)
+
+    def save(self, dag, message=None):
         store = self._record_store()  # transient writer window
         try:
             # Multi-writer convergence is MERGE, not locking: if another
@@ -648,7 +682,7 @@ class SwarmBackend:
             if head is not None and head != dag.base_root:
                 dag.sync(head, bytes_store=store.blobs)
             else:
-                dag.commit()  # local, instant, offline-safe
+                dag.commit(message=message)  # local, instant, offline-safe
             # Best-effort barrier: a CLI run is short-lived, so give the
             # background syncer a chance to land the commit on Swarm before
             # the window closes. Offline (or slow) is not an error — the
@@ -728,8 +762,11 @@ class LocalRecordBackend:
         from ontodag.eager import EagerOntoDAG
         return EagerOntoDAG(self._record_store())
 
-    def save(self, dag):
-        dag.commit()
+    def open_store(self):
+        return self._record_store()
+
+    def save(self, dag, message=None):
+        dag.commit(message=message)
 
     def describe(self):
         return f"rs:{self.path}"
@@ -797,7 +834,7 @@ class Session:
             close()
 
     def save(self):
-        self.backend.save(self.dag)
+        self.backend.save(self.dag, message=_OVERRIDES.get("message"))
 
     def describe(self):
         # Describing must not open the store (`odag set` runs with the node
@@ -1529,6 +1566,160 @@ def cmd_diff(args, session, out):
     return 1                            # differences found (grep-style, like `below`)
 
 
+def _open_history(session):
+    """The store this session's history lives in, and how to let go of it.
+
+    `swarm:` stores are opened in transient windows, so history operations take
+    one like everything else does; `rs:` stores need no closing. A `.od` file
+    raises a teaching error naming the tiers that keep history."""
+    store = session.backend.open_store()
+    close = getattr(store, "close", None)
+    return store, (close if close is not None else (lambda: None))
+
+
+def _describe_move(session, store, before, after):
+    """What moving from one root to another does to the graph, in items.
+
+    Read out of the two states rather than guessed: `ontodag.compare` over the
+    two roots, which is the same machinery `odag diff` uses. Cheap enough — both
+    roots are already in this store."""
+    from ontodag import compare as _compare
+    from ontodag.eager import EagerOntoDAG
+
+    blobs = getattr(store, "blobs", None)
+    if blobs is None or before is None or after is None:
+        return ""
+    try:
+        from recordstore import RecordStore
+        old = EagerOntoDAG(RecordStore.at(before, blobs))
+        new = EagerOntoDAG(RecordStore.at(after, blobs))
+    except Exception:                       # unreadable state: say nothing
+        return ""
+    diff = _compare.compare(old, new)
+    gained, lost = len(diff.only_theirs), len(diff.only_ours)
+    claims = len(diff.added) + len(diff.removed)
+    parts = []
+    if gained:
+        parts.append(f"+{gained} item{'' if gained == 1 else 's'}")
+    if lost:
+        parts.append(f"-{lost} item{'' if lost == 1 else 's'}")
+    if claims:
+        parts.append(f"{claims} classification"
+                     f"{'' if claims == 1 else 's'} changed")
+    return ", ".join(parts) or "no visible change"
+
+
+def _step_history(args, session, out, direction):
+    """`undo`/`redo`: move the store's pointer, and say what that did.
+
+    Nothing is destroyed by either — a root *is* the state, so this moves a
+    pointer and the state it left stays exactly where it was (`odag history`
+    lists it). What it does NOT do is travel: a peer that merges this store
+    afterwards re-adds whatever an undo took out, because merge only ever adds.
+    Local time travel, not a retraction others honour.
+    """
+    word = "undo" if direction < 0 else "redo"
+    store, close = _open_history(session)
+    try:
+        before = store.root
+        if args.dry_run:
+            target = _neighbouring_root(store, direction)
+            if target is None:
+                print(f"odag: nothing to {word}", file=sys.stderr)
+                return 0
+            print(f"odag: would {word} to {target[:12]} — "
+                  f"{_describe_move(session, store, before, target)}",
+                  file=sys.stderr)
+            return 0
+
+        root = store.undo() if direction < 0 else store.redo()
+        if root is None:
+            print(f"odag: nothing to {word} (odag history shows where this "
+                  f"store has been)", file=sys.stderr)
+            return 1
+        summary = _describe_move(session, store, before, root)
+        publish = getattr(session.backend, "publish_head", None)
+        if publish is not None:
+            publish(store)              # an undo must reach followers too
+    finally:
+        close()
+
+    session.switch(session.spec)         # the in-memory graph is a state behind
+    print(f"odag: {'undid' if direction < 0 else 'redid'} to {root[:12]} "
+          f"— {summary}", file=sys.stderr)
+    return 0
+
+
+def _neighbouring_root(store, direction):
+    """The root an undo (-1) or redo (+1) would land on, without moving.
+
+    `history()` is newest-first while `status()['position']` indexes the line
+    oldest-first, so the conversion happens here, once."""
+    versions = store.history()
+    position = store.status()["position"]
+    if not versions or position < 0:
+        return None
+    current = len(versions) - 1 - position
+    target = current + 1 if direction < 0 else current - 1
+    if not 0 <= target < len(versions):
+        return None
+    return versions[target].root
+
+
+def cmd_undo(args, session, out):
+    return _step_history(args, session, out, -1)
+
+
+def cmd_redo(args, session, out):
+    return _step_history(args, session, out, +1)
+
+
+def cmd_history(args, session, out):
+    """The states this store has been in, newest first — `git log` for a store.
+
+    Each line names a whole state, not a change: the root is the content
+    address, so `odag diff` can compare any two of them and a future `--as-of`
+    can read one directly. `*` marks where the store is now, which is not
+    always the newest line — that is what an undo looks like from here."""
+    store, close = _open_history(session)
+    try:
+        versions = store.history(limit=_want_limit(args, out) or None)
+        if not versions:
+            print("odag: this store has no recorded history yet",
+                  file=sys.stderr)
+            return 0
+        for version in versions:
+            marker = "*" if version.current else " "
+            when = (version.at or "").replace("T", " ")[:19]
+            message = f"  {version.message}" if version.message else ""
+            print(f"{marker} {version.root[:12]}  {when}{message}", file=out)
+    finally:
+        close()
+    return 0
+
+
+def cmd_status(args, session, out):
+    """Where the store is: which state, how much history, what can be undone."""
+    print(f"store = {session.describe()}", file=out)
+    try:
+        store, close = _open_history(session)
+    except ValueError:
+        # A file store: no history, but the rest is still worth saying.
+        print(f"items = {len(session.dag.get([]))}", file=out)
+        print("history = none (a plain file keeps one state)", file=out)
+        return 0
+    try:
+        status = store.status()
+        print(f"root = {status['root']}", file=out)
+        print(f"items = {len(session.dag.get([]))}", file=out)
+        print(f"versions = {status['history']}", file=out)
+        print(f"undoable = {status['undoable']}", file=out)
+        print(f"redoable = {status['redoable']}", file=out)
+    finally:
+        close()
+    return 0
+
+
 def _image_base(spec):
     """Default output name for `visualize`: named after the store.
 
@@ -1766,6 +1957,16 @@ Commands:
   pack [NAME] [--show]  list unit packs, or adopt one (crypto-majors,
                         stablecoins, fiat-iso4217) — vocabulary as graph
                         data, no new release needed; travels with the store
+  history [-n N]        the states this store has been in, newest first
+                        (`*` marks where it is now). Needs a store that
+                        keeps history: rs:PATH or swarm:NAME
+  status                where the store is: root, item count, and how much
+                        can be undone or redone
+  undo / redo           step back to the previous state, or forward again.
+                        Nothing is destroyed — the state you left is still
+                        in `history`. --dry-run says what it would do.
+                        NB an undo is local: a peer who merges you later
+                        re-adds what it took out
   set [KEY [VALUE]]     show settings, or set one durably (store, bee_api,
                         bee_batch, bee_signer, render, limit).
                         `set bee_signer generate` makes a signing key for you
@@ -1918,6 +2119,30 @@ def build_parser():
                    help="summarize categories with at least this many "
                         "descendants (default 64)")
     p.set_defaults(func=cmd_index, stream_output=True)
+
+    p = sub.add_parser("history", add_help=True,
+                       help="the states this store has been in (newest first)")
+    p.add_argument("-o", "--output")
+    _add_limit_flag(p)
+    p.set_defaults(func=cmd_history, stream_output=True)
+
+    p = sub.add_parser("status", add_help=True,
+                       help="where the store is: state, history, what can be "
+                            "undone")
+    p.add_argument("-o", "--output")
+    p.set_defaults(func=cmd_status, stream_output=True)
+
+    p = sub.add_parser("undo", add_help=True,
+                       help="step back to the previous state")
+    p.add_argument("--dry-run", action="store_true",
+                   help="say what it would do and change nothing")
+    p.set_defaults(func=cmd_undo, stream_output=True)
+
+    p = sub.add_parser("redo", add_help=True,
+                       help="step forward again after an undo")
+    p.add_argument("--dry-run", action="store_true",
+                   help="say what it would do and change nothing")
+    p.set_defaults(func=cmd_redo, stream_output=True)
 
     p = sub.add_parser("move", add_help=True,
                        help="reclassify items: file under new categories, "
@@ -2123,7 +2348,10 @@ def main(argv=None):
     _OVERRIDES.clear()
     valued = {"-f": "store", "--store": "store", "--file": "store",
               "--bee-api": "bee_api", "--bee-batch": "bee_batch",
-              "--bee-signer": "bee_signer", "-n": "limit", "--limit": "limit"}
+              "--bee-signer": "bee_signer", "-n": "limit", "--limit": "limit",
+              # Not a setting — a label for whatever state this invocation
+              # commits, so it goes where the other pre-command flags go.
+              "-m": "message", "--message": "message"}
     while argv and (argv[0] in valued or argv[0] in ("--raw", "--render")):
         if argv[0] in ("--raw", "--render"):
             _OVERRIDES["render"] = "on" if argv[0] == "--render" else "off"

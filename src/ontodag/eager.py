@@ -48,8 +48,13 @@ class EagerOntoDAG(OntoDAG):
 
     # ------------------------------------------------------------------ sync
 
-    def commit(self):
-        """Stage every changed node record, commit, return the new root."""
+    def commit(self, message=None):
+        """Stage every changed node record, commit, return the new root.
+
+        `message` labels the resulting state in the store's timeline (it is
+        never part of the content — see `RecordStore.commit`). Passed through
+        only when given, so a duck-typed store with a plain `commit()` keeps
+        working."""
         current = {name: self._record_for(node)
                    for name, node in self.nodes.items()}
         for name, record in current.items():
@@ -58,7 +63,8 @@ class EagerOntoDAG(OntoDAG):
         for name in self._synced:
             if name not in current:
                 self.store.delete(name)
-        root = self.store.commit()
+        root = (self.store.commit(message=message) if message is not None
+                else self.store.commit())
         self._synced = current
         self.base_root = root
         return root

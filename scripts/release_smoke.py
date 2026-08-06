@@ -320,6 +320,27 @@ def smoke(env, expect_version):
 
     check("import what was exported", reimport)
 
+    def undo_redo():
+        # The safety net, on the tier that provides it: label, delete, undo.
+        path = os.path.join(env.work, "rsundo")
+        spec = f"rs:{path}"
+        o("-f", spec, "-m", "first", "put", "Travel")
+        o("-f", spec, "-m", "second", "put", "Japan", "Travel")
+        listing = o("-f", spec, "history")
+        assert "second" in listing and listing.count("\n") == 2, listing
+        o("-f", spec, "remove", "--cone", "Travel")
+        assert o("-f", spec, "list").split() == [], "the cone survived"
+        env.odag_run("-f", spec, "undo")
+        assert o("-f", spec, "list").split() == ["Japan", "Travel"], "undo failed"
+        env.odag_run("-f", spec, "redo")
+        assert o("-f", spec, "list").split() == [], "redo failed"
+        # ...and a plain file says which stores keep history
+        env.run(env.odag, "-f", os.path.join(env.work, "plain.od"), "history",
+                expect=1)
+        return "label, delete, undo, redo — and the file store explains itself"
+
+    check("undo brings back what a deletion took", undo_redo)
+
     def local_record_store():
         # The middle rung: canonical roots with no node, out of the box.
         path = os.path.join(env.work, "rs")
