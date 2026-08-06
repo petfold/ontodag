@@ -1946,3 +1946,164 @@ class TestDiff(unittest.TestCase):
                                           os.path.join(home, "nope.od"))
             self.assertEqual((code, lines), (1, []))
             self.assertIn("no such file", err)
+
+
+class TestDiffAdditions(unittest.TestCase):
+    """`diff --additions PATH` writes the other side's additions as a store
+    file `merge` applies.
+
+    Deliberately *not* a patch: the additive half of one is a merge (measured
+    here — the fragment reaches the same root as merging the whole store), and
+    the subtractive half cannot be in a mergeable file at all, because a
+    removal is lossy and does not commute with a concurrent addition.
+    """
+
+    BASE = ("Travel", "Japan", "Flight Travel", "Hotel Travel",
+            "JAL Flight Japan", "JAL-cheap JAL", "Ryokan Hotel Japan")
+
+    def _store(self, home, name, rows=None):
+        session = cli.Session(os.path.join(home, name))
+        for row in (self.BASE if rows is None else rows):
+            self.assertEqual(_run(["put"] + row.split(), session)[0], 0)
+        return session
+
+    def _fork(self, home, session, name, edits):
+        """A copy of `session` with some edits applied, and its path."""
+        path = os.path.join(home, name)
+        self.assertEqual(_run(["export", path], session)[0], 0)
+        other = cli.Session(path)
+        for argv in edits:
+            self.assertEqual(_run(argv, other)[0], 0)
+        return path
+
+    def _diff(self, session, other, *categories, additions=None):
+        argv = ["diff", other] + list(categories)
+        if additions:
+            argv += ["--additions", additions]
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.dispatch(argv, session)
+        return code, out.getvalue().splitlines(), err.getvalue()
+
+    def _root(self, dag):
+        from ontodag.eager import EagerOntoDAG
+        eager = EagerOntoDAG(RecordStore(MemoryBytesStore()))
+        eager.merge(dag)
+        return eager.commit()
+
+    def test_the_fragment_merges_to_the_same_root_as_the_whole_store(self):
+        # The claim that makes --additions honest rather than a new mechanism.
+        with tempfile.TemporaryDirectory() as home:
+            mine = self._store(home, "mine.od")
+            theirs = self._fork(home, mine, "theirs.od", [
+                ["put", "Ryokan-Kyoto", "Ryokan"],
+                ["put", "Onsen", "Ryokan-Kyoto"],
+                ["put", "JAL-cheap", "Ryokan"]])
+            frag = os.path.join(home, "add.od")
+            self.assertEqual(self._diff(mine, theirs, additions=frag)[0], 1)
+
+            via_fragment = self._store(home, "f.od")
+            self.assertEqual(_run(["merge", frag], via_fragment)[0], 0)
+            via_whole = self._store(home, "w.od")
+            self.assertEqual(_run(["merge", theirs], via_whole)[0], 0)
+            self.assertEqual(self._root(via_fragment.dag),
+                             self._root(via_whole.dag))
+
+    def test_it_carries_only_what_changed(self):
+        with tempfile.TemporaryDirectory() as home:
+            mine = self._store(home, "mine.od")
+            theirs = self._fork(home, mine, "theirs.od",
+                                [["put", "Ryokan-Kyoto", "Ryokan"]])
+            frag = os.path.join(home, "add.od")
+            self._diff(mine, theirs, additions=frag)
+            loaded = cli._load(frag)
+            # The new item, and the parent it hangs from. Nothing else.
+            self.assertEqual(set(loaded.nodes) - {loaded.root.name},
+                             {"Ryokan-Kyoto", "Ryokan"})
+
+    def test_merging_it_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as home:
+            mine = self._store(home, "mine.od")
+            theirs = self._fork(home, mine, "theirs.od",
+                                [["put", "Ryokan-Kyoto", "Ryokan"]])
+            frag = os.path.join(home, "add.od")
+            self._diff(mine, theirs, additions=frag)
+            self.assertEqual(_run(["merge", frag], mine)[0], 0)
+            once = self._root(mine.dag)
+            self.assertEqual(_run(["merge", frag], mine)[0], 0)
+            self.assertEqual(self._root(mine.dag), once)
+
+    def test_a_chain_of_new_items_lands_in_the_right_place(self):
+        with tempfile.TemporaryDirectory() as home:
+            mine = self._store(home, "mine.od")
+            theirs = self._fork(home, mine, "theirs.od", [
+                ["put", "Ryokan-Kyoto", "Ryokan"],
+                ["put", "Onsen", "Ryokan-Kyoto"]])
+            frag = os.path.join(home, "add.od")
+            self._diff(mine, theirs, additions=frag)
+            self.assertEqual(_run(["merge", frag], mine)[0], 0)
+            self.assertEqual(_run(["get", "Hotel", "Japan"], mine),
+                             (0, "Onsen\nRyokan\nRyokan-Kyoto\n"))
+
+    def test_a_claim_only_change_travels(self):
+        with tempfile.TemporaryDirectory() as home:
+            mine = self._store(home, "mine.od")
+            theirs = self._fork(home, mine, "theirs.od",
+                                [["put", "JAL-cheap", "Ryokan"]])
+            frag = os.path.join(home, "add.od")
+            self._diff(mine, theirs, additions=frag)
+            self.assertEqual(_run(["merge", frag], mine)[0], 0)
+            self.assertEqual(_run(["below", "JAL-cheap", "Ryokan"], mine),
+                             (0, "true\n"))
+
+    def test_removals_are_left_out_and_said_out_loud(self):
+        with tempfile.TemporaryDirectory() as home:
+            mine = self._store(home, "mine.od")
+            theirs = self._fork(home, mine, "theirs.od",
+                                [["remove", "JAL"],
+                                 ["put", "Ryokan-Kyoto", "Ryokan"]])
+            frag = os.path.join(home, "add.od")
+            code, lines, err = self._diff(mine, theirs, additions=frag)
+            self.assertEqual(code, 1)
+            self.assertIn("- item JAL (Flight Japan)", lines)
+            self.assertIn("1 removal is NOT in", err)
+            self.assertIn("add.od", err)
+            # And merging it really does leave the removal unapplied.
+            self.assertEqual(_run(["merge", frag], mine)[0], 0)
+            self.assertIn("JAL", mine.dag.nodes)
+
+    def test_identical_stores_still_write_an_empty_fragment(self):
+        # So a script can merge it unconditionally.
+        with tempfile.TemporaryDirectory() as home:
+            mine = self._store(home, "mine.od")
+            theirs = self._fork(home, mine, "theirs.od", [])
+            frag = os.path.join(home, "add.od")
+            self.assertEqual(self._diff(mine, theirs, additions=frag)[:2],
+                             (0, []))
+            self.assertTrue(os.path.exists(frag))
+            loaded = cli._load(frag)
+            self.assertEqual(set(loaded.nodes), {loaded.root.name})
+            before = self._root(mine.dag)
+            self.assertEqual(_run(["merge", frag], mine)[0], 0)
+            self.assertEqual(self._root(mine.dag), before)
+
+    def test_a_scoped_diff_writes_a_scoped_fragment(self):
+        with tempfile.TemporaryDirectory() as home:
+            mine = self._store(home, "mine.od")
+            theirs = self._fork(home, mine, "theirs.od", [
+                ["put", "Ryokan-Kyoto", "Ryokan"],
+                ["put", "Bus", "Travel"]])          # outside Japan
+            frag = os.path.join(home, "add.od")
+            self._diff(mine, theirs, "Travel", "Japan", additions=frag)
+            loaded = cli._load(frag)
+            self.assertIn("Ryokan-Kyoto", loaded.nodes)
+            self.assertNotIn("Bus", loaded.nodes)
+
+    def test_the_fragment_format_follows_the_extension(self):
+        with tempfile.TemporaryDirectory() as home:
+            mine = self._store(home, "mine.od")
+            theirs = self._fork(home, mine, "theirs.od",
+                                [["put", "Ryokan-Kyoto", "Ryokan"]])
+            frag = os.path.join(home, "add.omn")
+            self._diff(mine, theirs, additions=frag)
+            self.assertIn("Ryokan-Kyoto", cli._load(frag).nodes)

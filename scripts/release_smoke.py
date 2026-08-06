@@ -270,10 +270,14 @@ def smoke(env, expect_version):
         env.odag_run("diff", cut, "Japan", expect=0)       # identical in scope
         env.odag_run("-f", colleague, "put", "extra-note", "Japan")
         env.odag_run("-f", colleague, "excerpt", "back.od", "Japan", "--context")
-        changed = env.odag_run("diff", os.path.join(env.work, "back.od"),
-                               "Japan", expect=1)          # differences: exit 1
+        back = os.path.join(env.work, "back.od")
+        changed = env.odag_run("diff", back, "Japan", expect=1)   # exit 1
         assert "+ item extra-note" in changed, changed
-        return "send, merge, edit, diff — exit 0 clean / 1 changed"
+        # And the additive fragment merges to what their store already says.
+        env.odag_run("diff", back, "Japan", "--additions", "add.od", expect=1)
+        env.odag_run("merge", os.path.join(env.work, "add.od"))
+        assert "extra-note" in o("get", "Japan").split(), "fragment did not apply"
+        return "send, merge, edit, diff, apply the additions"
 
     check("a contexted excerpt survives a round trip", contexted_excerpt_and_diff)
 

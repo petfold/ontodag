@@ -755,7 +755,9 @@ odag <command> ...
                         categories the answers hang from, which is what
                         makes it usable elsewhere (see §5.8)
   diff FILE [CAT...]    compare this store with FILE (+ is FILE's, - is
-                        ours); exits 0 if identical, 1 if not (see §5.8)
+                        ours); exits 0 if identical, 1 if not; --additions
+                        PATH writes FILE's additions as a mergeable file
+                        (see §5.8)
   visualize [CAT...]    render an image (--out B, --format png|svg|pdf);
                         with CATs, draws just that query's answer with
                         the query terms shown above it (see §5.4)
@@ -1395,6 +1397,40 @@ Two things about that output are deliberate:
   and the cascade is the `entailed claims` count on the summary line.
 - **The summary goes to stderr**, like the display cap's withheld count, so
   `odag diff back.od | wc -l` counts changes and nothing else.
+
+If you would rather mail the *changes* than the cut, add `--additions`:
+
+```console
+$ odag -f mine.od diff theirs.od --additions add.od
+- item JAL (Flight Japan)
++ item Onsen (Ryokan-Kyoto)
++ item Ryokan-Kyoto (Ryokan)
++ below JAL-cheap Ryokan
+odag: +2/-1 items, +1/-0 claims listed; +11/-4 entailed claims over 9 names
+odag: 1 removal is NOT in add.od — merge only ever adds. The `- ` lines above
+are the whole of what it leaves out.
+
+$ cat add.od
+# ontodag store v1
+JAL-cheap Ryokan
+Onsen Ryokan-Kyoto
+Ryokan
+Ryokan-Kyoto Ryokan
+```
+
+That file is an ordinary store — `odag merge add.od` applies it, twice if you
+like — and merging it lands on the *same canonical root* as merging their whole
+store would. That equality is the point, and it is also why there is no
+`odag patch` command: the additive half of a patch **is** a merge, so it needs
+no new machinery, only a smaller file.
+
+The removals are a different matter, and the note is not a to-do. A removal is
+lossy (`remove X` reattaches X's children to X's parents; putting X back does
+not put them back under it) and it does not commute with a concurrent addition —
+apply their `remove X` before your `put D X` and the put fails, after it and
+you silently get a different graph. A file whose effect depends on when you
+apply it cannot be a merge, so removals travel as *attributed retractions* (§9)
+and need an explicit decision, not a fold.
 
 One honest limitation, worth knowing before you rely on it: this is a *two-way*
 comparison, so it cannot tell "they deleted it" from "you added it after

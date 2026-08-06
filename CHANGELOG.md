@@ -61,6 +61,20 @@ the version numbers appear in commit history and docs.
   The shaping moved out of the web app into `ontodag.viz.query_picture`, so
   the CLI and the web query image cannot drift into drawing different
   pictures of one answer.
+- **`odag diff --additions PATH`** — the other side's additions as an ordinary
+  store file that `merge` applies, so you can mail the changes instead of the
+  cut. Merging the fragment was measured to reach the **byte-identical root** to
+  merging the whole store, which is why there is no `odag patch`: the additive
+  half of a patch *is* a merge, so it needs no new mechanism, only a smaller
+  file. The name is `--additions`, never `--patch`, because removals cannot be
+  in one and never will be — a removal is lossy (`remove X` reattaches X's
+  children to X's parents; re-adding X does not restore them) and does not
+  commute with a concurrent addition (`remove`-then-`add` fails outright,
+  `add`-then-`remove` silently yields a different graph), so a file whose effect
+  depends on when it is applied cannot be a fold. When a comparison contains
+  removals, the command says how many it left out rather than shipping a
+  fragment that looks like the whole change. Removals belong to a base-pinned
+  three-way apply and travel as attributed retractions (PROVENANCE.md).
 - **`OntoDAG.induced_subdag(names)`** — the third derived-DAG operation:
   `intersection_dag` intersects, `copy_subdag` closes downward, this copies
   exactly the names given (root edges kept where they are real). `excerpt` is

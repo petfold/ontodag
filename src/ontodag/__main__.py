@@ -1325,6 +1325,20 @@ def cmd_diff(args, session, out):
     which is what makes comparing a cut against the store it came from
     meaningful — unscoped, everything outside the cut reads as a deletion.
 
+    `--additions PATH` writes OTHER's additions as an ordinary store file that
+    `merge` applies. It is called `--additions` and not `--patch` because
+    that is exactly what it is *and what it is not*: merging the fragment was
+    measured to reach the byte-identical root to merging OTHER whole, so the
+    additive half of a patch is not a new mechanism — but removals cannot be
+    in it. Not "not yet": a removal is lossy (`remove X` contracts children
+    onto X's parents, and putting X back does not restore them) and does not
+    commute with a concurrent addition (`remove` then `add` fails outright,
+    `add` then `remove` silently gives a different graph), so a file whose
+    effect depends on when you apply it cannot be a fold. Removals belong to
+    a base-pinned three-way apply, and travel as attributed retractions
+    (PROVENANCE.md) rather than as graph operations. When there are any, this
+    says so rather than shipping a file that quietly drops them.
+
     NOTE this is two-way. It cannot distinguish "they deleted it" from "I added
     it after sending" — that needs the base you sent (three-way), which `rs:`
     and `swarm:` stores record for free as the root you were at.
@@ -1374,6 +1388,21 @@ def cmd_diff(args, session, out):
     for line in lines:
         print(line, file=out)
 
+    if args.additions:
+        # Their new items with the parents they hang from, plus both ends of
+        # each new claim: the minimum that merges to the same place. The
+        # parents need no ancestors of their own — an item that arrives
+        # parentless here already exists properly in the receiving store, and
+        # the redundant root edge is dropped by reduction on merge (the same
+        # property that makes a plain excerpt absorb).
+        names = set(only_theirs)
+        for name in only_theirs:
+            names |= set(_parents_in(theirs, name))
+        for sub, sup in added:
+            names |= {sub, sup}
+        # Written even when empty, so a script can merge it unconditionally.
+        _save(theirs.induced_subdag(names), args.additions)
+
     if not lines:
         return 0                        # identical in scope: silent, like diff(1)
 
@@ -1390,6 +1419,15 @@ def cmd_diff(args, session, out):
           f"+{len(added)}/-{len(removed)} claims listed; "
           f"+{len(yours - ours)}/-{len(ours - yours)} entailed claims "
           f"over {len(scope)} names", file=sys.stderr)
+
+    # Said out loud, always: a fragment that silently dropped the removals
+    # would look like the whole change to whoever merges it next.
+    if args.additions and (only_mine or removed):
+        dropped = len(only_mine) + len(removed)
+        print(f"odag: {dropped} removal{'' if dropped == 1 else 's'} "
+              f"{'is' if dropped == 1 else 'are'} NOT in {args.additions} — "
+              f"merge only ever adds. The `- ` lines above are the whole of "
+              f"what it leaves out.", file=sys.stderr)
     return 1                            # differences found (grep-style, like `below`)
 
 
@@ -1593,7 +1631,10 @@ Commands:
                         diffed against the store it came from
   diff FILE [CAT...]    compare this store with FILE: `+ ` is FILE's, `- `
                         is ours; exits 0 if identical, 1 if not. A CAT list
-                        compares only that part of both stores
+                        compares only that part of both stores.
+                        --additions PATH also writes FILE's additions as a
+                        store file `merge` can apply — removals cannot be
+                        in one, and it says so when there are any
   visualize [CAT...]    render an image (--out B, --format png|svg|pdf).
                         With CATs, draws just that query's answer, with
                         the query terms shown above it — a picture is
@@ -1823,6 +1864,10 @@ def build_parser():
     p.add_argument("categories", nargs="*",
                    help="compare only this query's answer and the categories "
                         "it hangs from")
+    p.add_argument("--additions", metavar="PATH",
+                   help="also write OTHER's additions to PATH as a store file "
+                        "`merge` can apply (removals cannot be in it — see "
+                        "the note it prints)")
     p.add_argument("-o", "--output")
     _add_surface_flags(p)
     p.set_defaults(func=cmd_diff, stream_output=True)

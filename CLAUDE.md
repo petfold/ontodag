@@ -295,6 +295,29 @@ answers were *measured* first, and the measurements are the design record:
 - `OntoDAG.induced_subdag(names)` is the new core primitive (third derived-DAG
   operation beside `intersection_dag` and `copy_subdag`); `excerpt` is one code
   path over it in both modes. 20 new tests (`TestExcerptContext`, `TestDiff`).
+
+**Then `diff --additions PATH` (2026-08-06, from Peter's "would a patch be the
+same as a merge?"), and the answer to why there is no `odag patch`.** Measured:
+merging the additive fragment reaches the **byte-identical root** to merging the
+peer's whole store, and is idempotent — so *the additive half of a patch IS a
+merge*, needing no new mechanism, only a smaller file (4 lines vs the store).
+Removals cannot be in a mergeable file, and this is permanent, not pending:
+`remove X` reattaches X's children to X's parents and putting X back does NOT
+restore them (lossy), and a removal does not commute with a concurrent addition
+(`remove` then `put D X` **fails** — no such parent; `add` then `remove` silently
+yields a different graph). A file whose effect depends on when it is applied
+cannot be a fold, so it would take the CRDT property with it. Hence the flag is
+`--additions`, never `--patch` (a name that promised removals would cost someone
+data), it prints how many removals it left out whenever there are any, and the
+subtractive half is routed where it belongs: a base-pinned three-way apply
+(recordstore has shipped `merge(base, ours, theirs)` since 0.8.0; `rs:`/`swarm:`
+stores record the base for free) carrying **attributed retractions** per
+PROVENANCE.md — not a third file format. Fragment contents = their new items +
+the parents those hang from + both ends of each new claim; parentless arrivals
+are absorbed by reduction on merge, the same property that makes a plain excerpt
+a no-op. Written even when empty so scripts can merge unconditionally.
+`TestDiffAdditions` (9 tests, incl. the same-root and idempotence properties);
+the release smoke now applies a fragment end to end.
 - **Parked, tripwire-gated:** EL/relations canonicalization research (now observable via MCP traffic) — **discussion draft exists as of 2026-08-03: `docs/plans/BINDING.md`** (prompted by Peter's London→Rome → two-leg → bouquet probes; scope rule for flat roles, ground bundles as a proposed scoped contract amendment with two consumers — multi-instance grouping and multiplicity — the §6 coordinate-order fork, the compile-down baseline; nothing decided, grammar work gated on discussing it with Peter); computed values (passes the admissibility axes, no consumer — the itinerary's derived from/to/summed-duration is noted in BINDING.md §3 as another appearance), languages/lexicon (fork recorded in `SURFACE_LAYER.md` §12).
 
 Previous milestone — **dimension lattices (parametric items), done and released** — design, implementation, docs and PyPI release all on 2026-07-30. `docs/DIMENSIONS.md` is the design record and tracks its own §12 sequencing (steps 1–5 and 7 done; step 6, the per-dimension sorted index, stays parked until profiling asks). One-line summary: values like `weight(3kg)` are ordinary categories whose order is computed from the canonical name (containment of denotations, exact integers in base units), never materialized as edges; anchor stars enumerate each dimension; virtual query terms cost no writes; `get_overlapping` is the possibly-satisfies mode. Works through the CLI (quote the parentheses), the web REST API (names now pass through to put/get — `tests/test_web.py`), `EagerOntoDAG` (canonical roots verified across put orders) and `LazyOntoDAG` (bounded fetches). Adoption notes for the sister projects are in loopmarket ARCHITECTURE.md §3 (update note) and ontodag-fs ROADMAP.md. Headline decisions: parametric items (`weight(..5000000mg)`) ordered by containment of denoted value sets — computed at query time, **never materialized as edges**; kinds declared by ordinary edges under registry-known nodes (`weight → linear-dimension → dimension`), nothing in `meta`, no callables in data; values are integers in per-family base units (agreed 2026-07-30 — no decimals; sub-base precision is a boundary error, the UI renders friendly units); anchor/star edges under the head node are schema, exempt from reduction; `add_edge`/`_remove_unneeded_edges` consult combined (asserted + computed) reachability; only exact-arithmetic kinds ever enter the canonical order (geo discs stay application-side — see loopmarket). This fired the "exact arithmetic" wall's tripwire — recorded in `DATABASE_DIRECTION.md` — via the `../loopmarket` sister project (marketplace matching is a main OntoDAG goal); overlap matching (`get_overlapping`) is deliberately the *first follow-up*, not v1, because overlap is not transitive and therefore not a cone.
