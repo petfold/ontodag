@@ -691,50 +691,57 @@ default earns its place; one that adds weight for a file format does not.*
 
 ## Release state
 
-**PUBLISHED 2026-08-06: ontodag 0.16.0 and recordstore 0.20.1**, both by tag
-through the publish workflows, both verified from PyPI rather than from disk
-(`release_smoke.py --pypi 0.16.0` → 23/23 against what the index serves; a fresh
-venv install of `recordstore==0.20.1`). All four ontodag jobs green, the
-**downstream ontodag-fs gate included**. Follow-ups done the same hour:
-ontodag-fs's range raised to `>=0.16.0,<0.17.0` (ceiling because the gate passed,
-floor because it adopted `Backend.load_at`) and it gained **`--as-of ROOT`** — the
-one 0.16.0 feature that fits a browse-only surface; writes, files and candidate
-sets were deliberately not adopted, with reasons in its own CLAUDE.md. recordstore
-0.20.1 is docs-only: 0.20.0 went out with the README — i.e. the PyPI landing page
-— un-updated, which is the miss it repairs and the reason a docs-only patch was
-worth cutting. **Lesson reinforced: the docs-before-publish rule has to include
-the README, because that is the page people read first.**
+**All three repos released 2026-08-06**, each by tag through its publish
+workflow, each verified against what PyPI serves rather than what is on disk.
+`CHANGELOG.md` in each repo is the authoritative per-release history; this
+section is the *current* state and the cross-repo pins.
 
-Prep record for 0.16.0 (kept): version bumped, CHANGELOG
-cut, docs swept (README gained the editing/sharing/history/tiers sections with
-executed output; DIMENSIONS §4 rewritten off the superseded integers-in-tiny-bases
-text; HOW_IT_WORKS §5 gained cone-removal + move and §6 "Going back"; pets
-examples retired in favour of the travel narrative), release smoke 22/22 on the
-0.16.0 wheel, and **ontodag-fs's suite run locally against this source: 282
-passed**, so the publish workflow's downstream gate should pass. Two follow-ups
-belong to whoever publishes: raise ontodag-fs's ceiling from `<0.16.0` once the
-gate is green, and note that **recordstore's README was updated only AFTER
-0.20.0 went out** — the PyPI page for 0.20.0 describes the package without undo,
-which a 0.20.1 (docs only) would fix.
+| package | version | verified by | pins |
+|---|---|---|---|
+| **ontodag** | **0.16.0** | `scripts/release_smoke.py --pypi 0.16.0` → 23/23 | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
+| **recordstore** | **0.20.1** | fresh-venv install; undo/history exercised | none (stdlib-only base) |
+| **ontodag-fs** | **0.3.0** | fresh-venv install; `--as-of` end to end on a real store | needs `ontodag>=0.16.0,<0.17.0` |
 
-Previously: **ontodag 0.15.0** (2026-08-04, by tag through the publish
-workflow — all four jobs green incl. the downstream ontodag-fs gate and the
-PyPI-serve verify). 0.15.0: complete transitive reduction (order-independent
-stored form and multi-writer merge — I7 holds byte-identically now),
-`merge_delta` (sync reads the divergence, never the store; first consumer of
-recordstore's diff), `SparseOntoDAG.sync`, the concurrent-delete gap fix,
-and the `migrate_record_store` fix. ontodag-fs's ceiling raised to <0.16.0
-the same evening (gate + full suite green). Before it, 0.14.1 and 0.14.0
-(2026-08-03/04): lazy store opening (`odag help`/`set` work with
-the node down; `Session` opens on first touch, `switch` stays eager-atomic)
-+ the docs URL in help. Same day, 0.13.0: the count kind (registry 4.1,
-prelude v3), ranges-as-uncertainty docs, REFERENCE.md + the pinning test +
-docs/plans/, `[all]` meaning all, the getting-a-node help — and both sister
-repos' floors raised to 0.13.0 (ontodag-fs `>=0.13.0,<0.15.0` per its
-ceiling policy — **raise that ceiling with each ontodag release its
-downstream gate passes**, done for 0.14.0; loopmarket `>=0.13.0`). Earlier the same day:
-0.11.0 and 0.12.0 (signing-key generation + key-leak fixes, rs: stores, the
-swarm doctor). CHANGELOG.md is the authoritative release history.
+Also live-validated after publication: the **published ontodag wheel** driving a
+`swarm:` store on a real Bee node through put → `history` → `--as-of` → `undo`
+(Bee run 8 above), which is the release story exercised by the artifact users get
+rather than by a checkout.
+
+**What 0.16.0 is** (one line each; details in `CHANGELOG.md`): `excerpt`
+(+`--context`) and `diff` (+`--additions`) for sending and reviewing parts of a
+store; `move`/`reclassify` with the contested-set report; `remove --cone` with the
+survival rule; `history`/`status`/`undo`/`redo` and a `-m` label on recordstore
+0.20's timeline; `--as-of` to read a past version; `overlapping` on the CLI and
+REST; `ontodag.compare` as a library; `OntoDAG.excerpt`/`excerpt_names`/
+`contested`/`induced_subdag`; web PATCH/cone-delete/prelude/pack/canon endpoints
+plus the matching browser controls; and the swarm feed-discovery fix (a fresh
+replica clones from the published root, since swarmfs cannot heal a ref it never
+knew).
+
+**Standing cross-repo rules.**
+- ontodag-fs pins a *ceiling* (`<0.17.0` now) because a released consumer cannot
+  be re-tested against a future ontodag. **Raise it — by hand — after ontodag's
+  publish workflow's `downstream` job runs ontodag-fs's suite against the
+  candidate.** That job is the evidence; the bump is the acknowledgement.
+- ontodag-fs's *floor* is a use, not a precaution: 0.16.0 for `Backend.load_at`.
+- loopmarket pins `ontodag>=0.13.0` and has NOT been revisited for 0.16.0 — it
+  pins registry semantics, so mixing stores across a registry change needs the
+  `ontodag.migrate` replay first (registry is 4.1, unchanged since 0.13.0, so
+  nothing is owed today).
+- recordstore has no CLAUDE.md; its brief lives in `ONBOARDING.md` and its status
+  in `README.md`.
+
+**Two lessons this round paid for**, both now standing practice:
+1. **Docs-before-publish includes the README**, because it is the PyPI landing
+   page. recordstore 0.20.0 shipped with undo undocumented there, which is the
+   only reason 0.20.1 exists.
+2. **Verify from PyPI, never from disk** — and expect index propagation lag; an
+   immediate check can install the *previous* release, which is why the smoke
+   script fails on a version mismatch instead of quietly testing the wrong thing.
+
+Older history (0.15.0 and before) is in `CHANGELOG.md`, which was back-filled to
+0.1.0; the headline of 0.15.0 was complete transitive reduction, making stored
+form and multi-writer merge order-independent.
 
 ## Documentation layout (2026-08-03)
 
