@@ -63,12 +63,21 @@ class TestSwarmBackendOnLiveBee(unittest.TestCase):
         self._home.cleanup()
 
     def _session(self, name="pets"):
-        # A fresh Session re-hydrates from the FilePointer's current root,
-        # reading records back from Bee — like a separate `odag` invocation.
+        # A fresh Session re-opens the store — like a separate `odag`
+        # invocation. Since 0.14 (local-first) that resolves the head from the
+        # store directory and serves blobs it already holds; the *network*
+        # rehydration path is what TestSwarmFeedPointerOnLiveBee scorches a
+        # home to exercise.
         return cli.Session(f"swarm:{name}")
 
     def _root(self, name="pets"):
-        with open(cli.SwarmBackend(name).pointer_path()) as fh:
+        # The head lives in the local-first store directory's HEAD. Before
+        # 0.14 it was ~/.ontodag/NAME.root, which is now only read once for
+        # migration — reading it here is what made this test fail against a
+        # live node after the local-first change, since a new store never
+        # creates that file.
+        with open(os.path.join(cli.SwarmBackend(name).store_dir(),
+                               "HEAD")) as fh:
             return fh.read().strip()
 
     def test_roundtrip_rehydrate_canonical_idempotent_removal(self):
@@ -83,7 +92,7 @@ class TestSwarmBackendOnLiveBee(unittest.TestCase):
         ):
             self.assertEqual(_run(argv, s)[0], 0, f"put failed: {argv}")
 
-        # Query from a brand-new session -> must hydrate from Swarm.
+        # Query from a brand-new session -> re-opens the store and answers.
         code, out = _run(["get", "Animal", "Pet"], self._session())
         self.assertEqual((code, out), (0, "Cat\nDog\nSpaniel\n"))
 

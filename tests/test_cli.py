@@ -857,24 +857,19 @@ class TestSwarmSignerWiring(unittest.TestCase):
         self.assertEqual(factory.call_args.args[0],
                          cli.SwarmBackend("pets").store_dir())
 
-    def test_legacy_root_migrates_into_head(self):
-        from unittest import mock
-        import recordstore
-
+    def test_a_legacy_root_is_what_a_new_store_bootstraps_from(self):
+        # A pre-0.14 store kept its blobs on Bee and its head in NAME.root.
+        # That root is now CLONED into the local store rather than written
+        # into its HEAD: seeding HEAD alone points the store at content it has
+        # no blobs for, and swarmfs heals only refs a replica already knows,
+        # so the first read raised KeyError (found on a live node 2026-08-06).
         backend = cli.SwarmBackend("pets")
         os.makedirs(os.path.dirname(backend.pointer_path()), exist_ok=True)
         with open(backend.pointer_path(), "w") as f:
             f.write("ab" * 32)
-        with mock.patch.object(recordstore, "local_first_store",
-                               return_value=object()):
-            backend._record_store()
-        with open(os.path.join(backend.store_dir(), "HEAD")) as f:
-            self.assertEqual(f.read(), "ab" * 32)
+        self.assertEqual(backend._bootstrap_root(None), "ab" * 32)
 
-    def test_head_not_overwritten_by_stale_legacy_root(self):
-        from unittest import mock
-        import recordstore
-
+    def test_a_stale_legacy_root_cannot_touch_a_live_store(self):
         backend = cli.SwarmBackend("pets")
         os.makedirs(backend.store_dir(), exist_ok=True)
         with open(os.path.join(backend.store_dir(), "HEAD"), "w") as f:
@@ -882,9 +877,7 @@ class TestSwarmSignerWiring(unittest.TestCase):
         os.makedirs(os.path.dirname(backend.pointer_path()), exist_ok=True)
         with open(backend.pointer_path(), "w") as f:
             f.write("ab" * 32)
-        with mock.patch.object(recordstore, "local_first_store",
-                               return_value=object()):
-            backend._record_store()
+        self.assertIsNone(backend._bootstrap_root(None))
         with open(os.path.join(backend.store_dir(), "HEAD")) as f:
             self.assertEqual(f.read(), "cd" * 32)
 
@@ -2369,3 +2362,71 @@ class TestMove(unittest.TestCase):
                 self._move(session, "crate", "--to", "weight(3kg)")[0], 0)
             self.assertEqual(_run(["get", "weight(..5kg)"], session),
                              (0, "crate\nweight(3kg)\n"))
+
+
+class TestSwarmBootstrapDecision(unittest.TestCase):
+    """Where a brand-new local store gets its starting root from.
+
+    `local_first_store` resolves its root from the store directory's HEAD or
+    journal and never consults the publish pointer, so a fresh machine started
+    EMPTY even though the head was in the signed feed and every blob was on
+    Swarm — the scorched-earth rehydration the live suite asserts. This pins the
+    decision; the clone itself is network I/O, covered by
+    `tests/test_swarm_bee.py::TestSwarmFeedPointerOnLiveBee`.
+    """
+
+    class Pointer:
+        def __init__(self, root=None, fail=False):
+            self.root, self.fail = root, fail
+
+        def get(self):
+            if self.fail:
+                raise OSError("node unreachable")
+            return self.root
+
+    def setUp(self):
+        self._home = tempfile.TemporaryDirectory()
+        self._saved = os.environ.get("ONTODAG_HOME")
+        os.environ["ONTODAG_HOME"] = self._home.name
+
+    def tearDown(self):
+        if self._saved is None:
+            os.environ.pop("ONTODAG_HOME", None)
+        else:
+            os.environ["ONTODAG_HOME"] = self._saved
+        self._home.cleanup()
+
+    def test_the_feed_is_followed_for_a_new_store(self):
+        backend = cli.SwarmBackend("pets")
+        self.assertEqual(backend._bootstrap_root(self.Pointer("abc123")),
+                         "abc123")
+
+    def test_a_store_with_its_own_history_is_never_overwritten(self):
+        backend = cli.SwarmBackend("pets")
+        os.makedirs(backend.store_dir())
+        with open(os.path.join(backend.store_dir(), "HEAD"), "w") as fh:
+            fh.write("localhead")
+        self.assertIsNone(backend._bootstrap_root(self.Pointer("abc123")))
+
+    def test_a_journal_alone_counts_as_history(self):
+        backend = cli.SwarmBackend("pets")
+        os.makedirs(backend.store_dir())
+        open(os.path.join(backend.store_dir(), "journal.jsonl"), "w").close()
+        self.assertIsNone(backend._bootstrap_root(self.Pointer("abc123")))
+
+    def test_the_legacy_root_file_is_the_fallback(self):
+        backend = cli.SwarmBackend("pets")
+        with open(backend.pointer_path(), "w") as fh:
+            fh.write("legacyroot\n")
+        self.assertEqual(backend._bootstrap_root(None), "legacyroot")
+        # the feed wins when both exist — it is the shared, followable head
+        self.assertEqual(backend._bootstrap_root(self.Pointer("fromfeed")),
+                         "fromfeed")
+
+    def test_an_unreachable_node_starts_empty_rather_than_failing(self):
+        backend = cli.SwarmBackend("pets")
+        self.assertIsNone(backend._bootstrap_root(self.Pointer(fail=True)))
+
+    def test_nothing_published_yet_is_not_an_error(self):
+        backend = cli.SwarmBackend("pets")
+        self.assertIsNone(backend._bootstrap_root(self.Pointer(None)))

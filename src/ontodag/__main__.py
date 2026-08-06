@@ -500,24 +500,64 @@ class SwarmBackend:
     def store_dir(self):
         return os.path.join(_home_dir(), self.name + ".store")
 
-    def _migrate_legacy_root(self):
-        """Seed the local-first store's HEAD from the old NAME.root file,
-        once: a pre-local-first store had its blobs on Bee and its head in
-        NAME.root. Writing HEAD before the first open makes the new store
-        resume at that root — reads then heal lazily from Swarm through
-        the syncer's fetcher, so the store hydrates itself."""
-        head = os.path.join(self.store_dir(), "HEAD")
-        if os.path.exists(head):
-            return
+    def _legacy_root(self):
+        """The head a pre-local-first store (<= 0.14.x) left in NAME.root."""
         try:
             with open(self.pointer_path(), encoding="utf-8") as f:
-                legacy = f.read().strip()
+                return f.read().strip() or None
         except FileNotFoundError:
-            return
-        if legacy:
-            os.makedirs(self.store_dir(), exist_ok=True)
-            with open(head, "w", encoding="utf-8") as f:
-                f.write(legacy)
+            return None
+
+    def _has_local_history(self):
+        directory = self.store_dir()
+        return (os.path.exists(os.path.join(directory, "HEAD"))
+                or os.path.exists(os.path.join(directory, "journal.jsonl")))
+
+    def _bootstrap_root(self, pointer):
+        """The root a brand-new local store should start from, if any.
+
+        The signed feed first (a followable head is the point of publishing
+        one), else the legacy NAME.root file. Only ever consulted for a store
+        directory with no history of its own: a replica that has committed
+        locally resolves its own HEAD, and a head that moved on elsewhere is
+        folded in by `save`'s merge — never adopted as this replica's starting
+        point behind its back."""
+        if self._has_local_history():
+            return None
+        if pointer is not None:
+            try:
+                published = pointer.get()
+            except Exception:
+                published = None        # offline, or nothing published yet
+            if published:
+                return published
+        return self._legacy_root()
+
+    def _clone_from_swarm(self, store, api, root):
+        """Fill a brand-new local store from Swarm, once.
+
+        Seeding the directory's HEAD is NOT enough, and finding that out cost a
+        live-node session: `swarmfs`'s `LocalStore.get` heals a missing blob
+        only if this replica already *knows* the ref (`_blob_roots`), so a
+        scorched-earth replica raises `KeyError` on the very first read. Lazy
+        healing recovers evicted blobs; it cannot bootstrap. So a fresh replica
+        reads the published root through a plain Bee-backed store and replays
+        the records into its own — after which it owns its blobs and the local
+        store behaves normally.
+
+        Canonical addressing makes this verifiable: replaying the same records
+        must commit to the same root. A mismatch means the network served
+        something other than what the pointer promised, which is worth saying
+        out loud rather than adopting silently."""
+        from recordstore import BeeBytesStore, RecordStore
+        source = RecordStore.at(root, BeeBytesStore(api))
+        for key, record in source.items():
+            store.put(key, record)
+        cloned = store.commit()
+        if cloned != root:
+            print(f"odag: warning: cloned {self.name} from {root[:12]}… but the "
+                  f"records commit to {cloned[:12]}… — the node served "
+                  f"different content than the feed points at", file=sys.stderr)
 
     def _record_store(self):
         # BeeRemote resolves this order itself, but being explicit keeps
@@ -534,26 +574,32 @@ class SwarmBackend:
                 return self._store_factory()
             from recordstore import local_first_store
             os.makedirs(_home_dir(), exist_ok=True)
-            self._migrate_legacy_root()
             publish_pointer = None
             if signer:
                 from recordstore import SwarmFeedPointer
                 publish_pointer = SwarmFeedPointer(
                     api, self.name, signer=signer, postage_batch_id=batch)
+            # Asked before opening (the answer depends on the directory being
+            # untouched), used after (cloning needs an open store).
+            bootstrap = self._bootstrap_root(publish_pointer)
             # Transient windows may overlap for a moment (odag saving while
             # an odag-fs mount rehydrates): the writer lock is only ever
             # held briefly, so a short retry absorbs it.
             deadline = time.monotonic() + _LOCK_RETRY
             while True:
                 try:
-                    return local_first_store(self.store_dir(), api,
-                                             stamp=batch,
-                                             publish_pointer=publish_pointer)
+                    store = local_first_store(self.store_dir(), api,
+                                              stamp=batch,
+                                              publish_pointer=publish_pointer)
+                    break
                 except Exception as exc:
                     if type(exc).__name__ != "StoreLocked" or \
                             time.monotonic() > deadline:
                         raise
                     time.sleep(0.2)
+            if bootstrap and getattr(store, "root", None) is None:
+                self._clone_from_swarm(store, api, bootstrap)
+            return store
         except ImportError as exc:
             missing = exc.name or "swarmfs"
             raise ValueError(

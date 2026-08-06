@@ -126,6 +126,31 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **A `swarm:` store published a feed nobody could follow.** Since 0.14.0
+  (local-first stores) a fresh machine — or a wiped `~/.ontodag` — opened an
+  **empty** store even though the head was in the signed Swarm feed and every
+  blob was on Swarm. Publication worked; *discovery* did not:
+  `local_first_store` resolves its root from the store directory's `HEAD` or
+  journal and never consults the publish pointer. Seeding `HEAD` from the feed
+  is not enough either, which is the second half of the bug — swarmfs heals a
+  missing blob only for refs the replica already knows (`_blob_roots`), so a
+  scorched-earth replica raises `KeyError` on its first read; lazy healing
+  recovers evicted blobs, it cannot bootstrap. A store directory with no history
+  of its own now **clones** from the published root (feed first, else the legacy
+  `NAME.root`) through a Bee-backed store, and canonical addressing verifies the
+  clone: replaying the records must commit to the same root, and a mismatch is
+  reported. The same flaw silently broke the 0.14 migration path for
+  pre-local-first stores; it is fixed by the same clone. Found by running the
+  `BEE_API`-gated suite against a live node — which had not been run since the
+  local-first change, and whose own helper still read `NAME.root` (updated).
+- **`SparseOntoDAG.remove_cone` committed a root that still contained the
+  records it had just deleted**, and computed the root's `descendant_count`
+  from the *resident* node count. Node deletion now goes through one seam
+  (`OntoDAG._forget`), which the sparse writer hooks to stage the store delete —
+  so every deleting operation is covered, not just `remove`. The root's count
+  uses the one exact delta available (it loses precisely the deleted nodes,
+  because the survival rule is defined by reachability from the root). Pinned by
+  a 20-seed sparse-vs-eager root-equality sweep.
 - **`odag visualize` with no `--out` raised `AttributeError`** (since 0.12.0,
   when `rs:` stores removed `Session.path`). It now names the image after the
   store, for every backend spelling. No test had ever omitted `--out`.

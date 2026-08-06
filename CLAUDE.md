@@ -170,6 +170,11 @@ Also done 2026-07-19, same node/batch: **retrievability** — `GET /stewardship/
 
 6. **Real node, 2026-08-01 (evening) — post-release revalidation.** Bee v2.8.1 light node, existing usable batch (`c931c8a5…`, TTL ≈ 37 days), throwaway signers. ontodag's two gated tests passed (13s: the CLI swarm backend roundtrip and the scorched-earth feed rehydration — first run since the surface/MCP/certificates wave, so the whole 0.9.0 stack is live-clean), and recordstore's full live suite passed **against the published 0.16.0** (21 tests, 3:52 — `test_recordstore_bee` + `test_recordstore_feed` + `test_swarm_store`, feed lookups dominating as in run 5).
 
+7. **Real node, 2026-08-06 — and the gated suite caught a shipped regression.** Bee v2.8.1 light node, existing batch `c931c8a5…` (depth 19, TTL 31.9 days), throwaway signers. Both gated tests **failed first**, and only one of the two reasons was test staleness:
+   - *Stale test:* `TestSwarmBackendOnLiveBee._root()` read `~/.ontodag/NAME.root`, which local-first stores (0.14.0) no longer create — the head lives in `<NAME>.store/HEAD`. Updated. **These tests had not been run since the 2026-08-04 local-first wave**, which is why nobody noticed the next item.
+   - *Real regression, shipped in 0.14.0/0.15.0:* **a `swarm:` store published a feed nobody could follow.** A scorched-earth home read *nothing*, despite the feed holding the correct head (verified directly: `SwarmFeedPointer.get()` == local `HEAD`). Publication rides confirmation and works; **discovery** was missing — `local_first_store` resolves its root from the directory's `HEAD`/journal and never consults `publish_pointer`. Seeding `HEAD` from the feed then failed *differently*: swarmfs's `LocalStore.get` heals only refs the replica already knows (`ref not in self._blob_roots` → `KeyError`), so lazy healing recovers evicted blobs but **cannot bootstrap** a fresh replica — which also means the 0.14 legacy-`NAME.root` migration path was broken the same way. Fixed in `SwarmBackend`: `_bootstrap_root` (feed, else legacy file, only for a directory with no history) + `_clone_from_swarm` (replay the records through `RecordStore.at(root, BeeBytesStore(api))`, and canonical addressing verifies the clone — a re-commit must reproduce the same root, mismatch reported). Verified live: scorched `$ONTODAG_HOME` + same signer → the graph comes back. Both gated tests pass (35–41 s). Offline decision logic pinned by `TestSwarmBootstrapDecision` in `tests/test_cli.py`; the clone itself stays live-only, like the rest of the HTTP path.
+   - Minor, upstream: recordstore 0.19.0's `local_first_store` docstring still says "Feed publication is not wired here yet" while its body wires it (lines 2238–2247). Worth a one-line fix in that repo.
+
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
 
 ### `LazyOntoDAG` on-demand reader (`src/ontodag/lazy.py`) — DONE (2026-07-25)
@@ -410,6 +415,30 @@ boundary. Tests: `TestReclassify` (9, `test_invariants.py` — subtree travel, t
 shared-child case, all six refusal shapes leaving `edge_set` unchanged, the
 put-parity guard, and counts/reduction/no-orphans over 15 seeded random move
 sequences), `TestMove` (12, CLI). Release smoke: 21 checks.
+
+**Where the 2026-08-06 operations are reachable from (asked and answered the same
+day).** Python: `induced_subdag`, `reclassify`, `remove_cone`,
+`cone_removal_plan` are `OntoDAG` methods, so they are inherited by
+`EagerOntoDAG` **and `SparseOntoDAG`** — the partially-resident writer produces
+byte-identical roots to the eager one for both new mutations (20-seed sweep in
+`TestSparseReclassifyAndConeRemoval`), after two bugs found by asking that
+question: `remove_cone` staged no store deletes (the committed root still held
+the deleted records) and took the root's count from `len(self.nodes)`, the
+*resident* count. Both fixed by routing node deletion through the single
+`OntoDAG._forget` seam, which the sparse writer hooks — so any future deleting
+operation is covered too. `LazyOntoDAG` refuses both (they route through
+`add_edge`/`remove_edge`), while `cone_removal_plan` works there, being a query.
+**Not reachable yet: the web REST API and the MCP surface.** `excerpt`/`diff`
+have no Python API at all (the comparison logic lives in `__main__.py`), so a
+non-CLI consumer would have to reimplement it — extracting an `ontodag.compare`
+module is the obvious step if anything else wants it. For the web layer the gap
+is worse than absence: **`/dag/query/export*` exports `session["query_result_dag"]`,
+which `/dag/query/image` sets to the *picture* — including the invented
+query-term nodes — so a downloaded query export re-imports the constraint as
+knowledge**, exactly the failure `excerpt` was designed to avoid (and it depends
+on which endpoint was hit last). For MCP, `move`/`remove --cone` are a
+*provenance* decision, not a transcription: §3's coupling rule requires a
+retraction record per retracted claim.
 - **Parked, tripwire-gated:** EL/relations canonicalization research (now observable via MCP traffic) — **discussion draft exists as of 2026-08-03: `docs/plans/BINDING.md`** (prompted by Peter's London→Rome → two-leg → bouquet probes; scope rule for flat roles, ground bundles as a proposed scoped contract amendment with two consumers — multi-instance grouping and multiplicity — the §6 coordinate-order fork, the compile-down baseline; nothing decided, grammar work gated on discussing it with Peter); computed values (passes the admissibility axes, no consumer — the itinerary's derived from/to/summed-duration is noted in BINDING.md §3 as another appearance), languages/lexicon (fork recorded in `SURFACE_LAYER.md` §12).
 
 Previous milestone — **dimension lattices (parametric items), done and released** — design, implementation, docs and PyPI release all on 2026-07-30. `docs/DIMENSIONS.md` is the design record and tracks its own §12 sequencing (steps 1–5 and 7 done; step 6, the per-dimension sorted index, stays parked until profiling asks). One-line summary: values like `weight(3kg)` are ordinary categories whose order is computed from the canonical name (containment of denotations, exact integers in base units), never materialized as edges; anchor stars enumerate each dimension; virtual query terms cost no writes; `get_overlapping` is the possibly-satisfies mode. Works through the CLI (quote the parentheses), the web REST API (names now pass through to put/get — `tests/test_web.py`), `EagerOntoDAG` (canonical roots verified across put orders) and `LazyOntoDAG` (bounded fetches). Adoption notes for the sister projects are in loopmarket ARCHITECTURE.md §3 (update note) and ontodag-fs ROADMAP.md. Headline decisions: parametric items (`weight(..5000000mg)`) ordered by containment of denoted value sets — computed at query time, **never materialized as edges**; kinds declared by ordinary edges under registry-known nodes (`weight → linear-dimension → dimension`), nothing in `meta`, no callables in data; values are integers in per-family base units (agreed 2026-07-30 — no decimals; sub-base precision is a boundary error, the UI renders friendly units); anchor/star edges under the head node are schema, exempt from reduction; `add_edge`/`_remove_unneeded_edges` consult combined (asserted + computed) reachability; only exact-arithmetic kinds ever enter the canonical order (geo discs stay application-side — see loopmarket). This fired the "exact arithmetic" wall's tripwire — recorded in `DATABASE_DIRECTION.md` — via the `../loopmarket` sister project (marketplace matching is a main OntoDAG goal); overlap matching (`get_overlapping`) is deliberately the *first follow-up*, not v1, because overlap is not transitive and therefore not a cone.

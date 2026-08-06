@@ -1029,6 +1029,15 @@ class OntoDAG(DAG):
                         and not self._is_anchor(parent, descendant):
                     self.remove_edge(parent, descendant)
 
+    def _forget(self, name):
+        """Drop a node from the graph — the ONE place a node stops existing.
+
+        A single seam because a partially-resident writer has to know: it stages
+        a store delete from it (`SparseOntoDAG`). `remove_cone` deleting nodes
+        directly is exactly how a sparse cone removal came to commit a root
+        that still contained the deleted records."""
+        del self.nodes[name]
+
     def _live_parent_names(self, name):
         """Names of a node's own parents (empty for a name not in the graph)."""
         node = self.nodes.get(name)
@@ -1207,7 +1216,7 @@ class OntoDAG(DAG):
             for super_category in super_categories:
                 self.remove_edge(super_category, node_to_remove)
 
-            del self.nodes[node_to_remove.name]
+            self._forget(node_to_remove.name)
             del node_to_remove
 
             # Add edges from all super-categories of the removed node to all its subcategories
@@ -1446,14 +1455,18 @@ class OntoDAG(DAG):
                         self.remove_edge(parent, node)
 
         for name in deleted:
-            del self.nodes[name]
+            self._forget(name)
 
-        # The root reaches everything by construction (a survivor always keeps
-        # a live parent), so its count is free — which matters, since the root
-        # is an ancestor of every deletion and its cone is the whole graph.
+        # The root is the one ancestor whose delta IS exact: the survival rule
+        # is *defined* by reachability from the root, so the root loses exactly
+        # the deleted nodes and nothing else can be stranded from it. That
+        # matters twice — its cone is the whole graph, and on a partially
+        # resident writer `len(self.nodes)` would be the resident count, not
+        # the graph's (which is what made a sparse `remove_cone` commit a
+        # different root from the eager one).
         for node in affected:
             if node is self.root:
-                node.descendant_count = len(self.nodes) - 1
+                node.descendant_count -= len(deleted)
             else:
                 node.descendant_count = len(
                     self.get_descendants(node, computed=False))

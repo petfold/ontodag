@@ -330,3 +330,95 @@ class TestSparseSemantics(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSparseReclassifyAndConeRemoval(unittest.TestCase):
+    """The two newer mutations under partial residency, against the eager
+    oracle — the assertion this module exists for.
+
+    Both broke when first written, in ways only a store-backed writer shows:
+    `remove_cone` recomputed the root's `descendant_count` as
+    `len(self.nodes) - 1` (the *resident* count on a sparse writer), and it
+    deleted nodes without staging their store deletes, so the committed root
+    still contained everything it had just deleted.
+    """
+
+    PROJECTS = [("active", []), ("archive", []),
+                ("A", ["active"]), ("B", ["active"]),
+                ("C", ["A", "B"]), ("a1", ["A"]), ("deep", ["a1"])]
+
+    def _both(self, operation):
+        base, blobs = publish(self.PROJECTS)
+        sparse, eager = writers(base, blobs)
+        for dag in (sparse, eager):
+            operation(dag)
+        return sparse, eager
+
+    def test_reclassify_matches_the_eager_writer(self):
+        sparse, eager = self._both(
+            lambda dag: dag.reclassify(["A"], to=["archive"], from_=["active"]))
+        self.assertEqual(sparse.commit(), eager.commit())
+
+    def test_reclassify_replacing_every_parent_matches(self):
+        sparse, eager = self._both(
+            lambda dag: dag.reclassify(["C"], to=["archive"]))
+        self.assertEqual(sparse.commit(), eager.commit())
+
+    def test_cone_removal_matches_the_eager_writer(self):
+        sparse, eager = self._both(lambda dag: dag.remove_cone(["A"]))
+        self.assertEqual(sparse.commit(), eager.commit())
+
+    def test_cone_removal_actually_deletes_the_records(self):
+        base, blobs = publish(self.PROJECTS)
+        sparse = SparseOntoDAG(RecordStore(blobs, root=base))
+        self.assertEqual(sparse.remove_cone(["A"]), {"A", "a1", "deep"})
+        root = sparse.commit()
+        rehydrated = EagerOntoDAG(RecordStore.at(root, blobs))
+        for gone in ("A", "a1", "deep"):
+            self.assertNotIn(gone, rehydrated.nodes)
+        self.assertIn("C", rehydrated.nodes)          # also under B: survives
+
+    def test_a_deleting_operation_stages_deletes_not_a_sweep(self):
+        base, blobs = publish(self.PROJECTS)
+        counting = CountingStore(RecordStore(blobs, root=base))
+        sparse = SparseOntoDAG(counting)
+        sparse.remove_cone(["A"])
+        sparse.commit()
+        self.assertEqual(counting.deletes, 3)         # A, a1, deep
+        self.assertLessEqual(counting.puts, 4)        # only what actually moved
+
+    def test_random_sequences_agree_with_the_eager_writer(self):
+        base, blobs = publish(self.PROJECTS)
+        names = [name for name, _ in self.PROJECTS]
+        for seed in range(20):
+            rng = random.Random(seed)
+            picks = rng.sample(names, rng.choice([1, 2]))
+            cone = rng.choice([True, False])
+
+            def operation(dag, picks=picks, cone=cone):
+                if cone:
+                    dag.remove_cone(picks)
+                else:
+                    dag.reclassify(picks[:1], to=["archive"])
+
+            sparse, eager = writers(base, blobs)
+            try:
+                operation(sparse)
+                operation(eager)
+            except ValueError:
+                continue                  # cycles/root are refused on both
+            self.assertEqual(sparse.commit(), eager.commit(),
+                             f"seed {seed}: {'cone' if cone else 'reclassify'} "
+                             f"{picks}")
+
+    def test_the_reader_still_refuses_both(self):
+        base, blobs = publish(self.PROJECTS)
+        reader = LazyOntoDAG(RecordStore.at(base, blobs))
+        with self.assertRaises(TypeError):
+            reader.reclassify(["A"], to=["archive"])
+        with self.assertRaises(TypeError):
+            reader.remove_cone(["A"])
+        # ...but planning is a query, so it works on a read-only view
+        cone, deleted = reader.cone_removal_plan(["A"])
+        self.assertEqual((cone, deleted),
+                         ({"A", "C", "a1", "deep"}, {"A", "a1", "deep"}))

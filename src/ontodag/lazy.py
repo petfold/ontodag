@@ -495,9 +495,17 @@ class SparseOntoDAG(LazyOntoDAG):
         OntoDAG.put(self, subcategory, super_categories, optimized=optimized)
 
     def remove(self, node_to_remove):
-        name = self._canonical_name(_name_of(node_to_remove))
-        persisted = name in self.nodes and self._load(name) is not None
-        OntoDAG.remove(self, node_to_remove)
+        OntoDAG.remove(self, node_to_remove)        # bookkeeping in _forget
+
+    def _forget(self, name):
+        """A node stops existing: stage the store delete if it was persisted.
+
+        Hooked here rather than in `remove` so that *every* deleting operation
+        is covered — `remove_cone` deletes a whole cone without going through
+        `remove` at all, and before this it left the records behind in the
+        committed root."""
+        persisted = self._load(name) is not None
+        OntoDAG._forget(self, name)
         self._records[name] = None      # later lookups: known absent
         self._expanded.discard(name)
         if persisted:
