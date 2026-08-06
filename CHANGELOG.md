@@ -75,6 +75,17 @@ the version numbers appear in commit history and docs.
   removals, the command says how many it left out rather than shipping a
   fragment that looks like the whole change. Removals belong to a base-pinned
   three-way apply and travel as attributed retractions (PROVENANCE.md).
+- **`OntoDAG.excerpt(queries, context=False)`, `excerpt_names(...)` and
+  `contested(a, b)`** — the excerpt logic and the two-states-at-once query as
+  core methods, so Python gets what was CLI-only and the CLI, the web app and
+  any other consumer share one implementation rather than three.
+- **REST: `PATCH /dag/node`** (reclassify — `{subcategories, to, from}`,
+  answering with `retracted` and the `contested` set), **`DELETE /dag/node?cone=1`**
+  (the deleting removal, answering with `deleted` and `kept`) and
+  **`GET /dag/removal?name=…&cone=1`** (what that delete would take, without
+  taking it). PATCH is the verb the API was missing: POST only ever adds a
+  category and DELETE removes the item, so a client could not move anything —
+  remove-then-post loses whatever was filed underneath.
 - **`odag move NAME… --to CAT… [--from CAT…]`** — reclassification, the
   retracting counterpart of `put`. Without it the only way to move something was
   remove-then-put, which loses the subtree: the children reattach to the old
@@ -126,6 +137,16 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **A query export from the web app contained the query terms.** The four
+  `/dag/query/export*` routes served `session["query_result_dag"]`, which
+  `/dag/query/image` sets to the *picture* — the drawn view, with query terms
+  invented as nodes so a constraint is visible. Downloading that and importing it
+  filed the question as knowledge, and which file you got depended on which
+  endpoint you had hit last (the import-query path stored the answer instead).
+  They now serve the **excerpt**, from the same core method the CLI uses:
+  `?cat=` names the query, `?context=1` gives the sendable form. The rule, now
+  in one place: a picture may invent a node because it is discarded; a file may
+  not because it is imported.
 - **A `swarm:` store published a feed nobody could follow.** Since 0.14.0
   (local-first stores) a fresh machine — or a wiped `~/.ontodag` — opened an
   **empty** store even though the head was in the signed Swarm feed and every

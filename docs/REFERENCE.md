@@ -136,6 +136,8 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `cone_removal_plan(names)` / `remove_cone(names)` | the *deleting* removal: the categories plus whatever only existed under them; a cone member that hangs elsewhere survives. The plan is pure, so it can be previewed |
 | `merge(other)` | commutative, idempotent union with re-reduction |
 | `copy_subdag` / `induced_subdag` / `intersection_dag` / `prune_to_common_descendants` | derived DAGs, never aliasing (`copy_subdag` closes downward, `induced_subdag` copies exactly the names given) |
+| `excerpt(queries, context=False)` / `excerpt_names(...)` | a query's answer as a standalone DAG (query terms never added; `context` also brings the categories it hangs from) |
+| `contested(a, b)` | items below both — the two-states-at-once list; empty when one entails the other |
 | `topological_sort()` | deterministic (sorted) order |
 | `add_node` / `add_edge` / `remove_edge` | low level; `remove_edge` can orphan — prefer `remove`/`put` |
 
@@ -198,7 +200,11 @@ empty `cat` = everything.
 | `/dag/below?sub=&sup=` | GET | Boolean containment |
 | `/dag/image`, `/dag/query/image` | GET | rendered PNG |
 | `/dag/import`, `/dag/query/import` | POST | native/OWL upload |
-| `/dag/export[/omn\|/dot\|/tex]` (and under `/dag/query/`) | GET | exports |
+| `/dag/export[/omn\|/dot\|/tex]` | GET | exports of the whole DAG |
+| `/dag/query/export[/omn\|/dot\|/tex]` | GET | export of the query's **excerpt** — `?cat=` (DNF) and `?context=1`; never the picture, so it re-imports without the query terms |
+| `/dag/node` | PATCH | reclassify: `{subcategories, to, from}`; answers with `retracted` and the `contested` set |
+| `/dag/node?cone=1` | DELETE | delete the items and whatever only existed under them; answers with `deleted` and `kept` |
+| `/dag/removal?name=…&cone=1` | GET | what that delete would take, without taking it |
 | `/market`, `/cars…` | GET | the car-market demo |
 
 The web DAG is server memory per session — not your `odag` store.

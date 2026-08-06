@@ -1300,15 +1300,11 @@ def _move_note(dag, before, news, args, session, verb, out):
         departed = len(members - remaining)
         segment = (f"{departed} item{'' if departed == 1 else 's'} "
                    f"left {fmt(old)}")
-        # Only pairs that are genuinely in tension. Moving something to a
-        # category *below* the one it left keeps it under both by entailment —
-        # that is refinement, not a contested state, and reporting it would cry
-        # wolf on the most ordinary move there is.
-        contested = sorted({item.name for new in news
+        # `contested` skips pairs where one entails the other — refinement, not
+        # tension (see OntoDAG.contested). Shared with the web surface.
+        contested = sorted({name for new in news
                             if new != old and new in dag.nodes
-                            and not dag.is_below(new, old)
-                            and not dag.is_below(old, new)
-                            for item in dag.get([old, new])})
+                            for name in dag.contested(old, new)})
         if contested:
             shown = " ".join(fmt(name) for name in contested[:5])
             more = f" +{len(contested) - 5} more" if len(contested) > 5 else ""
@@ -1417,26 +1413,6 @@ def cmd_export(args, session, out):
     _save(session.dag, args.file)
 
 
-def _excerpt_names(dag, categories, context):
-    """The name set an excerpt covers: the answer, optionally ancestor-closed.
-
-    `--context` adds the *asserted* ancestors of every answer — the categories
-    the answers hang from, up to the root. Asserted only, deliberately: the
-    computed order (a value below a coarser value of its dimension) is derived
-    from names plus declarations, so the reader recomputes it, and copying
-    those coarser values in would drag unrelated star members along with it.
-    The declarations themselves DO travel, because a head node like `weight`
-    is a real asserted parent of its values and therefore an ancestor.
-    """
-    answer = _query(categories, dag)
-    names = {item.name for item in answer}
-    if context:
-        for item in answer:
-            names |= {a.name for a in dag.get_ancestors(item, computed=False)}
-    names.discard(dag.root.name)
-    return names
-
-
 def cmd_excerpt(args, session, out):
     """Write a query's answer, with its own structure, to a file.
 
@@ -1469,13 +1445,8 @@ def cmd_excerpt(args, session, out):
     reading as a wholesale deletion of everything outside it. The cost is that
     it discloses the shape of the categories above the answer.
     """
-    names = _excerpt_names(session.dag, args.categories, args.context)
-    excerpt = session.dag.induced_subdag(names)
-    for name in sorted(excerpt.nodes):
-        node = excerpt.nodes[name]
-        if node is not excerpt.root and not node.parents:
-            excerpt.add_edge(excerpt.root, node)
-    _save(excerpt, args.file)
+    _save(session.dag.excerpt(_disjuncts(args.categories),
+                              context=args.context), args.file)
 
 
 def _parents_in(dag, name):
@@ -1567,8 +1538,9 @@ def cmd_diff(args, session, out):
     mine, theirs = session.dag, _load(args.other)
 
     if args.categories:
-        scope = (_excerpt_names(mine, args.categories, context=True)
-                 | _excerpt_names(theirs, args.categories, context=True))
+        queries = _disjuncts(args.categories)
+        scope = (mine.excerpt_names(queries, context=True)
+                 | theirs.excerpt_names(queries, context=True))
     else:
         scope = ((set(mine.nodes) | set(theirs.nodes))
                  - {mine.root.name, theirs.root.name})

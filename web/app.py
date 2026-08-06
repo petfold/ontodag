@@ -162,11 +162,23 @@ def add_dag_items():
 
 @app.route("/dag/node", methods=["DELETE"])
 def remove_dag_items():
-    data = request.json
+    data = request.json or {}
     my_dag = current_dag()
+    names = data.get("subcategories", [])
+    cone = (request.args.get("cone", "").lower() in ("1", "true", "yes")
+            or bool(data.get("cone")))
     try:
+        if cone:
+            # The deleting removal: the categories and whatever only existed
+            # under them. A cone member that also hangs elsewhere survives —
+            # see GET /dag/removal to look before leaping.
+            plan_cone, _ = my_dag.cone_removal_plan(names)
+            deleted = my_dag.remove_cone(names)
+            return jsonify({"message": "Item(s) deleted.",
+                            "deleted": sorted(deleted),
+                            "kept": sorted(plan_cone - deleted)}), 200
         # remove() accepts names and canonicalizes parametric sugar itself.
-        for name in data.get("subcategories", []):
+        for name in names:
             my_dag.remove(name)
         return jsonify({"message": "Item(s) removed."}), 200
     except ValueError as e:
@@ -175,15 +187,109 @@ def remove_dag_items():
         return jsonify({"error": "An item to remove does not exist."}), 400
 
 
-@app.route("/dag/query", methods=["GET"])
-def get_query():
+def query_terms(remember=True):
+    """The DNF this request asks about, as `get_any` takes it.
+
+    `|` separates disjuncts, `,` conjoins within one:
+      cat=Dog,Pet|Cat  ->  (Dog AND Pet) OR Cat
+    An absent or empty `cat` is the empty query — no constraints, so every item
+    — matching `odag get` with no terms and the MCP query tool.
+
+    The terms are remembered in the session so that a follow-up export can be
+    asked for without repeating them, which is how the page links work. The
+    *terms* are remembered, never a result DAG: keeping the answer around is
+    what let a query export serve a picture (see the export routes).
+    """
     categories = request.args.get("cat")
-    # `|` separates disjuncts, `,` conjoins within one:
-    #   cat=Dog,Pet|Cat  ->  (Dog AND Pet) OR Cat
-    # An absent or empty `cat` is the empty query — no constraints, so every
-    # item — matching `odag get` with no terms and the MCP query tool.
+    if categories is None and not remember:
+        return session.get("query_terms", [[]])
     queries = [part.split(",") for part in categories.split("|")] \
         if categories else [[]]
+    if remember:
+        session["query_terms"] = queries
+    return queries
+
+
+@app.route("/dag/node", methods=["PATCH"])
+def move_dag_items():
+    """Reclassify: file items under new categories, retract the old ones.
+
+    The missing third verb beside POST (which only ever *adds* a category) and
+    DELETE (which removes the item). Without it a client could not move
+    anything: remove-then-post loses whatever was filed underneath, since the
+    children reattach to the old category and stay there.
+
+        {"subcategories": ["ProjectA"], "to": ["archive"], "from": ["active"]}
+
+    `from` omitted retracts every current classification (so `to` alone means
+    "under this and nothing else"); `to` omitted is a pure unfiling, and the
+    item becomes top-level rather than orphaned.
+
+    The answer carries the **contested set**: items now under both an old and a
+    new category. That happens when a shared item also hangs under something
+    still in the old state, it is true rather than broken (subsumption inherits;
+    exclusive status cannot), and no rule here can resolve it — so it is
+    reported, exactly as `odag move` reports it.
+    """
+    data = request.json or {}
+    items = data.get("subcategories") or data.get("items") or []
+    to = data.get("to") or []
+    from_ = data.get("from") or None
+    if not items:
+        return jsonify({"error": "no items to move"}), 400
+    if not to and not from_:
+        return jsonify({"error": "give `to`, `from`, or both"}), 400
+
+    my_dag = current_dag()
+    olds = list(from_) if from_ else sorted(
+        {name for item in items
+         if item in my_dag.nodes
+         for name in my_dag._live_parent_names(item)
+         if name != my_dag.root.name})
+    try:
+        retracted = my_dag.reclassify(items, to=to, from_=from_)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    contested = sorted({name for old in olds for new in to
+                        if new != old and new in my_dag.nodes
+                        for name in my_dag.contested(old, new)})
+    return jsonify({
+        "message": "Item(s) moved.",
+        "retracted": sorted([parent, item] for parent, item in retracted),
+        "contested": contested,
+    }), 200
+
+
+@app.route("/dag/removal", methods=["GET"])
+def preview_removal():
+    """What a `?cone=1` DELETE would take, without taking it.
+
+    A cone removal deletes what only existed under the named categories, so the
+    honest thing is to let a client look first — the same answer `odag remove
+    --cone --dry-run` prints. Members of the cone that hang elsewhere too are
+    reported as kept, because that is the part people do not expect."""
+    names = request.args.getlist("name")
+    if not names:
+        return jsonify({"error": "need at least one name"}), 400
+    my_dag = current_dag()
+    if request.args.get("cone", "").lower() not in ("1", "true", "yes"):
+        # Contraction removes exactly what you name and nothing else.
+        missing = [name for name in names if name not in my_dag.nodes]
+        if missing:
+            return jsonify({"error": f"no such item(s): {', '.join(missing)}"}), 400
+        return jsonify({"deleted": sorted(names), "kept": [], "cone": []})
+    try:
+        cone, deleted = my_dag.cone_removal_plan(names)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"cone": sorted(cone), "deleted": sorted(deleted),
+                    "kept": sorted(cone - deleted)})
+
+
+@app.route("/dag/query", methods=["GET"])
+def get_query():
+    queries = query_terms()
 
     my_dag = current_dag()
     # The query log SEMANTIC_CODES.md §9 waits on: one counter per queried
@@ -254,7 +360,7 @@ def get_query_dag_image():
     # Same DNF spelling as /dag/query — `|` between disjuncts, `,` within
     # one. The picture used to split on `,` alone, so a union drew a single
     # node named "Japan|Hotel" and matched nothing.
-    query = [part.split(",") for part in categories.split("|")]
+    query = query_terms()
 
     query_result_dag = _query_picture(my_dag, query)
     session["query_result_dag"] = query_result_dag
@@ -386,21 +492,39 @@ def export_dag_tex():
                      mimetype='application/x-tex')
 
 
+def query_excerpt():
+    """The EXCERPT of the current query — what a download must contain.
+
+    Not the picture. These routes used to serve `session["query_result_dag"]`,
+    which `/dag/query/image` sets to the drawn view — query terms invented as
+    nodes so the constraint is visible. Downloading that and importing it filed
+    the question as knowledge, and which file you got depended on which endpoint
+    you had hit last. The rule is the same one the CLI follows (`odag excerpt`
+    vs `odag visualize CAT...`): a picture may invent a node because it is
+    discarded, a file may not because it is imported.
+
+    `?cat=` names the query (same DNF as /dag/query); omitted, the session's
+    last query is used, which is how the page's download links work. `?context=1`
+    also includes the categories the answers hang from, so the file merges into
+    a store that shares them — `odag excerpt --context`.
+    """
+    context = request.args.get("context", "").lower() in ("1", "true", "yes")
+    return current_dag().excerpt(query_terms(remember=False), context=context)
+
+
 @app.route("/dag/query/export", methods=["GET"])
 def export_query_dag():
-    query_result_dag = session["query_result_dag"]
     unique_id = str(uuid.uuid4())
     filename = f'ontodag_query_export_{unique_id}.owl'
     owl = OWLOntology(filename)
-    owl.export_dag(query_result_dag, filename, unique_id)
+    owl.export_dag(query_excerpt(), filename, unique_id)
     return send_file(filename, as_attachment=True)
 
 
 @app.route("/dag/query/export/omn", methods=["GET"])
 def export_query_dag_manchester():
-    query_result_dag = session["query_result_dag"]
     unique_id = str(uuid.uuid4())
-    content = OWLOntology.generate_manchester_content(query_result_dag, unique_id)
+    content = OWLOntology.generate_manchester_content(query_excerpt(), unique_id)
     buf = BytesIO(content.encode('utf-8'))
     buf.seek(0)
     return send_file(buf, as_attachment=True,
@@ -410,27 +534,20 @@ def export_query_dag_manchester():
 
 @app.route("/dag/query/export/dot", methods=["GET"])
 def export_query_dag_dot():
-    query_result_dag = session["query_result_dag"]
-    visualizer = current_visualizer()
-    dot_source = visualizer.generate_dot_source(query_result_dag)
-
-    tex_file = BytesIO(dot_source.encode('utf-8'))
-    tex_file.seek(0)
-    return send_file(tex_file, as_attachment=True,
+    dot_source = current_visualizer().generate_dot_source(query_excerpt())
+    buf = BytesIO(dot_source.encode('utf-8'))
+    buf.seek(0)
+    return send_file(buf, as_attachment=True,
                      download_name='ontodag_query_export.dot',
                      mimetype='application/x-dot')
 
 
 @app.route("/dag/query/export/tex", methods=["GET"])
 def export_query_dag_tex():
-    query_result_dag = session["query_result_dag"]
-    visualizer = current_visualizer()
-    dot_source = visualizer.generate_dot_source(query_result_dag)
-    tex_content = dot2tex(dot_source)
-
-    tex_file = BytesIO(tex_content.encode('utf-8'))
-    tex_file.seek(0)
-    return send_file(tex_file, as_attachment=True,
+    dot_source = current_visualizer().generate_dot_source(query_excerpt())
+    buf = BytesIO(dot2tex(dot_source).encode('utf-8'))
+    buf.seek(0)
+    return send_file(buf, as_attachment=True,
                      download_name='ontodag_query_export.tex',
                      mimetype='application/x-tex')
 

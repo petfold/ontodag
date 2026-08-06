@@ -1740,7 +1740,10 @@ Endpoint summary:
 | `POST /dag`                  | Start a fresh, empty DAG in your session       |
 | `GET /dag`                   | The whole DAG as JSON                          |
 | `POST /dag/node`             | Add item(s): `{"subcategories": [...], "super_categories": [...]}` |
-| `DELETE /dag/node`           | Remove item(s): `{"subcategories": [...]}`     |
+| `DELETE /dag/node`           | Remove item(s) by contraction: `{"subcategories": [...]}` — children reattach to their parents |
+| `DELETE /dag/node?cone=1`    | Delete item(s) *and whatever only existed under them*; answers with `deleted` and `kept` (cone members that hang elsewhere too) |
+| `GET /dag/removal?name=A&cone=1` | What that delete would take, without taking it |
+| `PATCH /dag/node`            | Reclassify: `{"subcategories": [...], "to": [...], "from": [...]}` — `from` omitted replaces every category, `to` omitted unfiles. Answers with `retracted` and the `contested` set (§5.10) |
 | `GET /dag/query?cat=A,B`     | Everything under all the listed categories (`\|` for OR: `cat=A,B\|C` = (A AND B) OR C). Omit `cat` for the empty query — every item (§5.6) |
 | `GET /dag/below?sub=A&sup=B` | Yes/no: does A fit within B? → `{"below": true}` |
 | `GET /dag/stats/queries`     | Query workload so far, most-asked first (per category-set) |
@@ -1751,8 +1754,18 @@ Endpoint summary:
 | `GET /dag/export/omn`        | Download as Manchester syntax                  |
 | `GET /dag/export/dot`, `/dag/export/tex` | Graphviz DOT / LaTeX source        |
 
-The same `export`/`import` endpoints exist under `/dag/query/…` operating on the
-result of your last query instead of the whole DAG.
+The same `export`/`import` endpoints exist under `/dag/query/…`, operating on your
+query instead of the whole DAG. A query export is the **excerpt** (§5.8): the
+answer with the edges among the answers, and *never* the query terms — so the
+file re-imports as knowledge you have rather than as the question you asked. Name
+the query with `?cat=` (same spelling as `/dag/query`) or let it use your last
+one, and add `?context=1` for the sendable form that also carries the categories
+the answers hang from.
+
+> Until 2026-08-06 those four routes served the *picture* instead — the drawn
+> view, with the query terms invented as nodes — so a download taken after
+> viewing the query image re-imported the constraint as a fact, and which file
+> you got depended on which endpoint you had hit last.
 
 > The dev server is for local, personal use. Don't expose it to the internet as-is.
 

@@ -256,3 +256,145 @@ class TestQueryPictureAgreesWithTheAnswer:
     def test_an_unknown_term_draws_itself_and_nothing_else(self, client):
         self._fixture(client)
         assert self._pictured(client, "no-such-thing") == {"no-such-thing"}
+
+
+def projects(client):
+    """active/archive with a shared item, the lifecycle shape."""
+    for name, supers in (("active", []), ("archive", []),
+                         ("A", ["active"]), ("B", ["active"]),
+                         ("C", ["A", "B"]), ("a1", ["A"])):
+        assert put(client, name, supers).status_code == 201
+
+
+class TestQueryExportIsTheExcerptNotThePicture:
+    """A download must not contain the query terms.
+
+    These routes served `session["query_result_dag"]`, which the image route
+    sets to the *picture* — terms invented as nodes so the constraint is
+    visible. Downloading that and importing it filed the question as knowledge,
+    and which file you got depended on which endpoint you hit last.
+    """
+
+    def _classes(self, client, query_string=None):
+        response = client.get("/dag/query/export/omn",
+                              query_string=query_string or {})
+        assert response.status_code == 200, response.data[:200]
+        return {line.split(":", 1)[1].strip().lstrip(":")
+                for line in response.data.decode().splitlines()
+                if line.startswith("Class:")}
+
+    def test_the_terms_are_not_in_the_download(self, client):
+        projects(client)
+        # Look at the picture first — that is what used to poison the export.
+        assert client.get("/dag/query/image",
+                          query_string={"cat": "A,B"}).status_code == 200
+        classes = self._classes(client)
+        assert "C" in classes
+        assert "A" not in classes and "B" not in classes
+
+    def test_an_explicit_query_needs_no_prior_request(self, client):
+        projects(client)
+        assert self._classes(client, {"cat": "A,B"}) == {"*", "C"}
+
+    def test_context_brings_the_classification(self, client):
+        projects(client)
+        classes = self._classes(client, {"cat": "A,B", "context": "1"})
+        assert {"A", "B", "C", "active"} <= classes
+
+    def test_the_dot_export_matches_too(self, client):
+        projects(client)
+        client.get("/dag/query/image", query_string={"cat": "A,B"})
+        body = client.get("/dag/query/export/dot").data.decode()
+        assert '"C' in body or "C:" in body       # the answer is drawn
+        assert "label=A" not in body and 'label="A"' not in body
+
+    def test_a_union_query_exports_both_branches(self, client):
+        # A|B is (below A) OR (below B) — the answers, not the terms.
+        projects(client)
+        assert self._classes(client, {"cat": "A|B"}) == {"*", "a1", "C"}
+
+
+class TestMoveOverRest:
+    """PATCH /dag/node — the verb POST and DELETE could not express."""
+
+    def test_it_moves_the_item_and_reports_the_contested_set(self, client):
+        projects(client)
+        response = client.patch("/dag/node", json={
+            "subcategories": ["A"], "to": ["archive"], "from": ["active"]})
+        assert response.status_code == 200, response.get_json()
+        body = response.get_json()
+        assert body["retracted"] == [["active", "A"]]
+        assert body["contested"] == ["C"]        # also under a still-active B
+        assert query_names(client, "archive") == {"A", "a1", "C"}
+        assert query_names(client, "active") == {"B", "C"}
+
+    def test_the_contents_travel_with_it(self, client):
+        projects(client)
+        client.patch("/dag/node", json={"subcategories": ["A"],
+                                        "to": ["archive"]})
+        assert "a1" in query_names(client, "archive")
+
+    def test_to_alone_replaces_every_classification(self, client):
+        projects(client)
+        client.patch("/dag/node", json={"subcategories": ["C"],
+                                        "to": ["archive"]})
+        assert "C" not in query_names(client, "A")
+
+    def test_from_alone_unfiles_without_orphaning(self, client):
+        projects(client)
+        assert client.patch("/dag/node", json={"subcategories": ["A"],
+                                              "from": ["active"]}).status_code == 200
+        assert "A" not in query_names(client, "active")
+        assert "A" in query_names(client, "")     # still visible: top-level
+
+    def test_bad_requests_are_client_errors(self, client):
+        projects(client)
+        for payload in ({"subcategories": ["C"]},                  # nothing to do
+                        {"to": ["archive"]},                        # no items
+                        {"subcategories": ["C"], "to": ["nope"]},   # unknown
+                        {"subcategories": ["nope"], "to": ["archive"]},
+                        {"subcategories": ["active"], "to": ["C"]}):  # cycle
+            response = client.patch("/dag/node", json=payload)
+            assert response.status_code == 400, payload
+            assert "error" in response.get_json()
+
+    def test_a_refused_move_changes_nothing(self, client):
+        projects(client)
+        before = query_names(client, "active")
+        client.patch("/dag/node", json={"subcategories": ["A"],
+                                        "to": ["nope"], "from": ["active"]})
+        assert query_names(client, "active") == before
+
+
+class TestConeRemovalOverRest:
+    def test_the_preview_says_what_would_go_and_what_would_stay(self, client):
+        projects(client)
+        body = client.get("/dag/removal",
+                          query_string={"name": "A", "cone": "1"}).get_json()
+        assert body == {"cone": ["A", "C", "a1"], "deleted": ["A", "a1"],
+                        "kept": ["C"]}
+        assert query_names(client, "active") == {"A", "B", "C", "a1"}  # untouched
+
+    def test_the_delete_spares_what_hangs_elsewhere(self, client):
+        projects(client)
+        response = client.delete("/dag/node?cone=1",
+                                 json={"subcategories": ["A"]})
+        assert response.status_code == 200
+        body = response.get_json()
+        assert body["deleted"] == ["A", "a1"]
+        assert body["kept"] == ["C"]
+        assert query_names(client, "B") == {"C"}
+
+    def test_without_the_flag_it_still_contracts(self, client):
+        projects(client)
+        assert client.delete("/dag/node",
+                             json={"subcategories": ["A"]}).status_code == 200
+        assert "C" in query_names(client, "active")     # contraction kept it
+        assert "a1" in query_names(client, "active")
+
+    def test_the_preview_refuses_nonsense(self, client):
+        projects(client)
+        assert client.get("/dag/removal").status_code == 400
+        assert client.get("/dag/removal",
+                          query_string={"name": "nope", "cone": "1"}
+                          ).status_code == 400

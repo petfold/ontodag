@@ -1542,6 +1542,62 @@ class OntoDAG(DAG):
                         self.remove_edge(n, subcategory)
                         print(f'Removed edge {n.name} -> {subcategory.name}')
 
+    def excerpt_names(self, queries, context=False):
+        """The names an excerpt of `queries` covers.
+
+        `queries` is DNF — a list of conjunctions whose answers union, the shape
+        `get_any` takes (`[[]]` is the empty query, i.e. everything; `[]` is the
+        empty union, i.e. nothing). With `context`, the *asserted* ancestors of
+        every answer come too: the categories the answers hang from, which is
+        what makes the result mergeable into another store and diffable against
+        this one. Asserted only — the computed order between parametric values is
+        derived from names, so a reader recomputes it, and pulling coarser values
+        in would drag unrelated members of their dimension along. Declarations
+        travel regardless, a head like `weight` being a real parent of its
+        values."""
+        answer = (self.get(queries[0]) if len(queries) == 1
+                  else self.get_any(queries))
+        names = {item.name for item in answer}
+        if context:
+            for item in answer:
+                names |= {node.name for node
+                          in self.get_ancestors(item, computed=False)}
+        names.discard(self.root.name)
+        return names
+
+    def excerpt(self, queries, context=False):
+        """A query's answer as a standalone DAG — the materialized cut.
+
+        `intersection_dag` is the live *view*; this is the *excerpt*. The edges
+        among the answers are kept (cones are downward-closed under
+        intersection, so the answer carries its own shape), and an answer with
+        no parent inside the cut hangs under `*`, so the result is a well-formed
+        OntoDAG that `merge`/`import` can take.
+
+        Query terms are NOT added as nodes. That is the difference from
+        `ontodag.viz.query_picture`, which may invent one to *draw* a
+        constraint: a picture is discarded, while an excerpt gets imported back,
+        and filing the question as though it were an answer would be a lie.
+        Pass `context=True` when sending it somewhere — see `excerpt_names`."""
+        cut = self.induced_subdag(self.excerpt_names(queries, context=context))
+        for name in sorted(cut.nodes):
+            node = cut.nodes[name]
+            if node is not cut.root and not node.parents:
+                cut.add_edge(cut.root, node)
+        return cut
+
+    def contested(self, first, second):
+        """Items below BOTH categories — the two-states-at-once question.
+
+        Empty when one entails the other, which is refinement rather than
+        tension: everything under `recent` is under `active` by construction and
+        reporting that would cry wolf. What is left is the real list — the
+        shared items a reclassification left in two states, which subsumption
+        cannot resolve for you (it inherits; exclusive status does not)."""
+        if self.is_below(first, second) or self.is_below(second, first):
+            return set()
+        return {item.name for item in self.get([first, second])}
+
     def induced_subdag(self, names):
         """The subgraph induced on `names`: fresh nodes, the real edges among them.
 

@@ -439,6 +439,23 @@ knowledge**, exactly the failure `excerpt` was designed to avoid (and it depends
 on which endpoint was hit last). For MCP, `move`/`remove --cone` are a
 *provenance* decision, not a transcription: §3's coupling rule requires a
 retraction record per retracted claim.
+
+**Closed the same day (2026-08-06), except MCP.** `OntoDAG.excerpt(queries,
+context=False)` / `excerpt_names` / `contested(a, b)` are now core methods, so
+the excerpt logic and the two-states-at-once query have ONE implementation shared
+by the CLI, the web app and any Python consumer (the CLI's private
+`_excerpt_names` and its inline contested rule are gone). Web: the four
+`/dag/query/export*` routes now export the **excerpt** — `?cat=` (DNF, remembered
+per session) and `?context=1` — closing the bug above; new `PATCH /dag/node`
+(reclassify, answering with `retracted` + `contested`), `DELETE /dag/node?cone=1`
+(answering with `deleted` + `kept`) and `GET /dag/removal?name=…&cone=1` (the
+pure preview). PATCH is the verb the REST API never had: POST only adds a
+category, DELETE removes the item, so no client could move anything. Tests:
+`TestQueryExportIsTheExcerptNotThePicture`, `TestMoveOverRest`,
+`TestConeRemovalOverRest` in `tests/test_web.py` (15), all exercised over HTTP
+first with curl against the running app. The UI itself is unchanged — the page
+has no move or cone-delete control yet; that is a front-end job, not an API one.
+MCP still deliberately has neither.
 - **Parked, tripwire-gated:** EL/relations canonicalization research (now observable via MCP traffic) — **discussion draft exists as of 2026-08-03: `docs/plans/BINDING.md`** (prompted by Peter's London→Rome → two-leg → bouquet probes; scope rule for flat roles, ground bundles as a proposed scoped contract amendment with two consumers — multi-instance grouping and multiplicity — the §6 coordinate-order fork, the compile-down baseline; nothing decided, grammar work gated on discussing it with Peter); computed values (passes the admissibility axes, no consumer — the itinerary's derived from/to/summed-duration is noted in BINDING.md §3 as another appearance), languages/lexicon (fork recorded in `SURFACE_LAYER.md` §12).
 
 Previous milestone — **dimension lattices (parametric items), done and released** — design, implementation, docs and PyPI release all on 2026-07-30. `docs/DIMENSIONS.md` is the design record and tracks its own §12 sequencing (steps 1–5 and 7 done; step 6, the per-dimension sorted index, stays parked until profiling asks). One-line summary: values like `weight(3kg)` are ordinary categories whose order is computed from the canonical name (containment of denotations, exact integers in base units), never materialized as edges; anchor stars enumerate each dimension; virtual query terms cost no writes; `get_overlapping` is the possibly-satisfies mode. Works through the CLI (quote the parentheses), the web REST API (names now pass through to put/get — `tests/test_web.py`), `EagerOntoDAG` (canonical roots verified across put orders) and `LazyOntoDAG` (bounded fetches). Adoption notes for the sister projects are in loopmarket ARCHITECTURE.md §3 (update note) and ontodag-fs ROADMAP.md. Headline decisions: parametric items (`weight(..5000000mg)`) ordered by containment of denoted value sets — computed at query time, **never materialized as edges**; kinds declared by ordinary edges under registry-known nodes (`weight → linear-dimension → dimension`), nothing in `meta`, no callables in data; values are integers in per-family base units (agreed 2026-07-30 — no decimals; sub-base precision is a boundary error, the UI renders friendly units); anchor/star edges under the head node are schema, exempt from reduction; `add_edge`/`_remove_unneeded_edges` consult combined (asserted + computed) reachability; only exact-arithmetic kinds ever enter the canonical order (geo discs stay application-side — see loopmarket). This fired the "exact arithmetic" wall's tripwire — recorded in `DATABASE_DIRECTION.md` — via the `../loopmarket` sister project (marketplace matching is a main OntoDAG goal); overlap matching (`get_overlapping`) is deliberately the *first follow-up*, not v1, because overlap is not transitive and therefore not a cone.
