@@ -1,0 +1,7 @@
+%%
+\node (boarding-pass) at (45.0bp,18.0bp) [draw,rectangle] {boarding-pass};
+  \node (outbound*pdf) at (45.0bp,90.0bp) [draw,rectangle] {outbound.pdf};
+  \node (Japan) at (45.0bp,162.0bp) [draw,rectangle] {Japan};
+  \draw [->] (boarding-pass) ..controls (45.0bp,44.017bp) and (45.0bp,53.288bp)  .. (outbound*pdf);
+  \draw [->] (outbound*pdf) ..controls (45.0bp,116.02bp) and (45.0bp,125.29bp)  .. (Japan);
+%

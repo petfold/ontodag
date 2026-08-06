@@ -1,0 +1,347 @@
+\section{The dictionary: how the two formalisms correspond}
+\label{sec:dictionary}
+
+We now have two objects built from the same six documents:
+Figure~\ref{fig:lattice}, a concept lattice with 10 elements, and
+Figure~\ref{fig:ontodag}, an \odag{} with 11 nodes and 17 edges. This section
+states exactly how they relate. The relationship is tighter than a family
+resemblance: there is a translation in both directions, and one of them is a
+classical theorem.
+
+\subsection{From an \odag{} to a formal context}
+
+Given an \odag{} whose node set is $P$, write $x \dsub y$ for ``$x$ is below
+$y$'' --- that is, $x$ is in the descendant cone of $y$, so $x$ is a special
+case of $y$. By Proposition~\ref{prop:dag-poset} this is a partial order.
+Recall the two cones:
+\[
+  \cone{y} = \{x \in P : x \dsub y\} \quad\text{(descendants: the cone)},
+  \qquad
+  \up{x} = \{y \in P : x \dsub y\} \quad\text{(ancestors)} .
+\]
+
+\begin{definition}[Ancestor-set code]
+For a node $x$, its \emph{code} is its reflexive ancestor set,
+$\code{x} = \up{x}$. Read as a bit vector over the alphabet of all node names,
+$\code{x}$ has a $1$ for every category $x$ falls under, including $x$ itself.
+\end{definition}
+
+This is the object Section~\ref{sec:neural} was talking about: a sparse binary
+codeword whose active bits are the categories the item belongs to. And the
+central property of a sparse code reappears as a triviality:
+\[
+  x \dsub y \iff \code{y} \subseteq \code{x} .
+\]
+More specific, more bits on. Subsumption is a subset test.
+
+\begin{definition}[The induced context]
+$\ctx(P) = (P, P, \dsub)$: objects are the nodes, attributes are \emph{the
+same} nodes, and node $x$ ``has attribute'' $y$ exactly when $x \dsub y$.
+\end{definition}
+
+The context is square and reflexive --- an object is its own attribute. This
+is the formal shadow of \odag{}'s refusal to distinguish objects from
+attributes (\S\ref{sec:one-sorted}).
+
+Now compute the derivation operators of $\ctx(P)$ and watch what they turn
+into.
+
+\begin{proposition}[The dictionary]
+\label{prop:dictionary}
+In $\ctx(P)$, for $A \subseteq P$ (a set of nodes read as objects) and
+$B \subseteq P$ (read as attributes):
+\[
+  A' \;=\; \bigcap_{x \in A} \code{x},
+  \qquad\qquad
+  B' \;=\; \bigcap_{y \in B} \cone{y} \;=\; \cmd{get}(B) .
+\]
+\end{proposition}
+
+\begin{proof}
+$A' = \{y : x \dsub y \text{ for all } x \in A\} = \bigcap_{x\in A}\{y : x
+\dsub y\} = \bigcap_{x \in A}\up{x}$. Dually $B' = \{x : x \dsub y \text{ for
+all } y \in B\} = \bigcap_{y \in B}\cone{y}$, which is the definition of
+\cmd{get} from Section~\ref{sec:get}.
+\end{proof}
+
+\begin{keyidea}
+\textbf{\fca{}'s derivation operator on attribute sets \emph{is} \odag{}'s
+query.} $B' = \cmd{get}(B)$, exactly, with no encoding or approximation.
+Dually, $A'$ is ``the categories all of these items share'' --- the
+intersection of their codes.
+
+So the two formalisms are not analogous. They compute the same function. What
+differs is \emph{when}: \fca{} computes it for every $B$ in advance and stores
+the results; \odag{} computes it on demand and stores nothing.
+\end{keyidea}
+
+That last sentence is, in one line, the entire thesis of this paper, and
+everything in Sections~\ref{sec:differences}--\ref{sec:crypto} elaborates it.
+
+\subsection{Formal concepts are self-describing queries}
+
+The dictionary makes the definition of a formal concept newly readable.
+$(A,B)$ is a concept when $A' = B$ and $B' = A$, which now says:
+
+\begin{center}
+\emph{$A$ is the answer to the query $B$, and $B$ is exactly the set of
+categories that every member of the answer shares.}
+\end{center}
+
+A formal concept is a query \emph{in balance} with its own answer --- one
+that describes its result set precisely, with no category left out that the
+whole result happens to have. Most queries are not like this. Ask
+\cmd{get(Flight)} in the running example and you get three documents, all of
+which happen to be \textsf{Booked}; the query \textsf{Flight} is
+under-specified relative to its own answer. Its \emph{closure} is
+$\{\textsf{Flight}, \textsf{Booked}\}$, and that closed set is the concept.
+
+\begin{tryit}
+Take the query $\{\textsf{Refundable}\}$ in Table~\ref{tab:context}. Its
+answer is \texttt{outbound}, \texttt{kyoto-inn}, \texttt{rail-pass}. What do
+all three share? \textsf{Refundable}, \textsf{Booked}, \textsf{Japan}. So the
+concept is number 5 in Table~\ref{tab:concepts}, and the implication
+$\textsf{Refundable} \to \textsf{Booked}, \textsf{Japan}$ of
+Section~\ref{sec:implications} is just this closure, written differently.
+\end{tryit}
+
+\subsection{The theorem}
+
+Every node of the \odag{} gives a concept, and the concepts that are not nodes
+are exactly the ones the \odag{} was missing.
+
+\begin{proposition}
+\label{prop:embedding}
+For every node $x \in P$, the pair $(\cone{x}, \up{x})$ is a formal concept of
+$\ctx(P)$, and $x \mapsto (\cone{x}, \up{x})$ is an order-embedding of $P$
+into $\Bcl(\ctx(P))$.
+\end{proposition}
+
+\begin{proof}
+$(\cone{x})' = \bigcap_{z \dsub x}\up{z} = \up{x}$, since $x$ itself is in
+$\cone{x}$ (giving $\subseteq$) and every upper bound of $x$ is an upper bound
+of everything below $x$ (giving $\supseteq$). Symmetrically
+$(\up{x})' = \cone{x}$. Injectivity is antisymmetry, and
+$x \dsub y \iff \cone{x} \subseteq \cone{y}$ gives the order-embedding.
+\end{proof}
+
+\begin{theorem}[\odag{} $\to$ \fca{}; \citealp{macneille1937,ganter1999}]
+\label{thm:dm}
+$\Bcl(\ctx(P))$ is the \emph{Dedekind--MacNeille completion} of the poset
+$P$: the smallest complete lattice into which $P$ embeds while preserving all
+meets and joins that already existed in $P$. It is unique up to isomorphism.
+\end{theorem}
+
+\begin{keyidea}
+\textbf{The concept lattice of an \odag{} is its Dedekind--MacNeille
+completion.} \fca{} does not describe a \emph{different} structure from
+\odag{}. It describes the \emph{completion} of it: the same order, plus
+exactly the meets and joins needed to make every question of the form ``what
+is the most specific thing under all of these?'' have an answer inside the
+structure.
+\end{keyidea}
+
+So the difference between the two formalisms is precisely measured by the
+elements the completion adds. Which we can count.
+
+\begin{measured}
+For the running example's \odag{} ($11$ nodes plus the root):
+\begin{center}\small
+\begin{tabular}{rl}
+\toprule
+$17$ & concepts in $\Bcl(\ctx(P))$\\
+$11$ & of them are \odag{} nodes (Prop.~\ref{prop:embedding})\\
+$4$  & are genuine unnamed meets\\
+$2$  & are the $\top$ and $\bot$ a complete lattice must have\\
+\bottomrule
+\end{tabular}
+\end{center}
+The four unnamed meets are ``everything under \textsf{Booked} and
+\textsf{Flight}'', ``\ldots \textsf{Booked} and \textsf{Japan}'',
+``\ldots \textsf{Booked}, \textsf{Japan} and \textsf{Refundable}'', and
+``\ldots \textsf{Booked}, \textsf{Flight} and \textsf{Japan}''. Each is a real
+category. None was ever asserted.
+\end{measured}
+
+\begin{figure}[t]
+\centering
+\dotfig[1.0]{dm_completion}
+\caption{The completion at the category level, drawn as a Hasse diagram of
+intent containment. Solid boxes are the five categories the \odag{} actually
+holds --- all of them top-level, so no solid edges appear between them.
+Dashed ellipses are the four meets the Dedekind--MacNeille completion adds:
+combinations that some set of documents happens to share, but that nobody
+named. (The six documents are omitted; each hangs below every element whose
+properties it has, as in Figure~\ref{fig:ontodag}.) \fca{} materialises all
+four --- and, in larger data, exponentially many more; \odag{} materialises
+none, and recomputes any one of them on demand as a cone intersection.}
+\label{fig:completion}
+\end{figure}
+
+\subsection{From a formal context to an \odag{}}
+
+The other direction is even simpler, and it is what
+Experiment~2 in the appendix actually does.
+
+\begin{definition}[Filing a context]
+Given $\ctx = (G, M, I)$, build an \odag{} by putting each attribute
+$m \in M$ under the root, and each object $g \in G$ under
+$\{m : g\,I\,m\}$.
+\end{definition}
+
+\begin{proposition}
+\label{prop:context-to-dag}
+In the \odag{} so built, for any $B \subseteq M$,
+\[
+  \cmd{get}(B) \cap G \;=\; B' .
+\]
+That is, the \odag{} answers every \fca{} extent query exactly, in one
+intersection of cones, without ever computing a single concept.
+\end{proposition}
+
+This is worth pausing on, because it reframes the relationship in operational
+terms.
+
+\begin{keyidea}
+\textbf{\odag{} is \fca{} with the closure computed lazily.} The concept
+lattice is a \emph{memo table}: it precomputes the extent of every closed
+query. \odag{} stores the raw incidence and computes extents per query. The
+two give identical answers; they differ in what is paid for in advance.
+
+That framing also says what the middle ground looks like: materialise
+\emph{some} concepts --- the ones that are queried often enough, or that
+compress the data enough, to pay for themselves. Sections~\ref{sec:learn-mdl}
+and~\ref{sec:dir-materialisation} pursue this.
+\end{keyidea}
+
+\subsection{Codes and graphs are the same information}
+
+One more correspondence, this time internal to \odag{}, because it closes the
+circle back to Section~\ref{sec:neural}.
+
+\begin{proposition}
+\label{prop:roundtrip}
+The family of codes $\{\code{x}\}_{x \in P}$ determines the \odag{}
+completely: the covering relation of containment among the codes is exactly
+the stored transitive reduction. The maps
+\[
+  \text{DAG} \;\xrightarrow{\ \text{reflexive ancestor closure}\ }\; \text{codes},
+  \qquad
+  \text{codes} \;\xrightarrow{\ \text{covering relation of } \subseteq\ }\;
+  \text{DAG}
+\]
+are mutually inverse.
+\end{proposition}
+
+\begin{measured}
+Tested on 200 randomly generated \odag{}s of 4--12 nodes: in
+\textbf{200/200} cases, the covering relation reconstructed from the codes
+alone equalled the stored edge set, edge for edge.
+\end{measured}
+
+So the codeword picture is not a lossy intuition; it is a faithful alternative
+representation. A neural code of the right shape \emph{is} an \odag{}, and an
+\odag{} \emph{is} a neural code. That is the mind--brain bridge of
+Figure~\ref{fig:mind-brain}, made concrete and checked by execution.
+
+\begin{remark}[Why the code cannot be the stored form]
+Being equivalent does not make it equally good to store. A code is a set of
+names, so storing codes stores the transitive \emph{closure} --- quadratically
+more edges, and every insertion touches every descendant. Worse, if you
+compress the code into a bit vector you must fix an assignment of names to bit
+positions, and that assignment is a global, history-dependent decision --- the
+enemy of canonical form. \odag{} therefore stores the reduction (unique,
+local, canonical) and treats codes and cone bitmaps as a \emph{derived,
+regenerable index}, in the same category as the descendant counts.
+\end{remark}
+
+\subsection{The complete dictionary}
+\label{sec:notation-table}
+
+\begin{table}[h]
+\centering\small
+\caption{The translation table. Rows above the rule are exact
+correspondences; rows below are places where one side has no counterpart ---
+these are the subject of Section~\ref{sec:differences}.}
+\label{tab:dictionary}
+\vspace{1mm}
+\begin{tabularx}{\textwidth}{@{}p{4.3cm} p{4.6cm} X@{}}
+\toprule
+\textbf{\fca{}} & \textbf{\odag{}} & \textbf{Both are}\\
+\midrule
+formal context $(G,M,I)$ & the asserted graph & a binary incidence / a code\\
+object $g$ & a node & a thing with a name\\
+attribute $m$ & a node & \emph{same thing}: no split\\
+intent $B$ of a concept & $\code{x}$, the ancestor set & the codeword\\
+extent $A$ of a concept & $\cone{x}$, the cone & the members\\
+$B'$ (attribute derivation) & $\cmd{get}(B)$ & intersection of cones\\
+$A'$ (object derivation) & shared categories & intersection of codes\\
+closure $B''$ & the query's own description & a closure operator\\
+$(A_1,B_1)\!\leq\!(A_2,B_2)$ & $x \dsub y$ & containment\\
+meet $\wedge$ & \cmd{get} of two terms & intersection of extents\\
+concept lattice $\Bcl(\ctx)$ & the DM completion of the graph & Thm~\ref{thm:dm}\\
+implication $B \to C$ & (no stored counterpart) & $C \subseteq B''$\\
+\midrule
+\textbf{has no \odag{} counterpart} & & \\
+\quad completeness of the lattice & --- & \S\ref{sec:not-closed}\\
+\quad Duquenne--Guigues base & --- & \S\ref{sec:learn-implications}\\
+\quad attribute exploration & --- & \S\ref{sec:learn-exploration}\\
+\midrule
+\textbf{has no \fca{} counterpart} & & \\
+--- & stable node names & \S\ref{sec:identity}\\
+--- & transitive reduction as storage & \S\ref{sec:two-canonical-forms}\\
+--- & merge of two structures & \S\ref{sec:mergeability}\\
+--- & computed (infinite) value order & \S\ref{sec:learn-patterns}\\
+--- & content-addressed root & \S\ref{sec:crypto}\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Where the analogy leaks: the meet-substitution trap}
+\label{sec:meet-trap}
+
+The dictionary is exact, but there is one place where a careless reader will
+draw a false conclusion, and it is worth a boxed warning because it has real
+consequences for optimisation.
+
+In a concept lattice, the meet of two concepts always exists. It is tempting
+to think that an \odag{} node placed under both $A$ and $B$ therefore
+\emph{is} the meet of $A$ and $B$ --- so that a query planner could answer
+$\cmd{get}(A,B)$ by looking up that node's cone. It cannot.
+
+\begin{measured}
+Put \textsf{AB} under $\{\textsf{A}, \textsf{B}\}$; then put \textsf{X} under
+$\{\textsf{A}, \textsf{B}\}$ as well. Measured cones:
+\[
+  \cone{\textsf{A}} \cap \cone{\textsf{B}} = \{\textsf{AB}, \textsf{X}\},
+  \qquad
+  \cone{\textsf{AB}} = \varnothing .
+\]
+\end{measured}
+
+\begin{pitfall}
+A node under $A$ and $B$ is a \textbf{sibling} of the meet, never the meet.
+Substituting it for the pair $\{A, B\}$ in a query plan silently loses
+results. This is not a bug: it follows from \odag{} storing assertions, since
+nobody said that \textsf{X} is a kind of \textsf{AB}. The corresponding
+\fca{} concept --- the real meet --- exists only in the completion
+(Figure~\ref{fig:completion}), where it is one of the dashed ellipses.
+\end{pitfall}
+
+\begin{figure}[h]
+\centering
+\dotfig[0.8]{meet_trap}
+\caption{\textsf{AB} and \textsf{X} are both under \textsf{A} and \textsf{B},
+so neither is above the other, and neither is the meet. The meet (dashed) is
+the concept whose extent is $\{\textsf{AB}, \textsf{X}\}$; it exists in the
+completion and has no node in the graph.}
+\label{fig:meettrap}
+\end{figure}
+
+The general lesson generalises well beyond query planning, and
+Section~\ref{sec:agents} leans on it: \textbf{\odag{} has no defined
+concepts}. Every node means exactly what was asserted about it, never what
+could be inferred to fill a gap. A system that wants defined concepts ---
+``\textsf{Refundable Japan Booking} \emph{means} whatever is under all three''
+--- must either assert the placements or compute the meet at query time. It
+will not get one by accident.

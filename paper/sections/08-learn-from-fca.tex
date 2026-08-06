@@ -1,0 +1,553 @@
+\section{What \odag{} can learn from \fca{}}
+\label{sec:learn}
+
+\fca{} has forty years of theory; \odag{} has a working system and a short
+list of invariants it will not give up. This section goes through the parts of
+the theory that could be imported, and for each asks four questions:
+
+\begin{enumerate}[label=(\alph*),leftmargin=2.0em,itemsep=1pt]
+\item what is it, in one paragraph a first-year reader can follow;
+\item what would \odag{} gain;
+\item what would it cost --- specifically, which of \odag{}'s guarantees
+  (\S\ref{sec:guarantees}) does it threaten;
+\item verdict.
+\end{enumerate}
+
+The verdicts use a fixed vocabulary, because the distinction between them is
+the most transferable thing in this section:
+
+\begin{center}\small
+\begin{tabularx}{0.94\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Adopt (core)} & belongs in the shared, hashed, merged graph\\
+\textbf{Adopt (derived)} & belongs in a separate local index: regenerable,
+  evictable, never merged, outside the canonical root\\
+\textbf{Adopt (surface)} & belongs in the interface layer --- rendering,
+  suggestion, tooling --- and touches no stored bytes\\
+\textbf{Research} & desirable, but breaks something until a real problem is
+  solved\\
+\textbf{Refuse} & incompatible with an invariant \odag{} exists to provide\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+That vocabulary is itself a lesson learned from \fca{}: the reason \odag{} can
+consider adopting so much is that it has a place to put derived things where
+they cannot contaminate the canonical form.
+
+\subsection{Implications and the stem base}
+\label{sec:learn-implications}
+
+\paragraph{(a) What it is.} An implication $B \to C$ holds when everything
+having all of $B$ also has all of $C$ (\S\ref{sec:implications}). The
+Duquenne--Guigues \emph{stem base} \citep{guigues1986} is the unique smallest
+set of implications generating all the others. It can be computed by
+NextClosure at the same time as the concepts \citep{ganter1984}.
+
+\paragraph{(b) What \odag{} would gain.} Two genuinely useful things.
+
+First, a \textbf{suggestion engine} for classification --- which is exactly
+the gap \odag{}'s contract admits it has (``classification is the higher
+layer's job''). Measured on the running example, \fca{} reports
+$\textsf{Refundable} \to \textsf{Booked}, \textsf{Japan}$. If a user now files
+a refundable document \emph{without} marking it \textsf{Booked}, the system
+can say: \emph{every other refundable thing here is booked --- did you mean to
+mark this one?} That is a well-founded prompt, computed from the store's own
+contents, needing no language model and no external ontology.
+
+Second, a \textbf{redundancy lint}. If $\textsf{Hotel} \to \textsf{Travel}$
+holds extensionally for every hotel in the store, someone may have forgotten
+to assert the edge $\textsf{Hotel} \to \textsf{Travel}$ in the graph. The
+implication is evidence for a missing subsumption.
+
+\paragraph{(c) What it would cost.} Storing implications in the shared graph
+would be a category error, and it is worth being precise about why, because
+the same argument recurs throughout this section.
+
+An extensional implication is a \textbf{fact about today's population, not a
+law}. $\textsf{Flight} \to \textsf{Booked}$ holds in the running example only
+because nobody has yet filed an unbooked flight. Now consider what happens
+under merge: a collaborator who has one unbooked flight merges their store
+into yours, and the implication is destroyed. An implication is therefore
+\emph{non-monotone} --- it can be falsified by the arrival of new information
+--- which is exactly the property that guarantee G2 forbids in the shared
+store. Stored as data, implications would make two replicas disagree, and
+would make the canonical root depend on which subset of the world a replica
+had seen.
+
+There is a second, subtler cost: computing the stem base is expensive
+(equivalent in the worst case to enumerating pseudo-intents, which is not
+polynomial-delay), so it is a batch job, not something to run on every write.
+
+\paragraph{(d) Verdict: \textbf{Adopt (derived)} for the lint, and
+\textbf{Adopt (surface)} for the suggestion.} Compute implications in a
+separate, local, regenerable index --- the same discipline \odag{} already
+uses for cone summaries --- and surface them as \emph{prompts to a human or an
+agent}, never as stored claims. If the user accepts a prompt, what gets stored
+is an ordinary asserted edge with ordinary provenance. The implication was
+evidence; the edge is the claim. Keeping that distinction is the difference
+between a helpful system and one that silently invents knowledge.
+
+\begin{keyidea}
+The general rule this instance establishes: \textbf{\fca{}'s derived output
+may enter \odag{} only as a suggestion to an author, never as an assertion by
+the system.} Everything that follows in this section obeys it.
+\end{keyidea}
+
+\subsection{Conceptual scaling, and the levels of measurement}
+\label{sec:learn-scaling}
+
+\paragraph{(a) What it is.} Conceptual scaling (\S\ref{sec:fca-extensions})
+turns non-binary data into a context by choosing, per attribute, which
+comparisons matter: nominal (distinct values), ordinal (thresholds),
+interordinal (both ends), and so on \citep[ch.~1]{ganter1999}.
+
+\paragraph{(b) What \odag{} would gain.} Not a mechanism --- \odag{} already
+has one --- but a \textbf{vocabulary and a completeness check}. \odag{}'s
+dimension kinds turn out to line up exactly with a classification that
+predates both systems: Stevens's levels of measurement \citep{stevens1946}.
+Canonicalisation, in each case, is quotienting by the transformations the
+scale considers meaningless:
+
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}p{2.3cm} p{4.3cm} p{3.1cm} X@{}}
+\toprule
+\textbf{Stevens level} & \textbf{Meaningful transformations} &
+\textbf{\fca{} scale} & \textbf{\odag{} kind}\\
+\midrule
+nominal  & any relabelling            & nominal      & plain nodes\\
+ordinal  & any order-preserving map   & ordinal      & \emph{missing}\\
+interval & affine $x \mapsto ax + b$  & interordinal & affine (temperatures)\\
+ratio    & scaling $x \mapsto ax$     & interordinal & linear (weight, length)\\
+absolute & none                       & nominal      & count\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The table has one conspicuous hole, and finding holes is what a good
+vocabulary is for: \odag{} has \emph{no ordinal kind}. There is no way to say
+that \textsf{beginner} $<$ \textsf{intermediate} $<$ \textsf{expert} as a
+declared dimension, so such chains have to be built as ordinary edges, which
+works but is unindexed and gives no arithmetic. \fca{}'s ordinal scale is the
+template for what the declaration would look like.
+
+\paragraph{(c) What it would cost.} Adding an ordinal kind is cheap on both
+admissibility axes: it is monotone, and the order is computable from the
+declared chain plus the value names, so canonicality is preserved. The real
+risk is social rather than technical --- an ordinal kind invites users to fake
+arithmetic on ranks (``the average of beginner and expert''), which is exactly
+the abuse Stevens wrote his paper to warn against.
+
+\paragraph{(d) Verdict: \textbf{Adopt (core)}, carefully.} The scale
+vocabulary should be documented as \odag{}'s own; the ordinal kind should be
+added, with the arithmetic deliberately absent.
+
+\subsection{Pattern structures: the theory \odag{} already uses}
+\label{sec:learn-patterns}
+
+\paragraph{(a) What it is.} \citet{ganter2001} generalise \fca{} so that an
+object's description need not be a set of attributes. Instead descriptions
+live in a meet-semilattice $(D, \sqcap)$ with a similarity operation. The
+derivation operators become
+\[
+  A^{\square} = \bigsqcap_{g \in A} \delta(g),
+  \qquad
+  d^{\square} = \{g \in G : d \sqsubseteq \delta(g)\},
+\]
+and the whole theory --- concepts, lattice, implications --- goes through
+unchanged. The most-used instance is the \emph{interval pattern structure}:
+descriptions are intervals, $\sqcap$ is the convex hull, and $d \sqsubseteq e$
+means $e \subseteq d$ as intervals \citep{kaytoue2011}.
+
+\paragraph{(b) What \odag{} would gain.} Recognition, and then results.
+\odag{}'s parametric dimensions (\S\ref{sec:dimensions}) \emph{are} an
+interval pattern structure: \verb|weight(..5kg)| is an interval,
+containment of denoted value sets is $\sqsubseteq$, and the star of values
+under a dimension head is the set of descriptions in play. \odag{} arrived at
+this independently, from the practical need to answer a courier's
+``anything under five kilos?'' without pre-quantising.
+
+Knowing that it is an instance of a studied formalism buys three things:
+
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Correctness assurance.} The pattern-structure framework tells
+  you exactly what conditions $\sqcap$ must satisfy for the theory to hold
+  (associativity, commutativity, idempotence --- a semilattice). \odag{}'s
+  requirement that only exact-arithmetic kinds may enter the canonical order
+  is the same condition, discovered the hard way.
+\item \textbf{Projections.} Pattern structures come with a theory of
+  \emph{projections}: simplifying descriptions (coarsening intervals) in a way
+  that provably yields a sound approximation of the concept lattice. This is
+  the principled version of the ``derived index for hot dimensions'' idea that
+  \odag{} currently treats as an engineering hunch.
+\item \textbf{Multi-dimensional descriptions.} \citet{kaytoue2011} handle a
+  \emph{vector} of intervals as one description --- which is precisely
+  \odag{}'s open question about how several coordinates
+  (\verb|from|, \verb|to|, \verb|duration|) should combine. The
+  pattern-structure answer is the product semilattice with componentwise
+  $\sqcap$, and it comes with the meet already defined.
+\end{itemize}
+
+\paragraph{(c) What it would cost.} Nothing, if imported as \emph{theory}.
+Importing the \emph{machinery} --- computing the pattern concept lattice ---
+would reintroduce the closure problem of Section~\ref{sec:not-closed}, with
+the added hazard that interval pattern lattices are typically larger than
+their binary counterparts.
+
+\paragraph{(d) Verdict: \textbf{Adopt (theory)}, immediately and at no cost.}
+Re-describe \odag{}'s dimensions in pattern-structure language in the design
+documents; use the projection theory when the per-dimension index is finally
+built; adopt the product-semilattice answer for multi-coordinate descriptions
+when that question is decided. This is the single highest-value, lowest-cost
+item on the list: it is free, and it converts an engineering hunch into a
+known-correct construction.
+
+\subsection{Stability, support, and knowing which concepts are worth having}
+\label{sec:learn-stability}
+
+\paragraph{(a) What it is.} Two ways of ranking concepts. \emph{Support} is
+extent size --- keep the concepts with many members, which yields the iceberg
+lattice \citep{stumme2002}. \emph{Stability} \citep{kuznetsov2007} is the
+fraction of sub-collections of the extent that would still produce the same
+intent --- keep the concepts that do not depend on any one or two objects.
+
+\paragraph{(b) What \odag{} would gain.} Half of this machinery already
+exists. The stored \verb|descendant_count| \emph{is} the extent size of a node, kept
+current by delta on every write. So half of this machinery exists and is
+already load-bearing (the query planner uses it to order cones). What is
+missing is the \emph{use} of these numbers to decide what deserves to exist.
+
+Concretely, three consumers:
+
+\begin{enumerate}[leftmargin=1.7em]
+\item \textbf{Which unnamed meets to suggest.} Of the four meets in
+  Figure~\ref{fig:completion}, which should the system offer to name? Support
+  and stability rank them. From Table~\ref{tab:concepts}, ``booked Japan
+  documents'' has support 4 but stability $0.38$; ``refundable Japan
+  bookings'' has lower support (3) but higher stability ($0.62$). The second
+  is the better candidate for a category, and only stability says so.
+\item \textbf{Which cones to index.} \odag{}'s published cone summaries
+  currently use a fixed threshold rule on \verb|descendant_count|. That is
+  iceberg selection under a different name, and the \fca{} literature has
+  better selection criteria.
+\item \textbf{Which concepts to materialise in a query planner.} The topic of
+  Section~\ref{sec:dir-materialisation}.
+\end{enumerate}
+
+\paragraph{(c) What it would cost.} Stability is expensive to compute exactly
+(it is a sum over subsets; the experiment script brute-forces it only for
+extents of at most 16). Approximations exist and are standard practice. Since
+the output is a ranking used for suggestion and indexing, approximation is
+harmless --- it steers effort, never correctness.
+
+\paragraph{(d) Verdict: \textbf{Adopt (derived)}.} Support is already there;
+add estimated stability to the derived index, and use both to rank
+suggestions. Never let either affect the stored graph.
+
+\subsection{Boolean factor analysis and the MDL connection}
+\label{sec:learn-mdl}
+
+\paragraph{(a) What it is.} \citet{belohlavek2010} proved a striking result:
+if you want to decompose a binary matrix into a product of two binary matrices
+with the fewest inner dimensions --- Boolean factor analysis --- then the
+optimal factors are \emph{formal concepts}. Concepts are not just an
+interpretive device; they are the right basis.
+
+That result immediately raises the model-selection question, because using
+\emph{all} concepts is the trivial and useless decomposition. Which subset?
+The minimum description length principle \citep{rissanen1978,grunwald2007}
+gives a principled answer: keep a concept if describing the data using it is
+shorter than describing the data without it --- if it \emph{pays for its own
+description}. This is the programme of \citet{miettinen2014} and, in the
+DAG-structured form relevant here, of the \texttt{mdl-fca} project
+\citep{mdlfca}. The same two-part-MDL move drives the pattern-set miners
+Krimp and Slim \citep{vreeken2011,smets2012}, which select a small set of
+itemsets that compress the data; what a DAG-structured version adds is that
+a new concept sits \emph{above} its constituents, and can make earlier ones
+redundant.
+
+\paragraph{(b) What \odag{} would gain.} A principled answer to the question
+\odag{} currently punts on: \emph{where do categories come from?} Today they
+come from people. MDL-selected concepts would let a store propose new
+categories that are justified by compression --- Barlow's ``suspicious
+coincidences'' \citep{barlow1989} made exact.
+
+This is also the cleanest resolution of the tension in
+Section~\ref{sec:not-closed}. The complaint against closure was that \fca{}
+creates a concept for every coincidence. MDL is precisely a filter for
+coincidence: a concept that arises from chance co-occurrence does not
+compress, so it does not pay, so it is not admitted. \emph{MDL-\fca{} is the
+principled version of iceberg partiality} --- support thresholds ask ``how
+many?'', MDL asks ``does it earn its keep?''.
+
+\paragraph{(c) What it would cost.} The learned structure is \emph{global and
+history-dependent}: it is a function of the whole dataset, and it changes when
+the data changes. Merging two learned DAGs would be merging two models fitted
+to different samples, which is not union and does not converge. Putting
+learned concepts directly into the shared graph would break G1 and G5 at once.
+
+\paragraph{(d) Verdict: \textbf{Adopt (derived)}, with a clearly specified
+promotion path.} The layering that makes it safe already exists:
+
+\begin{itemize}[leftmargin=1.4em]
+\item run the learner over a \emph{pinned root} --- so its input is
+  immutable, its output is reproducible, and both can be cited;
+\item keep the learned structure in a separate store with its own root, never
+  merged (the same pattern as cone summaries);
+\item if a learned category is to become shared knowledge, it enters as an
+  \emph{ordinary asserted claim by an identified author}, with the pinned root
+  it was derived from recorded as its basis. Someone --- a person or an
+  accountable agent --- takes responsibility for it, and it becomes an
+  assertion like any other.
+\end{itemize}
+
+Notice that this preserves the discipline of
+Section~\ref{sec:learn-implications} exactly: the learner produces evidence,
+an author produces claims.
+
+\subsection{Attribute exploration, with a language model as the expert}
+\label{sec:learn-exploration}
+
+This is the most interesting item on the list, because a forty-year-old
+protocol has just acquired a participant it was always waiting for.
+
+\paragraph{(a) What it is.} Attribute exploration \citep{ganter2016} is an
+interactive knowledge-acquisition loop:
+
+\begin{enumerate}[leftmargin=1.7em,itemsep=1pt]
+\item The system computes the next implication that its current data supports
+  and that does not already follow from what has been confirmed.
+\item It asks a domain expert: \emph{is this always true?}
+\item If the expert says yes, the implication is added to the knowledge base.
+\item If the expert says no, they must supply a \textbf{counterexample} --- an
+  object violating it --- which is added to the context.
+\item Repeat until no unconfirmed implications remain.
+\end{enumerate}
+
+On termination you have an implication base that is complete for the
+\emph{domain}, not merely for the sample --- which is a strictly stronger
+thing than data mining can give you, and the reason the protocol was invented.
+
+\paragraph{(b) What \odag{} would gain.} A principled, terminating,
+\emph{auditable} procedure for growing an ontology, in which the expensive
+step --- answering domain questions --- is exactly the step a modern language
+model is good at, and in which every answer is a discrete, recordable,
+attributable commitment.
+
+Consider how well the pieces fit:
+
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}p{4.6cm} X@{}}
+\toprule
+\textbf{What exploration needs} & \textbf{What \odag{} has}\\
+\midrule
+a context to mine implications from & the asserted graph, viewed as
+  $\ctx(P)$ (\S\ref{sec:dictionary})\\
+an expert who answers questions & an agent on the MCP surface
+  (\S\ref{sec:agents})\\
+counterexamples added as objects & \cmd{put} --- the ordinary write path\\
+a record of what was confirmed & signed provenance records, per claim\\
+a way to revisit a bad answer & retraction records; roots to compare against\\
+termination & the base is finite\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+And it addresses the central problem of agent-written knowledge, which
+Section~\ref{sec:agents-review} states as: \emph{agents write faster than
+anyone can review}. Exploration inverts the flow. Instead of an agent
+proposing arbitrary edits for review, the \emph{system} generates the
+questions --- a minimal, non-redundant sequence, each one maximally
+informative given the answers so far --- and the agent answers them. Review
+becomes bounded, ordered and non-redundant, which is exactly what makes
+oversight tractable.
+
+\paragraph{(c) What it would cost.} Three real problems, none fatal.
+
+First, \textbf{the expert can be wrong}, and a language model can be
+confidently wrong. Classical exploration assumes an infallible expert. The
+mitigation is already \odag{}'s design: an answer is not truth but a
+\emph{signed claim}, so a wrong answer is attributable, disputable and
+retractable, and readers may weigh authors differently. The protocol degrades
+from ``complete for the domain'' to ``complete relative to what this author
+asserted'', which is the honest thing for it to be.
+
+Second, \textbf{implications are not subsumptions}. Attribute exploration
+yields $B \to C$ for sets $B$, and \odag{} stores only single-parent edges
+$x \dsub y$. A confirmed implication with a compound premise
+($\{\textsf{Flight}, \textsf{Japan}\} \to \textsf{Booked}$) has no
+representation in the core graph. This is the relations/axioms wall, and it is
+where the honest answer is: store the implication in the provenance layer as a
+claim, use it as a lint, and do not pretend the core entails it.
+
+Third, \textbf{exploration assumes a fixed universe}, while \odag{} stores
+merge concurrently. Two agents exploring two replicas will ask different
+questions and confirm different things. Reconciling that is genuinely open.
+
+\paragraph{(d) Verdict: \textbf{Research}, and the most promising item in this
+paper.} The single-writer case --- one store, one agent, one human reviewing
+the confirmed implications --- is buildable today with existing pieces, and
+would be a genuinely novel artefact: \emph{an ontology grown by a language
+model under a protocol that bounds and orders the review}. The multi-writer
+case needs the concurrent-exploration question answered first.
+Section~\ref{sec:dir-exploration} sketches the design.
+
+\subsection{Drawing: line diagrams as a design discipline}
+\label{sec:learn-drawing}
+
+\paragraph{(a) What it is.} \fca{} takes diagram layout seriously, because the
+whole point of Wille's programme was that a domain expert should be able to
+\emph{read} a lattice \citep{wille1982}. The techniques --- additive layouts
+where each attribute contributes a fixed vector, reduced labelling
+(\S\ref{sec:basic-theorem}), and layer assignment by concept rank --- are
+mature.
+
+\paragraph{(b) What \odag{} would gain.} Better pictures, and one specific
+improvement worth naming. \odag{}'s visualiser draws the graph with Graphviz,
+labelling every node with its full name. For a store with typed values that is
+noisy: fifty weight values under one head, each drawn as a box. Reduced
+labelling is the direct fix --- draw the structure, and place each name once,
+where it is introduced. Compare Figure~\ref{fig:lattice} with
+Figure~\ref{fig:ontodag}: the former carries the same information in less
+space, and the difference is entirely the labelling convention.
+
+\paragraph{(c) What it would cost.} Nothing; it is a rendering choice.
+
+\paragraph{(d) Verdict: \textbf{Adopt (surface)}.} Cheap, and the reading
+rules would have to be documented, which is a small cost against a real gain
+in legibility.
+
+\subsection{Algorithms and complexity as guardrails}
+\label{sec:learn-complexity}
+
+\paragraph{(a) What it is.} \fca{} has decades of algorithm engineering
+\citep{kuznetsov2002,krajca2010,lindig2000} and a clear complexity picture
+\citep{kuznetsov2001}.
+
+\paragraph{(b) What \odag{} would gain.} Chiefly, \textbf{knowing where the
+cliffs are}. The contranominal scale (\S\ref{sec:algorithms}) is a small,
+memorable object whose lattice is $2^n$; recognising that pattern in a
+proposal is a fast way to reject it. NextClosure's constant-memory,
+lectic-order enumeration is the right algorithm for any future \odag{} feature
+that must walk closed sets without materialising them --- an
+implication lint, for instance, or an MDL learner's candidate generation.
+
+There is a second, subtler gift. \fca{}'s complexity results explain
+\emph{why} \odag{}'s design is not merely a convenient shortcut. A system that
+promised ``all concepts'' would be promising something $\#\mathrm{P}$-hard to
+even count. \odag{}'s refusal is principled, and the citation for that
+principle is \citet{kuznetsov2001}.
+
+\paragraph{(d) Verdict: \textbf{Adopt (theory)}.} Free.
+
+\subsection{Triadic \fca{}, and provenance}
+
+\paragraph{(a) What it is.} \citet{lehmann1995} extend contexts to three
+dimensions: objects $\times$ attributes $\times$ \emph{conditions}, with
+triadic concepts as triples.
+
+\paragraph{(b) The tempting analogy.} \odag{}'s provenance layer records
+\emph{who} asserted \emph{which} claim: a third axis over the same claims.
+``Claims that Alice and Bob both endorse'' looks like a triadic concept.
+
+\paragraph{(c) Why it does not fit as-is.} Triadic \fca{} treats the third
+dimension symmetrically with the other two, and \odag{}'s does not:
+authorship is not a property of knowledge but of a speech act, deliberately
+stored in a \emph{separate} store with its own root so that the knowledge root
+stays a fingerprint of knowledge alone. Merging the axes would put ``who said
+it'' inside the hash of ``what is true'', which is precisely the design error
+the separation exists to prevent --- two people who know the same thing must
+get the same root.
+
+\paragraph{(d) Verdict: \textbf{Adopt (theory), refuse (core)}.} The triadic
+\emph{analysis} could run over the provenance store as a derived view --- ``which
+authors agree about which regions of the ontology'' is a real and interesting
+question, and triadic concepts are the right shape for it. The triadic
+\emph{representation} must stay out of the knowledge graph.
+
+\subsection{What \odag{} should refuse}
+
+Three items, for completeness.
+
+\paragraph{Fuzzy and graded \fca{}} \citep{belohlavek2004}. \textbf{Refuse.} A
+graded incidence puts a number in the data. Numbers in identity break exact
+canonicalisation (which number, at what precision, rounded how?) and break
+merge (whose number wins?). Confidence is a property of a \emph{speech act},
+and belongs on a provenance record where it can be attributed and where
+disagreement is representable as disagreement rather than as a silently
+averaged scalar.
+
+\paragraph{Full closure in the shared store.} \textbf{Refuse}, for the four
+reasons of Section~\ref{sec:not-closed}. Local closure over a pinned root is
+fine and is the recommended way to get the benefits.
+
+\paragraph{Relational Concept Analysis as the relations answer}
+\citep{rouanehacene2013}. \textbf{Research.} \odag{} genuinely lacks
+relations: ``Alice \emph{authored} Doc1'' is not subsumption, and the system
+has no way to say it. RCA is the mature \fca{}-native answer, handling
+inter-object links by iterated relational scaling to a fixpoint. But the
+fixpoint is a global computation over the whole context, which is the opposite
+of \odag{}'s local, incremental, mergeable discipline --- and the scaled
+attributes it generates would enter the canonical form, making the root depend
+on the fixpoint. Worth reading before designing anything here; not worth
+importing.
+
+\subsection{The shopping list, ranked}
+
+\begin{table}[h]\centering\small
+\caption{Everything in Section~\ref{sec:learn}, sorted by value per unit of
+risk. The top three cost nothing and can be done now.}
+\label{tab:shopping}
+\vspace{1mm}
+\begin{tabularx}{\textwidth}{@{}p{4.4cm} p{2.5cm} X@{}}
+\toprule
+\textbf{Item} & \textbf{Verdict} & \textbf{Why, in one line}\\
+\midrule
+Pattern structures (\S\ref{sec:learn-patterns})
+  & Adopt (theory) & \odag{} already built one; the theory says what is true
+    about it and how to extend it to several coordinates.\\
+Complexity results (\S\ref{sec:learn-complexity})
+  & Adopt (theory) & Turns a design instinct into a citable argument, and
+    names the cliffs.\\
+Scaling vocabulary (\S\ref{sec:learn-scaling})
+  & Adopt (core) & Reveals a real gap: there is no ordinal kind.\\
+Reduced labelling (\S\ref{sec:learn-drawing})
+  & Adopt (surface) & Strictly better pictures for free.\\
+Stability \& support (\S\ref{sec:learn-stability})
+  & Adopt (derived) & Half of it already exists; ranks which meets and cones
+    deserve attention.\\
+Implication lint (\S\ref{sec:learn-implications})
+  & Adopt (derived) & Real classification help; must stay a suggestion,
+    because implications are non-monotone.\\
+MDL concept learning (\S\ref{sec:learn-mdl})
+  & Adopt (derived) & Answers ``where do categories come from?''; needs a
+    pinned root and an author to promote its output.\\
+Attribute exploration (\S\ref{sec:learn-exploration})
+  & Research & The best fit with the agents story; single-writer case is
+    buildable now.\\
+Triadic analysis of provenance
+  & Research & Right shape for ``who agrees with whom''; must not touch the
+    knowledge root.\\
+Relational Concept Analysis
+  & Research & The relations wall; global fixpoint conflicts with local
+    canonical form.\\
+Fuzzy \fca{}
+  & Refuse & Numbers in identity destroy exact canonicalisation and merge.\\
+Full closure in the store
+  & Refuse & Exponential, coincidence-prone, unstable under edit,
+    unattributable.\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The pattern across the table is worth stating explicitly, because it is the
+answer to ``how much of \fca{} should \odag{} adopt?''.
+
+\begin{keyidea}
+\textbf{Almost all of \fca{}'s theory is adoptable; almost none of its
+representation is.} The theorems, the vocabulary, the algorithms, the
+selection criteria and the interactive protocol can all be imported. The one
+thing that cannot is the concept lattice itself as a stored object --- because
+storing it would forfeit the cheap canonical form, and the cheap canonical
+form is the thing everything in Part~IV is built on.
+\end{keyidea}

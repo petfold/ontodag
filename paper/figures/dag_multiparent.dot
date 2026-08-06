@@ -1,0 +1,10 @@
+digraph dag {
+  rankdir=BT;
+  node [shape=box, fontsize=10];
+  "outbound.pdf" -> "Japan";
+  "outbound.pdf" -> "Flights";
+  "kyoto-inn.pdf" -> "Japan";
+  "paris-hop.pdf" -> "Flights";
+  "Japan" -> "Trips";
+  "Flights" -> "Trips";
+}

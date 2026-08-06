@@ -1,0 +1,14 @@
+%%
+\node (outbound*pdf) at (146.5bp,18.0bp) [draw,rectangle] {outbound.pdf};
+  \node (Japan) at (110.5bp,90.0bp) [draw,rectangle] {Japan};
+  \node (Flights) at (182.5bp,90.0bp) [draw,rectangle] {Flights};
+  \node (Trips) at (146.5bp,162.0bp) [draw,rectangle] {Trips};
+  \node (kyoto-inn*pdf) at (42.5bp,18.0bp) [draw,rectangle] {kyoto-inn.pdf};
+  \node (paris-hop*pdf) at (250.5bp,18.0bp) [draw,rectangle] {paris-hop.pdf};
+  \draw [->] (outbound*pdf) ..controls (133.5bp,44.272bp) and (128.55bp,53.9bp)  .. (Japan);
+  \draw [->] (outbound*pdf) ..controls (159.5bp,44.272bp) and (164.45bp,53.9bp)  .. (Flights);
+  \draw [->] (Japan) ..controls (123.5bp,116.27bp) and (128.45bp,125.9bp)  .. (Trips);
+  \draw [->] (Flights) ..controls (169.5bp,116.27bp) and (164.55bp,125.9bp)  .. (Trips);
+  \draw [->] (kyoto-inn*pdf) ..controls (67.626bp,44.865bp) and (77.805bp,55.344bp)  .. (Japan);
+  \draw [->] (paris-hop*pdf) ..controls (225.37bp,44.865bp) and (215.19bp,55.344bp)  .. (Flights);
+%

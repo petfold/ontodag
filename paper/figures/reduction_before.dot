@@ -1,0 +1,7 @@
+digraph before {
+  rankdir=BT;
+  node [shape=box, fontsize=10];
+  "boarding-pass" -> "outbound.pdf";
+  "outbound.pdf" -> "Japan";
+  "boarding-pass" -> "Japan" [style=dashed];
+}

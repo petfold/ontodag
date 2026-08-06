@@ -1,0 +1,491 @@
+\section{Formal Concept Analysis from scratch}
+\label{sec:fca}
+
+\fca{} was introduced by \citet{wille1982} as a way of ``restructuring lattice
+theory'' --- taking an abstract branch of algebra and giving it a concrete
+interpretation in terms of objects, attributes and concepts, so that lattice
+diagrams become something a domain expert can read. The standard reference is
+\citet{ganter1999}; \citet{carpineto2004} and \citet{priss2006} are gentler
+surveys.
+
+This section develops the theory on the running example of
+Section~\ref{sec:running-example}. Everything is computed rather than
+asserted: the numbers come from \file{fca_experiments.py}
+(Appendix~\ref{sec:experiments}).
+
+\subsection{The formal context}
+
+\begin{definition}[Formal context]
+A \emph{formal context} is a triple $\ctx = (G, M, I)$ where $G$ is a set of
+\emph{objects}, $M$ is a set of \emph{attributes}, and
+$I \subseteq G \times M$ is an \emph{incidence relation}. We write $g\,I\,m$
+for ``object $g$ has attribute $m$''.
+\end{definition}
+
+The letters are from the German: \emph{Gegenst\"ande} (objects),
+\emph{Merkmale} (attributes). A context is just a cross table, and our running
+example is this one:
+
+\begin{table}[h]
+\centering
+\small
+\caption{The running example as a formal context $\ctx = (G, M, I)$: six
+documents, five properties, $57\%$ of the cells filled.}
+\label{tab:context}
+\vspace{2mm}
+\begin{tabular}{l ccccc}
+\toprule
+& \rotatebox{60}{\textsf{Flight}} & \rotatebox{60}{\textsf{Hotel}}
+& \rotatebox{60}{\textsf{Japan}} & \rotatebox{60}{\textsf{Booked}}
+& \rotatebox{60}{\textsf{Refundable}}\\
+\midrule
+\texttt{outbound.pdf}  & $\times$ &          & $\times$ & $\times$ & $\times$\\
+\texttt{inbound.pdf}   & $\times$ &          & $\times$ & $\times$ &         \\
+\texttt{kyoto-inn.pdf} &          & $\times$ & $\times$ & $\times$ & $\times$\\
+\texttt{rail-pass.pdf} &          &          & $\times$ & $\times$ & $\times$\\
+\texttt{paris-hop.pdf} & $\times$ &          &          & $\times$ &         \\
+\texttt{visa-note.md}  &          &          & $\times$ &          &         \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Note what a context does \emph{not} contain. There is no hierarchy in it --- no
+statement that \textsf{Flight} is a kind of anything, no statement that
+\texttt{outbound.pdf} is more specific than \texttt{inbound.pdf}. The context
+is raw co-occurrence. Everything hierarchical that follows will be
+\emph{derived} from it. That is \fca{}'s central promise and, as we shall see,
+also its central cost.
+
+\subsection{The derivation operators}
+\label{sec:derivation}
+
+\begin{definition}[Derivation]
+For a set of objects $A \subseteq G$ and a set of attributes $B \subseteq M$:
+\[
+  A' \;=\; \{\, m \in M \;:\; g\,I\,m \text{ for all } g \in A \,\},
+  \qquad
+  B' \;=\; \{\, g \in G \;:\; g\,I\,m \text{ for all } m \in B \,\}.
+\]
+$A'$ is ``the attributes shared by all of $A$''; $B'$ is ``the objects having
+all of $B$''. Both are written with the same prime, and which one is meant is
+determined by the argument.
+\end{definition}
+
+\begin{example}
+In Table~\ref{tab:context}:
+\begin{align*}
+\{\texttt{outbound.pdf}, \texttt{inbound.pdf}\}' &=
+  \{\textsf{Flight}, \textsf{Japan}, \textsf{Booked}\},\\
+\{\textsf{Flight}, \textsf{Japan}\}' &=
+  \{\texttt{outbound.pdf}, \texttt{inbound.pdf}\},\\
+\{\textsf{Hotel}\}' &= \{\texttt{kyoto-inn.pdf}\}, \\
+\varnothing' &= M \quad\text{(everything is shared by no objects at all).}
+\end{align*}
+\end{example}
+
+The two maps form an (antitone) Galois connection in the sense of
+Section~\ref{sec:closure}: enlarging $A$ can only shrink $A'$, and
+$A \subseteq B' \iff B \subseteq A'$. Both composites are closure operators.
+We write $A'' = (A')'$ and call it the closure of $A$.
+
+\begin{pitfall}
+The prime is not an inverse. $A''$ generally contains more than $A$: it is
+$A$ plus every other object that happens to share all of $A$'s common
+attributes. Try $A = \{\texttt{outbound.pdf}\}$: $A' =
+\{\textsf{Flight},\textsf{Japan},\textsf{Booked},\textsf{Refundable}\}$ and
+$A'' = \{\texttt{outbound.pdf}\}$ again --- but
+$A = \{\texttt{visa-note.md}\}$ closes to $A'' =
+\{\texttt{outbound.pdf}, \texttt{inbound.pdf}, \texttt{kyoto-inn.pdf},
+\texttt{rail-pass.pdf}, \texttt{visa-note.md}\}$, because \texttt{visa-note}'s
+only attribute is \textsf{Japan} and all those documents have it.
+\end{pitfall}
+
+\subsection{Formal concepts}
+
+\begin{definition}[Formal concept]
+A \emph{formal concept} of $\ctx$ is a pair $(A, B)$ with $A \subseteq G$,
+$B \subseteq M$, $A' = B$ and $B' = A$. $A$ is the \emph{extent} (the things
+falling under the concept), $B$ the \emph{intent} (the properties defining
+it).
+\end{definition}
+
+The two conditions are a fixed-point demand, and they encode a very old
+intuition about what a concept is: \emph{the extent and the intent must
+determine each other exactly}. A concept is not any old pair of a set of
+things and a set of properties. It is a pair in perfect balance: every object
+in the extent has every attribute in the intent (that much is easy), and
+crucially there is no object outside the extent that would also qualify, and
+no attribute outside the intent that all the extent happens to share.
+
+\begin{example}
+$(\{\texttt{outbound.pdf}, \texttt{inbound.pdf}\},
+\{\textsf{Flight}, \textsf{Japan}, \textsf{Booked}\})$ is a formal concept: the
+two flights to Japan share exactly those three properties, and no other
+document has all three. Informally, it is the concept \emph{Japanese flight
+booking}, which nobody put in the table --- it emerged.
+
+By contrast $(\{\texttt{outbound.pdf}\}, \{\textsf{Flight}\})$ is \emph{not} a
+concept: \texttt{outbound.pdf} has more attributes than just \textsf{Flight},
+so the pair is unbalanced.
+\end{example}
+
+\begin{proposition}
+$(A,B)$ is a formal concept iff $A$ is a closed object set ($A''=A$) and
+$B=A'$; equivalently iff $B$ is a closed attribute set ($B''=B$) and $A=B'$.
+So concepts are in bijection with closed attribute sets, which is how
+algorithms enumerate them.
+\end{proposition}
+
+\subsection{The concept lattice}
+\label{sec:basic-theorem}
+
+Order concepts by specificity: $(A_1, B_1) \leq (A_2, B_2)$ when
+$A_1 \subseteq A_2$ --- equivalently, when $B_2 \subseteq B_1$. Fewer things,
+more properties, further down. The set of all concepts under this order is
+written $\Bcl(\ctx)$.
+
+\begin{theorem}[Basic Theorem of \fca{}; \citealp{wille1982,ganter1999}]
+\label{thm:basic}
+$\Bcl(\ctx)$ is a complete lattice, in which
+\[
+  \bigwedge_{t \in T}(A_t, B_t) =
+    \Bigl(\bigcap_{t} A_t,\ \bigl(\bigcup_{t} B_t\bigr)''\Bigr),
+  \qquad
+  \bigvee_{t \in T}(A_t, B_t) =
+    \Bigl(\bigl(\bigcup_{t} A_t\bigr)'',\ \bigcap_{t} B_t\Bigr).
+\]
+Conversely, every complete lattice is isomorphic to the concept lattice of
+some context. So ``complete lattice'' and ``concept lattice'' are the same
+notion up to isomorphism.
+\end{theorem}
+
+Two things are worth extracting from that statement, one reassuring and one
+expensive.
+
+\emph{Reassuring:} meets are intersections of extents. ``The most specific
+concept that is both a \textsf{Flight} and a \textsf{Japan} document'' always
+exists, is unique, and is computed by intersecting. That is a strong
+guarantee, and it is exactly what makes concept lattices navigable.
+
+\emph{Expensive:} \emph{completeness} means \emph{every} subset has a meet,
+including subsets nobody asked about. The lattice contains a concept for every
+closed attribute set, whether or not any object realises it, whether or not
+anybody would recognise it, and whether or not the co-occurrence that produced
+it is a real regularity or a coincidence. Section~\ref{sec:explosion} measures
+what that costs.
+
+\subsection{Reading a line diagram}
+
+\begin{figure}[t]
+\centering
+\dotfig[0.85]{lattice_travel}
+\caption{The concept lattice of Table~\ref{tab:context}: 10 concepts, 13
+covering edges, drawn with \fca{}'s standard \emph{reduced labelling}. Each
+attribute and each object name appears exactly once. To read off whether an
+object has an attribute, start at the object's node and walk \emph{upward}
+along any lines: you have the attribute iff you can reach its label. The black
+disc is a concept that introduces neither a new attribute nor a new object.
+Diagram generated with Graphviz from the computed lattice.}
+\label{fig:lattice}
+\end{figure}
+
+Figure~\ref{fig:lattice} shows the lattice. The convention deserves
+explanation because it is initially surprising and then very economical.
+
+In \emph{full labelling} you would write each concept's whole extent and whole
+intent inside its node, which repeats every name many times. \emph{Reduced
+labelling} writes each name once, at the concept where it is ``introduced'':
+
+\begin{itemize}[leftmargin=1.4em]
+\item attribute $m$ labels the concept $(m', m'')$ --- the \emph{largest}
+  concept whose intent contains $m$;
+\item object $g$ labels the concept $(g'', g')$ --- the \emph{smallest}
+  concept whose extent contains $g$.
+\end{itemize}
+
+\noindent and then the reading rules recover everything:
+
+\begin{itemize}[leftmargin=1.4em]
+\item the \textbf{intent} of a concept is every attribute label reachable by
+  walking \emph{up};
+\item the \textbf{extent} is every object label reachable by walking
+  \emph{down};
+\item ``object $g$ has attribute $m$'' iff you can walk up from $g$'s label
+  to $m$'s label.
+\end{itemize}
+
+\begin{tryit}
+In Figure~\ref{fig:lattice}, find \texttt{rail-pass} and walk upward. You
+should reach \textsf{Refundable}, \textsf{Japan} and \textsf{Booked}, but not
+\textsf{Flight} or \textsf{Hotel}. Compare with Table~\ref{tab:context}. Then
+find the concept where \textsf{Booked} sits and walk \emph{down}: you collect
+all five booked documents --- and, satisfyingly, not \texttt{visa-note}.
+\end{tryit}
+
+\subsection{The full list, and what is in it}
+
+Here is every concept of the running example, computed and sorted by extent
+size. \texttt{Supp} is the extent size (in data-mining language, the support);
+\texttt{stab} is Kuznetsov's \emph{stability} \citep{kuznetsov2007}, the
+fraction of subsets of the extent that still close to the same intent --- a
+measure of how much the concept depends on any particular object.
+
+\begin{table}[h]
+\centering\small
+\caption{All 10 formal concepts of Table~\ref{tab:context}. Only 10 of the
+$2^5 = 32$ conceivable attribute sets are closed.}
+\label{tab:concepts}
+\vspace{1mm}
+\begin{tabular}{r l l r r}
+\toprule
+\# & \textbf{Intent} & \textbf{Extent} & supp & stab\\
+\midrule
+0 & $\varnothing$ & all six documents & 6 & 0.25\\
+1 & \textsf{Booked} & all but \texttt{visa-note} & 5 & 0.38\\
+2 & \textsf{Japan} & all but \texttt{paris-hop} & 5 & 0.50\\
+3 & \textsf{Booked},\textsf{Japan} & \texttt{outbound},\texttt{inbound},\texttt{kyoto-inn},\texttt{rail-pass} & 4 & 0.38\\
+4 & \textsf{Booked},\textsf{Flight} & \texttt{outbound},\texttt{inbound},\texttt{paris-hop} & 3 & 0.50\\
+5 & \textsf{Booked},\textsf{Japan},\textsf{Refundable} & \texttt{outbound},\texttt{kyoto-inn},\texttt{rail-pass} & 3 & 0.62\\
+6 & \textsf{Booked},\textsf{Flight},\textsf{Japan} & \texttt{outbound},\texttt{inbound} & 2 & 0.50\\
+7 & \textsf{Booked},\textsf{Flight},\textsf{Japan},\textsf{Refundable} & \texttt{outbound} & 1 & 0.50\\
+8 & \textsf{Booked},\textsf{Hotel},\textsf{Japan},\textsf{Refundable} & \texttt{kyoto-inn} & 1 & 0.50\\
+9 & all five attributes & $\varnothing$ & 0 & 1.00\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Concepts 0 and 9 are the lattice's $\top$ and $\bot$: a complete lattice must
+have them, so they are manufactured whether or not anything in the world
+corresponds. Concept 9 is the concept of a document that is simultaneously a
+flight and a hotel --- empty, and necessarily so. Concepts 3, 4, 5 and 6 are
+the interesting ones: \emph{nobody wrote them down}, and each is a genuine
+category (``booked Japan documents'', ``booked flights'', ``refundable Japan
+bookings'', ``booked flights to Japan''). This is \fca{} doing what it is for.
+
+\subsection{Implications}
+\label{sec:implications}
+
+\begin{definition}[Attribute implication]
+For $B, C \subseteq M$, the implication $B \to C$ \emph{holds in} $\ctx$ if
+every object having all attributes in $B$ also has all attributes in $C$;
+equivalently, if $C \subseteq B''$.
+\end{definition}
+
+\begin{measured}
+The single-premise implications of Table~\ref{tab:context}:
+\[
+\textsf{Flight} \to \textsf{Booked}, \qquad
+\textsf{Refundable} \to \textsf{Booked}, \textsf{Japan}, \qquad
+\textsf{Hotel} \to \textsf{Booked}, \textsf{Japan}, \textsf{Refundable}.
+\]
+\end{measured}
+
+Read them aloud and the value is obvious: ``every flight here is booked'',
+``everything refundable is a booked Japan document''. Read them again and the
+danger is equally obvious: these are facts about \emph{this table}, not laws.
+One unbooked flight destroys the first. Section~\ref{sec:learn-implications}
+is about exactly this distinction, and it is the single most important thing
+\odag{} must get right if it borrows anything from this part of \fca{}.
+
+The set of all implications holding in a context is infinite (it is closed
+under trivial consequences), but it has a canonical finite generating set:
+
+\begin{theorem}[Duquenne--Guigues base; \citealp{guigues1986}]
+Every formal context has a unique minimum-cardinality set of implications from
+which all others follow, the \emph{stem base}. Its premises are the
+\emph{pseudo-intents} of the context.
+\end{theorem}
+
+The stem base is a \emph{canonical} object: same context, same base. It is the
+closest thing \fca{} has to \odag{}'s canonical form, and comparing the two
+notions of canonicity (Section~\ref{sec:two-canonical-forms}) is one of the
+more illuminating exercises in this paper.
+
+\subsection{Computing: NextClosure and complexity}
+\label{sec:algorithms}
+
+The standard enumeration algorithm is \citeauthor{ganter1984}'s
+\emph{NextClosure} \citeyearpar{ganter1984}. Fix an order on the attributes.
+Every closed set has a successor in \emph{lectic} order (a variant of
+alphabetical order on the characteristic bit vectors), computable directly.
+Starting from $\varnothing''$ and repeatedly taking successors enumerates every
+closed set, in order, using memory for one set at a time --- no lattice needs
+to be held in RAM. The paper's implementation
+(Appendix~\ref{sec:experiments}) is thirty lines and is checked against a
+brute-force oracle on every example in this document.
+
+Many faster algorithms exist --- Close-by-One and its descendants, Lindig's,
+Titanic --- and they are compared empirically by \citet{kuznetsov2002} and
+\citet{krajca2010}. None of them can escape the following.
+
+\begin{theorem}[Hardness; \citealp{kuznetsov2001}]
+The number of formal concepts of a context can be exponential in the size of
+the context, and determining that number is $\#\mathrm{P}$-complete.
+\end{theorem}
+
+There is nothing pathological about the exponential case. It is reached by the
+simplest imaginable table:
+
+\begin{definition}[Contranominal scale]
+$\mathbb{N}_n^c = (\{1,\dots,n\}, \{1,\dots,n\}, \neq)$: $n$ objects, $n$
+attributes, and object $i$ has attribute $j$ exactly when $i \neq j$. Every
+attribute subset is closed, so $|\Bcl| = 2^n$.
+\end{definition}
+
+\subsection{The explosion, measured}
+\label{sec:explosion}
+
+\begin{measured}
+Contranominal scales, computed:
+
+\smallskip
+\centering\small
+\begin{tabular}{rrrr}
+\toprule
+$n$ & concepts & \odag{} nodes & \odag{} edges\\
+\midrule
+ 4 &      16 &  8 &  12\\
+ 8 &     256 & 16 &  56\\
+10 &   1\,024 & 20 &  90\\
+12 &   4\,096 & 24 & 132\\
+\bottomrule
+\end{tabular}
+\end{measured}
+
+\noindent
+And on random data, where the effect is less extreme but still decisive.
+Figure~\ref{fig:explosion} plots the mean number of concepts of a random
+context with 30 objects and 12 attributes, against the number of crosses in
+the table (which is what \odag{} would store as edges), as the density rises.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.78\textwidth, height=6.2cm,
+  xlabel={density of the context (fraction of cells filled)},
+  ylabel={count},
+  xmin=0.05, xmax=0.65,
+  legend pos=north west, legend cell align=left,
+  grid=major, grid style={odgrey!20},
+  every axis plot/.append style={very thick},
+  tick label style={font=\small}, label style={font=\small},
+  legend style={font=\small}]
+\addplot[odrust, mark=*] table[x=density, y=concepts]
+  {experiments/explosion.dat};
+\addlegendentry{formal concepts (mean of 20)}
+\addplot[odteal, mark=square*] table[x=density, y=edges]
+  {experiments/explosion.dat};
+\addlegendentry{crosses in the table $=$ \odag{} edges}
+\end{axis}
+\end{tikzpicture}
+\caption{Random contexts, 30 objects $\times$ 12 attributes. The stored data
+grows linearly with density; the concept lattice does not. At density $0.6$
+the table has about 211 crosses and the lattice has about 550 concepts --- and
+this is a \emph{small} context. Data from
+\file{experiments/explosion.dat}, generated by the experiment script.}
+\label{fig:explosion}
+\end{figure}
+
+This is not a criticism of \fca{}. Closing a context is an expensive
+operation because \emph{the information is really there} --- those concepts
+are genuinely supported by the data. It is, however, decisive for a system
+that must hold a growing store in a browser tab, hash it after every edit, and
+merge it with a stranger's copy. Section~\ref{sec:not-closed} returns to this.
+
+\subsection{The parts of \fca{} beyond the basics}
+\label{sec:fca-extensions}
+
+\fca{} has grown a substantial toolbox in forty years. Six branches matter for
+this paper; each reappears in Section~\ref{sec:learn} as a candidate for
+adoption.
+
+\paragraph{Many-valued contexts and conceptual scaling.} Real data has
+numbers, not crosses. A \emph{many-valued context} $(G, M, W, I)$ assigns each
+object a value in $W$ for each attribute; \emph{conceptual scaling} converts
+it into an ordinary context by choosing, per attribute, a \emph{scale} that
+says which comparisons matter \citep[ch.~1]{ganter1999}. The standard scales
+are worth memorising because they are a checklist of ways to turn a value into
+crosses:
+
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}lXl@{}}
+\toprule
+\textbf{Scale} & \textbf{Turns a value into} & \textbf{Example}\\
+\midrule
+nominal      & one attribute per distinct value, mutually exclusive & colour\\
+ordinal      & ``$\leq v$'' attributes, one per threshold & school grade\\
+interordinal & both ``$\leq v$'' and ``$\geq v$'' & temperature ranges\\
+biordinal    & two ordinal scales meeting in the middle & good/bad axes\\
+contranominal& ``$\neq v$'' --- the exponential one & (avoid)\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{Pattern structures.} Scaling is lossy and arbitrary. Pattern
+structures \citep{ganter2001} generalise \fca{} so that an object's
+description need not be a set of attributes at all: it can be any element of a
+meet-semilattice with a similarity operation $\sqcap$. The most-used instance
+is the \emph{interval pattern structure}, where a description is an interval
+and $\sqcap$ is the convex hull \citep{kaytoue2011}. Remember this; \odag{}'s
+handling of typed values (\S\ref{sec:dimensions}) turns out to be an instance
+of it that was arrived at independently.
+
+\paragraph{Iceberg lattices and frequent closed itemsets.} Keep only concepts
+whose extent exceeds a support threshold \citep{stumme2002}. The result is the
+top of the lattice --- the ``iceberg'' --- and it is exactly the set of
+frequent closed itemsets from association-rule mining \citep{pasquier1999}. A
+principled way to be partial.
+
+\paragraph{Stability.} A different filter: keep concepts that survive the
+removal of objects \citep{kuznetsov2007}. Support asks ``how many?''; stability
+asks ``how robust?''. The two disagree usefully, as
+Table~\ref{tab:concepts} shows --- concept 5 has lower support than concept 3
+but higher stability.
+
+\paragraph{Boolean factor analysis.} \citet{belohlavek2010} proved that formal
+concepts are exactly the optimal factors for exact Boolean matrix
+decomposition: to write a binary matrix as a product of two binary matrices
+with as few inner dimensions as possible, use concepts. This is the result
+that connects \fca{} to the compression-based learning of
+Section~\ref{sec:learn-mdl}: if concepts are factors, then choosing
+\emph{which} concepts to keep is a model-selection problem, and MDL is the
+principled answer \citep{miettinen2014,mdlfca}.
+
+\paragraph{Attribute exploration.} An interactive protocol
+\citep{ganter2016}: the system computes the next implication that its current
+data does not refute, and asks a domain expert ``is this always true?''. The
+expert either confirms --- and the implication joins the knowledge base --- or
+supplies a counterexample, which is added as an object. Repeat. On
+termination the base is complete for the domain, not merely for the sample.
+Section~\ref{sec:learn-exploration} argues that this forty-year-old protocol
+has just acquired an ideal new participant.
+
+\paragraph{Further branches, in one line each.} \emph{Triadic} \fca{} adds a
+third dimension --- objects $\times$ attributes $\times$ conditions
+\citep{lehmann1995}. \emph{Fuzzy} \fca{} grades the incidence
+\citep{belohlavek2004}. \emph{Relational} Concept Analysis handles links
+between objects of different sorts by iterated scaling of relations
+\citep{rouanehacene2013}. Applications range from software refactoring
+\citep{snelting2000} to a broad survey of knowledge-processing uses
+\citep{poelmans2013}.
+
+\subsection{What to take away}
+
+\begin{keyidea}
+\fca{} is \textbf{derivation to completion}. Give it a binary table and it
+returns every concept the table supports, organised into a complete lattice,
+with a canonical implication base and a mature algorithmic toolbox. It answers
+the question \emph{``what concepts does this data contain?''} exhaustively and
+exactly.
+
+Its costs are the direct price of that completeness: the answer can be
+exponentially larger than the question; it describes one fixed table, so
+adding a single object can restructure the whole lattice; and its concepts
+have no names --- a concept \emph{is} its extent and intent, so when the data
+changes, ``the same'' concept may not exist any more.
+\end{keyidea}
+
+Those three costs are precisely the three problems a live, shared, editable,
+fingerprinted category store must not have. Section~\ref{sec:ontodag} shows
+what a system looks like when it is designed around avoiding them.

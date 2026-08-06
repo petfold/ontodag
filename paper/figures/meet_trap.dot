@@ -1,0 +1,10 @@
+digraph meettrap {
+  rankdir=BT;
+  node [shape=box, fontsize=10];
+  AB [label="AB"];
+  X  [label="X"];
+  AB -> A; AB -> B;
+  X -> A; X -> B;
+  meet [label="the real meet\\\\(A and B)", style=dashed, shape=ellipse];
+  meet -> A [style=dashed]; meet -> B [style=dashed];
+}

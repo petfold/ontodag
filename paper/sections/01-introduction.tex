@@ -1,0 +1,214 @@
+\section{Introduction}
+\label{sec:intro}
+
+\subsection{Two objects that turn out to be one}
+
+Start with a picture of a brain, or at least a cartoon of one. A population of
+neurons responds to the things you see. For any particular thing --- a face, a
+cup, your grandmother --- some of those neurons fire and the rest stay quiet.
+Write down a $1$ for each active neuron and a $0$ for each silent one, and the
+thing you were looking at has become a string of bits. Do this for many things
+and you have a table: rows are the things, columns are the neurons, and each
+cell says whether that neuron fired for that thing. This table is called a
+\emph{neural code}, and in the biologically realistic case it is
+\emph{sparse}: only a small fraction of the neurons are active for any one
+stimulus \citep{barlow1972,foldiak1990,olshausen1996}.
+
+Now notice something about the table that has nothing to do with biology. Take
+two things --- say, a spaniel and a poodle --- and look at the neurons that
+fire for both. If a large set of neurons is shared, the two things have
+something in common. If the set of neurons active for ``spaniel'' happens to
+\emph{contain} every neuron active for ``dog in general'', that containment is
+a statement about categories: a spaniel is a dog. No wire in the brain has to
+represent the arrow from spaniel to dog. The arrow is already there, implicit
+in which codewords overlap which.
+
+That is the observation \odag{} was built on \citep{foldiak2003,ontodag}:
+\emph{a knowledge graph can be latent in a code}. The overlaps between
+codewords are a category structure, and if you can compute with the overlaps
+you can compute with the categories.
+
+The observation has a mathematical home. It is called \textbf{Formal Concept
+Analysis} (\fca{}), it was founded by Rudolf Wille in 1982
+\citep{wille1982,ganter1999}, and it is precisely the theory of turning a
+binary table into a hierarchy of concepts --- and the hierarchy back into the
+table. \fca{}'s name for the table is a \emph{formal context}; its name for
+the hierarchy is a \emph{concept lattice}. What \fca{} contributes is not a
+vague analogy but an exact, invertible correspondence with forty years of
+theory attached: algorithms, complexity results, a theory of implications
+between attributes, an interactive protocol for growing a knowledge base with
+an expert, and a well-understood way of handling numbers and intervals.
+
+\begin{keyidea}
+A neural code is a binary matrix. A binary matrix is a formal context. A
+formal context determines a lattice of concepts. So a code determines a
+concept hierarchy --- a \emph{mind} object recoverable from a \emph{brain}
+object, and vice versa. This is the bridge, and \fca{} is the mathematics of
+crossing it \citep{endres2008}.
+\end{keyidea}
+
+\odag{} is a working system that lives near this bridge but does not stand on
+it. It is a running piece of software --- a category manager with a
+command-line tool, a web interface, a Python API, and a persistence layer that
+publishes to a decentralised storage network --- and its design is shaped by
+engineering constraints that pure \fca{} never had to face: it must accept
+edits one at a time, it must merge the work of writers who never talk to each
+other, and its stored form must hash to the same 32 bytes whenever two people
+know the same thing. Those constraints pushed it away from \fca{} in specific,
+principled ways. This tutorial is about the resulting family resemblance: what
+is shared, what differs, what each side should learn from the other.
+
+\subsection{What this document is for}
+
+Four questions, in order.
+
+\begin{enumerate}[label=\textbf{Q\arabic*.},leftmargin=2.6em]
+\item \textbf{How exactly do \odag{} and \fca{} correspond?} Not
+  ``both are about hierarchies'' --- an exact dictionary, with a theorem
+  (Section~\ref{sec:dictionary}).
+\item \textbf{What can \odag{} take from \fca{}'s theory?} \fca{} is rich and
+  mature. \odag{} is small and young. There is a shopping list, and some of it
+  is affordable today (Section~\ref{sec:learn}).
+\item \textbf{What must \odag{} \emph{not} adopt?} Some of \fca{}'s central
+  commitments would destroy the properties that make \odag{} useful. Knowing
+  which, and why, is more valuable than the shopping list
+  (Section~\ref{sec:keep}).
+\item \textbf{Who benefits?} Two constituencies, in detail: AI agents
+  (Section~\ref{sec:agents}) and cryptographic / decentralised systems
+  (Section~\ref{sec:crypto}). The claim is that they need the \emph{same} four
+  properties, and that those properties are exactly what \odag{}'s refusals
+  buy.
+\end{enumerate}
+
+The document is written as a tutorial. It assumes no order theory, no lattice
+theory, no \fca{}, and no cryptography beyond ``a hash function turns data
+into a short fingerprint''. Everything else is built up from school
+mathematics: sets, subsets, and arrows between things. Where a technical term
+is unavoidable it is defined at first use, boxed, and repeated in the glossary
+(Appendix~\ref{sec:glossary}).
+
+\subsection{One example, used throughout}
+\label{sec:running-example}
+
+To keep the two formalisms comparable, one small example runs through the
+whole paper. You are planning a trip to Japan and you have six documents.
+
+\begin{center}
+\small
+\begin{tabular}{lp{9.4cm}}
+\toprule
+\textbf{Document} & \textbf{What it is}\\
+\midrule
+\texttt{outbound.pdf}  & the flight out; booked; refundable\\
+\texttt{inbound.pdf}   & the flight back; booked; not refundable\\
+\texttt{kyoto-inn.pdf} & a hotel in Kyoto; booked; refundable\\
+\texttt{rail-pass.pdf} & a Japan Rail pass; booked; refundable\\
+\texttt{paris-hop.pdf} & an unrelated flight to Paris; booked\\
+\texttt{visa-note.md}  & notes on the visa; not a booking at all\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+There are five properties in play: \textsf{Flight}, \textsf{Hotel},
+\textsf{Japan}, \textsf{Booked}, \textsf{Refundable}. This is deliberately
+tiny --- small enough that every computation in Parts~I and~II can be checked
+by hand, and small enough that the concept lattice fits on a page. It is also
+deliberately awkward in the right way: \texttt{outbound.pdf} is a flight
+\emph{and} a Japan document \emph{and} refundable, which is exactly the
+situation that a folder tree cannot represent and that motivates both
+formalisms.
+
+\subsection{The thread that connects the parts}
+
+There is a single idea underneath all four questions, and it is worth stating
+before the machinery arrives, because everything later is a variation on it.
+
+Consider what it means for a system to \emph{know} that a spaniel is a dog.
+There are two ways to hold that knowledge:
+
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Say it.} Store an arrow from \textsf{spaniel} to \textsf{dog}.
+  The knowledge is an \emph{assertion} --- somebody put it there, and it is
+  there because they did.
+\item \textbf{Derive it.} Store the facts about individual spaniels and
+  individual dogs, and let the containment of one set of properties in another
+  \emph{produce} the arrow. The knowledge is a \emph{consequence} --- nobody
+  put it there; it follows.
+\end{itemize}
+
+\fca{} is the theory of the second option taken to its limit: given the data,
+compute \emph{every} concept the data supports, and every relationship between
+them. \odag{} is a system built firmly on the first: store what was asserted,
+in the smallest form that implies the same things, and compute the rest at
+query time. Nearly every difference in this paper --- in cost, in canonical
+form, in mergeability, in whether concepts have stable names --- flows from
+that one fork.
+
+Neither choice is wrong. They answer different questions. \fca{} asks ``what
+concepts does this data \emph{contain}?'' and gives a complete, closed,
+finished answer about a fixed table. \odag{} asks ``what have people said, and
+what follows from it right now?'' and must give an answer that survives being
+edited, merged with a stranger's answer, and fingerprinted for a blockchain.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  box/.style={draw, rounded corners=3pt, minimum height=1.05cm,
+              text width=2.85cm, align=center, inner sep=4pt},
+  lbl/.style={font=\scriptsize\itshape, text=odgrey, align=center},
+  ar/.style={-{Stealth[length=2.4mm]}, thick}]
+
+\node[box, fill=odsand] (code) at (0,0)
+  {\textbf{A code}\\[1pt]\scriptsize binary matrix\\\scriptsize
+   things $\times$ features};
+\node[box, fill=white, draw=odblue] (ctx) at (5.0,0)
+  {\textbf{Formal context}\\[1pt]\scriptsize $\ctx=(G,M,I)$\\\scriptsize
+   \fca{}'s input};
+\node[box, fill=white, draw=odblue] (lat) at (10.0,0)
+  {\textbf{Concept lattice}\\[1pt]\scriptsize $\Bcl(\ctx)$\\\scriptsize
+   every closed set};
+\node[box, fill=white, draw=odteal] (dag) at (10.0,-2.6)
+  {\textbf{\odag{}}\\[1pt]\scriptsize asserted edges only\\\scriptsize
+   transitively reduced};
+\node[box, fill=white, draw=odrust] (root) at (5.0,-2.6)
+  {\textbf{A 32-byte root}\\[1pt]\scriptsize content address\\\scriptsize
+   of the whole graph};
+\node[box, fill=odsand] (uses) at (0,-2.6)
+  {\textbf{Agents \& chains}\\[1pt]\scriptsize verify, cite,\\\scriptsize
+   merge, settle};
+
+\draw[ar] (code) -- node[lbl, above]{same\\object} (ctx);
+\draw[ar] (ctx)  -- node[lbl, above]{close\\everything} (lat);
+\draw[ar, dashed, odgrey] (lat) -- node[lbl, right, xshift=1mm]
+  {keep only what\\was asserted\\(\S\ref{sec:dictionary})} (dag);
+\draw[ar] (dag)  -- node[lbl, above]{canonical\\form + hash} (root);
+\draw[ar] (root) -- node[lbl, above]{one address\\per meaning} (uses);
+\end{tikzpicture}
+\caption{The road this paper travels. A neural code and a formal context are
+the same mathematical object seen by two communities. Closing the context
+gives the concept lattice, the object \fca{} studies. \odag{} sits below it:
+the asserted fragment, kept in a unique minimal form, which is what allows the
+whole graph to have a single content address --- and that address is what AI
+agents and cryptographic systems actually want.}
+\label{fig:roadmap}
+\end{figure}
+
+Figure~\ref{fig:roadmap} shows the route. We will walk it from left to right.
+
+\subsection{Reproducibility}
+
+Every quantitative claim in this paper --- concept counts, lattice sizes,
+canonical root hashes, the round-trip between codes and graphs --- is computed
+by \file{paper/experiments/fca_experiments.py}, which uses only the Python
+standard library plus \odag{} itself. Its full output is reproduced in
+Appendix~\ref{sec:experiments}, and the figures drawn from data are generated
+from the same run. Where a number appears in the text it is marked with a
+box like this one:
+
+\begin{measured}
+Running example: 6 documents $\times$ 5 properties, $57\%$ of cells filled.
+\fca{} finds \textbf{10} formal concepts (out of $2^5=32$ conceivable
+property sets). The same facts as an \odag{}: \textbf{11} nodes and
+\textbf{17} asserted edges.
+\end{measured}

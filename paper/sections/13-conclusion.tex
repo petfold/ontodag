@@ -1,0 +1,69 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+The question this paper set out to answer was how \odag{} relates to Formal
+Concept Analysis. The answer turned out to be more specific than expected, and
+more useful.
+
+\paragraph{They compute the same function.} \fca{}'s derivation operator on
+attribute sets \emph{is} \odag{}'s query primitive:
+$B' = \cmd{get}(B)$, exactly (Proposition~\ref{prop:dictionary}). An \fca{}
+intent \emph{is} an ancestor-set code; an extent \emph{is} a descendant cone;
+and the concept lattice of an \odag{} is its Dedekind--MacNeille completion
+(Theorem~\ref{thm:dm}). The reflexive ancestor sets are a lossless re-encoding
+of the graph, verified on 200 random cases. So the intuition that started the
+project --- that a sparse binary code carries a category structure in its
+overlaps --- is exactly right, and \fca{} is its mathematics.
+
+\paragraph{They differ in when the function is computed.} \fca{} evaluates it
+for every closed set, in advance, and stores the results. \odag{} evaluates it
+per query and stores nothing. Everything else follows: the size difference
+(linear against up to exponential, measured in Section~\ref{sec:explosion}),
+the canonical-form difference (a unique transitive reduction you can hash
+against a complete lattice you cannot), the identity difference (stable names
+against extent--intent pairs that do not survive an edit), and the
+mergeability difference (a CRDT against a structure with no merge at all).
+
+\paragraph{Almost all of \fca{}'s theory is adoptable; almost none of its
+representation is.} Section~\ref{sec:learn} found seven imports worth making
+--- pattern structures as the correct account of typed values, the scaling
+vocabulary and the ordinal kind it reveals as missing, stability and support
+as selection criteria, implication bases as a local lint, reduced labelling
+for diagrams, the complexity results as guardrails, and attribute exploration
+as a protocol --- and every one of them lands in a derived, local, regenerable
+layer, or in the documentation, or in the interface. None of them lands in the
+stored graph. That is not a coincidence; it is the discipline that made the
+list safe to write.
+
+\paragraph{The refusals are the product.} \odag{}'s value to an AI agent is
+that its knowledge is canonical, addressable, verifiable and attributable ---
+four properties a language model's knowledge lacks, and four properties that
+exist only because the system declines to store derived content, declines to
+put numbers in identity, declines to let merge fail, and declines to grow past
+the largest fragment where ``equal knowledge, equal root'' stays cheap and
+semantic. Its value to a decentralised system is the same list read
+differently: same meaning gives same hash, so agreement is a comparison and
+not a negotiation; merge converges, so consensus is needed only for money;
+and there are no floats anywhere, so the structure is unusually ready for the
+proof systems nobody has asked for yet.
+
+\medskip
+
+If there is one sentence to carry away, it is the trade in
+Section~\ref{sec:identity}, because it explains why two formalisms this
+closely related ended up serving different masters:
+
+\begin{keyidea}
+\fca{} derives concepts and therefore cannot name them stably.
+\odag{} names concepts and therefore cannot derive them.
+
+\fca{} is a discovery instrument. \odag{} is an agreement instrument.
+\end{keyidea}
+
+The interesting engineering is in connecting them --- letting \fca{} discover,
+in a derived layer over a pinned root, and letting an accountable author
+promote what it discovers into a graph that anyone can agree with, cite,
+verify and merge. Neither half does that alone. Section~\ref{sec:directions}
+is a list of ways to build the joint, and the one worth starting is the oldest
+idea in either field: let the machine ask the questions, in minimal
+non-redundant order, and let a named author answer them.

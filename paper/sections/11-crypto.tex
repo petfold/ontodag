@@ -1,0 +1,334 @@
+\section{Why this matters for cryptographic and decentralised systems}
+\label{sec:crypto}
+
+The second constituency wants the same four properties as the first, for
+different reasons. An agent wants canonical, addressable, verifiable,
+attributable knowledge because it cannot trust its own memory. A decentralised
+system wants it because there is no server to trust.
+
+\subsection{The gap content addressing leaves}
+
+Content-addressed storage --- Merkle structures \citep{merkle1987}, IPFS
+\citep{benet2014}, Ethereum Swarm \citep{tron2020} --- solved integrity and
+made durable, host-independent references possible. A hash names exactly one
+immutable byte string, forever, and tampering is detectable on retrieval.
+
+What it did not solve is \emph{meaning}. A 32-byte reference tells you nothing
+about what the content is or how it relates to anything else. The standard
+answer has been the manifest: a mapping from path names to references --- in
+other words, a directory tree. And a directory tree is the wrong shape for the
+same reason it was always the wrong shape: every object must live in exactly
+one place, while almost everything worth storing is legitimately several
+things at once. \texttt{outbound.pdf} is a flight document, a Japan document,
+and a refundable booking; a tree makes you choose, or makes you duplicate.
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}[b]{0.47\textwidth}\centering
+  \dotfig[0.82]{folder_tree}
+  \caption{A tree must choose. The Paris flight is under
+  \textsf{Flights}; the Japan one is under \textsf{Japan} --- so
+  ``all flights'' needs a duplicate.}
+\end{subfigure}\hfill
+\begin{subfigure}[b]{0.47\textwidth}\centering
+  \dotfig[0.82]{dag_multiparent}
+  \caption{A DAG does not. \texttt{outbound.pdf} is under both, once, and
+  the query decides which view you get.}
+\end{subfigure}
+\caption{The manifest problem in one picture.}
+\label{fig:tree-vs-dag}
+\end{figure}
+
+\odag{} is a semantic layer for exactly this gap: a small structure that
+records \emph{what things are}, independently of where their bytes live, and
+that happens to have the one property content-addressed storage rewards above
+all others.
+
+\subsection{Semantic content addressing}
+
+\begin{keyidea}
+Ordinary content addressing gives \textbf{same bytes, same hash}. \odag{}
+gives \textbf{same meaning, same hash}.
+\end{keyidea}
+
+That upgrade is the whole contribution, and it is worth spelling out what it
+takes. Two people file the same six documents. They do it in different orders.
+One of them types a few redundant links along the way. One writes
+$400\,\mathrm{g}$ and the other $0.4\,\mathrm{kg}$. Ordinary content
+addressing gives them two different hashes, because their bytes differ.
+\odag{} gives them one, because:
+
+\begin{itemize}[leftmargin=1.4em]
+\item the transitive reduction is unique, so build order and redundant edges
+  are quotiented away (Thm~\ref{thm:unique-reduction});
+\item values are canonicalised by denotation, so spelling is quotiented away;
+\item the serialisation and the storage trie are canonically encoded, so
+  nothing about \emph{how} the store was written survives into the bytes.
+\end{itemize}
+
+The consequences are unusual enough to list, because no mainstream database
+offers them:
+
+\begin{enumerate}[leftmargin=1.7em]
+\item \textbf{Deduplication of meaning.} Two organisations that independently
+  build the same taxonomy converge on one address, and discover it by
+  comparing 32 bytes.
+\item \textbf{Agreement is a hash comparison.} ``Do we share an ontology?''
+  costs one string comparison and zero data transfer. Because canonicality is
+  semantic, this is same-\emph{meaning}-same-hash, not
+  same-\emph{bytes}-same-hash.
+\item \textbf{A root is a commitment.} Publishing a root commits you to an
+  entire knowledge state, in the cryptographic sense: you cannot later change
+  what you knew without changing the reference. This is a commitment scheme
+  you get for free, without designing one.
+\item \textbf{Snapshots are free and eternal.} Nothing is overwritten, so
+  every past root still resolves. ``What did the catalogue say on the day of
+  the contract?'' is answerable years later.
+\item \textbf{Disagreement localises.} Two differing roots can be narrowed to
+  the exact differing records by structural diff, without transferring either
+  store.
+\end{enumerate}
+
+\subsection{Convergence without consensus}
+
+This is the property that makes \odag{} suit decentralised infrastructure
+rather than merely tolerate it, and it deserves emphasis because it is
+frequently assumed to be impossible.
+
+Distributed systems usually achieve agreement by \emph{consensus}: a protocol
+(or a blockchain) that decides an order of operations. Consensus is expensive,
+requires liveness, and requires participants to be online together.
+
+\odag{} needs none of it. Merge is commutative and idempotent
+(Thm~\ref{thm:merge}), so replicas that have seen the same set of updates ---
+in any order, with any duplicates --- hold identical state. This is the
+defining property of a state-based CRDT \citep{shapiro2011}, and combined with
+content addressing it gives the pattern \citet{sanjuan2020} call a
+Merkle-CRDT: state identified by hash, merged by a convergent function,
+gossiped rather than ordered, and which is the substrate the local-first
+software argument \citep{kleppmann2019} asks for: full local capability,
+collaboration without a coordinating server, and no vendor holding the
+authoritative copy.
+
+\begin{keyidea}
+Two writers who fold in each other's published roots reach the
+\emph{byte-identical} root regardless of gossip order (G5). No server, no
+chain, no lock, no coordination --- and afterwards they can \emph{prove} they
+agree by comparing the root.
+
+The blockchain, when one is involved at all, is therefore not needed for
+agreement. It is needed only for the things chains are actually good at:
+timestamping, settlement, and adjudicating disputes about money.
+\end{keyidea}
+
+The price is stated in Section~\ref{sec:merge} and repeated here because it is
+the one thing an integrator must design around: merge is union, so it is
+grow-only. A removal can be resurrected by a peer holding the old state.
+Undoing is local. Any application that needs authoritative deletion must add
+its own layer.
+
+\subsection{Publishing, following, and paying rent}
+\label{sec:crypto-economics}
+
+Concretely, on Swarm \citep{tron2020}, an \odag{} store becomes:
+
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}p{4.2cm} X@{}}
+\toprule
+\textbf{Swarm mechanism} & \textbf{What \odag{} uses it for}\\
+\midrule
+chunks, retrieved by hash & the record blobs and trie nodes: one commit
+  writes only what changed\\
+postage stamps (storage rent) & keeping a published ontology alive; and, more
+  interestingly, \emph{not} keeping derived indexes alive\\
+signed feeds & a followable address for ``the latest root published by this
+  key'' --- mutability on top of immutability\\
+retrievability checks & confirming a published ontology is actually fetchable
+  by strangers\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The postage mechanism produces a genuinely elegant fit with the derived-layer
+discipline of Section~\ref{sec:keep}. Derived structures --- cone summaries,
+implication lints, MDL-learned concepts, materialised meets --- are
+regenerable by definition. On a network where storage costs rent, that gives
+eviction a native mechanism:
+
+\begin{keyidea}
+\textbf{Let a derived index's postage lapse.} A cache whose eviction policy is
+``stop paying'' is a cache with an honest cost model: an index is kept warm
+exactly as long as query traffic justifies its rent, and its disappearance
+costs nothing but recomputation. Regenerable things are allowed to die.
+\end{keyidea}
+
+This also gives the workload-optimal materialisation problem of
+Section~\ref{sec:dir-materialisation} a real objective function rather than a
+notional one: the space term is not a tuning constant, it is money.
+
+\subsection{Anchoring, and settling disputes}
+
+A root is 32 bytes, which is exactly the size of one storage word in the
+Ethereum Virtual Machine. Putting a root in a contract or an event log is a
+timestamped commitment to a whole knowledge state, at negligible cost.
+
+What that enables is dispute resolution by proof rather than by argument:
+
+\begin{enumerate}[leftmargin=1.7em]
+\item A party publishes a catalogue and anchors its root on chain.
+\item A counterparty acts on a claim about the catalogue --- ``this item is
+  under $5\,\mathrm{kg}$ and located in the EU''.
+\item If the claim is disputed, it is settled by exhibiting a proof against
+  the anchored root. Inclusion, absence and subsumption all have proofs
+  (\S\ref{sec:agents-verify}).
+\end{enumerate}
+
+Two practical tailwinds are worth recording. Swarm's addressing is
+keccak-based --- the EVM's native hash --- so on-chain verification of a
+Swarm-side inclusion proof does not require an expensive foreign hash
+function; and Swarm's own storage-incentive machinery already verifies such
+proofs on chain, so the pieces exist.
+
+One honest gap, though. \odag{}'s current subsumption certificates work by
+\emph{re-execution over authenticated records}, which is ideal off-chain
+(semantics stay single-sourced in the real implementation) and impractical
+on-chain (a contract cannot re-run a graph traversal). The shape that a
+contract \emph{can} check is a hash-link path: a Merkle-ised index over the
+semantic graph, where a positive subsumption is a self-verifying chain of
+hashes. That is a known, designed-but-unbuilt extension, and it is the right
+thing to build when --- and only when --- somebody actually needs a
+subsumption verified on chain.
+
+\subsection{Bonded claims: the economic third leg}
+\label{sec:crypto-bonds}
+
+Limit L1 says proofs attest structure, never truth. Attribution
+(Section~\ref{sec:agents}) upgrades that to ``someone said it, and you may
+choose whose word you take''. There is a third leg available, and it is
+economic: \emph{someone will pay if it is wrong}.
+
+A sister project (\texttt{factbond}, design stage) explores bonded assertions:
+a stake slashed on successful dispute, a premium that prices reliability.
+Whatever the details, two structural gifts flow from \odag{}'s side of the
+fence and are worth naming because they are unusual:
+
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Claim identity is free and canonical.} Bonding a claim requires
+  naming it unambiguously. A root plus a canonical claim is exactly that ---
+  and because a root commits to the whole store, a single bond can cover
+  millions of facts, with any individual one disputed later by an inclusion
+  proof. \emph{Batched commitment, itemised dispute.}
+\item \textbf{One class of dispute adjudicates mechanically.} Distinguish
+  ``matches-source'' claims (``the store at root $R$ entails $X$'') from
+  ``matches-world'' claims (``$X$ is true''). The first is settled by a Tier-2
+  certificate --- a proof checker is the cheapest possible rung of a dispute
+  ladder, and it needs no human and no oracle. Only matches-world claims need
+  evidence and adjudicators.
+\end{itemize}
+
+That split is only available because subsumption is decidable from the stored
+graph plus exact arithmetic. It is a direct dividend of the refusals in
+Section~\ref{sec:keep}.
+
+\subsection{Marketplaces: matching as cone intersection}
+
+A second sister project (\texttt{loopmarket}) uses \odag{} for marketplace
+matching, and it is the application that forced typed values into existence.
+A courier's constraint --- ``anything up to $5\,\mathrm{kg}$, collected in
+this region, delivered before Friday'' --- must match offers nobody
+pre-classified against that threshold.
+
+Three properties of the result matter for a crypto audience:
+
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Matching is the query primitive.} A constraint is a query term,
+  so matching is one cone intersection --- one planner, one merge story, no
+  second filtering mechanism beside subsumption.
+\item \textbf{Recall-completeness is guaranteed, not hoped for.}
+  \cmd{get\_overlapping} returns every value whose denotation provably
+  intersects the constraint's (G6). For a marketplace, ``we did not miss a
+  match'' is a property worth being able to state.
+\item \textbf{No floats, anywhere.} Values are exact rationals of an SI anchor
+  unit. This is the same discipline crypto already uses for money --- wei,
+  satoshi, integer base units --- adopted for the same reason: exactness by
+  construction rather than by careful rounding.
+\end{itemize}
+
+\subsection{The zero-knowledge direction}
+\label{sec:crypto-zk}
+
+The natural next question for a privacy-sensitive counterparty is: can I prove
+``my catalogue contains something under $\mathrm{weight}(..5\mathrm{kg})$ and
+$\mathrm{location}(\mathrm{EU})$'' \emph{without revealing the catalogue}?
+
+This is the zero-knowledge question in its original sense
+\citep{goldwasser1989}: convince a verifier that a statement holds while
+revealing nothing beyond its truth. It is heavy research --- succinct proofs
+over trie walks --- and \odag{} deliberately walls it until a real consumer appears. But the positioning is
+worth recording, because \odag{} is unusually well suited when the time comes:
+
+\begin{itemize}[leftmargin=1.4em]
+\item deterministic canonical encoding: the statement being proved is about a
+  well-defined object, not about one serialisation among many;
+\item one query primitive: a single circuit shape covers the whole query
+  language;
+\item \textbf{no floating point anywhere} --- values are pairs of integers.
+  Arithmetic circuits are built over finite fields, where rationals are
+  natural and floats are a nightmare. \odag{}'s exactness commitment
+  (\S\ref{sec:keep}), adopted for canonicality, turns out to be exactly the
+  property a proof system wants.
+\end{itemize}
+
+That last point is a good illustration of a theme in this paper: the refusals
+compound. Refusing floats to protect canonical roots also made the structure
+circuit-friendly, years before anyone asked.
+
+\subsection{Governance: canonical forms, plural}
+
+A final point, less technical but arguably the most important for a
+decentralised deployment.
+
+Every attempt at a single official classification of the world has failed, and
+Borges gave the argument its definitive form: since we do not know what the
+universe is, every classification of it is arbitrary and conjectural
+\citep{borges1942}. Foucault made the historical version of the same point ---
+classification schemes are not refined over time so much as replaced.
+
+The constructive reading, for a system design, is that \emph{no single
+taxonomy deserves to be baked into identity}. \odag{}'s answer is
+architectural rather than editorial:
+
+\begin{itemize}[leftmargin=1.4em]
+\item there is no official store --- anyone publishes a root;
+\item vocabularies travel \emph{inside} stores as ordinary declarations, so
+  adopting a vocabulary is merging a published root, not installing software;
+\item adoption is by explicit reference to a root, so what you adopted is
+  exactly what you can name and check;
+\item disagreement is representable: two communities may hold divergent
+  overlays of a shared core and both be well-formed.
+\end{itemize}
+
+Wilkins wanted the one true tree. The answer here is closer to Borges:
+canonical \emph{forms}, plural --- one per community, per purpose, per moment
+--- each canonical in itself, each mergeable with the others, and none final.
+
+\subsection{Honest limits, again}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{L1: proofs attest structure, never truth.} No amount of
+  cryptography makes an assertion true. Attribution and bonds change the
+  incentives, not the epistemology.
+\item \textbf{L2: everything is relative to a pinned interpretation context.}
+  A proof about a typed value must pin the declarations and the registry
+  version. A verifier running different arithmetic must refuse rather than
+  misinterpret --- and \odag{}'s certificates do refuse.
+\item \textbf{Grow-only merge} remains the standing constraint on any
+  multi-writer deployment.
+\item \textbf{The infrastructure wall is real.} Running a node, funding it,
+  and buying storage rent is a genuine barrier --- measured in this project's
+  own logs at minutes-to-hours for a first-time user, not seconds. The
+  practical response has been to make the interesting properties available
+  \emph{before} the network step: a local content-addressed store gives
+  canonical roots, snapshots, certificates and merge with no node at all, so
+  the ideas can be evaluated before the infrastructure is confronted.
+\end{itemize}

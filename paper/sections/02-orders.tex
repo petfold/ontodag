@@ -1,0 +1,371 @@
+\section{The mathematics you need (and no more)}
+\label{sec:orders}
+
+This section builds, from scratch, the handful of ideas both formalisms rest
+on. If you know what a lattice and a transitive reduction are, skim to
+Section~\ref{sec:transitive-reduction} for the uniqueness theorem, which is
+the load-bearing fact of the whole paper, and then move on.
+
+\subsection{Sets, and the one relation that matters}
+
+A \emph{set} is a collection of distinct things, written with braces:
+$\{a, b, c\}$. Two operations will appear on every page:
+
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Intersection} $A \cap B$: the things in \emph{both} $A$ and $B$.
+\item \textbf{Union} $A \cup B$: the things in \emph{either}.
+\end{itemize}
+
+And one relation, which is the real subject of this paper:
+
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Containment} $A \subseteq B$: every element of $A$ is also an
+  element of $B$. We say $A$ is a \emph{subset} of $B$. If additionally
+  $A \neq B$ we write $A \subsetneq B$ and say \emph{strict} subset.
+\end{itemize}
+
+Containment is the prototype of everything that follows. When we say
+``a spaniel is a dog'', ``\texttt{outbound.pdf} is a Japan document'', or
+``$3\,\mathrm{kg}$ is within $0$--$5\,\mathrm{kg}$'', we are making a
+statement with the same shape: one thing is a special case of another. In
+every formalism in this paper that statement will turn out to be, literally,
+a containment of sets --- of properties, of members, or of numerical values.
+
+\subsection{Partial orders}
+
+\begin{definition}[Partial order]
+A \emph{partial order} on a set $P$ is a relation $\leq$ satisfying, for all
+$x, y, z \in P$:
+\begin{enumerate}[label=(\roman*),leftmargin=2.2em]
+\item \textbf{reflexivity}: $x \leq x$;
+\item \textbf{antisymmetry}: if $x \leq y$ and $y \leq x$ then $x = y$;
+\item \textbf{transitivity}: if $x \leq y$ and $y \leq z$ then $x \leq z$.
+\end{enumerate}
+The pair $(P, \leq)$ is a \emph{partially ordered set}, or \emph{poset}.
+\end{definition}
+
+The word ``partial'' is the important one. In a \emph{total} order --- like
+the numbers on a ruler --- any two elements are comparable: given $x$ and $y$,
+either $x \leq y$ or $y \leq x$. In a partial order they need not be.
+\textsf{Flight} and \textsf{Hotel} are simply incomparable: neither is a
+special case of the other. This is not a defect of the model; it is the whole
+point. Reality is full of incomparable things, and any structure that forces a
+comparison (a filing cabinet, a folder tree, an alphabetical list) is lying
+about something.
+
+\begin{example}
+Containment on sets is a partial order. $\{a\} \subseteq \{a,b\}$, and
+$\{a\}$ and $\{b\}$ are incomparable. Divisibility on the positive integers is
+another: $3 \leq 12$ because $3$ divides $12$; $3$ and $5$ are incomparable.
+Hold on to the divisibility example --- Leibniz built an entire scheme of
+conceptual notation on it (Section~\ref{sec:leibniz-note}).
+\end{example}
+
+\subsection{Drawing a poset: Hasse diagrams}
+
+Drawing every arrow of a partial order is hopeless: transitivity means a chain
+of length $n$ needs $\binom{n}{2}$ arrows, almost all of them redundant. The
+standard solution is to draw only the arrows you cannot infer.
+
+\begin{definition}[Cover]
+In a poset, $y$ \emph{covers} $x$ (written $x \lessdot y$) when $x < y$ and
+there is no $z$ with $x < z < y$: nothing sits strictly between them.
+\end{definition}
+
+\begin{definition}[Hasse diagram]
+The \emph{Hasse diagram} of a finite poset draws one node per element and one
+line per covering pair, with the greater element placed higher. All other
+relationships are read off by following lines upward.
+\end{definition}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}[b]{0.46\textwidth}\centering
+\begin{tikzpicture}[font=\small, node distance=1.05cm,
+  n/.style={draw, rounded corners=2pt, inner sep=3pt, fill=odsand},
+  e/.style={-{Stealth[length=2mm]}, semithick},
+  r/.style={-{Stealth[length=2mm]}, semithick, odrust, dashed}]
+\node[n] (abc) at (0,2.4) {$\{a,b,c\}$};
+\node[n] (ab) at (-1.9,1.2) {$\{a,b\}$};
+\node[n] (ac) at (0,1.2) {$\{a,c\}$};
+\node[n] (bc) at (1.9,1.2) {$\{b,c\}$};
+\node[n] (a) at (-1.9,0) {$\{a\}$};
+\node[n] (b) at (0,0) {$\{b\}$};
+\node[n] (c) at (1.9,0) {$\{c\}$};
+\node[n] (e) at (0,-1.2) {$\varnothing$};
+\foreach \x/\y in {a/ab,a/ac,b/ab,b/bc,c/ac,c/bc,ab/abc,ac/abc,bc/abc,
+                   e/a,e/b,e/c}
+  \draw[e] (\x) -- (\y);
+\draw[r, bend right=45] (e) to (abc);
+\end{tikzpicture}
+\caption{All subsets of $\{a,b,c\}$ ordered by $\subseteq$. Solid arrows are
+covers; the dashed one is an example of the many relationships a Hasse
+diagram leaves implicit ($\varnothing \subseteq \{a,b,c\}$, readable by
+walking up).}
+\end{subfigure}\hfill
+\begin{subfigure}[b]{0.46\textwidth}\centering
+\begin{tikzpicture}[font=\small,
+  n/.style={draw, rounded corners=2pt, inner sep=3pt, fill=white},
+  e/.style={-{Stealth[length=2mm]}, semithick}]
+\node[n] (t) at (0,2.4) {\textsf{Travel}};
+\node[n] (f) at (-1.5,1.2) {\textsf{Flight}};
+\node[n] (h) at (1.5,1.2) {\textsf{Hotel}};
+\node[n] (j) at (3.3,2.4) {\textsf{Japan}};
+\node[n] (o) at (0,0) {\texttt{outbound}};
+\node[n] (k) at (2.6,0) {\texttt{kyoto-inn}};
+\draw[e] (f) -- (t); \draw[e] (h) -- (t);
+\draw[e] (o) -- (f); \draw[e] (o) -- (j);
+\draw[e] (k) -- (h); \draw[e] (k) -- (j);
+\end{tikzpicture}
+\vspace{6mm}
+\caption{Part of the running example. \texttt{outbound} has two parents; it
+is a flight \emph{and} a Japan document. No tree can draw this.}
+\end{subfigure}
+\caption{Hasse diagrams. Higher means more general.}
+\label{fig:hasse}
+\end{figure}
+
+A Hasse diagram is an act of compression: it stores the minimum and recovers
+the rest by walking. \odag{} does the same thing with its actual storage, and
+Section~\ref{sec:transitive-reduction} is about why that is safe.
+
+\subsection{Directed graphs, reachability, cycles}
+
+A \emph{directed graph} (digraph) is a set of nodes plus a set of arrows
+(\emph{edges}) between them. Unlike a poset, a digraph carries no promise of
+transitivity or antisymmetry --- it is just arrows.
+
+\begin{definition}[Reachability]
+Node $y$ is \emph{reachable} from $x$ if there is a path
+$x \to \cdots \to y$ following arrows forwards. Every node is reachable from
+itself by the empty path.
+\end{definition}
+
+\begin{definition}[DAG]
+A \emph{directed acyclic graph} (DAG) is a digraph with no cycles: you can
+never leave a node and return to it.
+\end{definition}
+
+The connection to posets is the reason DAGs matter here:
+
+\begin{proposition}
+\label{prop:dag-poset}
+Reachability in a DAG is a partial order. Conversely, every finite poset is
+the reachability order of a DAG --- for instance, of its Hasse diagram.
+\end{proposition}
+
+\noindent Reflexivity holds by the empty path, transitivity by concatenating
+paths, and antisymmetry is exactly acyclicity: if $y$ were reachable from $x$
+and $x$ from $y$ with $x \neq y$, the concatenation would be a cycle. So
+\textbf{a DAG is a poset you can store}, and the acyclicity check that
+\odag{} performs on every write (\S\ref{sec:put}) is the mechanism that keeps
+the stored object a legitimate partial order.
+
+\begin{definition}[Cone]
+For a node $x$ in a DAG, its \emph{descendant cone} $\cone{x}$ is the set of
+nodes reachable from $x$, including $x$ itself. Its \emph{ancestor cone}
+$\up{x}$ is the set of nodes from which $x$ is reachable, again including $x$.
+\end{definition}
+
+We draw more general things higher and let edges point upward, from special to
+general. So $\up{x}$ --- everything $x$ is a special case of --- is above $x$,
+and $\cone{x}$ --- everything that is a special case of $x$ --- is below.
+The cone is the single most important object in this paper. In \odag{} it is
+the answer to a one-word query, in \fca{} it is a concept's extent, and in a
+neural code it is the set of stimuli that activate a given unit.
+
+\subsection{Transitive closure and transitive reduction}
+\label{sec:transitive-reduction}
+
+Two operations turn one digraph into another.
+
+\begin{definition}[Transitive closure]
+The \emph{transitive closure} $G^{+}$ of a digraph $G$ has the same nodes and
+an edge $x \to y$ whenever $y$ is reachable from $x$ in $G$. It adds every
+shortcut.
+\end{definition}
+
+\begin{definition}[Transitive reduction]
+A \emph{transitive reduction} of $G$ is a digraph $\reduc{G}$ with the same
+nodes and the same reachability, having as few edges as possible. It removes
+every shortcut.
+\end{definition}
+
+Closure and reduction are opposite ends of a family of graphs that all say the
+same thing. And now the fact that everything in \odag{} hangs from:
+
+\begin{theorem}[Uniqueness of the reduction; \citealp{aho1972}]
+\label{thm:unique-reduction}
+For a finite DAG, the transitive reduction exists, is unique, and is a
+subgraph of the original. It consists of exactly the covering pairs of the
+reachability order --- i.e.\ it is the Hasse diagram.
+\end{theorem}
+
+\begin{proof}[Why it is true, informally]
+Call an edge $x \to y$ \emph{redundant} if $y$ is reachable from $x$ by some
+\emph{other} path. In a DAG a redundant edge can always be deleted without
+changing reachability, because the alternative path survives the deletion ---
+that path cannot pass through the edge $x \to y$ itself, since doing so would
+require returning to $x$, which acyclicity forbids. So deleting redundant
+edges one at a time terminates, and it terminates at the set of non-redundant
+edges, which is determined by the reachability relation alone. Determined
+means unique: the order of deletion cannot matter.
+
+The caveat is worth stating, because it explains why the theorem is about
+\emph{acyclic} graphs. In a graph with a cycle $x \to y \to x$, both edges are
+redundant given the other, and you may delete either but not both --- so there
+are two equally minimal answers and no canonical one.
+\end{proof}
+
+\begin{keyidea}
+\textbf{Uniqueness is the seed of everything.} Because the reduction is
+unique, a category structure has exactly \emph{one} minimal representation.
+Two people who know the same things, having built their graphs in different
+orders and having typed some redundant links along the way, end up with the
+byte-identical graph. That is what lets \odag{} give the whole structure a
+single fingerprint (\S\ref{sec:canonical}), and it is why the same knowledge
+has the same address on a content-addressed network
+(\S\ref{sec:crypto}).
+\end{keyidea}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}\centering
+  \dotfig[0.95]{reduction_before}
+  \caption{As typed: someone asserted the dashed edge as well.}
+\end{subfigure}\hfill
+\begin{subfigure}[b]{0.48\textwidth}\centering
+  \dotfig[0.95]{reduction_after}
+  \caption{As stored: the shortcut is dropped. Reachability is unchanged.}
+\end{subfigure}
+\caption{Transitive reduction in action. \texttt{boarding-pass} is still under
+\textsf{Japan} --- via \texttt{outbound.pdf} --- so storing the direct edge
+would add nothing but would make the stored form depend on what the user
+happened to type. (Figures generated with Graphviz and converted by
+\texttt{dot2tex}; see Appendix~\ref{sec:colophon}.)}
+\label{fig:reduction}
+\end{figure}
+
+\subsection{Lattices: when meets and joins always exist}
+
+Posets can be missing things. In Figure~\ref{fig:hasse}(b), what is the most
+specific thing that is both a \textsf{Flight} and a \textsf{Japan} document?
+Looking at the picture, \texttt{outbound} is \emph{a} thing below both --- but
+is it \emph{the} most specific such thing? If we later add another flight to
+Japan, there will be two incomparable things below both, and no single
+best answer. The poset has a gap where an answer ought to be.
+
+\begin{definition}[Meet and join]
+Let $x, y$ be elements of a poset. A \emph{lower bound} of $\{x,y\}$ is any
+$z$ with $z \leq x$ and $z \leq y$. If among all lower bounds there is a
+greatest one, it is called the \emph{meet}, written $x \wedge y$. Dually, the
+least upper bound, if it exists, is the \emph{join} $x \vee y$.
+\end{definition}
+
+\begin{definition}[Lattice, complete lattice]
+A poset is a \emph{lattice} if every pair of elements has both a meet and a
+join. It is a \emph{complete lattice} if \emph{every} subset --- including the
+empty set and infinite subsets --- has a meet and a join. A complete lattice
+automatically has a greatest element $\top$ and a least element $\bot$.
+\end{definition}
+
+\begin{example}
+The subsets of $\{a,b,c\}$ (Figure~\ref{fig:hasse}(a)) form a complete
+lattice: meet is $\cap$, join is $\cup$, $\top = \{a,b,c\}$,
+$\bot = \varnothing$. This is the model to keep in mind: \textbf{a lattice is
+a system of sets closed under intersection}, dressed up.
+\end{example}
+
+The lattice property is a strong demand. It says that for \emph{any} question
+of the form ``what is the most specific concept covering both of these?''
+there is a unique answer already in the structure. \fca{}'s central theorem
+guarantees exactly that (\S\ref{sec:basic-theorem}) --- and paying for that
+guarantee, in storage and in computation, is the main cost \odag{} declines
+to pay (\S\ref{sec:not-closed}).
+
+\subsection{Closure operators, and the Galois connection}
+\label{sec:closure}
+
+One more piece of machinery, because it is how \fca{} actually works.
+
+\begin{definition}[Closure operator]
+A map $c$ from subsets of a set $S$ to subsets of $S$ is a \emph{closure
+operator} if for all $A, B \subseteq S$:
+\begin{enumerate}[label=(\roman*),leftmargin=2.2em]
+\item \textbf{extensive}: $A \subseteq c(A)$ --- closing only adds;
+\item \textbf{monotone}: $A \subseteq B \implies c(A) \subseteq c(B)$ ---
+  more input, more output;
+\item \textbf{idempotent}: $c(c(A)) = c(A)$ --- closing twice is closing once.
+\end{enumerate}
+A set with $c(A) = A$ is called \emph{closed}.
+\end{definition}
+
+\begin{example}
+On a DAG, ``take the ancestor cone of everything in $A$'' is a closure
+operator: it only adds nodes, it respects containment, and doing it twice
+finds nothing new because ancestry is transitive. We will meet this operator
+again in Section~\ref{sec:dictionary}, where it turns out to be the
+\odag{} analogue of \fca{}'s closure.
+\end{example}
+
+\begin{proposition}
+\label{prop:closed-sets-lattice}
+The closed sets of a closure operator on $S$, ordered by $\subseteq$, form a
+complete lattice. The meet of a family of closed sets is their intersection;
+the join is the closure of their union.
+\end{proposition}
+
+This is why lattices keep appearing: any time you have a notion of ``close
+this set up under some rule'', the closed sets are automatically a complete
+lattice. \fca{} is, at bottom, the study of one particular closure operator.
+
+\begin{definition}[Galois connection]
+Given two sets $X$ and $Y$, a pair of maps
+$f: \mathcal{P}(X) \to \mathcal{P}(Y)$ and
+$g: \mathcal{P}(Y) \to \mathcal{P}(X)$ forms a \emph{(antitone) Galois
+connection} when
+\[
+  A \subseteq g(B) \iff B \subseteq f(A)
+  \qquad\text{for all } A \subseteq X,\ B \subseteq Y .
+\]
+Both maps reverse containment ($A \subseteq A' \implies f(A') \subseteq
+f(A)$), and both composites $g \circ f$ and $f \circ g$ are closure operators.
+\end{definition}
+
+The containment reversal is intuitive once seen in an example: the more
+properties you demand, the fewer things satisfy them; the more things you must
+cover, the fewer properties they all share. That trade-off \emph{is} the
+Galois connection, and Section~\ref{sec:derivation} makes it concrete.
+
+\begin{exercise}
+Check that ``the set of neurons active for every stimulus in $A$'' and ``the
+set of stimuli that activate every neuron in $B$'' form a Galois connection
+between stimuli and neurons. You have just derived \fca{} from the neural code
+picture --- which is the content of Section~\ref{sec:code-is-context}.
+\end{exercise}
+
+\begin{remark}[Further reading]
+The standard undergraduate text on this material is
+\citet{davey2002}; \citet{birkhoff1940} is the classical source. Everything
+above is in their first two chapters.
+\end{remark}
+
+\subsection{Summary of Section~\ref{sec:orders}}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Idea} & \textbf{Why it appears later}\\
+\midrule
+Containment $\subseteq$ & the single shape of every ``is-a'' claim\\
+Partial order & incomparable things are allowed; trees forbid them\\
+DAG & a poset you can store; acyclicity $=$ antisymmetry\\
+Cone $\cone{x}$ & \odag{}'s query answer; \fca{}'s extent; a code's stimulus set\\
+Transitive reduction & unique (Thm~\ref{thm:unique-reduction}) $\Rightarrow$ canonical form $\Rightarrow$ one hash\\
+Lattice & every pair has a meet: \fca{} guarantees it, \odag{} declines to\\
+Closure operator & closed sets always form a lattice (Prop.~\ref{prop:closed-sets-lattice})\\
+Galois connection & the exact machine that turns a binary table into concepts\\
+\bottomrule
+\end{tabularx}
+\end{center}

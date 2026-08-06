@@ -1,0 +1,226 @@
+\section{What \odag{} must keep}
+\label{sec:keep}
+
+A shopping list is dangerous without a list of things that are not for sale.
+This section names the seven commitments that give \odag{} its advantage, says
+what each one is worth, and --- more usefully --- says what specific
+temptation would destroy it. They are ordered by how expensive the mistake
+would be.
+
+\subsection{The cheap canonical form}
+\label{sec:keep-canonical}
+
+\paragraph{The commitment.} The stored form is the transitive reduction of the
+asserted relation, and nothing else; values are canonicalised by denotation;
+the serialisation is deterministic. Same knowledge, same bytes, same hash.
+
+\paragraph{What it is worth.} Everything downstream. Content addressing,
+snapshot identity, cheap diffing, structural sharing, agreement-by-hash,
+convergent merge, and every certificate in Part~IV rests on this one property.
+It is also unusual: neither a relational database nor a triple store nor a
+graph database offers ``equal meaning, equal address''.
+
+\paragraph{The temptation that would destroy it.} Expressiveness --- and the
+forty-year record is worth putting beside it. The knowledge bases that
+actually run the world are the \emph{weak} ones: SNOMED CT
+\citep{spackman1997}, the Gene Ontology \citep{ashburner2000}, WordNet
+\citep{miller1995}, schema.org \citep{guha2016} and Wikidata
+\citep{vrandecic2014} are, in logical terms, little more than subsumption
+plus vocabulary. Cyc \citep{lenat1995} bet on expressiveness plus hand-built
+coverage; language models then commoditised the coverage, while the
+expressiveness left the knowledge base hard to maintain and harder to share.
+Every step
+up the ladder --- arbitrary logical axioms, rules, defaults, weights ---
+degrades the root from a fingerprint of \emph{knowledge} to a fingerprint of
+\emph{phrasing}, because canonicalising up to logical equivalence means
+canonicalising an entailment closure. The two-axis test is worth memorising:
+
+\begin{keyidea}
+A feature may enter the shared store only if it is
+\textbf{(1) monotone} --- merge-as-union survives --- and
+\textbf{(2) cheaply, semantically canonicalisable} --- ``equal knowledge,
+equal root'' stays decidable and cheap.
+
+Both are necessary. Neither is sufficient: features that pass both should
+still wait for a real consumer.
+\end{keyidea}
+
+\subsection{Names as identity}
+\label{sec:keep-names}
+
+\paragraph{The commitment.} A node \emph{is} its name at every boundary. Names
+are arbitrary and stable; meaning is carried by the structure around them, not
+inside them.
+
+\paragraph{What it is worth.} Merge is possible (\S\ref{sec:identity}),
+references survive, and provenance has a subject. The contrast with \fca{},
+where a concept is its extent--intent pair and therefore cannot survive an
+edit, is the sharpest single difference between the two systems.
+
+\paragraph{The temptation.} Meaning-bearing identifiers --- codes that encode
+the classification, so that similar things get similar names. It is a very old
+temptation and it has a very consistent record of failure
+\citep{eco1995}:
+
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}p{4.1cm} X@{}}
+\toprule
+\textbf{Attempt} & \textbf{How it failed}\\
+\midrule
+Wilkins's philosophical language (1668) \citep{wilkins1668}
+  & A word's letters walk down the taxonomy --- so a concept with two
+    legitimate genera has no legal name. \emph{The multi-parent problem,
+    1668 edition.}\\
+Dewey decimal (1876)
+  & Meaning in the identifier bought real shelf locality, and paid for it with
+    whole fields wedged into divisions chosen in the 1870s.\\
+Linnaean binomials (1753)
+  & One level of meaning in the name; taxonomic revisions therefore rename
+    species, and synonymy databases exist to track the churn.\\
+IUPAC names vs.\ CAS numbers
+  & Chemistry has the purest meaning-bearing names anywhere --- and still
+    keeps an arbitrary registry number beside them, because structures get
+    re-perceived and databases need stable join keys.\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+There is also a hard mathematical reason, not merely a historical one: a
+prefix or path code embeds a \emph{tree} order, and no linear key space can
+embed a partial order with genuine multiple parents. A child would have to
+share a prefix with both parents, which forces the parents to share it with
+each other. So meaning-bearing names cannot represent a DAG at all --- which
+is why Wilkins agonised over placements.
+
+\paragraph{What to do instead.} Exactly what chemistry does: keep both. An
+arbitrary stable name for identity, and a derived, regenerable, meaning-bearing
+code (the ancestor-set code of Section~\ref{sec:dictionary}) as an index. That
+settlement is available precisely because Proposition~\ref{prop:roundtrip}
+says the code loses nothing.
+
+\subsection{Assertion over derivation}
+
+\paragraph{The commitment.} The store holds what was said. Consequences are
+computed, never stored; nothing appears in the graph without an author.
+
+\paragraph{What it is worth.} Attributability, bounded size, stability under
+edit, and a coherent story about responsibility --- which becomes acute the
+moment the writers are machines (\S\ref{sec:agents-review}).
+
+\paragraph{The temptation.} Convenience. It is always tempting to materialise
+a derived edge ``just this once'' for speed. The discipline that makes this
+safe already exists and should be applied without exception: derived content
+lives in a separate store with its own root, is never merged, and is
+regenerable from the pinned root it was computed against. If derived content
+must be shared, it enters as an ordinary claim by an identified author.
+
+\subsection{One query primitive}
+
+\paragraph{The commitment.} Conjunctive query is intersection of cones. There
+is no second query mechanism.
+
+\paragraph{What it is worth.} It is easy to underrate this, so here is the
+concrete payoff. Because there is exactly one primitive:
+
+\begin{itemize}[leftmargin=1.4em]
+\item the planner is small enough to be \emph{proved} result-preserving, and
+  is tested against a brute-force oracle over every one-, two- and three-term
+  query on fixtures and random graphs;
+\item typed values did not need a second mechanism --- a constraint like
+  \verb|weight(..5kg)| is a query term, so matching is still one intersection,
+  with one planner and one merge story;
+\item disjunction is a thin layer that touches nothing stored;
+\item consistency checking is the same primitive again: if disjointness
+  claims are ever added, ``is anything both a Cat and a Dog?'' is
+  \cmd{get(Cat, Dog)}. The check needs no checker.
+\end{itemize}
+
+\paragraph{The temptation.} A second query path for a special case ---
+attribute payloads with a filter step, a text index consulted separately, a
+graph traversal language. Each would double the surface that must agree with
+itself.
+
+\subsection{Mergeability}
+
+\paragraph{The commitment.} Merge is union followed by re-reduction:
+commutative, idempotent, convergent, always total.
+
+\paragraph{What it is worth.} Multi-writer collaboration with no server, no
+consensus, and no coordination --- and, as Section~\ref{sec:crypto} argues,
+this is the property that makes \odag{} suit decentralised infrastructure
+rather than merely tolerate it.
+
+\paragraph{The temptation.} A merge that refuses. It is natural to want merge
+to reject an inconsistent result --- two writers filing the same crate under
+two different weights, say. But a merge that can fail is not total, and a
+non-total merge is not a CRDT: replicas that reject different things diverge
+permanently. The right answer is the one \odag{} settled on for constraints
+generally: \emph{claims merge, enforcement is local}. The inconsistency
+arrives, is visible, and is queryable --- and a reader may refuse to act on
+it. Merge stays total.
+
+\begin{pitfall}
+An honest caveat, recorded because it is currently a documentation gap in the
+system rather than a design decision: \odag{}'s \cmd{put} refuses to file one
+item under two incompatible values of the same dimension, but \cmd{merge}
+does \emph{not} enforce that guard --- so merging two stores can produce a
+state \cmd{put} would have refused. Under the principle just stated this is
+arguably correct (a refusing merge would not be total), but it should be
+\emph{stated} rather than left implicit.
+\end{pitfall}
+
+\subsection{Exactness}
+
+\paragraph{The commitment.} No floating point anywhere. Values are exact
+rationals of an SI anchor unit; comparisons are exact arithmetic; there are no
+weights, probabilities or confidences in the data.
+
+\paragraph{What it is worth.} Determinism across replicas (G3), hence
+canonical roots for typed values, hence the whole dimensions story. It also
+has an unexpected downstream benefit: a structure with no floats and one query
+primitive is unusually friendly to arithmetic circuits, which is what a
+zero-knowledge proof would need (\S\ref{sec:crypto-zk}).
+
+\paragraph{The temptation.} ``Just a confidence score.'' A number attached to
+a claim seems harmless and is not: it breaks exact canonicalisation (which
+precision? rounded how?) and breaks merge (whose number wins?). Confidence
+belongs on a signed assertion record, where two authors disagreeing is
+representable \emph{as two authors disagreeing} rather than as an averaged
+scalar that belongs to nobody.
+
+\subsection{One sort}
+
+\paragraph{The commitment.} Everything is a node; ``category'' and ``item''
+are roles, not types.
+
+\paragraph{What it is worth.} Category hierarchies with no extra machinery,
+and one traversal that crosses all levels (\S\ref{sec:one-sorted}).
+
+\paragraph{The temptation.} Adding a type system --- classes versus
+individuals, or a schema layer --- for the sake of validation. The cost is
+that every such distinction becomes something two writers can disagree about,
+and something the canonical form must encode.
+
+\subsection{The meta-commitment: a place to put derived things}
+
+Underneath the seven is one architectural habit that makes them affordable,
+and it deserves a name because it is what allows Section~\ref{sec:learn}'s
+shopping list to be so long.
+
+\begin{keyidea}
+\textbf{\odag{} has a well-defined place for derived structure}, with four
+rules: it lives in a \emph{separate store with its own root}; it is
+\emph{regenerable} from a pinned knowledge root; it is \emph{never merged};
+and it is \emph{evictable} without data loss. Cone summaries, descendant
+counts, ancestor-set codes, implication lints, MDL-learned concepts and
+materialised meets are all instances.
+
+This is what makes ``adopt, but not in the core'' a real answer rather than a
+polite refusal. Because there is somewhere else to put things, \odag{} can be
+generous about what it computes and strict about what it stores.
+\end{keyidea}
+
+On a storage network with rent, the pattern even acquires an economic
+mechanism: a derived index is kept warm exactly as long as query traffic
+justifies paying its postage, and is allowed to lapse otherwise
+(\S\ref{sec:crypto-economics}). Regenerable things can be allowed to die.

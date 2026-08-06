@@ -1,0 +1,145 @@
+\section{Glossary}
+\label{sec:glossary}
+
+Terms are grouped by where they come from. A term defined in the body carries
+its section number.
+
+\subsection*{Order theory}
+
+\begin{description}[leftmargin=0pt,labelindent=0pt,style=nextline,
+                    font=\normalfont\bfseries]
+\item[Antisymmetry] If $x \leq y$ and $y \leq x$ then $x = y$. In a stored DAG
+  this is exactly acyclicity (\S\ref{sec:orders}).
+\item[Complete lattice] A poset in which \emph{every} subset --- not merely
+  every pair --- has a meet and a join. Automatically has a top and a bottom.
+\item[Cone] For a node $x$: the descendant cone $\cone{x}$ is everything
+  reachable from $x$ (including $x$); the ancestor cone $\up{x}$ is everything
+  from which $x$ is reachable. \odag{}'s query answers are intersections of
+  descendant cones (\S\ref{sec:get}).
+\item[Cover] $y$ covers $x$ when $x < y$ with nothing strictly between. The
+  covering pairs are exactly the edges of a Hasse diagram, and exactly the
+  edges of a transitive reduction.
+\item[DAG] Directed acyclic graph. Reachability in a DAG is a partial order,
+  and every finite poset arises this way (Prop.~\ref{prop:dag-poset}).
+\item[Dedekind--MacNeille completion] The smallest complete lattice into which
+  a poset embeds, preserving all meets and joins it already had. Equal to the
+  concept lattice of $(P,P,\leq)$ (Thm~\ref{thm:dm}); \citet{macneille1937}.
+\item[Galois connection] A pair of containment-reversing maps between the
+  subsets of two sets, such that $A \subseteq g(B) \iff B \subseteq f(A)$.
+  Both composites are closure operators (\S\ref{sec:closure}).
+\item[Hasse diagram] A drawing of a poset showing only covering pairs, with
+  greater elements higher. All other relationships are read by walking.
+\item[Lattice] A poset in which every pair has a meet and a join.
+\item[Meet / join] Greatest lower bound / least upper bound of a set of
+  elements, when one exists.
+\item[Partial order] Reflexive, antisymmetric, transitive relation. ``Partial''
+  because two elements may be incomparable --- which is the point.
+\item[Poset] A set with a partial order.
+\item[Transitive closure] Add an edge wherever a path exists.
+\item[Transitive reduction] Remove every edge implied by a path. For a DAG it
+  is unique and equals the Hasse diagram (Thm~\ref{thm:unique-reduction};
+  \citealp{aho1972}).
+\end{description}
+
+\subsection*{Formal Concept Analysis}
+
+\begin{description}[leftmargin=0pt,labelindent=0pt,style=nextline,
+                    font=\normalfont\bfseries]
+\item[Attribute exploration] An interactive protocol in which the system asks
+  an expert whether each unconfirmed implication always holds, and the expert
+  either confirms it or supplies a counterexample
+  (\S\ref{sec:learn-exploration}; \citealp{ganter2016}).
+\item[Concept lattice $\Bcl(\ctx)$] All formal concepts of a context, ordered
+  by extent containment. Always a complete lattice (Thm~\ref{thm:basic}).
+\item[Contranominal scale] The context $(\{1..n\},\{1..n\},\neq)$. Every
+  attribute set is closed, so it has $2^n$ concepts --- the canonical
+  worst case (\S\ref{sec:algorithms}).
+\item[Derivation ($'$)] $A'$ is the attributes shared by all of $A$; $B'$ is
+  the objects having all of $B$. In \odag{} terms $B' = \cmd{get}(B)$
+  (Prop.~\ref{prop:dictionary}).
+\item[Duquenne--Guigues base (stem base)] The unique minimum-size set of
+  implications generating all implications of a context
+  \citep{guigues1986}.
+\item[Extent / intent] The two halves of a formal concept: the objects it
+  covers, and the attributes defining it.
+\item[Formal concept] A pair $(A,B)$ with $A'=B$ and $B'=A$ --- a query in
+  balance with its own answer (\S\ref{sec:dictionary}).
+\item[Formal context $(G,M,I)$] Objects, attributes, and which has which. The
+  same object as a binary code matrix (\S\ref{sec:code-is-context}).
+\item[Iceberg lattice] The concepts above a support threshold
+  \citep{stumme2002}.
+\item[Implication $B \to C$] Every object with all of $B$ has all of $C$.
+  Non-monotone: new data can destroy it (\S\ref{sec:learn-implications}).
+\item[NextClosure] Ganter's algorithm enumerating all closed sets in lectic
+  order, in constant memory \citep{ganter1984}.
+\item[Pattern structure] \fca{} generalised so descriptions live in a
+  meet-semilattice rather than being attribute sets; the interval case
+  matches \odag{}'s typed values (\S\ref{sec:learn-patterns};
+  \citealp{ganter2001,kaytoue2011}).
+\item[Reduced labelling] Drawing convention where each object and attribute
+  name appears once, at the concept that introduces it
+  (\S\ref{sec:basic-theorem}).
+\item[Scaling] Turning non-binary data into a context by choosing, per
+  attribute, which comparisons matter (\S\ref{sec:learn-scaling}).
+\item[Stability] The fraction of subsets of a concept's extent that still
+  close to the same intent: robustness against losing objects
+  \citep{kuznetsov2007}.
+\end{description}
+
+\subsection*{\odag{}}
+
+\begin{description}[leftmargin=0pt,labelindent=0pt,style=nextline,
+                    font=\normalfont\bfseries]
+\item[Ancestor-set code] $\code{x} = \up{x}$, the reflexive ancestor set read
+  as a bit vector. Equal to the \fca{} intent; determines the graph
+  (Prop.~\ref{prop:roundtrip}).
+\item[Canonical form] The unique transitive reduction plus
+  denotation-canonicalised values plus a deterministic serialisation. What
+  makes a single root hash possible (\S\ref{sec:canonical}).
+\item[Certificate] A self-describing envelope carrying the raw record bytes
+  needed to re-check an \cmd{is\_below} answer against a root alone
+  (\S\ref{sec:agents-verify}).
+\item[Cone summary] A published derived record stating a broad category's
+  membership, so a thin client need not walk it.
+\item[\texttt{descendant\_count}] The exact size of a node's cone,
+  delta-maintained. \fca{}'s support, and the query planner's statistics.
+\item[Dimension / parametric value] A typed value such as
+  \texttt{weight(4kg)} whose order is computed from the name by exact
+  rational arithmetic rather than stored as edges (\S\ref{sec:dimensions}).
+\item[\texttt{get\_overlapping}] Candidate generation for parametric terms:
+  complete for possibility, silent on satisfaction (G6).
+\item[\texttt{is\_below}] Boolean subsumption, answered by an upward walk,
+  fail-closed (G4).
+\item[Merge] Union of assertions followed by re-reduction. Commutative and
+  idempotent, hence a CRDT (Thm~\ref{thm:merge}).
+\item[Pinned root / as-of] Asking a question against an immutable past state,
+  which is how non-monotone questions become well defined (\S\ref{sec:asof}).
+\item[Provenance record] A signed statement that an author asserted (or
+  retracted, or endorsed) a claim, against the root they were looking at.
+  Stored separately from the knowledge (\S\ref{sec:agents}).
+\item[Residency] Whether a graph is eager (fully in memory), lazy (fetched as
+  a query walks), or sparse (partially resident and writable). Semantics are
+  identical across all three (G3).
+\item[Root] The 32-byte content address of an entire knowledge state.
+\item[\texttt{*}] The graph root node, implicit ancestor of everything.
+\end{description}
+
+\subsection*{Distributed systems and cryptography}
+
+\begin{description}[leftmargin=0pt,labelindent=0pt,style=nextline,
+                    font=\normalfont\bfseries]
+\item[Content addressing] Retrieving a blob by the hash of its own bytes;
+  nothing is ever overwritten.
+\item[CRDT] Conflict-free replicated data type: replicas converge under a
+  commutative, idempotent merge, with no coordination
+  \citep{shapiro2011}.
+\item[Feed] A signed, followable pointer to a changing value --- here, ``the
+  latest root published by this key''.
+\item[Merkle proof] The path of hashes showing a record is (or, given a
+  canonical encoding, is not) part of a hashed structure
+  \citep{merkle1987}.
+\item[Monotone] An answer that can only grow as information arrives. Required
+  of anything asked of a merging store (G2).
+\item[Postage stamp] Prepaid storage rent on Swarm; the natural eviction
+  mechanism for regenerable derived indexes (\S\ref{sec:crypto-economics}).
+\end{description}

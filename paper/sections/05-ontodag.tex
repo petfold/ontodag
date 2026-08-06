@@ -1,0 +1,418 @@
+\section{\odag{} from scratch}
+\label{sec:ontodag}
+
+Now the other side. \odag{} \citep{ontodag} is a working system: a Python
+package, a command-line tool \cmd{odag}, a web interface, an agent interface,
+and a persistence layer that publishes to content-addressed storage. This
+section develops it on the same six documents, with real transcripts.
+
+\subsection{The shape of the thing}
+
+\odag{} stores one graph. Nodes have names; edges mean ``is-under'', with the
+more general node above. There is one distinguished node, the root
+\cmd{*}, which is above everything. Edges may converge --- a node may have any
+number of parents --- so the graph is a DAG rather than a tree, and by
+Proposition~\ref{prop:dag-poset} it is a stored partial order.
+
+The first design decision is a subtraction, and it is the one that most
+distinguishes \odag{} from \fca{}:
+
+\begin{keyidea}
+\textbf{There is no distinction between objects and attributes.} Everything is
+a node. \textsf{Flight} is a node; \texttt{outbound.pdf} is a node;
+\textsf{Travel} is a node. A node may have children today and none tomorrow.
+``Category'' and ``item'' are roles a node plays in a particular sentence, not
+types in the data model.
+\end{keyidea}
+
+This is a deliberate contrast with both neighbours. The relational model
+\citep{codd1970} fixes a schema per relation, which suits large collections of
+homogeneous records rather than an open-ended universe of heterogeneous
+things; description-logic ontology stacks \citep{gruber1993,owl2} draw a
+firm line between classes and individuals and buy a great deal of
+expressiveness with it. \odag{} declines both, and
+Section~\ref{sec:one-sorted} weighs what that costs.
+
+The consequence is that categories nest without any extra machinery.
+\textsf{Flight} can be under \textsf{Travel} in the same way that
+\texttt{outbound.pdf} is under \textsf{Flight}. In \fca{}, by contrast, an
+attribute is an attribute forever: it lives in $M$, it cannot be an element of
+$G$, and if you want a hierarchy \emph{of attributes} you must build it
+outside the formalism or encode it by scaling. Section~\ref{sec:one-sorted}
+develops this comparison properly.
+
+\subsection{Building it: \texttt{put}}
+\label{sec:put}
+
+The write primitive is $\cmd{put}(x, \{p_1, \dots, p_k\})$: place node $x$
+under each of the given parents, creating $x$ if needed. Here is the running
+example, actually typed:
+
+\begin{lstlisting}
+$ odag put Travel '*'
+$ odag put Japan '*'
+$ odag put Booked '*'
+$ odag put Refundable '*'
+$ odag put Flight Travel
+$ odag put Hotel Travel
+$ odag put outbound.pdf  Flight Japan Booked Refundable
+$ odag put inbound.pdf   Flight Japan Booked
+$ odag put kyoto-inn.pdf Hotel  Japan Booked Refundable
+$ odag put rail-pass.pdf        Japan Booked Refundable
+$ odag put paris-hop.pdf Flight       Booked
+$ odag put visa-note.md         Japan
+\end{lstlisting}
+
+\noindent (Silence means success: \cmd{odag} follows the Unix convention that
+a tool says nothing when it works.)
+
+For each requested edge $p \to x$, \cmd{put} performs four checks in order,
+and the order matters:
+
+\begin{enumerate}[leftmargin=1.7em]
+\item \textbf{Already implied?} If $x$ is already reachable from $p$ by
+  another path, the edge adds no information --- skip it silently.
+\item \textbf{Would it create a cycle?} If $p$ is reachable from $x$, adding
+  $p \to x$ would close a loop. Reject the \emph{whole operation} with an
+  error, before modifying anything. This is what keeps the stored graph a
+  partial order (antisymmetry $=$ acyclicity).
+\item \textbf{Does it make an old edge redundant?} If some ancestor of $p$ has
+  a direct edge to $x$, that edge is now implied by the new one --- delete it.
+\item Add the edge.
+\end{enumerate}
+
+Steps 1 and 3 together maintain the transitive reduction incrementally. Step 3
+is subtler than it looks: the redundancy can appear in either direction
+(the new edge may bypass an existing edge from above \emph{or} from below),
+and getting only one direction is a real bug that \odag{} shipped and later
+fixed --- with the consequence, discussed in Section~\ref{sec:merge}, that
+merge stopped being order-independent until it was corrected.
+
+\begin{figure}[t]
+\centering
+\dotfig[0.72]{ontodag_travel}
+\caption{The running example as an \odag{}, drawn from the live graph. Grey
+nodes are the ones we would call categories, white ones the documents --- but
+that is a distinction in the reader's head, not in the data. Arrows point from
+special to general. Compare with the concept lattice of
+Figure~\ref{fig:lattice}: same facts, different object.}
+\label{fig:ontodag}
+\end{figure}
+
+\subsection{Querying: \texttt{get}}
+\label{sec:get}
+
+The entire query language is one operation.
+
+\begin{definition}[The query primitive]
+\[
+  \cmd{get}(A_1, \dots, A_k) \;=\; \cone{A_1} \cap \cdots \cap \cone{A_k}
+\]
+--- everything that is below \emph{all} of the given categories.
+\end{definition}
+
+\begin{lstlisting}
+$ odag get Japan Flight
+inbound.pdf
+outbound.pdf
+
+$ odag get Japan Refundable
+kyoto-inn.pdf
+outbound.pdf
+rail-pass.pdf
+
+$ odag get Flight Hotel          # nothing is both
+$ odag get Travel
+Flight
+Hotel
+inbound.pdf
+kyoto-inn.pdf
+outbound.pdf
+paris-hop.pdf
+\end{lstlisting}
+
+Three details are worth noticing in that transcript.
+
+First, \cmd{get Travel} returns \textsf{Flight} and \textsf{Hotel} alongside
+the documents. Cones do not stop at some notional item level, because there is
+no item level. This is the one-sorted design showing through, and it is a
+feature: ``show me everything travel-related'' should include the
+sub-categories.
+
+Second, \cmd{get Flight Hotel} returns nothing, and that is an answer, not an
+error. An empty intersection is a perfectly good statement about the world.
+
+Third, the empty query \cmd{get} with no arguments returns \emph{everything}:
+the intersection of no cones is unconstrained, which makes the operation
+total and makes \cmd{get}, \cmd{list} and \cmd{get '*'} one code path.
+
+Two derived operations complete the query surface. \cmd{get\_any} takes
+several such conjunctions and unions the results (disjunctive normal form,
+computed entirely at query time, never stored). And \cmd{is\_below}$(x, y)$
+answers the yes/no question directly, by walking \emph{upward} from $x$ ---
+ancestor chains are short even in huge graphs, so this never touches a cone:
+
+\begin{lstlisting}
+$ odag below outbound.pdf Travel
+true
+$ echo $?
+0
+\end{lstlisting}
+
+\paragraph{The planner.} A naive \cmd{get} would compute every cone and
+intersect. \odag{} does better, in ways borrowed from database query
+optimisers and all \emph{provably result-preserving}: it drops query terms
+that are ancestors of other terms (they constrain nothing extra), orders the
+remaining cones smallest-first using the exact \verb|descendant_count| stored
+on every node, and then --- knowing at runtime how many candidates survive
+each step --- chooses between \emph{walking} the next cone and \emph{probing}
+upward from each surviving candidate. It stops the moment the running result
+is empty. The maxim is: \emph{plan with what is known in advance, adapt on
+what can only be learned by doing, and never let either change the answer.}
+
+\begin{lstlisting}
+$ odag count Japan
+5
+\end{lstlisting}
+
+That \verb|descendant_count| is an exact, always-maintained
+\verb|COUNT(*)| per category, and it is maintained by \emph{delta} rather than
+recomputation --- appending a fresh node adds exactly one to each distinct
+ancestor, contraction removes exactly one, and dropping a redundant edge
+changes nothing by definition. It is also stored inside each record, hence
+hashed, hence it must be an exact function of content and not of history.
+
+\subsection{The golden rule, and canonical form}
+\label{sec:canonical}
+
+\begin{keyidea}
+\textbf{Keep no link you can infer.} \odag{} stores, at all times, the
+transitive reduction of the asserted relation. By
+Theorem~\ref{thm:unique-reduction} that graph is \emph{unique}, so the stored
+form depends only on \emph{what is known}, never on the order it was typed in
+or on how many redundant links the user tried to add.
+\end{keyidea}
+
+This is easy to state and easy to underrate. It means the graph has a
+\emph{canonical form}, and a canonical form can be fingerprinted.
+
+\begin{measured}
+Fifty random build orders of the same six facts, each replayed into a fresh
+\odag{}: \textbf{1} distinct graph. Ten of those orders replayed through the
+content-addressed persistence layer: \textbf{1} distinct root hash,
+\begin{center}\ttfamily\footnotesize
+5ff08fead6474d5e9cb1d0466c9a14a57f839f6e5d55813889c22bc44b0c700f
+\end{center}
+\end{measured}
+
+\subsection{Editing: remove, move, and cone removal}
+
+Three distinct operations, and conflating them loses data.
+
+\cmd{remove}$(x)$ deletes a node and \emph{contracts} the graph over the hole:
+$x$'s children are reattached to $x$'s parents, so nothing below $x$ becomes
+unreachable. The result is again the unique minimal form.
+
+\cmd{remove --cone}$(x)$ deletes $x$ \emph{and its contents}. In a
+multi-parent graph ``its contents'' needs a definition, and the only sound one
+is orphan collection: a member of the cone goes iff the root can no longer
+reach it once $x$ is gone. So deleting a finished project removes the notes
+that belonged only to it and spares the specification another project still
+uses. Survivors are \emph{detached}, never reattached upward --- giving them
+the deleted node's parents would assert something nobody said.
+
+\cmd{move}$(x, \text{from } P, \text{to } Q)$ is the retracting twin of
+\cmd{put}: assert the new parents, retract the old. Everything below $x$
+travels with it for free, because membership is reachability rather than a
+stored subtree. A move can leave a shared child under both the old and the new
+category, which is true rather than broken --- subsumption inherits, exclusive
+status cannot --- so the tool reports those items instead of silently
+deciding.
+
+\subsection{Merging: the CRDT property}
+\label{sec:merge}
+
+\cmd{merge}$(D_1, D_2)$ folds one graph into another: add every missing node,
+replay every edge through the same \cmd{put} machinery so that redundancies
+created by the union are pruned, and the result is again canonical.
+
+\begin{theorem}[Merge algebra; tested as invariant I7 in \citealp{ontodag}]
+\label{thm:merge}
+\cmd{merge} is commutative and idempotent: merging $A$ into $B$ gives the same
+graph as merging $B$ into $A$, and merging the same thing twice changes
+nothing.
+\end{theorem}
+
+Those two properties, plus the canonical form, are the definition of a
+state-based conflict-free replicated data type \citep{shapiro2011}. Their
+practical meaning:
+
+\begin{keyidea}
+Any group of people can exchange changes \textbf{in any order, repeatedly,
+with no coordination}, and converge on the byte-identical graph. No server, no
+consensus protocol, no locking. Two writers who have folded in each other's
+work agree, and they can prove they agree by comparing 32 bytes.
+\end{keyidea}
+
+Why does it work? Because the canonical state is defined as \emph{the
+transitive reduction of the union of asserted edges}, and union is
+commutative and idempotent while reduction is a function. The correctness of
+this argument depends on reduction being \emph{complete} --- which is why the
+one-directional-redundancy bug mentioned in Section~\ref{sec:put} was not
+cosmetic: with reduction incomplete, two writers could land on different roots
+for the same knowledge, and Theorem~\ref{thm:merge} was false.
+
+The price is stated openly: merge is union, so it is \emph{grow-only}. A
+removal can be resurrected by a peer who still holds the old edge. Deletion
+that must propagate needs either tombstones or a social protocol; \odag{}
+declines both and documents the wall.
+
+\subsection{Typed values: the order that is computed}
+\label{sec:dimensions}
+
+Everything so far is asserted edges. But no finite set of edges can say that a
+parcel weighing $4\,\mathrm{kg}$ falls under ``at most $5\,\mathrm{kg}$'',
+because between any two weights there is another. So for \emph{parametric}
+terms, the order is \emph{computed from the name} instead of stored.
+
+A term like \verb|weight(4kg)| denotes a set of values; \verb|weight(..5kg)|
+denotes the set of weights at most five kilograms; and one term is below
+another exactly when its denoted set is contained in the other's --- the same
+``is a special case of'' meaning every stored edge has. Values are exact
+rationals of the SI anchor unit, so every comparison is exact arithmetic and
+every replica computes the identical order.
+
+\begin{lstlisting}
+$ odag prelude                       # declare the standard dimensions
+$ odag put cello 'weight(4kg)'
+$ odag put crate 'weight(25kg)'
+$ odag put flute 'weight(400g)'
+
+$ odag get 'weight(..5kg)'           # everything under five kilos
+cello
+flute
+weight(2/5kg)
+weight(4kg)
+
+$ odag canon 'weight(400g)'          # what is actually stored
+weight(2/5kg)
+
+$ odag --render get 'weight(..5kg)'  # the same answer, read back nicely
+cello
+flute
+weight(400g)
+weight(4kg)
+\end{lstlisting}
+
+Three things in that transcript matter for the comparison with \fca{}.
+
+First, \verb|weight(..5kg)| is a \emph{virtual} query term: no such node
+exists, and none is created. The query is answered by filtering the values
+that do exist. Constraints cost no writes.
+
+Second, \verb|400g| is stored as \verb|weight(2/5kg)| --- canonicalised by
+\emph{denotation}, not by spelling. Two people who file the same weight in
+different units produce the identical stored form and hence the identical
+hash. This is the semantic canonicalisation of Section~\ref{sec:canonical}
+extended to values.
+
+Third, the round trip \verb|--render| shows the readable spelling without ever
+storing it. The user's phrasing is deliberately \emph{not} kept: if it were,
+two people who know the same fact would disagree on the root.
+
+\begin{remark}
+Section~\ref{sec:learn-patterns} shows that this construction is an instance
+of a known \fca{} generalisation --- interval pattern structures
+\citep{ganter2001,kaytoue2011} --- arrived at independently, and that the
+theory has things to say about it.
+\end{remark}
+
+\subsection{Persistence: from a graph to 32 bytes}
+\label{sec:persistence}
+
+\odag{}'s persistence goes through \texttt{recordstore} \citep{recordstore}, a
+small library providing a versioned key$\to$record store over
+\emph{content-addressed} storage --- storage where a blob is retrieved by the
+hash of its own bytes and nothing is ever overwritten.
+
+One record per node, keyed by name, holding its parents, children, count and
+optional payload. The index over those records is a canonically encoded
+radix trie, built so that equal contents always produce an equal index. So
+\verb|commit()| returns one hash, the \emph{root}, with three properties:
+
+\begin{itemize}[leftmargin=1.4em]
+\item the root names the entire dataset at that moment --- share the root,
+  share the dataset; keep an old root, keep a snapshot forever;
+\item equal content gives an equal root, always, so comparing two versions
+  starts by comparing two strings;
+\item consecutive versions \emph{share structure}: a small change writes only
+  the changed records plus a thin path of index nodes.
+\end{itemize}
+
+Pointing the same machinery at a peer-to-peer content-addressed network
+(Ethereum Swarm; \citealp{tron2020}) publishes the ontology into that network,
+with the latest root announced through a signed feed that others can follow.
+Section~\ref{sec:crypto} is about what this buys.
+
+\subsection{Residency: eager, lazy, sparse}
+
+The same graph semantics come in three residencies, which matters for the
+thin-client story in Section~\ref{sec:agents}. \texttt{EagerOntoDAG} loads
+every record into memory. \texttt{LazyOntoDAG} \emph{reads} a published graph
+by fetching records only as a query walks them, so querying a published store
+costs the query rather than the store. \texttt{SparseOntoDAG} \emph{writes}
+the same way: an edit touches only the records the reduction rules must
+check, and commits the byte-identical root a fully loaded editor would have
+produced. Published \emph{cone summaries} --- one derived record stating a
+broad category's membership, in a separate store with its own root --- turn
+broad queries from hundreds of fetches into a handful.
+
+\subsection{The guarantees}
+\label{sec:guarantees}
+
+\odag{} publishes a contract of what a higher layer may assume. Six clauses,
+each backed by a conformance test:
+
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{G1 Canonical root} & Equal knowledge yields an equal root. The stored
+form is a \emph{semantic} canonical form: build history, insertion order and
+the spelling of equal denotations do not affect it.\\
+\textbf{G2 Monotone merge} & Merge is union then re-reduction. True
+\cmd{is\_below} answers stay true; query results only grow. (Exception: a
+\cmd{remove} loses to a concurrent re-add.)\\
+\textbf{G3 Determinism} & Same root and same interpretation context give the
+same answers on any replica and any residency.\\
+\textbf{G4 Fail-closed \cmd{is\_below}} & True only when the graph plus exact
+arithmetic \emph{witness} it. False means ``not derivable'', never ``unknown
+but plausible''.\\
+\textbf{G5 Convergence} & Writers who fold in each other's published roots
+reach byte-identical roots regardless of gossip order.\\
+\textbf{G6 Overlap completeness} & \cmd{get\_overlapping} returns a
+recall-complete candidate set for a parametric term: complete for
+possibility, silent on satisfaction.\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Notice how many of these are \emph{negative} guarantees --- promises about
+what will \emph{not} happen (no history dependence, no shrinking answers, no
+plausible-but-underived \emph{true}). Section~\ref{sec:agents} argues that
+negative guarantees are exactly what a machine consumer needs, and exactly
+what a language model cannot give about its own knowledge.
+
+\subsection{Summary of Section~\ref{sec:ontodag}}
+
+\begin{keyidea}
+\odag{} is \textbf{assertion kept minimal}. One graph, one root, no
+object/attribute distinction, one query primitive (intersection of cones),
+stored always in its unique transitive reduction. That uniqueness makes the
+graph canonical, canonicity makes it hashable, hashability makes it
+shareable and verifiable, and the union-plus-reduction definition of merge
+makes concurrent writers converge without coordination.
+
+It answers the question \emph{``what has been said, and what follows from it
+right now?''} --- cheaply, incrementally, and in a form two strangers can
+compare in 32 bytes.
+\end{keyidea}

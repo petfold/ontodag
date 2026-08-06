@@ -1,0 +1,36 @@
+%%
+\node (*) at (430.0bp,174.0bp) [draw,ellipse] {*};
+  \node (Booked) at (322.0bp,94.0bp) [draw,rectangle] {Booked};
+  \node (Flight) at (216.0bp,94.0bp) [draw,rectangle] {Flight};
+  \node (Hotel) at (661.0bp,94.0bp) [draw,rectangle] {Hotel};
+  \node (Japan) at (430.0bp,94.0bp) [draw,rectangle] {Japan};
+  \node (Refundable) at (543.0bp,94.0bp) [draw,rectangle] {Refundable};
+  \node (inbound*pdf) at (179.0bp,18.0bp) [draw,rectangle] {inbound.pdf};
+  \node (kyoto-inn*pdf) at (679.0bp,18.0bp) [draw,rectangle] {kyoto-inn.pdf};
+  \node (outbound*pdf) at (303.0bp,18.0bp) [draw,rectangle] {outbound.pdf};
+  \node (paris-hop*pdf) at (55.0bp,18.0bp) [draw,rectangle] {paris-hop.pdf};
+  \node (rail-pass*pdf) at (554.0bp,18.0bp) [draw,rectangle] {rail-pass.pdf};
+  \node (visa-note*md) at (430.0bp,18.0bp) [draw,rectangle] {visa-note.md};
+  \draw [->] (Booked) ..controls (366.62bp,127.22bp) and (385.44bp,140.82bp)  .. (*);
+  \draw [->] (Flight) ..controls (286.92bp,120.85bp) and (352.36bp,144.7bp)  .. (*);
+  \draw [->] (Hotel) ..controls (621.38bp,109.83bp) and (612.37bp,113.09bp)  .. (604.0bp,116.0bp) .. controls (557.27bp,132.26bp) and (503.05bp,149.81bp)  .. (*);
+  \draw [->] (Japan) ..controls (430.0bp,124.2bp) and (430.0bp,133.32bp)  .. (*);
+  \draw [->] (Refundable) ..controls (496.21bp,127.3bp) and (476.36bp,141.0bp)  .. (*);
+  \draw [->] (inbound*pdf) ..controls (230.85bp,45.833bp) and (254.5bp,58.07bp)  .. (Booked);
+  \draw [->] (inbound*pdf) ..controls (191.54bp,44.085bp) and (196.36bp,53.73bp)  .. (Flight);
+  \draw [->] (inbound*pdf) ..controls (232.87bp,34.28bp) and (235.98bp,35.153bp)  .. (239.0bp,36.0bp) .. controls (296.73bp,52.172bp) and (311.74bp,54.234bp)  .. (369.0bp,72.0bp) .. controls (375.18bp,73.917bp) and (381.67bp,76.037bp)  .. (Japan);
+  \draw [->] (kyoto-inn*pdf) ..controls (620.91bp,34.711bp) and (617.92bp,35.38bp)  .. (615.0bp,36.0bp) .. controls (515.5bp,57.083bp) and (488.01bp,48.728bp)  .. (389.0bp,72.0bp) .. controls (382.85bp,73.446bp) and (376.44bp,75.168bp)  .. (Booked);
+  \draw [->] (kyoto-inn*pdf) ..controls (672.94bp,43.918bp) and (670.65bp,53.325bp)  .. (Hotel);
+  \draw [->] (kyoto-inn*pdf) ..controls (568.37bp,48.612bp) and (489.86bp,69.722bp)  .. (483.0bp,72.0bp) .. controls (479.25bp,73.245bp) and (475.38bp,74.613bp)  .. (Japan);
+  \draw [->] (kyoto-inn*pdf) ..controls (630.6bp,45.336bp) and (609.5bp,56.819bp)  .. (Refundable);
+  \draw [->] (outbound*pdf) ..controls (309.4bp,43.918bp) and (311.81bp,53.325bp)  .. (Booked);
+  \draw [->] (outbound*pdf) ..controls (272.63bp,44.836bp) and (260.0bp,55.573bp)  .. (Flight);
+  \draw [->] (outbound*pdf) ..controls (349.21bp,45.923bp) and (370.44bp,58.298bp)  .. (Japan);
+  \draw [->] (outbound*pdf) ..controls (395.09bp,47.394bp) and (443.33bp,62.267bp)  .. (Refundable);
+  \draw [->] (paris-hop*pdf) ..controls (113.15bp,34.457bp) and (116.11bp,35.239bp)  .. (119.0bp,36.0bp) .. controls (180.3bp,52.136bp) and (196.15bp,54.249bp)  .. (257.0bp,72.0bp) .. controls (262.62bp,73.638bp) and (268.48bp,75.425bp)  .. (Booked);
+  \draw [->] (paris-hop*pdf) ..controls (116.89bp,47.445bp) and (149.03bp,62.221bp)  .. (Flight);
+  \draw [->] (rail-pass*pdf) ..controls (462.45bp,48.203bp) and (408.58bp,65.384bp)  .. (Booked);
+  \draw [->] (rail-pass*pdf) ..controls (509.16bp,45.762bp) and (488.83bp,57.889bp)  .. (Japan);
+  \draw [->] (rail-pass*pdf) ..controls (550.31bp,43.835bp) and (548.93bp,53.122bp)  .. (Refundable);
+  \draw [->] (visa-note*md) ..controls (430.0bp,43.835bp) and (430.0bp,53.122bp)  .. (Japan);
+%

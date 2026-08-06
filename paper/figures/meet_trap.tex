@@ -1,0 +1,13 @@
+%%
+\node (AB) at (27.0bp,18.0bp) [draw,rectangle] {AB};
+  \node (A) at (63.0bp,90.0bp) [draw,rectangle] {A};
+  \node (B) at (135.0bp,90.0bp) [draw,rectangle] {B};
+  \node (X) at (99.0bp,18.0bp) [draw,rectangle] {X};
+  \node (meet) at (225.0bp,18.0bp) [draw,ellipse,dashed] {the real meet\\(A and B)};
+  \draw [->] (AB) ..controls (39.997bp,44.272bp) and (44.949bp,53.9bp)  .. (A);
+  \draw [->] (AB) ..controls (67.41bp,45.192bp) and (84.776bp,56.448bp)  .. (B);
+  \draw [->] (X) ..controls (86.003bp,44.272bp) and (81.051bp,53.9bp)  .. (A);
+  \draw [->] (X) ..controls (112.0bp,44.272bp) and (116.95bp,53.9bp)  .. (B);
+  \draw [->,dashed] (meet) ..controls (164.76bp,43.653bp) and (134.21bp,56.441bp)  .. (A);
+  \draw [->,dashed] (meet) ..controls (192.16bp,44.544bp) and (177.76bp,55.746bp)  .. (B);
+%

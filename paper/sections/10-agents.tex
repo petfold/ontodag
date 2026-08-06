@@ -1,0 +1,425 @@
+\section{Why this matters for AI agents}
+\label{sec:agents}
+
+The argument of this section is a single claim with four parts:
+
+\begin{keyidea}
+An AI agent's own knowledge is \textbf{not canonical, not addressable, not
+verifiable, and not attributable}. Those four properties are exactly what
+\odag{} provides, and they are provided \emph{because} of the refusals in
+Section~\ref{sec:keep}, not in spite of them.
+
+The corollary for design: a knowledge substrate for agents should sell
+\emph{guarantees}, not \emph{expressiveness}. Reasoning is now abundant and
+cheap --- every agent carries a flexible reasoner in its weights. Agreement is
+scarce and expensive.
+\end{keyidea}
+
+\subsection{The four missing properties}
+
+Take them one at a time, because each names a concrete failure mode.
+
+\paragraph{Not canonical.} Ask a model the same question twice, phrased
+differently, and you may get two answers that are both reasonable and
+mutually inconsistent. There is no normal form for what a model knows, and
+therefore no way to tell whether two models --- or the same model on Tuesday
+--- know the same thing. \odag{}: equal knowledge has equal bytes (G1), so
+``do we agree?'' is a string comparison.
+
+\paragraph{Not addressable.} You cannot point at a fact in a model. There is
+no reference you can put in a contract, cite in a document, or hand to a
+counterparty that denotes ``the state of knowledge you were using''. \odag{}:
+a root is a 32-byte reference to the entire knowledge state, immutable and
+retrievable forever.
+
+\paragraph{Not verifiable.} A model's output cannot be checked except by
+another model or a human. This is the hallucination problem in its structural
+form \citep{ji2023}: the failure is not that models are often wrong but that
+being wrong is \emph{indistinguishable in the output} from being right.
+\odag{}: an answer comes with a certificate a third party can check with
+nothing but the root (\S\ref{sec:agents-verify}).
+
+\paragraph{Not attributable.} When a model states something, there is no
+answer to ``who says?'' beyond ``the model''. In a multi-agent system, where
+one agent consumes another's output, this compounds silently. \odag{}: every
+write is a signed record naming its author and the root they were looking at.
+
+\subsection{This is not an argument against retrieval}
+
+The obvious objection is that retrieval-augmented generation
+\citep{lewis2020} already grounds models in external data. It does, and the
+two approaches are complementary rather than competing. It is worth being
+precise about the division of labour, because getting it wrong wastes both.
+
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}p{3.5cm} X X@{}}
+\toprule
+& \textbf{Vector retrieval} & \textbf{\odag{} query}\\
+\midrule
+Input & vague, natural language & exact terms\\
+Recall & good on paraphrase and synonymy & only what was filed\\
+Precision & approximate top-$k$; no guarantee & exact: the complete
+  intersection, or nothing\\
+``Is this all of them?'' & unanswerable & yes, with a count\\
+``Why this result?'' & similarity score & the path of asserted edges\\
+Reproducible? & depends on index and model version & yes, given the root\\
+Two systems agree? & incomparable spaces & compare 32 bytes\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{keyidea}
+\textbf{The embedding proposes; the graph disposes.} Use vector search to go
+from a vague human request to candidate terms; use \odag{} to answer exactly,
+completely, and citably once the terms are fixed. The failure mode to avoid is
+using approximate retrieval for a question whose answer must be complete ---
+``list every refundable booking'' is not a similarity query, and a top-$k$
+answer to it is wrong in a way nothing downstream can detect.
+\end{keyidea}
+
+\subsection{What the agent surface actually looks like}
+
+\odag{} exposes itself to agents over the Model Context Protocol
+\citep{mcp2024} as \cmd{odag-mcp}. Here is a real session against the running
+example (transport framing removed, JSON reformatted):
+
+\begin{lstlisting}
+-> {"method":"tools/call","params":{"name":"about","arguments":{}}}
+
+<- { "store": ".../store.od",
+     "items": 37,
+     "top": ["Booked","Japan","Refundable","Travel","dimension"],
+     "dimensions": {"weight":"linear-dimension","time":"calendar-dimension",
+                    "geo":"prefix-dimension", ...},
+     "registry_version": "4.1",
+     "surface_version": "0.1",
+     "contract": "0.1",
+     "capabilities": ["about","canon","describe","is_below",
+                      "overlapping","query"],
+     "root": "6f7342307f2fc4531c75f0df2465941f37822dd5f8cac5480e...",
+     "annotations": {} }
+\end{lstlisting}
+
+Five design decisions are visible in that one response, and each is a
+deliberate answer to one of the four missing properties.
+
+\paragraph{1. Discoverability without downloading.} \cmd{about} lets an agent
+learn what a store is \emph{about} --- its top-level categories, its declared
+dimensions, its size --- before deciding whether to query it. Note that this
+record is \emph{computed on demand and never stored}: a summary living inside
+the store would make the root depend on a description of itself, since the
+item count is part of the description and the description would be part of the
+hash.
+
+\paragraph{2. Every answer cites its root.} Not as decoration. It converts an
+answer from a perishable claim into a permanent one: ``\texttt{get(Japan,
+Refundable)} at root \texttt{6f734230\ldots} was these three documents'' is
+true forever, checkable by anyone, and immune to the store changing
+afterwards. An agent that caches answers with their roots has no
+cache-invalidation problem, because it is not caching a guess about the
+present; it is recording a fact about a past state.
+
+\paragraph{3. The interpretation context is pinned.} \texttt{registry\_version}
+and \texttt{contract} tell the agent which arithmetic and which guarantees
+were in force. A verifier running different arithmetic must refuse rather than
+misinterpret.
+
+\paragraph{4. Answers are extensible objects, never bare lists.} Every
+response carries a namespaced \texttt{annotations} map, empty today. New
+information --- guarantee status, economic bonds, confidence from some other
+system --- can arrive under its own namespace without changing any existing
+answer shape, and readers ignore namespaces they do not know.
+
+\paragraph{5. Canonical echo.} Every answer restates the terms in their
+\emph{stored} form:
+
+\begin{lstlisting}
+-> {"name":"query","arguments":{"terms":["Japan","Refundable"]}}
+<- { "terms": ["Japan","Refundable"],
+     "items": ["kyoto-inn.pdf","outbound.pdf","rail-pass.pdf"],
+     "count": 3, "truncated": false,
+     "root": "6f7342307f2fc4531c75f0df2465941f37822dd5f8cac5480e...",
+     "contract": "0.1", "annotations": {} }
+\end{lstlisting}
+
+With typed values the echo earns its keep: an agent that asks about
+\verb|weight(400g)| is told the store calls that \verb|weight(2/5kg)|. It has
+learned the canonical spelling, so its next assertion will collide correctly
+with everyone else's rather than creating a near-duplicate. \emph{The canonical
+echo is how an agent discovers the store's identity conventions without being
+told them.}
+
+Note also \texttt{count} beside \texttt{items}, and \texttt{truncated}. The
+command-line interface truncates long output by default because a human at a
+terminal can see that it did; the agent surface has \textbf{no default limit},
+because an agent cannot see a terminal and so cannot see a truncation. When a
+limit is set explicitly, \texttt{count} still reports the complete size. This
+is a small thing that illustrates a general principle: \emph{an interface for
+machines must make its own incompleteness machine-readable.}
+
+\subsection{Closing the world by pinning, not by decree}
+\label{sec:asof}
+
+Agents constantly need non-monotone answers: ``is there anything under
+\textsf{Japan} that is \emph{not} \textsf{Booked}?'', ``how many?'', ``does
+this store contain X at all?''. Section~\ref{sec:mergeability} explained why
+the living store cannot answer these: in a merging system the answer can
+shrink when news arrives, so two replicas would disagree.
+
+The escape is scoping rather than prohibition:
+
+\begin{keyidea}
+\textbf{Monotone questions may be asked of the living store. Non-monotone
+questions must name a root.} Indexed by a root, negation, aggregation,
+universal quantification and absence claims are pure, deterministic,
+eternally recomputable facts. ``\texttt{get(A and not B)} at root
+\texttt{21728cd9\ldots} $=$ \{\ldots\}'' is an immutable claim anyone can
+verify by re-execution.
+\end{keyidea}
+
+The corollary for an agent is worth stating as a rule of practice: \emph{an
+agent that needs a closed world does not ask the store to close. It closes the
+world itself, by pinning a root.} Every tool on the surface takes an
+\texttt{as\_of} parameter for exactly this.
+
+\subsection{Fail-closed answers}
+
+\cmd{is\_below} answers \emph{true} only when the graph plus exact arithmetic
+witness it. \emph{False} means ``not derivable from what is here'', never
+``unknown but plausible'' (G4).
+
+This is the opposite of a language model's default behaviour, and it is what
+makes the operation composable with a model. An agent can use the model for
+the plausible and the store for the certain, and --- crucially --- can
+\emph{tell which is which}. A system where the two are interchangeable is a
+system where the guarantees of the exact half are worth nothing.
+
+\subsection{Verification: from ``trust the store'' to ``trust nobody''}
+\label{sec:agents-verify}
+
+Because the persistence layer is a canonically encoded hash structure, ``this
+record is in this version'' has a small proof: the exact stored bytes along
+the one path where the record must live, checkable by recomputing hashes.
+Unusually, \emph{absence} is provable too --- the encoding is canonical, so a
+key has exactly one possible location, and exhibiting that location empty is a
+proof it is not there.
+
+\odag{} builds subsumption certificates on top. The design is
+\emph{re-execution over authenticated fragments}: the prover records the real
+\cmd{is\_below} walk, adds the order-invariant dependency closure (so a
+verifier whose walk explores a different path is still covered), proves every
+touched record, and the verifier re-runs the \emph{real} algorithm over a
+store that serves only proof-verified records. Semantics stay single-sourced;
+a coverage gap fails verification rather than validating a wrong answer.
+
+\begin{measured}
+Measured round trip (Experiment 9):
+\begin{center}\ttfamily\footnotesize
+\begin{tabular}{@{}ll@{}}
+root & d53e10b9ee4a06edac177b23d40a3ddab9a8f9a890a4397ac16f50548acc39ea\\
+certificate & ontodag-is-below-certificate v1, 4 records proved,
+  registry 4.1\\
+claim & outbound.pdf is below Travel $\to$ True\\
+verify\_below(cert, root) & True \quad (no store, no network)\\
+tampered (result flipped) & CertificateError\\
+negative answer & outbound.pdf below Hotel $\to$ False, verified False\\
+\end{tabular}
+\end{center}
+\end{measured}
+
+The general pattern --- a data structure that ships proofs of its own answers
+--- is what \citet{miller2014} call an authenticated data structure; what is
+unusual here is that the \emph{semantic} operation, not merely record lookup,
+is the thing being attested.
+
+Both polarities work; a certificate may be incomplete (verification fails) but
+never misleading (a wrong answer cannot verify). So an agent can hand another
+agent a conclusion \emph{and the means to check it}, without handing over the
+store. The answer travels; the data does not.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[font=\small,
+  b/.style={draw, rounded corners=3pt, align=center, inner sep=5pt,
+            minimum height=1.0cm, text width=3.0cm},
+  ar/.style={-{Stealth[length=2.4mm]}, thick},
+  lab/.style={font=\scriptsize\itshape, text=odgrey, align=center}]
+
+\node[b, draw=odblue] (store) at (0,0)
+  {\odag{} at root $R$\\[1pt]\scriptsize canonical, hashed};
+\node[b, fill=odsand] (a1) at (4.6,0)
+  {Agent A\\[1pt]\scriptsize holds the store};
+\node[b, draw=odgreen] (cert) at (9.2,0)
+  {answer $+$ certificate\\[1pt]\scriptsize
+   \{format, root, proofs\}};
+\node[b, fill=odsand] (a2) at (9.2,-2.4)
+  {Agent B\\[1pt]\scriptsize holds only $R$};
+\node[b, draw=odgreen, text width=4.3cm] (check) at (3.6,-2.4)
+  {re-run the real \cmd{is\_below}\\[1pt]\scriptsize
+   over proof-verified records};
+
+\draw[ar] (store) -- node[lab, above]{query} (a1);
+\draw[ar] (a1)    -- node[lab, above]{prove} (cert);
+\draw[ar] (cert)  -- node[lab, right, xshift=1mm]{send} (a2);
+\draw[ar] (a2)    -- node[lab, above]{verify} (check);
+\draw[ar, odgreen, dashed] (check.west) to[out=180, in=180, looseness=1.1]
+  node[lab, left, xshift=-1mm, text width=1.9cm]{true, or\\refuse} (store.west);
+
+\node[lab, text width=12.5cm, anchor=north] at (5.0,-3.5)
+  {Agent B needs no copy of the store, no network access, and no trust in
+   Agent A --- only the 32 bytes of $R$ and the verifier code. The dashed
+   return is a claim about $R$, not a request to the store.};
+\end{tikzpicture}
+\caption{Verification without disclosure. Because the root commits to the
+whole state and the encoding is canonical, a subsumption answer can be
+shipped with everything needed to check it.}
+\label{fig:verify}
+\end{figure}
+
+\subsection{Writing: propose, echo, confirm}
+
+Letting agents \emph{write} raises different problems. \odag{}'s write surface
+answers three of them structurally.
+
+\paragraph{Idempotence, by construction.} Re-filing the same fact is a graph
+no-op: the same root comes out. An agent that retries after a timeout, or two
+agents that independently reach the same conclusion, cannot corrupt anything.
+This falls straight out of the canonical form --- it is not a feature that had
+to be built.
+
+\paragraph{Compare-and-confirm.} A write is two steps. \cmd{propose\_put}
+returns the canonical echo (what the stored spellings will be, which claims
+this implies, what is already true, which parents do not exist) plus a
+\emph{proposal token}: a hash of the operation, the canonicalised terms, and
+the current root. \cmd{put} recomputes the token; if the store has moved or a
+spelling resolved differently, it refuses and asks the agent to propose again.
+
+This matters more for agents than for humans. An agent may spend many seconds
+of reasoning between reading and writing, during which the store can move; and
+it cannot notice a surprise the way a person glancing at a terminal would.
+Making the surprise into a refusal is the difference between a race and an
+error message.
+
+\paragraph{Every write is a speech act.} A successful write commits two
+things: the knowledge change, and one signed provenance record per claim,
+recording the author's key, the claim (a canonical
+$\mathit{sub} \dsub \mathit{sup}$ pair), and the root the author was looking
+at when they decided. Removals emit retraction records: retracting is also
+something somebody did.
+
+Notice where the signature goes. It is in a \emph{separate} store with its own
+root, never inside the knowledge records --- because if authorship were part
+of the hashed knowledge, two people who know the same thing would get
+different roots, and G1 would be gone. \emph{Who said it} and \emph{what is
+said} are deliberately different objects with different addresses.
+
+\subsection{The review problem}
+\label{sec:agents-review}
+
+Here is the problem that will dominate agent-written knowledge, and it is not
+a technical one:
+
+\begin{keyidea}
+Agents write faster than anyone can review. A store that accepts machine
+writes at machine speed accumulates claims nobody has checked, and the value
+of the store degrades to the value of its least careful writer.
+\end{keyidea}
+
+\odag{} offers three partial answers and one promising direction.
+
+\paragraph{Attribution makes the problem tractable rather than solving it.}
+Because every claim is signed, a reader can filter: accept claims from these
+keys, ignore the rest. Standing is computed from verified records only, and
+retraction is sticky per author. Forged records are listed but never counted.
+This does not check anything; it makes \emph{whose} unchecked claims you are
+carrying an explicit decision.
+
+\paragraph{Endorsement is a separate speech act.} A reviewer can endorse a
+claim without touching the knowledge graph. Reviewing is thus recorded work
+that accumulates, rather than an event that happens once in a chat window and
+is lost.
+
+\paragraph{Disagreement is queryable structure.} If disjointness claims are
+ever adopted, an inconsistency arriving by merge is not an error condition; it
+is a non-empty \cmd{get(Cat, Dog)}. The consistency check is the query
+primitive again --- which means finding the mess an agent made is the same
+operation as using the store.
+
+\paragraph{The direction: bound and order the review.}
+Section~\ref{sec:learn-exploration} argued that attribute exploration is the
+right shape here, and the reason belongs in this section. Exploration inverts
+the flow: instead of the agent proposing arbitrary edits which a human must
+review in arbitrary order, the \emph{system} computes the next question that
+is not already answered, and the agent answers it. The review queue becomes
+minimal (no redundant questions), ordered (each maximally informative given
+the answers so far), and terminating. That is the difference between review
+that scales and review that does not.
+
+\subsection{Agents sharing memory}
+
+The multi-agent case is where the properties compound, and it is worth a
+concrete scenario.
+
+Two agents work on the same domain on different machines, offline from each
+other. Each files what it learns. Later they exchange roots.
+
+\begin{enumerate}[leftmargin=1.7em]
+\item If the roots are equal, they know the same things. \emph{One comparison,
+  32 bytes, no data transferred} --- and because canonicality is semantic, this
+  works even if they built their stores in different orders, by different
+  routes, spelling values differently.
+\item If the roots differ, a structural diff localises the disagreement to the
+  exact differing records, without downloading either store wholesale.
+\item Merging converges: each folds in the other's root and both reach the
+  byte-identical result, whatever order the exchange happened in (G5). No
+  server, no consensus, no lock.
+\item Afterwards, each can ask ``which of these claims came from the other
+  agent, and do I trust that key?'' --- because the provenance store merged
+  too, conflict-free, by the same union rule.
+\end{enumerate}
+
+Compare the same scenario with two agents holding vector stores, or two
+fine-tuned models: there is no equality test, no diff, no merge, and no
+attribution. There is only ``ask them both and hope''.
+
+\subsection{Token economics, briefly}
+
+A practical point that matters at scale. An exact query returns exactly the
+relevant items and a count. An approximate retrieval returns $k$ chunks chosen
+by similarity, of which some are relevant, and the agent pays context tokens
+for all of them and then reasons about which to believe. For queries that are
+genuinely conjunctive --- ``refundable, in Japan, booked before March'' ---
+the exact path is both cheaper and correct, and the cost difference grows with
+the store.
+
+The same applies to structure. An agent that needs to know what a store
+contains can read a \cmd{about} record of a few hundred tokens rather than
+sampling documents. Discoverability is a token-efficiency feature as much as a
+correctness one.
+
+\subsection{What \odag{} does not solve}
+
+An honest list, because the value of the guarantees depends on not
+overstating them.
+
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Proofs attest structure, never truth.} Every certificate proves
+  what was asserted and what follows from it --- never that the assertion is
+  true of the world. That is the oracle problem, and no data structure solves
+  it. The available answers are social (attribution and endorsement) and
+  economic (Section~\ref{sec:crypto-bonds}).
+\item \textbf{Classification is not automatic.} \odag{} has no defined
+  concepts (\S\ref{sec:meet-trap}), so nothing places an item in the right
+  category for you. That job falls to the agent --- which is a reasonable
+  division of labour in 2026, but it means the quality of the store depends on
+  the quality of the classifier.
+\item \textbf{Names must be agreed.} Two agents using different words for the
+  same idea produce two nodes, and no mechanism notices. This is the price of
+  Section~\ref{sec:keep-names}, and it is real.
+\item \textbf{No relations.} ``Alice authored Doc1'' cannot be said. Agents
+  will try; the surface logs what they fail to express, which is how the
+  system will learn whether the wall needs moving.
+\item \textbf{Retraction does not travel.} A peer who still holds a removed
+  edge re-adds it on merge. Single-writer and publish-to-readers deployments
+  keep removals; concurrent writers do not.
+\end{itemize}

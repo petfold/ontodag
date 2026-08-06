@@ -1,0 +1,10 @@
+digraph tree {
+  rankdir=BT;
+  node [shape=box, fontsize=10];
+  "outbound.pdf" -> "Japan";
+  "kyoto-inn.pdf" -> "Japan";
+  "paris-hop.pdf" -> "Flights";
+  "Japan" -> "Trips";
+  "Flights" -> "Trips";
+  "copy of outbound.pdf" -> "Flights";
+}

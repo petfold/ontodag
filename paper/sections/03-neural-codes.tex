@@ -1,0 +1,256 @@
+\section{Where the idea came from: codes in the brain}
+\label{sec:neural}
+
+This section is the origin story. It is not a prerequisite for the technical
+content --- a reader in a hurry can skip to Section~\ref{sec:fca} --- but it
+explains \emph{why} anyone would build a system like \odag{} in the first
+place, and it contains the observation that the rest of the paper formalises.
+
+\subsection{What a neural code is}
+
+A sensory neuron does not report a number to a central reader. It fires, or it
+does not, and what it means is determined entirely by which things in the
+world make it fire. Record from many neurons at once while showing many
+stimuli, threshold each response into ``active'' or ``silent'', and you have a
+matrix:
+
+\begin{center}
+\begin{tikzpicture}[font=\small]
+\matrix (m) [matrix of nodes, nodes={draw, minimum size=6mm, anchor=center,
+             inner sep=0pt, font=\small}, column sep=-\pgflinewidth,
+             row sep=-\pgflinewidth,
+             row 1/.style={nodes={draw=none, fill=none}},
+             column 1/.style={nodes={draw=none, fill=none, text width=2.1cm,
+                              align=right}}]
+{
+              & $n_1$ & $n_2$ & $n_3$ & $n_4$ & $n_5$ & $n_6$ \\
+  face A      & 1     & 1     & 0     & 1     & 0     & 0     \\
+  face B      & 1     & 1     & 0     & 0     & 1     & 0     \\
+  cup         & 0     & 0     & 1     & 0     & 0     & 1     \\
+  hand        & 0     & 1     & 1     & 0     & 0     & 1     \\
+};
+\node[font=\footnotesize\itshape, text=odgrey, anchor=west, align=left]
+  at ([xshift=6mm]m.east)
+  {rows: stimuli\\columns: neurons\\cell: did it fire?};
+\end{tikzpicture}
+\end{center}
+
+\noindent
+Real cortical codes of this kind are \emph{sparse}: for any one stimulus only
+a small fraction of the units are active \citep{barlow1972,foldiak1990,%
+olshausen1996}. Sparseness is not an accident of measurement. It is what you
+get if you ask a network to represent its input economically --- to spend few
+active units per item while keeping items distinguishable --- and it is the
+representational regime in which the observation below has teeth.
+
+Between two extremes:
+
+\begin{itemize}[leftmargin=1.4em]
+\item A \textbf{localist} code gives each thing its own unit --- the
+  ``grandmother cell''. Simple to read, but you need as many units as things,
+  and nothing is shared between related items.
+\item A \textbf{dense distributed} code has roughly half the units active for
+  everything. Maximally efficient in bits, but the representation of one item
+  overlaps every other for no meaningful reason.
+\item A \textbf{sparse} code sits between: each item activates a small set,
+  and --- crucially --- \emph{related items activate overlapping sets}.
+\end{itemize}
+
+That last clause is where structure appears.
+
+\subsection{The observation}
+
+Take the code for ``spaniel'' and the code for ``dog''. In a sparse code that
+has learned anything about the world, the units active for a spaniel will
+include the units that respond to dogs in general, plus some extra ones
+specific to spaniels. Write $\code{x}$ for the set of active units of
+stimulus $x$. Then
+\[
+  \code{\text{dog}} \;\subseteq\; \code{\text{spaniel}} .
+\]
+
+Read that line slowly, because it is the whole idea. The taxonomic statement
+``a spaniel is a dog'' has become a containment between two sets of active
+units. \textbf{More specific means more bits on.} And containment brings its
+entire order theory (Section~\ref{sec:orders}) along with it: the codes are
+partially ordered by $\subseteq$, incomparable things are exactly things
+neither of which is a special case of the other, and the covering relation of
+that order is a Hasse diagram --- a category graph.
+
+\begin{keyidea}
+\textbf{The category graph need not be stored anywhere.} No synapse has to
+encode the arrow from spaniel to dog. The arrow is a \emph{consequence} of
+which units overlap. Associations between concepts can be implicit in the
+code rather than carried by connections \citep{foldiak2003}.
+\end{keyidea}
+
+This has three immediate consequences that shaped \odag{}'s design, and each
+of them will reappear later in the paper wearing engineering clothes.
+
+\begin{enumerate}[leftmargin=1.6em]
+\item \textbf{Queries are set operations.} ``Find everything that is both a
+  dog and brown'' becomes: find every $x$ whose code contains the dog units
+  \emph{and} the brown units. A conjunctive query is an intersection --- or,
+  in hardware terms, a bitwise \textsc{and}. This is \odag{}'s only query
+  primitive (\S\ref{sec:get}).
+\item \textbf{Similarity is overlap.} Two items with largely overlapping codes
+  are similar without anyone having said so. Graded retrieval --- ``what is
+  most like this?'' --- is $|\code{x} \cap \code{y}|$, computed on the same
+  representation as exact retrieval, with a threshold as the only difference
+  \citep{foldiak2003}.
+\item \textbf{Generalisation is a subset.} A concept more general than $x$ is
+  a \emph{subset} of $x$'s code. Dropping bits is abstracting. This is why
+  Borges's Funes, who remembered every instant in full detail and could
+  therefore drop nothing, was ``virtually incapable of general, platonic
+  ideas'' \citep{borges1942}: no compression, no concepts.
+\end{enumerate}
+
+\subsection{The code matrix is a formal context}
+\label{sec:code-is-context}
+
+Here is the bridge, stated plainly. Everything in
+Section~\ref{sec:fca} is a development of this single sentence:
+
+\begin{keyidea}
+A binary stimulus $\times$ neuron matrix and a \emph{formal context}
+$\ctx = (G, M, I)$ are the same object. Objects $G$ are the stimuli,
+attributes $M$ are the neurons, and the incidence $I$ says ``this neuron fired
+for this stimulus''. Everything \fca{} proves about formal contexts is
+therefore a theorem about neural codes.
+\end{keyidea}
+
+This is not a metaphor invented for this paper; it is a published research
+programme. \citet{endres2008} applied \fca{} to recordings from macaque
+superior temporal sulcus, building the formal context from spike counts by an
+exact Bayesian thresholding procedure and then reading the concept lattice as
+a description of what the neural population represents. The lattice exposed a
+hierarchical organisation of face representations and evidence for a
+product-of-experts style code --- structure that is invisible in the raw
+firing rates and that no dimensionality reduction into a Euclidean space would
+have expressed, because the structure is \emph{ordinal}, not metric. The
+follow-up \citep{endres2010} pushed the same machinery toward semantic
+decoding.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[font=\small,
+  b/.style={draw, rounded corners=3pt, align=center, inner sep=5pt,
+            minimum height=1.1cm, text width=3.0cm},
+  ar/.style={-{Stealth[length=2.6mm]}, thick},
+  lab/.style={font=\scriptsize\itshape, text=odgrey, align=center}]
+
+\node[b, fill=odsand] (brain) at (0,0)
+  {\textbf{brain side}\\[2pt]\scriptsize which units\\\scriptsize fire for what};
+\node[b, draw=odblue] (matrix) at (4.4,0)
+  {\textbf{binary matrix}\\[2pt]\scriptsize stimuli $\times$ units};
+\node[b, draw=odblue] (ctx) at (8.8,0)
+  {\textbf{formal context}\\[2pt]\scriptsize $(G,M,I)$};
+\node[b, fill=odsand] (mind) at (4.4,-2.4)
+  {\textbf{mind side}\\[2pt]\scriptsize a hierarchy\\\scriptsize of concepts};
+\node[b, draw=odblue] (lat) at (8.8,-2.4)
+  {\textbf{concept lattice}\\[2pt]\scriptsize $\Bcl(G,M,I)$};
+
+\draw[ar] (brain) -- node[lab,above]{record\\+ threshold} (matrix);
+\draw[ar] (matrix) -- node[lab,above]{rename} (ctx);
+\draw[ar] (ctx) -- node[lab,right,xshift=1mm]{close\\(\S\ref{sec:derivation})} (lat);
+\draw[ar] (lat) -- node[lab,above]{interpret} (mind);
+\draw[ar, dashed, odgrey] (mind) to[bend left=18]
+  node[lab,above]{and back} (brain);
+\end{tikzpicture}
+\caption{The mind--brain round trip that motivates the whole exercise. The
+left column is neuroscience, the right column is mathematics, and the two
+middle arrows are pure renaming. Because the maps in
+Section~\ref{sec:derivation} are invertible, the trip can be made in either
+direction: a code determines a concept hierarchy, and a concept hierarchy can
+be embedded into a code.}
+\label{fig:mind-brain}
+\end{figure}
+
+\subsection{Why this is more than a curiosity}
+
+Two directions of travel, both useful.
+
+\paragraph{Code $\to$ concepts (interpretation).} Given a recorded population
+code, the concept lattice tells you what the population distinguishes and how
+its distinctions nest. This is a tool for neuroscience, and it has the
+attractive property of being \emph{non-parametric about geometry}: it assumes
+nothing about distances, only about which units fire.
+
+\paragraph{Concepts $\to$ code (design).} Given an ontology you want a system
+to hold, you can embed it in a binary code such that subsumption is subset
+containment. This is the direction \odag{} cares about, and
+Section~\ref{sec:dictionary} shows it is exact: the reflexive ancestor set of
+each node \emph{is} such a code, and the graph can be reconstructed from the
+codes with nothing lost. Historically the same idea has been rediscovered
+several times: as bitvector encodings of type lattices for fast subsumption
+checks in programming languages \citep{aitkaci1989}; as faceted
+classification in library science, where \citet{ranganathan1933} proposed
+describing a work by a \emph{set} of independent facets rather than one
+shelf path --- the librarians' independent discovery that the lattice, not
+the tree, is the honest shape; as sparse distributed
+representations and hyperdimensional computing
+\citep{kanerva2009,plate1995}; and, three centuries earlier, as Leibniz's
+prime-number notation.
+
+\subsection{A note on Leibniz}
+\label{sec:leibniz-note}
+
+Leibniz's scheme deserves a paragraph, because it is the same lattice written
+in a different alphabet and it makes the algebra vivid \citep{leibniz1666}.
+Assign a distinct prime to each primitive concept, and give a composite
+concept the \emph{product} of its constituents' primes. If
+$\textsf{animal} = 2$ and $\textsf{rational} = 3$, then $\textsf{human} = 6$.
+Now:
+\[
+  A \text{ subsumes } B \iff \text{the number of } A \text{ divides the number
+  of } B .
+\]
+Divisibility of square-free numbers is exactly set containment on the sets of
+prime factors. So Leibniz's ``let us calculate'' and the bitwise-\textsc{and}
+of two cone bitmaps are the same operation in different notation, three and a
+half centuries apart. What Leibniz lacked was not the algebra but a
+\emph{source} for the primitives; \fca{} supplies one (derive them from data),
+and \odag{} supplies another (let people assert them, and merge what they
+assert).
+
+\subsection{Why not just use vectors?}
+
+A reader who has met machine learning will ask why one would use sets of bits
+rather than real-valued embeddings, which are what modern systems actually
+use. The honest answer is that they solve different problems, and the
+difference is the theme of this paper.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}lXX@{}}
+\toprule
+ & \textbf{Sparse binary code / DAG} & \textbf{Dense real embedding}\\
+\midrule
+Subsumption & exact set containment, decidable & approximate, thresholded\\
+Similarity  & overlap count, exact & cosine distance, learned\\
+Query       & intersection: complete and sound & nearest neighbours: neither\\
+Novel item  & new bit, no retraining & re-embed, possibly retrain\\
+Explanation & the shared bits \emph{are} the reason & post-hoc at best\\
+Identity    & a name; stable & a vector; changes when the model does\\
+Merging two & union of assertions, converges & incomparable spaces\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Embeddings are superb at recall from vague input, which is precisely what an
+exact structure cannot do. Discrete structures are superb at exactness,
+verifiability and merging, which is precisely what an embedding cannot do.
+Section~\ref{sec:agents} argues that a practical agent memory wants both, with
+the embedding proposing and the DAG disposing --- and that the interesting
+engineering is in the interface between them, not in a winner.
+
+\begin{tryit}
+Take the four-stimulus code at the start of this section. Which stimuli
+activate a superset of $\{n_2, n_3\}$? (Answer: only \emph{hand}.) Which pairs
+of stimuli have overlapping codes? Sketch the containment order on the four
+codewords --- you will find that \emph{face A} and \emph{face B} are
+incomparable, sharing $\{n_1, n_2\}$, which is the code of a concept that has
+no name in the table but plainly ought to. That nameless shared concept is a
+formal concept, and finding all of them is what Section~\ref{sec:fca} is
+about.
+\end{tryit}

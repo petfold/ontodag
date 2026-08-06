@@ -1,0 +1,27 @@
+digraph lattice {
+  rankdir=BT;
+  node [shape=box, fontsize=10];
+  c0 [label="", shape=circle, width=0.16, style=filled, fillcolor=black];
+  c1 [label="Booked"];
+  c2 [label="Japan\\\\visa-note"];
+  c3 [label="", shape=circle, width=0.16, style=filled, fillcolor=black];
+  c4 [label="Refundable\\\\rail-pass"];
+  c5 [label="Hotel\\\\kyoto-inn"];
+  c6 [label="Flight\\\\paris-hop"];
+  c7 [label="inbound"];
+  c8 [label="outbound"];
+  c9 [label="", shape=circle, width=0.16, style=filled, fillcolor=black];
+  c1 -> c0 [dir=none];
+  c2 -> c0 [dir=none];
+  c3 -> c1 [dir=none];
+  c3 -> c2 [dir=none];
+  c4 -> c3 [dir=none];
+  c5 -> c4 [dir=none];
+  c6 -> c1 [dir=none];
+  c7 -> c3 [dir=none];
+  c7 -> c6 [dir=none];
+  c8 -> c4 [dir=none];
+  c8 -> c7 [dir=none];
+  c9 -> c5 [dir=none];
+  c9 -> c8 [dir=none];
+}

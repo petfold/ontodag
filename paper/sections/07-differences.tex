@@ -1,0 +1,322 @@
+\section{The differences that matter}
+\label{sec:differences}
+
+Section~\ref{sec:dictionary} showed how much is shared. This section isolates
+what is not, and argues that the divergences are not accidents of
+implementation but a coherent set of trade-offs, each one bought with a
+specific currency.
+
+There are six. The first four are deep; the last two are consequences.
+
+\subsection{Difference 1: one sort, not two}
+\label{sec:one-sorted}
+
+\fca{} is built on a strict separation. $G$ and $M$ are different sets; an
+object is never an attribute; the whole apparatus of primes depends on knowing
+which side of the table you are on. \odag{} has one sort: nodes, all the way
+down.
+
+The separation buys \fca{} something real --- the Galois connection is a
+statement about \emph{two} sets, and the duality it creates is elegant and
+generative (every theorem comes with a mirror image). What it costs is
+awkwardness in exactly the place ontologies live.
+
+\paragraph{Where it hurts: attributes have no hierarchy.} In
+Table~\ref{tab:context} there is no way to say that \textsf{Flight} is a kind
+of \textsf{Travel}. \textsf{Flight} is an attribute; \textsf{Travel} would
+have to be another attribute; and nothing in the formalism relates two
+attributes. The standard workarounds all move the problem rather than solve
+it:
+
+\begin{itemize}[leftmargin=1.4em]
+\item add \textsf{Travel} as a redundant column and mark it wherever
+  \textsf{Flight} or \textsf{Hotel} is marked --- the hierarchy is now encoded
+  but not \emph{stated}, and nothing prevents an inconsistent row;
+\item use conceptual scaling, which is really the same trick with a name and a
+  discipline;
+\item move to a many-sorted extension such as Relational Concept Analysis
+  \citep{rouanehacene2013}, which is powerful but is a substantially larger
+  formalism with an iterative fixpoint computation.
+\end{itemize}
+
+\odag{} gets attribute hierarchies for nothing, because \textsf{Flight} is a
+node and \cmd{put Flight Travel} is the same operation as
+\cmd{put outbound.pdf Flight}. The corollary --- and it is a real consequence,
+not a slogan --- is that \emph{the same query primitive traverses both
+levels}: \cmd{get(Travel)} returns \textsf{Flight}, \textsf{Hotel} and all the
+documents beneath them, without a join, a second index, or a special rule.
+
+\paragraph{What it costs \odag{}.} No duality. There is no ``dual query'' in
+\odag{} corresponding to $A'$ --- ``the categories all these items share'' is
+computable but is not a first-class operation with its own optimiser, and no
+theorem comes for free in mirror image. More importantly, \odag{} cannot
+distinguish, in its data model, between ``this thing is an individual'' and
+``this thing is a class''. Whether \texttt{outbound.pdf} may acquire children
+is a social question, not a checkable one. \fca{} users get that check free.
+
+\begin{keyidea}
+The one-sorted design is \odag{}'s largest departure from \fca{} and its most
+consequential. It buys hierarchies of categories with no extra machinery, at
+the cost of the object/attribute duality and of any built-in class/individual
+discipline.
+\end{keyidea}
+
+\subsection{Difference 2: asserted, not closed}
+\label{sec:not-closed}
+
+\fca{} materialises every concept the data supports. \odag{} materialises
+none beyond what was said. Theorem~\ref{thm:dm} says the difference is exactly
+the Dedekind--MacNeille completion; Section~\ref{sec:explosion} says what the
+completion costs.
+
+The argument for closing is strong and should be stated fairly. Closure
+\emph{finds things}. The four unnamed meets of the running example are real
+categories that nobody thought to write down, and in a scientific dataset
+those are often the point --- that is the entire premise of
+\citet{endres2008}'s use of \fca{} on neural data.
+
+The arguments against closing, for a system with \odag{}'s job description,
+are four:
+
+\begin{enumerate}[leftmargin=1.7em]
+\item \textbf{Size.} Exponential in the worst case, and the worst case is a
+  perfectly ordinary table (\S\ref{sec:explosion}). A store that must fit in a
+  browser tab and be hashed after every edit cannot have a representation
+  whose size is $\#\mathrm{P}$-hard to predict.
+\item \textbf{Coincidence.} \fca{} creates a concept for any co-occurrence,
+  including accidental ones. With six documents, ``booked flights to Japan''
+  is meaningful; with six thousand, most closed sets are noise. \fca{} has no
+  notion of a concept not being worth having --- which is precisely the
+  observation that motivates iceberg lattices, stability, and the
+  MDL programme of Section~\ref{sec:learn-mdl}.
+\item \textbf{Instability under edit.} Adding one object can create, destroy
+  and rearrange many concepts. For a batch analysis this is fine. For a store
+  that is edited continuously and hashed after every edit, it means the
+  representation churns globally on local changes --- which destroys
+  structural sharing, and with it the cheap snapshots of
+  Section~\ref{sec:persistence}.
+\item \textbf{Authorship.} A derived concept has no author. In a multi-writer
+  setting, ``who said this?'' must have an answer (Section~\ref{sec:agents});
+  a concept that exists because of a coincidence between two people's
+  unrelated contributions has no honest answer to that question.
+\end{enumerate}
+
+\begin{keyidea}
+\odag{}'s position: the closure is real and often valuable, but it is
+\emph{derived} --- so compute it on demand, locally, per query, and never
+store it in the shared, hashed, merged graph. This is the same discipline
+\odag{} applies to every derived structure it has (descendant counts, cone
+summaries, indexes): regenerable, local, evictable, outside the canonical
+root.
+\end{keyidea}
+
+\subsection{Difference 3: two kinds of canonical form}
+\label{sec:two-canonical-forms}
+
+Both formalisms have a uniqueness theorem, and comparing them is the most
+precise way to see what \odag{} is optimising for.
+
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}p{3.3cm} X X@{}}
+\toprule
+& \textbf{\fca{}} & \textbf{\odag{}}\\
+\midrule
+canonical object & the concept lattice $\Bcl(\ctx)$, unique up to isomorphism
+  (Thm~\ref{thm:basic}); and the Duquenne--Guigues base, unique on the nose
+  \citep{guigues1986}
+  & the transitive reduction, unique on the nose
+  (Thm~\ref{thm:unique-reduction})\\
+what it quotients away & nothing --- it is a complete description
+  & assertion order, redundant edges, spelling of equal values\\
+cost to compute & exponential in the worst case; $\#\mathrm{P}$-complete to
+  size \citep{kuznetsov2001}
+  & incremental and local: one edge plus its ancestor set\\
+cost to maintain & recompute (a new object may restructure everything)
+  & delta on the affected region\\
+usable as an address? & in principle; in practice too big and too unstable
+  & yes: hash the serialisation, 32 bytes\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Both are canonical forms. Only one is a canonical form you can \emph{use as an
+identifier}, and that is the whole difference.
+
+\begin{keyidea}
+\textbf{\odag{} chose the cheapest non-trivial canonical form that is still
+semantic.} It is semantic --- not merely syntactic --- because it quotients
+away things that do not change meaning: the order you typed facts in, links
+you typed that were already implied, and the way you spelled a value
+($400\,\mathrm{g}$ versus $2/5\,\mathrm{kg}$). It is cheap because the
+quotient is computed by local edge deletion rather than global inference.
+
+Every step up the expressiveness ladder threatens this. Add arbitrary logical
+axioms and canonicalising ``up to logical equivalence'' means canonicalising
+an entailment closure; the root silently degrades from a fingerprint of
+\emph{knowledge} to a fingerprint of \emph{phrasing}. That, rather than
+tractability, is the real wall \odag{} is standing behind.
+\end{keyidea}
+
+\subsection{Difference 4: concepts with names, and concepts without}
+\label{sec:identity}
+
+This is the subtlest difference and, for the applications in Part~IV, the most
+important.
+
+In \fca{}, a concept \emph{is} its (extent, intent) pair. It has no other
+identity. This has a consequence that is easy to miss: \textbf{concepts do not
+survive changes to the data}. Add one document to Table~\ref{tab:context} and
+the concept $(\{\texttt{outbound}, \texttt{inbound}\},
+\{\textsf{Flight},\textsf{Japan},\textsf{Booked}\})$ may cease to exist ---
+not change, cease. If the new document is a third booked Japanese flight, the
+pair with that extent is simply not a concept of the new context. Something
+very like it exists, with a different extent. Whether it is ``the same
+concept'' is a question the formalism cannot answer, because it has no notion
+of sameness across contexts.
+
+In \odag{}, a node \emph{is} its name. \textsf{Flight} is \textsf{Flight}
+before and after any edit, in your copy and in mine, in this version and in
+the version from last year. Names are the identity at every boundary --- the
+public API, the serialisation, and anything crossing between two graphs.
+
+Four things follow, and each of them is load-bearing later:
+
+\begin{enumerate}[leftmargin=1.7em]
+\item \textbf{Merge is possible at all.} Two graphs can be merged because
+  ``\textsf{Flight} here'' and ``\textsf{Flight} there'' are the same thing by
+  definition. Two concept lattices over different contexts have no such
+  correspondence; there is no canonical way to merge them.
+\item \textbf{References are stable.} An external system can hold a reference
+  to \textsf{Flight} and it will still mean something next year. A reference
+  to a concept-as-a-pair is invalidated by the next edit.
+\item \textbf{Provenance is possible.} ``Alice asserted that
+  \texttt{outbound.pdf} is under \textsf{Japan}'' is a durable statement about
+  a durable subject. ``Alice asserted concept \#7'' is not.
+\item \textbf{The names must be agreed.} This is the price. \odag{}'s
+  correctness depends on people using the same string for the same idea, and
+  it has no mechanism to enforce that. \fca{}, deriving everything from data,
+  never has to ask.
+\end{enumerate}
+
+\begin{keyidea}
+\fca{} derives concepts and therefore cannot name them stably. \odag{} names
+concepts and therefore cannot derive them. This is a genuine trade, not an
+oversight on either side, and it is the reason the two formalisms end up
+serving different masters: \fca{} serves the analyst looking at a fixed
+dataset; \odag{} serves the collaborator, the archive and the verifier, all
+of whom need to point at the same thing twice.
+\end{keyidea}
+
+There is a long historical argument on \odag{}'s side of this trade, which
+Section~\ref{sec:keep-names} develops: every attempt to make identifiers carry
+their own meaning --- Wilkins's philosophical language, Dewey decimal
+classification, Linnaean binomials --- has paid for it in instability when the
+classification was revised, and the mature practice in every field that tried
+(chemistry is the cleanest case) is to keep \emph{both} an arbitrary stable
+key and a derived meaningful code.
+
+\subsection{Difference 5: a fixed table, or a living store}
+\label{sec:mergeability}
+
+\fca{} analyses a context. The context is an input; it does not change while
+the analysis runs; there is one of it.
+
+\odag{} is a store. It is edited continuously, by several people who may never
+communicate, each of whom holds a replica; and it must converge. Almost every
+design decision above is downstream of that requirement:
+
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}p{4.6cm} X@{}}
+\toprule
+\textbf{Requirement} & \textbf{What it forced}\\
+\midrule
+edits arrive one at a time & incremental reduction, delta-maintained counts\\
+replicas must converge & merge $=$ union $+$ re-reduction: commutative and
+  idempotent (Thm~\ref{thm:merge})\\
+agreement must be checkable & canonical form $\Rightarrow$ one hash
+  (\S\ref{sec:canonical})\\
+answers must not shrink & monotone semantics: no negation in the shared store
+  (G2)\\
+old answers must stay valid & immutable roots; non-monotone questions must
+  name one (\S\ref{sec:asof})\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Note the third row in particular. In a merging system, \emph{monotonicity} is
+not a stylistic preference; it is what makes union a sound merge. A query
+whose answer can shrink when new information arrives cannot be answered
+consistently by two replicas that have seen different subsets of the news.
+This is why \odag{} refuses negation, closed-world readings and aggregation in
+the living store --- and it is also why it can offer them safely against a
+pinned root, where the world is closed by \emph{scoping} rather than by
+decree.
+
+\fca{} has no analogue of any of this, and needs none. But it also means
+there is no such thing as ``merging two concept lattices'', and that a
+distributed, multi-author \fca{} is not a thing you can build by adding
+features to \fca{}. You would build it by doing what \odag{} does --- sharing
+the \emph{assertions} and letting each replica close locally.
+
+\subsection{Difference 6: finite crosses, or computed order}
+
+An \fca{} context is a finite table of crosses. \odag{} additionally supports
+an order that is \emph{computed from names}: \verb|weight(4kg)| is below
+\verb|weight(..5kg)| because $4 \leq 5$, with no edge stored and no node for
+the query term (\S\ref{sec:dimensions}).
+
+In \fca{} terms, the closest analogue is conceptual scaling --- turn each
+threshold into an attribute. But scaling must choose the thresholds in
+advance, which means quantisation error and a fixed granularity, and it makes
+the context grow with the number of thresholds. \odag{}'s values are exact
+rationals, arbitrary thresholds are free, and the shared structure carries
+only the values that are actually used.
+
+The real \fca{} analogue is \emph{pattern structures}
+\citep{ganter2001,kaytoue2011}, which \odag{} appears to have reinvented in
+one special case. Section~\ref{sec:learn-patterns} takes this up, because it
+is the clearest example in the paper of theory that \odag{} could usefully
+import.
+
+\subsection{Summary: the two systems side by side}
+\label{sec:summary-of-differences}
+
+\begin{table}[h]\centering\small
+\caption{The comparison in one table. A reader who skipped Parts~I and~II can
+start here.}
+\label{tab:summary}
+\vspace{1mm}
+\begin{tabularx}{\textwidth}{@{}p{3.5cm} X X@{}}
+\toprule
+& \textbf{Formal Concept Analysis} & \textbf{\odag{}}\\
+\midrule
+Input & a fixed binary table & a stream of assertions\\
+Sorts & two: objects, attributes & one: nodes\\
+Output & every concept, as a complete lattice & the asserted order, minimally
+  stored\\
+Size & up to exponential & linear in what was said\\
+Meets & always exist & only if someone asserted one\\
+Concept identity & the (extent, intent) pair & a name string\\
+Survives an edit? & concepts may cease to exist & names persist\\
+Canonical form & the lattice; the stem base & the transitive reduction\\
+Canonical form usable as an address? & no (too large, too volatile) & yes:
+  32-byte root\\
+Merging two of them & undefined & commutative, idempotent, convergent\\
+Query & lattice navigation / lookup & one cone intersection, planned\\
+Numeric values & conceptual scaling, or pattern structures & exact rationals,
+  order computed from names\\
+Negation & expressible on the fixed table & refused in the living store;
+  allowed against a pinned root\\
+Provenance & no place for it & signed records, per claim\\
+Verification & re-run the algorithm & Merkle proofs and certificates\\
+Learns concepts from data & yes, all of them & no --- deliberately\\
+Best at & \emph{discovering} structure in a dataset & \emph{agreeing on}
+  structure between parties\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The last row is the honest one-line summary. \fca{} is a discovery instrument.
+\odag{} is an agreement instrument. Almost every difference above follows from
+that, and Part~III is about what each can take from the other without
+becoming the other.

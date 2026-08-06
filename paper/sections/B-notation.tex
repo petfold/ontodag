@@ -1,0 +1,70 @@
+\section{Notation}
+\label{sec:notation}
+
+A phrasebook for a reader who knows one field and is reading about the other.
+The middle column is what this paper writes; the outer columns are what each
+community usually says.
+
+\begin{table}[h]\centering\small
+\caption{One object, three vocabularies.}
+\vspace{1mm}
+\begin{tabularx}{\textwidth}{@{}p{3.6cm} p{3.5cm} X@{}}
+\toprule
+\textbf{\fca{} says} & \textbf{This paper writes} & \textbf{\odag{} says}\\
+\midrule
+formal context $\ctx = (G,M,I)$ & $\ctx(P) = (P,P,\dsub)$ & the graph\\
+object $g \in G$ & node $x$ & an item\\
+attribute $m \in M$ & node $y$ & a category\\
+$g\,I\,m$ & $x \dsub y$ & $x$ is under $y$\\
+extent $A$ & $\cone{y}$ & the cone of $y$; what \cmd{get(y)} returns\\
+intent $B$ & $\code{x} = \up{x}$ & the ancestor set; the code\\
+$B'$ & $\bigcap_{y \in B}\cone{y}$ & \cmd{get(B)}\\
+$A'$ & $\bigcap_{x \in A}\code{x}$ & the categories all of $A$ share\\
+closure $B''$ & --- & the closed form of a query\\
+$(A_1,B_1) \leq (A_2,B_2)$ & $x \dsub y$ & $x$ is below $y$\\
+concept lattice $\Bcl(\ctx)$ & $\Bcl(\ctx(P))$ & the completion (not stored)\\
+Hasse diagram of $\Bcl$ & $\reduc{G}$ & the stored edges\\
+support $|A|$ & $|\cone{y}|$ & \texttt{descendant\_count}\\
+implication $B \to C$ & $C \subseteq B''$ & (no stored counterpart)\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection*{Symbols used in the text}
+
+\begin{center}\small
+\begin{tabularx}{0.93\textwidth}{@{}ll X@{}}
+\toprule
+$\subseteq$, $\subsetneq$ & containment, strict & the shape of every ``is-a''\\
+$\cap$, $\cup$ & intersection, union & query, merge\\
+$\leq$, $<$, $\lessdot$ & order, strict order, cover & \S\ref{sec:orders}\\
+$\dsub$ & subsumption between nodes & ``$x$ is a special case of $y$''\\
+$\cone{y}$ & descendant cone of $y$ & the query answer\\
+$\up{x}$ & ancestor cone of $x$ & the code\\
+$\code{x}$ & $\up{x}$ read as a bit vector & \S\ref{sec:dictionary}\\
+$\wedge$, $\vee$ & meet, join & greatest lower / least upper bound\\
+$\top$, $\bot$ & top, bottom & of a complete lattice\\
+$A'$, $B'$, $B''$ & derivation, closure & \S\ref{sec:derivation}\\
+$\ctx$, $\Bcl(\ctx)$ & context, its concept lattice & \S\ref{sec:fca}\\
+$\reduc{G}$ & transitive reduction of $G$ & what \odag{} stores\\
+$\sqcap$ & similarity of descriptions & pattern structures,
+  \S\ref{sec:learn-patterns}\\
+$\delta(g)$ & the description of object $g$ & pattern structures\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection*{Two conventions worth restating}
+
+\paragraph{Up is general.} Throughout, more general things are drawn higher
+and arrows point upward, from the special case to the general one. So a cone
+hangs \emph{down} from a category and a code is read \emph{up} from an item.
+Some \fca{} literature draws concept lattices the same way; some data-structure
+literature draws trees with the root at the top and arrows pointing down. The
+convention here is fixed and never varies.
+
+\paragraph{The prime is overloaded, deliberately.} $A'$ and $B'$ are different
+maps --- one takes objects to attributes, the other attributes to objects ---
+and \fca{} uses one symbol for both because the argument determines which is
+meant. This is standard and worth getting used to, since it is what makes
+expressions like $B''$ readable.

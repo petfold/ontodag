@@ -1,0 +1,317 @@
+\section{Directions}
+\label{sec:directions}
+
+This section maps what the comparison opens up. Items are grouped by how much
+has to be invented before they can be built, and each carries the same four
+labels used in Section~\ref{sec:learn}: what it is, what it buys, what it
+costs, and which invariant it puts at risk.
+
+A caution first, which is this project's own standing discipline and is worth
+inheriting: \emph{nothing here is scheduled by virtue of being written down}.
+Each item is recorded with the trigger that would signal it has become
+necessary, so that a future reader recognises the moment instead of
+pre-building for it.
+
+\subsection{The organising picture}
+
+Almost everything below is a point on one line, so it is worth drawing the
+line first.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[font=\small]
+% the spectrum bar
+\draw[very thick, -{Stealth[length=3mm]}] (0,0) -- (13.2,0);
+\foreach \x/\lab/\sub in {
+   0.6/{asserted DAG}/{nothing materialised},
+   4.6/{+ selected meets}/{MDL, or workload},
+   9.6/{full lattice}/{every closed set}}
+  {\filldraw[odblue] (\x,0) circle (2.4pt);
+   \node[anchor=south, align=center, font=\small\bfseries]
+     at (\x,0.18) {\lab};
+   \node[anchor=north, align=center, font=\scriptsize\itshape, text=odgrey]
+     at (\x,-0.18) {\sub};}
+\node[anchor=north, align=center, font=\scriptsize, text=odrust]
+  at (0.6,-0.95) {\odag{} today\\cheap, canonical\\query pays the rest};
+\node[anchor=north, align=center, font=\scriptsize, text=odgreen]
+  at (4.6,-0.95) {the interesting middle\\directions D7 and D8};
+\node[anchor=north, align=center, font=\scriptsize, text=odrust]
+  at (9.6,-0.95) {\fca{}\\complete, exponential\\lookup pays nothing};
+\draw[decorate, decoration={brace, amplitude=5pt}, odgrey]
+  (1.0,0.95) -- (9.2,0.95)
+  node[midway, above=5pt, font=\scriptsize\itshape, text=odgrey]
+  {one family, parameterised by which meets are materialised};
+\end{tikzpicture}
+\caption{\odag{} and \fca{} are the two endpoints of a single family, not two
+rival data structures. A member of the family is: the asserted graph, plus a
+set of materialised meets, plus a storage mode per cone. \odag{} materialises
+none and pays at query time; \fca{} materialises all and pays in space. The
+research question is which middle point a given workload wants.}
+\label{fig:spectrum}
+\end{figure}
+
+Seeing it this way reframes several apparently separate questions as one.
+``Which concepts should MDL learn?'', ``which cones should be indexed?'',
+``which meets should the query planner materialise?'' and ``which categories
+should a user be prompted to create?'' are the same question asked by four
+different subsystems.
+
+\subsection{Buildable now}
+
+These need no new theory and threaten no invariant.
+
+\paragraph{D1. Re-describe dimensions as an interval pattern structure.}
+\emph{Cost: an afternoon of writing.} Section~\ref{sec:learn-patterns} showed
+\odag{}'s typed values are an instance of \citet{ganter2001}. Recording that
+in the design documents converts an engineering hunch into a known-correct
+construction, gives the multi-coordinate question a ready answer (product
+semilattice, componentwise meet), and supplies the projection theory that the
+future per-dimension index will need. Highest value-to-cost ratio in the
+paper.
+
+\paragraph{D2. An ordinal kind.} \emph{Trigger: someone files ranks.} The
+scale table of Section~\ref{sec:learn-scaling} has a hole where
+\textsf{beginner} $<$ \textsf{intermediate} $<$ \textsf{expert} should be.
+Declaring an ordinal chain is monotone and canonicalisable, so it passes both
+admissibility axes. Build it with the arithmetic deliberately \emph{absent},
+because the standing hazard with ordinal data is people averaging ranks
+\citep{stevens1946}.
+
+\paragraph{D3. Reduced labelling in the visualiser.} \emph{Cost: a rendering
+change.} Compare Figures~\ref{fig:lattice} and~\ref{fig:ontodag}: the same
+information, far less ink. Worth most on stores with many typed values.
+
+\paragraph{D4. An implication lint.} \emph{Trigger: users mis-filing things
+that the store's own contents would have caught.} Compute extensional
+implications over a pinned root into a derived store; surface them as prompts.
+Never store them as claims (\S\ref{sec:learn-implications}). The natural first
+version is single-premise implications only, which are cheap --- one closure
+per category.
+
+\paragraph{D5. Cone bitmaps behind \cmd{get}.} \emph{Trigger: queries
+measurably hot.} An in-memory bitmap per category, intersected with a bitwise
+\textsc{and}. Bounded, dependency-free (Python integers suffice), invisible in
+the schema, and it has a free test oracle: the population count of a cone
+bitmap must equal the maintained \verb|descendant_count|. This is the first
+step of the semantic-codes programme and the one that needs no decisions. When
+it outgrows plain integers the prior art is well mapped: compressed bitmaps
+\citep{lemire2018} for the representation, and interval labelling
+\citep{agrawal1989} for the trick of numbering nodes so that a cone becomes a
+few contiguous ranges.
+
+\subsection{Medium term: needs a design, not a discovery}
+
+\paragraph{D6. Attribute exploration with a language model as the expert.}
+\label{sec:dir-exploration}
+\emph{Trigger: available now; the blocker is willingness, not knowledge.}
+
+This is the most promising item in the paper, and
+Sections~\ref{sec:learn-exploration} and~\ref{sec:agents-review} argued why:
+it is the only proposal here that makes review of machine-written knowledge
+\emph{bounded, ordered and terminating}. A concrete v1 for the single-writer
+case:
+
+\begin{enumerate}[leftmargin=1.7em,itemsep=1pt]
+\item Pin a root. Everything that follows is relative to it, so the session is
+  reproducible and citable.
+\item View the store as the context $\ctx(P)$ of Section~\ref{sec:dictionary}
+  and compute the next unconfirmed implication by NextClosure
+  \citep{ganter1984}.
+\item Ask the agent, over the MCP surface, in domain language: \emph{is every
+  X also a Y?}
+\item \textbf{Yes} $\to$ record a signed confirmation in the provenance store.
+  If the implication has a single-category premise it is also a subsumption,
+  so offer it as an ordinary \cmd{put}.
+\item \textbf{No} $\to$ require a counterexample, and file it with \cmd{put}.
+  The store grows by exactly the object that refutes the question.
+\item Terminate when no unconfirmed implications remain. Present the human
+  with the confirmed base --- which is minimal and non-redundant by
+  construction.
+\end{enumerate}
+
+Two properties make this more than a demo. The counterexample requirement
+means a \emph{No} is as informative as a \emph{Yes} --- the store improves
+either way, which is not true of ordinary agent review. And because every
+answer is a signed claim against a pinned root, a later reader can see
+precisely which questions this author answered, and re-run the exploration
+under a different author to compare.
+
+Open sub-problem: a wrong expert. Classical exploration assumes infallibility;
+attribution degrades the guarantee honestly to ``complete relative to what
+this author asserted'', which is the right weakening. A second agent
+re-answering the same question sequence, with disagreements surfaced, is the
+obvious cheap defence and would be worth measuring.
+
+\paragraph{D7. Workload-optimal materialisation.}
+\label{sec:dir-materialisation}
+\emph{Trigger: a real query log.} Figure~\ref{fig:spectrum}'s middle, stated
+as an optimisation problem: choose a set $M$ of materialised meets and a
+storage mode per cone to minimise
+\[
+  \mathbb{E}_{q \sim Q}\bigl[\text{retrieval cost}(q; M)\bigr]
+  \;+\; \lambda_{\text{space}}\cdot \text{storage}(M)
+  \;+\; \lambda_{\text{maint}}\cdot \text{update cost}(M).
+\]
+This is a known problem three times over: view-materialisation selection on a
+lattice \citep{harinarayan1996}, whose greedy solution is near-optimal by
+submodularity; retrieval-aware MDL, which is the same objective seen from the
+learner's side; and adaptive indexing \citep{idreos2007}, which supplies the
+online algorithm --- every query that computes a residual intersection has
+just computed a candidate meet, so admit it when expected reuse covers its
+cost and evict when cold.
+
+Two \odag{}-specific notes. The selectivity statistics the greedy algorithm
+needs already exist and are exact (\verb|descendant_count|). And the space
+term is not a tuning constant on a rent-charging network: it is postage
+(\S\ref{sec:crypto-economics}).
+
+\emph{The soundness condition, which is easy to miss:} materialised meets may
+be used to \emph{prune} candidates but not to \emph{generate} them, unless
+placement is made canonical --- because of the meet-substitution trap
+(\S\ref{sec:meet-trap}). A node under $A$ and $B$ is not the meet of $A$ and
+$B$.
+
+\paragraph{D8. MDL-learned concepts, with a promotion path.}
+\label{sec:dir-mdl}
+\emph{Trigger: a store big enough that nobody can see its structure.} Run the
+learner \citep{mdlfca} over a pinned root; keep its output in a derived store;
+let a human or an accountable agent promote a learned category into the shared
+graph as an ordinary claim recording the root it was derived from. The
+layering is what keeps this safe (\S\ref{sec:learn-mdl}), and the promotion
+step is what keeps it attributable.
+
+The interesting scientific question underneath is whether MDL-selected
+concepts agree with the ones people actually name. That is a measurable
+question --- take a hand-built ontology, hide the intermediate categories,
+learn from the leaf assignments, compare --- and nobody appears to have run
+it at scale.
+
+\paragraph{D9. Merkle-ised cone commitments.} \emph{Trigger: somebody needs a
+subsumption verified on chain.} A per-node cone-commitment index, in its own
+store, manifest-pinned, deterministic from the canonical form. It buys
+path-sized order-free positive proofs, per-category agreement by one hash
+comparison, and the one proof shape a contract can check
+(\S\ref{sec:crypto}). It can never be the base representation --- names are
+identity, and a Merkle address changes whenever anything below the node
+changes --- so it is an index over the named graph, forever.
+
+\paragraph{D10. The thin browser client.} \emph{Trigger: a published store
+anyone should be able to query without downloading.} Most pieces exist: a
+lazy reader that fetches records as a query walks them, published cone
+summaries that collapse broad queries to a handful of fetches, and a base
+install that is pure Python. The remaining work is batching the fetch frontier
+and bridging to network access from inside a browser sandbox.
+
+\subsection{Longer term: genuinely open}
+
+\paragraph{D11. Concurrent exploration.} Two agents exploring two replicas ask
+different questions and confirm different things. Since exploration assumes a
+fixed universe and \odag{} assumes a merging one, reconciling them is open.
+A promising angle: exploration confirmations are claims, claims merge
+conflict-free, and the \emph{question} sequence is a derived, local artefact
+--- so perhaps only the answers need to converge, and each replica may
+legitimately have asked a different route to them.
+
+\paragraph{D12. Relations.} The biggest wall. ``Alice authored Doc1'' is not
+subsumption, and no amount of cleverness makes it one. Two things are known.
+The \fca{}-native answer, Relational Concept Analysis
+\citep{rouanehacene2013}, computes a global fixpoint, which conflicts with
+local canonical form. And the description-logic answer \citep{baader2003}, an EL-shaped
+extension, is \emph{monotone} --- so merge would survive --- but makes
+subsumption a global inference, so canonicalising up to logical equivalence
+means canonicalising an entailment closure. That is the axis that breaks, and
+naming it precisely is the contribution of Section~\ref{sec:two-canonical-forms}:
+the guarantee would silently degrade from ``equal knowledge, equal root'' to
+``equal syntax, equal root'', which is the weaker thing consumers would
+mistakenly keep relying on. Anyone attempting this should treat cheap semantic
+canonicalisation of the fragment as the \emph{primary} research problem, not
+tractability of reasoning.
+
+There is a precise precedent for drawing a line this way: EL++ retains
+polynomial subsumption only under ``p-admissible'' concrete domains
+\citep{baader2005} --- the description-logic community's version of \odag{}'s
+rule that only exact-arithmetic kinds may enter the canonical order.
+
+\paragraph{D13. Zero-knowledge subsumption.} \emph{Trigger: a
+privacy-demanding counterparty.} Positioned in Section~\ref{sec:crypto-zk};
+the encouraging part is that the properties a circuit wants --- determinism,
+one primitive, no floats --- were already bought for other reasons.
+
+\paragraph{D14. Products of DAGs, and factorial codes.} This one returns to
+the origin. Section~\ref{sec:neural} described a code whose active units carry
+a category structure; the natural next question from the coding side is
+whether that structure \emph{factors} --- whether the code decomposes into
+independent groups of units, each carrying its own small DAG, so that an
+item's description is a tuple rather than a set. That is a factorial code in
+Barlow's sense \citep{barlow1989}, a product lattice in order-theoretic terms,
+and a product of pattern structures in \fca{} terms.
+
+\odag{} already has a degenerate version: its dimensions are exactly such
+independent factors (weight, time and location vary independently, and a value
+in one says nothing about the others). Generalising from a handful of declared
+dimensions to \emph{learned} factors would connect the MDL programme to the
+redundancy-reduction tradition it came from, and would give the surface layer
+a principled account of when two categories are ``about the same thing''.
+The machine-learning neighbours to read first are the layer-wise
+total-correlation approach of \citet{versteeg2014} and the unbounded-depth
+Bayesian prior over binary latent DAGs of \citet{adams2010}.
+
+\paragraph{D15. Continuous relaxations as a recall layer.} Order embeddings
+\citep{vendrov2016} and hyperbolic embeddings \citep{nickel2017} learn vectors
+in which subsumption is coordinate dominance or radial position. They are the
+approximate, differentiable cousins of the ancestor-set code, and they fail in
+exactly the way the exact structure does not: approximately. That makes them a
+natural \emph{proposal} layer over an exact \emph{disposal} layer, which is
+precisely the division of labour Section~\ref{sec:agents} recommends for
+retrieval. Worth noting that the tree/DAG obstruction reappears there too ---
+trees embed in hyperbolic space with arbitrarily low distortion, DAGs only
+approximately.
+
+\paragraph{D16. Closing the mind--brain loop.} The most speculative and, for
+this project's origins, the most fitting. Figure~\ref{fig:mind-brain} has two
+directions and the literature has mostly travelled one of them: from recorded
+codes to concept lattices \citep{endres2008,endres2010}. The other direction
+is now buildable: take an ontology, embed it as an ancestor-set code
+(Proposition~\ref{prop:roundtrip} says nothing is lost), and ask whether a
+population code with that structure predicts responses better than one
+without. \odag{} would be supplying the ontology in a form where the embedding
+is exact and reproducible --- which is to say, canonical --- and where two
+laboratories could confirm they used the identical ontology by comparing 32
+bytes.
+
+\subsection{The map}
+
+\begin{table}[h]\centering\small
+\caption{All directions, with the trigger that would justify starting.}
+\label{tab:directions}
+\vspace{1mm}
+\begin{tabularx}{\textwidth}{@{}p{0.7cm} p{4.5cm} p{2.2cm} X@{}}
+\toprule
+& \textbf{Direction} & \textbf{Risk to invariants} & \textbf{Trigger}\\
+\midrule
+D1 & Pattern-structure framing & none & now (free)\\
+D2 & Ordinal kind & none & someone files ranks\\
+D3 & Reduced labelling & none & now\\
+D4 & Implication lint & none (derived) & users mis-filing\\
+D5 & Cone bitmaps & none (derived) & queries hot\\
+\midrule
+D6 & Exploration with an LLM expert & none (claims) & now; the best fit with
+     agents\\
+D7 & Workload materialisation & soundness caveat & a real query log\\
+D8 & MDL concepts + promotion & none (derived) & store too big to see\\
+D9 & Merkle cone commitments & none (derived) & on-chain subsumption needed\\
+D10 & Thin browser client & none & a published store worth reading\\
+\midrule
+D11 & Concurrent exploration & unclear & multi-writer exploration\\
+D12 & Relations & \textbf{breaks canonicality} & mass reification observed\\
+D13 & Zero-knowledge subsumption & none & a private counterparty\\
+D14 & Products of DAGs & none (derived) & research\\
+D15 & Embeddings as recall & none (outside) & vague-input queries\\
+D16 & Ontology $\to$ neural code & none & a collaborator with data\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Only one row in that table says ``breaks canonicality'', and it is the one
+everybody asks for first. That is the paper's practical warning, and
+Section~\ref{sec:conclusion} makes it the closing point.

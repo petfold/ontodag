@@ -1,0 +1,234 @@
+OntoDAG / FCA experiments
+Every number quoted in the paper is produced by this file.
+
+========================================================================
+EXPERIMENT 1 -- the running example as a formal context
+========================================================================
+objects |G| = 6   attributes |M| = 5   density = 0.57
+
+The cross table:
+                 Flig  Hote  Japa  Book  Refu
+  outbound.pdf    X     .     X     X     X  
+  inbound.pdf     X     .     X     X     .  
+  kyoto-inn.pdf   .     X     X     X     X  
+  rail-pass.pdf   .     .     X     X     X  
+  paris-hop.pdf   X     .     .     X     .  
+  visa-note.md    .     .     X     .     .  
+
+NextClosure found 10 formal concepts (brute-force oracle agrees: 10).
+Upper bound if every attribute set were closed: 2^5 = 32.
+
+Every formal concept (extent | intent), with support and stability:
+  supp=6  stab=0.25   {(no attributes)}
+                       <- {inbound, kyoto-inn, outbound, paris-hop, rail-pass, visa-note}
+  supp=5  stab=0.38   {Booked}
+                       <- {inbound, kyoto-inn, outbound, paris-hop, rail-pass}
+  supp=5  stab=0.50   {Japan}
+                       <- {inbound, kyoto-inn, outbound, rail-pass, visa-note}
+  supp=4  stab=0.38   {Booked, Japan}
+                       <- {inbound, kyoto-inn, outbound, rail-pass}
+  supp=3  stab=0.50   {Booked, Flight}
+                       <- {inbound, outbound, paris-hop}
+  supp=3  stab=0.62   {Booked, Japan, Refundable}
+                       <- {kyoto-inn, outbound, rail-pass}
+  supp=2  stab=0.50   {Booked, Flight, Japan}
+                       <- {inbound, outbound}
+  supp=1  stab=0.50   {Booked, Flight, Japan, Refundable}
+                       <- {outbound}
+  supp=1  stab=0.50   {Booked, Hotel, Japan, Refundable}
+                       <- {kyoto-inn}
+  supp=0  stab=1.00   {Booked, Flight, Hotel, Japan, Refundable}
+                       <- {(nothing)}
+
+Reduced labelling (each name introduced exactly once):
+  concept 1: attributes ['Booked'], objects []
+  concept 2: attributes ['Japan'], objects ['visa-note.md']
+  concept 4: attributes ['Refundable'], objects ['rail-pass.pdf']
+  concept 5: attributes ['Hotel'], objects ['kyoto-inn.pdf']
+  concept 6: attributes ['Flight'], objects ['paris-hop.pdf']
+  concept 7: attributes [], objects ['inbound.pdf']
+  concept 8: attributes [], objects ['outbound.pdf']
+
+Concept lattice written to figures/lattice_travel.dot (10 nodes, 13 covering edges).
+
+========================================================================
+EXPERIMENT 2 -- the same facts as an OntoDAG
+========================================================================
+nodes = 11   asserted edges = 17
+
+A query is one intersection of cones:
+  get(Japan, Flight         ) = ['inbound.pdf', 'outbound.pdf']
+  get(Japan, Refundable     ) = ['kyoto-inn.pdf', 'outbound.pdf', 'rail-pass.pdf']
+  get(Flight, Hotel         ) = []
+  get(Japan                 ) = ['inbound.pdf', 'kyoto-inn.pdf', 'outbound.pdf', 'rail-pass.pdf', 'visa-note.md']
+
+descendant_count is an exact COUNT(*) per category:
+  |cone(Japan      )| = 5
+  |cone(Booked     )| = 5
+  |cone(Flight     )| = 3
+  |cone(Hotel      )| = 1
+  |cone(Refundable )| = 3
+
+OntoDAG written to figures/ontodag_travel.dot
+
+========================================================================
+EXPERIMENT 3 -- what FCA adds: the Dedekind-MacNeille completion
+========================================================================
+OntoDAG nodes (excluding the root)      : 11
+Concepts of K(G) = (nodes, nodes, reach): 17
+
+Every OntoDAG node appears in the completion as a concept whose
+intent is its own reflexive ancestor set. The EXTRA concepts are
+the meets the DAG never named:
+  + unnamed meet: everything under {Booked, Flight}
+                  = {inbound.pdf, outbound.pdf, paris-hop.pdf}
+  + unnamed meet: everything under {Booked, Japan}
+                  = {inbound.pdf, kyoto-inn.pdf, outbound.pdf, rail-pass.pdf}
+  + unnamed meet: everything under {Booked, Japan, Refundable}
+                  = {kyoto-inn.pdf, outbound.pdf, rail-pass.pdf}
+  + unnamed meet: everything under {Booked, Flight, Japan}
+                  = {inbound.pdf, outbound.pdf}
+
+17 concepts = 11 that are OntoDAG nodes
+                + 4 genuine unnamed meets
+                + 2 bookends (the top and bottom a
+                  complete lattice must have, even when nothing
+                  in the data corresponds to them).
+
+Each genuine meet is a combination of categories that happens to
+be shared by a set of items, but that nobody asserted as a
+category. FCA materialises them all; OntoDAG materialises none.
+
+Written to figures/dm_completion.dot (asserted edges solid, the
+meets the completion adds dashed).
+
+========================================================================
+EXPERIMENT 4 -- codes and DAGs are the same information
+========================================================================
+Claim (SEMANTIC_CODES.md Section 2): the family of reflexive
+ancestor sets is a lossless, canonical re-encoding of the DAG.
+Test: build random DAGs, take their codes, rebuild the covering
+relation from the codes alone, and compare with the stored edges.
+
+200/200 random DAGs: covering relation of code containment ==
+the stored transitive reduction, edge for edge. The two directions
+(DAG -> codes by ancestor closure, codes -> DAG by covering) are
+mutually inverse, so subsumption really is a subset test.
+
+========================================================================
+EXPERIMENT 5 -- why OntoDAG refuses to close: the blow-up
+========================================================================
+The contranominal scale N_n = ({1..n}, {1..n}, !=) is the standard
+worst case: every attribute subset is closed, so the lattice has
+2^n concepts for n objects and n attributes.
+
+   n   |G|=|M|   concepts   OntoDAG nodes   OntoDAG edges
+   1       1           2               2               0
+   2       2           4               4               2
+   3       3           8               6               6
+   4       4          16               8              12
+   5       5          32              10              20
+   6       6          64              12              30
+   7       7         128              14              42
+   8       8         256              16              56
+   9       9         512              18              72
+  10      10        1024              20              90
+  11      11        2048              22             110
+  12      12        4096              24             132
+
+The OntoDAG columns are linear in the data; the concept column is
+not. This is the whole reason OntoDAG stores only what was said.
+
+Random contexts (30 objects, 12 attributes, 20 trials each):
+   density   mean concepts   max concepts   OntoDAG edges (mean)
+     0.1            21.9             25                 35.0
+     0.2            49.1             66                 71.7
+     0.3            90.0            119                105.2
+     0.4           183.6            274                145.8
+     0.5           317.3            460                177.3
+     0.6           550.3            723                211.3
+
+Written to experiments/explosion.dat for the plot.
+
+========================================================================
+EXPERIMENT 6 -- OntoDAG is not closed under meets (on purpose)
+========================================================================
+Put AB under {A, B}. Then put X under {A, B} as well.
+  cone(A)          = ['AB', 'X']
+  cone(B)          = ['AB', 'X']
+  cone(A) & cone(B)= ['AB', 'X']
+  cone(AB)         = []
+
+So cone(AB) is a STRICT subset of cone(A) & cone(B): X is under
+both A and B but not under AB. In lattice terms AB is a *sibling*
+of the meet, never the meet itself. A query planner that
+substituted AB for the pair {A, B} would silently lose X.
+In FCA the meet always exists and is the concept with intent
+closure({A,B}); in OntoDAG a named node is only ever what somebody
+said it was.
+
+========================================================================
+EXPERIMENT 7 -- one canonical form, whatever the history
+========================================================================
+50 random build orders of the same six facts produced 1 distinct graph(s).
+
+The single canonical edge set:
+    outbound.pdf  ->  Flight
+    kyoto-inn.pdf  ->  Hotel
+    kyoto-inn.pdf  ->  Japan
+    outbound.pdf  ->  Japan
+    Flight  ->  Travel
+    Hotel  ->  Travel
+
+Note what is NOT there: outbound.pdf -> Travel. It was never
+asserted, and had it been, transitive reduction would have
+dropped it, because Flight -> Travel already implies it.
+
+Through the content-addressed store: 10 build orders, 1 distinct root hash(es).
+    root = 5ff08fead6474d5e9cb1d0466c9a14a57f839f6e5d55813889c22bc44b0c700f
+
+That single 32-byte string is the paper's Section 10 in one line:
+equal knowledge, equal address, whoever built it and in whatever
+order.
+
+========================================================================
+EXPERIMENT 8 -- implications FCA would find in the same data
+========================================================================
+An attribute implication B -> C holds when every object with all
+of B also has all of C. Here are the non-trivial ones with a
+single-attribute premise, computed by closure:
+
+  Flight      -> Booked    (support 3)
+  Hotel       -> Booked, Japan, Refundable    (support 1)
+  Refundable  -> Booked, Japan    (support 3)
+
+Read as advice to the ontology: 'Flight -> Booked' says every
+flight in this store happens to be booked. That is a fact about
+today's population, not a rule -- filing one unbooked flight
+destroys it. Section 8.1 of the paper is about exactly this
+distinction, and why such implications belong in a derived,
+local, regenerable layer rather than in the shared graph.
+
+========================================================================
+EXPERIMENT 9 -- an answer a stranger can check
+========================================================================
+root = d53e10b9ee4a06edac177b23d40a3ddab9a8f9a890a4397ac16f50548acc39ea
+certificate format  : ontodag-is-below-certificate v1
+claims              : outbound.pdf is below Travel -> True
+records proved      : 4
+registry pinned at  : 4.1
+
+A verifier holding ONLY the root -- no store, no network -- checks:
+  verify_below(cert, root) = True
+
+Tampering is caught. Flip the claimed answer:
+  refused: CertificateError
+
+And a negative answer is provable too, in the same way:
+  outbound.pdf below Hotel? False (verified: False)
+
+This is what Section 10 means by 'trust nobody': the answer
+travels, the store does not, and a wrong answer cannot verify.
+
+========================================================================
+All experiments completed.

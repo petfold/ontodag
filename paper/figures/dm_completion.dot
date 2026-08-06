@@ -1,0 +1,24 @@
+digraph completion {
+  rankdir=BT;
+  nodesep=0.2;
+  ranksep=0.4;
+  node [shape=box, fontsize=10, margin="0.06,0.03"];
+  "Booked" [label="Booked", shape=box];
+  "Flight" [label="Flight", shape=box];
+  "Hotel" [label="Hotel", shape=box];
+  "Japan" [label="Japan", shape=box];
+  "Refundable" [label="Refundable", shape=box];
+  "meet0" [label="Booked$\wedge$Flight", shape=ellipse, style=dashed];
+  "meet1" [label="Booked$\wedge$Japan", shape=ellipse, style=dashed];
+  "meet2" [label="Booked$\wedge$Japan$\wedge$Refundable", shape=ellipse, style=dashed];
+  "meet3" [label="Booked$\wedge$Flight$\wedge$Japan", shape=ellipse, style=dashed];
+  "meet0" -> "Booked" [style=dashed];
+  "meet0" -> "Flight" [style=dashed];
+  "meet1" -> "Booked" [style=dashed];
+  "meet1" -> "Japan" [style=dashed];
+  "meet2" -> "Refundable" [style=dashed];
+  "meet2" -> "meet1" [style=dashed];
+  "meet3" -> "meet0" [style=dashed];
+  "meet3" -> "meet1" [style=dashed];
+  { rank=same; "Booked"; "Flight"; "Hotel"; "Japan"; "Refundable"; }
+}

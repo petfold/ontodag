@@ -1,0 +1,71 @@
+\section{The experiments}
+\label{sec:experiments}
+
+Every number in this paper is produced by one script,
+\file{paper/experiments/fca_experiments.py}. It depends on the Python
+standard library and on \odag{} itself; the \fca{} half --- NextClosure,
+the derivation operators, stability, the covering relation --- is implemented
+in the file, so no claim about concept lattices rests on a library the reader
+would have to take on trust. Where a fast algorithm could be wrong, it is
+checked against a brute-force oracle in the same run.
+
+\subsection*{Running it}
+
+\begin{lstlisting}
+$ git clone https://github.com/petfold/ontodag && cd ontodag
+$ python3 paper/experiments/fca_experiments.py     # ~1 minute
+$ cd paper && make                                 # figures, then the PDF
+\end{lstlisting}
+
+The script writes \file{experiments/results.txt} (reproduced below),
+\file{experiments/explosion.dat} (the data behind
+Figure~\ref{fig:explosion}) and the Graphviz sources for
+Figures~\ref{fig:lattice}, \ref{fig:ontodag}, \ref{fig:completion}
+and~\ref{fig:meettrap}.
+
+\subsection*{What each experiment establishes}
+
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}l p{8.1cm} X@{}}
+\toprule
+\textbf{\#} & \textbf{Establishes} & \textbf{Used in}\\
+\midrule
+1 & The running example has 10 formal concepts of a possible 32; their
+    supports and stabilities; NextClosure agrees with the oracle.
+  & Tables~\ref{tab:context}, \ref{tab:concepts};
+    Fig.~\ref{fig:lattice}\\
+2 & The same facts as an \odag{}: 11 nodes, 17 edges; the query answers; the
+    exact cone sizes.
+  & \S\ref{sec:ontodag}; Fig.~\ref{fig:ontodag}\\
+3 & The Dedekind--MacNeille completion of that \odag{} has 17 concepts:
+    11 nodes, 4 genuine unnamed meets, 2 bookends.
+  & \S\ref{sec:dictionary}; Fig.~\ref{fig:completion}\\
+4 & Codes and graphs are mutually recoverable: 200/200 random DAGs
+    reconstruct edge-for-edge from their ancestor-set codes.
+  & Prop.~\ref{prop:roundtrip}\\
+5 & The blow-up: contranominal scales give $2^n$; random contexts grow
+    superlinearly in density while the stored data does not.
+  & \S\ref{sec:explosion}; Fig.~\ref{fig:explosion}\\
+6 & A node under $A$ and $B$ is a sibling of the meet, not the meet:
+    $\cone{AB} \subsetneq \cone{A}\cap\cone{B}$.
+  & \S\ref{sec:meet-trap}; Fig.~\ref{fig:meettrap}\\
+7 & Canonical form: 50 build orders give one graph; 10 give one root hash.
+  & \S\ref{sec:canonical}\\
+8 & The implications \fca{} would find in the same data, and why they are
+    not laws.
+  & \S\ref{sec:learn-implications}\\
+9 & A subsumption certificate verifies against the root alone, in both
+    polarities, and a tampered one is refused.
+  & \S\ref{sec:agents-verify}\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection*{Full output}
+
+Reproduced verbatim, so that every figure in the body can be traced to the
+line that produced it.
+
+\lstinputlisting[basicstyle=\scriptsize\ttfamily, frame=single,
+  backgroundcolor=\color{white}, breaklines=true,
+  rulecolor=\color{odgrey!35}]{experiments/results.txt}

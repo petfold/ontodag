@@ -1,0 +1,11 @@
+# LaTeX build litter. The PDF and the generated figure/experiment inputs are
+# committed on purpose (so the paper builds without dot2tex or python), but
+# the per-run auxiliaries are not.
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.lof
+*.lot

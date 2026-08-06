@@ -1,0 +1,27 @@
+%%
+\begin{scope}
+  \pgfsetstrokecolor{black}
+  \definecolor{strokecol}{rgb}{1.0,1.0,1.0};
+  \pgfsetstrokecolor{strokecol}
+  \definecolor{fillcol}{rgb}{1.0,1.0,1.0};
+  \pgfsetfillcolor{fillcol}
+  \filldraw (0.0bp,0.0bp) -- (0.0bp,166.0bp) -- (481.76bp,166.0bp) -- (481.76bp,0.0bp) -- cycle;
+\end{scope}
+  \node (Booked) at (183.9bp,148.0bp) [draw,rectangle] {Booked};
+  \node (Flight) at (108.9bp,148.0bp) [draw,rectangle] {Flight};
+  \node (Hotel) at (431.9bp,148.0bp) [draw,rectangle] {Hotel};
+  \node (Japan) at (257.9bp,148.0bp) [draw,rectangle] {Japan};
+  \node (Refundable) at (356.9bp,148.0bp) [draw,rectangle] {Refundable};
+  \node (meet0) at (108.9bp,83.0bp) [draw,ellipse,dashed] {Booked$\wedge$Flight};
+  \node (meet1) at (257.9bp,83.0bp) [draw,ellipse,dashed] {Booked$\wedge$Japan};
+  \node (meet2) at (356.9bp,18.0bp) [draw,ellipse,dashed] {Booked$\wedge$Japan$\wedge$Refundable};
+  \node (meet3) at (108.9bp,18.0bp) [draw,ellipse,dashed] {Booked$\wedge$Flight$\wedge$Japan};
+  \draw [->,dashed] (meet0) ..controls (136.93bp,107.55bp) and (146.78bp,115.82bp)  .. (Booked);
+  \draw [->,dashed] (meet0) ..controls (108.9bp,106.91bp) and (108.9bp,113.39bp)  .. (Flight);
+  \draw [->,dashed] (meet1) ..controls (230.33bp,107.47bp) and (220.73bp,115.65bp)  .. (Booked);
+  \draw [->,dashed] (meet1) ..controls (257.9bp,106.91bp) and (257.9bp,113.39bp)  .. (Japan);
+  \draw [->,dashed] (meet2) ..controls (356.9bp,57.639bp) and (356.9bp,94.309bp)  .. (Refundable);
+  \draw [->,dashed] (meet2) ..controls (318.63bp,43.359bp) and (304.26bp,52.501bp)  .. (meet1);
+  \draw [->,dashed] (meet3) ..controls (108.9bp,41.91bp) and (108.9bp,48.395bp)  .. (meet0);
+  \draw [->,dashed] (meet3) ..controls (167.15bp,43.63bp) and (192.87bp,54.502bp)  .. (meet1);
+%

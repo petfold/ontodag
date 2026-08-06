@@ -1,0 +1,245 @@
+% ---------------------------------------------------------------------------
+% OntoDAG and Formal Concept Analysis: a tutorial
+%
+% Build:  make          (runs experiments, regenerates figures, then LaTeX)
+%         make figures  (dot -> dot2tex -> TikZ fragments only)
+%
+% Needs pdflatex, bibtex, graphviz, dot2tex, python3. See Appendix D.
+% ---------------------------------------------------------------------------
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{stmaryrd}   % \bigsqcap, for pattern structures (Section 8.3)
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage[export]{adjustbox}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{subcaption}
+\usepackage{tcolorbox}
+\usepackage[round]{natbib}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc,
+                shapes.geometric,shapes.misc,matrix,decorations.pathreplacing,
+                patterns}
+\usepackage[hidelinks,bookmarks=true]{hyperref}
+
+\tcbuselibrary{skins,breakable}
+
+% --- colours ---------------------------------------------------------------
+\definecolor{odblue}{HTML}{1F4E79}
+\definecolor{odteal}{HTML}{176B6B}
+\definecolor{odsand}{HTML}{F3EFE6}
+\definecolor{odrust}{HTML}{9C4A2F}
+\definecolor{odgrey}{HTML}{5A5A5A}
+\definecolor{odgreen}{HTML}{2F6B3A}
+
+% --- boxes -----------------------------------------------------------------
+\newtcolorbox{keyidea}[1][]{
+  breakable, enhanced, colback=odsand, colframe=odblue,
+  boxrule=0.6pt, left=6pt, right=6pt, top=5pt, bottom=5pt,
+  fonttitle=\bfseries, title={Key idea}, #1}
+
+\newtcolorbox{tryit}[1][]{
+  breakable, enhanced, colback=white, colframe=odteal,
+  boxrule=0.6pt, left=6pt, right=6pt, top=5pt, bottom=5pt,
+  fonttitle=\bfseries, title={Try it yourself}, #1}
+
+\newtcolorbox{pitfall}[1][]{
+  breakable, enhanced, colback=white, colframe=odrust,
+  boxrule=0.6pt, left=6pt, right=6pt, top=5pt, bottom=5pt,
+  fonttitle=\bfseries, title={Watch out}, #1}
+
+\newtcolorbox{measured}[1][]{
+  breakable, enhanced, colback=white!96!odgreen, colframe=odgreen,
+  boxrule=0.6pt, left=6pt, right=6pt, top=5pt, bottom=5pt,
+  fonttitle=\bfseries, title={Measured, not asserted}, #1}
+
+% --- theorem-like ----------------------------------------------------------
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{example}[definition]{Example}
+\newtheorem{exercise}[definition]{Exercise}
+\theoremstyle{plain}
+\newtheorem{theorem}[definition]{Theorem}
+\newtheorem{proposition}[definition]{Proposition}
+\newtheorem{corollary}[definition]{Corollary}
+\theoremstyle{remark}
+\newtheorem{remark}[definition]{Remark}
+
+% --- notation --------------------------------------------------------------
+\newcommand{\cone}[1]{\mathord{\downarrow}#1}      % descendant cone
+\newcommand{\up}[1]{\mathord{\uparrow}#1}          % ancestor cone
+\newcommand{\code}[1]{\mathrm{code}(#1)}
+\newcommand{\ext}{\mathrm{ext}}
+\newcommand{\inten}{\mathrm{int}}
+\newcommand{\Bcl}{\mathfrak{B}}                    % concept lattice
+\newcommand{\ctx}{\mathbb{K}}                      % formal context
+\newcommand{\reduc}[1]{#1^{\mathrm{red}}}
+\newcommand{\dsub}{\sqsubseteq}                    % subsumption
+\newcommand{\odag}{\textsc{OntoDAG}}
+\newcommand{\fca}{\textsc{FCA}}
+\newcommand{\cmd}[1]{\texttt{#1}}
+% file paths: breakable at / and _ , so long ones do not run
+% past the margin
+\newcommand{\file}[1]{\nolinkurl{#1}}
+
+% --- listings --------------------------------------------------------------
+\lstdefinestyle{shell}{
+  basicstyle=\small\ttfamily, columns=fullflexible, keepspaces=true,
+  frame=single, framesep=5pt, rulecolor=\color{odgrey!40},
+  backgroundcolor=\color{odsand!45}, breaklines=true,
+  showstringspaces=false, xleftmargin=2pt, aboveskip=8pt, belowskip=8pt}
+\lstdefinestyle{py}{
+  style=shell, language=Python,
+  keywordstyle=\color{odblue}\bfseries,
+  commentstyle=\color{odgreen}\itshape,
+  stringstyle=\color{odrust}}
+\lstset{style=shell}
+
+% --- figure helper: wrap a dot2tex fragment --------------------------------
+% dot2tex emits bare \node/\draw lines; every figure sets its own scale.
+% Wraps a dot2tex fragment. The adjustbox shrinks a diagram that would
+% otherwise run past the margin, and leaves smaller ones alone.
+\newcommand{\dotfig}[2][1.0]{%
+  \adjustbox{max width=\linewidth}{%
+  \begin{tikzpicture}[>=Stealth, scale=#1, transform shape,
+      every node/.append style={align=center, font=\footnotesize,
+                                inner sep=2.5pt}]
+    \input{figures/#2.tex}
+  \end{tikzpicture}}}
+
+\title{\vspace{-1.2cm}\textbf{Concepts, Codes and Canonical Forms}\\[2mm]
+  \large A tutorial on \odag{} and Formal Concept Analysis:\\
+  what they share, where they part, and why the difference\\
+  matters for AI agents and cryptographic systems}
+
+\author{P\'eter F\"oldi\'ak\\
+  \small\texttt{peter.foldiak@gmail.com}\\
+  \small\url{https://github.com/petfold/ontodag}}
+\date{August 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+\odag{} began with an observation about brains: if a concept is represented by
+a set of active units in a sparse neural code, then the \emph{overlaps} between
+codewords already encode a hierarchy of categories --- structure that need not
+be carried by any synapse. That observation has a mathematical home, and it is
+older and richer than the observation itself: Formal Concept Analysis (\fca{}),
+a branch of applied order theory that turns exactly such a binary code --- what
+it calls a \emph{formal context} --- into a lattice of concepts, and back
+again. The correspondence is a genuine bridge between a ``brain'' object
+(a code) and a ``mind'' object (a knowledge graph).
+
+This tutorial is written for a reader who has met neither field. Part~I builds
+the necessary order theory from scratch, tells the neural-code story, and then
+develops \fca{} and \odag{} side by side on one small worked example. Part~II
+states the correspondence precisely --- ancestor-set codes \emph{are} \fca{}
+intents, descendant cones \emph{are} extents, and the concept lattice of an
+\odag{} is its Dedekind--MacNeille completion --- and then isolates the four
+differences that actually matter: \odag{} has no object/attribute distinction,
+it stores only what was asserted rather than every closed set, its canonical
+form is cheap where \fca{}'s is exponential, and its concepts have stable
+names where \fca{}'s have none. Part~III turns the comparison into two lists:
+seven things \odag{} should take from \fca{}'s theory (implication bases as a
+local lint, conceptual scaling, pattern structures, stability, attribute
+exploration with a language model as the expert, iceberg partiality,
+lattice-drawing), and six it must refuse to give up. Part~IV argues that these
+refusals are exactly what makes \odag{} useful to AI agents and to
+cryptographic systems: agents need knowledge that is \emph{canonical,
+addressable, verifiable and attributable} --- four properties a language
+model's knowledge conspicuously lacks --- and content-addressed networks need
+a semantic layer whose fingerprints depend on meaning rather than on phrasing.
+Part~V maps the research directions this opens.
+
+Every number quoted is produced by a runnable script included with the
+paper; every figure is generated from its data.
+\end{abstract}
+
+\vspace{4mm}
+\begin{center}
+\begin{minipage}{0.86\textwidth}
+\small\itshape
+A note on how to read this. Sections~\ref{sec:orders}--\ref{sec:ontodag} are a
+course: they assume only school mathematics and define everything they use.
+A reader who already knows lattices and \fca{} can start at
+Section~\ref{sec:dictionary} and use Section~\ref{sec:notation-table} as a
+phrasebook. A reader who only wants the argument about agents and
+cryptography can read Section~\ref{sec:summary-of-differences}, then jump to
+Parts~IV and~V.
+\end{minipage}
+\end{center}
+
+\clearpage
+\tableofcontents
+\clearpage
+
+% ===========================================================================
+\part*{Part I --- Foundations}
+\addcontentsline{toc}{part}{Part I --- Foundations}
+% ===========================================================================
+
+\input{sections/01-introduction}
+\input{sections/02-orders}
+\input{sections/03-neural-codes}
+\input{sections/04-fca}
+\input{sections/05-ontodag}
+
+% ===========================================================================
+\part*{Part II --- The correspondence}
+\addcontentsline{toc}{part}{Part II --- The correspondence}
+% ===========================================================================
+
+\input{sections/06-dictionary}
+\input{sections/07-differences}
+
+% ===========================================================================
+\part*{Part III --- What each can learn from the other}
+\addcontentsline{toc}{part}{Part III --- What each can learn from the other}
+% ===========================================================================
+
+\input{sections/08-learn-from-fca}
+\input{sections/09-keep}
+
+% ===========================================================================
+\part*{Part IV --- Why this matters now}
+\addcontentsline{toc}{part}{Part IV --- Why this matters now}
+% ===========================================================================
+
+\input{sections/10-agents}
+\input{sections/11-crypto}
+
+% ===========================================================================
+\part*{Part V --- Directions}
+\addcontentsline{toc}{part}{Part V --- Directions}
+% ===========================================================================
+
+\input{sections/12-directions}
+\input{sections/13-conclusion}
+
+\clearpage
+\bibliographystyle{plainnat}
+\bibliography{ontodag-fca}
+
+\appendix
+\input{sections/A-glossary}
+\input{sections/B-notation}
+\input{sections/C-experiments}
+\input{sections/D-colophon}
+
+\end{document}
