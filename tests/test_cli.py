@@ -2577,3 +2577,123 @@ class TestHistoryAndUndo(unittest.TestCase):
         self.assertTrue(line.startswith("*"))
         # marker, root, date, time — and no message on the end
         self.assertEqual(len(line.split()), 4)
+
+
+class TestOverlappingCommand(unittest.TestCase):
+    """`overlapping TERM` — contract G6 on the command line.
+
+    It was reachable only from Python and MCP, which made a documented
+    guarantee invisible to the surface most people use.
+    """
+
+    def _session(self, home):
+        session = cli.Session(os.path.join(home, "parcels.od"))
+        for argv in (["prelude"], ["put", "parcel", "weight(3kg)"],
+                     ["put", "wide", "weight(2kg..6kg)"]):
+            self.assertEqual(_run(argv, session)[0], 0)
+        return session
+
+    def test_candidates_include_what_get_cannot(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            guaranteed = _run(["get", "weight(..5kg)"], session)[1].split()
+            candidates = _run(["overlapping", "weight(..5kg)"], session)[1].split()
+            self.assertIn("parcel", guaranteed)
+            self.assertIn("parcel", candidates)
+            # `wide` might be under 5kg: a candidate, never a guarantee
+            self.assertNotIn("wide", guaranteed)
+            self.assertIn("wide", candidates)
+
+    def test_a_term_of_no_dimension_is_an_error(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            out, err = io.StringIO(), io.StringIO()
+            with redirect_stdout(out), redirect_stderr(err):
+                code = cli.dispatch(["overlapping", "parcel"], session)
+            self.assertEqual(code, 1)
+            self.assertIn("denotation", err.getvalue())
+
+
+class TestAsOf(unittest.TestCase):
+    """`--as-of ROOT` reads a past version — the other half of `history`.
+
+    History listed the versions and gave no way to look at one; now the roots it
+    prints are usable, prefix and all (it prints twelve characters, so demanding
+    sixty-four would make the feature unusable with the only thing that shows
+    them).
+    """
+
+    def setUp(self):
+        self._home = tempfile.TemporaryDirectory()
+        self._saved = os.environ.get("ONTODAG_HOME")
+        os.environ["ONTODAG_HOME"] = self._home.name
+        cli._OVERRIDES.clear()
+        self.spec = "rs:" + os.path.join(self._home.name, "store")
+        self._run(["put", "Travel"], message="one")
+        self._run(["put", "Japan", "Travel"], message="two")
+
+    def tearDown(self):
+        cli._OVERRIDES.clear()
+        if self._saved is None:
+            os.environ.pop("ONTODAG_HOME", None)
+        else:
+            os.environ["ONTODAG_HOME"] = self._saved
+        self._home.cleanup()
+
+    def _run(self, argv, message=None, as_of=None):
+        cli._OVERRIDES.pop("message", None)
+        cli._OVERRIDES.pop("as_of", None)
+        if message is not None:
+            cli._OVERRIDES["message"] = message
+        if as_of is not None:
+            cli._OVERRIDES["as_of"] = as_of
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.dispatch(argv, cli.Session(self.spec))
+        return code, out.getvalue(), err.getvalue()
+
+    def _roots(self):
+        # `*` marks the current line, so strip the marker column rather than
+        # counting fields (that mistake reads the date as a root).
+        return [line.lstrip("* ").split()[0] for line in
+                self._run(["history"])[1].splitlines()]
+
+    def test_a_past_version_reads_as_it_was(self):
+        first = self._roots()[-1]
+        self.assertEqual(self._run(["list"])[1].split(), ["Japan", "Travel"])
+        self.assertEqual(self._run(["list"], as_of=first)[1].split(), ["Travel"])
+
+    def test_the_prefix_history_prints_is_enough(self):
+        first = self._roots()[-1]
+        self.assertEqual(len(first), 12)          # what `history` shows
+        self.assertEqual(self._run(["list"], as_of=first)[1].split(), ["Travel"])
+        self.assertEqual(self._run(["list"], as_of=first[:7])[1].split(),
+                         ["Travel"])
+
+    def test_queries_work_against_a_past_version(self):
+        latest, first = self._roots()[0], self._roots()[-1]
+        self.assertEqual(self._run(["get", "Travel"], as_of=latest)[1].split(),
+                         ["Japan"])
+        self.assertEqual(self._run(["get", "Travel"], as_of=first)[1], "")
+
+    def test_writing_to_a_past_version_is_refused(self):
+        first = self._roots()[-1]
+        code, _, err = self._run(["put", "X"], as_of=first)
+        self.assertEqual(code, 1)
+        self.assertIn("read-only", err)
+        self.assertIn("odag undo", err)           # says how to actually go back
+        self.assertEqual(self._run(["list"])[1].split(), ["Japan", "Travel"])
+
+    def test_an_unknown_or_ambiguous_root_says_so(self):
+        code, _, err = self._run(["list"], as_of="nosuchroot")
+        self.assertEqual(code, 1)
+        self.assertIn("not a version", err)
+
+    def test_a_file_store_has_no_versions_to_read(self):
+        path = os.path.join(self._home.name, "plain.od")
+        cli._OVERRIDES["as_of"] = "abc"
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.dispatch(["list"], cli.Session(path))
+        self.assertEqual(code, 1)
+        self.assertIn("no versions to read", err.getvalue())

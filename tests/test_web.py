@@ -466,3 +466,100 @@ class TestThePageIsWiredUp:
             result = subprocess.run([node, "--check", handle.name],
                                     capture_output=True, text=True)
         assert result.returncode == 0, result.stderr
+
+
+class TestDeclaringDimensionsOverRest:
+    """Typed values need their dimension declared, and until `/dag/prelude`
+    existed the only way to do that here was to hand-create the three
+    declaration nodes — which is what this file's other tests still do, and
+    which no browser user would guess.
+    """
+
+    def test_a_typed_value_is_refused_before_any_declaration(self, client):
+        response = put(client, "parcel", ["weight(3kg)"])
+        assert response.status_code == 400
+        assert "super-categories" in response.get_json()["error"]
+
+    def test_the_prelude_makes_typed_values_work(self, client):
+        assert client.post("/dag/prelude").status_code == 201
+        assert put(client, "parcel", ["weight(3kg)"]).status_code == 201
+        assert "parcel" in query_names(client, "weight(..5kg)")
+
+    def test_adopting_it_twice_changes_nothing(self, client):
+        client.post("/dag/prelude")
+        before = client.get("/dag").get_json()["nodes"]
+        client.post("/dag/prelude")
+        assert client.get("/dag").get_json()["nodes"] == before
+
+    def test_the_declarations_can_be_previewed(self, client):
+        body = client.get("/dag/prelude").get_json()
+        assert body["version"] >= 3
+        assert any("weight" in str(d) for d in body["declarations"])
+        # a preview declares nothing
+        assert put(client, "parcel", ["weight(3kg)"]).status_code == 400
+
+    def test_packs_are_listed_and_adoptable(self, client):
+        packs = {p["name"] for p in client.get("/dag/pack").get_json()["packs"]}
+        assert "crypto-core" in packs
+        client.post("/dag/prelude")
+        assert client.post("/dag/pack", json={"name": "crypto-core"}
+                           ).status_code == 201
+        assert put(client, "wallet", ["price(1BTC)"]).status_code in (201, 400)
+
+    def test_an_unknown_pack_is_a_client_error(self, client):
+        response = client.post("/dag/pack", json={"name": "nope"})
+        assert response.status_code == 400
+        assert "crypto-core" in response.get_json()["error"]   # names the real ones
+        assert client.post("/dag/pack", json={}).status_code == 400
+
+
+class TestOverlappingOverRest:
+    """The weaker matching mode (contract G6) — candidates, not guarantees."""
+
+    def _fixture(self, client):
+        client.post("/dag/prelude")
+        put(client, "parcel", ["weight(3kg)"])
+        put(client, "wide", ["weight(2kg..6kg)"])
+
+    def test_it_returns_what_query_cannot(self, client):
+        self._fixture(client)
+        guaranteed = query_names(client, "weight(..5kg)")
+        response = client.get("/dag/overlapping",
+                              query_string={"term": "weight(..5kg)"})
+        assert response.status_code == 200
+        candidates = {node["name"] for node in response.get_json()["nodes"]}
+        assert "parcel" in guaranteed and "parcel" in candidates
+        # `wide` might weigh under 5kg — a candidate, never a guarantee
+        assert "wide" not in guaranteed
+        assert "wide" in candidates
+
+    def test_a_term_of_no_dimension_is_a_client_error(self, client):
+        self._fixture(client)
+        response = client.get("/dag/overlapping", query_string={"term": "parcel"})
+        assert response.status_code == 400
+        assert "denotation" in response.get_json()["error"]
+
+    def test_a_missing_term_is_a_client_error(self, client):
+        assert client.get("/dag/overlapping").status_code == 400
+
+
+class TestCanonOverRest:
+    """This surface shows canonical names, which makes "what would this store?"
+    more useful here than anywhere — and it had no way to ask."""
+
+    def test_a_spelling_resolves_to_what_is_stored(self, client):
+        client.post("/dag/prelude")
+        body = client.get("/dag/canon",
+                          query_string={"term": "weight(3000g)"}).get_json()
+        assert body["canonical"] == "weight(3kg)"
+        assert body["display"]
+
+    def test_bare_canon_reports_the_versions(self, client):
+        body = client.get("/dag/canon").get_json()
+        assert body["surface"] and body["registry"]
+
+    def test_a_malformed_term_is_a_client_error(self, client):
+        client.post("/dag/prelude")
+        response = client.get("/dag/canon", query_string={"term": "weight(zz)"})
+        assert response.status_code == 400
+        assert "error" in response.get_json()

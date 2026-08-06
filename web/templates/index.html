@@ -38,6 +38,18 @@
         <input type="text" id="move-from" placeholder="out of (blank = all of them)" size="34"/>
         <button type="submit" title="Reclassify the items named above: file them under `to`, retract `out of`">Move Item</button>
       </form>
+      <form id="declare-form">
+        <button type="button" id="prelude-button" title="Declare the standard dimensions (weight, time, size, ...) — typed values like weight(3kg) need this first">Declare dimensions</button>
+        <select id="pack-select"><option value="">unit pack…</option></select>
+        <button type="button" id="pack-button" title="Merge a unit vocabulary pack (currencies and the like) into this DAG">Adopt pack</button>
+      </form>
+      <form id="ask-form">
+        <input type="text" id="below-sub" placeholder="does this…" size="18"/>
+        <input type="text" id="below-sup" placeholder="…fit within this?" size="20"/>
+        <button type="button" id="below-button">Below?</button>
+        <input type="text" id="canon-term" placeholder="canonical form of…" size="20"/>
+        <button type="button" id="canon-button" title="What would this spelling actually store? (this page shows canonical names)">Canon</button>
+      </form>
       <p id="notice" class="notice" style="display: none;"></p>
       <img id="dag-image" class="dag-visual" src="/dag/image" alt="DAG Visualization" />
       <div id="dag"></div>
@@ -243,6 +255,70 @@
         reloadDagImage();
       });
 
+      // Typed values need their dimension declared before they can be filed at
+      // all, and until this button existed the only way to do that here was to
+      // hand-create the three declaration nodes.
+      document.getElementById("prelude-button").addEventListener("click", async () => {
+        const response = await fetch("/dag/prelude", {method: "POST"})
+          .then(response => handleError(response));
+        if (response.ok) {
+          const result = await response.json();
+          showNotice("Dimensions declared (prelude v" + result.version
+            + "): weight, time, size and friends are now usable.");
+        }
+        await loadDAG();
+        reloadDagImage();
+      });
+
+      async function loadPacks() {
+        const select = document.getElementById("pack-select");
+        const { packs } = await fetch("/dag/pack").then(r => r.json());
+        packs.forEach(pack => {
+          const option = document.createElement("option");
+          option.value = pack.name;
+          option.textContent = pack.name + " (" + pack.declarations + ")";
+          select.appendChild(option);
+        });
+      }
+
+      document.getElementById("pack-button").addEventListener("click", async () => {
+        const name = document.getElementById("pack-select").value;
+        if (!name) { showNotice("Pick a pack first."); return; }
+        const response = await fetch("/dag/pack", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ name })
+        }).then(response => handleError(response));
+        if (response.ok) { showNotice("Adopted the " + name + " pack."); }
+        await loadDAG();
+        reloadDagImage();
+      });
+
+      document.getElementById("below-button").addEventListener("click", async () => {
+        const sub = document.getElementById("below-sub").value.trim();
+        const sup = document.getElementById("below-sup").value.trim();
+        if (!sub || !sup) { showNotice("Give both a subject and a category."); return; }
+        const response = await fetch("/dag/below?sub=" + encodeURIComponent(sub)
+          + "&sup=" + encodeURIComponent(sup)).then(response => handleError(response));
+        if (response.ok) {
+          const { below } = await response.json();
+          showNotice(sub + (below ? " fits within " : " does NOT fit within ") + sup);
+        }
+      });
+
+      document.getElementById("canon-button").addEventListener("click", async () => {
+        const term = document.getElementById("canon-term").value.trim();
+        if (!term) { showNotice("Type a term to canonicalize."); return; }
+        const response = await fetch("/dag/canon?term=" + encodeURIComponent(term))
+          .then(response => handleError(response));
+        if (response.ok) {
+          const result = await response.json();
+          showNotice(term + " is stored as " + result.canonical
+            + (result.display !== result.canonical
+               ? " (shown as " + result.display + ")" : ""));
+        }
+      });
+
       document.getElementById("new-dag-button").addEventListener("click", async () => {
         await fetch("/dag", {
           method: "POST",
@@ -341,7 +417,7 @@
         window.location.href = queryExportUrl("/dag/query/export/tex");
       });
 
-      window.onload = loadDAG;
+      window.onload = () => { loadDAG(); loadPacks(); };
     </script>
   </body>
 </html>

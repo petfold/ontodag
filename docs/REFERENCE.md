@@ -74,6 +74,7 @@ results one per line on stdout. No command = read commands from stdin
 | `get [CAT…]` | items below all CATs; `or` separates disjuncts; empty = everything |
 | `count [CAT…]` | the same query, as one number |
 | `below SUB SUP` | prints `true`/`false`, exits 0/1 (grep-style); alias `?` at the prompt |
+| `overlapping TERM` | items that *might* satisfy a typed term — candidates whose value overlaps it (G6). A term of no declared dimension is an error, not an empty answer |
 | `list` | everything (same path as the empty `get`) |
 | `show` | the whole DAG as indented text |
 | `move NAME… --to CAT… [--from CAT…] [--dry-run]` | reclassify: assert the new categories, retract the old ones (`--from` omitted = all of them, so `--to` alone means "under this and nothing else"; `--to` omitted = unfile, becoming top-level). Reports the **contested set** — items now under both the old and new category, which subsumption cannot resolve |
@@ -108,10 +109,13 @@ default**. `auto` means "decide from whether output is a terminal".
 | `render` | `ONTODAG_SURFACE` | `--render` / `--raw` | `auto` |
 | `limit` | `ONTODAG_LIMIT` | `-n N` | `auto` (50 at a tty, all in a pipe, 0 = all) |
 
-**`-m MESSAGE`** is the one pre-command flag that is not a setting: it labels
-whatever state this invocation commits, readable back with `odag history`. The
-label lives in the store's timeline and never in the root — equal content
-commits to equal roots whatever the words.
+**Two pre-command flags are not settings.** `-m MESSAGE` labels whatever state
+this invocation commits, readable back with `odag history`; the label lives in
+the store's timeline and never in the root, so equal content commits to equal
+roots whatever the words. `--as-of ROOT` reads a *past* version instead of the
+current one — any unambiguous prefix `odag history` prints — and is read-only,
+since a past state is history rather than a place to write from (`undo`/`redo`
+are how the store moves). Both need a store that keeps versions (`rs:`/`swarm:`).
 
 **Store specs** (for `-f`, `$ONTODAG_STORE`, `set store`):
 
@@ -225,6 +229,10 @@ empty `cat` = everything.
 | `/dag/node` | PATCH | reclassify: `{subcategories, to, from}`; answers with `retracted` and the `contested` set |
 | `/dag/node?cone=1` | DELETE | delete the items and whatever only existed under them; answers with `deleted` and `kept` |
 | `/dag/removal?name=…&cone=1` | GET | what that delete would take, without taking it |
+| `/dag/overlapping?term=…` | GET | candidates whose value merely overlaps the term (G6) |
+| `/dag/canon[?term=…]` | GET | what a spelling stores (`canonical` + `display`); bare: surface/registry versions |
+| `/dag/prelude` | GET / POST | preview / adopt the standard dimension declarations — **typed values need this first on this surface** |
+| `/dag/pack` | GET / POST `{name}` | list / adopt a unit vocabulary pack |
 | `/market`, `/cars…` | GET | the car-market demo |
 
 The web DAG is server memory per session — not your `odag` store.

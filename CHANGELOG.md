@@ -75,6 +75,36 @@ the version numbers appear in commit history and docs.
   removals, the command says how many it left out rather than shipping a
   fragment that looks like the whole change. Removals belong to a base-pinned
   three-way apply and travel as attributed retractions (PROVENANCE.md).
+- **Surface-parity pass** — an audit of every feature against every interface,
+  filling the gaps that had no reason:
+  - **`odag overlapping TERM`** and **`GET /dag/overlapping?term=…`** — the
+    might-satisfy mode (contract **G6**) was reachable only from Python and MCP,
+    so a documented guarantee was invisible from the two surfaces most people
+    use.
+  - **`odag --as-of ROOT`** — reads a past version instead of the current one,
+    accepting any unambiguous prefix `odag history` prints (it shows twelve
+    characters, so demanding sixty-four would make the feature unusable with the
+    only thing that lists roots). Read-only, with an error naming `undo`/`redo`
+    as the way to actually move the store. `history` listed versions and gave no
+    way to look at one; now it does.
+  - **`POST /dag/prelude`** and **`GET/POST /dag/pack`**, plus **Declare
+    dimensions** and a pack list in the browser — the real usability bug of the
+    set: without declarations, typed values are refused on the web surface
+    entirely, and the only way to declare them through the API was to
+    hand-create the three declaration nodes (which is what the test suite did).
+  - **`GET /dag/canon`** and a **Canon** control in the page — "what would this
+    spelling store?", worth most on the one surface that deliberately displays
+    canonical names.
+  - **A Below? control** in the page for the `/dag/below` endpoint it already had.
+  The absences that remain are reasons, now written down in the guide's surface
+  matrix (§1.1): MCP has no move/cone-delete (each retraction owes a signed
+  record), no files or pictures (agents get answers with a root); the web app has
+  no history/as-of/certificates because its DAG is per-session server memory with
+  no store and no root; `diff` has no web surface because the second store has to
+  come from somewhere; and the CLI has no provenance or certificates because
+  signing needs a key with an identity. One honest wart is recorded rather than
+  fixed: the query workload log exists only in the web app, i.e. on the surface
+  least used for real work.
 - **`odag history`, `odag status`, `odag undo`, `odag redo`, and a `-m` label**
   — version history for stores that keep it (`rs:` and `swarm:`), on
   recordstore 0.20's timeline. A root is the whole state, so undo *points* at a

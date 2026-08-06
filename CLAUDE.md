@@ -475,6 +475,37 @@ Every request the buttons make was driven by hand with curl against the running
 app first, including a name containing `+`, `&` and spaces. MCP still
 deliberately has neither operation.
 
+**Surface-parity audit (2026-08-06, Peter's ask: check every feature is on every
+suitable interface, with a good reason where not).** Inventories taken from the
+code, not the docs (CLI 25 commands → 27, MCP 13 tools, REST 23 routes → 27,
+browser 12 controls → 17, Python everything). Five gaps had no reason and are
+filled: **`overlapping`** on the CLI and REST (contract **G6** was reachable only
+from Python and MCP — a documented guarantee invisible from the two surfaces most
+people use); **`--as-of ROOT`** on the CLI (a global pre-command flag like `-m`,
+prefix-resolved against `store.history()` because `history` prints twelve
+characters, read-only with an error naming `undo`/`redo`; `Session._load` routes
+through a new `Backend.load_at`, which hydrates inside one transient window and
+closes it — an EagerOntoDAG holds the whole state, so reading a past version costs
+nothing afterwards); **`/dag/prelude` + `/dag/pack` + browser buttons** (the real
+bug of the set: typed values are *refused* on the web surface without
+declarations, and the only way to declare them through the API was hand-creating
+the three declaration nodes — which is literally what `tests/test_web.py` does);
+**`/dag/canon`** + a Canon control (worth most on the surface that deliberately
+shows canonical names); and a **Below?** control for the endpoint the page already
+had. Justified absences are now written down in guide §1.1 rather than implied:
+MCP has no move/cone-delete (each retraction owes a signed record per claim), no
+files or pictures (agents get answers with a root); the web app has no
+history/as-of/certificates because its DAG is per-session server memory with no
+store and no root; `diff` has no web surface (the second store has to come from
+somewhere); the CLI has no provenance/certificates (signing needs a key with an
+identity). One wart recorded rather than fixed: **the query workload log exists
+only in the web app** — the surface least used for real work — which defeats
+SEMANTIC_CODES §9's purpose for it; fixing it needs a design (where would a CLI
+keep counters?), not a patch. Tests: `TestOverlappingCommand`/`TestAsOf`
+(8, `test_cli.py`), `TestDeclaringDimensionsOverRest`/`TestOverlappingOverRest`/
+`TestCanonOverRest` (12, `test_web.py`), and the page-wiring checks cover the new
+controls. Release smoke 23 checks.
+
 **Undo/redo/history (2026-08-06, from Peter's "should there be an undo, and where
 — here or recordstore?"). Answer: recordstore first, and it shipped as 0.20.0.**
 The diagnosis was the useful part: undo was **not** a data-recovery problem.

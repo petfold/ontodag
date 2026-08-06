@@ -125,6 +125,11 @@ accidental — each surface exposes what makes sense for who is using it:
 | **delete a cone** (item + contents) | ✓ `remove_cone` | ✓ `remove --cone` | ✓ `DELETE …?cone=1` | — |
 | **excerpt** (query-scoped export) | ✓ `excerpt` | ✓ `excerpt` | ✓ `/dag/query/export*` | — |
 | **diff two stores** | ✓ `ontodag.compare` | ✓ `diff` | — | — |
+| **overlapping** (might-satisfy, G6) | ✓ `get_overlapping` | ✓ `overlapping` | ✓ `/dag/overlapping` | ✓ |
+| **canon** (what a spelling stores) | ✓ `ontodag.surface` | ✓ `canon` | ✓ `/dag/canon` | ✓ |
+| **declare dimensions** (prelude / packs) | ✓ | ✓ | ✓ `/dag/prelude`, `/dag/pack` | — |
+| **version history** (`history`/`undo`/`redo`) | ✓ via the store | ✓ | n/a | — |
+| **as-of** (read a past version) | ✓ `RecordStore.at` | ✓ `--as-of` | n/a | ✓ |
 | readable rendering | ✓ (`ontodag.surface`) | ✓ | — | ✓ (beside the exact name) |
 | import / export / merge | ✓ | ✓ | ✓ | — |
 | pictures | ✓ | ✓ | ✓ | — |
@@ -132,12 +137,26 @@ accidental — each surface exposes what makes sense for who is using it:
 | as-of (query a past root) | ✓ | — | — | ✓ |
 | certificates, provenance, review | ✓ | — | — | ✓ |
 
-The empty cells are decisions, not oversights. **MCP** has no move or cone
-delete because on the agent surface a retraction owes a signed retraction record
-per claim it withdraws (§9.1), which is a provenance decision rather than a
-transcription of the CLI. **diff** has no web surface because the second store
-has to come from somewhere — an upload is a design question, not a missing
-endpoint.
+The empty cells are decisions, not oversights, and each has a reason:
+
+- **MCP has no move or cone delete** — on the agent surface a retraction owes a
+  signed retraction record per claim it withdraws (§9.1). That is a provenance
+  decision, not a transcription of the CLI.
+- **MCP has no excerpt, diff, export or pictures** — an agent gets answers with a
+  root and a canonical echo, not files.
+- **The web app has no version history, as-of, certificates or store tiers** —
+  its DAG is *server memory per session* (§6). There is no store and no root
+  there, so those aren't withheld; they don't exist.
+- **diff has no web surface** — the second store has to come from somewhere, and
+  an upload is a design question rather than a missing endpoint.
+- **The CLI has no provenance, review or certificates** — signing needs a key
+  with an *identity*, and whose (and on what authority) is unsettled for a human
+  command line; the agent surface answers it with a store-configured signer.
+
+The web app's own workload log (`GET /dag/stats/queries`) has the opposite
+shape: it exists only there, which is a known limitation rather than a design —
+the counters that ought to drive index decisions are collected on the surface
+least used for real work.
 
 The two surfaces with the most on them are Python (which has everything, being
 the thing the others call) and MCP (which is deliberately the *verifiable*
@@ -702,7 +721,7 @@ What to know:
 **Guaranteed vs. possible: `get_overlapping`.** `get` on a range answers
 *guaranteed* satisfaction — everything whose value certainly fits. Often you also
 want the maybes: a flexible ticket valid over a week *might* cover your date. That
-is a separate question (Python API only):
+is a separate question, on every surface that can ask it:
 
 ```python
 dag.put("fixed-ticket.pdf",    ["time(2026-08-15)"])              # that day
@@ -712,8 +731,24 @@ dag.get(["time(2026-08-15..2026-08-16)"])            # fixed only — guaranteed
 dag.get_overlapping("time(2026-08-15..2026-08-16)")  # both — possibly
 ```
 
+```console
+$ odag overlapping 'weight(..5kg)'
+parcel
+weight(2kg..6kg)
+weight(3kg)
+wide-parcel
+```
+
+`parcel` weighs 3kg, so it is a guarantee `get` would also return;
+`wide-parcel` is filed as `weight(2kg..6kg)`, so it *might* be under five and
+only your own check can settle it. Over REST it is
+`GET /dag/overlapping?term=…`, and an agent has the `overlapping` tool (whose
+answer names the modality out loud). A term of no declared dimension is an
+error everywhere rather than an empty answer, because overlap is only defined
+for computed denotations.
+
 Overlap can't be expressed as a category (it isn't transitive), which is why
-it's its own method rather than more `get` syntax; use it to generate
+it's its own question rather than more `get` syntax; use it to generate
 candidates, then check the survivors exactly.
 
 **Ranges carry honest uncertainty.** A stored range is a claim about
@@ -1647,6 +1682,22 @@ Hotel
 Travel
 ```
 
+You can also just *look* at an old version without moving the store, with any
+prefix `history` printed:
+
+```console
+$ odag --as-of 5b0081014d0a list      # what the store held two commits ago
+Travel
+$ odag --as-of 5b0081014d0a put X
+odag: --as-of opens a past version read-only; nothing can be written to it.
+  to make the store go back there:  odag undo  (or `redo`)
+```
+
+Every read works there — `get`, `count`, `show`, `below` — which makes
+`odag diff` against a saved excerpt of that version a way to ask "what changed
+since?". It is read-only on purpose: a past state is history, and writing to it
+would either be ignored or silently fork.
+
 `odag redo` steps forward again, and `odag status` says where you are:
 
 ```console
@@ -1728,6 +1779,15 @@ them matters:
   an item travels with it, and if a shared item ends up under both the old and
   the new category the page says so — that is true rather than broken, and
   nothing can decide it for you (§5.10).
+
+Two more rows sit above the query panel. **Declare dimensions** adopts the
+standard declarations (the prelude) so typed values like `weight(3kg)` can be
+filed at all — without it they are refused, since a value needs its dimension
+declared, and there was previously no way to do that from the browser at all.
+Beside it, a pack list adopts a unit vocabulary (currencies and the like).
+**Below?** answers "does this fit within that?" for two names, and **Canon**
+says what a spelling actually stores — worth having here precisely because this
+surface displays canonical names.
 
 The query panel's **with context** checkbox switches the download from the bare
 answer to the sendable form that also carries the categories the answers hang

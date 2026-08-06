@@ -320,6 +320,25 @@ def smoke(env, expect_version):
 
     check("import what was exported", reimport)
 
+    def overlapping_and_as_of():
+        # Two surface-parity additions, on the tier that has versions.
+        path = os.path.join(env.work, "rsparity")
+        spec = f"rs:{path}"
+        o("-f", spec, "prelude")
+        o("-f", spec, "-m", "one parcel", "put", "parcel", "weight(3kg)")
+        o("-f", spec, "put", "wide", "weight(2kg..6kg)")
+        guaranteed = o("-f", spec, "get", "weight(..5kg)").split()
+        candidates = o("-f", spec, "overlapping", "weight(..5kg)").split()
+        assert "wide" not in guaranteed and "wide" in candidates, \
+            (guaranteed, candidates)
+        first = o("-f", spec, "history").splitlines()[-1].lstrip("* ").split()[0]
+        past = o("--as-of", first, "-f", spec, "list").split()
+        assert "parcel" not in past, past          # before the parcel existed
+        env.run(env.odag, "--as-of", first, "-f", spec, "put", "X", expect=1)
+        return "overlapping finds candidates; --as-of reads a past version"
+
+    check("overlapping and as-of", overlapping_and_as_of)
+
     def undo_redo():
         # The safety net, on the tier that provides it: label, delete, undo.
         path = os.path.join(env.work, "rsundo")

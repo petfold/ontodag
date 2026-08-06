@@ -261,6 +261,94 @@ def move_dag_items():
     }), 200
 
 
+@app.route("/dag/overlapping", methods=["GET"])
+def get_overlapping():
+    """Items that MIGHT satisfy a typed term — the weaker matching mode.
+
+    `/dag/query` answers guaranteed satisfaction (the item's value sits inside
+    the term); this answers candidates, whose value merely *overlaps* it, which
+    only the caller's own exact check can settle (contract G6). Overlap is not
+    transitive, so it is never a cone: it is computed per dimension at query
+    time. A term of no declared dimension is a client error rather than an empty
+    answer, because overlap is undefined without a computed denotation."""
+    term = request.args.get("term")
+    if not term:
+        return jsonify({"error": "need a term"}), 400
+    try:
+        nodes = current_dag().get_overlapping(term)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"nodes": [node.to_dict() for node in nodes]})
+
+
+@app.route("/dag/canon", methods=["GET"])
+def get_canonical_form():
+    """What a spelling actually stores, and what it is shown as.
+
+    Worth more here than anywhere: this surface deliberately displays canonical
+    names, so "what would `weight(3000g)` become?" is a question the page cannot
+    otherwise answer. With no `term`, reports the surface and registry versions,
+    like bare `odag canon`."""
+    from ontodag import surface as _surface
+    from ontodag.dimensions import REGISTRY_VERSION
+
+    term = request.args.get("term")
+    if not term:
+        return jsonify({"surface": _surface.SURFACE_VERSION,
+                        "registry": REGISTRY_VERSION})
+    my_dag = current_dag()
+    try:
+        canonical = _surface.elaborate(term, my_dag)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"canonical": canonical,
+                    "display": _surface.render(canonical, my_dag)})
+
+
+@app.route("/dag/prelude", methods=["GET", "POST"])
+def adopt_prelude():
+    """The standard dimension declarations, in one call.
+
+    Without them typed values do not work *at all* on this surface — a value
+    like `weight(3kg)` needs `weight` declared as a linear dimension, and until
+    now the only way to get that through the API was to hand-create the three
+    declaration nodes (which is exactly what the test suite did). GET previews
+    the declarations, POST adopts them by idempotent merge, as `odag prelude`
+    does."""
+    from ontodag.prelude import DECLARATIONS, PRELUDE_VERSION, prelude_dag
+
+    if request.method == "GET":
+        return jsonify({"version": PRELUDE_VERSION,
+                        "declarations": list(DECLARATIONS)})
+    current_dag().merge(prelude_dag())
+    return jsonify({"message": "Prelude adopted.",
+                    "version": PRELUDE_VERSION}), 201
+
+
+@app.route("/dag/pack", methods=["GET", "POST"])
+def adopt_pack():
+    """Unit vocabulary packs — currencies and the like, as graph data.
+
+    GET lists what is shipped; POST `{"name": ...}` merges one in. Same
+    vocabulary-travels-with-the-store story as `odag pack`: nothing here is a
+    release-coupled table."""
+    from ontodag.packs import PACKS, pack_dag
+
+    if request.method == "GET":
+        return jsonify({"packs": [
+            {"name": name, "version": version,
+             "declarations": len(declarations)}
+            for name, (version, declarations) in sorted(PACKS.items())]})
+    name = (request.json or {}).get("name")
+    if not name:
+        return jsonify({"error": "need a pack name (GET /dag/pack lists them)"}), 400
+    try:
+        current_dag().merge(pack_dag(name))
+    except (KeyError, ValueError) as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"message": f"Pack {name} adopted."}), 201
+
+
 @app.route("/dag/removal", methods=["GET"])
 def preview_removal():
     """What a `?cone=1` DELETE would take, without taking it.

@@ -9,6 +9,8 @@ Design goals (see the module docstring history in CLAUDE.md):
   * stdin / stdout / pipes: `odag` with no command reads commands from a pipe,
     or drops into an interactive prompt on a tty;
   * `-m MESSAGE` labels the state this run commits (see `history`);
+  * `--as-of ROOT` reads a past version instead (any prefix `history` shows;
+    read-only, since a past state is history rather than a place to write);
   * `-o FILE` redirects query output; `-f STORE` picks the store for one run;
   * `set store PATH` changes the persistent default.
 
@@ -392,6 +394,12 @@ class FileBackend:
     def load(self):
         return _load(self.path)
 
+    def load_at(self, root):
+        raise ValueError(
+            f"{self.path} is a plain file: it has no versions to read from. "
+            f"A store that does:  odag set store rs:"
+            f"{os.path.splitext(self.path)[0]}")
+
     def open_store(self):
         """There is no store here, and therefore no history.
 
@@ -650,6 +658,9 @@ class SwarmBackend:
         """A store handle for history operations (a transient window, as ever)."""
         return self._record_store()
 
+    def load_at(self, root):
+        return _load_at_root(self, root)
+
     def publish_head(self, store):
         """After a HEAD move, point the feed at it too.
 
@@ -765,11 +776,52 @@ class LocalRecordBackend:
     def open_store(self):
         return self._record_store()
 
+    def load_at(self, root):
+        return _load_at_root(self, root)
+
     def save(self, dag, message=None):
         dag.commit(message=message)
 
     def describe(self):
         return f"rs:{self.path}"
+
+
+def _load_at_root(backend, root):
+    """Hydrate a read-only DAG at `root`, inside one transient window.
+
+    `RecordStore.at` is a *view* over the same blobs, so the window can close
+    the moment hydration is done: an EagerOntoDAG holds the whole state in
+    memory, which is exactly what makes reading a past version cost nothing
+    afterwards. `root` may be any unambiguous prefix of one the timeline knows
+    — `odag history` prints twelve characters, so demanding sixty-four would
+    make the feature unusable with the only thing that shows you roots."""
+    from ontodag.eager import EagerOntoDAG
+    from recordstore import RecordStore
+
+    store = backend.open_store()
+    close = getattr(store, "close", None)
+    try:
+        resolved = _resolve_root(store, root)
+        return EagerOntoDAG(RecordStore.at(resolved, store.blobs))
+    finally:
+        if close is not None:
+            close()
+
+
+def _resolve_root(store, root):
+    """A full root from a prefix, or a teaching error naming the ambiguity."""
+    known = [version.root for version in store.history()]
+    if root in known:
+        return root
+    matches = sorted({name for name in known if name.startswith(root)})
+    if len(matches) == 1:
+        return matches[0]
+    if not matches:
+        raise ValueError(
+            f"{root}: not a version this store has been at "
+            f"(odag history lists them)")
+    raise ValueError(
+        f"{root}: ambiguous — matches {', '.join(name[:16] for name in matches)}")
 
 
 def _make_backend(spec):
@@ -801,7 +853,8 @@ class Session:
 
     def _load(self):
         backend = _make_backend(self.spec)
-        dag = backend.load()
+        as_of = _OVERRIDES.get("as_of")
+        dag = backend.load_at(as_of) if as_of else backend.load()
         self._backend, self._dag = backend, dag
 
     @property
@@ -834,6 +887,14 @@ class Session:
             close()
 
     def save(self):
+        # A past state is a state, not a place to write from: the pointer is
+        # elsewhere, so a commit here would either be ignored or silently
+        # fork. `undo`/`redo` are how the store *moves*.
+        if _OVERRIDES.get("as_of"):
+            raise ValueError(
+                "--as-of opens a past version read-only; nothing can be "
+                "written to it.\n"
+                "  to make the store go back there:  odag undo  (or `redo`)")
         self.backend.save(self.dag, message=_OVERRIDES.get("message"))
 
     def describe(self):
@@ -1007,6 +1068,21 @@ def _query(categories, dag):
 
 def cmd_get(args, session, out):
     result = _query(args.categories, session.dag)
+    _print_names((item.name for item in result), args, session, out)
+
+
+def cmd_overlapping(args, session, out):
+    """Items that MIGHT satisfy a typed term — the weaker of the two modes.
+
+    `get` answers guaranteed satisfaction (the item's value is inside the term);
+    this answers *candidates*, whose value merely overlaps it — an offer of
+    `weight(0.8kg..1.5kg)` might weigh enough for `weight(1kg..)`, and only the
+    caller's exact check can settle it (DIMENSIONS.md §8, contract G6). Overlap
+    is not transitive, so it is never a cone and never an edge: it is computed
+    per dimension at query time. A term of no declared dimension is an error
+    rather than an empty answer, because overlap is only defined for computed
+    denotations."""
+    result = session.dag.get_overlapping(args.term)
     _print_names((item.name for item in result), args, session, out)
 
 
@@ -1900,6 +1976,10 @@ Commands:
                         it prints everything — the same as `list`
   count [CAT...]        how many items that same query matches: one number,
                         complete, never capped
+  overlapping TERM      items that MIGHT satisfy a typed term: their value
+                        overlaps it rather than fitting inside it, so these
+                        are candidates for your own exact check (`get` is
+                        the guaranteed-satisfaction answer)
   below SUB SUP       does SUB fit within SUP? prints true/false and
                         exits 0/1 (grep-style), so `odag below A B && ...`
                         works; `?` is a synonym at the interactive prompt.
@@ -2101,6 +2181,15 @@ def build_parser():
     p.add_argument("categories", nargs="*")
     p.add_argument("-o", "--output")
     p.set_defaults(func=cmd_count, stream_output=True)
+
+    p = sub.add_parser("overlapping", add_help=True,
+                       help="items that might satisfy a typed term "
+                            "(candidates, not guarantees)")
+    p.add_argument("term")
+    p.add_argument("-o", "--output")
+    _add_surface_flags(p)
+    _add_limit_flag(p)
+    p.set_defaults(func=cmd_overlapping, stream_output=True)
 
     p = sub.add_parser("below", add_help=True,
                        help="test whether SUB fits within SUP (exit 0/1)")
@@ -2350,9 +2439,12 @@ def main(argv=None):
     valued = {"-f": "store", "--store": "store", "--file": "store",
               "--bee-api": "bee_api", "--bee-batch": "bee_batch",
               "--bee-signer": "bee_signer", "-n": "limit", "--limit": "limit",
-              # Not a setting — a label for whatever state this invocation
-              # commits, so it goes where the other pre-command flags go.
-              "-m": "message", "--message": "message"}
+              # Not settings — a label for whatever state this invocation
+              # commits, and the version it reads from. Both belong where the
+              # other pre-command flags are, since both apply to every command
+              # in a batch.
+              "-m": "message", "--message": "message",
+              "--as-of": "as_of"}
     while argv and (argv[0] in valued or argv[0] in ("--raw", "--render")):
         if argv[0] in ("--raw", "--render"):
             _OVERRIDES["render"] = "on" if argv[0] == "--render" else "off"
