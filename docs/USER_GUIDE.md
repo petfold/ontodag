@@ -749,6 +749,9 @@ odag <command> ...
   merge FILE            merge FILE into the store
   import FILE           replace the store with the contents of FILE
   export FILE           write the store to FILE
+  excerpt FILE [CAT...] write just that query's answer to FILE, with the
+                        edges among the answers kept — an importable cut
+                        of the store (see §5.4)
   visualize [--out B]   render the DAG to an image
   canon [TERM]          print TERM's canonical form — what would actually
                         be stored; with no TERM, the surface/registry
@@ -1107,6 +1110,45 @@ $ odag export travel.omn              # -> Manchester syntax
 $ odag merge lisbon.omn             # fold the next trip into the store
 $ odag visualize --format svg --out travel
 ```
+
+`excerpt` is `export` scoped to a query: it writes *just that answer*, keeping the
+edges among the answers, so the file is a cut of the store you can hand to someone
+or import elsewhere. The destination comes first, because the categories are
+variadic:
+
+```console
+$ odag -f travel.od get Travel Japan
+JAL
+JAL-cheap
+Ryokan
+$ odag -f travel.od excerpt japan.od Travel Japan
+$ cat japan.od
+# ontodag store v1
+JAL '*'
+JAL-cheap JAL
+Ryokan '*'
+```
+
+Two things worth knowing about the result. `JAL-cheap` arrives still under `JAL`:
+everything below an answer is also an answer, so the answer carries its own shape.
+And the query terms — `Travel`, `Japan` — are *not* in the file: an excerpt is
+meant to be imported back, and filing the constraint you searched with as though
+it were a fact you knew would be a lie. The answers that have no parent inside the
+answer hang under the root instead, which is what makes the import behave:
+
+```console
+$ odag -f fresh.od import japan.od
+$ odag -f fresh.od show
+* [root] -> JAL Ryokan
+JAL (*) -> JAL-cheap
+JAL-cheap (JAL) ->
+Ryokan (*) ->
+```
+
+The format follows the extension here too, so `odag excerpt japan.omn Travel Japan`
+writes the same cut as Manchester syntax. With no categories at all the query is
+unconstrained (the same rule as `get`), so the file you get is byte-identical to
+`export`'s.
 
 `visualize` accepts `--format png|svg|pdf` and `--out NAME` for the output name.
 `put` accepts `--optimized` (see §4.1). `get`, `show` and `list` accept `-o FILE`

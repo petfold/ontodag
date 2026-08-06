@@ -1195,6 +1195,37 @@ def cmd_export(args, session, out):
     _save(session.dag, args.file)
 
 
+def cmd_excerpt(args, session, out):
+    """Write a query's answer, with its own structure, to a file.
+
+    The materialized half of the pair `dag.py` already had: `intersection_dag`
+    is the live *view*, `copy_subdag` is the *excerpt* — this is the excerpt
+    under a name. `export` writes the whole store; this writes one principal
+    down-set of it (order theory's ideal, the descendant cone).
+
+    Two deliberate properties:
+
+    * Query terms are NOT added as nodes, even though the web surface's
+      *picture* does exactly that. A picture is drawn and discarded, so
+      inventing a node to show a constraint costs nothing; an excerpt exists
+      to be `odag import`ed back, and inventing that node would file the
+      constraint as knowledge.
+    * The answer's own topmost nodes are hung under the excerpt's root, so
+      the file is a well-formed OntoDAG (`*` is the ancestor of every
+      top-level item) and `list`/`get` in the importing store see them. The
+      real edges *within* the answer are copied, so the shape survives:
+      cones are downward-closed under intersection, which is why the answer
+      carries its structure at all.
+    """
+    result = _query(args.categories, session.dag)
+    excerpt = session.dag.copy_subdag(list(result))
+    for name in sorted(excerpt.nodes):
+        node = excerpt.nodes[name]
+        if node is not excerpt.root and not node.parents:
+            excerpt.add_edge(excerpt.root, node)
+    _save(excerpt, args.file)
+
+
 def cmd_visualize(args, session, out):
     from ontodag.viz import OntoDAGVisualizer
     base = args.out or os.path.splitext(session.path)[0]
@@ -1350,6 +1381,9 @@ Commands:
   merge FILE            merge FILE into the store
   import FILE           replace the store with the contents of FILE
   export FILE           write the store to FILE
+  excerpt FILE [CAT...] write just that query's answer to FILE, with the
+                        edges among the answers kept — an importable cut of
+                        the store (`export` is the whole thing)
   visualize [--out B]   render the DAG to an image
   swarm                 check the Swarm setup step by step (node, chain,
                         wallet, postage batch) and print what to fix next
@@ -1568,6 +1602,14 @@ def build_parser():
     p = sub.add_parser("export", add_help=True, help="write the store to a file")
     p.add_argument("file")
     p.set_defaults(func=cmd_export)
+
+    p = sub.add_parser("excerpt", add_help=True,
+                       help="write a query's answer to a file")
+    # FILE first, because the categories are variadic: with `excerpt CAT... FILE`
+    # there is no way to tell the last category from the destination.
+    p.add_argument("file")
+    p.add_argument("categories", nargs="*")
+    p.set_defaults(func=cmd_excerpt)
 
     p = sub.add_parser("visualize", add_help=True, help="render an image")
     p.add_argument("--out", help="output filename without extension")

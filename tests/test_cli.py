@@ -1409,3 +1409,136 @@ class TestSwarmBackendLocalFirst(unittest.TestCase):
         dag3 = cli.SwarmBackend("pets").load()
         self.assertIn("p2", dag3.nodes)
         self.assertIn("child", dag3.nodes)
+
+
+class TestExcerpt(unittest.TestCase):
+    """`excerpt` is the materialized cut: the query's answer, with the edges
+    among the answers, in a file you can import back.
+
+    Every assertion here is against the *query answer*, never against an exit
+    code — the web session learned that a 200 with the wrong picture in it
+    reads as a pass.
+    """
+
+    def _session(self, home):
+        session = cli.Session(os.path.join(home, "trips.od"))
+        for argv in (["put", "Travel"], ["put", "Japan"],
+                     ["put", "Flight", "Travel"],
+                     ["put", "Hotel", "Travel"],
+                     ["put", "JAL", "Flight", "Japan"],
+                     ["put", "JAL-cheap", "JAL"],
+                     ["put", "Ryokan", "Hotel", "Japan"]):
+            self.assertEqual(_run(argv, session)[0], 0)
+        return session
+
+    def _excerpt(self, home, session, *categories):
+        path = os.path.join(home, "cut.od")
+        self.assertEqual(_run(["excerpt", path] + list(categories), session),
+                         (0, ""))
+        return cli._load(path)
+
+    def _answer(self, session, *categories):
+        return {item.name for item in cli._query(list(categories), session.dag)}
+
+    def test_excerpt_is_exactly_the_answer(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            cut = self._excerpt(home, session, "Travel", "Japan")
+            names = set(cut.nodes) - {cut.root.name}
+            self.assertEqual(names, self._answer(session, "Travel", "Japan"))
+            self.assertEqual(names, {"JAL", "JAL-cheap", "Ryokan"})
+
+    def test_the_answers_keep_their_own_edges(self):
+        # Cones are downward-closed under intersection, so JAL-cheap must
+        # arrive still under JAL, not flattened to the root.
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            cut = self._excerpt(home, session, "Travel", "Japan")
+            self.assertEqual(
+                {p.name for p in cut.nodes["JAL-cheap"].parents}, {"JAL"})
+
+    def test_query_terms_are_not_in_the_excerpt(self):
+        # The whole point of "keep it importable": a constraint is not a fact.
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            cut = self._excerpt(home, session, "Travel", "Japan")
+            self.assertNotIn("Travel", cut.nodes)
+            self.assertNotIn("Japan", cut.nodes)
+
+    def test_it_round_trips_through_import(self):
+        # Top answers hang under `*`, so the importing store can see them
+        # with the empty query — otherwise they would load as orphans.
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            path = os.path.join(home, "cut.od")
+            self.assertEqual(_run(["excerpt", path, "Travel", "Japan"],
+                                  session)[0], 0)
+            fresh = cli.Session(os.path.join(home, "fresh.od"))
+            self.assertEqual(_run(["import", path], fresh)[0], 0)
+            self.assertEqual(_run(["list"], fresh),
+                             (0, "JAL\nJAL-cheap\nRyokan\n"))
+            self.assertEqual(_run(["get", "JAL"], fresh), (0, "JAL-cheap\n"))
+
+    def test_union_queries_excerpt_too(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            cut = self._excerpt(home, session, "Hotel", "or", "Flight")
+            self.assertEqual(set(cut.nodes) - {cut.root.name},
+                             self._answer(session, "Hotel", "or", "Flight"))
+
+    def test_the_empty_query_excerpts_the_whole_store(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            cut = self._excerpt(home, session)
+            self.assertEqual(set(cut.nodes) - {cut.root.name},
+                             set(session.dag.nodes) - {session.dag.root.name})
+            self.assertEqual({p.name for p in cut.nodes["Flight"].parents},
+                             {"Travel"})
+
+    def test_an_empty_answer_is_an_empty_excerpt(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            cut = self._excerpt(home, session, "Flight", "Hotel")
+            self.assertEqual(set(cut.nodes), {cut.root.name})
+
+    def test_the_store_is_untouched(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            before = _run(["show"], session)
+            self._excerpt(home, session, "Japan")
+            self.assertEqual(_run(["show"], session), before)
+
+    def test_a_dangling_or_is_still_an_error(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            path = os.path.join(home, "cut.od")
+            self.assertNotEqual(_run(["excerpt", path, "Japan", "or"],
+                                     session)[0], 0)
+
+    def test_a_virtual_term_excerpts_its_answer(self):
+        # The bug this guards against is the one the web *picture* had: a
+        # parametric term is not a node, so anything that intersects by name
+        # silently drops it. The answer here contains the real stored value
+        # node; the virtual constraint itself is still not filed.
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "boxes.od"))
+            for argv in (["prelude"], ["put", "box", "weight(3kg)"],
+                         ["put", "lid", "box"]):
+                self.assertEqual(_run(argv, session)[0], 0)
+            cut = self._excerpt(home, session, "weight(..5kg)")
+            names = set(cut.nodes) - {cut.root.name}
+            self.assertEqual(names, self._answer(session, "weight(..5kg)"))
+            self.assertIn("box", names)
+            self.assertNotIn("weight(..5kg)", names)
+
+    def test_the_empty_excerpt_is_byte_identical_to_export(self):
+        # Pins the doc claim in §5.4, and with it the property that makes the
+        # widened query safe: an unconstrained excerpt is the whole store.
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            cut, exported = (os.path.join(home, n) for n in ("cut.od", "exp.od"))
+            self.assertEqual(_run(["excerpt", cut], session)[0], 0)
+            self.assertEqual(_run(["export", exported], session)[0], 0)
+            with open(cut, encoding="utf-8") as a, \
+                    open(exported, encoding="utf-8") as b:
+                self.assertEqual(a.read(), b.read())

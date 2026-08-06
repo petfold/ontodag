@@ -12,6 +12,22 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Added
+
+- **`odag excerpt FILE [CAT…]`** — `export` scoped to a query: writes just
+  that answer, keeping the edges among the answers, in any supported format.
+  Both halves already existed in `dag.py` (`intersection_dag` is the live
+  *view*, `copy_subdag` the materialized *excerpt*) and the web surface
+  already exposed the query-scoped exports; the CLI had only whole-DAG ones.
+  Query terms are deliberately **not** added as nodes — unlike the web
+  *picture*, which may invent one to draw a constraint it then discards — so
+  an excerpt stays importable without filing the constraint as knowledge.
+  Answers with no parent inside the answer hang under the root, so the
+  imported store sees them. With no categories the result is byte-identical
+  to `export`.
+
 ## [0.15.0] — 2026-08-04
 
 ### Fixed
