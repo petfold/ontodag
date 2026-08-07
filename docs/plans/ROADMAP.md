@@ -11,7 +11,8 @@ including which conventional database features are deliberately *not* being buil
 yet and what would signal that they are needed, are in `DATABASE_DIRECTION.md`;
 the engineering rationale is in `SWARM_DESIGN.md` and `SEMANTIC_CODES.md`.
 
-Last updated 2026-08-01.
+Last updated 2026-08-07 (loopmarket consumer needs filed — see the dated
+section below).
 
 ## Direction (agreed 2026-08-01): agents first
 
@@ -299,6 +300,45 @@ canonical form and the merge properties untouched:
   kind is only for *continuous* periodic ranges as query terms (opening
   hours, angles mod 360). Tripwire: a real consumer filing continuous
   periodic ranges; political/DST zones stay walled at elaboration.
+
+## Filed consumer needs — loopmarket (2026-08-07)
+
+loopmarket's design corpus (its `docs/plans/`, especially
+`ontodag-coupling.md`'s tripwire table) pre-registered its needs against
+this roadmap, in the discipline this repo asked for: evidence at the item
+that gates it, with the loopmarket phase that fires it. Recorded here so no
+tripwire has to be rediscovered mid-build.
+
+- **Derived per-node cone-commitment index** (the Merkle-cone-commitment
+  wall, `DATABASE_DIRECTION.md`). Fires at **loopmarket P2 start**: its
+  on-chain settlement wants to verify fits-within claims under a pinned
+  root without re-implementing subsumption verification marketplace-side;
+  `is_below` certificates cover the pairwise case today, and the
+  cone-commitment index is the batch/streaming form. loopmarket commits to
+  asking upstream rather than building locally
+  (`loopmarket/docs/plans/proof-fabric.md` §7).
+- **Ordinal dimension kind** (parked on the faking-ranks-as-linear
+  tripwire, `EVOLUTION.md` §3/§8.9). Consumer confirmed: condition grades
+  (new / used / refurbished …) are on loopmarket's catalogue-bootstrap
+  path; until the kind exists it will use plain unordered nodes, never
+  fake linear ranks (`loopmarket/docs/plans/catalogue-bootstrap.md`).
+- **Cyclic dimension kind** (queued above, tripwire "a real consumer
+  filing continuous periodic ranges"). Consumer identified but not yet
+  firing: recurring service windows / opening hours in offers. loopmarket's
+  interim is generated day-nodes bounded by offer validity horizons; it
+  files the moment recurring offers are real
+  (`loopmarket/docs/plans/ontodag-coupling.md`).
+- **ZK proofs over private ontologies** (parked below behind "a real
+  privacy-demanding counterparty (loopmarket-shaped)"). The counterparty
+  now has a name and a date: loopmarket **P4 Tier 3** (ZK fits-within via
+  closure commitments, `loopmarket/docs/plans/P4-privacy.md`). Nothing
+  fires yet — P4's Tier 1 ships with zero new cryptography — but loopmarket
+  commits to firing this wall and co-designing rather than building
+  circuits independently.
+- **Query workload data for the parked index machinery**
+  (`SEMANTIC_CODES.md`'s triggers). Not a feature request: loopmarket will
+  log solver query category-sets from day one and deliver the measured
+  workload — the usage data the bitmap/cone-materialization gates wait for.
 
 ## Under discussion (no decision yet)
 
