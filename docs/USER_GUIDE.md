@@ -1186,7 +1186,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.16.0 - type help for help
+Ontodag 0.17.0 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png
@@ -1746,12 +1746,17 @@ provenance record about the claim (§9), not a commit message.
 
 ## 6. The web app and REST API
 
-The web app gives you the same DAG in a browser — with live pictures — plus an HTTP
-API you can script against.
+The web app gives you the same DAG in a browser — browse it by query, type
+commands at it, click the graph — plus an HTTP API you can script against.
+
+It lives in the **repository**, not in the wheel: `pip install ontodag` gives
+you the library and the `odag` command, while the `web` extra installs what
+the app needs rather than the app itself. So you need a checkout:
 
 ```bash
-cd web
-python3 app.py          # starts http://localhost:5000  (needs the [web] extra)
+git clone https://github.com/petfold/ontodag && cd ontodag
+pip install -e ".[web]"
+cd web && python3 app.py   # starts http://localhost:5000
 ```
 
 Open **http://localhost:5000** in any browser. A first visit lands in a small

@@ -12,11 +12,13 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
-## [Unreleased]
+## [0.17.0] — 2026-08-09
 
 ### Added
 
-- **A new web interface**, built around one idea: *in OntoDAG a path is a
+- **A new web interface** — note it lives in the repository, not the wheel:
+  `web/` is outside `src/`, so `pip install ontodag` has never carried the
+  app, only what the `web` extra says it needs. Built around one idea: *in OntoDAG a path is a
   query*, so clicking a category to drill down is appending a term to a
   conjunction. The page therefore **echoes every click into a console as the
   command it means**, and every typed command moves the browse state — two
