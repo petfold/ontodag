@@ -138,6 +138,30 @@ class TestCoreIsSwarmFree(unittest.TestCase):
         self.assertEqual(loaded, [],
                          f"importing ontodag.compare loaded {loaded}")
 
+    def test_browse_module_imports_stay_core_only(self):
+        loaded = fresh_import("ontodag.browse", CORE_FORBIDDEN)
+        self.assertEqual(loaded, [],
+                         f"importing ontodag.browse loaded {loaded}")
+
+    def test_browse_is_reached_only_by_asking_for_it(self):
+        # The refinement rule is a consumer of the DAG, like compare and viz:
+        # a store nobody browses carries none of it. The DAG is duck-typed
+        # there, so the module imports nothing at all.
+        code = (
+            "import sys\n"
+            "import ontodag\n"
+            "from ontodag.dag import OntoDAG\n"
+            "d = OntoDAG(); d.put('a', []); d.put('b', ['a'])\n"
+            "assert 'ontodag.browse' not in sys.modules, "
+            "'the core imported ontodag.browse'\n"
+        )
+        env = dict(os.environ, PYTHONPATH=SRC)
+        proc = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True,
+            env=env,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+
     def test_compare_is_reached_only_by_asking_for_it(self):
         # Like ontodag.surface and ontodag.viz: a consumer of the core, not a
         # part of it. The arrow points one way, so a store that never compares
