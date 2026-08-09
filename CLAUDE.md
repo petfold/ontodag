@@ -732,7 +732,7 @@ section is the *current* state and the cross-repo pins.
 
 | package | version | verified by | pins |
 |---|---|---|---|
-| **ontodag** | **0.16.0** | `scripts/release_smoke.py --pypi 0.16.0` → 23/23 | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
+| **ontodag** | **0.17.0** | `scripts/release_smoke.py --pypi 0.17.0` → 23/23, plus the workflow's own `verify` job | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
 | **recordstore** | **0.20.1** | fresh-venv install; undo/history exercised | none (stdlib-only base) |
 | **ontodag-fs** | **0.3.0** | fresh-venv install; `--as-of` end to end on a real store | needs `ontodag>=0.16.0,<0.17.0` |
 
@@ -741,7 +741,21 @@ Also live-validated after publication: the **published ontodag wheel** driving a
 (Bee run 8 above), which is the release story exercised by the artifact users get
 rather than by a checkout.
 
-**What 0.16.0 is** (one line each; details in `CHANGELOG.md`): `excerpt`
+**What 0.17.0 is** (2026-08-09, published by tag; all four workflow jobs
+green, including the ontodag-fs downstream gate): the browse-and-type web
+interface — the page is a breadcrumb that *is* the query, a console running
+the same `odag` interpreter, and the rule that every click writes its command
+into the console; plus `ontodag.browse` (the refinement rule),
+`dispatch(argv, session, out=, err=)` (the CLI is now embeddable, streams
+bound with ContextVars), and `OntoDAGVisualizer.generate_svg`/`node_ids` (the
+picture is clickable because Graphviz writes viz.py's ids into the SVG).
+**The web app itself is NOT in the wheel** — `web/` is outside `src/`, so it
+never has been; the `web` extra installs what the app needs, not the app.
+README and guide now say so. **ontodag-fs's ceiling is still `<0.17.0`**: the
+downstream gate passed against this candidate, so the bump is owed and needs
+doing by hand in that repo (and an ontodag-fs release to reach anyone).
+
+**What 0.16.0 was** (one line each; details in `CHANGELOG.md`): `excerpt`
 (+`--context`) and `diff` (+`--additions`) for sending and reviewing parts of a
 store; `move`/`reclassify` with the contested-set report; `remove --cone` with the
 survival rule; `history`/`status`/`undo`/`redo` and a `-m` label on recordstore
