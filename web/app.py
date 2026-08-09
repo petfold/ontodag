@@ -341,8 +341,74 @@ def names():
     dag = current_dag()
     matches = sorted(name for name in dag.nodes
                      if name != dag.root.name and name.lower().startswith(prefix))
-    return jsonify({"names": matches[:40],
-                    "commands": sorted(CONSOLE_COMMANDS - {"?"})})
+    return jsonify({"names": matches[:40]})
+
+
+# Output plumbing: real options, but about where bytes go rather than about
+# what the command does, and meaningless in a browser. Left out of the menu
+# so that what remains is the part someone is choosing between.
+_PLUMBING = {"-h", "--help", "-o", "--output", "--render", "--raw", "-n",
+             "--limit"}
+
+# Whose first argument is a thing in the store, so that choosing the command
+# while looking at something can fill that something in. Not "has a
+# positional": `pack NAME` has one and it names a unit pack, so offering the
+# selected item there would be nonsense dressed up as help.
+_ABOUT_AN_ITEM = {"item", "items", "term", "categories", "sub"}
+
+
+def _shape(parser):
+    """A command's positional arguments, as a person would write them."""
+    parts = []
+    for action in parser._get_positional_actions():
+        name = (action.metavar or action.dest).upper()
+        if action.nargs == "*":
+            parts.append(f"[{name}...]")
+        elif action.nargs == "+":
+            parts.append(f"{name}...")
+        elif action.nargs == "?":
+            parts.append(f"[{name}]")
+        else:
+            parts.append(name)
+    return " ".join(parts)
+
+
+@app.route("/dag/commands", methods=["GET"])
+def commands():
+    """The menu: what you can type, and what each one does.
+
+    Read off the argparse parser rather than written out here, so it cannot
+    drift from the commands that actually exist — the same reason
+    `docs/REFERENCE.md`'s tables are pinned to the code. A console is only
+    unfriendly while you cannot see what to type, and this is the answer to
+    that: the verbs are browsable, in one place, without a permanent menu bar
+    taking up the screen.
+    """
+    from ontodag.__main__ import PARSER
+
+    sub = next(action for action in PARSER._actions
+               if getattr(action, "choices", None))
+    described = {action.dest: action.help
+                 for action in sub._choices_actions}
+    menu = []
+    for name in sorted(CONSOLE_COMMANDS - {"?", "help"}):
+        parser = sub.choices[name]
+        positional = parser._get_positional_actions()
+        menu.append({
+            "name": name,
+            "help": described.get(name, ""),
+            "args": _shape(parser),
+            "flags": sorted(
+                {option for action in parser._actions
+                 for option in action.option_strings
+                 if option.startswith("--") and option not in _PLUMBING}),
+            # Whether naming the item you are looking at makes sense as the
+            # first argument — which is what makes the menu contextual.
+            "takes_item": bool(positional) and positional[0].dest in _ABOUT_AN_ITEM,
+        })
+    menu.append({"name": "help", "help": "everything the CLI can do",
+                 "args": "", "flags": [], "takes_item": False})
+    return jsonify({"commands": menu})
 
 
 def _neighbourhood(dag, name, depth):

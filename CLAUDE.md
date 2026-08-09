@@ -108,9 +108,16 @@ into the SVG, so click-to-focus needs no graph library and no build step.
 Front end is vendored Preact+htm, 13 KB, no build step, no CDN. Old page
 kept at `/classic`; **no REST route changed**, which is why 48 of the 53 web
 tests passed untouched. `web/browser_check.py` (Playwright, not in the
-suite) drives the real page: it found three bugs no status code could —
+suite) drives the real page: it found four bugs no status code could —
 `&gt;` rendered as four literal characters, a picture that never redrew
-after a mutation, and a 33-node thumbnail squiggle.
+after a mutation, a 33-node thumbnail squiggle, and a menu that opened on an
+empty line so that pressing Enter inserted a command instead of doing
+nothing. **Discoverability is the console's contextual suggestion list**,
+which is the completion list *and* the menu: commands while the verb is
+being typed, names after it, on screen only while in use (so it costs one
+`commands ▾` button and no permanent menu bar), read off the argparse parser
+via `GET /dag/commands` so it cannot drift, and pre-filling the selected item
+for the commands whose first argument really is one (`pack NAME` is not).
 
 ## Key invariants (from `tests/test_invariants.py`)
 

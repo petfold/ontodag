@@ -150,6 +150,44 @@ def run(url, shots):
                    "the picture redraws after a mutation that changed neither "
                    "the query nor the focus")
 
+        # --- the menu: what someone who knows no commands does ------------ #
+        page.click(".show-menu")
+        page.wait_for_selector(".suggest .option", timeout=5000)
+        offered = [o.inner_text().split("\n")[0]
+                   for o in page.query_selector_all(".suggest .option")]
+        check.that({"put", "get", "move", "remove"} <= set(offered),
+                   f"the menu lists the verbs ({len(offered)} of them)")
+        check.that(all(o.inner_text().count("\n") >= 1
+                       for o in page.query_selector_all(".suggest .option")),
+                   "each entry says what it does, not just its name")
+
+        # Chosen while something is selected, it arrives with that something.
+        page.click(".suggest .option:has-text('move')")
+        check.that(page.input_value(".console input").startswith("move Flight"),
+                   "the menu fills in the item you are looking at")
+
+        page.fill(".console input", "")
+        check.that(page.query_selector(".suggest .option") is None,
+                   "an empty line does not pop the menu open by itself")
+        page.fill(".console input", "rem")
+        page.wait_for_function(
+            "() => document.querySelectorAll('.suggest .option').length === 1",
+            timeout=5000)
+        narrowed = [o.inner_text().split("\n")[0]
+                    for o in page.query_selector_all(".suggest .option")]
+        check.that(narrowed == ["remove"],
+                   f"typing narrows the menu ({narrowed})")
+        page.press(".console input", "Escape")
+        check.that(page.query_selector(".suggest .option") is None,
+                   "Escape puts the menu away")
+
+        # Arrow keys are the list while it is open and the history when it is
+        # not — so dismissing it has to hand them back.
+        page.press(".console input", "ArrowUp")
+        check.that(page.input_value(".console input") != "rem",
+                   "with the menu closed, Up walks the history")
+        page.fill(".console input", "")
+
         # --- refusals are visible, not silent ----------------------------- #
         page.fill(".console input", "import /etc/passwd")
         page.press(".console input", "Enter")
@@ -163,7 +201,8 @@ def run(url, shots):
         page.fill(".console input", "canon 'weight(500g)'")
         page.press(".console input", "Enter")
         page.wait_for_function(
-            "() => document.querySelector('.transcript').innerText.includes('kg')")
+            "() => document.querySelector('.transcript').innerText"
+            ".includes('kg')", timeout=10000)
         check.that("weight(1/2kg)" in transcript(page),
                    "`canon` shows what a spelling would store")
 

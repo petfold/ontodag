@@ -734,15 +734,71 @@ class TestPictureIsClickable:
 
 
 class TestNamesForCompletion:
-    def test_it_offers_names_and_commands(self, client):
+    def test_it_offers_names(self, client):
         put(client, "Japan")
         put(client, "JAL7")
         answer = client.get("/dag/names", query_string={"prefix": "ja"}).get_json()
         assert answer["names"] == ["JAL7", "Japan"]      # case-insensitive
-        assert "put" in answer["commands"]
 
     def test_the_root_is_not_a_name_anyone_completes_to(self, client):
         assert "*" not in client.get("/dag/names").get_json()["names"]
+
+
+class TestTheCommandMenu:
+    """The menu that makes a console explorable.
+
+    Read off the argparse parser rather than written out, so a command the
+    browser can run but nobody listed is impossible — the same
+    can't-drift discipline as docs/REFERENCE.md's tables.
+    """
+
+    def _menu(self, client):
+        answer = client.get("/dag/commands")
+        assert answer.status_code == 200
+        return {c["name"]: c for c in answer.get_json()["commands"]}
+
+    def test_it_lists_exactly_what_the_console_will_run(self, client):
+        from app import CONSOLE_COMMANDS
+        # `?` is an alias for `below`, not a separate thing to offer.
+        assert set(self._menu(client)) == CONSOLE_COMMANDS - {"?"}
+
+    def test_every_entry_explains_itself(self, client):
+        for name, entry in self._menu(client).items():
+            assert entry["help"], f"{name} has no description"
+            assert entry["help"] == entry["help"].lstrip(), name
+
+    def test_argument_shapes_come_from_the_parser(self, client):
+        menu = self._menu(client)
+        assert menu["put"]["args"] == "ITEM [PARENTS...]"
+        assert menu["below"]["args"] == "SUB SUP"
+        assert menu["get"]["args"] == "[CATEGORIES...]"
+        assert menu["list"]["args"] == ""
+
+    def test_output_plumbing_is_not_offered_as_a_choice(self, client):
+        # `-o`, `--raw`, `-n` are real options and none of them is about what
+        # the command does — and `-o` is refused on this surface anyway.
+        for entry in self._menu(client).values():
+            assert not ({"--raw", "--render", "--limit", "--output"}
+                        & set(entry["flags"])), entry
+
+    def test_the_flags_that_change_meaning_are_offered(self, client):
+        menu = self._menu(client)
+        assert "--cone" in menu["remove"]["flags"]
+        assert {"--to", "--from"} <= set(menu["move"]["flags"])
+
+    def test_only_commands_about_an_item_take_the_selected_one(self, client):
+        menu = self._menu(client)
+        for name in ("put", "move", "remove", "below", "get", "canon"):
+            assert menu[name]["takes_item"], name
+        # `pack NAME` has a positional too, and it names a unit pack — filling
+        # in whatever is selected would be nonsense dressed up as help.
+        for name in ("pack", "prelude", "list", "show", "help"):
+            assert not menu[name]["takes_item"], name
+
+    def test_a_refused_command_is_never_advertised(self, client):
+        menu = self._menu(client)
+        for name in ("import", "export", "set", "undo", "diff", "visualize"):
+            assert name not in menu, name
 
 
 class TestTheExample:

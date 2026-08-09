@@ -224,7 +224,7 @@ function Picture({ query, focus, onFocus, epoch }) {
                    dangerouslySetInnerHTML=${{ __html: state.svg }}></div>`;
 }
 
-function Focus({ name, query, onFocus, onRun, epoch }) {
+function Focus({ name, query, onFocus, onRun, onMenu, epoch }) {
   const [detail, setDetail] = useState(null);
 
   useEffect(() => {
@@ -279,6 +279,8 @@ function Focus({ name, query, onFocus, onRun, epoch }) {
           <button onClick=${() => ask(`put ${quote(name)} `)}>File under…</button>
           <button onClick=${() => ask(`move ${quote(name)} --to `)}>Move…</button>
           <button class="danger" onClick=${() => ask(`remove ${quote(name)}`)}>Remove</button>
+          <button onClick=${onMenu} title="Everything else you can do with this"
+                  >more…</button>
         </div>`}
       <${Picture} query=${query} focus=${name} onFocus=${onFocus}
                   epoch=${epoch} />
@@ -287,17 +289,100 @@ function Focus({ name, query, onFocus, onRun, epoch }) {
 
 /* ------------------------------------------------------------- the console */
 
-function Console({ transcript, onRun, onFocus, pending }) {
+/* One suggestion list, contextual: the commands while you are typing the
+ * verb, this store's names once you are past it.
+ *
+ * It is a *menu* as much as a completion — someone who has never met the
+ * command language can open it and read what there is, which is the one
+ * thing a console cannot do for itself. Making it the same list that
+ * completion uses is what keeps it from costing a permanent menu bar: it is
+ * on screen only while it is being used. */
+function Suggestions({ items, selected, onPick }) {
+  if (!items.length) return null;
+  return html`
+    <div class="suggest">
+      ${items.map((item, i) => html`
+        <button class=${"option" + (i === selected ? " on" : "")}
+                onMouseDown=${(e) => { e.preventDefault(); onPick(item); }}>
+          <span class="key">${item.name}</span>
+          ${item.args && html`<span class="args">${item.args}</span>`}
+          ${item.help && html`<span class="what">${item.help}</span>`}
+        </button>`)}
+    </div>`;
+}
+
+function Console({ transcript, onRun, onFocus, pending, subject, openMenu }) {
   const [line, setLine] = useState("");
   const [past, setPast] = useState([]);
   const [at, setAt] = useState(-1);
-  const [hint, setHint] = useState([]);
+  const [menu, setMenu] = useState([]);
+  const [items, setItems] = useState([]);
+  const [selected, setSelected] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
+  /* Asked for explicitly (the button, or Tab), as opposed to appearing
+     because a verb is half-typed. */
+  const [forced, setForced] = useState(false);
   const scroll = useRef(null);
   const input = useRef(null);
 
   useEffect(() => {
+    fetch("/dag/commands").then((r) => r.json())
+      .then((data) => setMenu(data.commands));
+  }, []);
+
+  useEffect(() => {
     if (scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
-  }, [transcript.length, pending]);
+  }, [transcript.length, items.length, pending]);
+
+  /* The verb is still being typed while no space has been entered. That is
+   * the only moment the command list is useful, so it is the only moment it
+   * appears — and once you know the language you never see it. */
+  const typingVerb = !line.includes(" ");
+
+  const commandsFor = (word) =>
+    menu.filter((command) => command.name.startsWith(word.toLowerCase()));
+
+  useEffect(() => {
+    /* An EMPTY line does not open the menu by itself. It used to, and the
+       consequence was worse than clutter: clear your line, press Enter, and
+       the highlighted command was silently inserted instead of nothing
+       happening. A menu that appears when you are not asking anything is
+       also a menu in the way. */
+    const word = line.trim();
+    if (dismissed || !typingVerb || (!word && !forced)) return setItems([]);
+    const matches = commandsFor(word);
+    setItems(matches.length === 1 && matches[0].name === word ? [] : matches);
+    setSelected(0);
+  }, [line, menu, dismissed, forced]);
+
+  const show = () => {
+    setDismissed(false);
+    setForced(true);
+    setSelected(0);
+    input.current?.focus();
+  };
+
+  /* Opening the menu from elsewhere on the page (the focus pane's "…") means
+   * "what can I do with THIS", so the verb arrives with the item attached. */
+  useEffect(() => {
+    if (openMenu) show();
+  }, [openMenu]);
+
+  const pick = (item) => {
+    if (item.kind === "name") {
+      const parts = line.split(/\s+/);
+      parts[parts.length - 1] = quote(item.name);
+      setLine(parts.join(" ") + " ");
+    } else {
+      const withItem = item.takes_item && subject
+        ? `${item.name} ${quote(subject)} ` : `${item.name} `;
+      setLine(item.args || item.flags?.length ? withItem : item.name);
+      if (!item.args && !item.flags?.length) return submit(item.name);
+    }
+    setItems([]);
+    setForced(false);
+    input.current?.focus();
+  };
 
   const submit = (text) => {
     const value = (text ?? line).trim();
@@ -305,38 +390,55 @@ function Console({ transcript, onRun, onFocus, pending }) {
     setPast([value, ...past]);
     setAt(-1);
     setLine("");
-    setHint([]);
+    setItems([]);
+    setDismissed(false);
+    setForced(false);
     onRun(value);
   };
 
-  const complete = async () => {
+  /* Past the verb, Tab asks the store for names — deliberately on demand
+   * rather than as you type, since it is a round trip and the answer is
+   * rarely short. */
+  const completeName = async () => {
     const parts = line.split(/\s+/);
     const word = parts[parts.length - 1] || "";
-    const data = await fetch(
+    const { names } = await fetch(
       `/dag/names?prefix=${encodeURIComponent(word)}`).then((r) => r.json());
-    const pool = parts.length === 1
-      ? data.commands.filter((c) => c.startsWith(word))
-      : data.names;
-    if (pool.length === 1) {
-      parts[parts.length - 1] = quote(pool[0]);
+    if (names.length === 1) {
+      parts[parts.length - 1] = quote(names[0]);
       setLine(parts.join(" ") + " ");
-      setHint([]);
+      setItems([]);
     } else {
-      setHint(pool.slice(0, 12));
+      setItems(names.slice(0, 12).map((name) => ({ name, kind: "name" })));
+      setSelected(0);
     }
   };
 
   const key = (event) => {
-    if (event.key === "Enter") { event.preventDefault(); submit(); }
-    else if (event.key === "Tab") { event.preventDefault(); complete(); }
-    else if (event.key === "ArrowUp" && past.length) {
+    const open = items.length > 0;
+    if (event.key === "Escape") {
+      setItems([]); setDismissed(true); setForced(false);
+    } else if (event.key === "Enter") {
       event.preventDefault();
-      const next = Math.min(at + 1, past.length - 1);
-      setAt(next); setLine(past[next]);
+      open && items[selected] ? pick(items[selected]) : submit();
+    } else if (event.key === "Tab") {
+      event.preventDefault();
+      if (open && items[selected]) pick(items[selected]);
+      else if (!typingVerb) completeName();
+      else show();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      // The list when it is open, the history when it is not — the usual
+      // bargain, and the reason Escape has to close it.
+      if (open) setSelected((i) => Math.max(0, i - 1));
+      else if (past.length) {
+        const next = Math.min(at + 1, past.length - 1);
+        setAt(next); setLine(past[next]);
+      }
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
-      const next = at - 1;
-      setAt(next); setLine(next < 0 ? "" : past[next]);
+      if (open) setSelected((i) => Math.min(items.length - 1, i + 1));
+      else { const next = at - 1; setAt(next); setLine(next < 0 ? "" : past[next]); }
     }
   };
 
@@ -345,19 +447,25 @@ function Console({ transcript, onRun, onFocus, pending }) {
       <div class="transcript" ref=${scroll}>
         ${transcript.map((entry, i) => html`
           <div class="entry" key=${i}>
-            <div class="cmd"><span class="prompt">${PROMPT}</span> ${entry.line}</div>
+            ${/* A welcome is not something anybody typed, so it does not get
+                  a prompt in front of it. */
+              entry.line && html`
+                <div class="cmd"><span class="prompt">${PROMPT}</span> ${entry.line}</div>`}
             ${entry.out && html`<${Output} text=${entry.out} onFocus=${onFocus} />`}
             ${entry.err && html`<pre class=${entry.code ? "err" : "note"}>${entry.err}</pre>`}
           </div>`)}
         ${pending && html`<div class="entry pending">…</div>`}
       </div>
-      ${hint.length > 0 && html`
-        <div class="hints">${hint.map((h) => html`<code>${h}</code>`)}</div>`}
+      <${Suggestions} items=${items} selected=${selected} onPick=${pick} />
       <div class="input">
         <span class="prompt">${PROMPT}</span>
-        <input ref=${input} value=${line} placeholder="type a command — help"
-               spellcheck="false" autocomplete="off" autofocus
-               onInput=${(e) => setLine(e.target.value)} onKeyDown=${key} />
+        <input ref=${input} value=${line} spellcheck="false" autocomplete="off"
+               autofocus onInput=${(e) => setLine(e.target.value)}
+               onKeyDown=${key}
+               placeholder=${subject ? `type a command, or pick one for ${subject}`
+                                     : "type a command, or pick one from the list"} />
+        <button class="show-menu" onClick=${show} title="What can I type here?"
+                >commands ▾</button>
       </div>
     </section>`;
 }
@@ -408,6 +516,8 @@ function App() {
   const [drop, setDrop] = useState(false);
   /* Bumped whenever the store may have changed, so the picture redraws. */
   const [epoch, setEpoch] = useState(0);
+  /* Bumped to ask the console to show its command list. */
+  const [openMenu, setOpenMenu] = useState(0);
 
   /* One path for everything: a click and a typed line both come through
    * here, so the transcript is a true record and the two halves cannot
@@ -448,7 +558,7 @@ function App() {
     const pick = (view.here || []).filter((h) => !h.vocab && h.children);
     const one = pick[0]?.name, two = pick[1]?.name;
     setTranscript([{
-      line: "help",
+      line: null,
       out: [
         "Click things on the left — every click is echoed here as the",
         "command it means, so you can start typing them instead.",
@@ -516,7 +626,7 @@ function App() {
         <${Refine} state=${state} query=${query} onNavigate=${navigate} />
         <${Here} state=${state} focus=${focus} onFocus=${setFocus} />
         <${Focus} name=${focus} query=${query} onFocus=${setFocus}
-                  epoch=${epoch}
+                  epoch=${epoch} onMenu=${() => setOpenMenu((n) => n + 1)}
                   onRun=${(line) => {
                     if (line.endsWith(" ")) {
                       const box = document.querySelector(".console input");
@@ -526,6 +636,7 @@ function App() {
                   }} />
       </main>
       <${Console} transcript=${transcript} pending=${pending}
+                  subject=${focus} openMenu=${openMenu}
                   onRun=${(line) => run(line)} onFocus=${setFocus} />
       ${drop && html`<div class="dropzone">drop to import</div>`}
     </div>`;

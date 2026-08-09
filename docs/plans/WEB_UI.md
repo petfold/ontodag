@@ -528,6 +528,45 @@ click, pushing what you typed off the top. Long output now folds to six
 lines and says how many it kept back. **The console's job is what you did;
 the panes' job is what is there.**
 
+### The menu (added after Peter's second read)
+
+*"Without making the display more complex, could we have some kind of menu
+items, so someone unfamiliar with the commands could explore?"* — the answer
+was no, he hadn't missed it: the focus pane had four verbs but only once
+something was selected, and nothing anywhere listed the language.
+
+The constraint (**no more permanent chrome**) is what made the solution
+good. Rather than a menu bar, the console's completion list became **one
+contextual suggestion list** that is also the menu:
+
+- while the *verb* is being typed it lists commands — name, argument shape,
+  and one line of what it does;
+- past the verb, Tab lists this store's names;
+- it is on screen only while it is being used, so it costs one small
+  `commands ▾` button beside the prompt and nothing else.
+
+Two properties worth keeping:
+
+- **It is read off the argparse parser** (`GET /dag/commands`) — descriptions,
+  argument shapes and the meaning-changing flags all come from the code, so a
+  command the console will run but the menu never lists is impossible. Output
+  plumbing (`-o`, `--raw`, `-n`) is filtered out: real options, none of them
+  about what the command *does*, and `-o` is refused here anyway.
+- **It is contextual.** Chosen while something is selected, a command arrives
+  with that something filled in (`move JAL7 `). "Takes an item" is not "has a
+  positional" — `pack NAME` has one and it names a unit pack, so offering the
+  selection there would be nonsense dressed up as help.
+
+The focus pane gained a `more…` button that opens the same list for the
+selected item, which is the "what can I do with this thing" question the four
+fixed buttons could not answer.
+
+A third real bug came out of it, again only visible by driving the page: an
+**empty line popped the whole menu open**, so clearing your input and
+pressing Enter silently *inserted* the highlighted command instead of doing
+nothing. The menu now appears only when a verb is being typed or when it is
+asked for.
+
 ### Still owed
 
 - A human looking at it. 19 automated browser checks are a floor, not taste.
