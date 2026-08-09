@@ -1,10 +1,10 @@
 # A simpler web interface
 
-**Status: stages 1–4 BUILT on the `web-ui` branch (2026-08-09); the rest is
-still a discussion draft.** Two decisions are taken (§8); the demo-site
-section (§9) and user spaces (§10) are requirements from Peter's first read
-and are the least settled parts. §14 records what the build actually
-produced, what the browser found, and what is still owed.
+**Status: stages 1–4 SHIPPED on `main` (2026-08-09); the rest is still a
+discussion draft.** Two decisions are taken (§8); the demo-site section (§9)
+and user spaces (§10) are requirements from Peter's first read and are the
+least settled parts. §14 records what the build actually produced, what the
+browser found, and what is still owed.
 
 Prompted by: *"the current web view is old fashioned, clunky, overcrowded
 and confusing — make a plan for a much simpler interface, maybe include a
@@ -453,7 +453,7 @@ Each stage is useful alone; none requires the next.
 
 ---
 
-## 14. What was built (2026-08-09, branch `web-ui`)
+## 14. What was built (2026-08-09, merged to `main`)
 
 Stages 1–4 of §12. The old page is still served, unchanged, at `/classic`;
 **no REST route was removed or altered**, so the 48 route-level tests passed

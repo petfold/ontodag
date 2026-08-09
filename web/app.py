@@ -373,42 +373,68 @@ def _shape(parser):
     return " ".join(parts)
 
 
+# What each command is FOR. Grouped by purpose rather than by whether this
+# surface happens to run it, because someone reading the list is asking what
+# OntoDAG does, not what the sandbox permits. Every command must appear in
+# exactly one group; `tests/test_web.py` fails if a new one is left out, so
+# the list cannot quietly fall behind the CLI.
+COMMAND_GROUPS = (
+    ("Filing things", ("put", "move", "remove")),
+    ("Asking questions",
+     ("get", "count", "list", "show", "below", "overlapping", "canon")),
+    ("Vocabulary", ("prelude", "pack")),
+    ("Files and pictures",
+     ("import", "export", "merge", "excerpt", "diff", "visualize")),
+    ("Versions", ("history", "status", "undo", "redo")),
+    ("Store and network", ("set", "index", "swarm")),
+    ("Help", ("help",)),
+)
+
+
 @app.route("/dag/commands", methods=["GET"])
 def commands():
-    """The menu: what you can type, and what each one does.
+    """Every OntoDAG command — what it does, and whether it runs here.
+
+    All 26, not the 13 this surface allows: someone opening this is asking
+    what the system can do, and answering with only the sandbox's subset
+    would misrepresent it. The ones a browser cannot run say why in the same
+    breath (they take filesystem paths, or need a store that keeps versions),
+    which turns a limitation into an explanation of the design.
 
     Read off the argparse parser rather than written out here, so it cannot
     drift from the commands that actually exist — the same reason
-    `docs/REFERENCE.md`'s tables are pinned to the code. A console is only
-    unfriendly while you cannot see what to type, and this is the answer to
-    that: the verbs are browsable, in one place, without a permanent menu bar
-    taking up the screen.
+    `docs/REFERENCE.md`'s tables are pinned to the code.
     """
     from ontodag.__main__ import PARSER
 
     sub = next(action for action in PARSER._actions
                if getattr(action, "choices", None))
-    described = {action.dest: action.help
-                 for action in sub._choices_actions}
+    described = {action.dest: action.help for action in sub._choices_actions}
+
     menu = []
-    for name in sorted(CONSOLE_COMMANDS - {"?", "help"}):
-        parser = sub.choices[name]
-        positional = parser._get_positional_actions()
-        menu.append({
-            "name": name,
-            "help": described.get(name, ""),
-            "args": _shape(parser),
-            "flags": sorted(
-                {option for action in parser._actions
-                 for option in action.option_strings
-                 if option.startswith("--") and option not in _PLUMBING}),
-            # Whether naming the item you are looking at makes sense as the
-            # first argument — which is what makes the menu contextual.
-            "takes_item": bool(positional) and positional[0].dest in _ABOUT_AN_ITEM,
-        })
-    menu.append({"name": "help", "help": "everything the CLI can do",
-                 "args": "", "flags": [], "takes_item": False})
-    return jsonify({"commands": menu})
+    for group, names in COMMAND_GROUPS:
+        for name in names:
+            parser = sub.choices[name]
+            positional = parser._get_positional_actions()
+            available = name in CONSOLE_COMMANDS
+            menu.append({
+                "name": name,
+                "group": group,
+                "help": described.get(name, ""),
+                "args": _shape(parser),
+                "flags": sorted(
+                    {option for action in parser._actions
+                     for option in action.option_strings
+                     if option.startswith("--") and option not in _PLUMBING}),
+                "available": available,
+                "why": None if available else CONSOLE_REFUSALS.get(name),
+                # Whether naming the item you are looking at makes sense as
+                # the first argument — what makes the typing list contextual.
+                "takes_item": (bool(positional)
+                               and positional[0].dest in _ABOUT_AN_ITEM),
+            })
+    return jsonify({"commands": menu,
+                    "groups": [group for group, _ in COMMAND_GROUPS]})
 
 
 def _neighbourhood(dag, name, depth):

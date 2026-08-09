@@ -150,35 +150,65 @@ def run(url, shots):
                    "the picture redraws after a mutation that changed neither "
                    "the query nor the focus")
 
+        # --- the reference: everything OntoDAG can do --------------------- #
+        page.click(".bar button:has-text('Commands')")
+        page.wait_for_selector(".sheet .row", timeout=5000)
+        rows = page.query_selector_all(".sheet .row")
+        greyed = page.query_selector_all(".sheet .row.off")
+        check.that(len(rows) == 26,
+                   f"the sheet lists every OntoDAG command ({len(rows)})")
+        check.that(len(greyed) == 13,
+                   f"and marks the ones a browser cannot run ({len(greyed)})")
+        check.that(all(r.text_content().strip()
+                       for r in page.query_selector_all(".sheet .row.off .why")),
+                   "each of those says why, rather than just being greyed")
+        check.that("13 of 26 run in the browser" in page.inner_text(".sheet header"),
+                   "the sheet header counts them without mangling the spacing")
+
+        page.click(".sheet .row:has-text('move')")
+        page.wait_for_function(
+            "() => !document.querySelector('.sheet')", timeout=5000)
+        check.that(page.input_value(".console input").startswith("move "),
+                   "picking one from the sheet puts it in the console")
+
+        page.click(".bar button:has-text('Commands')")
+        page.wait_for_selector(".sheet", timeout=5000)
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => !document.querySelector('.sheet')", timeout=5000)
+        check.that(page.query_selector(".sheet") is None,
+                   "Escape closes the sheet")
+        page.fill(".console input", "")
+
         # --- the menu: what someone who knows no commands does ------------ #
         page.click(".show-menu")
-        page.wait_for_selector(".suggest .option", timeout=5000)
+        page.wait_for_selector(".suggest .option:not(.all)", timeout=5000)
         offered = [o.inner_text().split("\n")[0]
-                   for o in page.query_selector_all(".suggest .option")]
+                   for o in page.query_selector_all(".suggest .option:not(.all)")]
         check.that({"put", "get", "move", "remove"} <= set(offered),
                    f"the menu lists the verbs ({len(offered)} of them)")
         check.that(all(o.inner_text().count("\n") >= 1
-                       for o in page.query_selector_all(".suggest .option")),
+                       for o in page.query_selector_all(".suggest .option:not(.all)")),
                    "each entry says what it does, not just its name")
 
         # Chosen while something is selected, it arrives with that something.
-        page.click(".suggest .option:has-text('move')")
+        page.click(".suggest .option:not(.all):has-text('move')")
         check.that(page.input_value(".console input").startswith("move Flight"),
                    "the menu fills in the item you are looking at")
 
         page.fill(".console input", "")
-        check.that(page.query_selector(".suggest .option") is None,
+        check.that(page.query_selector(".suggest .option:not(.all)") is None,
                    "an empty line does not pop the menu open by itself")
         page.fill(".console input", "rem")
         page.wait_for_function(
-            "() => document.querySelectorAll('.suggest .option').length === 1",
+            "() => document.querySelectorAll('.suggest .option:not(.all)').length === 1",
             timeout=5000)
         narrowed = [o.inner_text().split("\n")[0]
-                    for o in page.query_selector_all(".suggest .option")]
+                    for o in page.query_selector_all(".suggest .option:not(.all)")]
         check.that(narrowed == ["remove"],
                    f"typing narrows the menu ({narrowed})")
         page.press(".console input", "Escape")
-        check.that(page.query_selector(".suggest .option") is None,
+        check.that(page.query_selector(".suggest .option:not(.all)") is None,
                    "Escape puts the menu away")
 
         # Arrow keys are the list while it is open and the history when it is

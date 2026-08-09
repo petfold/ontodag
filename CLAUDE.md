@@ -85,9 +85,9 @@ cd web && python3 app.py   # starts Flask dev server on localhost:5000 (needs fl
 
 REST endpoints: `POST /dag` (reset), `GET/POST/DELETE /dag/node`, `GET /dag/query?cat=A,B`, image renders (`/dag/image`, `/dag/query/image`), import (`/dag/import`, `/dag/query/import`), and exports in OWL/Manchester/DOT/LaTeX (`/dag/export`, `/dag/export/{omn,dot,tex}`, same under `/dag/query/`).
 
-**The page itself is being replaced — branch `web-ui`, design record
-`docs/plans/WEB_UI.md` (stages 1–4 built 2026-08-09, awaiting Peter's
-look).** The old page was 32 controls in 7 forms with one text box driving
+**The page was replaced 2026-08-09 — design record
+`docs/plans/WEB_UI.md`, stages 1–4 of its §12 (the demo site and store
+selection are NOT built).** The old page was 32 controls in 7 forms with one text box driving
 four verbs (two destructive), a flat dump of every node as the main content
 area, everything drawn twice (a query result *is* a DAG, and the whole store
 is the answer to the empty query — a unification the core made and the page

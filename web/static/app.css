@@ -407,6 +407,129 @@ main {
   font-size: 13px;
 }
 
+/* ----------------------------------------------- the commands sheet */
+/* Unintrusive by being absent: nothing on screen until it is asked for. */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(10, 14, 20, .45);
+}
+
+.sheet {
+  width: min(860px, 100%);
+  max-height: 86vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .3);
+  overflow: hidden;
+}
+
+.sheet header {
+  position: relative;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.sheet header h2 { margin: 0; font-size: 16px; }
+.sheet header p {
+  margin: 4px 34px 0 0;
+  font-size: 12.5px;
+  color: var(--dim);
+}
+.sheet header code { font-family: var(--mono); }
+.sheet .close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  border: 0;
+  background: none;
+  font-size: 15px;
+  color: var(--dim);
+}
+.sheet .close:hover { color: var(--ink); }
+
+.sheet-body { overflow: auto; padding: 6px 12px 12px; }
+.sheet section { margin-top: 10px; }
+.sheet h3 {
+  margin: 0 0 4px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--dim);
+}
+
+.sheet .row {
+  display: grid;
+  grid-template-columns: 100px 200px 1fr;
+  gap: 10px;
+  align-items: baseline;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  font-size: 12.5px;
+}
+.sheet .row:hover:not(.off) { background: var(--accent-soft); }
+.sheet .row .key {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--accent);
+}
+.sheet .row .args {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.sheet .row .what { color: var(--ink); }
+.sheet .row .flags {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dim);
+}
+
+/* Not available here — greyed, but saying why, so a limitation reads as an
+   explanation of the design rather than as something broken. */
+.sheet .row.off { cursor: default; }
+/* Dimmed, not struck through: these commands work perfectly well, just not
+   here, and a strikethrough says "broken". */
+.sheet .row.off .key, .sheet .row.off .what { color: var(--dim); }
+.sheet .row .why {
+  grid-column: 2 / -1;
+  font-size: 11.5px;
+  font-style: italic;
+  color: var(--warn);
+}
+
+.sheet footer {
+  padding: 10px 20px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--dim);
+  background: var(--bg);
+}
+.sheet footer code { font-family: var(--mono); }
+
+.suggest .option.all { border-bottom: 1px solid var(--line); }
+.suggest .option.all .key { color: var(--dim); }
+
+@media (max-width: 700px) {
+  .sheet .row { grid-template-columns: 90px 1fr; }
+  .sheet .row .args { display: none; }
+}
+
 /* -------------------------------------------------------------- drop */
 
 .shell.dropping { outline: 2px dashed var(--accent); outline-offset: -6px; }

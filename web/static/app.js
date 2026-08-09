@@ -70,7 +70,7 @@ const post = (url, body) =>
 
 /* ------------------------------------------------------------------ chrome */
 
-function IdentityBar({ state, onReset, onExample, query }) {
+function IdentityBar({ state, onReset, onExample, onCommands, query }) {
   const cat = catParam(query);
   return html`
     <header class="bar">
@@ -81,6 +81,8 @@ docs/plans/WEB_UI.md §8a.">sandbox</span>
       <span class="stat"><b>${state.items ?? 0}</b> items</span>
       <span class="stat">registry ${state.registry ?? "?"}</span>
       <span class="spacer"></span>
+      <button onClick=${onCommands}
+              title="Everything OntoDAG can do">Commands</button>
       <details class="menu">
         <summary>Download</summary>
         <div class="menu-body">
@@ -100,6 +102,63 @@ docs/plans/WEB_UI.md §8a.">sandbox</span>
       <button onClick=${onReset} title="Throw this DAG away and start empty">Empty</button>
       <a class="classic" href="/classic">classic page</a>
     </header>`;
+}
+
+/* Everything OntoDAG can do, in one place you can open and read.
+ *
+ * All 26 commands, not the 13 this surface runs: someone opening this is
+ * asking what the system does, and answering with the sandbox's subset would
+ * misrepresent it. The ones a browser cannot run are shown greyed with the
+ * reason beside them, which turns a limitation into an explanation.
+ *
+ * Unintrusive by being absent: one button in the bar, and nothing on screen
+ * until it is asked for. */
+function CommandSheet({ commands, groups, subject, onClose, onPick }) {
+  useEffect(() => {
+    const key = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [onClose]);
+
+  return html`
+    <div class="sheet-backdrop" onClick=${onClose}>
+      <div class="sheet" onClick=${(e) => e.stopPropagation()}>
+        <header>
+          <h2>OntoDAG commands</h2>
+          <p>${commands.filter((c) => c.available).length}${" "}of${" "}
+             ${commands.length} run in the browser. The rest work in the${" "}
+             <code>odag</code>${" "}command line — they read or write files,
+             or need a store that keeps versions.</p>
+          <button class="close" onClick=${onClose} title="Close">✕</button>
+        </header>
+        <div class="sheet-body">
+          ${groups.map((group) => html`
+            <section>
+              <h3>${group}</h3>
+              ${commands.filter((c) => c.group === group).map((c) => html`
+                <button class=${"row" + (c.available ? "" : " off")}
+                        disabled=${!c.available}
+                        onClick=${() => c.available && onPick(c)}
+                        title=${c.available
+                          ? "Put this in the console" : c.why || ""}>
+                  <span class="key">${c.name}</span>
+                  <span class="args">${c.args}</span>
+                  <span class="what">${c.help}${
+                    c.flags.length
+                      ? html`<span class="flags">${c.flags.join("  ")}</span>`
+                      : ""}</span>
+                  ${!c.available && html`<span class="why">${c.why}</span>`}
+                </button>`)}
+            </section>`)}
+        </div>
+        <footer>
+          ${subject
+            ? html`Picking one fills in <code>${subject}</code>.`
+            : html`Select something first and these fill it in for you.`}
+          ${" "}Or just start typing — the same list appears as you go.
+        </footer>
+      </div>
+    </div>`;
 }
 
 function Breadcrumb({ query, onNavigate }) {
@@ -297,10 +356,14 @@ function Focus({ name, query, onFocus, onRun, onMenu, epoch }) {
  * thing a console cannot do for itself. Making it the same list that
  * completion uses is what keeps it from costing a permanent menu bar: it is
  * on screen only while it is being used. */
-function Suggestions({ items, selected, onPick }) {
+function Suggestions({ items, selected, onPick, onAll }) {
   if (!items.length) return null;
   return html`
     <div class="suggest">
+      ${onAll && html`<button class="option all" onMouseDown=${(e) => {
+        e.preventDefault(); onAll();
+      }}><span class="key">…</span><span class="what"
+        >see all ${"26"} OntoDAG commands</span></button>`}
       ${items.map((item, i) => html`
         <button class=${"option" + (i === selected ? " on" : "")}
                 onMouseDown=${(e) => { e.preventDefault(); onPick(item); }}>
@@ -311,11 +374,11 @@ function Suggestions({ items, selected, onPick }) {
     </div>`;
 }
 
-function Console({ transcript, onRun, onFocus, pending, subject, openMenu }) {
+function Console({ transcript, onRun, onFocus, pending, subject, openMenu,
+                  onCommands, menu }) {
   const [line, setLine] = useState("");
   const [past, setPast] = useState([]);
   const [at, setAt] = useState(-1);
-  const [menu, setMenu] = useState([]);
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(0);
   const [dismissed, setDismissed] = useState(false);
@@ -326,11 +389,6 @@ function Console({ transcript, onRun, onFocus, pending, subject, openMenu }) {
   const input = useRef(null);
 
   useEffect(() => {
-    fetch("/dag/commands").then((r) => r.json())
-      .then((data) => setMenu(data.commands));
-  }, []);
-
-  useEffect(() => {
     if (scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
   }, [transcript.length, items.length, pending]);
 
@@ -339,8 +397,12 @@ function Console({ transcript, onRun, onFocus, pending, subject, openMenu }) {
    * appears — and once you know the language you never see it. */
   const typingVerb = !line.includes(" ");
 
+  /* The typing list offers only what this surface will actually run —
+   * suggesting a command that then refuses would be a trap. The full list,
+   * refusals and all, is the Commands sheet. */
   const commandsFor = (word) =>
-    menu.filter((command) => command.name.startsWith(word.toLowerCase()));
+    menu.filter((command) => command.available
+                && command.name.startsWith(word.toLowerCase()));
 
   useEffect(() => {
     /* An EMPTY line does not open the menu by itself. It used to, and the
@@ -456,7 +518,9 @@ function Console({ transcript, onRun, onFocus, pending, subject, openMenu }) {
           </div>`)}
         ${pending && html`<div class="entry pending">…</div>`}
       </div>
-      <${Suggestions} items=${items} selected=${selected} onPick=${pick} />
+      <${Suggestions} items=${items} selected=${selected} onPick=${pick}
+                      onAll=${items.length && items[0].kind !== "name"
+                              ? onCommands : null} />
       <div class="input">
         <span class="prompt">${PROMPT}</span>
         <input ref=${input} value=${line} spellcheck="false" autocomplete="off"
@@ -518,6 +582,14 @@ function App() {
   const [epoch, setEpoch] = useState(0);
   /* Bumped to ask the console to show its command list. */
   const [openMenu, setOpenMenu] = useState(0);
+  /* Fetched once and shared: the sheet lists everything, the console's
+     typing list filters it to what runs here. */
+  const [commands, setCommands] = useState({ commands: [], groups: [] });
+  const [sheet, setSheet] = useState(false);
+
+  useEffect(() => {
+    fetch("/dag/commands").then((r) => r.json()).then(setCommands);
+  }, []);
 
   /* One path for everything: a click and a typed line both come through
    * here, so the transcript is a true record and the two halves cannot
@@ -590,6 +662,18 @@ function App() {
     });
   }, []);
 
+  /* Push text into the console input. What you are typing is the console's
+   * own state, so this goes through the DOM and an input event rather than
+   * lifting that state up into the shell — one component owning the line is
+   * worth more than avoiding this. */
+  const fillConsole = (text) => {
+    const box = document.querySelector(".console input");
+    if (!box) return;
+    box.value = text;
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    box.focus();
+  };
+
   const example = () => post("/dag/example", {}).then(() => navigate([[]]));
   const reset = () => post("/dag", {}).then(() => {
     setTranscript([]);
@@ -620,24 +704,35 @@ function App() {
          onDragLeave=${() => setDrop(false)}
          onDrop=${dropped}>
       <${IdentityBar} state=${state} query=${query}
-                      onReset=${reset} onExample=${example} />
+                      onReset=${reset} onExample=${example}
+                      onCommands=${() => setSheet(true)} />
       <${Breadcrumb} query=${query} onNavigate=${navigate} />
       <main>
         <${Refine} state=${state} query=${query} onNavigate=${navigate} />
         <${Here} state=${state} focus=${focus} onFocus=${setFocus} />
         <${Focus} name=${focus} query=${query} onFocus=${setFocus}
                   epoch=${epoch} onMenu=${() => setOpenMenu((n) => n + 1)}
-                  onRun=${(line) => {
-                    if (line.endsWith(" ")) {
-                      const box = document.querySelector(".console input");
-                      box.value = line; box.focus();
-                      box.dispatchEvent(new Event("input", { bubbles: true }));
-                    } else run(line).then(refresh);
-                  }} />
+                  onRun=${(line) => line.endsWith(" ")
+                    ? fillConsole(line)
+                    : run(line).then(refresh)} />
       </main>
       <${Console} transcript=${transcript} pending=${pending}
                   subject=${focus} openMenu=${openMenu}
+                  menu=${commands.commands}
+                  onCommands=${() => setSheet(true)}
                   onRun=${(line) => run(line)} onFocus=${setFocus} />
+      ${sheet && html`
+        <${CommandSheet} commands=${commands.commands}
+                         groups=${commands.groups} subject=${focus}
+                         onClose=${() => setSheet(false)}
+                         onPick=${(command) => {
+                           setSheet(false);
+                           fillConsole(command.name
+                             + (command.takes_item && focus
+                                ? ` ${quote(focus)} `
+                                : command.args || command.flags.length
+                                  ? " " : ""));
+                         }} />`}
       ${drop && html`<div class="dropzone">drop to import</div>`}
     </div>`;
 }

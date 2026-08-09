@@ -757,10 +757,41 @@ class TestTheCommandMenu:
         assert answer.status_code == 200
         return {c["name"]: c for c in answer.get_json()["commands"]}
 
-    def test_it_lists_exactly_what_the_console_will_run(self, client):
+    def test_it_lists_every_command_ontodag_has(self, client):
+        # All of them, not the sandbox's subset: someone opening this is
+        # asking what the system does, and the answer is not "whatever a
+        # browser is allowed to do".
+        from ontodag.__main__ import PARSER
+        sub = next(action for action in PARSER._actions
+                   if getattr(action, "choices", None))
+        assert set(self._menu(client)) == set(sub.choices)
+
+    def test_it_says_which_ones_run_here(self, client):
         from app import CONSOLE_COMMANDS
-        # `?` is an alias for `below`, not a separate thing to offer.
-        assert set(self._menu(client)) == CONSOLE_COMMANDS - {"?"}
+        menu = self._menu(client)
+        runs = {name for name, entry in menu.items() if entry["available"]}
+        assert runs == CONSOLE_COMMANDS - {"?"}
+
+    def test_every_command_it_cannot_run_says_why(self, client):
+        for name, entry in self._menu(client).items():
+            if not entry["available"]:
+                assert entry["why"], f"{name} is refused with no reason given"
+
+    def test_every_command_is_in_exactly_one_group(self, client):
+        # The guard that keeps this from falling behind the CLI: a new
+        # command has to be classified, or this fails.
+        from app import COMMAND_GROUPS
+        from ontodag.__main__ import PARSER
+        sub = next(action for action in PARSER._actions
+                   if getattr(action, "choices", None))
+        grouped = [name for _, names in COMMAND_GROUPS for name in names]
+        assert sorted(grouped) == sorted(sub.choices)
+        assert len(grouped) == len(set(grouped)), "a command is in two groups"
+
+    def test_the_groups_come_back_in_a_stated_order(self, client):
+        from app import COMMAND_GROUPS
+        answer = client.get("/dag/commands").get_json()
+        assert answer["groups"] == [group for group, _ in COMMAND_GROUPS]
 
     def test_every_entry_explains_itself(self, client):
         for name, entry in self._menu(client).items():
@@ -795,10 +826,15 @@ class TestTheCommandMenu:
         for name in ("pack", "prelude", "list", "show", "help"):
             assert not menu[name]["takes_item"], name
 
-    def test_a_refused_command_is_never_advertised(self, client):
+    def test_a_refused_command_is_listed_but_marked(self, client):
+        # Listing it and saying why turns a limitation into an explanation of
+        # the design; hiding it would just make OntoDAG look smaller than it
+        # is to whoever reads this page first.
         menu = self._menu(client)
         for name in ("import", "export", "set", "undo", "diff", "visualize"):
-            assert name not in menu, name
+            assert name in menu, name
+            assert not menu[name]["available"], name
+            assert menu[name]["why"], name
 
 
 class TestTheExample:
