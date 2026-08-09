@@ -12,6 +12,57 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Added
+
+- **A new web interface**, built around one idea: *in OntoDAG a path is a
+  query*, so clicking a category to drill down is appending a term to a
+  conjunction. The page therefore **echoes every click into a console as the
+  command it means**, and every typed command moves the browse state — two
+  inputs to one state rather than two interfaces, and the cheapest way to
+  learn the command language, since pointing at things shows you what your
+  click meant.
+  - **Browse pane** — the breadcrumb *is* the query; **Refine by** offers only
+    the categories held by *some but not all* of the current answer (one held
+    by all narrows nothing; one held by none is a dead end), each with the
+    count that clicking it returns.
+  - **Console** — the same `odag` interpreter as the terminal, over an
+    allow-list of the 13 commands that neither take a filesystem path nor need
+    a store with versions.
+  - **Commands sheet** — all 26 OntoDAG commands, grouped by purpose, with the
+    unavailable ones greyed and *saying why*; read off the argparse parser, so
+    it cannot drift. Picking one while something is selected fills it in.
+  - **Clickable pictures** — SVG instead of PNG, so the graph is navigable,
+    scoped to a query or one item's neighbourhood, and needs no Pillow.
+  - **Readable names** — the web was the last surface still showing canonical
+    spellings (`time(2026)` as a 46-character timestamp range).
+  - The previous page is unchanged at **`/classic`**, and no REST route
+    changed.
+- **`ontodag.browse`** — `browse()`, `refinements()`, `focus()`: the rule
+  above, in the package so no surface can drift from another. Imports nothing;
+  works over `OntoDAG`, `EagerOntoDAG`, `SparseOntoDAG` and a read-only
+  `LazyOntoDAG` view alike.
+- **`dispatch(argv, session, out=, err=)`** — the CLI is now embeddable.
+  Streams are bound with ContextVars (not module globals, not
+  `redirect_stdout`, both of which are process-wide and would let one request
+  swallow another's output), and argparse's own usage errors and `--help` go
+  the same way.
+- **`OntoDAGVisualizer.generate_svg()`**, `node_ids()` and an optional `label`
+  callable. Graphviz writes viz.py's synthetic ids into the SVG, which is what
+  makes click-to-focus one event handler rather than a graph library.
+- REST: `/dag/console`, `/dag/commands`, `/dag/browse`, `/dag/node/<name>`,
+  `/dag/names`, `/dag/picture`, `/dag/example`, `/classic`.
+
+### Fixed
+
+- Four browser-only bugs in the new page, each found by driving it rather than
+  by a status code: an HTML entity rendered as four literal characters, a
+  picture that never redrew after a mutation (its effect watched the query and
+  the focus, and a `put` changes neither), an unreadable whole-store
+  thumbnail, and a menu that opened on an empty line so that pressing Enter
+  inserted a command instead of doing nothing.
+
 ## [0.16.0] — 2026-08-06
 
 ### Added

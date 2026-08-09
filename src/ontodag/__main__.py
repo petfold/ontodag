@@ -21,6 +21,7 @@ imported lazily only when a command actually needs them.
 
 import argparse
 import collections
+import contextvars
 import importlib.util
 import errno
 import json
@@ -581,7 +582,7 @@ class SwarmBackend:
         if cloned != root:
             print(f"odag: warning: cloned {self.name} from {root[:12]}… but the "
                   f"records commit to {cloned[:12]}… — the node served "
-                  f"different content than the feed points at", file=sys.stderr)
+                  f"different content than the feed points at", file=_err())
 
     def _record_store(self):
         # BeeRemote resolves this order itself, but being explicit keeps
@@ -708,7 +709,7 @@ class SwarmBackend:
                         f"note: committed locally; not yet confirmed on "
                         f"Swarm ({exc}). It will sync on the next use of "
                         f"this store.",
-                        file=sys.stderr,
+                        file=_err(),
                     )
         finally:
             close = getattr(store, "close", None)
@@ -933,6 +934,33 @@ class Session:
 _TTY_LIMIT = 50   # generous enough that ordinary stores never notice it
 
 
+# --------------------------------------------------------------------------- #
+# Where output goes. Commands already take `out`; the *notes* (what a move left
+# contested, how many lines were withheld) went straight to `sys.stderr`, which
+# is fine for a process and wrong for any embedder — a web console has to
+# capture both streams to show the teaching errors that are half the value of
+# this CLI.
+#
+# ContextVars rather than module globals or `redirect_stdout`: both of those
+# are process-wide, so under a threaded server one request would swallow
+# another's output. A ContextVar is per-thread by default, so two concurrent
+# `dispatch` calls cannot see each other's streams.
+# --------------------------------------------------------------------------- #
+
+_OUT = contextvars.ContextVar("ontodag_out", default=None)
+_ERR = contextvars.ContextVar("ontodag_err", default=None)
+
+
+def _out():
+    stream = _OUT.get()
+    return sys.stdout if stream is None else stream
+
+
+def _err():
+    stream = _ERR.get()
+    return sys.stderr if stream is None else stream
+
+
 def _isatty(out):
     try:
         return out.isatty()
@@ -1002,7 +1030,7 @@ def _print_names(names, args, session, out):
     if withheld:
         print(f"odag: {withheld} more not shown "
               f"(-n 0 for all, or `odag count` for the total)",
-              file=sys.stderr)
+              file=_err())
 
 
 # --------------------------------------------------------------------------- #
@@ -1404,7 +1432,7 @@ def _move_note(dag, before, news, args, session, verb, out):
     flush = getattr(out, "flush", None)
     if flush is not None:
         flush()                      # or the note prints above its own listing
-    fmt = _namer(args, session, sys.stderr)
+    fmt = _namer(args, session, _err())
 
     segments = []
     for old, members in sorted(before.items()):
@@ -1428,7 +1456,7 @@ def _move_note(dag, before, news, args, session, verb, out):
         segments.append(segment)
     if not segments:
         segments = ["nothing was filed anywhere else"]
-    print(f"odag: {verb}: {'; '.join(segments)}", file=sys.stderr)
+    print(f"odag: {verb}: {'; '.join(segments)}", file=_err())
 
 
 def _cone_note(deleted, survivors, args, session, verb, out=None):
@@ -1438,7 +1466,7 @@ def _cone_note(deleted, survivors, args, session, verb, out=None):
     flush = getattr(out, "flush", None)
     if flush is not None:
         flush()
-    fmt = _namer(args, session, sys.stderr)
+    fmt = _namer(args, session, _err())
     kept = ""
     if survivors:
         shown = sorted(survivors)[:5]
@@ -1446,7 +1474,7 @@ def _cone_note(deleted, survivors, args, session, verb, out=None):
         kept = (f"; kept {len(survivors)} that hang elsewhere too "
                 f"({' '.join(fmt(name) for name in shown)}{more})")
     print(f"odag: {verb} {deleted} item{'' if deleted == 1 else 's'}{kept}",
-          file=sys.stderr)
+          file=_err())
 
 
 def cmd_show(args, session, out):
@@ -1629,7 +1657,7 @@ def cmd_diff(args, session, out):
     print(f"odag: +{len(diff.only_theirs)}/-{len(diff.only_ours)} items, "
           f"+{len(diff.added)}/-{len(diff.removed)} claims listed; "
           f"+{len(diff.entailed_added)}/-{len(diff.entailed_removed)} entailed "
-          f"claims over {len(diff.scope)} names", file=sys.stderr)
+          f"claims over {len(diff.scope)} names", file=_err())
 
     # Said out loud, always: a fragment that silently dropped the removals
     # would look like the whole change to whoever merges it next.
@@ -1638,7 +1666,7 @@ def cmd_diff(args, session, out):
         print(f"odag: {dropped} removal{'' if dropped == 1 else 's'} "
               f"{'is' if dropped == 1 else 'are'} NOT in {args.additions} — "
               f"merge only ever adds. The `- ` lines above are the whole of "
-              f"what it leaves out.", file=sys.stderr)
+              f"what it leaves out.", file=_err())
     return 1                            # differences found (grep-style, like `below`)
 
 
@@ -1701,17 +1729,17 @@ def _step_history(args, session, out, direction):
         if args.dry_run:
             target = _neighbouring_root(store, direction)
             if target is None:
-                print(f"odag: nothing to {word}", file=sys.stderr)
+                print(f"odag: nothing to {word}", file=_err())
                 return 0
             print(f"odag: would {word} to {target[:12]} — "
                   f"{_describe_move(session, store, before, target)}",
-                  file=sys.stderr)
+                  file=_err())
             return 0
 
         root = store.undo() if direction < 0 else store.redo()
         if root is None:
             print(f"odag: nothing to {word} (odag history shows where this "
-                  f"store has been)", file=sys.stderr)
+                  f"store has been)", file=_err())
             return 1
         summary = _describe_move(session, store, before, root)
         publish = getattr(session.backend, "publish_head", None)
@@ -1722,7 +1750,7 @@ def _step_history(args, session, out, direction):
 
     session.switch(session.spec)         # the in-memory graph is a state behind
     print(f"odag: {'undid' if direction < 0 else 'redid'} to {root[:12]} "
-          f"— {summary}", file=sys.stderr)
+          f"— {summary}", file=_err())
     return 0
 
 
@@ -1762,7 +1790,7 @@ def cmd_history(args, session, out):
         versions = store.history(limit=_want_limit(args, out) or None)
         if not versions:
             print("odag: this store has no recorded history yet",
-                  file=sys.stderr)
+                  file=_err())
             return 0
         for version in versions:
             marker = "*" if version.current else " "
@@ -1898,11 +1926,11 @@ def _signer_to_store(value, force):
     print(f"odag: generated a signing key, stored in {_config_path()} "
           f"(<hidden, ends {key[-4:]}>).\n"
           f"  back it up — the feed address comes from this key, so losing it "
-          f"means that feed can never be updated again.", file=sys.stderr)
+          f"means that feed can never be updated again.", file=_err())
     if os.environ.get("BEE_SIGNER"):
         print("  note: BEE_SIGNER is set in this environment and outranks the "
               "config file, so the generated key will not take effect until "
-              "you unset it.", file=sys.stderr)
+              "you unset it.", file=_err())
     return key
 
 
@@ -2156,9 +2184,26 @@ def _add_limit_flag(p):
                    help="show at most N results (0 for all)")
 
 
+class _Parser(argparse.ArgumentParser):
+    """An ArgumentParser whose usage errors and `--help` obey `dispatch`'s
+    streams.
+
+    argparse writes straight to `sys.stdout`/`sys.stderr`, so without this an
+    embedder capturing a command's output would still lose the two messages a
+    confused caller most needs: the usage error and the help text.
+    `add_subparsers` propagates the class, so every subcommand inherits it.
+    """
+
+    def _print_message(self, message, file=None):
+        if not message:
+            return
+        stream = _err() if file in (None, sys.stderr) else _out()
+        stream.write(message)
+
+
 def build_parser():
-    parser = argparse.ArgumentParser(prog="odag", add_help=False,
-                                     description="Manipulate an OntoDAG store.")
+    parser = _Parser(prog="odag", add_help=False,
+                     description="Manipulate an OntoDAG store.")
     sub = parser.add_subparsers(dest="command", metavar="<command>")
     sub.required = True
 
@@ -2363,18 +2408,36 @@ def build_parser():
 PARSER = build_parser()
 
 
-def dispatch(argv, session):
-    """Parse one command line and run it. Returns a process-style exit code."""
+def dispatch(argv, session, out=None, err=None):
+    """Parse one command line and run it. Returns a process-style exit code.
+
+    `out`/`err` let an embedder capture the two streams instead of the
+    process's. They are bound for the whole call — including argparse's own
+    messages and the notes commands write directly — so a caller sees exactly
+    what a terminal would have seen. Omitted, everything goes where it always
+    did.
+    """
     if argv and argv[0] == "?":
         # Interactive-prompt sugar for the subsumption test (`? JAL
         # Flight`); works from a shell too if you quote the glob character.
         argv = ["below"] + list(argv[1:])
+
+    tokens = [var.set(stream) for var, stream in
+              ((_OUT, out), (_ERR, err)) if stream is not None]
+    try:
+        return _dispatch(argv, session)
+    finally:
+        for token in reversed(tokens):
+            token.var.reset(token)
+
+
+def _dispatch(argv, session):
     try:
         args = PARSER.parse_args(argv)
     except SystemExit as exc:  # argparse handled --help or a usage error
         return exc.code or 0
 
-    out = sys.stdout
+    out = _out()
 
     handle = None
     outpath = getattr(args, "output", None)
@@ -2387,7 +2450,7 @@ def dispatch(argv, session):
         code = args.func(args, session, out)
         return code or 0
     except (ValueError, OSError) as exc:
-        print(f"odag: {exc}", file=sys.stderr)
+        print(f"odag: {exc}", file=_err())
         return 1
     finally:
         if handle is not None:
@@ -2417,7 +2480,7 @@ def _run_stream(session, stream, interactive):
         try:
             tokens = shlex.split(line)
         except ValueError as exc:
-            print(f"odag: {exc}", file=sys.stderr)
+            print(f"odag: {exc}", file=_err())
             continue
         if tokens[0] in ("quit", "exit"):
             break
@@ -2451,7 +2514,7 @@ def main(argv=None):
             argv = argv[1:]
             continue
         if len(argv) < 2:
-            print(f"odag: {argv[0]} requires a value", file=sys.stderr)
+            print(f"odag: {argv[0]} requires a value", file=_err())
             sys.exit(2)
         _OVERRIDES[valued[argv[0]]] = argv[1]
         argv = argv[2:]

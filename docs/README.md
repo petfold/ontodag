@@ -31,7 +31,9 @@ Discussion drafts and direction papers. **Nothing in `plans/` is
 shipped**; treat clauses there as proposed until a design record or the
 code says otherwise. Currently: BINDING (roles, bundles, multiplicity),
 EVOLUTION (how an ontology changes; the top ontology), PACKS (published
-ontologies and trust), SURFACE_LAYER (the human layer), ROADMAP,
+ontologies and trust), SURFACE_LAYER (the human layer), WEB_UI (a simpler
+web interface — the browse/console page is shipped; the demo site and store
+selection are not), ROADMAP,
 DATABASE_DIRECTION (what OntoDAG refuses to become, with tripwires),
 BROWSER (Pyodide), SEMANTIC_CODES, MERKLE_NOTES,
 PHILOSOPHICAL_LANGUAGES, SWARM_DESIGN_update (POT/beeson proposal).

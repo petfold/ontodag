@@ -400,11 +400,11 @@ class TestConeRemovalOverRest:
                           ).status_code == 400
 
 
-class TestThePageIsWiredUp:
-    """Static checks on index.html, because the failure mode of a button is a
-    typo: an id the script looks up but the markup never defines, or a URL the
-    app does not route. Both give a control that silently does nothing, which no
-    status-code test can see.
+class TestTheClassicPageIsWiredUp:
+    """Static checks on the classic page, because the failure mode of a button
+    is a typo: an id the script looks up but the markup never defines, or a URL
+    the app does not route. Both give a control that silently does nothing,
+    which no status-code test can see.
 
     (Clicking through in a real browser is still the only way to see layout and
     rendering — that pass found three bugs in 2026-08-02 that HTTP checks had
@@ -412,7 +412,7 @@ class TestThePageIsWiredUp:
     """
 
     def _page(self, client):
-        response = client.get("/")
+        response = client.get("/classic")
         assert response.status_code == 200
         return response.data.decode()
 
@@ -466,6 +466,442 @@ class TestThePageIsWiredUp:
             result = subprocess.run([node, "--check", handle.name],
                                     capture_output=True, text=True)
         assert result.returncode == 0, result.stderr
+
+
+def console(client, line, cat=None):
+    response = client.post("/dag/console",
+                           query_string={"cat": cat} if cat else {},
+                           json={"line": line})
+    assert response.status_code == 200, response.data
+    return response.get_json()
+
+
+class TestConsole:
+    """The command language, over HTTP.
+
+    The console is the same interpreter the CLI uses, so these tests are not
+    about what the commands *do* — that is `tests/test_cli.py`'s job, against
+    the same `dispatch`. They are about the seam: that both streams come back,
+    that the exit code survives, and that the allow-list holds.
+    """
+
+    def test_a_command_runs_and_its_output_comes_back(self, client):
+        put(client, "animal")
+        put(client, "dog", ["animal"])
+        answer = console(client, "get animal")
+        assert answer["code"] == 0
+        assert answer["out"] == "dog\n"
+        assert answer["err"] == ""
+
+    def test_the_exit_code_survives(self, client):
+        put(client, "animal")
+        put(client, "dog", ["animal"])
+        # `below` is grep-shaped: 0 for true, 1 for false, and the word is
+        # the answer rather than an error.
+        assert console(client, "below dog animal")["code"] == 0
+        assert console(client, "below animal dog")["code"] == 1
+        assert console(client, "below animal dog")["out"] == "false\n"
+
+    def test_errors_arrive_on_their_own_stream(self, client):
+        answer = console(client, "put orphan nosuchparent")
+        assert answer["code"] == 1
+        assert answer["out"] == ""
+        assert "do not exist" in answer["err"]
+
+    def test_argparse_messages_are_captured_too(self, client):
+        # Without the stream plumbing in dispatch() these went to the
+        # server's own stderr, so a usage error looked like silence.
+        answer = console(client, "get --nonsense")
+        assert answer["code"] == 2
+        assert "unrecognized arguments" in answer["err"]
+
+    def test_a_mutation_is_visible_to_the_rest_of_the_app(self, client):
+        console(client, "put dog")
+        assert query_names(client, "dog") == set()      # exists, nothing under it
+        # The empty query is everything, and everything is now `dog`.
+        assert console(client, "count")["out"] == "1\n"
+
+    def test_names_are_rendered_for_a_person(self, client):
+        # The console claims to be a terminal, so it inherits the CLI's
+        # terminal behaviour: readable spellings rather than canonical bytes.
+        client.post("/dag/prelude")
+        console(client, "put shipment 'weight(500g)'")
+        answer = console(client, "canon 'weight(500g)'")
+        assert answer["out"].strip() == "weight(1/2kg)"
+        assert "weight(500g)" in console(client, "get weight")["out"]
+
+    def test_a_blank_line_does_nothing(self, client):
+        answer = console(client, "   ")
+        assert (answer["code"], answer["out"], answer["err"]) == (0, "", "")
+
+    def test_unbalanced_quotes_are_a_client_error_not_a_crash(self, client):
+        answer = console(client, "get 'unclosed")
+        assert answer["code"] == 1
+        assert "odag:" in answer["err"]
+
+
+class TestConsoleAllowList:
+    """What a page may NOT run.
+
+    Each of these takes a filesystem path and would run as the server user,
+    which on a public demo is the whole ball game. The refusals are checked
+    by *effect* where an effect is observable, not just by message.
+    """
+
+    def test_path_taking_commands_are_refused(self, client):
+        for line in ("import /etc/passwd", "export /tmp/x.owl",
+                     "merge /tmp/x.od", "excerpt /tmp/x.od",
+                     "diff /tmp/other.od", "visualize", "index", "swarm"):
+            answer = console(client, line)
+            assert answer["code"] == 2, line
+            assert answer["err"].startswith("odag: `"), line
+
+    def test_output_redirection_is_refused_even_on_an_allowed_command(
+            self, client, tmp_path):
+        # `get` is allowed, and `-o` writes wherever it is pointed — so the
+        # check has to be on the line, not on the command.
+        target = tmp_path / "written"
+        for flag in (f"-o {target}", f"--output {target}", f"--output={target}"):
+            answer = console(client, f"get {flag}")
+            assert answer["code"] == 2, flag
+        assert not target.exists()
+
+    def test_set_store_cannot_repoint_the_app(self, client):
+        answer = console(client, "set store /tmp/somewhere.od")
+        assert answer["code"] == 2
+        assert "launch argument" in answer["err"]
+
+    def test_history_explains_itself_rather_than_traceback(self, client):
+        for line in ("history", "undo", "redo", "status"):
+            answer = console(client, line)
+            assert answer["code"] == 2, line
+            assert "keeps no versions" in answer["err"], line
+
+    def test_an_unknown_command_says_how_many_there_are(self, client):
+        answer = console(client, "frobnicate")
+        assert answer["code"] == 2
+        assert "unknown command" in answer["err"]
+
+    def test_help_says_which_commands_this_surface_runs(self, client):
+        answer = console(client, "help")
+        assert answer["code"] == 0
+        assert "in the browser:" in answer["err"]
+        assert " put " in answer["err"]
+
+
+class TestBrowse:
+    """The refinements are the point: categories held by SOME but not all of
+    the answer. One held by all narrows nothing; one held by none is a dead
+    end. Every choice offered therefore leads somewhere different."""
+
+    def _shop(self, client):
+        for name, parents in [("Travel", []), ("Japan", []),
+                              ("Flight", ["Travel"]), ("Hotel", ["Travel"]),
+                              ("JAL7", ["Flight", "Japan"]),
+                              ("NH209", ["Flight", "Japan"]),
+                              ("BA1", ["Flight"]),
+                              ("Ryokan", ["Hotel", "Japan"])]:
+            assert put(client, name, parents).status_code == 201
+
+    def _browse(self, client, cat=None):
+        response = client.get("/dag/browse",
+                              query_string={"cat": cat} if cat else {})
+        assert response.status_code == 200
+        return response.get_json()
+
+    def test_the_empty_query_is_everything(self, client):
+        self._shop(client)
+        assert self._browse(client)["count"] == 8
+
+    def test_refinements_split_the_answer(self, client):
+        self._shop(client)
+        refine = {r["name"]: r["matching"] for r in
+                  self._browse(client, "Japan")["refine"]}
+        assert refine == {"Flight": 2, "Hotel": 1}
+
+    def test_a_category_every_answer_has_is_not_offered(self, client):
+        self._shop(client)
+        # All three Flights are under Travel, so clicking Travel would return
+        # the same answer — it is not a choice.
+        refine = {r["name"] for r in self._browse(client, "Flight")["refine"]}
+        assert "Travel" not in refine
+        assert refine == {"Japan"}
+
+    def test_the_matching_count_is_what_the_click_returns(self, client):
+        self._shop(client)
+        for entry in self._browse(client, "Japan")["refine"]:
+            narrowed = self._browse(client, f"Japan,{entry['name']}")
+            assert narrowed["count"] == entry["matching"], entry
+
+    def test_a_fully_determined_answer_offers_nothing(self, client):
+        self._shop(client)
+        assert self._browse(client, "Japan,Flight")["refine"] == []
+
+    def test_declarations_are_grouped_apart_from_things(self, client):
+        client.post("/dag/prelude")
+        self._shop(client)
+        here = {h["name"]: h["vocab"] for h in self._browse(client)["here"]}
+        assert here["weight"] is True and here["dimension"] is True
+        assert here["JAL7"] is False and here["Travel"] is False
+
+    def test_something_filed_at_a_typed_value_is_not_vocabulary(self, client):
+        # It hangs under `time(...)`, which hangs under `time`, which is a
+        # declaration — so the whole cone of `dimension` is the wrong set.
+        client.post("/dag/prelude")
+        put(client, "JAL7", ["time(2026-08-15)"])
+        here = {h["name"]: h["vocab"] for h in self._browse(client)["here"]}
+        assert here["JAL7"] is False
+        assert here["time"] is True
+
+    def test_a_union_narrows_every_branch(self, client):
+        self._shop(client)
+        both = self._browse(client, "Hotel|Flight")
+        assert both["count"] == 4                      # BA1 JAL7 NH209 Ryokan
+        narrowed = self._browse(client, "Hotel,Japan|Flight,Japan")
+        assert narrowed["count"] == 3                  # BA1 drops out
+
+
+class TestNodeDetail:
+    def test_it_answers_with_both_spellings(self, client):
+        client.post("/dag/prelude")
+        put(client, "JAL7", ["time(2026-08-15)"])
+        detail = client.get("/dag/node/JAL7").get_json()
+        assert detail["name"] == "JAL7"
+        above = {p["display"]: p["name"] for p in detail["above"]}
+        # The page shows what a person typed; the store keeps the range.
+        assert "time(2026-08-15)" in above
+        assert above["time(2026-08-15)"].startswith("time(2026-08-15T00:00:00Z")
+
+    def test_a_missing_name_is_a_404_not_a_traceback(self, client):
+        assert client.get("/dag/node/nosuch").status_code == 404
+
+    def test_a_name_that_needs_encoding_survives(self, client):
+        put(client, "C++ & notes")
+        detail = client.get("/dag/node/C%2B%2B%20%26%20notes").get_json()
+        assert detail["name"] == "C++ & notes"
+
+
+class TestPictureIsClickable:
+    """A picture nobody can click is a screenshot. Graphviz writes viz.py's
+    synthetic ids into the SVG, which is what lets a click become a name
+    without a graph library — so the id map is load-bearing, not decoration."""
+
+    def test_every_drawn_node_can_be_traced_back_to_its_name(self, client):
+        import re
+        put(client, "animal")
+        put(client, "dog", ["animal"])
+        answer = client.get("/dag/picture").get_json()
+        drawn = set(re.findall(r"<title>(n\d+)</title>", answer["svg"]))
+        assert drawn, "no node groups in the SVG"
+        assert drawn <= set(answer["ids"])
+        assert {"animal", "dog", "*"} <= set(answer["ids"].values())
+
+    def test_labels_are_rendered_while_the_map_stays_canonical(self, client):
+        client.post("/dag/prelude")
+        put(client, "JAL7", ["time(2026-08-15)"])
+        answer = client.get("/dag/picture",
+                            query_string={"focus": "JAL7"}).get_json()
+        # Readable in the picture... (Graphviz entity-escapes `-` in labels.)
+        import html as _html
+        assert "time(2026-08-15)" in _html.unescape(answer["svg"])
+        # ...canonical in the map, or a click would land on nothing.
+        assert any(name.startswith("time(2026-08-15T00:00:00Z")
+                   for name in answer["ids"].values())
+
+    def test_a_focus_draws_its_neighbourhood_not_the_store(self, client):
+        for i in range(12):
+            put(client, f"item{i}")
+        put(client, "dog")
+        put(client, "rex", ["dog"])
+        answer = client.get("/dag/picture",
+                            query_string={"focus": "dog"}).get_json()
+        assert set(answer["ids"].values()) == {"*", "dog", "rex"}
+
+    def test_a_query_picture_shows_the_terms_it_was_asked(self, client):
+        put(client, "animal")
+        put(client, "dog", ["animal"])
+        answer = client.get("/dag/picture",
+                            query_string={"cat": "animal"}).get_json()
+        assert "animal" in answer["ids"].values()
+
+    def test_too_big_to_draw_says_so_instead_of_grinding(self, client):
+        from app import PICTURE_LIMIT
+        for i in range(PICTURE_LIMIT + 1):
+            put(client, f"item{i}")
+        response = client.get("/dag/picture")
+        assert response.status_code == 413
+        assert "too many to draw" in response.get_json()["error"]
+
+
+class TestNamesForCompletion:
+    def test_it_offers_names(self, client):
+        put(client, "Japan")
+        put(client, "JAL7")
+        answer = client.get("/dag/names", query_string={"prefix": "ja"}).get_json()
+        assert answer["names"] == ["JAL7", "Japan"]      # case-insensitive
+
+    def test_the_root_is_not_a_name_anyone_completes_to(self, client):
+        assert "*" not in client.get("/dag/names").get_json()["names"]
+
+
+class TestTheCommandMenu:
+    """The menu that makes a console explorable.
+
+    Read off the argparse parser rather than written out, so a command the
+    browser can run but nobody listed is impossible — the same
+    can't-drift discipline as docs/REFERENCE.md's tables.
+    """
+
+    def _menu(self, client):
+        answer = client.get("/dag/commands")
+        assert answer.status_code == 200
+        return {c["name"]: c for c in answer.get_json()["commands"]}
+
+    def test_it_lists_every_command_ontodag_has(self, client):
+        # All of them, not the sandbox's subset: someone opening this is
+        # asking what the system does, and the answer is not "whatever a
+        # browser is allowed to do".
+        from ontodag.__main__ import PARSER
+        sub = next(action for action in PARSER._actions
+                   if getattr(action, "choices", None))
+        assert set(self._menu(client)) == set(sub.choices)
+
+    def test_it_says_which_ones_run_here(self, client):
+        from app import CONSOLE_COMMANDS
+        menu = self._menu(client)
+        runs = {name for name, entry in menu.items() if entry["available"]}
+        assert runs == CONSOLE_COMMANDS - {"?"}
+
+    def test_every_command_it_cannot_run_says_why(self, client):
+        for name, entry in self._menu(client).items():
+            if not entry["available"]:
+                assert entry["why"], f"{name} is refused with no reason given"
+
+    def test_every_command_is_in_exactly_one_group(self, client):
+        # The guard that keeps this from falling behind the CLI: a new
+        # command has to be classified, or this fails.
+        from app import COMMAND_GROUPS
+        from ontodag.__main__ import PARSER
+        sub = next(action for action in PARSER._actions
+                   if getattr(action, "choices", None))
+        grouped = [name for _, names in COMMAND_GROUPS for name in names]
+        assert sorted(grouped) == sorted(sub.choices)
+        assert len(grouped) == len(set(grouped)), "a command is in two groups"
+
+    def test_the_groups_come_back_in_a_stated_order(self, client):
+        from app import COMMAND_GROUPS
+        answer = client.get("/dag/commands").get_json()
+        assert answer["groups"] == [group for group, _ in COMMAND_GROUPS]
+
+    def test_every_entry_explains_itself(self, client):
+        for name, entry in self._menu(client).items():
+            assert entry["help"], f"{name} has no description"
+            assert entry["help"] == entry["help"].lstrip(), name
+
+    def test_argument_shapes_come_from_the_parser(self, client):
+        menu = self._menu(client)
+        assert menu["put"]["args"] == "ITEM [PARENTS...]"
+        assert menu["below"]["args"] == "SUB SUP"
+        assert menu["get"]["args"] == "[CATEGORIES...]"
+        assert menu["list"]["args"] == ""
+
+    def test_output_plumbing_is_not_offered_as_a_choice(self, client):
+        # `-o`, `--raw`, `-n` are real options and none of them is about what
+        # the command does — and `-o` is refused on this surface anyway.
+        for entry in self._menu(client).values():
+            assert not ({"--raw", "--render", "--limit", "--output"}
+                        & set(entry["flags"])), entry
+
+    def test_the_flags_that_change_meaning_are_offered(self, client):
+        menu = self._menu(client)
+        assert "--cone" in menu["remove"]["flags"]
+        assert {"--to", "--from"} <= set(menu["move"]["flags"])
+
+    def test_only_commands_about_an_item_take_the_selected_one(self, client):
+        menu = self._menu(client)
+        for name in ("put", "move", "remove", "below", "get", "canon"):
+            assert menu[name]["takes_item"], name
+        # `pack NAME` has a positional too, and it names a unit pack — filling
+        # in whatever is selected would be nonsense dressed up as help.
+        for name in ("pack", "prelude", "list", "show", "help"):
+            assert not menu[name]["takes_item"], name
+
+    def test_a_refused_command_is_listed_but_marked(self, client):
+        # Listing it and saying why turns a limitation into an explanation of
+        # the design; hiding it would just make OntoDAG look smaller than it
+        # is to whoever reads this page first.
+        menu = self._menu(client)
+        for name in ("import", "export", "set", "undo", "diff", "visualize"):
+            assert name in menu, name
+            assert not menu[name]["available"], name
+            assert menu[name]["why"], name
+
+
+class TestTheExample:
+    def test_it_loads_with_the_declarations_its_values_need(self, client):
+        # Typed values are refused without them, so a visitor who types
+        # weight(3kg) in the first minute would get an error for doing the
+        # most interesting thing on offer.
+        assert client.post("/dag/example").status_code == 201
+        assert console(client, "put parcel 'weight(3kg)'")["code"] == 0
+
+    def test_it_is_idempotent(self, client):
+        client.post("/dag/example")
+        first = client.get("/dag/browse").get_json()["count"]
+        client.post("/dag/example")
+        assert client.get("/dag/browse").get_json()["count"] == first
+
+
+class TestTheNewPageIsWiredUp:
+    """The new page is a module, not an inline script, so the checks differ in
+    mechanism from the classic page's — but they answer the same question: is
+    every control connected to something that exists?"""
+
+    def _script(self):
+        import pathlib
+        return (pathlib.Path(__file__).parent.parent
+                / "web" / "static" / "app.js").read_text()
+
+    def test_the_page_loads_and_asks_for_its_module(self, client):
+        page = client.get("/").data.decode()
+        assert 'src="/static/app.js"' in page
+        assert 'href="/static/app.css"' in page
+
+    def test_every_url_the_module_calls_is_a_real_route(self, client):
+        import re
+        script = self._script()
+        urls = set(re.findall(r'["`](/dag[a-z/]*)[`"?]', script))
+        routes = {rule.rule for rule in app.url_map.iter_rules()}
+        # Routes with a path parameter are spelled with the value inline.
+        routes |= {"/dag/node", "/dag/export", "/dag/query/export"}
+        missing = {url for url in urls
+                   if url not in routes
+                   and not any(url.startswith(r.rstrip("/") + "/")
+                               for r in routes)}
+        assert not missing, f"no such route(s): {sorted(missing)}"
+
+    def test_the_module_is_valid_javascript(self, client):
+        import shutil
+        import subprocess
+        import tempfile
+        node = shutil.which("node") or shutil.which("nodejs")
+        if node is None:
+            pytest.skip("node not installed")
+        with tempfile.NamedTemporaryFile("w", suffix=".mjs") as handle:
+            handle.write(self._script())
+            handle.flush()
+            result = subprocess.run([node, "--check", handle.name],
+                                    capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+
+    def test_the_vendored_module_is_present_and_served(self, client):
+        response = client.get("/static/vendor/preact-htm.module.js")
+        assert response.status_code == 200
+        assert b"export{" in response.data          # it is an ES module
+        assert 'from "/static/vendor/preact-htm.module.js"' in self._script()
+
+    def test_the_classic_page_is_still_reachable(self, client):
+        assert client.get("/classic").status_code == 200
 
 
 class TestDeclaringDimensionsOverRest:

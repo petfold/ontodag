@@ -109,7 +109,7 @@ separate products — point them at the same store and they see the same thing.
 | --- | --- | --- |
 | **Python** | `from ontodag import OntoDAG` — the library everything else wraps | §3, §4 |
 | **Command line** | `odag`, a Unix tool: silent on success, pipes cleanly | §5 |
-| **Web** | a browser UI with live pictures, plus a REST API for `curl` | §6 |
+| **Web** | a browser UI: browse by query, a console, clickable pictures — plus a REST API for `curl` | §6 |
 | **Agents** | `odag-mcp`, the store as MCP tools, with verifiable answers | §9 |
 | **Filesystem** | [ontodag-fs](https://github.com/petfold/ontodag-fs): paths as queries, FUSE-mountable | separate repo |
 
@@ -130,7 +130,7 @@ accidental — each surface exposes what makes sense for who is using it:
 | **declare dimensions** (prelude / packs) | ✓ | ✓ | ✓ `/dag/prelude`, `/dag/pack` | — |
 | **version history** (`history`/`undo`/`redo`) | ✓ via the store | ✓ | n/a | — |
 | **as-of** (read a past version) | ✓ `RecordStore.at` | ✓ `--as-of` | n/a | ✓ |
-| readable rendering | ✓ (`ontodag.surface`) | ✓ | — | ✓ (beside the exact name) |
+| readable rendering | ✓ (`ontodag.surface`) | ✓ | ✓ | ✓ (beside the exact name) |
 | import / export / merge | ✓ | ✓ | ✓ | — |
 | pictures | ✓ | ✓ | ✓ | — |
 | Swarm stores | ✓ | ✓ | — | ✓ |
@@ -146,7 +146,10 @@ The empty cells are decisions, not oversights, and each has a reason:
   root and a canonical echo, not files.
 - **The web app has no version history, as-of, certificates or store tiers** —
   its DAG is *server memory per session* (§6). There is no store and no root
-  there, so those aren't withheld; they don't exist.
+  there, so those aren't withheld; they don't exist. Its console runs 13 of
+  the CLI's 26 commands for the same kind of reason: the rest read or write
+  filesystem paths on the server, or need a store that keeps versions. The
+  `Commands` button lists all 26 anyway, saying which is which.
 - **diff has no web surface** — the second store has to come from somewhere, and
   an upload is a design question rather than a missing endpoint.
 - **The CLI has no provenance, review or certificates** — signing needs a key
@@ -1751,65 +1754,93 @@ cd web
 python3 app.py          # starts http://localhost:5000  (needs the [web] extra)
 ```
 
-Open **http://localhost:5000** in any browser for the interactive UI: add items,
-run queries, watch the graph redraw, import and export files. There is also a
-self-contained demo of a used-car marketplace built on OntoDAG at
-**http://localhost:5000/market** — categories like fuel type, body style and
-price band form the DAG, and buyer searches are DAG queries.
+Open **http://localhost:5000** in any browser. A first visit lands in a small
+worked example rather than an empty graph, so there is something to click
+straight away. There is also a self-contained demo of a used-car marketplace
+built on OntoDAG at **http://localhost:5000/market** — categories like fuel
+type, body style and price band form the DAG, and buyer searches are DAG
+queries.
 
-**What the page gives you.** Two panels. The top one is the whole DAG: a text
-listing, a picture that redraws after every change (click it for full size),
-and buttons to start a new DAG, import a file, or export OWL / Manchester /
-DOT / LaTeX. The bottom one is a query: type comma-separated categories, and
-you get the matching items plus a picture of the query and its results, with
-the query terms shaded differently from what they matched.
+### 6.1 Browsing is querying
 
-**Editing.** The item box drives four operations, and the difference between
-them matters:
+The page is a breadcrumb, two lists, a detail panel and a console. The idea
+holding it together is worth one paragraph, because it is what makes the
+browser and the command line the same thing here:
 
-- **Add Item** files the items under the super-categories beside them.
-- **Remove Item** removes them by *contraction*: the category goes, whatever was
-  filed under it reattaches to its parents (§4.3).
-- **Delete + Contents** is the other removal: the items *and* whatever only
-  existed under them. It asks first, listing what would go — and what it would
-  keep, because a member of the cone that also hangs somewhere else survives,
-  which is the part nobody expects.
-- **Move Item** reclassifies: fill in *Move to* and, optionally, *out of*.
-  Blank *out of* replaces every category the items are under. Everything below
-  an item travels with it, and if a shared item ends up under both the old and
-  the new category the page says so — that is true rather than broken, and
-  nothing can decide it for you (§5.10).
+> **In OntoDAG a path is a query.** `/pet/dog` is not a location, it means
+> *pet AND dog*, and `/dog/pet` is the same place. So clicking a category to
+> drill down does not take you somewhere else — it appends a term to a
+> conjunction.
 
-Two more rows sit above the query panel. **Declare dimensions** adopts the
-standard declarations (the prelude) so typed values like `weight(3kg)` can be
-filed at all — without it they are refused, since a value needs its dimension
-declared, and there was previously no way to do that from the browser at all.
-Beside it, a pack list adopts a unit vocabulary (currencies and the like).
-**Below?** answers "does this fit within that?" for two names, and **Canon**
-says what a spelling actually stores — worth having here precisely because this
-surface displays canonical names.
+Which gives the rule the page runs on: **every click writes its command into
+the console, and every command moves the browse state.** Click `Japan` and
+`get Japan` appears in the console having produced exactly the list in front
+of you; type `get Flight` and the breadcrumb moves. They are two ways to
+change one state, not two interfaces — and pointing at things is the cheapest
+way to learn the language, because you never have to look anything up to see
+what your click meant.
 
-The query panel's **with context** checkbox switches the download from the bare
-answer to the sendable form that also carries the categories the answers hang
-from (§5.8). Either way a query export contains the *answer*, never the query
-terms, so re-importing it does not file your question as knowledge.
+- **The breadcrumb** *is* the query. Each term has an `✕`; the `✱` at the
+  front is the empty query, which is everything (§5.6).
+- **Refine by** lists the categories that would actually narrow what you are
+  looking at — the ones held by *some but not all* of the current answer,
+  with the number of items each click will leave. A category every answer
+  already has narrows nothing and is not offered; one that no answer has
+  would empty it, and is not offered either. So every choice on that list
+  leads somewhere different.
+- **Here** is the answer. `▸` marks the ones with something filed under them.
+- **The detail panel** is whatever you last clicked: its rendered name, the
+  canonical form underneath, what it is under and what is under it (all
+  clickable), and a picture of its neighbourhood. **The picture is clickable
+  too** — click a shape to move there.
+- **Declarations are grouped apart.** `weight`, `time` and the other
+  dimension heads are real items in the graph — that is what lets vocabulary
+  travel with a store — but they are shown behind a *show N vocabulary* link
+  so your own things come first.
 
-Typed values work in both boxes exactly as they do everywhere else — file
-something under `weight(3kg)` and `time(2026-08-15)`, then query
-`weight(..5kg)`, and the virtual term resolves without any node existing for
-it; the query picture shows the term itself above what it matched, even
-though no such node is stored. Union is available too, with `|` between
-alternatives (`Flight,Japan|Hotel`), drawn as the two branches it is, and an
-empty query box means everything.
+### 6.2 The console, and finding your way around it
 
-Two limitations worth knowing, both deliberate rather than broken: the browser
-UI shows **canonical** names, not the friendly spellings the CLI renders on a
-terminal (so you will see the full timestamp range rather than `time(2026)`),
-and the web app keeps its DAG **in server memory per session** — it is not
-backed by your `odag` store and cannot use Swarm. It is a workbench and a
-demo, not a second front end onto the same data.
+The box along the bottom runs the same `odag` command language as the
+terminal (§5) — the same interpreter, the same teaching errors. Names in its
+output are clickable.
 
-### 6.1 Scripting it with curl
+Nobody should have to know a language before they can look at it, so there
+are two ways to find your way:
+
+- **Start typing** and the matching commands appear above the box, each with
+  its arguments and a line of what it does. `Tab` completes; past the verb it
+  completes item names instead. `Escape` puts it away, `↑` walks your history.
+- **The `Commands` button** in the top bar opens the full reference: **all 26
+  OntoDAG commands**, grouped by what they are for. The ones a browser cannot
+  run are greyed with the reason beside them — `import` reads a server-side
+  file path, `undo` needs a store that keeps versions — so the list tells you
+  what OntoDAG does, not merely what this page permits. Pick any of the
+  others and it lands in the console; pick one while something is selected
+  and it arrives with that something filled in.
+
+Thirteen of the twenty-six run in the browser. The rest are not missing
+features: they take filesystem paths, or need a real store (§5.1). Dropping a
+file onto the page imports it, and the **Download** menu is how files come
+back out — the query downloads are the **excerpt**, with an option to include
+the categories the answers hang from (§5.8), and never the query terms, so
+re-importing one does not file your question as knowledge.
+
+Typed values work exactly as everywhere else: file something under
+`weight(3kg)` and `time(2026-08-15)`, then query `weight(..5kg)` and the
+virtual term resolves with no node existing for it. Union works with `|`
+between alternatives (`Flight,Japan|Hotel`), or `or` when typed as a command.
+
+**One limitation worth knowing**, deliberate rather than broken: the web app
+keeps its DAG **in server memory per session** — it is not backed by your
+`odag` store and cannot use Swarm, so there is no root, no history and no
+`--as-of` here. It is a workbench and a demo, not a second front end onto the
+same data. (Names *are* rendered for reading, as on a terminal; `canon` in
+the console shows what any spelling actually stores.)
+
+The **classic page** — the previous two-panel UI — is still served at
+**/classic**, and drives the same REST API.
+
+### 6.3 Scripting it with curl
 
 Each browser session gets its own private DAG (a session cookie keeps them apart),
 so tell curl to remember cookies with `-c`/`-b`:

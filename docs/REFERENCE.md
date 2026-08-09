@@ -235,6 +235,19 @@ empty `cat` = everything.
 | `/dag/pack` | GET / POST `{name}` | list / adopt a unit vocabulary pack |
 | `/market`, `/cars…` | GET | the car-market demo |
 
+Serving the page (all read-only except the console and the example):
+
+| endpoint | methods | does |
+|---|---|---|
+| `/dag/console` | POST `{line}` | run one `odag` command line; answers `{out, err, code}` plus the page's state. **Allow-listed** — the 13 commands that neither touch a filesystem path nor need a store with versions |
+| `/dag/commands` | GET | every OntoDAG command with its description, argument shape, group and `available`/`why` — read off the argparse parser, so it cannot drift |
+| `/dag/browse?cat=` | GET | the answer plus `refine`: the categories held by *some but not all* of it, each with the count clicking it returns |
+| `/dag/node/<name>` | GET | one node: parents, children, count, rendered *and* canonical name |
+| `/dag/names?prefix=` | GET | names, for completion |
+| `/dag/picture[?cat=\|?focus=&depth=]` | GET | `{svg, ids}` — inline SVG plus the map from shape id back to name, which is what makes the drawing clickable |
+| `/dag/example` | POST | load the worked example, with the prelude its typed values need |
+| `/classic` | GET | the previous page, unchanged |
+
 The web DAG is server memory per session — not your `odag` store.
 
 ## 8. MCP agent surface (`odag-mcp`)

@@ -103,15 +103,29 @@ class OntoDAGVisualizer:
     which is deterministic, so the DOT output stays diffable."""
 
     def __init__(self, format="png", layout="TB", default_color="seashell",
-                 root_color="seashell3"):
+                 root_color="seashell3", label=None):
         self.format = format
         self.layout = layout
         self.default_color = default_color
         self.root_color = root_color
+        # How a node is captioned, given (name, descendant_count). The default
+        # is the historical `name: count`; a surface that renders names for
+        # people passes its own, so the picture agrees with the list beside it.
+        self.label = label or (lambda name, count: f"{name}: {count}")
 
     @staticmethod
-    def _ids(dag):
+    def node_ids(dag):
+        """name -> the synthetic DOT identifier used for it.
+
+        Public because a *clickable* rendering needs to map back: Graphviz
+        emits these ids into the SVG (`<g class="node"><title>n2</title>`), so
+        a caller can turn a click on a shape into the name it stands for
+        without parsing labels — which would be ambiguous, since labels carry
+        counts and may be rendered rather than canonical.
+        """
         return {name: f"n{index}" for index, name in enumerate(dag.nodes)}
+
+    _ids = node_ids   # the name this had before anything outside needed it
 
     def _build(self, dag, color_mapping=None, format=None):
         """The whole graph, assembled once. The three public entry points
@@ -136,6 +150,19 @@ class OntoDAGVisualizer:
     def generate_dot_source(self, dag, color_mapping=None):
         return self._build(dag, color_mapping, format="dot").source
 
+    def generate_svg(self, dag, color_mapping=None):
+        """The graph as SVG text, ready to inline.
+
+        SVG rather than PNG wherever a person will interact with the picture:
+        it scales, it is a fraction of the size, the ids survive into the
+        markup (see `node_ids`) so clicking a node is one event handler and no
+        graph library, and — unlike `generate_image` — it needs no Pillow.
+        Layout is still Graphviz's: `dot`'s layered ranking is the thing worth
+        keeping about DOT, and it is better than anything that would run in
+        the browser.
+        """
+        return self._build(dag, color_mapping).pipe(format="svg").decode("utf-8")
+
     def generate_image(self, dag, color_mapping=None):
         from io import BytesIO
         try:
@@ -157,7 +184,7 @@ class OntoDAGVisualizer:
             color = self.root_color if is_root else color_mapping.get(
                 node, self.default_color)
         # Synthetic id, real name in the label (see the class note).
-        graph.node(ids[node.name], f'{node.name}: {node.descendant_count}',
+        graph.node(ids[node.name], self.label(node.name, node.descendant_count),
                    style="filled", fillcolor=color)
         for subcategory in sorted(node.neighbors, key=lambda n: n.name):
             graph.edge(ids[node.name], ids[subcategory.name])

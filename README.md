@@ -134,6 +134,25 @@ Equal knowledge always yields an equal root, whatever order it arrived in, which
 is what makes stores diffable, mergeable between writers, and verifiable by
 someone holding nothing but the root.
 
+## In a browser
+
+```bash
+pip install "ontodag[web]" && cd web && python3 app.py   # localhost:5000
+```
+
+Browsing *is* querying, because in OntoDAG a path is a query: `/pet/dog` means
+*pet AND dog*, and `/dog/pet` is the same place. So clicking a category appends
+a term to a conjunction — and the page shows you that, by echoing every click
+into a console as the command it means (`get Japan Flight`). Point at things
+and you have learned the command language without looking anything up. The
+**Refine by** list only offers categories that genuinely narrow what you are
+looking at, with the count each click will leave; the graph is clickable; and a
+`Commands` button lists all 26 OntoDAG commands, marking which of them a
+browser can run and why the rest cannot.
+
+The web app's DAG is server memory per session — a workbench and a demo, not a
+front end onto your store.
+
 ## For AI agents
 
 Serve any store to an agent over MCP with **`odag-mcp`**

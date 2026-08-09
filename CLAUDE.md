@@ -85,6 +85,40 @@ cd web && python3 app.py   # starts Flask dev server on localhost:5000 (needs fl
 
 REST endpoints: `POST /dag` (reset), `GET/POST/DELETE /dag/node`, `GET /dag/query?cat=A,B`, image renders (`/dag/image`, `/dag/query/image`), import (`/dag/import`, `/dag/query/import`), and exports in OWL/Manchester/DOT/LaTeX (`/dag/export`, `/dag/export/{omn,dot,tex}`, same under `/dag/query/`).
 
+**The page was replaced 2026-08-09 — design record
+`docs/plans/WEB_UI.md`, stages 1–4 of its §12 (the demo site and store
+selection are NOT built).** The old page was 32 controls in 7 forms with one text box driving
+four verbs (two destructive), a flat dump of every node as the main content
+area, everything drawn twice (a query result *is* a DAG, and the whole store
+is the answer to the empty query — a unification the core made and the page
+never followed), and canonical names on screen (`time(2026)` shown as its
+46-character timestamp range). The replacement is **one language, one
+result, one focus**: a browse pane whose breadcrumb *is* the query, a
+console running the same `odag` interpreter, and the rule that **every click
+writes its command into the console and every command updates the browse
+state** — sound because in OntoDAG a path is a query, so a click is
+literally `get Japan Flight`, which makes pointing the cheapest way to learn
+the language. New: `ontodag.browse` (the refinement rule — categories held
+by *some but not all* of the answer, so every choice leads somewhere new; a
+walk in the concept lattice, and the fifth import-nothing consumer module),
+`dispatch(argv, session, out=, err=)` via ContextVars (with a `_Parser`
+subclass so argparse's own messages are captured), and
+`OntoDAGVisualizer.generate_svg` — Graphviz writes viz.py's synthetic ids
+into the SVG, so click-to-focus needs no graph library and no build step.
+Front end is vendored Preact+htm, 13 KB, no build step, no CDN. Old page
+kept at `/classic`; **no REST route changed**, which is why 48 of the 53 web
+tests passed untouched. `web/browser_check.py` (Playwright, not in the
+suite) drives the real page: it found four bugs no status code could —
+`&gt;` rendered as four literal characters, a picture that never redrew
+after a mutation, a 33-node thumbnail squiggle, and a menu that opened on an
+empty line so that pressing Enter inserted a command instead of doing
+nothing. **Discoverability is the console's contextual suggestion list**,
+which is the completion list *and* the menu: commands while the verb is
+being typed, names after it, on screen only while in use (so it costs one
+`commands ▾` button and no permanent menu bar), read off the argparse parser
+via `GET /dag/commands` so it cannot drift, and pre-filling the selected item
+for the commands whose first argument really is one (`pack NAME` is not).
+
 ## Key invariants (from `tests/test_invariants.py`)
 
 The invariant test file documents seven properties the data structure should uphold:
