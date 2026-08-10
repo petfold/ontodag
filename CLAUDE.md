@@ -738,7 +738,7 @@ section is the *current* state and the cross-repo pins.
 
 | package | version | verified by | pins |
 |---|---|---|---|
-| **ontodag** | **0.17.0** | `scripts/release_smoke.py --pypi 0.17.0` → 23/23, plus the workflow's own `verify` job | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
+| **ontodag** | **0.17.1** | `scripts/release_smoke.py --pypi 0.17.1` → 24/24, plus the workflow's own `verify` job | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
 | **recordstore** | **0.20.1** | fresh-venv install; undo/history exercised | none (stdlib-only base) |
 | **ontodag-fs** | **0.3.0** | fresh-venv install; `--as-of` end to end on a real store | needs `ontodag>=0.16.0,<0.17.0` |
 
@@ -746,6 +746,28 @@ Also live-validated after publication: the **published ontodag wheel** driving a
 `swarm:` store on a real Bee node through put → `history` → `--as-of` → `undo`
 (Bee run 8 above), which is the release story exercised by the artifact users get
 rather than by a checkout.
+
+**What 0.17.1 is** (2026-08-09, published by tag, all four jobs green): the
+fix for what 0.17.0 shipped broken. `pip install "ontodag[web]"` installed
+Flask, dot2tex, graphviz, owlready2 and Pillow **and then had nothing to
+run** — `web/` sat outside `src/` and had never been packaged. The app is now
+`src/ontodag/web/`, started three ways (`odag web`, the `odag-web` script, or
+`web` at the interactive prompt; `--host`/`--port`, Ctrl-C returns you to the
+prompt) and never with the Werkzeug debugger on. `cars/` (3.1 MB of demo
+photographs) stays in the repo, excluded by `[tool.setuptools.package-data]`,
+and `/market` explains itself when absent; wheel 140 KB → 188 KB. Same
+release, found by the same measurement: **a missing extra printed a
+traceback** with the useful sentence at the bottom — `require()` now raises
+`ontodag._extras.MissingExtra`, which `dispatch` reports like any other
+user-facing failure, so `odag visualize` on a base install finally says `pip
+install "ontodag[viz]"` and exits 1 (a genuine ImportError still gets its
+traceback). `web` is deliberately absent from the browser's Commands sheet.
+Two new smoke guards, each in the only environment that can see it: *the web
+app ships in the wheel* (site-packages, not the repo) and *a missing extra is
+an instruction* (the bare-install env). **Lesson, recorded because I got it
+wrong first: I found the packaging boundary during the release pass and
+documented it as a boundary instead of calling it the bug it was — a release
+whose headline feature is not in the artifact is not a release.**
 
 **What 0.17.0 is** (2026-08-09, published by tag; all four workflow jobs
 green, including the ontodag-fs downstream gate): the browse-and-type web
