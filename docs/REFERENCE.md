@@ -38,7 +38,7 @@ Base install (`pip install ontodag`) is pure Python: the core plus
 | `owl` | owlready2 | `.owl` / `.omn` import and export |
 | `store` | recordstore | alias of the base dependency |
 | `swarm` | recordstore[swarm-only,local-first-swarm] ≥ 0.19 | `swarm:` stores — local-first: commits land in a store directory instantly (offline works) and sync to Swarm in the background; with a signer the head publishes to a feed after network confirmation |
-| `web` | flask, dot2tex, viz, owl | the web app and REST API |
+| `web` | flask, dot2tex, viz, owl | the web app and REST API (`odag web`) |
 | `all` | everything above | |
 | `test` | pytest + viz, owl, store | the suite (deliberately no swarm) |
 
@@ -93,6 +93,7 @@ results one per line on stdout. No command = read commands from stdin
 | `undo` / `redo` [--dry-run] | step back / forward one state; the pointer moves, nothing is destroyed |
 | `set [KEY [VALUE]]` | show or persist a setting (table below) |
 | `swarm` | doctor: is a Bee node reachable and usable, step by step |
+| `web [--host H] [--port P]` | start the browser interface (also the `odag-web` script); Ctrl-C stops it. Its DAG is a sandbox in server memory, not this store |
 | `help` | the built-in help text |
 
 **Exit codes**: 0 success; 1 error (and `below`'s "false").

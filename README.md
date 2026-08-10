@@ -137,12 +137,8 @@ someone holding nothing but the root.
 ## In a browser
 
 ```bash
-git clone https://github.com/petfold/ontodag && cd ontodag
-pip install -e ".[web]" && cd web && python3 app.py      # localhost:5000
+pip install "ontodag[web]" && odag web        # localhost:5000
 ```
-
-(The app lives in the repository rather than the wheel — the `web` extra
-installs what it *needs*, not the app itself.)
 
 Browsing *is* querying, because in OntoDAG a path is a query: `/pet/dog` means
 *pet AND dog*, and `/dog/pet` is the same place. So clicking a category appends

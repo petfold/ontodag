@@ -87,6 +87,19 @@ class Env:
     def odag_run(self, *args, expect=0):
         return self.run(self.odag, *args, expect=expect)
 
+    def odag_stderr(self, *args, expect=0):
+        """The message half. A Unix-shaped CLI puts results on stdout and
+        everything it wants to *tell* you on stderr, so a check about an
+        error message has to read the other stream."""
+        env = dict(os.environ, ONTODAG_HOME=self.home)
+        for leak in ("ONTODAG_STORE", "ONTODAG_LIMIT", "ONTODAG_SURFACE"):
+            env.pop(leak, None)
+        proc = subprocess.run([self.odag, *args], capture_output=True,
+                              text=True, env=env, cwd=self.work)
+        assert proc.returncode == expect, \
+            f"{args} exited {proc.returncode}, wanted {expect}"
+        return proc.stderr
+
 
 def bare_install(spec, tmp):
     """What `pip install ontodag` alone drags in.
@@ -133,7 +146,23 @@ def bare_install(spec, tmp):
                     "d.put('a',[]); d.put('b',['a']);"
                     "assert [i.name for i in d.get(['a'])] == ['b']"],
                    check=True)
-    return "ontodag + recordstore, pure Python, and the core works"
+
+    # Every optional feature must say what to install and exit 1 — not print
+    # a traceback with the useful sentence buried at the bottom, which is
+    # what `odag visualize` did until 0.17.1. This is the only environment
+    # where that can be checked: everywhere else the extras are present.
+    odag = os.path.join(venv, "bin", "odag")
+    home = os.path.join(tmp, "bare-home")
+    for command, extra in (("web", "web"), ("visualize", "viz")):
+        proc = subprocess.run([odag, command], capture_output=True, text=True,
+                              env=dict(os.environ, ONTODAG_HOME=home))
+        assert proc.returncode == 1, f"{command} exited {proc.returncode}"
+        assert "Traceback" not in proc.stderr, f"{command}: {proc.stderr}"
+        assert f'pip install "ontodag[{extra}]"' in proc.stderr, \
+            f"{command}: {proc.stderr}"
+
+    return ("ontodag + recordstore, pure Python, the core works, "
+            "and a missing extra is an instruction")
 
 
 def smoke(env, expect_version):
@@ -388,6 +417,25 @@ def smoke(env, expect_version):
         return "diagnoses a missing node and offers rs:"
 
     check("odag swarm diagnoses", swarm_doctor)
+
+    def web_app_is_in_the_package():
+        # 0.17.0 shipped `pip install "ontodag[web]"` that installed Flask,
+        # dot2tex, graphviz, owlready2 and Pillow and then had NOTHING to
+        # run: `web/` sat outside `src/` and was never packaged. Nothing
+        # here could see that, because every other check uses the CLI.
+        import os
+        root = env.run(
+            env.python, "-c",
+            "import ontodag.web, os; print(os.path.dirname(ontodag.web.__file__))"
+        ).strip()
+        for part in ("app.py", os.path.join("templates", "index.html"),
+                     os.path.join("static", "app.js"),
+                     os.path.join("static", "vendor", "preact-htm.module.js")):
+            assert os.path.exists(os.path.join(root, part)), f"missing {part}"
+        return "app, templates and static are installed"
+
+    check("the web app ships in the wheel", web_app_is_in_the_package)
+
 
 
 def main():

@@ -80,8 +80,14 @@ Flask REST API + UI wrapping `OntoDAG`, including the car-market demo (`/market`
 ## Web app
 
 ```bash
-cd web && python3 app.py   # starts Flask dev server on localhost:5000 (needs flask, graphviz, owlready2, dot2tex)
+odag web        # or `odag-web`, or `web` at the interactive prompt
 ```
+
+The app is `src/ontodag/web/` — **inside** the package since 0.17.1, because
+`pip install "ontodag[web]"` had installed Flask, dot2tex, graphviz,
+owlready2 and Pillow and then had nothing to run. `cars/` (the demo's 3.1 MB
+of photographs) is excluded from the wheel by `[tool.setuptools.package-data]`
+and `/market` says so when absent.
 
 REST endpoints: `POST /dag` (reset), `GET/POST/DELETE /dag/node`, `GET /dag/query?cat=A,B`, image renders (`/dag/image`, `/dag/query/image`), import (`/dag/import`, `/dag/query/import`), and exports in OWL/Manchester/DOT/LaTeX (`/dag/export`, `/dag/export/{omn,dot,tex}`, same under `/dag/query/`).
 

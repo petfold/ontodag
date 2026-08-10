@@ -12,13 +12,39 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [0.17.1] — 2026-08-09
+
+### Fixed
+
+- **`pip install "ontodag[web]"` now gives you a web app.** It installed
+  Flask, dot2tex, graphviz, owlready2 and Pillow — and then had nothing to
+  run, because `web/` sat outside `src/` and was never packaged. The app is
+  now `ontodag.web`, started three ways: **`odag web`**, the **`odag-web`**
+  script, or **`web`** at the interactive prompt (`--host`, `--port`;
+  Ctrl-C stops it and returns you to the prompt). It never enables the
+  Werkzeug debugger, which a bare `python app.py` did.
+- **A missing extra is a message again, not a traceback.** `odag visualize`
+  on a base install printed twenty lines of stack with the useful sentence
+  at the bottom; `require()` now raises `ontodag._extras.MissingExtra` and
+  the CLI reports it like any other user-facing failure. A genuine
+  `ImportError` still gets its traceback.
+
+### Notes
+
+- The **car-market demo is not in the wheel** — 3.1 MB of photographs that
+  everyone installing OntoDAG would otherwise pay for, including the base
+  install this project keeps pure and small. It ships with the repository;
+  `/market` explains itself when it is absent. The wheel grew 140 KB → 188 KB.
+- `web` is deliberately absent from the browser's own Commands sheet: you are
+  looking at what it does. Typing it there says so.
+
 ## [0.17.0] — 2026-08-09
 
 ### Added
 
-- **A new web interface** — note it lives in the repository, not the wheel:
-  `web/` is outside `src/`, so `pip install ontodag` has never carried the
-  app, only what the `web` extra says it needs. Built around one idea: *in OntoDAG a path is a
+- **A new web interface** — shipped in this release *outside* the wheel
+  (`web/` was not packaged), which made `[web]` a dead end; **fixed in
+  0.17.1**, where `odag web` starts it. Built around one idea: *in OntoDAG a path is a
   query*, so clicking a category to drill down is appending a term to a
   conjunction. The page therefore **echoes every click into a console as the
   command it means**, and every typed command moves the browse state — two

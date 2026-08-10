@@ -31,6 +31,7 @@ import socket
 import sys
 import time
 
+from ontodag._extras import MissingExtra
 from ontodag.dag import OntoDAG, Item
 from ontodag import surface as _surface
 from ontodag.dimensions import REGISTRY_VERSION
@@ -1865,6 +1866,35 @@ def cmd_visualize(args, session, out):
     OntoDAGVisualizer(format=args.format).visualize(dag, filename=base)
 
 
+def cmd_web(args, session, out):
+    """Start the browser interface.
+
+    Blocks until interrupted, which is what a server does — including at the
+    interactive prompt, where Ctrl-C returns you to `>` rather than ending
+    the session.
+
+    It serves the web app's **own** per-session DAG, not this session's
+    store: that surface keeps its graph in server memory and has no root, no
+    history and no Swarm (WEB_UI.md §8a is the open question of pointing it
+    at a real store). Saying so here is cheaper than letting someone file an
+    afternoon's work into a sandbox they thought was their store.
+    """
+    from ontodag import web
+    from ontodag._extras import require
+
+    # Check the dependency BEFORE announcing a URL nothing is listening on.
+    require("flask", "web", "the web interface")
+
+    where = f"http://{args.host}:{args.port}"
+    print(f"odag: serving the browser interface at {where}", file=_err())
+    print(f"odag: its DAG is a sandbox in server memory — not {session.spec}",
+          file=_err())
+    try:
+        web.serve(host=args.host, port=args.port)
+    except KeyboardInterrupt:
+        print(file=_err())
+
+
 def _effective_setting(session, key):
     """The value currently in effect, by the settings table's one rule.
 
@@ -2052,6 +2082,10 @@ Commands:
                         the query terms shown above it — a picture is
                         discarded, so unlike `excerpt` it can show what
                         was asked
+  web [--host H --port P]
+                        start the browser interface — browse by query, type
+                        commands at it, click the graph (Ctrl-C to stop).
+                        Its DAG is a sandbox in server memory, not this store
   swarm                 check the Swarm setup step by step (node, chain,
                         wallet, postage batch) and print what to fix next
   index [--threshold N] publish cone summaries for a swarm: store into the
@@ -2399,6 +2433,13 @@ def build_parser():
                         "is already configured (this strands the old feed)")
     p.set_defaults(func=cmd_set)
 
+    p = sub.add_parser("web", add_help=True,
+                       help="start the browser interface (Ctrl-C to stop)")
+    p.add_argument("--host", default="127.0.0.1",
+                   help="interface to bind (default 127.0.0.1 — local only)")
+    p.add_argument("--port", type=int, default=5000)
+    p.set_defaults(func=cmd_web)
+
     p = sub.add_parser("help", add_help=True, help="show help")
     p.set_defaults(func=cmd_help)
 
@@ -2449,7 +2490,10 @@ def _dispatch(argv, session):
         # true/false is 0/1, grep-style); None keeps the usual 0.
         code = args.func(args, session, out)
         return code or 0
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError, MissingExtra) as exc:
+        # MissingExtra belongs here rather than in a traceback: "install the
+        # viz extra" is an instruction, and `odag visualize` on a base
+        # install used to bury it under twenty lines of stack.
         print(f"odag: {exc}", file=_err())
         return 1
     finally:

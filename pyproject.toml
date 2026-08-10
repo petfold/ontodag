@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ontodag"
-version = "0.17.0"
+version = "0.17.1"
 description = "Associative memory and categories based on a directed acyclic graph data structure"
 readme = "README.md"
 license = { text = "BSD-3-Clause" }
@@ -92,9 +92,19 @@ test = ["pytest", "ontodag[viz,owl,store]"]
 [project.scripts]
 odag = "ontodag.__main__:main"
 odag-mcp = "ontodag.mcp:main"
+odag-web = "ontodag.web:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# The page, and only the page. `cars/` — the car-market demo — is
+# deliberately absent: 3.1 MB of photographs that everyone who ever
+# `pip install ontodag` would pay for, including the base install this
+# project keeps pure and small and any future in-browser target. It ships
+# with the repository, and /market says so when it is not there.
+[tool.setuptools.package-data]
+"ontodag.web" = ["templates/*.html", "static/*.css", "static/*.js",
+                 "static/vendor/*.js", "static/vendor/*.md"]
 
 [project.urls]
 Homepage = "https://github.com/petfold/ontodag"

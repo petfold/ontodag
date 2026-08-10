@@ -31,7 +31,6 @@ import pytest
 from ontodag.dag import Item, OntoDAG
 from ontodag.viz import OntoDAGVisualizer
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "web"))
 
 
 # Names that are legal for a user to create, or that the system creates
@@ -257,7 +256,7 @@ class TestRestConsumer:
     def test_every_name_is_queryable_over_http(self):
         pytest.importorskip("flask")
         pytest.importorskip("dot2tex")
-        from app import app
+        from ontodag.web.app import app
         app.config["TESTING"] = True
         with app.test_client() as client:
             assert client.post("/dag").status_code == 201

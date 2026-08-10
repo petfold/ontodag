@@ -1,12 +1,9 @@
 import io
 import os
 import shlex
-import sys
 import uuid
 import random
 from collections import Counter
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from ontodag.dag import OntoDAG, Item
 from ontodag.viz import OntoDAGVisualizer, query_picture
@@ -149,6 +146,7 @@ CONSOLE_REFUSALS = {
     "index": "publishes a record store, which this sandbox has nowhere to put",
     "set": "which store this app opens is a launch argument, not a page's decision",
     "swarm": "checks a Bee node this sandbox does not talk to",
+    "web": "is what you are looking at",
     "history": "this sandbox keeps no versions (an `rs:` or `swarm:` store does)",
     "status": "this sandbox keeps no versions (an `rs:` or `swarm:` store does)",
     "undo": "this sandbox keeps no versions (an `rs:` or `swarm:` store does)",
@@ -389,6 +387,11 @@ COMMAND_GROUPS = (
     ("Store and network", ("set", "index", "swarm")),
     ("Help", ("help",)),
 )
+
+# Not listed on this surface, because you are looking at what it does. It is
+# still a real command everywhere else, and typing it here gets an answer
+# rather than "unknown command" — see CONSOLE_REFUSALS.
+NOT_IN_THE_BROWSER = {"web"}
 
 
 @app.route("/dag/commands", methods=["GET"])
@@ -1096,8 +1099,24 @@ def index_classic():
     return render_template("classic.html")
 
 
+# The car demo is 3.1 MB of photographs, which would be paid for by everyone
+# who ever `pip install ontodag` — including the base install this project
+# worked hard to keep pure and small, and any future in-browser target. It
+# ships with the repository instead, so an installed copy has to say so
+# rather than fail.
+CARS = os.path.join(os.path.dirname(__file__), "cars")
+HAVE_CARS = os.path.isdir(CARS)
+
+
 @app.route("/market")
 def index_cars():
+    if not HAVE_CARS:
+        return ("<h1>The car-market demo ships with the repository</h1>"
+                "<p>It is a few megabytes of photographs, so it is not in the "
+                "installed package. Clone "
+                "<a href=\"https://github.com/petfold/ontodag\">ontodag</a> "
+                "and run <code>odag web</code> from there.</p>"
+                "<p><a href=\"/\">Back to OntoDAG</a></p>"), 404
     # The demo shares the `my_dag` session key with the main page, so a
     # session that already has an ordinary DAG in it — which, since every
     # endpoint now creates one on demand, means almost any session that
@@ -1220,4 +1239,6 @@ def get_image(filename):
 
 
 if __name__ == "__main__":
+    # `odag web` is the supported way in and never enables the debugger.
+    # Running this file directly keeps the old developer convenience.
     app.run(debug=True)

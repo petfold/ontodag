@@ -1,17 +1,14 @@
-"""REST-level tests for the Flask web app (web/app.py), with the parametric-
-dimensions flow exercised over HTTP. Skips cleanly when the web extras are
-not installed (the app imports flask and dot2tex at module level)."""
-
-import os
-import sys
+"""REST-level tests for the Flask web app (`ontodag.web.app`), with the
+parametric-dimensions flow exercised over HTTP. Skips cleanly when the web
+extras are not installed (the app imports flask and dot2tex at module
+level)."""
 
 import pytest
 
 pytest.importorskip("flask")
 pytest.importorskip("dot2tex")
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "web"))
-from app import app  # noqa: E402  (needs the path insert above)
+from ontodag.web.app import app  # noqa: E402
 
 
 @pytest.fixture()
@@ -46,7 +43,7 @@ class TestPlainRest:
         assert query_names(client, "no-such-thing") == set()
 
     def test_query_log_counts_category_sets(self, client):
-        from app import QUERY_LOG
+        from ontodag.web.app import QUERY_LOG
         QUERY_LOG.clear()
         put(client, "animal")
         put(client, "pet")
@@ -725,7 +722,7 @@ class TestPictureIsClickable:
         assert "animal" in answer["ids"].values()
 
     def test_too_big_to_draw_says_so_instead_of_grinding(self, client):
-        from app import PICTURE_LIMIT
+        from ontodag.web.app import PICTURE_LIMIT
         for i in range(PICTURE_LIMIT + 1):
             put(client, f"item{i}")
         response = client.get("/dag/picture")
@@ -761,13 +758,22 @@ class TestTheCommandMenu:
         # All of them, not the sandbox's subset: someone opening this is
         # asking what the system does, and the answer is not "whatever a
         # browser is allowed to do".
+        from ontodag.web.app import NOT_IN_THE_BROWSER
         from ontodag.__main__ import PARSER
         sub = next(action for action in PARSER._actions
                    if getattr(action, "choices", None))
-        assert set(self._menu(client)) == set(sub.choices)
+        assert set(self._menu(client)) == set(sub.choices) - NOT_IN_THE_BROWSER
+
+    def test_the_command_that_starts_this_page_is_not_offered_on_it(self, client):
+        # `web` is a real command; listing it here would offer to do the
+        # thing you are already looking at.
+        menu = self._menu(client)
+        assert "web" not in menu
+        assert console(client, "web")["code"] == 2
+        assert "looking at" in console(client, "web")["err"]
 
     def test_it_says_which_ones_run_here(self, client):
-        from app import CONSOLE_COMMANDS
+        from ontodag.web.app import CONSOLE_COMMANDS
         menu = self._menu(client)
         runs = {name for name, entry in menu.items() if entry["available"]}
         assert runs == CONSOLE_COMMANDS - {"?"}
@@ -780,16 +786,16 @@ class TestTheCommandMenu:
     def test_every_command_is_in_exactly_one_group(self, client):
         # The guard that keeps this from falling behind the CLI: a new
         # command has to be classified, or this fails.
-        from app import COMMAND_GROUPS
+        from ontodag.web.app import COMMAND_GROUPS, NOT_IN_THE_BROWSER
         from ontodag.__main__ import PARSER
         sub = next(action for action in PARSER._actions
                    if getattr(action, "choices", None))
         grouped = [name for _, names in COMMAND_GROUPS for name in names]
-        assert sorted(grouped) == sorted(sub.choices)
+        assert sorted(grouped) == sorted(set(sub.choices) - NOT_IN_THE_BROWSER)
         assert len(grouped) == len(set(grouped)), "a command is in two groups"
 
     def test_the_groups_come_back_in_a_stated_order(self, client):
-        from app import COMMAND_GROUPS
+        from ontodag.web.app import COMMAND_GROUPS
         answer = client.get("/dag/commands").get_json()
         assert answer["groups"] == [group for group, _ in COMMAND_GROUPS]
 
@@ -859,8 +865,9 @@ class TestTheNewPageIsWiredUp:
 
     def _script(self):
         import pathlib
-        return (pathlib.Path(__file__).parent.parent
-                / "web" / "static" / "app.js").read_text()
+        import ontodag.web
+        return (pathlib.Path(ontodag.web.__file__).parent
+                / "static" / "app.js").read_text()
 
     def test_the_page_loads_and_asks_for_its_module(self, client):
         page = client.get("/").data.decode()

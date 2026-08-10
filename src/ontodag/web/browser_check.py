@@ -10,8 +10,8 @@ buttons; only this catches a picture that disagrees with the list beside it,
 or a template entity rendered as four literal characters.
 
     pip install playwright && python3 -m playwright install chromium
-    python3 web/app.py &
-    python3 web/browser_check.py [--url http://127.0.0.1:5000] [--shots DIR]
+    odag web &
+    python3 -m ontodag.web.browser_check [--url http://127.0.0.1:5000] [--shots DIR]
 """
 
 import argparse
@@ -104,14 +104,22 @@ def run(url, shots):
                    "a typed `get` moves the breadcrumb")
 
         # --- the picture agrees with the answer --------------------------- #
+        # Three careful steps, because two naive versions of this were flaky.
+        # Waiting on content the OLD picture also has matches the old one
+        # (`get Flight`'s picture contains JAL7 too). Waiting for the drawing
+        # to merely *change* is no better if the snapshot taken beforehand was
+        # itself a picture still being replaced. So: let the current one
+        # finish, snapshot that, then wait for a change and for the new fetch
+        # to settle.
+        settled = "() => !document.querySelector('.focus .picture.loading')"
+        page.wait_for_function(settled, timeout=15000)
+        before = page.text_content(".focus .picture") or ""
         page.click(".here li:has-text('JAL7') button")
-        # Waiting on `svg g.node` alone matches the PREVIOUS picture, which is
-        # still mounted at the moment the click returns — the wait has to name
-        # something only the new one satisfies.
         page.wait_for_function(
-            "() => document.querySelector('.focus h2')?.innerText.trim() === 'JAL7'"
-            " && document.querySelector('.focus .picture svg')?.textContent"
-            "     .includes('JAL7')", timeout=15000)
+            "old => { const p = document.querySelector('.focus .picture svg');"
+            "         return p && p.textContent && p.textContent !== old; }",
+            arg=before, timeout=15000)
+        page.wait_for_function(settled, timeout=15000)
         check.that("JAL7" in page.inner_text(".focus h2"),
                    "the focus pane names what was clicked")
         # SVG elements are not HTMLElements, so `inner_text` is unavailable.

@@ -1186,7 +1186,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.17.0 - type help for help
+Ontodag 0.17.1 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png
@@ -1749,15 +1749,19 @@ provenance record about the claim (§9), not a commit message.
 The web app gives you the same DAG in a browser — browse it by query, type
 commands at it, click the graph — plus an HTTP API you can script against.
 
-It lives in the **repository**, not in the wheel: `pip install ontodag` gives
-you the library and the `odag` command, while the `web` extra installs what
-the app needs rather than the app itself. So you need a checkout:
-
 ```bash
-git clone https://github.com/petfold/ontodag && cd ontodag
-pip install -e ".[web]"
-cd web && python3 app.py   # starts http://localhost:5000
+pip install "ontodag[web]"
+odag web                   # starts http://localhost:5000
 ```
+
+Three ways to start it, all the same thing: `odag web`, the `odag-web`
+script, or just `web` at the interactive prompt. `--host` and `--port` move
+it; Ctrl-C stops it and, at the prompt, hands you back the `>`.
+
+The one piece that is *not* in the installed package is the car-market demo —
+a few megabytes of photographs that everyone installing OntoDAG would
+otherwise pay for. It ships with the repository, and `/market` says so when
+it is not there.
 
 Open **http://localhost:5000** in any browser. A first visit lands in a small
 worked example rather than an empty graph, so there is something to click

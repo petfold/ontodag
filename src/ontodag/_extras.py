@@ -12,6 +12,17 @@ consistent and adding a feature does not mean inventing a new phrasing.
 
 import importlib
 
+
+class MissingExtra(ImportError):
+    """An optional dependency is not installed — a thing to *do*, not a bug.
+
+    Its own class so the CLI can turn it into a one-line message and a
+    non-zero exit, the way it treats every other user-facing failure, while
+    a genuine ImportError (a broken install, a typo in our own imports)
+    still gets the traceback it deserves.
+    """
+
+
 # What each extra is for, in the words someone reading an error would want.
 EXTRAS = {
     "viz": "rendering",
@@ -35,4 +46,4 @@ def require(package, extra, what, hint=None):
         message = f'{what} needs the `{extra}` extra: pip install "ontodag[{extra}]"'
         if hint:
             message = f"{message}\n{hint}"
-        raise ImportError(message) from exc
+        raise MissingExtra(message) from exc
