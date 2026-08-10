@@ -740,7 +740,7 @@ section is the *current* state and the cross-repo pins.
 |---|---|---|---|
 | **ontodag** | **0.17.1** | `scripts/release_smoke.py --pypi 0.17.1` → 24/24, plus the workflow's own `verify` job | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
 | **recordstore** | **0.20.1** | fresh-venv install; undo/history exercised | none (stdlib-only base) |
-| **ontodag-fs** | **0.3.0** | fresh-venv install; `--as-of` end to end on a real store | needs `ontodag>=0.16.0,<0.17.0` |
+| **ontodag-fs** | **0.3.1** | fresh-venv install from PyPI; resolves ontodag 0.17.1, then files and browses | needs `ontodag>=0.16.0,<0.18.0` |
 
 Also live-validated after publication: the **published ontodag wheel** driving a
 `swarm:` store on a real Bee node through put → `history` → `--as-of` → `undo`
@@ -779,9 +779,8 @@ bound with ContextVars), and `OntoDAGVisualizer.generate_svg`/`node_ids` (the
 picture is clickable because Graphviz writes viz.py's ids into the SVG).
 **The web app itself is NOT in the wheel** — `web/` is outside `src/`, so it
 never has been; the `web` extra installs what the app needs, not the app.
-README and guide now say so. **ontodag-fs's ceiling is still `<0.17.0`**: the
-downstream gate passed against this candidate, so the bump is owed and needs
-doing by hand in that repo (and an ontodag-fs release to reach anyone).
+README and guide now say so. **ontodag-fs's ceiling was raised to `<0.18.0` and released as
+0.3.1 the same day**, so the two install together at their current versions.
 
 **What 0.16.0 was** (one line each; details in `CHANGELOG.md`): `excerpt`
 (+`--context`) and `diff` (+`--additions`) for sending and reviewing parts of a
