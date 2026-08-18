@@ -178,7 +178,7 @@ identified since: the semantic-code cone index of `docs/plans/SEMANTIC_CODES.md`
 §4 — dense, uniformly co-accessed records with a known access pattern from
 day one, unlike node records.)
 
-## 5. Multi-writer / CRDT plan (not yet implemented)
+## 5. Multi-writer / CRDT merge (implemented; see the updates below)
 
 The uniqueness of transitive reduction (§1) gives OntoDAG an unusually clean
 convergence property: define the canonical state as **the transitive
@@ -197,11 +197,20 @@ territory) since plain deletion doesn't commute with a concurrent re-add.
 This is `recordstore`-level machinery (a read-modify-commit cycle with a
 particular source of changes) — `EagerOntoDAG` only supplies the fold rule.
 
-Not started. `SwarmFeedPointer` in `recordstore.py` is a documented stub for
-the same reason: a real feed update needs client-side SOC signing
-(secp256k1), which pulls in an Ethereum crypto dependency deliberately kept
-out of the stdlib-only first cut. `FilePointer`/`MemoryPointer` stand in
-until then.
+**Status: the fold rule and the signed root both shipped.** The paragraph
+above describes the original plan; what exists is `EagerOntoDAG.sync`
+(0.5.0 — graph-level renormalization: hydrate the peer's root, `merge`,
+recommit), since 2026-08-04 delta-driven via `RecordStore.diff` and
+available on `SparseOntoDAG` too, and `SwarmFeedPointer` is real
+(recordstore 0.4.0, secp256k1 SOC signing behind the `[feeds]` extra),
+adopted by the `swarm:NAME` CLI backend and validated against a live
+Gnosis-mainnet node. `FilePointer` remains the keyless fallback by choice,
+not for want of signing.
+
+Still open: the tombstone / observed-remove decision (the shipped stance is
+grow-only — a removal loses to a concurrent holder), and the shared GSOC
+operation feed, which is an optional real-time transport *on top of* the
+fold, not a prerequisite for it.
 
 > **Update (2026-08-04): the fold is now delta-driven, the reduction is
 > complete, and the concurrent-delete gap is closed.** Three changes to
