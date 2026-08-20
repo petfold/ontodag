@@ -105,7 +105,11 @@ projector) emits this; one ontodag-side ingester consumes it:
 
 shelfmark's `ontodag_ingest.py` is a pre-API template of exactly this;
 adapting it to the real API (and deciding where the adapted version
-lives — see §9) is owed work.
+lives — see §9) is owed work. **[Shipped 2026-08-20: `odag ingest
+[FILE] [--drop NODE]` — idempotent, order-free (missing categories are
+created provisionally at top level and refined when their own line
+arrives), one commit per run, `--drop` = the full-rebuild drop. It
+lives in ontodag, so every projector needs only the wire format.]**
 
 ## 5. The drop and the join (ontodag's two obligations)
 
@@ -118,7 +122,9 @@ survives, detached from the projected memberships only. What must be
 checked rather than assumed: items whose *only* parents were projected
 categories should survive the drop too if the human layer references
 them at all, and should disappear if nothing does — which is exactly
-the survival rule, but the golden test is owed.
+the survival rule, but the golden test is owed. **[Done 2026-08-20:
+`TestProjectionDrop` in `tests/test_cli.py` — cache-only entries die,
+human-held items detach and keep their classification.]**
 
 **The join (proposed — the one new seam).** *(2026-08-20: this seam
 gained a second and third client — pack adoption previews and
@@ -126,7 +132,13 @@ per-audience privacy overlays compose the same way; see PACKS.md Part II
 §11 and `act-categories/DESIGN.md`. The composed read view needs no
 cross-layer re-reduction to answer queries: cones are
 reduction-invariant, and reduction only matters at commit, which the
-composed view never does.)* Unified queries like
+composed view never does.)* **[Shipped 2026-08-20: `Session.view()` +
+the `overlays` setting — answers and pictures read the composed view,
+mutations and mergeable artifacts (export/excerpt/diff) read the
+primary, and the composed object is a plain in-memory OntoDAG with no
+store and no `commit`, so persisting the union is impossible rather
+than forbidden. `TestOverlayView` pins the routing, the artifact
+purity, and vocabulary-travels through an overlay.]** Unified queries like
 `get(photo, vienna, sys:on:drive-budapest)` need both layers in one DAG
 instance. The mechanism exists — load the human store, `merge` the
 projection in memory, query — but today "never commit the merged state
@@ -263,7 +275,7 @@ on a gate.)*
 |---|---|---|
 | **shelfmark/datacat** | filesystem + backup scanning, SQLite source of facts, `project-ontodag` (exists) | retention-aware redundancy join (§7); v0.3 "OntoDAG join live" consumes §5's overlay view |
 | **ucomm** | protocol bridges (IMAP done), envelope schema, contact/identity claims, later mdl-fca (R-9) | the plain envelope→facts projector (analog of `project-ontodag`, same wire format; its dashboard is the in-house precedent for "projection, recomputed, never persisted") |
-| **ontodag** | the human layer; merge/query/move machinery (all shipped) | the overlay-view seam (§5), the cone-drop golden test (§5), the adapted ingester (§4), vocabulary packs (§8, gated), and keeping this contract current |
+| **ontodag** | the human layer; merge/query/move machinery; **since 2026-08-20 also the overlay-view seam, the cone-drop golden test, and `odag ingest`** (all shipped) | vocabulary packs (§8 — ungated since the PACKS.md decisions, follows that build order), and keeping this contract current |
 | **ontodag-fs** | browsing the joined view; its parked "transducer analog" roadmap line points here | nothing until the overlay view exists |
 
 No new sister repo: adapters live with the sources they read; the

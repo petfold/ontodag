@@ -631,6 +631,31 @@ Next candidates after the current task — **this list is complete (all three la
 
 Optional, pull-forward-anytime (agreed 2026-07-20): **in-memory cone bitmaps behind `get()`** — step (1) of `docs/plans/SEMANTIC_CODES.md` §8's sequencing, exempted from that note's parking because it is bounded, in-memory-only, dependency-free (Python ints), schema-invisible, and oracle-tested by I5 (`popcount == descendant_count`). Do it if/when queries are measurably hot (web UI); it neither advances nor blocks items 1–3. The **`get()` query planner** — **DONE (2026-07-21), including the adaptive walk-vs-probe step**: `OntoDAG.get` resolves/dedups terms by name, drops query terms that are ancestors of other terms (upward `_has_ancestors` walk from the smaller-count term, so planning scales with the query, never the graph; `descendant_count` as the cheap necessary condition), orders cones smallest-count-first, then executes adaptively — before each remaining term it picks walk (traverse the cone, intersect) or probe (upward walk per surviving candidate settling all remaining terms at once) from the now-known running-result size, with early exit on empty. All steps are result-preserving; `_PROBE_COST_ESTIMATE` only steers operator choice (time, never correctness). Tests: `tests/testdag.py::TestQueryPlanner` — brute-force oracle over all 1/2/3-term fixture queries, forced-probe/forced-walk modes, a 60-node seeded-random DAG under all modes, and the meet-substitution guard (a node named "AB" under A and B is NOT the meet of A and B — `put(X, [A, B])` creates a *sibling* of AB — so do not "optimize" `get` through such nodes; see `SEMANTIC_CODES.md` §10).
 
+## The projection seam (2026-08-20) — PROJECTIONS.md §4–§5 shipped
+
+**Overlay views + `odag ingest` + the projection-drop golden test**, in one
+commit (`c92696b`), making the personal-data pipeline runnable end to end:
+datacat scan → `project-ontodag` JSONL → `odag -f proj.od ingest` → joined
+browse with `set overlays proj.od`. The seam is `Session.view()` (primary ∪
+configured overlays, cached, invalidated on load/switch/save); the routing
+rule is the excerpt/visualize asymmetry generalized — **answers and pictures
+read the view; mutations and mergeable artifacts read the primary** — so a
+machine layer can never launder into a file someone merges. The composed
+view is a plain in-memory `OntoDAG` (no store, no `commit`: persisting the
+union is impossible, not refused). `overlays` is the seventh settings row
+(all four layers; validated at set time); the web sandbox's
+`WebSession.view()` deliberately opts out (the server's overlays must not
+serve an anonymous stranger). `ingest` is idempotent, order-free
+(provisional top-level categories refined when their own line arrives),
+one commit per run, `--drop` = full-rebuild; listed-and-refused in the
+browser like import/export. Tests: `TestOverlayView` / `TestProjectionDrop`
+/ `TestIngest` in `tests/test_cli.py` — **893 passed + 2 skipped as of
+2026-08-20**, plus a by-hand end-to-end run (stdin ingest, cross-layer get,
+export purity, the `--overlay` flag layer). Not yet: MCP reads through
+overlays (needs a design for `about`/root citation over a composed view —
+a view has no root to cite), and single-audience encryption (PACKS §14
+item 3's other half).
+
 ## Releasing
 
 Standing practice, in order. The first rule predates this list; the third
