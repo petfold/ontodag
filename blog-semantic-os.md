@@ -1,8 +1,5 @@
 # The Accidental Operating System
 
-*Draft blog post, 2026-08-20 (rev 2). Working title; alternatives at the
-end.*
-
 ---
 
 We didn't set out to build an operating system. We set out to build small
@@ -12,7 +9,8 @@ store over content-addressed storage
 ([recordstore](https://github.com/petfold/recordstore)), a filesystem
 where directories are queries
 ([ontodag-fs](https://github.com/petfold/ontodag-fs)), a catalog that
-knows which backup drive holds which file (shelfmark, and its `datacat`
+knows which backup drive holds which file
+([shelfmark](https://github.com/petfold/shelfmark), and its `datacat`
 tool), and a middleware that treats every chat, inbox and feed as one
 kind of thing ([ucomm](https://github.com/petfold/ucomm)).
 
@@ -179,8 +177,3 @@ because the diagram has empty boxes.
 The diagram, though, is no longer a joke.
 
 ---
-
-*Title alternatives: "An Operating System for What You Know" ·
-"A Semantic Operating System (Accidentally)". Author: Peter Földiák.
-Target: solarpunk.buzz blog; trim the table and the retention section
-for the newsletter version.*
