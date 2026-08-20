@@ -829,7 +829,12 @@ tool/extra/pack MUST be added there or the suite fails), HOW_IT_WORKS
 (explanation), UNIT_TABLE (generated), plus the design records (CONTRACT,
 PROVENANCE, AGENT_SURFACE, DIMENSIONS, UNITS, SWARM_DESIGN,
 recordstore-interface). **`docs/plans/`** holds discussion drafts and
-directions — ROADMAP, BINDING, EVOLUTION, PACKS, SURFACE_LAYER,
+directions — ROADMAP, BINDING, EVOLUTION, PACKS, PROJECTIONS (2026-08-20:
+the shared auto-categorization contract with shelfmark/datacat and ucomm —
+sources of truth / regenerable `sys:` projections / the human layer; the
+JSONL ingest format; the overlay-view seam and cone-drop fit as ontodag's
+owed pieces; retention classes for local-first vs. link vs. live data),
+SURFACE_LAYER,
 DATABASE_DIRECTION, SEMANTIC_CODES, BROWSER, MERKLE_NOTES,
 PHILOSOPHICAL_LANGUAGES, SWARM_DESIGN_update — nothing there is shipped;
 new discussion drafts go there. (Paths throughout this file were updated in
