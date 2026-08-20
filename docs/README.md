@@ -33,7 +33,9 @@ code says otherwise. Currently: BINDING (roles, bundles, multiplicity),
 EVOLUTION (how an ontology changes; the top ontology), PACKS (published
 ontologies and trust), PROJECTIONS (sources of truth vs. regenerable
 machine layers, the ingest contract with datacat/ucomm, retention
-classes), SURFACE_LAYER (the human layer), WEB_UI (a simpler
+classes), SEMA (relation to the SEMA project: hash-of-definition vs.
+canonical-state grains, lessons, collaboration options), SURFACE_LAYER
+(the human layer), WEB_UI (a simpler
 web interface — the browse/console page is shipped; the demo site and store
 selection are not), ROADMAP,
 DATABASE_DIRECTION (what OntoDAG refuses to become, with tripwires),

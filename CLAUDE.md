@@ -834,7 +834,10 @@ the shared auto-categorization contract with shelfmark/datacat and ucomm —
 sources of truth / regenerable `sys:` projections / the human layer; the
 JSONL ingest format; the overlay-view seam and cone-drop fit as ontodag's
 owed pieces; retention classes for local-first vs. link vs. live data),
-SURFACE_LAYER,
+SEMA (2026-08-17: relation to Henrik Westerberg's SEMA — per-definition
+hash identity there vs. whole-state canonical convergence here; lessons to
+take, the collaboration pitch, email draft; pack-shaped options behind the
+PACKS.md freeze), SURFACE_LAYER,
 DATABASE_DIRECTION, SEMANTIC_CODES, BROWSER, MERKLE_NOTES,
 PHILOSOPHICAL_LANGUAGES, SWARM_DESIGN_update — nothing there is shipped;
 new discussion drafts go there. (Paths throughout this file were updated in
