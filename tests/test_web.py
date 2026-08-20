@@ -503,7 +503,7 @@ class TestConsole:
         answer = console(client, "put orphan nosuchparent")
         assert answer["code"] == 1
         assert answer["out"] == ""
-        assert "do not exist" in answer["err"]
+        assert "unknown super-category: 'nosuchparent'" in answer["err"]
 
     def test_argparse_messages_are_captured_too(self, client):
         # Without the stream plumbing in dispatch() these went to the

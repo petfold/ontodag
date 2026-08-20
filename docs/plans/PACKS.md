@@ -449,9 +449,27 @@ The freeze this document imposed is **lifted, into the following order**
 
 1. **Merge preview + publish the three shipped packs to Swarm** (golden
    test: published root == shipped root; early and late adopters
-   converge byte-identically).
+   converge byte-identically). **[Built 2026-08-20: `merge FILE --diff`
+   and `pack NAME --diff` — additions, the mechanical unit-compat check
+   (conflict = exit 1, nothing merged), the unrelated-classification
+   warning on shared *categories* (leaves exempt: multi-parent filing is
+   normal). Golden tests: CLI `rs:` adoption reproduces the sha256
+   golden roots, and each pack's **Swarm/BMT fingerprint is pinned in
+   advance** (`SWARM_GOLDEN_ROOTS` in `tests/test_packs.py` — BMT is a
+   hash, computable offline), so live publication is verifiable before
+   it happens. The remaining live half — pushing the chunks to a Bee
+   node, and above all publishing feeds, which requires deciding **whose
+   key signs the official packs** (a publisher-identity decision, not
+   code) — is deployment.]**
 2. **Collision warnings in the preview + name-level pack hints** in
-   unknown-name errors.
+   unknown-name errors. **[Built 2026-08-20, with an honesty
+   correction: `put` now names its missing parents and hints a pack
+   only when adopting it would actually create the node
+   (`packs_declaring_node`) — today's unit packs ship no filable
+   categories, so bare `BTC` correctly gets no hint (adopting
+   crypto-core would not make the put succeed, and a teaching error
+   must never teach a falsehood). The hint starts firing the day a
+   pack ships real categories.]**
 3. **The overlay-view seam + single-audience encryption** (shared
    obligation with `PROJECTIONS.md` §5; an `EncryptedBytesStore` or
    Swarm encrypted uploads — the audience-of-one case, which is what the

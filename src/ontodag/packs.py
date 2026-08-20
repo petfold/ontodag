@@ -112,6 +112,24 @@ def packs_defining(suffix):
     return _SUFFIX_INDEX.get(suffix, [])
 
 
+def packs_declaring_node(name):
+    """Sorted names of shipped packs whose DAG contains a node called
+    `name` — the lookup behind the missing-supercategory teaching error
+    (PACKS.md §14, the name-level generalization of `packs_defining`).
+
+    Deliberately exact: it answers "would this name exist after adopting
+    the pack", never "does the pack mention something similar". Today's
+    packs are all unit packs, whose node names are declaration spellings
+    (`unit(BTC=…)`) nobody files under — so this fires for none of the
+    names people actually mistype, which is correct: hinting `odag pack
+    crypto-core` at someone who wrote `put x BTC` would not make `BTC` a
+    node, and a teaching error must never teach a falsehood. It starts
+    firing the day a pack ships real categories (a geo pack's `Japan`)."""
+    matches = [pack for pack, (_version, declarations) in PACKS.items()
+               if name == UNIT_DECLARATION or name in declarations]
+    return sorted(matches)
+
+
 def pack_dag(name) -> OntoDAG:
     """The pack as a fresh OntoDAG, ready to merge into any store."""
     try:

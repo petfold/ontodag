@@ -832,7 +832,10 @@ odag <command> ...
                         under it; --dry-run shows what would go
   show                  print the DAG structure
   list                  print every item name (the empty query, named)
-  merge FILE            merge FILE into the store
+  merge FILE            merge FILE into the store; --diff previews instead
+                        (what would arrive, whether it is compatible, and
+                        a warning on unrelatedly-classified shared
+                        categories), changing nothing
   import FILE           replace the store with the contents of FILE
   export FILE           write the store to FILE
   ingest [FILE]         load a projection stream — JSON lines of

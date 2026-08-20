@@ -9,6 +9,8 @@ conflicts and unresolvable definitions refuse loudly, and certificates
 keep verifying over stores that carry declarations.
 """
 
+import os
+import tempfile
 import unittest
 
 from recordstore import MemoryBytesStore, RecordStore
@@ -218,3 +220,54 @@ class TestDeclarations(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+SWARM_GOLDEN_ROOTS = {  # the same packs under Swarm (BMT) addressing —
+    # the fingerprints real Swarm publication must reproduce (PACKS.md §14
+    # item 1). Computable offline: BMT is a hash, not a network.
+    "crypto-core":
+        "bbd0a930d7888aae3ea65c3ce794e793b5362f4e1837f816567889c75c22ea14",
+    "crypto-majors":
+        "83337936b794a85f23869661b4b4b3984b03a351d1eb043acd93a64d294fadf6",
+    "stablecoins":
+        "5bcad36bf97c08af3affdbd73ef56a3bd357441ac0ce4633e4b37d6d5bbd08d1",
+    "fiat-iso4217":
+        "36a9e1e2fdce1f87b273a50938f30cf931a0880b2bba8ab1a3dea1fe0309dd7b",
+}
+
+
+class TestPublishedPackStores(unittest.TestCase):
+    """PACKS.md §13.8 / §14 item 1: publishing a shipped pack IS adopting it
+    into a fresh store, so early (code-shipped) and late (published)
+    adopters converge byte-identically — the published root must equal the
+    golden root, per addressing scheme."""
+
+    def test_cli_rs_store_adoption_reproduces_the_golden_roots(self):
+        # Through the real CLI path (`odag -f rs:PATH pack NAME`), not the
+        # library: the published store is whatever the tool actually writes.
+        import io as _io
+        import ontodag.__main__ as cli
+        for name, golden in GOLDEN_ROOTS.items():
+            with tempfile.TemporaryDirectory() as home:
+                os.environ["ONTODAG_HOME"] = home
+                path = os.path.join(home, "pack")
+                session = cli.Session(f"rs:{path}")
+                code = cli.dispatch(["pack", name], session,
+                                    out=_io.StringIO(), err=_io.StringIO())
+                self.assertEqual(code, 0, name)
+                store = session.backend.open_store()
+                self.assertEqual(store.root, golden, name)
+
+    def test_swarm_addressing_reproduces_its_own_golden_roots(self):
+        # BMT refs give a different (but equally canonical) root; pinning it
+        # here means a live Swarm publication is verifiable in advance.
+        from recordstore import DirBytesStore
+        for name, golden in SWARM_GOLDEN_ROOTS.items():
+            with tempfile.TemporaryDirectory() as d:
+                try:
+                    blobs = DirBytesStore(d, addressing="swarm")
+                except Exception as exc:            # extra not installed
+                    self.skipTest(f"swarm addressing unavailable: {exc}")
+                dag = ontodag.EagerOntoDAG(RecordStore(blobs))
+                dag.merge(pack_dag(name))
+                self.assertEqual(dag.commit(), golden, name)

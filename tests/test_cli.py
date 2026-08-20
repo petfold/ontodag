@@ -2894,3 +2894,126 @@ class TestIngest(unittest.TestCase):
             code = cli.dispatch(["ingest", stream], session, out=out, err=err)
             self.assertEqual(code, 1)
             self.assertIn("line 2", err.getvalue())
+
+
+def _run3(argv, session):
+    """Dispatch capturing all three: (exit_code, stdout, stderr)."""
+    out, err = io.StringIO(), io.StringIO()
+    code = cli.dispatch(argv, session, out=out, err=err)
+    return code, out.getvalue(), err.getvalue()
+
+
+class TestMergePreview(unittest.TestCase):
+    """`merge --diff` / `pack --diff` (PACKS.md §13.2/§13.7): what would
+    arrive, the decidable unit-compatibility check, and the reportable
+    name-overlap warning — changing nothing."""
+
+    def test_preview_shows_additions_and_changes_nothing(self):
+        with tempfile.TemporaryDirectory() as home:
+            mine = os.path.join(home, "mine.od")
+            theirs = os.path.join(home, "theirs.od")
+            session = cli.Session(mine)
+            self.assertEqual(_run(["put", "animal"], session)[0], 0)
+            other = cli.Session(theirs)
+            for argv in (["put", "animal"], ["put", "dog", "animal"]):
+                self.assertEqual(_run(argv, other)[0], 0)
+            with open(mine, encoding="utf-8") as fh:
+                before = fh.read()
+            code, out, err = _run3(["merge", "--diff", theirs], session)
+            self.assertEqual(code, 0)
+            self.assertIn("+ item dog", out)
+            self.assertIn("would add 1 items", err)
+            with open(mine, encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), before)     # changed nothing
+            # Nothing new the other way round after a real merge:
+            self.assertEqual(_run(["merge", theirs], session)[0], 0)
+            code, out, err = _run3(["merge", "--diff", theirs], session)
+            self.assertEqual((code, out), (0, ""))
+            self.assertIn("nothing new", err)
+
+    def test_unit_conflict_refuses_with_exit_1(self):
+        with tempfile.TemporaryDirectory() as home:
+            mine = os.path.join(home, "mine.od")
+            theirs = os.path.join(home, "theirs.od")
+            session = cli.Session(mine)
+            for argv in (["put", "unit-declaration"],
+                         ["put", "unit-family(zorp)", "unit-declaration"],
+                         ["put", "unit(zz=1zorp)", "unit-declaration"]):
+                self.assertEqual(_run(argv, session)[0], 0)
+            other = cli.Session(theirs)
+            for argv in (["put", "unit-declaration"],
+                         ["put", "unit-family(zorp)", "unit-declaration"],
+                         ["put", "unit(zz=2zorp)", "unit-declaration"]):
+                self.assertEqual(_run(argv, other)[0], 0)
+            with open(mine, encoding="utf-8") as fh:
+                before = fh.read()
+            code, _out, err = _run3(["merge", "--diff", theirs], session)
+            self.assertEqual(code, 1)
+            self.assertIn("INCOMPATIBLE", err)
+            with open(mine, encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), before)     # nothing merged
+
+    def test_unrelated_shared_category_warns_but_shared_leaf_does_not(self):
+        with tempfile.TemporaryDirectory() as home:
+            mine = os.path.join(home, "mine.od")
+            theirs = os.path.join(home, "theirs.od")
+            session = cli.Session(mine)
+            for argv in (["put", "planet"], ["put", "Mercury", "planet"],
+                         ["put", "probe", "Mercury"],
+                         ["put", "photos"], ["put", "trip.jpg", "photos"]):
+                self.assertEqual(_run(argv, session)[0], 0)
+            other = cli.Session(theirs)
+            for argv in (["put", "chemical-element"],
+                         ["put", "Mercury", "chemical-element"],
+                         ["put", "japan"], ["put", "trip.jpg", "japan"]):
+                self.assertEqual(_run(argv, other)[0], 0)
+            code, _out, err = _run3(["merge", "--diff", theirs], session)
+            self.assertEqual(code, 0)          # a warning, never a refusal
+            self.assertIn("`Mercury` is classified unrelatedly", err)
+            self.assertNotIn("trip.jpg` is classified", err)  # leaf: normal
+
+    def test_pack_diff_previews_adoption(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "s.od"))
+            code, out, err = _run3(["pack", "crypto-core", "--diff"], session)
+            self.assertEqual(code, 0)
+            self.assertIn("+ item", out)
+            self.assertIn("compatible", err)
+            # Preview adopted nothing:
+            code, out, _ = _run3(["get", "unit-declaration"], session)
+            self.assertEqual(out, "")
+            # Adopt, then the preview reports it is already in:
+            self.assertEqual(_run(["pack", "crypto-core"], session)[0], 0)
+            code, out, err = _run3(["pack", "crypto-core", "--diff"], session)
+            self.assertEqual((code, out), (0, ""))
+            self.assertIn("nothing new", err)
+
+
+class TestPutTeachingError(unittest.TestCase):
+    def test_missing_parents_are_named(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "s.od"))
+            code, _out, err = _run3(["put", "x", "nonesuch"], session)
+            self.assertEqual(code, 1)
+            self.assertIn("'nonesuch'", err)
+            self.assertIn("odag put NAME", err)
+
+    def test_parametric_parents_are_not_flagged(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "s.od"))
+            self.assertEqual(_run(["prelude"], session)[0], 0)
+            self.assertEqual(_run(["put", "crate", "weight(3kg)"],
+                                  session)[0], 0)
+
+    def test_pack_hint_fires_only_when_the_pack_has_the_node(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "s.od"))
+            # `unit-declaration` IS a node every pack ships:
+            code, _out, err = _run3(["put", "x", "unit-declaration"], session)
+            self.assertEqual(code, 1)
+            self.assertIn("odag pack", err)
+            # A bare suffix is NOT a node any pack would create — no hint,
+            # because adopting the pack would not make the put succeed:
+            code, _out, err = _run3(["put", "x", "BTC"], session)
+            self.assertEqual(code, 1)
+            self.assertNotIn("odag pack", err)

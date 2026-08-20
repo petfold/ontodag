@@ -79,7 +79,7 @@ results one per line on stdout. No command = read commands from stdin
 | `show` | the whole DAG as indented text |
 | `move NAME… --to CAT… [--from CAT…] [--dry-run]` | reclassify: assert the new categories, retract the old ones (`--from` omitted = all of them, so `--to` alone means "under this and nothing else"; `--to` omitted = unfile, becoming top-level). Reports the **contested set** — items now under both the old and new category, which subsumption cannot resolve |
 | `remove NAME… [--cone] [--dry-run]` | contract: the items go, their children reattach to their parents (order-independent, so several at once is a function of the set). `--cone` deletes instead: each item plus whatever only existed under it, sparing cone members that hang elsewhere |
-| `merge PATH` | merge another store/file into this one |
+| `merge PATH [--diff]` | merge another store/file into this one. `--diff` previews instead, changing nothing: the additions (`+` lines), the mechanical unit-compatibility check (a declaration conflict refuses, exit 1), and a stderr warning when a shared *category* is classified unrelatedly on the two sides (reportable, never decidable — shared leaves under unrelated parents are normal multi-parent filing and are not flagged) |
 | `import` / `export PATH` | native `.od`, or OWL/Manchester by extension (`.owl`/`.omn`) |
 | `ingest [FILE] [--drop NODE…]` | load a projection stream — JSON lines of `{"item": N, "supercategories": […]}` (PROJECTIONS.md §4) — from FILE or stdin. Idempotent; one commit; missing categories created at top level then refined, so line order cannot matter. `--drop` cone-deletes NODE first (full-rebuild semantics). Usually into a dedicated projection store read via `overlays` |
 | `excerpt PATH [CAT…] [--context]` | write just that query's answer (with the edges among the answers) to PATH — an importable cut; FILE comes first because CATs are variadic. `--context` adds the categories the answers hang from, which is what makes the file merge *and* diff into another store |
@@ -87,7 +87,7 @@ results one per line on stdout. No command = read commands from stdin
 | `visualize [CAT…] [--out NAME]` | render an image (needs the `viz` extra); with CATs, draws that query's answer under its terms — the drawn twin of `excerpt`, which omits them |
 | `canon [TERM]` | the stored (canonical) form of TERM; bare: surface+registry versions |
 | `prelude [--show]` | adopt (or preview) the standard declarations |
-| `pack [NAME] [--show]` | adopt (or preview) a shipped vocabulary pack |
+| `pack [NAME] [--show] [--diff]` | adopt a shipped vocabulary pack; `--show` prints it, `--diff` previews the adoption (same preview as `merge --diff` — adoption *is* a merge). Each pack has two pinned fingerprints, one per addressing scheme: adopting into any sha256 store (`rs:`, memory) reproduces the golden root; publishing to Swarm reproduces the BMT golden root (`tests/test_packs.py`) |
 | `index` | publish cone summaries for the current store |
 | `history [-n N]` | the states this store has been in, newest first (`*` = where it is now); needs `rs:`/`swarm:` |
 | `status` | store, root, item count, and how much can be undone/redone |

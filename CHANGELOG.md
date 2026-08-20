@@ -39,6 +39,26 @@ the version numbers appear in commit history and docs.
 - **The projection-drop golden test** owed by PROJECTIONS.md §5:
   `remove --cone sys:` deletes pure cache entries and detaches — never
   deletes — anything the human layer also holds.
+- **Merge preview** (`merge FILE --diff`, `pack NAME --diff` — PACKS.md
+  §13.2/§13.7): what would arrive (`+` lines), the mechanical
+  unit-compatibility check (resolving the *union's* declarations — a
+  conflict refuses with exit 1 and nothing merged), and a stderr warning
+  when a shared *category* is classified unrelatedly on the two sides
+  (the Mercury-planet/Mercury-element shape; shared leaves under
+  unrelated parents are normal multi-parent filing and are not flagged).
+  Exit code is a compatibility verdict: 0 = safe to merge, 1 = would
+  conflict.
+- **Published-pack golden tests** (PACKS.md §13.8/§14 item 1): adopting
+  a shipped pack into a fresh `rs:` store through the CLI reproduces the
+  pinned golden root byte-identically, and each pack's **Swarm (BMT)
+  fingerprint is now pinned too** — computed offline, so a live Swarm
+  publication is verifiable in advance.
+- **`put` names its missing parents** (`unknown super-category:
+  'nonesuch'`) instead of the core's anonymous "one or more … do not
+  exist", and hints a pack **only when adopting it would actually create
+  the node** — a teaching error must never teach a falsehood, so today's
+  unit packs (whose nodes are declaration spellings nobody files under)
+  correctly produce no hint for bare suffixes like `BTC`.
 
 ## [0.17.1] — 2026-08-09
 

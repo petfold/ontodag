@@ -1107,6 +1107,23 @@ def _print_dag(dag, out, fmt=lambda name: name):
 
 
 def cmd_put(args, session, out):
+    # Name the missing parents (the core's error does not), and say when a
+    # shipped pack would supply one — the name-level twin of the pack-aware
+    # unknown-unit errors. Parametric parents are exempt: put materializes
+    # a declared head's values itself.
+    missing = [p for p in args.parents
+               if p not in session.dag.nodes
+               and session.dag._parse_parametric(p) is None]
+    if missing:
+        from ontodag.packs import packs_declaring_node
+        lines = [f"unknown super-categor"
+                 f"{'y' if len(missing) == 1 else 'ies'}: "
+                 f"{', '.join(repr(m) for m in missing)} "
+                 f"(create with `odag put NAME` first)"]
+        for name in missing:
+            for pack in packs_declaring_node(name):
+                lines.append(f"  {name!r} arrives with:  odag pack {pack}")
+        raise ValueError("\n".join(lines))
     session.dag.put(args.item, args.parents, optimized=args.optimized)
     session.save()
 
@@ -1578,6 +1595,10 @@ def cmd_pack(args, session, out):
         for declaration in declarations:
             print(declaration, file=out)
         return
+    if args.diff:
+        # Diff-preview adoption (PACKS.md §13.2): same preview as
+        # `merge --diff`, because adopting a pack IS a merge.
+        return _preview_merge(args, session, pack_dag(args.name), out)
     session.dag.merge(pack_dag(args.name))
     session.save()
 
@@ -1596,8 +1617,91 @@ def cmd_canon(args, session, out):
     print(_surface.elaborate(args.term, session.view()), file=out)
 
 
+def _preview_merge(args, session, incoming, out):
+    """What merging `incoming` would ADD, before anything does — the
+    diff-preview adoption of PACKS.md §13.2, on `merge` itself because every
+    merge deserves it, packs included (adoption = merge + preview).
+
+    Three parts, per §13.7:
+
+    * **The additions** (stdout, `+` lines like `diff`'s): the items and
+      claims that would arrive. Nothing new = "already adopted", exit 0.
+    * **The mechanical compatibility check**: resolve the *union's* unit
+      declarations — a conflict (two packs defining one spelling
+      differently, or a built-in redefined) is decidable, so it refuses:
+      exit 1, nothing merged, the conflict named.
+    * **The name-overlap warning** (stderr, reportable never decidable):
+      a shared name that is a *category* (has descendants on either side)
+      and whose ancestries on the two sides share nothing is flagged —
+      the Mercury-the-planet / Mercury-the-element shape. Shared *leaves*
+      with unrelated parents are NOT flagged: filing one item under
+      unrelated categories is what a multi-parent DAG is for.
+
+    Exit code is a compatibility verdict, not a difference verdict (unlike
+    `diff`): 0 = merging is safe (even when it adds nothing, even with
+    warnings), 1 = the merge would create a unit-vocabulary conflict.
+    """
+    from ontodag import compare as _compare
+
+    diff = _compare.compare(session.dag, incoming)
+    fmt = _namer(args, session, out)
+
+    for name in sorted(diff.only_theirs):
+        parents = " ".join(fmt(p) for p in diff.parents_theirs(name))
+        print(f"+ item {fmt(name)}" + (f" ({parents})" if parents else ""),
+              file=out)
+    for sub, sup in diff.added:
+        print(f"+ below {fmt(sub)} {fmt(sup)}", file=out)
+
+    flush = getattr(out, "flush", None)
+    if flush is not None:
+        flush()
+
+    # The decidable check: the union's declarations must resolve. Done on a
+    # throwaway composition, so a refusal leaves both stores untouched.
+    union = OntoDAG()
+    union.merge(session.dag)
+    union.merge(incoming)
+    try:
+        union._declared_units()
+    except ValueError as exc:
+        print(f"odag: INCOMPATIBLE — merging would conflict: {exc}",
+              file=_err())
+        return 1
+
+    # The reportable check: unrelated classification of a shared category.
+    def ancestor_names(dag, name):
+        return {a.name for a in dag.get_ancestors(name)} - {dag.root.name}
+
+    mine, theirs = session.dag, incoming
+    for name in sorted(set(mine.nodes) & set(theirs.nodes)):
+        if name == mine.root.name:
+            continue
+        ours, arriving = ancestor_names(mine, name), ancestor_names(theirs,
+                                                                    name)
+        is_category = (mine.nodes[name].neighbors
+                       or theirs.nodes[name].neighbors)
+        if ours and arriving and not (ours & arriving) and is_category:
+            print(f"odag: warning: `{fmt(name)}` is classified unrelatedly "
+                  f"on the two sides (here under: "
+                  f"{', '.join(sorted(fmt(n) for n in ours))}; arriving "
+                  f"under: {', '.join(sorted(fmt(n) for n in arriving))}) — "
+                  f"same name, same concept? merge will unify them",
+                  file=_err())
+
+    if not diff.only_theirs and not diff.added:
+        print("odag: nothing new — already adopted", file=_err())
+    else:
+        print(f"odag: would add {len(diff.only_theirs)} items, "
+              f"{len(diff.added)} claims; compatible", file=_err())
+    return 0
+
+
 def cmd_merge(args, session, out):
-    session.dag.merge(_load(args.file))
+    incoming = _load(args.file)
+    if args.diff:
+        return _preview_merge(args, session, incoming, out)
+    session.dag.merge(incoming)
     session.save()
 
 
@@ -2183,7 +2287,11 @@ Commands:
                         would go and changes nothing
   show                  print the DAG structure
   list                  print every item name (the empty query, named)
-  merge FILE            merge FILE into the store
+  merge FILE            merge FILE into the store. --diff previews instead:
+                        what would arrive (`+` lines), whether it is
+                        compatible (unit conflicts refuse, exit 1), and a
+                        warning when a shared category is classified
+                        unrelatedly on the two sides — changing nothing
   import FILE           replace the store with the contents of FILE
   export FILE           write the store to FILE
   ingest [FILE]         load a projection stream (JSON lines of
@@ -2228,7 +2336,8 @@ Commands:
                         --show prints them instead
   pack [NAME] [--show]  list unit packs, or adopt one (crypto-majors,
                         stablecoins, fiat-iso4217) — vocabulary as graph
-                        data, no new release needed; travels with the store
+                        data, no new release needed; travels with the
+                        store. --diff previews the adoption first
   history [-n N]        the states this store has been in, newest first
                         (`*` marks where it is now). Needs a store that
                         keeps history: rs:PATH or swarm:NAME
@@ -2489,6 +2598,9 @@ def build_parser():
     p.add_argument("name", nargs="?")
     p.add_argument("--show", action="store_true",
                    help="print the pack instead of merging it")
+    p.add_argument("--diff", action="store_true",
+                   help="preview adoption: what would arrive, and is it "
+                        "compatible; change nothing")
     p.add_argument("-o", "--output")
     p.set_defaults(func=cmd_pack, stream_output=True)
 
@@ -2509,7 +2621,11 @@ def build_parser():
 
     p = sub.add_parser("merge", add_help=True, help="merge a file into the store")
     p.add_argument("file")
-    p.set_defaults(func=cmd_merge)
+    p.add_argument("--diff", action="store_true",
+                   help="preview: print what would arrive and check "
+                        "compatibility; change nothing (exit 1 = the merge "
+                        "would conflict)")
+    p.set_defaults(func=cmd_merge, stream_output=True)
 
     p = sub.add_parser("import", add_help=True, help="replace the store with a file")
     p.add_argument("file")
