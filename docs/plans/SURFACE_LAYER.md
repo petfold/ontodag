@@ -487,6 +487,86 @@ residue, where the dispute *is* the information. The option ruled out is
 labels-in-records: every community's labels in everyone's data, and a label
 edit changing a knowledge fingerprint.
 
+**Worked proposal (2026-08-20, the French-forms discussion with Peter;
+still build-nothing until the Namespaces tripwire fires).** The split
+above stands — exact aliases are elaboration's job, near-synonyms stay
+distinct nodes whose disputed carving *is* the information — but the
+exact-alias mechanism is revised from an out-of-graph lexicon store to
+**graph-declared binding nodes, the unit-declaration pattern verbatim**:
+
+    fr(Mercure=Mercury (planet))
+
+- **Encoding.** One declaration node per binding, both sides of the
+  binding in the *name* (head = language, payload = `form=canonical
+  name`), placed only under its head's star — exactly like
+  `unit(lb=45359237/100000000kg)`, and like it never inside any
+  concept's cone, so queries, counts and the contract are untouched.
+  The head is declared a language by an ordinary edge to a
+  prelude-tier **`language-form` kind node** (`fr → language-form`),
+  resolved by the same ancestor walk that routes every typed head;
+  declaring a new language is data. ISO 639-1 codes are the convention.
+- **On the `=` (Peter's check, answered honestly):** it is not an
+  operator of the language. It never appears in query syntax or in any
+  canonical *value* name; it exists only as payload notation inside
+  declaration-kind heads, parsed by exactly one consumer — the same
+  quiet role `unit(lb=…)` gave it in registry 3.2. The one genuinely
+  new lexical allowance is **balanced parentheses inside a payload**
+  (the bound canonical name may contain them) — the single cost of the
+  design, named as such.
+- **Semantics.** Declaration nodes are read only by the surface layer,
+  in both directions. *Elaboration*: `put truc Mercure` resolves
+  `Mercure` through the bindings to `Mercury (planet)` **before
+  storing** — the user's spelling is never stored, so a French and an
+  English speaker filing the same fact converge to the same root:
+  cross-language G1, the property the design exists for. *Rendering*:
+  canonical names render through the bindings by local language policy
+  (policy is local and never merged; the declarations are vocabulary
+  and merge). English is not special at the display layer —
+  `en(Mercury=Mercury (planet))` lets the renderer shorten the
+  elaborated canonical form; English is special only at the identity
+  layer, as the convention anchoring canonical names (the lingua-franca
+  choice programming languages make with keywords), because opaque IDs
+  were declined on the convergence argument (PACKS.md Part II §10
+  principle 4; the SEMA boundary and the stranger test: `SEMA.md`,
+  "Why the name-binding layer is still not SEMA").
+- **Polysemy** just works: `fr(avocat=lawyer)` and `fr(avocat=avocado)`
+  are two distinct declaration nodes, both true; ambiguity surfaces at
+  elaboration with a teaching error asking the user to qualify — the
+  unit-conflict behavior verbatim. Render stays **injective per
+  context** (§4): if two concepts would render identically under one
+  policy, the renderer falls back to the elaborated form for at least
+  one, or the round-trip law breaks.
+- **Distribution.** Bindings are ordinary claims: they merge, travel
+  with the store (a fresh reader renders a store's own names — the
+  vocabulary-travels property units pinned), form packs, and are
+  endorsable/retractable through provenance — which settles this
+  section's identity-vs-relation fork on the *relation* side: a
+  translation is a disputable claim. The 2026-08-01 objection to
+  in-graph labels ("everyone's labels in everyone's data") is answered
+  by opt-in adoption: you carry only vocabularies you merged. The old
+  lexicon-store option survives as a special case — a **local binding
+  overlay** (per-audience store, never merged, `PROJECTIONS.md` §5)
+  gives a community private vocabulary with zero root impact. One
+  mechanism, both deployments.
+- **Purity record.** Three special things were proposed and withdrawn
+  under scrutiny (2026-08-20): a `:` separator (the syntax already
+  existed as `=`), an enforced-inert node (nothing to enforce — filing
+  under a declaration is weird-but-harmless, the status `unit(lb=…)`
+  already has), and a binding edge to the concept (it would put
+  declarations inside concept cones, polluting `get` and `count`; the
+  in-name encoding needs no concept edge at all). Method worth keeping:
+  when a design seems to need a special node or a special edge meaning,
+  move the information *into the name* and the interpretation *into a
+  layer the core does not import* — if a future feature genuinely
+  cannot, that is the moment purity is actually being spent.
+- **Caveats.** Bindings prevent future disconnection; they do not
+  repair past divergence — a store whose *canonical* layer is already
+  French needs an `ontodag.migrate`-style replay under a rename map (an
+  intervention, said plainly). And the near-synonym residue is
+  untouched by design: where `vol` and `Flight` carve differently, the
+  binding is the wrong tool and distinct nodes with relation claims
+  remain the honest one.
+
 ## 13. What are the limits of OntoDAG?
 
 The question: from a deliberately small query formalism, how far toward full

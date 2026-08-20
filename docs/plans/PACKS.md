@@ -303,7 +303,10 @@ ML/Java/RDF vs. hash-or-opaque identity à la Unison/Nix/Wikidata).
    discipline in the pack style guide), plus detection at the adoption
    boundary (preview, warnings — §13, 9.2/9.7). The binding layer
    (SKOS-style name→name relations, `SURFACE_LAYER.md` §12) is recorded
-   as the *additive escape hatch*, not a v1 blocker. (The precise
+   as the *additive escape hatch*, not a v1 blocker — and it now has a
+   worked encoding: `fr(Mercure=Mercury (planet))` declaration nodes,
+   the unit-declaration pattern verbatim, in `SURFACE_LAYER.md` §12
+   (2026-08-20). (The precise
    boundary with SEMA-style hash identity — the stranger test, and why
    display forms do not cross it — is drawn in `SEMA.md`, "Why the
    name-binding layer is still not SEMA".) **The ledger has
