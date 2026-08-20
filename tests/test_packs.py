@@ -262,12 +262,17 @@ class TestPublishedPackStores(unittest.TestCase):
         # BMT refs give a different (but equally canonical) root; pinning it
         # here means a live Swarm publication is verifiable in advance.
         from recordstore import DirBytesStore
+        # The BMT dependency surfaces at first HASH, not at construction —
+        # probe with a real put, or a bare environment (CI) fails instead
+        # of skipping. Found by the publish workflow's suite gate.
+        with tempfile.TemporaryDirectory() as probe:
+            try:
+                DirBytesStore(probe, addressing="swarm").put(b"probe")
+            except Exception as exc:                # extra not installed
+                self.skipTest(f"swarm addressing unavailable: {exc}")
         for name, golden in SWARM_GOLDEN_ROOTS.items():
             with tempfile.TemporaryDirectory() as d:
-                try:
-                    blobs = DirBytesStore(d, addressing="swarm")
-                except Exception as exc:            # extra not installed
-                    self.skipTest(f"swarm addressing unavailable: {exc}")
+                blobs = DirBytesStore(d, addressing="swarm")
                 dag = ontodag.EagerOntoDAG(RecordStore(blobs))
                 dag.merge(pack_dag(name))
                 self.assertEqual(dag.commit(), golden, name)
