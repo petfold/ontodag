@@ -567,6 +567,81 @@ exact-alias mechanism is revised from an out-of-graph lexicon store to
   binding is the wrong tool and distinct nodes with relation claims
   remain the honest one.
 
+**Follow-on rules (2026-08-20, the bank/French threads with Peter):**
+
+- **Canonical is nobody's native language.** The canonical layer is a
+  *constructed identifier language that borrows English lexemes* —
+  `bank (river)` is no more natural English than
+  `weight(45359237/100000000kg)` is natural arithmetic. So the design
+  is not "English canonical + French bindings" but "constructed
+  canonical + bindings for every natural language, *English
+  included*": even the anglophone types `bank` and reads through the
+  renderer; `en(…)` bindings are the normal case, not a courtesy. And
+  the parentheses in `bank (river)` are **convention, not grammar** —
+  nothing ever parses `(river)`; the machine reads declared bindings,
+  never the shape of a string.
+- **Authorship: the anchor is a shared-layer convention, not a gate.**
+  The stranger test only bites where strangers overlap. Personal items
+  and categories lose nothing named in any language (nobody else files
+  your invoice); shared vocabulary is *adopted* pre-translated via
+  packs, not defined by each user; and a community may run an
+  own-language canonical spine internally — convergence is with
+  whomever you want to converge. The cost localizes to boundaries
+  *between* communities, where bindings prevent future disconnection
+  and migration repairs past divergence; for marketplaces the boundary
+  cost is measured in missed matches, which is the economic argument
+  that maximum-reach vocabulary stays constructed-canonical with
+  bindings (loopmarket is the named consumer; matcher-side resolution
+  through *endorsed/bonded* bridge bindings is the future repair, and
+  cross-vocabulary near-matches belong in `get_overlapping`'s
+  possibly-satisfies modality, never in exact matching).
+- **Input precedence (form vs. verbatim).** A typed name resolves:
+  binding alone → the bound concept; existing node alone → verbatim;
+  neither → a fresh name stored as written; **both → teach**, never
+  guess.
+- **Bare ambiguous forms: set-reads widen visibly; decisions and
+  writes teach.** `get bank` with two declared bindings elaborates to
+  the disjunction — literally `get_any`, already shipped — with a note
+  on a tty and the canonical echo carrying the elaborated `any_of`
+  everywhere else (no answer leaves without confessing its actual
+  question). `put`/`move`/`remove` refuse with the candidates listed
+  (filing under a disjunction is not a thing), and `below` refuses too
+  (its consumers are exit codes and decisions; semantics must not
+  widen silently). Ambiguity is *data* — it exists only because two
+  bindings were declared and merged — never a string heuristic.
+- **Why confusion cannot propagate**, three structural stops: nothing
+  ambiguous is ever stored (writes refuse, spellings are never
+  stored); every answer echoes its canonical question; rendering is
+  injective per context, so the moment two senses co-occur on screen
+  the qualifiers come back.
+- **FAQ: why disambiguators are not parametric.** `bank (river)` looks
+  one space away from `bank(river)`, so the question will recur;
+  the answer is no, four times over. (1) Parametric payloads carry
+  *order* (denotation sets, exact arithmetic); senses are nominal, and
+  the Stevens mapping (EVOLUTION.md §3) already assigns nominal to
+  plain nodes — head treatment would borrow the syntax while every
+  piece of its semantics sat inert. (2) It would *store a lexical fact
+  as ontology*: anchor stars would make both senses children of one
+  "things called bank" node, and the lie would leak into `is_below`
+  and its certificates — provably-entailed wordhood. The query-time
+  widening above gives the same recall without ever storing the false
+  parent. (3) The one space would become load-bearing — today
+  `bank (river)` is opaque by construction, a safety property.
+  (4) Where a disambiguator has real semantic content
+  (`Paris (Texas)`), the content belongs in *edges* (place the node
+  under Texas and its `geo(…)`), the name staying identity convention
+  — the same coexistence Wikipedia titles have with Wikipedia
+  categories. Reassurance: an undeclared head is just an opaque name
+  ("opaque heads pass through"), so `bank(river)` collides with
+  nothing today. The senses' lexical link is already machine-readable
+  in the right layer: two `en(…)` bindings sharing a surface form.
+- **Guide obligation.** When this ships, the User Guide owes it a
+  plain telling: the French user's story (adopt the pack, set the
+  language, write your own things in your own words), the
+  sketch-vs-serialization figure (the two-edge diagram everyone draws
+  first, and the fold into the name), and the widen-vs-teach behavior
+  for bare forms.
+
 ## 13. What are the limits of OntoDAG?
 
 The question: from a deliberately small query formalism, how far toward full
