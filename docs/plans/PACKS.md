@@ -303,7 +303,10 @@ ML/Java/RDF vs. hash-or-opaque identity à la Unison/Nix/Wikidata).
    discipline in the pack style guide), plus detection at the adoption
    boundary (preview, warnings — §13, 9.2/9.7). The binding layer
    (SKOS-style name→name relations, `SURFACE_LAYER.md` §12) is recorded
-   as the *additive escape hatch*, not a v1 blocker. **The ledger has
+   as the *additive escape hatch*, not a v1 blocker. (The precise
+   boundary with SEMA-style hash identity — the stranger test, and why
+   display forms do not cross it — is drawn in `SEMA.md`, "Why the
+   name-binding layer is still not SEMA".) **The ledger has
    two entries, not one** (§12): collisions (same name, different
    concept — detectable, warnable) and **synonyms/translations**
    (different name, same concept — silent *disconnection*, which

@@ -56,6 +56,47 @@ Two more direct contacts:
   verdict overrides the model's conversational agreeableness — is independent
   empirical support for AGENT_SURFACE.md's bet that putting the decision in a
   deterministic tool moves the boundary away from model agreeableness.
+### Why the name-binding layer is still not SEMA (added 2026-08-20)
+
+The display-form work (elaborated canonical names like `Mercury
+(planet)`; declared language forms rendered on top — SURFACE_LAYER §12,
+PACKS.md Part II §10 principle 4) separates "the handle users see" from
+"the identifier the machine trusts," which superficially resembles
+SEMA's word/hash split. The boundary between the designs is one test:
+
+> **The stranger test: can two people who know the same fact, with no
+> communication, produce byte-identical stores?**
+
+An elaborated canonical name is *derivable from meaning plus a shared
+convention* — human-readable, hand-typable, independently mintable, so
+strangers converge; even the binding declarations themselves converge,
+being ordinary nodes and edges two strangers can independently assert
+identically. `hash(canonical(definition))` fails the test structurally:
+two independently written definitions of one concept hash differently
+by design (the Synonymy Limit), so forks coexist instead of merging.
+What OntoDAG declined is therefore not "internal form ≠ screen form"
+(crossed long ago with `weight(3000000mg)` → `3kg`) but **identity that
+cannot be independently re-derived from meaning**. A second structural
+reason it could not transplant anyway: SEMA has a frozen artifact to
+hash (the definition document); an OntoDAG node's meaning is its
+lattice position, which must grow monotonically *without* changing
+identity — hash it and every merge re-identifies every node.
+
+The honest one-liner: **SEMA puts the hash where the word is; OntoDAG
+puts hashes everywhere else** — store roots (whole-state identity,
+which SEMA hand-builds per context), pack pins, payload refs,
+provenance subject keys, `is_below` certificates. Node identity is the
+one place a hash would cost the convergence property, so it is the one
+place a name stays. As a trade: SEMA optimizes *verification* ("are we
+certain we resolved the same definition?") at the price of convergence;
+OntoDAG optimizes *convergence* and buys verification elsewhere (roots,
+certificates). That is also why the layer-composition pitch below is
+unchanged — the systems occupy different floors.
+
+Tripwire, so the line stays visible: the day a canonical name can no
+longer be typed by hand, or two strangers can no longer mint one
+independently, the actual line has been crossed.
+
 - **Versioning is where OntoDAG/recordstore is plainly ahead.** SEMA's stated
   limitations: one active definition per handle, no archive of replaced
   versions, renames of referenced handles cascade hash changes through all
