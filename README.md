@@ -45,7 +45,9 @@ in, and **unit packs one merge
 away** (`odag pack crypto-core` for BTC/ETH/BZZ, `fiat-iso4217` for ~150 national
 currencies, `crypto-majors` for the market's top coins — or declare your
 own: vocabulary is graph data that travels with the store, no release
-needed). `odag prelude` declares the everyday dimensions in one command. Weights and sizes (`weight(..5kg)`), hierarchical codes like geohash
+needed; the shipped packs are also published on Swarm, adoptable by
+fingerprint alone, and adopting one reproduces the pinned golden root
+byte-identically). `odag prelude` declares the everyday dimensions in one command. Weights and sizes (`weight(..5kg)`), hierarchical codes like geohash
 cells, and does-it-fit tuples all work the same way. See
 [User Guide §4.7](docs/USER_GUIDE.md) and the design record
 [docs/DIMENSIONS.md](docs/DIMENSIONS.md).
@@ -117,7 +119,29 @@ odag: +1/-0 items, +1/-0 claims listed; +6/-0 entailed claims over 8 names
 merging it lands on the byte-identical root that merging the whole store would,
 which is why there is no patch format. Comparison decides by *meaning*: adding
 one edge can prune others without losing anything, so a re-routed edge is never
-reported as a deletion.
+reported as a deletion. And before merging anything of someone else's,
+`merge FILE --diff` (or `pack NAME --diff`) previews it: what would arrive,
+whether the vocabularies conflict (refused mechanically), and a warning when a
+shared category is classified unrelatedly on the two sides.
+
+## Machine layers beside your own
+
+Let a cataloguer do the boring filing without it ever touching your store:
+a scanner's output streams in as JSON lines (`odag ingest`, idempotent,
+rebuilt from scratch on every rescan) into its *own* store, and the
+`overlays` setting joins the layers at read time —
+
+```console
+$ odag set overlays proj.od
+$ odag get photos sys:on:drive-budapest   # your judgment ∩ the machine's catalog
+```
+
+— while writes, `export` and `excerpt` read your store alone, so the machine
+layer can never leak into a file you send. The contract behind this (sources
+of truth, regenerable projections, the human layer as the only irreplaceable
+data) is [`docs/plans/PROJECTIONS.md`](docs/plans/PROJECTIONS.md), shared with
+[shelfmark](https://github.com/petfold/shelfmark)'s `datacat`, which emits
+exactly this stream from your filesystems and backup drives.
 
 ## Where a store lives
 

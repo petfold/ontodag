@@ -409,7 +409,7 @@ NOT_IN_THE_BROWSER = {"web"}
 def commands():
     """Every OntoDAG command — what it does, and whether it runs here.
 
-    All 26, not the 13 this surface allows: someone opening this is asking
+    All 27, not the 13 this surface allows: someone opening this is asking
     what the system can do, and answering with only the sandbox's subset
     would misrepresent it. The ones a browser cannot run say why in the same
     breath (they take filesystem paths, or need a store that keeps versions),

@@ -132,9 +132,11 @@ accidental — each surface exposes what makes sense for who is using it:
 | **as-of** (read a past version) | ✓ `RecordStore.at` | ✓ `--as-of` | n/a | ✓ |
 | readable rendering | ✓ (`ontodag.surface`) | ✓ | ✓ | ✓ (beside the exact name) |
 | import / export / merge | ✓ | ✓ | ✓ | — |
+| **merge preview** (what would arrive, compatibility) | ✓ `ontodag.compare` | ✓ `merge --diff`, `pack --diff` | — | — |
+| **overlay views** (read-only layers joined into answers) | ✓ merge into a view | ✓ `overlays` setting | — | — |
+| **ingest a projection stream** | ✓ (`put` per line) | ✓ `ingest` | — | — |
 | pictures | ✓ | ✓ | ✓ | — |
 | Swarm stores | ✓ | ✓ | — | ✓ |
-| as-of (query a past root) | ✓ | — | — | ✓ |
 | certificates, provenance, review | ✓ | — | — | ✓ |
 
 The empty cells are decisions, not oversights, and each has a reason:
@@ -147,9 +149,16 @@ The empty cells are decisions, not oversights, and each has a reason:
 - **The web app has no version history, as-of, certificates or store tiers** —
   its DAG is *server memory per session* (§6). There is no store and no root
   there, so those aren't withheld; they don't exist. Its console runs 13 of
-  the CLI's 26 commands for the same kind of reason: the rest read or write
+  the CLI's 27 commands for the same kind of reason: the rest read or write
   filesystem paths on the server, or need a store that keeps versions. The
-  `Commands` button lists all 26 anyway, saying which is which.
+  `Commands` button lists all 27 anyway, saying which is which.
+- **The web app has no overlay views** — the `overlays` setting is read from
+  the *server's* environment, and composing the operator's layers into an
+  anonymous visitor's sandbox would serve strangers another user's data.
+- **MCP has no overlay views yet** — every MCP answer cites the root it was
+  computed from, and a composed view has no root to cite; what an agent
+  should be told about a joined answer is a design question, not a missing
+  flag.
 - **diff has no web surface** — the second store has to come from somewhere, and
   an upload is a design question rather than a missing endpoint.
 - **The CLI has no provenance, review or certificates** — signing needs a key
@@ -1196,7 +1205,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.17.1 - type help for help
+Ontodag 0.18.0 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png
@@ -1407,7 +1416,20 @@ a machine-built catalog (a *projection*, see `odag ingest` and
 `docs/plans/PROJECTIONS.md`) sits alongside what you filed by hand:
 `get photos sys:on:drive-budapest` crosses the two layers, while
 `export`, `excerpt` and `diff` read your own store alone, so a file you
-send can never smuggle the machine layer with it.
+send can never smuggle the machine layer with it. The whole loop, run
+for real:
+
+```console
+$ echo '{"item": "IMG_2041.jpg", "supercategories":
+    ["sys:on:drive-budapest", "sys:type:jpg"]}' | odag -f proj.od ingest
+$ odag put photos
+$ odag put IMG_2041.jpg photos
+$ odag set overlays proj.od
+$ odag get photos sys:type:jpg      # crosses your layer and the machine's
+IMG_2041.jpg
+$ odag export sent.od && grep -c sys: sent.od
+0                                   # the machine layer stayed home
+```
 
 The layers differ in **how long they last**, which is the useful way to choose
 between them: a flag is for one command, an environment variable for one shell,

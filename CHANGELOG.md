@@ -12,7 +12,13 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
-## [Unreleased]
+## [0.18.0] — 2026-08-20
+
+The projection seam and the pack ecosystem: machine-built catalogs sit
+beside your store without entering it, and the shipped vocabulary packs
+are published on Swarm, adoptable by fingerprint alone (all four roots
+byte-equal to fingerprints pinned in advance; verified live, including
+scorched-earth re-adoption by root).
 
 ### Added
 

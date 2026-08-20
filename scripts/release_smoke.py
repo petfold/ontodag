@@ -409,6 +409,62 @@ def smoke(env, expect_version):
 
     check("rs: local content-addressed store", local_record_store)
 
+    def projection_seam():
+        # 0.18.0's headline: ingest a machine stream into its own store,
+        # join it at read time, and send a file that stays pure.
+        proj = os.path.join(env.work, "proj.od")
+        human = os.path.join(env.work, "human.od")
+        stream = os.path.join(env.work, "stream.jsonl")
+        with open(stream, "w", encoding="utf-8") as fh:
+            fh.write('{"item": "IMG_1.jpg", "supercategories":'
+                     ' ["sys:on:drive", "sys:type:jpg"]}\n')
+        o("-f", proj, "ingest", stream)
+        o("-f", proj, "ingest", "--drop", "sys:on", stream)   # full rebuild
+        o("-f", human, "put", "photos")
+        o("-f", human, "put", "IMG_1.jpg", "photos")
+        joined = o("--overlay", proj, "-f", human,
+                   "get", "photos", "sys:type:jpg").split()
+        assert joined == ["IMG_1.jpg"], joined
+        sent = os.path.join(env.work, "sent.od")
+        o("--overlay", proj, "-f", human, "export", sent)
+        with open(sent, encoding="utf-8") as fh:
+            assert "sys:" not in fh.read(), "the machine layer leaked"
+        return "ingest, cross-layer get through --overlay, export stays pure"
+
+    check("machine layers join answers, never files", projection_seam)
+
+    def merge_preview():
+        # `--diff` previews without merging, and refuses a unit conflict.
+        mine = os.path.join(env.work, "mine.od")
+        theirs = os.path.join(env.work, "theirs.od")
+        o("-f", mine, "put", "animal")
+        o("-f", theirs, "put", "dog")
+        before = open(mine, encoding="utf-8").read()
+        shown = o("-f", mine, "merge", "--diff", theirs)
+        assert "+ item dog" in shown, shown
+        assert open(mine, encoding="utf-8").read() == before, "preview merged"
+        for spec, definition in ((mine, "unit(zz=1zorp)"),
+                                 (theirs, "unit(zz=2zorp)")):
+            o("-f", spec, "put", "unit-declaration")
+            o("-f", spec, "put", "unit-family(zorp)", "unit-declaration")
+            o("-f", spec, "put", definition, "unit-declaration")
+        env.run(env.odag, "-f", mine, "merge", "--diff", theirs, expect=1)
+        return "preview changes nothing; a vocabulary conflict refuses"
+
+    check("merge --diff previews and refuses conflicts", merge_preview)
+
+    def pack_adoption_preview():
+        path = os.path.join(env.work, "packs.od")
+        shown = o("-f", path, "pack", "crypto-core", "--diff")
+        assert "+ item" in shown, shown
+        assert o("-f", path, "list") == "", "the preview adopted"
+        o("-f", path, "pack", "crypto-core")
+        assert "unit-declaration" in o("-f", path, "list").split(), \
+            "adoption did not land"
+        return "pack --diff previews; adoption still explicit"
+
+    check("pack --diff previews adoption", pack_adoption_preview)
+
     def swarm_doctor():
         # It must run and diagnose rather than crash, with no node present.
         text = o("swarm", expect=1)
