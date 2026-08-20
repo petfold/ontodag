@@ -288,6 +288,36 @@ shared piece is this contract, not a package.
    in-memory merge at that size acceptable? A measurement, not a
    debate — and it decides whether "full rebuild, no diffing" survives
    a real corpus or needs a compiled/serialized overlay cache.
+   **MEASURED (2026-08-20, `experiments/projection_scale.py`; synthetic
+   datacat-shaped streams, plus a real run over this machine's project
+   trees — 5,964 files scanned in 6 s, 5,495 items projected and
+   ingested in 0.8 s):**
+
+   | items | ingest | re-ingest | rebuild (`--drop`) | cold `get` (compose+query) | warm `get` | store file | peak RSS |
+   |---|---|---|---|---|---|---|---|
+   | 10⁴ | 1.4 s | 0.3 s | 0.3 s | 3.8 s | ~0 ms | 1.2 MB | 55 MB |
+   | 10⁵ | 14 s | 2.8 s | 2.7 s | **41 s** | ~0 ms | 12 MB | 404 MB |
+   | 10⁶ | 154 s | 39 s | 29 s | **462 s** | ~0 ms | 120 MB | 3.7 GB |
+
+   Two verdicts, one per half of the question. **Full rebuild survives
+   comfortably**: ~150 µs/item to build, a 100k-item drop-and-rebuild in
+   under 3 s and a million-item one in 29 s — no diffing machinery is
+   warranted; the contract's rebuild rule stands. **Per-invocation view
+   composition does not scale**: the one-shot CLI recomposes the overlay
+   per command (~0.4–0.5 ms/item: 41 s at 10⁵, 7.7 min at 10⁶ —
+   measured, and linear as predicted), while a *resident* session pays
+   it once (warm queries are free — the interactive prompt, the web app
+   and an fs mount are all fine). So above ~10⁴ items the one-shot CLI
+   needs one of: (a) a **composed cache** — a local, derived,
+   regenerable serialization of the view keyed by the layer stores'
+   content (allowed by this contract's own rules: derived, local, never
+   synced); (b) **lazy composition** — a LazyOntoDAG-style union view
+   that expands only what a query walks, turning compose cost into
+   query cost; or (c) telling users that big overlays belong to
+   resident surfaces. Memory says the same thing: ~4 KB/item across the
+   copies (404 MB at 10⁵, 3.7 GB at 10⁶) argues for (b) eventually.
+   Decision deferred until the pattern is used in anger; (c) is true
+   today and costs nothing.
 2. **Contact projection.** ucomm's contact book is itself a human-
    curated source of truth. Are identity edges projected from it
    (regenerable, but then not human-editable in the DAG) or native to
