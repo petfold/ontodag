@@ -145,6 +145,22 @@ overlay stores in the CLI/fs mount.
   is under Alice by subsumption. Whether those edges are projected from
   the contact source or native to the human layer: open (§10.2).
 
+**SwarmID forward-compatibility note (added 2026-08-20).** The identity
+layer this family needs is probably not ours to build: **SwarmID**
+(github.com/snaha/swarm-id, Snaha team; Solar Punk's IDEA-176 "Persistent
+Core" proposal builds on it) is a node-independent identity POC whose
+trust anchor is already the family's key format — a master identity from
+a passkey or Ethereum wallet signature, deterministically deriving
+per-app secp256k1 keys and a Gnosis account, with multiple personas per
+account and identity *state* persisted on Swarm. ucomm's `PubKey`,
+ontodag's `bee_signer`, and PROVENANCE.md's `KeySigner` are all
+Ethereum-style secp256k1 signers, so the forward-compatibility rule is
+one line: **keep every signer seam (provenance records, binding records,
+ucomm contact claims) duck-typed on "signs like an Ethereum key", never
+on where the key came from** — then a SwarmID-derived key drops in as
+the signer with no schema change. Status caveat: SwarmID is an actively
+developed but unaudited proof of concept (2026-08); watch, don't depend.
+
 Residues: an *edited* file is a new hash, and whether human categories
 carry forward is an interpretation question no projection can answer
 (§10.3); and link-shaped items (§7) need a naming rule (§10.4).
