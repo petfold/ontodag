@@ -189,6 +189,22 @@ Design points:
   rather than hoped for. A pinned/stamped Swarm copy can count toward
   a class's copy requirement in the redundancy join; an unpaid ref
   should not.
+- **Refresh is probe-then-verify (added 2026-08-20).** HTTP has no
+  "send me the hash" verb, but conditional GET is the cheaper thing
+  that achieves the same goal: store per-copy validators beside the
+  local bytes — `(url, etag, last-modified, sha256-of-fetched,
+  fetched-at)` — and refresh with `If-None-Match`; a `304 Not Modified`
+  costs one round trip and no body, and the local copy stands. On a
+  `200`, hash the new body and let content identity decide (an ETag
+  that revalidated spuriously — recompression, mtime churn — dedups to
+  the same item anyway). The two validators have different jobs: the
+  **ETag is the server's cheap change probe**, the **sha256 is the
+  truth**. Where a real hash is offered out of band, prefer it
+  (RFC 9530 `Repr-Digest`, S3/GitHub/apt checksums, `git ls-remote`).
+  Content-addressed links skip the dance entirely: an immutable Swarm
+  ref *cannot* change, and a feed lookup is natively the hash-only
+  request — it returns just the current ref, and content is fetched
+  only on difference.
 - **ucomm alignment.** A channel's Genesis `persistence` parameter
   (PERMANENT / EPHEMERAL / ARCHIVAL_OPTIONAL) is the sender-side
   declaration of the same axis; receiver sovereignty means the
@@ -240,7 +256,10 @@ shared piece is this contract, not a package.
 4. **Names for link and live items.** A URL is a location, not an
    identity. Content hash when known; else the URL; live sources
    perhaps named by a recipe hash — none of this is settled, and G1
-   cares.
+   cares. Whatever is decided, refresh validators (ETag,
+   Last-Modified, fetch time — §7) are attributes of a *copy*, never
+   part of the name: they are one server's transient word, not
+   identity.
 5. **The overlay seam's shape.** A view class in the core? A Session-
    level overlay list in the CLI? An fs-mount concern? Where refusal
    of `commit` lives determines who can get it wrong.
