@@ -120,7 +120,13 @@ categories should survive the drop too if the human layer references
 them at all, and should disappear if nothing does — which is exactly
 the survival rule, but the golden test is owed.
 
-**The join (proposed — the one new seam).** Unified queries like
+**The join (proposed — the one new seam).** *(2026-08-20: this seam
+gained a second and third client — pack adoption previews and
+per-audience privacy overlays compose the same way; see PACKS.md Part II
+§11 and `act-categories/DESIGN.md`. The composed read view needs no
+cross-layer re-reduction to answer queries: cones are
+reduction-invariant, and reduction only matters at commit, which the
+composed view never does.)* Unified queries like
 `get(photo, vienna, sys:on:drive-budapest)` need both layers in one DAG
 instance. The mechanism exists — load the human store, `merge` the
 projection in memory, query — but today "never commit the merged state
@@ -221,7 +227,17 @@ Design points:
   ref *cannot* change, and a feed lookup is natively the hash-only
   request — it returns just the current ref, and content is fetched
   only on difference.
-- **ucomm alignment.** A channel's Genesis `persistence` parameter
+- **You leak at the granularity you fetch (added 2026-08-20).** A
+  `linked` or `live` item consulted from a *private* context leaks
+  interest to whoever serves it, at exactly the granularity of the
+  fetch: query live and you leak the query; fetch an enclosing cone
+  (an `excerpt --context` of the public store) and you leak only the
+  broad topic; mirror the whole public store and you leak only that you
+  use it. Mirroring a public ontology is free privacy-wise (it is
+  public) and is the `offline-essential` class doing double duty —
+  privacy and disconnection-resilience are the same act. Timing still
+  leaks at coarse grain (fetching just before acting correlates), so a
+  serious threat model mirrors ahead of need.
   (PERMANENT / EPHEMERAL / ARCHIVAL_OPTIONAL) is the sender-side
   declaration of the same axis; receiver sovereignty means the
   receiver's retention classes decide what is actually archived —
@@ -236,8 +252,10 @@ classes of §7 are pack-shaped: stable, externally standardized or
 prelude-tier, conflict-detectable. datacat's flat `sys:type:<ext>` is
 the immediate beneficiary of a MIME *hierarchy*
 (`sys:type:jpg ⊑ image ⊑ media`) — a small, concrete demonstration of
-what the DAG side adds over the SQLite side. All of this waits for the
-PACKS.md discussion; nothing here jumps that gate.
+what the DAG side adds over the SQLite side. *(2026-08-20: the PACKS.md
+discussion happened — Part II there records the decisions and the build
+order; these vocabulary packs now follow that path rather than waiting
+on a gate.)*
 
 ## 9. Division of labor
 

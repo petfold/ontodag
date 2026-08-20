@@ -147,8 +147,12 @@ Three graded options:
 1. Run the export experiment (their `extends` graph into an OntoDAG store).
 2. Email Henrik Westerberg (henrik.westerberg@emergentwisdom.org) — draft
    below — ideally with the experiment's result attached.
-3. Hold anything pack-shaped behind the PACKS.md discussion per the standing
-   freeze.
+3. ~~Hold anything pack-shaped behind the PACKS.md discussion per the standing
+   freeze.~~ *(2026-08-20: the discussion happened — pack-shaped options now
+   follow PACKS.md Part II's build order. Its §10 principle 4 also weighs
+   SEMA's identity-by-content against name-identity and declines it for
+   OntoDAG on the convergence argument: content-bound definitions remain
+   available as payloads and bindings, never as node identity.)*
 
 ## Appendix: email draft to Henrik
 

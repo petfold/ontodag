@@ -29,9 +29,12 @@ to add a section somewhere, check it isn't another document's job.
 
 Discussion drafts and direction papers. **Nothing in `plans/` is
 shipped**; treat clauses there as proposed until a design record or the
-code says otherwise. Currently: BINDING (roles, bundles, multiplicity),
+code says otherwise. Currently: act-categories/DESIGN (category-based
+access control on Swarm — an ACT key graph where subsumption decrypts),
+BINDING (roles, bundles, multiplicity),
 EVOLUTION (how an ontology changes; the top ontology), PACKS (published
-ontologies and trust), PROJECTIONS (sources of truth vs. regenerable
+ontologies and trust; Part II = the 2026-08-20 decisions and build
+order), PROJECTIONS (sources of truth vs. regenerable
 machine layers, the ingest contract with datacat/ucomm, retention
 classes), SEMA (relation to the SEMA project: hash-of-definition vs.
 canonical-state grains, lessons, collaboration options), SURFACE_LAYER

@@ -31,6 +31,21 @@ category DAGs, with subsumption queries ("is x below C?") as the core
 operation. This proposal makes that subsumption relation *cryptographically
 enforced*: membership in a category, not presence in a list, is what decrypts.
 
+**Division of labor with store-level encryption (added 2026-08-20).**
+This design gates *content*: the claims (which document sits in which
+category) remain visible as structure and manifests — §6 names the
+leakage honestly. When the *structure itself* is the secret, the answer
+is different and complementary: per-audience stores (overlays), because
+claims within one canonical store cannot have per-reader visibility —
+the canonical root hashes everything, and transitive reduction does not
+survive projection (the public view of a reduced private graph is not
+the reduction of the public view). The two mechanisms meet at one seam:
+an encrypted overlay's blobs should take their key **from the
+audience's node in this key graph**, making "a private overlay" and "a
+document category with an audience bridge" one mechanism rather than
+two. See `docs/plans/PROJECTIONS.md` for the layering contract this
+slots into.
+
 ## 2. Construction
 
 ### 2.1 One directed graph, access = reachability
@@ -104,7 +119,12 @@ instead of re-encrypting the content.
 
 - **AND**: encrypt under `KDF(K_A || K_B)` — readable only by someone who can
   derive both category keys. Pairs directly with OntoDAG intersection
-  categories.
+  categories. **Ordering must be canonical** (concatenate in sorted
+  category-name order, added 2026-08-20): `KDF(K_A || K_B)` and
+  `KDF(K_B || K_A)` are different keys, so without the sort two writers
+  mint divergent intersection keys — the G1 discipline applied to key
+  derivation. One line in the eventual format spec, expensive to
+  retrofit.
 - **OR**: publish two tokens (or two ACT grantee entries).
 
 ### 2.6 Everyday operations, and their cost
@@ -116,6 +136,40 @@ instead of re-encrypting the content.
 | Grant a reader category a document category | 1 bridge token |
 | Read a document | walk up, across, down: d token unwraps (d = path length; shortcut tokens can cap this) |
 | Remove an employee | rotate `K` on their leaf and all ancestors, republish affected tokens, re-wrap forward keys — see §6 |
+
+### 2.7 Interactions with the knowledge DAG's own mutations (added 2026-08-20)
+
+The table above covers grants; the knowledge DAG also mutates
+(`put`-triggered reduction, `remove`'s contraction, `move`/`reclassify`,
+`remove --cone`), and each has a key-graph consequence this document
+originally predated:
+
+- **Reduction pruning an edge is harmless.** Tokens only need *some*
+  path, and reduction preserves reachability, so a stale token for a
+  pruned edge grants nothing reachability didn't already grant. It can
+  be garbage-collected lazily or left.
+- **Contraction re-adds edges that need fresh tokens.** `remove X`
+  reattaches X's children to X's parents; each reattached edge is a new
+  access path that has no token until one is minted — access silently
+  breaks otherwise. Any deleting operation must therefore drive token
+  minting through the same seam that drives the record updates.
+- **`move` retires tokens at the next epoch** (the retracted edge's
+  token should stop working forward), and **cone removal deletes whole
+  token sets** — both are epoch events, not merely data edits.
+- **The contested set is the residual-access report.** `odag move
+  --dry-run` already computes exactly what a revocation officer needs:
+  members reachable in both the old and the new state via another path.
+  "Remove Alice from eng-dept" answers "what can Alice still read
+  through her other memberships" with the same query (`get old new`)
+  and the same code. The §6 revocation story gets a working preview
+  tool for free.
+- **Access decisions can carry certificates.** The walk is `is_below`
+  with unwrapping — ancestors(person), bridge, descendants(category) is
+  the query planner's probe shape — and `is_below` already produces
+  offline-verifiable Merkle certificates. A grant or denial can
+  therefore be *auditably justified* against a pinned root: "provably
+  entitled as of root R." Few access-control systems get that property
+  this cheaply.
 
 ## 3. Mapping onto Bee's existing ACT
 
@@ -286,5 +340,9 @@ Do both, in order, and keep them small:
 - Should the OntoDAG *structure* store and the *key graph* be the same DAG
   instance or two aligned ones? (Same shape, different payloads; keeping them
   separate lets the public structure be replicated without the tokens.)
+  §2.7 adds an argument for **aligned twin**: the knowledge DAG
+  reshapes under reduction and contraction, while the key graph needs
+  only reachability-preserving maintenance — coupling them would make
+  every `put` a potential key ceremony.
 - Padding/decoy policy for category manifests (§6) — needed in v1 of the
   format or deferrable?

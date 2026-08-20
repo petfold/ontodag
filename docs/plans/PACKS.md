@@ -1,11 +1,11 @@
 # Packs: Published Ontologies, Adoption, Collisions, and Trust
 
-Status: **discussion draft, 2026-08-01 (prompted by Peter: "we should have
-had more discussion on packs — it goes way beyond units"). Nothing here is
-decided; §8 collects the open questions.** This document exists to be
-argued with, and to gate the *next* step of packs (third-party
-distribution, more shipped packs) — not the current one, whose trust
-surface is analyzed in §2 and is deliberately narrow.
+Status: **discussed with Peter 2026-08-20; Part II (§10–§14) records the
+decisions.** Part I (§1–§9, the 2026-08-01 draft) is kept as the
+discussion record; its §9 sheet is resolved item-by-item in §13, and the
+freeze this document used to impose is dispositioned in §14. Where Part I
+and Part II disagree (notably §5's dependency manifest), Part II wins and
+Part I carries an inline note.
 
 ## 1. What a pack actually is (and the naming question)
 
@@ -28,7 +28,7 @@ as:
 So "pack" names a **role, not a kind**: *an ontology whose purpose is to
 be merged into others*. Whether that role deserves the word "pack" —
 versus *overlay*, *module*, *vocabulary*, or simply "a published
-ontology" — is genuinely open (§8.1). The risk of "pack" is that it
+ontology" — is genuinely open (§9.1; resolved in §13). The risk of "pack" is that it
 suggests a sealed artifact with an installer; the reality is subgraphs
 and merge. The risk of having *no* word is that the adoption workflow
 (preview, verify, endorse, merge) still needs a name for its object.
@@ -75,7 +75,8 @@ This is not a new problem: it is the roadmap's **Namespaces** item
 (reconciling naming across independent DAGs) and `SURFACE_LAYER.md` §12's
 fork — arriving with production urgency, because packs are precisely the
 mechanism that makes strangers' names flow into your graph. Positions,
-not decisions:
+not decisions **[decided 2026-08-20 — §10 principle 4 and §13 items
+9.3/9.5/9.7]**:
 
 - **Diff-preview adoption** (cheap, high value, buildable now):
   `odag pack --diff` / a pre-merge report computing what the pack would
@@ -117,7 +118,7 @@ someone to trade against it.
   endorsement record whose subject is *a pack root* ("K stands behind
   root `649b0050…` as the crypto-majors pack") gives web-of-trust over
   packs, and `review` answers "do people I trust endorse this?" *before*
-  the merge. (Needs a pack-root subject form in `PROVENANCE.md` — §8.4.)
+  the merge. (Needs a pack-root subject form in `PROVENANCE.md` — §9.4.)
 - **The residue is social**, exactly as in every package ecosystem
   (npm typosquatting is this problem). Our structural advantages over
   name-registry ecosystems: no name race (roots, not names, are the
@@ -135,13 +136,18 @@ managers never get to say. Chained unit declarations across packs
 already exercise this (a pack may define `kilderkin` in terms of another
 pack's `firkin`; unresolved bases refuse loudly and name the missing
 pack). Dependencies would ride in a manifest *beside* the pack store
-(the cone-index pattern), not inside it.
+(the cone-index pattern), not inside it. **[Amended 2026-08-20, §10
+principle 2: dependencies ship as closure — the pack includes the claims
+it assumes — and the manifest survives as provenance metadata only. The
+`firkin` case then needs no resolution step at all: the declaration
+travels inside.]**
 
 And per `SURFACE_LAYER.md` §11 — build it out of OntoDAG — the **pack
 index can itself be an ontology**: packs as items categorized under
 `unit-pack` / `lexicon` / `upper-ontology`, values carrying roots,
 discoverable with the one query primitive. Who publishes and endorses
-that index is an open trust question (§8.6), not a mechanism question.
+that index is an open trust question (§9.6; resolved in §13), not a
+mechanism question.
 
 ## 6. Where do packs live?
 
@@ -155,7 +161,8 @@ irony to name: shipping packs as Python data re-couples vocabulary to
 releases, the exact thing graph-declared units decoupled. That is
 acceptable for three blessed packs and wrong as a pattern; migrating
 them to published stores is the natural next step *after* this
-discussion settles the trust workflow.
+discussion settles the trust workflow. **[Settled 2026-08-20: it is
+build-order item 1, §14.]**
 
 ## 7. Can we trust packs? (the model in one box)
 
@@ -233,3 +240,230 @@ facts:
     (247 suffixes) now holds only what physics fixes, so **no
     market-shaped suffix is hard-claimed for a registry major,
     anywhere**. `sat` costs one `odag pack crypto-core`.
+
+---
+
+# Part II — Decisions (2026-08-20, discussed with Peter)
+
+The discussion this document existed to gate has happened. Part II
+records what was decided and why, compactly; the arguments live in the
+2026-08-20 session. The headline: **almost everything is forced by the
+values** (canonical form, total idempotent merge, monotone-and-
+computable, receiver sovereignty, fail-closed), and §12 separates what
+was derived from what was bet.
+
+## 10. The principles
+
+First, the languages survey that framed them, distilled to four lessons:
+inclusion must be idempotent (C's `#include` is the anti-pattern;
+Python's `sys.modules` the fix — our merge is the guard built into the
+algebra); pins are content hashes (lockfiles, `go.sum` — adopt-by-root
+is our native form); the diamond-dependency problem dissolves under
+idempotent union (npm/cargo solve with version solvers what we get
+free); and naming is the one genuine fork (qualified names à la
+ML/Java/RDF vs. hash-or-opaque identity à la Unison/Nix/Wikidata).
+
+1. **A pack is a store. Full stop.** A published ontology with a root
+   (exact pin) and optionally a signed feed (updatable latest). Adoption
+   is `merge`; distribution is the existing store tiers (file / `rs:` /
+   `swarm:`). Nothing new exists to design, host, or trust. "Pack" stays
+   the word (§13, 9.1): it names a *role* — an ontology whose purpose is
+   to be merged — not a kind.
+2. **Dependencies are closure, not manifest** (amending §5). A pack
+   includes the claims it assumes; content addressing makes shared
+   closures byte-shared, and idempotent merge makes double-inclusion a
+   no-op, so there is no resolver and no version solver. The dependency
+   DAG survives as *provenance metadata* ("built from prelude v3 +
+   crypto-core v1"), consumed by humans and previews, never by the
+   machine. The exception rule: **include what you assume, reference
+   what you consult** — a huge reference ontology (Wikidata-derived) is
+   pinned by root and consulted lazily, never embedded. Cost accepted
+   with eyes open: closure couples roots down the chain, so a dependency
+   *correction* (the rare, loud intervention class) cascades into
+   downstream republishes. Scale note: preludes and packs are tens to
+   low hundreds of claims — closures are kilobytes.
+3. **The prelude is pack zero.** Its only principled specialness is that
+   the interpreter *dereferences its names* (the kind nodes registry
+   code looks up), so it is version-locked to the code — Python's
+   `builtins`, exactly. Fold it into `odag pack`'s listing; keep
+   `odag prelude` as an alias; everything the code does not dereference
+   belongs in ordinary packs. (Distribution tier ≠ governance tier: a
+   top/core ontology is pack-tier by *distribution* under this rule,
+   while `EVOLUTION.md` rightly argues prelude-grade *governance* for it
+   — small, coarse-but-true, admission a one-way door. Both are true at
+   once.)
+4. **Names stay identity; collisions are detected, not prevented.** The
+   opaque-identity road (Unison/Wikidata: names as bindings to minted
+   IDs) is *named and declined*, on the convergence argument: two
+   strangers who file the same fact converge to the same bytes only
+   because the name is the identity; mint IDs and equal knowledge gets
+   unequal roots — G1's spirit broken. The namespace answer is therefore
+   Wikipedia's, not Wikidata's: a flat human-readable namespace,
+   **parenthetical qualification where ambiguity is real** (authoring
+   discipline in the pack style guide), plus detection at the adoption
+   boundary (preview, warnings — §13, 9.2/9.7). The binding layer
+   (SKOS-style name→name relations, `SURFACE_LAYER.md` §12) is recorded
+   as the *additive escape hatch*, not a v1 blocker. **The ledger has
+   two entries, not one** (§12): collisions (same name, different
+   concept — detectable, warnable) and **synonyms/translations**
+   (different name, same concept — silent *disconnection*, which
+   detection cannot see at all; the G1 synonym hazard at ecosystem
+   scale, and the standing argument for eventually building the binding
+   layer).
+5. **Trust = pin, preview, endorse — and packs are data, never code.**
+   Adopting a pack executes nothing; the worst case is a false or
+   confusing claim, which is visible in the preview, diffable,
+   attributable, and removable — a strictly weaker threat model than any
+   code package ecosystem. The residue (lookalike names) stays social,
+   as §4 concluded.
+
+**The adoption spectrum**, tying principle 1 to size: **consult** (a
+`LazyOntoDAG` over the published root + cone summaries — query without
+hydration, zero local claims) → **partial adoption** (`odag excerpt
+--context` against the pack yields exactly the mergeable fragment) →
+**full adoption** (merge the store). All three grades exist in shipped
+machinery today. Corollary for teaching errors: generalize the shipped
+pack-aware unknown-*unit* hints to unknown *names* checked against known
+pack manifests ("found in the geo pack: …").
+
+## 11. Privacy, curation, and guarantees (the composition)
+
+**Privacy divides at a theorem.** Claims within one canonical store
+cannot have per-reader visibility: the root hashes everything, and
+transitive reduction does not survive projection. So **structure-privacy
+= per-audience stores (overlays)**, composed by merge in a session that
+holds the keys, never committed as a whole — and **content-privacy = the
+category key graph** of `act-categories/DESIGN.md` (per-document keys,
+subsumption decrypts, one token per edge, one bridge per grant). They
+unify at one seam: an encrypted overlay's blobs take their key from the
+audience's node in the key graph, making "a private overlay" and "a
+document category with an audience bridge" one mechanism. Supporting
+rules: **a private overlay is a pack whose audience is one** (folding
+§9.9 in — same object, same adoption, different key management);
+**audience is contagious along derivation** (a store's provenance
+sibling, cone index, and timeline inherit its audience; public indexes
+never list private packs); missing keys are **fail-closed** (a smaller
+but valid store — no new query semantics); the one new safety mechanism
+is the **leak lint** (committing to a wider audience a claim whose names
+hydrated from a narrower layer warns); and **you leak at the granularity
+you fetch** — consulting a public ontology from a private context should
+fetch an enclosing cone or mirror the whole store (free, it is public),
+which is the `offline-essential` retention class doing double duty
+(`PROJECTIONS.md` §7). Composition cases verified in discussion:
+sign-then-encrypt (provenance works inside overlays); bonds on subjects
+are hash-blind (adjudication reveals to the adjudicator); endorsing an
+encrypted root is discounted by reader-side trust to endorsers who can
+have read it.
+
+**Curation is receiver-sovereign and audits are data.** Publication is
+permissionless, so curation is filtering at adoption, never gating —
+ucomm's principle again. The model is cargo-vet, not app stores: a
+curator is an identity publishing endorsement records over pack roots;
+a curation index is itself an ontology (packs as items, categorized by
+domain and tier — SEMA's ironclad/honesty-dependent/experimental tiers
+are a good borrowing) and is *itself a pack*; competing indexes coexist
+and the adopter's trust list decides. **Deprecation comes free**: the
+endorsement-of-a-root record has its dual already in the provenance
+vocabulary — a signed retraction of a pack root. Tooling checks feed and
+provenance for deprecation before adopting; already-adopted stores get
+the intervention playbook.
+
+**Guarantees form an assurance ladder**, ascending in cost and
+assurance; the adopter picks the rung the use case needs:
+root (integrity, free) → signed feed/records (attribution) →
+endorsements (web of trust) → **bonds** (factbond — someone loses money
+if it's wrong). Unit packs are the *ideal* bond subject: violations are
+mechanically adjudicable arithmetic. The MCP annotation slot for
+guarantee status is already reserved (`CONTRACT.md` open question 6).
+
+## 12. Forced vs. chosen (the register)
+
+**Forced by the values** (derivations, not bets): privacy-per-store;
+merge stays total, compatibility is diagnostics; diamond dependencies
+dissolve; adopt-by-root; receiver-side curation; fail-closed keys;
+sign-then-encrypt; audience contagion.
+
+**Chosen, eyes open** (cheap to decide now, expensive to re-decide
+later):
+
+1. **Names-as-identity** — trades collision-immunity and multilinguality
+   for stranger-convergence; both ledger entries above; reversible only
+   additively (binding layer).
+2. **Closure over manifest** — trades correction-cascade cost for
+   no-resolver simplicity; a bet that corrections stay rare and loud.
+3. **The retraction wall at ecosystem scale** — a wrong claim in a
+   widely adopted pack resurrects against removal among syncing peers;
+   curation, preview and bonds mitigate *before* adoption, nothing in
+   the algebra fixes *after*. Accepted as the known price of monotone
+   merge (its fourth appearance, counting §6 of act-categories — 
+   "revocation is strictly forward-looking" is the same wall in crypto
+   clothing). If a core value is ever re-examined, it will be because of
+   this.
+
+**Empirical risk, substantially retired**: key-management UX — the
+people-DAG of act-categories factorizes audiences (a share is a bridge
+token, not a new store), and personal leaf keys are SwarmID's job, not
+ours (`PROJECTIONS.md` §6).
+
+## 13. Resolutions to the §9 sheet
+
+1. **Naming**: keep "pack" (§10, principle 1).
+2. **Diff-preview**: yes — but on `merge` itself, where every merge
+   deserves it; `odag pack` needs *no new verb* (adoption = merge +
+   preview + optional adoption record). `ontodag.compare` /
+   `diff --additions` is most of the implementation.
+3. **Wait on Namespaces?** No: grow with detection + qualification
+   discipline; the binding layer is the additive escape hatch. The
+   synonym cost (§10.4) is recorded as the price.
+4. **Pack-root subjects**: yes — endorsement of a root, and its
+   retraction dual is deprecation for free (§11).
+5. **Provenance-gated adoption**: per-claim origin is **not stored** —
+   it is *recomputable* (membership in a pinned root's claim set), the
+   canonical-recomputability rule again. Optionally one root-grain
+   adoption record where provenance is enabled.
+6. **The index**: competing indexes, each itself a pack; receiver
+   sovereignty decides; door left open to ecosystem coordination
+   (Solar Punk ideabox — a pack index and SwarmID's Persistent Core
+   "small resolution records as shared infrastructure" are cousins).
+7. **Compatibility check**: unit-level mechanical check runs inside the
+   merge preview (resolve the union; conflict = incompatible);
+   general-name overlap is a *warning* on the same preview (disjoint
+   parent regions → flag), reportable never decidable.
+8. **Migrate shipped packs to Swarm**: yes, build item 1 — published
+   root must equal the shipped golden root (test-pinned), after which
+   `ontodag.packs` shrinks to the bootstrap shim.
+9. **Private overlays**: folded in (§11) — a pack with an audience of
+   one.
+10. Already done 2026-08-01.
+
+## 14. Freeze disposition and build order
+
+The freeze this document imposed is **lifted, into the following order**
+(items 1–3 unblocked now; item 4 tripwire-gated):
+
+1. **Merge preview + publish the three shipped packs to Swarm** (golden
+   test: published root == shipped root; early and late adopters
+   converge byte-identically).
+2. **Collision warnings in the preview + name-level pack hints** in
+   unknown-name errors.
+3. **The overlay-view seam + single-audience encryption** (shared
+   obligation with `PROJECTIONS.md` §5; an `EncryptedBytesStore` or
+   Swarm encrypted uploads — the audience-of-one case, which is what the
+   personal-data use actually needs first).
+   3½. **The act-categories crypto spike**: reproduce one of Bee's Go
+   ACT test vectors in Python (hours) — retires the only real unknown in
+   its Phase 1 without committing to the weeks.
+4. **act-categories Phase 1 on a tripwire**: the first real
+   multi-audience need (a second person/team reading a *category* of
+   content; ucomm or ontodag-fs reaching shared deployment). It needs
+   **nothing from upstream Bee** — Phase 1 is client-side against a
+   stock node by design; Phase 2's header is convenience for third-party
+   clients, filed later *with* working evidence. Scope lever recorded:
+   if the first consumer is a closed all-odag group, ACT compatibility
+   itself is deferrable (own-format encryption over the same token
+   graph, ~half the estimate), added when interop matters.
+
+"Further shipped packs" stays discouraged not by freeze but by pattern:
+publishing is now the way (item 1); code distribution remains bootstrap
+only. New vocabulary continues to gate on nothing — graph-declared
+units made that a data question, which was the point.

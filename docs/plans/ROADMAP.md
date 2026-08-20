@@ -350,8 +350,11 @@ tripwire has to be rediscovered mid-build.
   trust (adopt-by-fingerprint, signed feeds, endorsement of pack roots,
   diff-before-merge), whether packs form a DAG (yes — and adoption is
   order-free because merges commute), where packs live and how they are
-  discovered. Third-party pack distribution is frozen until this is
-  discussed.
+  discovered. **Discussed and decided 2026-08-20** — PACKS.md Part II
+  (§10–§14) records the decisions (a pack is a store; dependencies as
+  closure; prelude as pack zero; names stay identity with detection;
+  pin/preview/endorse trust; the privacy composition) and lifts the
+  freeze into a build order.
 
 - **A surface layer** — a layer between people and the exact core: forgiving
   input on the way in (a bare `2026` as the year, ISO weeks, eventually a
