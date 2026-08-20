@@ -275,6 +275,17 @@ the store doesn't. Both polarities work, and a certificate can be
 incomplete (verification fails) but never misleading (a wrong answer cannot
 verify). The agent surface (`odag-mcp`) hands these out on request.
 
+All of this also works over an **encrypted** store (the `store_key`
+setting): the same fingerprint machinery runs over ciphertext blobs, so
+convergence, history and undo survive encryption — with two honest
+consequences. Encryption must be *deterministic* (same key + same record =
+same ciphertext), or the same knowledge would fingerprint differently on
+your two devices; the price is that whoever holds the ciphertext can see
+which records are equal, though never what they say. And certificates stop
+at the audience boundary: a proof carries stored bytes, which are
+ciphertext here — you cannot prove the contents of a secret to someone who
+cannot read it, and the system refuses loudly rather than trying.
+
 ## 7. How we know it's correct
 
 A design whose value is exactness needs its guarantees tested as such. The test

@@ -137,6 +137,7 @@ accidental — each surface exposes what makes sense for who is using it:
 | **ingest a projection stream** | ✓ (`put` per line) | ✓ `ingest` | — | — |
 | pictures | ✓ | ✓ | ✓ | — |
 | Swarm stores | ✓ | ✓ | — | ✓ |
+| **encrypted stores** (`store_key`) | ✓ `ontodag.encstore` | ✓ | — | ✓ (same settings; no certificates over ciphertext) |
 | certificates, provenance, review | ✓ | — | — | ✓ |
 
 The empty cells are decisions, not oversights, and each has a reason:
@@ -1445,12 +1446,18 @@ real:
 ```console
 $ export ONTODAG_STORE_KEY="my private passphrase"
 $ odag -f rs:~/diary put health
-$ grep -rc health ~/diary/blobs | grep -c ':1'    # nothing legible on disk
+$ grep -r health ~/diary/blobs | wc -l     # nothing legible on disk
 0
 $ ONTODAG_STORE_KEY=oops odag -f rs:~/diary list
 odag: the configured store_key does not open rs:~/diary (wrong key —
 the store refuses rather than serving garbage)
 ```
+
+The agent surface shares the same settings, so `odag-mcp` serves an
+encrypted store to your agents with the key configured once — while
+certificates stop at the audience boundary (a proof carries stored
+bytes, which are ciphertext here; you cannot prove a secret to someone
+who cannot read it, and the request refuses loudly rather than trying).
 
 The layers differ in **how long they last**, which is the useful way to choose
 between them: a flag is for one command, an environment variable for one shell,

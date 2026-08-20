@@ -156,7 +156,11 @@ swarm:NAME   the same store, shared — content on Swarm, head in a signed feed.
 `odag swarm` walks you through the last step and tells you what to fix next.
 Equal knowledge always yields an equal root, whatever order it arrived in, which
 is what makes stores diffable, mergeable between writers, and verifiable by
-someone holding nothing but the root.
+someone holding nothing but the root. And an `rs:` store can be **encrypted**
+(`odag set store_key ...`, the `crypto` extra): records and structure are
+ciphertext at rest, a wrong key refuses at open, and encryption is
+deterministic on purpose — your two devices with the same key still commit
+the same knowledge to the same root.
 
 ## In a browser
 
