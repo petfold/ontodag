@@ -777,9 +777,24 @@ section is the *current* state and the cross-repo pins.
 
 | package | version | verified by | pins |
 |---|---|---|---|
-| **ontodag** | **0.17.1** | `scripts/release_smoke.py --pypi 0.17.1` → 24/24, plus the workflow's own `verify` job | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
+| **ontodag** | **0.18.0** (2026-08-20) | `scripts/release_smoke.py --pypi 0.18.0` → 27/27, plus the workflow's own `verify` job | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
 | **recordstore** | **0.20.1** | fresh-venv install; undo/history exercised | none (stdlib-only base) |
-| **ontodag-fs** | **0.3.1** | fresh-venv install from PyPI; resolves ontodag 0.17.1, then files and browses | needs `ontodag>=0.16.0,<0.18.0` |
+| **ontodag-fs** | **0.3.2** (2026-08-20, ceiling bump only) | ontodag 0.18.0's downstream gate ran its suite against the candidate | needs `ontodag>=0.16.0,<0.19.0` |
+
+**What 0.18.0 is** (2026-08-20, published by tag; the first tag was
+correctly stopped by the workflow's suite gate — a swarm-addressing test
+that skipped locally but failed on CI's bare env because the BMT import
+surfaces at hash time, not construction; fixed, tag moved, all four jobs
+green): **the projection seam and the pack ecosystem.** Overlay views
+(`overlays` setting; answers and pictures read the composed view, writes
+and mergeable artifacts read the primary), `odag ingest` (the
+PROJECTIONS.md §4 JSONL wire format; idempotent, order-free, `--drop` =
+full rebuild), the projection-drop golden test, `merge --diff` /
+`pack --diff` (additions + the mechanical unit-conflict refusal + the
+unrelated-classification warning on shared categories), pack golden
+roots pinned for BOTH addressings, `put` naming its missing parents with
+honest pack hints. Released same-day with the packs' live Swarm
+publication (Bee run 9) and the §10.1 scale measurement.
 
 Also live-validated after publication: the **published ontodag wheel** driving a
 `swarm:` store on a real Bee node through put → `history` → `--as-of` → `undo`
