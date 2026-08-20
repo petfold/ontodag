@@ -278,6 +278,32 @@ mechanical: generate test vectors from Bee's Go test suite and pin the Python
 implementation to them in CI. No Go code needs to be written on the OntoDAG
 side, and no Python on the Bee side.
 
+**Spike DONE (2026-08-20, PACKS.md §14 item 3½): the conventions line up,
+bit for bit.** `ontodag/experiments/act_crypto_spike.py` reimplements the
+whole deterministic chain in Python (coincurve + pycryptodome) and matches
+vectors generated from Bee's own packages at v2.8.1
+(`experiments/act_vectors_gen.go`, run inside a bee checkout) plus Bee's own
+upstream-authored 4096-byte fixed vector from `encryption_test.go`. The
+conventions, now pinned rather than predicted:
+
+- **ECDH shared secret = the x-coordinate as Go's `big.Int.Bytes()`** —
+  big-endian **with leading zeros stripped**, so the secret is *sometimes 31
+  bytes* (~1/256 of pairs). This is the §5-predicted trap made concrete: a
+  fixed-32 encoding agrees on 255/256 key pairs and fails on the rest —
+  the worst possible failure mode (works in every demo, breaks for one user
+  in 256). Vector 2 is deliberately such a pair (seeds 177/100177).
+- `getKeys(pub)` = `[Keccak256(x‖0x00), Keccak256(x‖0x01)]` — lookup key
+  and access-key-decryption key.
+- The stream cipher: per 32-byte segment,
+  `segmentKey = Keccak256(Keccak256(key ‖ LE_uint32(ctr)))`, XOR, counter
+  from `initCtr` (0 for ACT) incrementing per segment — note the
+  **little-endian** counter, the other predicted trap. Encrypt = decrypt
+  (XOR stream), verified round-trip on the access-key wrap and the 64-byte
+  reference.
+
+Phase 1's estimate loses its risk premium: the "crypto-compat + vectors"
+half is now known to be transcription, not investigation.
+
 ## 6. Honest costs and limits
 
 - **Revocation is lazy, and Swarm makes that structural.** Removing a member
