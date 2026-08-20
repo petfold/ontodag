@@ -143,6 +143,15 @@ class TestCoreIsSwarmFree(unittest.TestCase):
         self.assertEqual(loaded, [],
                          f"importing ontodag.browse loaded {loaded}")
 
+    def test_encstore_module_imports_stay_stdlib_only(self):
+        # The encryption wrapper is opt-in like every consumer module:
+        # importing it must not pull pycryptodome (that loads lazily,
+        # behind the `crypto` extra's teaching error).
+        loaded = fresh_import("ontodag.encstore",
+                              CORE_FORBIDDEN + ("Crypto",))
+        self.assertEqual(loaded, [],
+                         f"importing ontodag.encstore loaded {loaded}")
+
     def test_browse_is_reached_only_by_asking_for_it(self):
         # The refinement rule is a consumer of the DAG, like compare and viz:
         # a store nobody browses carries none of it. The DAG is duck-typed

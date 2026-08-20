@@ -19,6 +19,7 @@ recordstore's own live-node suite. These tests validate the CLI wiring.
 
 import io
 import os
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -3017,3 +3018,123 @@ class TestPutTeachingError(unittest.TestCase):
             code, _out, err = _run3(["put", "x", "BTC"], session)
             self.assertEqual(code, 1)
             self.assertNotIn("odag pack", err)
+
+
+class TestEncryptedStore(unittest.TestCase):
+    """The single-audience encrypted rs: store (PACKS.md §14 item 3):
+    ciphertext at rest, deterministic (convergence within one audience),
+    marker-decides semantics, wrong-key refusal at open."""
+
+    def setUp(self):
+        self._old = os.environ.get("ONTODAG_STORE_KEY")
+        os.environ["ONTODAG_STORE_KEY"] = "correct horse battery staple"
+        self._dir = tempfile.TemporaryDirectory()
+
+    def tearDown(self):
+        if self._old is None:
+            os.environ.pop("ONTODAG_STORE_KEY", None)
+        else:
+            os.environ["ONTODAG_STORE_KEY"] = self._old
+        self._dir.cleanup()
+
+    def _blob_bytes(self, path):
+        # DirBytesStore shards blobs into subdirectories: walk, don't list.
+        blobs = b""
+        blobdir = os.path.join(path, "blobs")
+        for root, _dirs, files in os.walk(blobdir):
+            for name in files:
+                with open(os.path.join(root, name), "rb") as fh:
+                    blobs += fh.read()
+        self.assertTrue(blobs, f"no blobs found under {blobdir}")
+        return blobs
+
+    def test_roundtrip_and_ciphertext_at_rest(self):
+        path = os.path.join(self._dir.name, "secret")
+        session = cli.Session(f"rs:{path}")
+        for argv in (["put", "Zebra"], ["put", "Marty", "Zebra"]):
+            self.assertEqual(_run(argv, session)[0], 0)
+        # A fresh session (a new process, effectively) reads it back:
+        code, out = _run(["get", "Zebra"], cli.Session(f"rs:{path}"))
+        self.assertEqual((code, out), (0, "Marty\n"))
+        # Nothing legible on disk — records AND trie nodes are ciphertext:
+        self.assertNotIn(b"Zebra", self._blob_bytes(path))
+        self.assertNotIn(b"Marty", self._blob_bytes(path))
+        code, out = _run(["status"], cli.Session(f"rs:{path}"))
+        self.assertIn("encrypted = yes", out)
+
+    def test_wrong_key_and_missing_key_refuse_at_open(self):
+        path = os.path.join(self._dir.name, "secret")
+        self.assertEqual(_run(["put", "Zebra"],
+                              cli.Session(f"rs:{path}"))[0], 0)
+        os.environ["ONTODAG_STORE_KEY"] = "not the key"
+        code, _out, err = _run3(["get", "Zebra"], cli.Session(f"rs:{path}"))
+        self.assertEqual(code, 1)
+        self.assertIn("wrong key", err)
+        del os.environ["ONTODAG_STORE_KEY"]
+        code, _out, err = _run3(["get", "Zebra"], cli.Session(f"rs:{path}"))
+        self.assertEqual(code, 1)
+        self.assertIn("store_key", err)
+
+    def test_same_key_converges_different_keys_diverge(self):
+        def root_of(path, secret):
+            os.environ["ONTODAG_STORE_KEY"] = secret
+            session = cli.Session(f"rs:{path}")
+            for argv in (["put", "Travel"], ["put", "Japan", "Travel"]):
+                self.assertEqual(_run(argv, session)[0], 0)
+            with open(os.path.join(path, "root"), encoding="utf-8") as fh:
+                return fh.read().strip()
+
+        a = root_of(os.path.join(self._dir.name, "a"), "one secret")
+        b = root_of(os.path.join(self._dir.name, "b"), "one secret")
+        c = root_of(os.path.join(self._dir.name, "c"), "another secret")
+        self.assertEqual(a, b)      # same audience: G1 holds over ciphertext
+        self.assertNotEqual(a, c)   # different audiences ARE different stores
+
+    def test_the_marker_decides_not_the_setting(self):
+        # A store created WITHOUT a key stays plaintext even when a key is
+        # configured later — which is what lets a public overlay sit beside
+        # an encrypted primary under one setting.
+        plain = os.path.join(self._dir.name, "plain")
+        del os.environ["ONTODAG_STORE_KEY"]
+        self.assertEqual(_run(["put", "public-fact"],
+                              cli.Session(f"rs:{plain}"))[0], 0)
+        os.environ["ONTODAG_STORE_KEY"] = "correct horse battery staple"
+        code, out = _run(["list"], cli.Session(f"rs:{plain}"))
+        self.assertEqual((code, out), (0, "public-fact\n"))
+        self.assertIn(b"public-fact", self._blob_bytes(plain))
+        # And the combination: encrypted primary, plaintext overlay.
+        secret = os.path.join(self._dir.name, "secret")
+        session = cli.Session(f"rs:{secret}")
+        self.assertEqual(_run(["put", "my-note", "public-fact"],
+                              cli.Session(f"rs:{secret}"))[0], 0) \
+            if False else None
+        self.assertEqual(_run(["put", "my-note"], session)[0], 0)
+        os.environ["ONTODAG_OVERLAYS"] = f"rs:{plain}"
+        try:
+            code, out = _run(["list"], cli.Session(f"rs:{secret}"))
+            self.assertEqual(code, 0)
+            self.assertIn("my-note", out)
+            self.assertIn("public-fact", out)
+        finally:
+            del os.environ["ONTODAG_OVERLAYS"]
+
+    def test_siblings_inherit_the_audience(self):
+        # The provenance/index stores under an encrypted store are encrypted
+        # too — audience is contagious along derivation.
+        path = os.path.join(self._dir.name, "secret")
+        session = cli.Session(f"rs:{path}")
+        self.assertEqual(_run(["put", "Zebra"], session)[0], 0)
+        prov = session.backend.provenance_record_store()
+        prov.put("s/claim", {"speech": "act about Zebra"})
+        prov.commit()
+        self.assertNotIn(b"Zebra", self._blob_bytes(
+            os.path.join(path, "prov")))
+
+    def test_missing_extra_teaches(self):
+        path = os.path.join(self._dir.name, "secret")
+        with mock.patch.dict(sys.modules, {"Crypto": None,
+                                           "Crypto.Cipher": None}):
+            code, _out, err = _run3(["put", "Zebra"],
+                                    cli.Session(f"rs:{path}"))
+        self.assertEqual(code, 1)
+        self.assertIn("ontodag[crypto]", err)

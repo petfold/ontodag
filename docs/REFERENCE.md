@@ -37,6 +37,7 @@ Base install (`pip install ontodag`) is pure Python: the core plus
 | `viz` | graphviz, Pillow | `visualize`, images |
 | `owl` | owlready2 | `.owl` / `.omn` import and export |
 | `store` | recordstore | alias of the base dependency |
+| `crypto` | pycryptodome | encrypted `rs:` stores (the `store_key` setting): AES-SIV, deterministic so same key + same knowledge = same root |
 | `swarm` | recordstore[swarm-only,local-first-swarm] ≥ 0.19 | `swarm:` stores — local-first: commits land in a store directory instantly (offline works) and sync to Swarm in the background; with a signer the head publishes to a feed after network confirmation |
 | `web` | flask, dot2tex, viz, owl | the web app and REST API (`odag web`) |
 | `all` | everything above | |
@@ -109,6 +110,7 @@ default**. `auto` means "decide from whether output is a terminal".
 | `bee_api` | `BEE_API` | `--bee-api URL` | `http://localhost:1633` |
 | `bee_batch` | `BEE_BATCH` | `--bee-batch ID` | (unset) |
 | `bee_signer` | `BEE_SIGNER` | `--bee-signer KEY` | (unset; secret — never echoed) |
+| `store_key` | `ONTODAG_STORE_KEY` | `--store-key SECRET` | (unset; secret — never echoed) — encryption secret for `rs:` stores, any string. **The marker in the store decides; the setting only supplies key material**: a NEW store is created encrypted iff this is set, an encrypted store refuses to open without the right key (never serves garbage), a plaintext store stays plaintext even with a key configured (so a public overlay sits beside an encrypted primary). Records AND trie structure are ciphertext at rest; the index/provenance siblings inherit the audience. Needs the `crypto` extra. Sizes, counts and record-equality remain visible (deterministic encryption is what keeps two devices converging); certificates don't cross the audience boundary |
 | `render` | `ONTODAG_SURFACE` | `--render` / `--raw` | `auto` |
 | `limit` | `ONTODAG_LIMIT` | `-n N` | `auto` (50 at a tty, all in a pipe, 0 = all) |
 

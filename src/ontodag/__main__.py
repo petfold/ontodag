@@ -187,6 +187,12 @@ _SETTINGS = {
         "BEE_SIGNER", "", "--bee-signer KEY",
         "private key; when set, the latest root lives in a signed feed",
         secret=True),
+    "store_key": _Setting(
+        "ONTODAG_STORE_KEY", "", "--store-key SECRET",
+        "encryption secret for rs: stores (any string; a NEW store is "
+        "created encrypted iff this is set — existing stores keep "
+        "whatever they are)",
+        secret=True),
     "overlays": _Setting(
         "ONTODAG_OVERLAYS", "", "--overlay SPECS",
         "read-only stores merged into every answer (comma-separated store "
@@ -766,13 +772,52 @@ class LocalRecordBackend:
                              "e.g. rs:~/work/travel")
         self.path = _abspath(path)
         self._store_factory = store_factory
+        self._key = None                   # resolved on first open
+
+    def _encryption_key(self):
+        """The store's encryption key, or None for a plaintext store.
+
+        **The marker in the store decides; the setting only supplies key
+        material.** An existing encrypted store refuses to open without
+        the right `store_key` (wrong key refuses at open — never garbage);
+        an existing plaintext store stays plaintext even when a key is
+        configured (so a public overlay can sit beside an encrypted
+        primary under one setting); a NEW store is created encrypted iff
+        `store_key` is set at creation time. The index and provenance
+        siblings inherit the decision — audience is contagious along
+        derivation (PROJECTIONS.md §11)."""
+        from ontodag import encstore
+        secret = _configured("store_key")
+        marker = encstore.read_marker(self.path)
+        if marker is not None:
+            if not secret:
+                raise ValueError(
+                    f"{self.describe()} is encrypted — set store_key "
+                    f"(odag set store_key ..., $ONTODAG_STORE_KEY, or "
+                    f"--store-key) to open it")
+            key = encstore.derive_key(secret)
+            encstore.check_key(marker, key, self.describe())
+            return key
+        exists = (os.path.exists(os.path.join(self.path, "root"))
+                  or os.path.isdir(os.path.join(self.path, "blobs")))
+        if secret and not exists:
+            key = encstore.derive_key(secret)
+            encstore.write_marker(self.path, key)
+            return key
+        return None
 
     def _store_at(self, directory):
         from ontodag._extras import require
         rs = require("recordstore", "store", "a local record store (rs:)")
         os.makedirs(directory, exist_ok=True)
+        if self._key is None:
+            self._key = self._encryption_key() or False
+        blobs = rs.DirBytesStore(os.path.join(directory, "blobs"))
+        if self._key:
+            from ontodag.encstore import EncryptedBytesStore
+            blobs = EncryptedBytesStore(blobs, self._key)
         return rs.RecordStore(
-            rs.DirBytesStore(os.path.join(directory, "blobs")),
+            blobs,
             pointer=rs.FilePointer(os.path.join(directory, "root")))
 
     def _record_store(self):
@@ -2026,6 +2071,12 @@ def cmd_history(args, session, out):
 def cmd_status(args, session, out):
     """Where the store is: which state, how much history, what can be undone."""
     print(f"store = {session.describe()}", file=out)
+    from ontodag import encstore
+    marker = (encstore.read_marker(session.backend.path)
+              if hasattr(session.backend, "path") else None)
+    if marker is not None:
+        print("encrypted = yes (AES-SIV; the store_key setting opens it)",
+              file=out)
     try:
         store, close = _open_history(session)
     except ValueError:
@@ -2348,9 +2399,12 @@ Commands:
                         in `history`. --dry-run says what it would do.
                         NB an undo is local: a peer who merges you later
                         re-adds what it took out
-  set [KEY [VALUE]]     show settings, or set one durably (store, bee_api,
-                        bee_batch, bee_signer, render, limit).
-                        `set bee_signer generate` makes a signing key for you
+  set [KEY [VALUE]]     show settings, or set one durably (store, overlays,
+                        store_key, bee_api, bee_batch, bee_signer, render,
+                        limit). `set bee_signer generate` makes a signing
+                        key for you. store_key encrypts NEW rs: stores
+                        (records and structure are ciphertext at rest;
+                        needs the crypto extra)
                         and stores it without displaying it
   help                  show this help
 
@@ -2799,6 +2853,7 @@ def main(argv=None):
     _OVERRIDES.clear()
     valued = {"-f": "store", "--store": "store", "--file": "store",
               "--overlay": "overlays", "--overlays": "overlays",
+              "--store-key": "store_key",
               "--bee-api": "bee_api", "--bee-batch": "bee_batch",
               "--bee-signer": "bee_signer", "-n": "limit", "--limit": "limit",
               # Not settings — a label for whatever state this invocation

@@ -877,8 +877,8 @@ odag <command> ...
   undo / redo           step back a state, or forward again (--dry-run to
                         look first)
   set [KEY [VALUE]]     show settings, or set one durably (store, overlays,
-                        bee_api, bee_batch, bee_signer, render, limit —
-                        see §5.7)
+                        store_key, bee_api, bee_batch, bee_signer, render,
+                        limit — see §5.7)
   help                  show this help
 ```
 
@@ -1429,6 +1429,27 @@ $ odag get photos sys:type:jpg      # crosses your layer and the machine's
 IMG_2041.jpg
 $ odag export sent.od && grep -c sys: sent.od
 0                                   # the machine layer stayed home
+```
+
+And the private end of the same spectrum: `store_key` makes a **new**
+`rs:` store encrypted — records *and* structure are ciphertext at rest
+(AES-SIV, via `pip install "ontodag[crypto]"`), the wrong key refuses at
+open instead of serving garbage, and the store's own marker decides, so
+a plaintext public overlay sits happily beside an encrypted primary
+under the one setting. Encryption is deterministic on purpose: your two
+devices with the same key commit the same knowledge to the same root,
+so everything in §5.8 and §5.11 (diff, history, undo) keeps working —
+what an outsider sees is blob sizes and counts, never names. Run for
+real:
+
+```console
+$ export ONTODAG_STORE_KEY="my private passphrase"
+$ odag -f rs:~/diary put health
+$ grep -rc health ~/diary/blobs | grep -c ':1'    # nothing legible on disk
+0
+$ ONTODAG_STORE_KEY=oops odag -f rs:~/diary list
+odag: the configured store_key does not open rs:~/diary (wrong key —
+the store refuses rather than serving garbage)
 ```
 
 The layers differ in **how long they last**, which is the useful way to choose

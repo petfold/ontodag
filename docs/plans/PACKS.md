@@ -487,7 +487,16 @@ The freeze this document imposed is **lifted, into the following order**
 3. **The overlay-view seam + single-audience encryption** (shared
    obligation with `PROJECTIONS.md` §5; an `EncryptedBytesStore` or
    Swarm encrypted uploads — the audience-of-one case, which is what the
-   personal-data use actually needs first).
+   personal-data use actually needs first). **[Both halves done
+   2026-08-20: the overlay seam shipped in 0.18.0; single-audience
+   encryption landed the same day — `ontodag.encstore`
+   (AES-SIV, deterministic so G1 holds within one audience), the
+   `store_key` setting, marker-decides semantics, siblings inheriting
+   the audience, wrong keys refusing at open. Scope: `rs:` stores;
+   encrypted `swarm:` waits on a blobs seam in recordstore's
+   `local_first_store`. The wrapper is the seam the act-categories key
+   graph plugs audience keys into — §11's unification point exists in
+   code now.]**
    3½. **The act-categories crypto spike**: reproduce one of Bee's Go
    ACT test vectors in Python (hours) — retires the only real unknown in
    its Phase 1 without committing to the weeks. **[Done 2026-08-20:

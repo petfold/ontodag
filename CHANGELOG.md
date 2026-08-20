@@ -12,6 +12,30 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Added
+
+- **Encrypted `rs:` stores** (the `store_key` setting / `--store-key` /
+  `$ONTODAG_STORE_KEY`; `pip install "ontodag[crypto]"`): records AND
+  trie structure are ciphertext at rest (AES-SIV through an
+  `EncryptedBytesStore` wrapper at the blobs seam), a wrong key refuses
+  at open rather than serving garbage, and **the marker in the store
+  decides — the setting only supplies key material**: a NEW store is
+  created encrypted iff a key is set, existing stores keep whatever
+  they are, so a plaintext public overlay composes with an encrypted
+  primary under one setting. Encryption is **deterministic by design**
+  (same key + same knowledge = same root — convergence within one
+  audience survives; the trade is that blob sizes, counts and
+  record-equality remain visible). The index and provenance siblings
+  inherit the audience. Deliberately out of scope for now: encrypted
+  `swarm:` stores (recordstore's `local_first_store` needs a blobs
+  seam) and certificates across the audience boundary (a proof carries
+  trie bytes, which are ciphertext — you cannot prove a secret to
+  someone who cannot read it). The key derivation is versioned; the
+  wrapper is the seam act-categories' category key graph later plugs
+  its audience keys into.
+
 ## [0.18.0] — 2026-08-20
 
 The projection seam and the pack ecosystem: machine-built catalogs sit

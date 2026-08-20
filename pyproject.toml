@@ -61,6 +61,8 @@ owl = ["owlready2"]
 # `pip install "ontodag[store]"` (and the error messages that suggest it
 # on a broken install) keep working.
 store = ["recordstore>=0.20.0"]
+# Encrypted rs: stores (the `store_key` setting): AES-SIV via pycryptodome.
+crypto = ["pycryptodome"]
 web = ["ontodag[viz,owl]", "flask", "dot2tex"]
 # The `swarm:NAME` CLI backend talks to a Bee node via recordstore's
 # BeeBytesStore (needs `requests`, recordstore's [bee] extra); resolves the

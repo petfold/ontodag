@@ -44,7 +44,11 @@ an encrypted overlay's blobs should take their key **from the
 audience's node in this key graph**, making "a private overlay" and "a
 document category with an audience bridge" one mechanism rather than
 two. See `docs/plans/PROJECTIONS.md` for the layering contract this
-slots into.
+slots into. *(2026-08-20: that seam now exists in code —
+`ontodag.encstore.EncryptedBytesStore`, shipped for the audience-of-one
+case via the `store_key` setting. When this design's Phase 1 fires, the
+category key graph's job at that seam is exactly one line: supply the
+audience node's key where `store_key`'s derived key goes today.)*
 
 ## 2. Construction
 

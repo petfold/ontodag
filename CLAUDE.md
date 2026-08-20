@@ -670,6 +670,32 @@ overlays (needs a design for `about`/root citation over a composed view —
 a view has no root to cite), and single-audience encryption (PACKS §14
 item 3's other half).
 
+## Single-audience encryption (2026-08-20, after 0.18.0) — PACKS §14 item 3 closed
+
+`ontodag.encstore` (stdlib-only at module level; pycryptodome behind the new
+`crypto` extra): `EncryptedBytesStore` wraps the blobs seam, so records AND
+trie structure are ciphertext at rest; **deterministic AES-SIV** because the
+store is content-addressed — a random nonce would break G1 *within one
+audience* (two devices, same key, same knowledge must reach the same root);
+the accepted trade is that blob sizes/counts/record-equality stay visible.
+`store_key` is the ninth settings row (secret, any string, KDF'd with
+versioned domain separation). **The marker in the store decides; the setting
+only supplies key material**: new store + key = encrypted, existing stores
+keep what they are (so plaintext overlays compose with an encrypted
+primary), wrong key refuses at open via a keycheck in the marker — never
+garbage. The index/prov siblings inherit the audience (`_store_at` is the
+one constructor — contagion by code shape). Scope: `rs:` only; encrypted
+`swarm:` needs a blobs seam in recordstore's `local_first_store` (owed
+upstream); certificates don't cross the audience boundary (proofs carry
+trie bytes = ciphertext) — documented, not a gap. The wrapper is the seam
+act-categories' key graph later feeds audience keys into. Tests:
+`TestEncryptedStore` (6) + an encstore boundary case — **909 passed + 2
+skipped**; hands-on smoke: status line, zero plaintext on disk, both
+teaching errors, history-over-ciphertext, the flag layer. Two test bugs the
+work caught: recordstore's `get_many` returns a dict (the wrapper first
+iterated its keys), and the blob-walk helper missed sharded subdirs, making
+a ciphertext assertion vacuously green.
+
 ## Releasing
 
 Standing practice, in order. The first rule predates this list; the third
