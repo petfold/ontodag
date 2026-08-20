@@ -12,6 +12,34 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Added
+
+- **Overlay views** (`overlays` setting / `--overlay SPECS` /
+  `$ONTODAG_OVERLAYS`): read-only stores merged into every *answer* —
+  `get`, `count`, `below`, `overlapping`, `list`, `show`, `canon`,
+  `visualize` — while writes, `export`, `excerpt` and `diff` read the
+  primary store alone. The join of PROJECTIONS.md §5: a machine-built
+  projection (or a consulted reference store) sits beside the human
+  store without ever entering it, and the composed view is a plain
+  in-memory `OntoDAG` with no store and no `commit`, so persisting the
+  union is impossible rather than forbidden. Vocabulary declared in an
+  overlay serves the view (declarations travel). The web sandbox
+  deliberately opts out: composing the *server's* overlays into an
+  anonymous session would serve strangers another user's data.
+- **`odag ingest [FILE] [--drop NODE]`**: load a projection stream —
+  JSON lines of `{"item": N, "supercategories": [...]}`, the
+  PROJECTIONS.md §4 wire format emitted by datacat's `project-ontodag`.
+  Idempotent (re-runs are graph no-ops), order-free (missing categories
+  are created provisionally at top level and refined when their own line
+  arrives), one commit per run, and `--drop` cone-deletes a namespace
+  root first — the contract's full-rebuild semantics in one command.
+  Errors name the offending line.
+- **The projection-drop golden test** owed by PROJECTIONS.md §5:
+  `remove --cone sys:` deletes pure cache entries and detaches — never
+  deletes — anything the human layer also holds.
+
 ## [0.17.1] — 2026-08-09
 
 ### Fixed

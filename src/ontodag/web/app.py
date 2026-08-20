@@ -138,6 +138,8 @@ CONSOLE_COMMANDS = {
 # Why each absent command is absent, in the CLI's own voice.
 CONSOLE_REFUSALS = {
     "import": "reads a file path on the server — drop a file on the console instead",
+    "ingest": "reads a projection stream from a server path or stdin, "
+              "and this sandbox has neither",
     "merge": "reads a file path on the server — drop a file on the console instead",
     "export": "writes a file path on the server — use the download buttons",
     "excerpt": "writes a file path on the server — use the download buttons",
@@ -172,9 +174,9 @@ class WebSession:
     """What `dispatch` needs, backed by the session's in-memory DAG.
 
     Duck-typed against `ontodag.__main__.Session`: commands only ever touch
-    `.dag` and `.save()`. Saving is a no-op because the DAG *is* the session —
-    there is nowhere else for it to live, which is exactly what makes an
-    anonymous sandbox safe to hand a stranger.
+    `.dag`, `.view()` and `.save()`. Saving is a no-op because the DAG *is*
+    the session — there is nowhere else for it to live, which is exactly what
+    makes an anonymous sandbox safe to hand a stranger.
     """
 
     spec = "memory:"
@@ -184,6 +186,14 @@ class WebSession:
 
     @property
     def dag(self):
+        return self._dag
+
+    def view(self):
+        # Deliberately NOT the CLI's overlay composition: the `overlays`
+        # setting is read from the *server's* environment and config, and
+        # composing the operator's overlay stores into an anonymous
+        # stranger's sandbox would serve them another user's data. The
+        # sandbox's view is the sandbox.
         return self._dag
 
     def save(self):
@@ -382,7 +392,8 @@ COMMAND_GROUPS = (
      ("get", "count", "list", "show", "below", "overlapping", "canon")),
     ("Vocabulary", ("prelude", "pack")),
     ("Files and pictures",
-     ("import", "export", "merge", "excerpt", "diff", "visualize")),
+     ("import", "export", "merge", "ingest", "excerpt", "diff",
+      "visualize")),
     ("Versions", ("history", "status", "undo", "redo")),
     ("Store and network", ("set", "index", "swarm")),
     ("Help", ("help",)),

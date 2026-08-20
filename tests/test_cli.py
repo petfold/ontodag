@@ -2697,3 +2697,200 @@ class TestAsOf(unittest.TestCase):
             code = cli.dispatch(["list"], cli.Session(path))
         self.assertEqual(code, 1)
         self.assertIn("no versions to read", err.getvalue())
+
+
+class TestOverlayView(unittest.TestCase):
+    """The composed read view (PROJECTIONS.md §5): answers read the union of
+    the primary store and every configured overlay; writes and mergeable
+    artifacts read the primary alone, so a machine layer can never launder
+    into a file that someone later merges."""
+
+    def setUp(self):
+        self._old = os.environ.get("ONTODAG_OVERLAYS")
+        self._dir = tempfile.TemporaryDirectory()
+        home = self._dir.name
+        self.primary = os.path.join(home, "human.od")
+        self.overlay = os.path.join(home, "proj.od")
+        human = cli.Session(self.primary)
+        for argv in (["put", "photos"], ["put", "trip.jpg", "photos"]):
+            self.assertEqual(_run(argv, human)[0], 0)
+        machine = cli.Session(self.overlay)
+        for argv in (["put", "sys:"], ["put", "sys:on", "sys:"],
+                     ["put", "sys:on:drive", "sys:on"],
+                     ["put", "trip.jpg", "sys:on:drive"],
+                     ["put", "cache.tmp", "sys:on:drive"]):
+            self.assertEqual(_run(argv, machine)[0], 0)
+        os.environ["ONTODAG_OVERLAYS"] = self.overlay
+        with open(self.overlay, encoding="utf-8") as fh:
+            self.overlay_bytes = fh.read()
+
+    def tearDown(self):
+        if self._old is None:
+            os.environ.pop("ONTODAG_OVERLAYS", None)
+        else:
+            os.environ["ONTODAG_OVERLAYS"] = self._old
+        self._dir.cleanup()
+
+    def test_answers_read_the_union(self):
+        session = cli.Session(self.primary)
+        # The cross-layer intersection the whole seam exists for:
+        code, out = _run(["get", "photos", "sys:on:drive"], session)
+        self.assertEqual((code, out), (0, "trip.jpg\n"))
+        code, out = _run(["below", "trip.jpg", "sys:on:drive"], session)
+        self.assertEqual((code, out.strip()), (0, "true"))
+        code, out = _run(["list"], session)
+        self.assertIn("cache.tmp", out)      # overlay-only item is visible
+        code, out = _run(["count"], session)
+        self.assertEqual(out.strip(), "6")   # union, not primary (2)
+
+    def test_writes_route_to_the_primary_alone(self):
+        session = cli.Session(self.primary)
+        self.assertEqual(_run(["put", "beach.jpg", "photos"], session)[0], 0)
+        # Visible through the view immediately (cache invalidated by save):
+        code, out = _run(["get", "photos"], session)
+        self.assertIn("beach.jpg", out)
+        self.assertIn("trip.jpg", out)
+        # The overlay store is byte-identical — nothing wrote through it:
+        with open(self.overlay, encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), self.overlay_bytes)
+        # And the primary alone never absorbed the overlay's claims:
+        del os.environ["ONTODAG_OVERLAYS"]
+        code, out = _run(["get", "sys:on:drive"], cli.Session(self.primary))
+        self.assertEqual((code, out), (0, ""))   # fail-closed, empty
+
+    def test_artifacts_read_the_primary(self):
+        session = cli.Session(self.primary)
+        exported = os.path.join(self._dir.name, "out.od")
+        self.assertEqual(_run(["export", exported], session)[0], 0)
+        with open(exported, encoding="utf-8") as fh:
+            self.assertNotIn("sys:", fh.read())
+        cut = os.path.join(self._dir.name, "cut.od")
+        self.assertEqual(_run(["excerpt", cut, "photos"], session)[0], 0)
+        with open(cut, encoding="utf-8") as fh:
+            self.assertNotIn("sys:", fh.read())
+
+    def test_overlay_vocabulary_serves_the_view(self):
+        # Declarations travel (the units law): an overlay carrying the
+        # prelude makes typed queries answerable, though the primary is bare.
+        self.assertEqual(_run(["prelude"], cli.Session(self.overlay))[0], 0)
+        session = cli.Session(self.primary)
+        code, out = _run(["below", "weight(3kg)", "weight(..5kg)"], session)
+        self.assertEqual((code, out.strip()), (0, "true"))
+
+    def test_the_composed_view_cannot_commit(self):
+        session = cli.Session(self.primary)
+        view = session.view()
+        self.assertIsNot(view, session.dag)
+        self.assertFalse(hasattr(view, "commit"))
+        self.assertIsInstance(view, OntoDAG)
+        # Without overlays the view IS the primary — the zero-cost path.
+        del os.environ["ONTODAG_OVERLAYS"]
+        fresh = cli.Session(self.primary)
+        self.assertIs(fresh.view(), fresh.dag)
+
+
+class TestProjectionDrop(unittest.TestCase):
+    """PROJECTIONS.md §5's owed golden test: dropping a projection's
+    namespace root deletes pure cache entries and DETACHES — never deletes —
+    anything the human layer also holds."""
+
+    def test_survival_rule_on_a_sys_layer(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "mixed.od"))
+            for argv in (["put", "photos"],                       # human
+                         ["put", "sys:"], ["put", "sys:on", "sys:"],
+                         ["put", "sys:on:drive", "sys:on"],
+                         ["put", "cache.tmp", "sys:on:drive"],    # cache-only
+                         ["put", "trip.jpg", "sys:on:drive", "photos"]):
+                self.assertEqual(_run(argv, session)[0], 0)
+            self.assertEqual(_run(["remove", "--cone", "sys:"], session)[0], 0)
+            code, out = _run(["list"], session)
+            names = set(out.split())
+            self.assertIn("trip.jpg", names)          # human-held: survives
+            self.assertNotIn("cache.tmp", names)      # cache-only: gone
+            self.assertFalse(any(n.startswith("sys:") for n in names))
+            code, out = _run(["get", "photos"], session)
+            self.assertEqual(out, "trip.jpg\n")       # classification intact
+
+
+class TestIngest(unittest.TestCase):
+    """`odag ingest`: the PROJECTIONS.md §4 wire format, with the contract's
+    semantics — idempotent, order-free, full rebuild via --drop."""
+
+    def _stream(self, home, lines, name="stream.jsonl"):
+        path = os.path.join(home, name)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + "\n")
+        return path
+
+    def test_items_filed_and_categories_scaffolded(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "p.od"))
+            stream = self._stream(home, [
+                '{"item": "h1", "supercategories":'
+                ' ["sys:on:drive", "sys:type:jpg"]}',
+                '',                                    # blank lines skipped
+                '{"item": "sys:on:drive", "supercategories": ["sys:on"]}',
+            ])
+            self.assertEqual(_run(["ingest", stream], session)[0], 0)
+            code, out = _run(["get", "sys:on:drive"], session)
+            self.assertEqual((code, out), (0, "h1\n"))
+            # The provisional top-level category was refined by line 3:
+            code, out = _run(["get", "sys:on"], session)
+            self.assertIn("h1", out)
+
+    def test_idempotent_and_order_free(self):
+        lines = [
+            '{"item": "h1", "supercategories": ["sys:on:drive"]}',
+            '{"item": "sys:on:drive", "supercategories": ["sys:on"]}',
+            '{"item": "sys:on", "supercategories": ["sys:"]}',
+        ]
+        with tempfile.TemporaryDirectory() as home:
+            forward = os.path.join(home, "a.od")
+            session = cli.Session(forward)
+            stream = self._stream(home, lines)
+            self.assertEqual(_run(["ingest", stream], session)[0], 0)
+            with open(forward, encoding="utf-8") as fh:
+                first = fh.read()
+            self.assertEqual(_run(["ingest", stream], session)[0], 0)
+            with open(forward, encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), first)          # idempotent
+            reverse = os.path.join(home, "b.od")
+            stream2 = self._stream(home, list(reversed(lines)), "r.jsonl")
+            self.assertEqual(
+                _run(["ingest", stream2], cli.Session(reverse))[0], 0)
+            with open(reverse, encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), first)          # order-free
+
+    def test_drop_rebuild_reproduces_the_projection(self):
+        lines = [
+            '{"item": "sys:on", "supercategories": ["sys:"]}',
+            '{"item": "sys:on:drive", "supercategories": ["sys:on"]}',
+            '{"item": "h1", "supercategories": ["sys:on:drive"]}',
+        ]
+        with tempfile.TemporaryDirectory() as home:
+            path = os.path.join(home, "p.od")
+            session = cli.Session(path)
+            stream = self._stream(home, lines)
+            self.assertEqual(_run(["ingest", stream], session)[0], 0)
+            with open(path, encoding="utf-8") as fh:
+                first = fh.read()
+            code, _ = _run(["ingest", "--drop", "sys:", stream], session)
+            self.assertEqual(code, 0)
+            with open(path, encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), first)
+            # --drop on a node the store doesn't have is not an error:
+            code, _ = _run(["ingest", "--drop", "nonesuch", stream], session)
+            self.assertEqual(code, 0)
+
+    def test_malformed_line_names_the_line(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "p.od"))
+            stream = self._stream(home, [
+                '{"item": "ok", "supercategories": []}',
+                'not json at all',
+            ])
+            out, err = io.StringIO(), io.StringIO()
+            code = cli.dispatch(["ingest", stream], session, out=out, err=err)
+            self.assertEqual(code, 1)
+            self.assertIn("line 2", err.getvalue())

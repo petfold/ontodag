@@ -187,6 +187,10 @@ _SETTINGS = {
         "BEE_SIGNER", "", "--bee-signer KEY",
         "private key; when set, the latest root lives in a signed feed",
         secret=True),
+    "overlays": _Setting(
+        "ONTODAG_OVERLAYS", "", "--overlay SPECS",
+        "read-only stores merged into every answer (comma-separated store "
+        "specs); writes, exports and excerpts never include them"),
     "render": _Setting(
         "ONTODAG_SURFACE", "auto", "--render / --raw",
         "readable output (auto = on at a terminal, off in a pipe)"),
@@ -224,6 +228,17 @@ def _resolve_store(override=None):
     is computed (a path under the home dir) rather than a constant."""
     spec = _configured("store", override)
     return _normalize_spec(spec) if spec else _default_store_path()
+
+
+def _overlay_specs():
+    """The configured overlay store specs, in order. Comma-separated because
+    the settings table holds one string per setting; a comma cannot start a
+    store spec in any backend's grammar, so the join is unambiguous."""
+    value = _configured("overlays")
+    if not value:
+        return []
+    return [_normalize_spec(spec.strip())
+            for spec in value.split(",") if spec.strip()]
 
 
 # --------------------------------------------------------------------------- #
@@ -852,12 +867,15 @@ class Session:
         self.spec = spec
         self._backend = None
         self._dag = None
+        self._view = None
+        self._view_specs = None
 
     def _load(self):
         backend = _make_backend(self.spec)
         as_of = _OVERRIDES.get("as_of")
         dag = backend.load_at(as_of) if as_of else backend.load()
         self._backend, self._dag = backend, dag
+        self._view = None
 
     @property
     def backend(self):
@@ -884,9 +902,42 @@ class Session:
         # in one session would otherwise hit its own lock).
         old = getattr(self._dag, "store", None)
         self.spec, self._backend, self._dag = spec, backend, dag
+        self._view = None
         close = getattr(old, "close", None)
         if close is not None:
             close()
+
+    def view(self):
+        """The composed READ view: this store with every configured overlay
+        merged in — the join of `docs/plans/PROJECTIONS.md` §5.
+
+        Overlays are regenerable machine layers (projections) or reference
+        stores consulted alongside your own; composing them at read time is
+        what lets `get photo vienna sys:on:drive-budapest` cross the layers
+        while nothing ever writes the union anywhere. The routing rule is the
+        excerpt/visualize asymmetry once more: **anything that answers or
+        draws reads the view; anything that produces a mergeable artifact or
+        mutates reads the primary** — an export of the composed view would
+        launder machine claims into a human store on the next import.
+
+        The composed object is a plain in-memory OntoDAG: it has no store and
+        no commit, so committing the union is not refused but *impossible*.
+        Each layer keeps its own reduction; the composition re-reduces in
+        memory via merge (I7), and query results are identical either way
+        because cones are reduction-invariant. Cached per session; every
+        rebinding of the primary (`_load`, `switch`) and every mutation
+        (`save`) invalidates it, and a changed `overlays` setting is caught
+        by comparing specs."""
+        specs = _overlay_specs()
+        if not specs:
+            return self.dag
+        if self._view is None or self._view_specs != specs:
+            composed = OntoDAG()
+            composed.merge(self.dag)
+            for spec in specs:
+                composed.merge(_make_backend(spec).load())
+            self._view, self._view_specs = composed, specs
+        return self._view
 
     def save(self):
         # A past state is a state, not a place to write from: the pointer is
@@ -898,6 +949,7 @@ class Session:
                 "written to it.\n"
                 "  to make the store go back there:  odag undo  (or `redo`)")
         self.backend.save(self.dag, message=_OVERRIDES.get("message"))
+        self._view = None
 
     def describe(self):
         # Describing must not open the store (`odag set` runs with the node
@@ -1010,7 +1062,9 @@ def _namer(args, session, out):
     canonical output, the surface renderer for a terminal. Sorting always
     happens on canonical names (the identity); rendering is display-only."""
     if _want_render(args, out):
-        return lambda name: _surface.render(name, session.dag)
+        # The view, not the primary: vocabulary declared in an overlay must
+        # render the names it declares (declarations travel — units law).
+        return lambda name: _surface.render(name, session.view())
     return lambda name: name
 
 
@@ -1096,7 +1150,7 @@ def _query(categories, dag):
 
 
 def cmd_get(args, session, out):
-    result = _query(args.categories, session.dag)
+    result = _query(args.categories, session.view())
     _print_names((item.name for item in result), args, session, out)
 
 
@@ -1111,7 +1165,7 @@ def cmd_overlapping(args, session, out):
     per dimension at query time. A term of no declared dimension is an error
     rather than an empty answer, because overlap is only defined for computed
     denotations."""
-    result = session.dag.get_overlapping(args.term)
+    result = session.view().get_overlapping(args.term)
     _print_names((item.name for item in result), args, session, out)
 
 
@@ -1120,7 +1174,7 @@ def cmd_count(args, session, out):
     # flag on `get`: it is the complete answer to "how big is this" — never
     # capped, never rendered — for exactly the cases where printing the answer
     # is what you are trying to avoid.
-    print(len(_query(args.categories, session.dag)), file=out)
+    print(len(_query(args.categories, session.view())), file=out)
 
 
 def cmd_below(args, session, out):
@@ -1128,7 +1182,7 @@ def cmd_below(args, session, out):
     # parseable word (the interactive prompt has no exit codes) AND exits
     # 0 for true / 1 for false, so `odag below A B && ...` just works.
     # Unknown names are false, not errors (fail-closed, like get).
-    result = session.dag.is_below(args.sub, args.sup)
+    result = session.view().is_below(args.sub, args.sup)
     print("true" if result else "false", file=out)
     return 0 if result else 1
 
@@ -1479,13 +1533,13 @@ def _cone_note(deleted, survivors, args, session, verb, out=None):
 
 
 def cmd_show(args, session, out):
-    _print_dag(session.dag, out, fmt=_namer(args, session, out))
+    _print_dag(session.view(), out, fmt=_namer(args, session, out))
 
 
 def cmd_list(args, session, out):
     # `list` is the empty query under a discoverable name — one code path, so
     # `odag list`, `odag get` and `odag get '*'` cannot drift apart.
-    _print_names((item.name for item in session.dag.get([])),
+    _print_names((item.name for item in session.view().get([])),
                  args, session, out)
 
 
@@ -1539,7 +1593,7 @@ def cmd_canon(args, session, out):
         print(f"surface {_surface.SURFACE_VERSION}", file=out)
         print(f"registry {REGISTRY_VERSION}", file=out)
         return
-    print(_surface.elaborate(args.term, session.dag), file=out)
+    print(_surface.elaborate(args.term, session.view()), file=out)
 
 
 def cmd_merge(args, session, out):
@@ -1553,6 +1607,68 @@ def cmd_import(args, session, out):
 
 def cmd_export(args, session, out):
     _save(session.dag, args.file)
+
+
+def cmd_ingest(args, session, out):
+    """Load a projection stream: JSON lines of
+    `{"item": NAME, "supercategories": [NAME, ...]}` — the wire format of
+    `docs/plans/PROJECTIONS.md` §4, emitted by source-side projectors
+    (datacat's `project-ontodag`; ucomm's envelope projector when built).
+
+    Semantics follow the contract exactly:
+
+    * **Idempotent**: every line is a `put`, so re-ingesting a stream is a
+      graph no-op — safe to re-run after a failure or a rescan.
+    * **Full rebuild, not diffing**: `--drop NODE` cone-deletes NODE before
+      ingesting (the survival rule keeps anything the human layer also
+      holds), so `ingest --drop sys:datacat stream.jsonl` is the contract's
+      "drop every sys: membership, re-ingest" in one command. Staleness is
+      the only permitted failure mode; drift is not.
+    * **Missing categories are created at top level first**, then refined:
+      a later line may file a category under parents of its own, and
+      reduction prunes the provisional root edge — so the stream's line
+      order cannot matter, which is what lets projectors emit facts in
+      whatever order their source yields them.
+
+    The stream normally targets a dedicated projection store
+    (`odag -f proj.od ingest ...`), read alongside the human store via the
+    `overlays` setting; ingesting into your primary store works but mixes
+    regenerable machine claims into the layer you back up.
+
+    One commit at the end, not one per line: a projection rebuild is one
+    state change, and per-line commits would flood an rs:/swarm: store's
+    history with meaningless intermediates.
+    """
+    for name in args.drop or []:
+        if name in session.dag.nodes:
+            session.dag.remove_cone([name])
+    stream = (sys.stdin if args.file in (None, "-")
+              else open(args.file, encoding="utf-8"))
+    try:
+        for lineno, line in enumerate(stream, 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+                item = entry["item"]
+                supers = list(entry.get("supercategories", []))
+                if not isinstance(item, str) or \
+                        not all(isinstance(s, str) for s in supers):
+                    raise TypeError("names must be strings")
+                for sup in supers:
+                    if sup not in session.dag.nodes:
+                        session.dag.put(sup, [])
+                session.dag.put(item, supers)
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ValueError(
+                    f"line {lineno}: not a projection entry "
+                    f'(need {{"item": NAME, "supercategories": [NAME, ...]}}'
+                    f"): {exc}") from exc
+    finally:
+        if stream is not sys.stdin:
+            stream.close()
+    session.save()
 
 
 def cmd_excerpt(args, session, out):
@@ -1859,7 +1975,7 @@ def cmd_visualize(args, session, out):
     """
     from ontodag.viz import OntoDAGVisualizer, query_picture
     base = args.out or _image_base(session.describe())
-    dag = session.dag
+    dag = session.view()          # a picture is discarded: draw the join
     queries = _disjuncts(args.categories)
     if any(queries):
         dag = query_picture(dag, queries)
@@ -2013,6 +2129,13 @@ def cmd_set(args, session, out):
         # only fails later is a setting you debug in the wrong place.
         if args.key == "limit":
             _want_limit(argparse.Namespace(limit=args.value), out)
+        if args.key == "overlays":
+            # Each spec must at least parse as a backend (no I/O here —
+            # backends construct lazily). A typo'd overlay would otherwise
+            # only surface as quietly smaller answers.
+            for spec in (s.strip() for s in args.value.split(",")):
+                if spec:
+                    _make_backend(_normalize_spec(spec))
         value = args.value
         if args.key == "bee_signer":
             value = _signer_to_store(value, getattr(args, "force", False))
@@ -2063,6 +2186,12 @@ Commands:
   merge FILE            merge FILE into the store
   import FILE           replace the store with the contents of FILE
   export FILE           write the store to FILE
+  ingest [FILE]         load a projection stream (JSON lines of
+                        {"item": N, "supercategories": [...]}) from FILE or
+                        stdin — the machine-layer wire format; idempotent,
+                        one commit. --drop NODE cone-deletes NODE first
+                        (full-rebuild semantics). Usually into a dedicated
+                        projection store read via the `overlays` setting
   excerpt FILE [CAT...] write just that query's answer to FILE, with the
                         edges among the answers kept — an importable cut of
                         the store (`export` is the whole thing).
@@ -2386,6 +2515,15 @@ def build_parser():
     p.add_argument("file")
     p.set_defaults(func=cmd_import)
 
+    p = sub.add_parser("ingest", add_help=True,
+                       help="load a projection stream (JSON lines)")
+    p.add_argument("file", nargs="?",
+                   help="JSONL file of projection entries (default: stdin)")
+    p.add_argument("--drop", action="append", metavar="NODE",
+                   help="cone-delete NODE before ingesting (full-rebuild "
+                        "semantics); repeatable")
+    p.set_defaults(func=cmd_ingest)
+
     p = sub.add_parser("export", add_help=True, help="write the store to a file")
     p.add_argument("file")
     p.set_defaults(func=cmd_export)
@@ -2544,6 +2682,7 @@ def main(argv=None):
     # settings table — one option per setting, no exceptions.
     _OVERRIDES.clear()
     valued = {"-f": "store", "--store": "store", "--file": "store",
+              "--overlay": "overlays", "--overlays": "overlays",
               "--bee-api": "bee_api", "--bee-batch": "bee_batch",
               "--bee-signer": "bee_signer", "-n": "limit", "--limit": "limit",
               # Not settings — a label for whatever state this invocation

@@ -835,6 +835,12 @@ odag <command> ...
   merge FILE            merge FILE into the store
   import FILE           replace the store with the contents of FILE
   export FILE           write the store to FILE
+  ingest [FILE]         load a projection stream — JSON lines of
+                        {"item": N, "supercategories": [...]} — from FILE
+                        or stdin, as emitted by machine cataloguers like
+                        datacat; idempotent, one commit; --drop NODE
+                        cone-deletes NODE first (full-rebuild semantics).
+                        Usually into its own store, read via `overlays`
   excerpt FILE [CAT...] write just that query's answer to FILE, with the
                         edges among the answers kept — an importable cut
                         of the store (see §5.4); --context also writes the
@@ -858,8 +864,9 @@ odag <command> ...
   status                root, item count, and what can be undone
   undo / redo           step back a state, or forward again (--dry-run to
                         look first)
-  set [KEY [VALUE]]     show settings, or set one durably (store, bee_api,
-                        bee_batch, bee_signer, render, limit — see §5.7)
+  set [KEY [VALUE]]     show settings, or set one durably (store, overlays,
+                        bee_api, bee_batch, bee_signer, render, limit —
+                        see §5.7)
   help                  show this help
 ```
 
@@ -1386,9 +1393,18 @@ withheld note goes to stderr, so it never lands in the data even when you pass
 
 Every setting can be given in the same four ways, and the first present
 wins: **flag → environment variable → config file → default**. The full
-table (all six settings with their flags, variables, and defaults) is in
+table (every setting with its flag, variable, and default) is in
 [REFERENCE.md §4](REFERENCE.md); what matters here is how to choose a
 layer.
+
+One setting deserves a sentence of its own: `overlays` names read-only
+stores that are merged into every *answer* — `get`, `count`, `below`,
+`list`, `show`, pictures — without ever entering your store. That is how
+a machine-built catalog (a *projection*, see `odag ingest` and
+`docs/plans/PROJECTIONS.md`) sits alongside what you filed by hand:
+`get photos sys:on:drive-budapest` crosses the two layers, while
+`export`, `excerpt` and `diff` read your own store alone, so a file you
+send can never smuggle the machine layer with it.
 
 The layers differ in **how long they last**, which is the useful way to choose
 between them: a flag is for one command, an environment variable for one shell,

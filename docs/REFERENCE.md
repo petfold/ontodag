@@ -81,6 +81,7 @@ results one per line on stdout. No command = read commands from stdin
 | `remove NAME… [--cone] [--dry-run]` | contract: the items go, their children reattach to their parents (order-independent, so several at once is a function of the set). `--cone` deletes instead: each item plus whatever only existed under it, sparing cone members that hang elsewhere |
 | `merge PATH` | merge another store/file into this one |
 | `import` / `export PATH` | native `.od`, or OWL/Manchester by extension (`.owl`/`.omn`) |
+| `ingest [FILE] [--drop NODE…]` | load a projection stream — JSON lines of `{"item": N, "supercategories": […]}` (PROJECTIONS.md §4) — from FILE or stdin. Idempotent; one commit; missing categories created at top level then refined, so line order cannot matter. `--drop` cone-deletes NODE first (full-rebuild semantics). Usually into a dedicated projection store read via `overlays` |
 | `excerpt PATH [CAT…] [--context]` | write just that query's answer (with the edges among the answers) to PATH — an importable cut; FILE comes first because CATs are variadic. `--context` adds the categories the answers hang from, which is what makes the file merge *and* diff into another store |
 | `diff OTHER [CAT…] [--additions PATH]` | compare this store with OTHER: `+` is theirs, `-` is ours; exits 0 identical / 1 different. Claims decide what is reported, edges display it; cascade counts on stderr. `--additions` writes OTHER's additions as a store file `merge` applies — never removals, and it says how many it left out |
 | `visualize [CAT…] [--out NAME]` | render an image (needs the `viz` extra); with CATs, draws that query's answer under its terms — the drawn twin of `excerpt`, which omits them |
@@ -104,6 +105,7 @@ default**. `auto` means "decide from whether output is a terminal".
 | key | env | flag | default |
 |---|---|---|---|
 | `store` | `ONTODAG_STORE` | `-f PATH` | `~/.ontodag/store.od` |
+| `overlays` | `ONTODAG_OVERLAYS` | `--overlay SPECS` | (unset) — comma-separated read-only stores merged into every *answer* (get/count/below/overlapping/list/show/canon/visualize); writes, exports, excerpts and diffs read the primary alone, so machine layers can never launder into a mergeable artifact |
 | `bee_api` | `BEE_API` | `--bee-api URL` | `http://localhost:1633` |
 | `bee_batch` | `BEE_BATCH` | `--bee-batch ID` | (unset) |
 | `bee_signer` | `BEE_SIGNER` | `--bee-signer KEY` | (unset; secret — never echoed) |
