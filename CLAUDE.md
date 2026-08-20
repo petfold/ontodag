@@ -224,6 +224,20 @@ message, `--as-of` reading the earlier root, and `undo` moving the head back. Th
 is the whole 0.16.0 story exercised end to end on real Swarm by the artifact users
 get. **Re-run an hour earlier, after the surface-parity wave** (which touched `Session._load` and the backends for `--as-of`): ontodag 2/2 again (42 s), and ontodag-fs's whole suite with the gate open — 283 passed, 0 skipped.
 
+9. **Real node, 2026-08-20 — the shipped packs published to Swarm.** Bee 2.8.1
+   light node, batch `c931c8a5…` (TTL 16.1 days), **keyless** (no feed — the
+   publisher-key decision is Peter's). All four packs pushed
+   (`odag -f swarm:pack-NAME pack NAME` from a scratch home), every store
+   root **byte-equal to the BMT fingerprint pinned in advance**
+   (`SWARM_GOLDEN_ROOTS`, computed offline the same day), all four
+   `isRetrievable: true`, and the adoption loop closed scorched-earth: a
+   reader holding only the root hydrated crypto-core over the network,
+   merged into a fresh BMT store, recommitted to the identical root, and
+   parsed `price(5000sat)` through the network-adopted vocabulary.
+   **Operational warning surfaced by the run: batch `c931c8a5…` is at 88%
+   bucket capacity (7/8 in the fullest bucket) — further writes risk 402
+   overissued; dilute one depth (halves the ~16-day TTL) and top up.**
+
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
 
 ### `LazyOntoDAG` on-demand reader (`src/ontodag/lazy.py`) — DONE (2026-07-25)

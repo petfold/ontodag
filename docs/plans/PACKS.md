@@ -460,7 +460,21 @@ The freeze this document imposed is **lifted, into the following order**
    it happens. The remaining live half — pushing the chunks to a Bee
    node, and above all publishing feeds, which requires deciding **whose
    key signs the official packs** (a publisher-identity decision, not
-   code) — is deployment.]**
+   code) — is deployment. **PUBLISHED 2026-08-20** (Bee 2.8.1 light
+   node, Gnosis mainnet, batch `c931c8a5…`, keyless — no feed): all four
+   packs pushed via `odag -f swarm:pack-NAME pack NAME`, every store
+   root **equal to its pre-pinned BMT fingerprint**, all four
+   `isRetrievable: true`, and the full adoption loop proven
+   scorched-earth: a reader with *nothing but the root* hydrated
+   crypto-core from the network (`RecordStore.at(root, BeeBytesStore)` +
+   `LazyOntoDAG`), merged it into their own fresh BMT store, and
+   **recommitted to the byte-identical root** — convergence over the
+   real network — then parsed `price(5000sat)` → `price(1/20000BTC)`
+   through the network-adopted vocabulary. Adopt-by-root is live;
+   what still waits on the publisher-key decision is only the *feed*
+   (authenticity + updates). The four fingerprints: crypto-core
+   `bbd0a930…`, crypto-majors `83337936…`, stablecoins `5bcad36b…`,
+   fiat-iso4217 `36a9e1e2…` (full values in `tests/test_packs.py`).]**
 2. **Collision warnings in the preview + name-level pack hints** in
    unknown-name errors. **[Built 2026-08-20, with an honesty
    correction: `put` now names its missing parents and hints a pack
