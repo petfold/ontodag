@@ -205,13 +205,66 @@ portably — `~` means your home directory on every platform, including
 | --- | --- |
 | Linux | Tested — the full suite runs here on every change. |
 | macOS | Tested (2026-08-04, `[all,test]` install, full core suite green on Python 3.13). Install Graphviz with `brew install graphviz`, and see "Which Python" below. |
-| Windows | Core, CLI and file store are expected to work; not tested. The Swarm *signer* needs the `bee` package, which builds a native secp256k1 extension — the least likely piece to install cleanly. |
+| Windows | Tested (2026-08-24, Windows 11, Python 3.13, `ontodag[test]` install): the core, the CLI, file stores and `rs:` record stores all work. See "On Windows" below for the three things that behave differently. The Swarm *signer* still needs the `bee` package, which builds a native secp256k1 extension — the least likely piece to install cleanly, and untested there. |
 
 Nothing in the store itself is platform-specific: it is a canonical text file
 (§5.1), so the same store works on any of the three, and `$ONTODAG_HOME`
 overrides its location if you want it somewhere other than your home directory.
 If you hit a platform problem, please report it — that is how the table above
 gets shorter.
+
+### On Windows
+
+Three things differ, and none of them is a bug in the store.
+
+**Pictures need a Graphviz *program*, not just the package.** `pip install
+"ontodag[viz]"` installs the Python wrapper; the `dot` executable it drives is
+a separate download on every platform, and on Windows it is not on `PATH`
+afterwards unless you put it there:
+
+```powershell
+winget install graphviz        # or the installer from graphviz.org
+# then, in a NEW shell (PATH is read at startup):
+dot -V
+```
+
+If `dot -V` still says the command is not recognised, add Graphviz's `bin`
+directory to `PATH` yourself — the installer offers to do it and the offer is
+easy to miss.
+
+Until `dot -V` answers, `odag visualize`, the image endpoints and the DOT/LaTeX
+exports will tell you the binary is missing. Everything else works without it.
+
+**Redirection with `>` mangles accented text — use `-o` instead.** `odag`
+writes UTF-8 to a pipe or a file whatever your codepage says, but PowerShell
+re-decodes a child program's output using the console codepage before writing
+the file, so `odag get dokumentum > out.txt` turns `árvíztűrő tükörfúrógép`
+into `├írv├¡zt...`. Every command that produces text takes `-o FILE`, which
+writes the file itself and is therefore immune:
+
+```powershell
+odag get dokumentum -o kimenet.txt
+Get-Content kimenet.txt -Encoding UTF8
+```
+
+If you want `>` to work anyway, tell PowerShell what encoding the child is
+using first — `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8` —
+and remember that Windows PowerShell 5.1 then writes the file as UTF-16.
+
+**The config file's permissions are not enforced by a mode.** On Linux and
+macOS `~/.ontodag/config` is written `0600`, because it can hold `bee_signer`,
+a private key. Windows has no POSIX permission bits — `chmod` there toggles
+the read-only attribute and nothing else — so what keeps that file private is
+the ACL on your user profile, which excludes other non-administrator users by
+default. That is weaker than the guarantee on the other two platforms: an
+administrator account, or a profile directory whose inherited permissions have
+been widened, can read it. If the key matters, keep it in the `BEE_SIGNER`
+environment variable instead of the config file.
+
+One packaging trap seen in testing, unrelated to OntoDAG: if pip reports
+`Permission denied` on a path under `AppData\Local\pip\cache`, its wheel
+cache has picked up bad permissions — `pip install --no-cache-dir ...` gets you
+past it.
 
 ### Which Python
 

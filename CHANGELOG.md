@@ -14,6 +14,37 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A missing Graphviz *binary* is now an instruction, not a traceback.**
+  `pip install "ontodag[viz]"` installs the wrapper package; the `dot`
+  program that does the drawing comes from the OS and is a separate
+  download on Windows — so rendering imported fine and then died inside
+  graphviz with `ExecutableNotFound` and thirty lines of stack. `odag
+  visualize` now prints one line naming the apt/brew/winget command and
+  exits 1, the same treatment 0.17.1 gave missing *packages*; the web
+  app answers **501** with that sentence instead of 500 with a stack
+  trace.
+- **Windows.** First real run of the suite there (Windows 11, Python
+  3.13): the code was fine and the *tests* were not portable. Three
+  assertions read POSIX shapes into platform-neutral behavior (a
+  leading `/` on an absolutised path, `/` as the separator in a store
+  name, and `0600` on a config file — Windows has no POSIX permission
+  bits, so `chmod` there is a no-op and the signer key's privacy comes
+  from the profile ACL, which USER_GUIDE §2 now states plainly). The
+  guide's platform table promotes Windows from "expected" to "tested",
+  with the three things that behave differently: the Graphviz binary,
+  PowerShell's `>` re-encoding non-ASCII output (use `-o FILE`, which
+  odag writes itself), and the config-file permissions.
+- **Tests skip what an environment cannot run, instead of failing it.**
+  The encrypted-store tests needed pycryptodome, four rendering tests
+  needed the `dot` binary and one needed dot2tex; none of them said so,
+  so a machine that installed `ontodag[test]` — including CI, for the
+  encryption tests — reported failures that were about the machine.
+  `crypto` joined the `test` extra so the suite keeps covering
+  encryption; the rest now skip with the reason. One counting test also
+  stopped drawing a picture it never looked at.
+
 ### Added
 
 - **Encrypted `rs:` stores** (the `store_key` setting / `--store-key` /
