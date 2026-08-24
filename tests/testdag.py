@@ -1,10 +1,20 @@
 import os
+import shutil
 import unittest
 
 # Deliberately the OLD import path: `OntoDAGVisualizer` moved to
 # ontodag.viz, and dag.py forwards it. Keeping one caller here means
 # the compatibility shim is exercised rather than assumed.
 from ontodag.dag import OntoDAG, OntoDAGVisualizer, Item
+
+# Rendering needs TWO things, and only one of them is a pip install: the
+# `graphviz` package is a wrapper around the `dot` binary, which comes from
+# the OS (apt/brew install graphviz; a separate download on Windows). A
+# machine with `ontodag[test]` and no Graphviz should skip these, not fail
+# them — the code under test is fine, the renderer just is not there.
+HAVE_DOT = shutil.which("dot") is not None
+requires_dot = unittest.skipUnless(
+    HAVE_DOT, "needs the Graphviz `dot` binary on PATH")
 
 
 class TestOntoDAG(unittest.TestCase):
@@ -52,10 +62,11 @@ class TestOntoDAG(unittest.TestCase):
         self.assertEqual(4, len(descendants))
 
     def test_descendant_count_after_put(self):
+        # (This drew the DAG before asserting, which made a count test
+        # depend on Graphviz being installed. `test_visualize` covers the
+        # renderer.)
         self.dag.put(self.e, [self.ab, self.cd], optimized=True)
         descendants = self.dag.get_descendants(self.a)
-        visualizer = OntoDAGVisualizer()
-        visualizer.visualize(self.dag)
         self.assertEqual(5, len(descendants))
 
     def test_descendant_count_after_remove(self):
@@ -74,6 +85,7 @@ class TestOntoDAG(unittest.TestCase):
         self.assertEqual(['AB'], sorted([subcategory.name for subcategory in self.a.neighbors]))
         self.assertIn(self.abf, self.dag.get_descendants(self.a))
 
+    @requires_dot
     def test_visualize(self):
         visualizer = OntoDAGVisualizer()
         visualizer.visualize(self.dag)
@@ -82,8 +94,12 @@ class TestOntoDAG(unittest.TestCase):
         os.remove('ontodag_vis')
         os.remove('ontodag_vis.png')
 
+    @requires_dot
     def test_generate_dot_source_to_tex(self):
-        from dot2tex import dot2tex
+        try:
+            from dot2tex import dot2tex
+        except ImportError:
+            self.skipTest('needs dot2tex: pip install "ontodag[web]"')
         visualizer = OntoDAGVisualizer()
         dot_source = visualizer.generate_dot_source(self.dag)
         self.assertIsNotNone(dot_source)
@@ -341,6 +357,8 @@ class TestVisualizerRendersEveryName(unittest.TestCase):
         # The end-to-end check: graphviz's `dot` has to accept the source.
         # Without this the bug is invisible — bad DOT is only a syntax error
         # once something parses it.
+        if not HAVE_DOT:
+            self.skipTest("needs the Graphviz `dot` binary on PATH")
         try:
             image = OntoDAGVisualizer().generate_image(self.dag)
         except ImportError:

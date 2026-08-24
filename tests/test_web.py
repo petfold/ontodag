@@ -1,12 +1,20 @@
 """REST-level tests for the Flask web app (`ontodag.web.app`), with the
 parametric-dimensions flow exercised over HTTP. Skips cleanly when the web
 extras are not installed (the app imports flask and dot2tex at module
-level)."""
+level) — and, per test, when Graphviz's `dot` binary is missing, which is
+its own gate: the `viz` extra installs the Python wrapper, the binary comes
+from the OS and is a separate download on Windows."""
+
+import shutil
 
 import pytest
 
 pytest.importorskip("flask")
 pytest.importorskip("dot2tex")
+
+requires_dot = pytest.mark.skipif(
+    shutil.which("dot") is None,
+    reason="needs the Graphviz `dot` binary on PATH")
 
 from ontodag.web.app import app  # noqa: E402
 
@@ -127,6 +135,7 @@ class TestDimensionsOverRest:
         assert "parcel" in query_names(client, "weight")
 
 
+@requires_dot
 class TestPicturesAndExports:
     """The rendering endpoints, which had never been covered here — and were
     broken in two independent ways when this suite was written (2026-08-02).
@@ -186,6 +195,31 @@ class TestPicturesAndExports:
         assert query_names(client, "C++ notes") == {"chapter1"}
 
 
+class TestAMissingRendererIsAnInstruction:
+    """`pip install "ontodag[viz]"` satisfies the import; the drawing is done
+    by the `dot` program, which comes from the OS. So the picture routes fail
+    at render time, and used to answer 500 with a graphviz traceback in the
+    log. 501 with the sentence that fixes it is the honest answer — and it is
+    the likeliest Windows failure, where the binary is a separate download."""
+
+    def test_the_picture_routes_say_what_to_install(self, client, monkeypatch):
+        from ontodag._extras import MissingExtra
+        from ontodag.viz import OntoDAGVisualizer
+
+        def refuse(*_args, **_kwargs):
+            raise MissingExtra("rendering needs the Graphviz system program "
+                               "`dot`, which pip does not install")
+
+        monkeypatch.setattr(OntoDAGVisualizer, "generate_image", refuse)
+        monkeypatch.setattr(OntoDAGVisualizer, "generate_svg", refuse)
+        put(client, "animal")
+        for url in ("/dag/image", "/dag/query/image?cat=animal", "/dag/picture"):
+            response = client.get(url)
+            assert response.status_code == 501, f"{url}: {response.status_code}"
+            assert "dot" in response.get_json()["error"]
+
+
+@requires_dot
 class TestQueryPictureAgreesWithTheAnswer:
     """The query image is built from `get()`, not from a name-intersection.
 
@@ -280,6 +314,7 @@ class TestQueryExportIsTheExcerptNotThePicture:
                 for line in response.data.decode().splitlines()
                 if line.startswith("Class:")}
 
+    @requires_dot
     def test_the_terms_are_not_in_the_download(self, client):
         projects(client)
         # Look at the picture first — that is what used to poison the export.
@@ -298,6 +333,7 @@ class TestQueryExportIsTheExcerptNotThePicture:
         classes = self._classes(client, {"cat": "A,B", "context": "1"})
         assert {"A", "B", "C", "active"} <= classes
 
+    @requires_dot
     def test_the_dot_export_matches_too(self, client):
         projects(client)
         client.get("/dag/query/image", query_string={"cat": "A,B"})
@@ -678,6 +714,7 @@ class TestNodeDetail:
         assert detail["name"] == "C++ & notes"
 
 
+@requires_dot
 class TestPictureIsClickable:
     """A picture nobody can click is a screenshot. Graphviz writes viz.py's
     synthetic ids into the SVG, which is what lets a click become a name

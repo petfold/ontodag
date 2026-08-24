@@ -89,7 +89,11 @@ swarm = ["recordstore[swarm-only,local-first-swarm]>=0.20.0"]
 # what they need; `test` deliberately stays without `swarm`, so CI keeps
 # proving the suite passes when Swarm is absent.
 all = ["ontodag[viz,owl,store,swarm,web]"]
-test = ["pytest", "ontodag[viz,owl,store]"]
+# `crypto` is here because the suite covers encrypted stores: without it
+# TestEncryptedStore skips, and a feature nobody runs in CI is a feature
+# nobody tests. (`viz` still only installs the *wrapper* — the `dot`
+# binary comes from the OS, and the rendering tests skip without it.)
+test = ["pytest", "ontodag[viz,owl,store,crypto]"]
 
 [project.scripts]
 odag = "ontodag.__main__:main"

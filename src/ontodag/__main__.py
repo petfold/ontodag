@@ -111,7 +111,13 @@ def _write_config(cfg):
     umask left a key group- and world-readable. O_CREAT's mode covers a file
     this call creates; the explicit chmod also repairs one written before this
     (or by an older version), which is the case that actually matters since
-    the leak is already on disk by then."""
+    the leak is already on disk by then.
+
+    On Windows neither call means anything — `chmod` there toggles the
+    read-only attribute and there are no permission bits to set — so the
+    file's privacy is whatever the profile directory's ACL gives it. Stated
+    in USER_GUIDE §2 rather than papered over: the honest advice on that
+    platform is to keep the key in `$BEE_SIGNER`."""
     os.makedirs(_home_dir(), mode=0o700, exist_ok=True)
     path = _config_path()
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)

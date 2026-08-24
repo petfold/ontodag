@@ -28,6 +28,7 @@ EXTRAS = {
     "viz": "rendering",
     "owl": "OWL and Manchester import/export",
     "store": "persisted, content-addressed stores",
+    "crypto": "encrypted stores",
     "swarm": "storing a DAG on Ethereum Swarm",
     "web": "the web app and REST API",
 }

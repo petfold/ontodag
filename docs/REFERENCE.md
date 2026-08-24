@@ -41,7 +41,7 @@ Base install (`pip install ontodag`) is pure Python: the core plus
 | `swarm` | recordstore[swarm-only,local-first-swarm] ≥ 0.19 | `swarm:` stores — local-first: commits land in a store directory instantly (offline works) and sync to Swarm in the background; with a signer the head publishes to a feed after network confirmation |
 | `web` | flask, dot2tex, viz, owl | the web app and REST API (`odag web`) |
 | `all` | everything above | |
-| `test` | pytest + viz, owl, store | the suite (deliberately no swarm) |
+| `test` | pytest + viz, owl, store, crypto | the suite (deliberately no swarm). Rendering tests additionally need Graphviz's `dot` binary from your OS, and skip without it |
 
 The dependencies keep their own test-pinned references:
 [recordstore REFERENCE.md](https://github.com/petfold/recordstore/blob/main/docs/REFERENCE.md)

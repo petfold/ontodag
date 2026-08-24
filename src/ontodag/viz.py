@@ -13,13 +13,47 @@ Requires the `viz` extra AND the Graphviz *system* program:
 """
 
 # The half of the answer the pip command alone does not give.
+_INSTALL_BINARY = (
+    "  sudo apt install graphviz     # or: brew install graphviz\n"
+    "  winget install graphviz       # on Windows, then check `dot -V` in a "
+    "NEW shell")
+
 _BINARY = (
     "  ...and the Graphviz system program:\n"
-    "  sudo apt install graphviz     # or: brew install graphviz\n"
+    + _INSTALL_BINARY + "\n"
     "(the `graphviz` PyPI package is only a wrapper — the `dot` binary has "
     "to come from your OS. To render elsewhere, ask for the DOT source "
     "instead and hand it to any Graphviz implementation.)"
 )
+
+
+def _rendered(call):
+    """Run a Graphviz call, or explain that the *program* is missing.
+
+    The other half of `_digraph`'s job, and the half that actually bites:
+    `pip install "ontodag[viz]"` satisfies the import, so rendering gets all
+    the way to spawning `dot` before failing — with a graphviz-internal
+    `ExecutableNotFound` traceback that arrives through thirty lines of
+    stack. That is the single most likely Windows failure (the binary is a
+    separate download there and is not added to PATH by default), and it is
+    an instruction, not a bug, so it is raised as one.
+
+    Matched by class name rather than by importing the exception: this stays
+    honest across graphviz versions, and the module is deliberately reachable
+    without knowing anything about graphviz's internals.
+    """
+    try:
+        return call()
+    except Exception as exc:                     # noqa: BLE001 - re-raised
+        if type(exc).__name__ != "ExecutableNotFound":
+            raise
+        from ontodag._extras import MissingExtra
+        raise MissingExtra(
+            "rendering needs the Graphviz system program `dot`, which pip "
+            "does not install:\n" + _INSTALL_BINARY + "\n"
+            "(the `graphviz` package is only a wrapper — `dot` does the "
+            "drawing. Nothing else needs it: only pictures fail.)"
+        ) from exc
 
 
 def _digraph():
@@ -143,7 +177,7 @@ class OntoDAGVisualizer:
 
     def visualize(self, dag, filename="ontodag_vis", color_mapping=None):
         graph = self._build(dag, color_mapping)
-        output_path = graph.render(filename)
+        output_path = _rendered(lambda: graph.render(filename))
         print(f"{dag.__class__.__name__} visualization saved as: "
               f"{output_path}")
 
@@ -161,7 +195,8 @@ class OntoDAGVisualizer:
         keeping about DOT, and it is better than anything that would run in
         the browser.
         """
-        return self._build(dag, color_mapping).pipe(format="svg").decode("utf-8")
+        graph = self._build(dag, color_mapping)
+        return _rendered(lambda: graph.pipe(format="svg")).decode("utf-8")
 
     def generate_image(self, dag, color_mapping=None):
         from io import BytesIO
@@ -173,7 +208,8 @@ class OntoDAGVisualizer:
                 '(pip install "ontodag[viz]"); `visualize()` writes a file '
                 "without it, and `generate_dot_source()` needs neither."
             ) from exc
-        png = self._build(dag, color_mapping).pipe(format="png")
+        graph = self._build(dag, color_mapping)
+        png = _rendered(lambda: graph.pipe(format="png"))
         return Image.open(BytesIO(png))
 
     def _render_node(self, graph, node, ids, is_root=False,

@@ -17,6 +17,7 @@ The Bee HTTP path itself is not exercised here (no node); it is covered by
 recordstore's own live-node suite. These tests validate the CLI wiring.
 """
 
+import importlib.util
 import io
 import os
 import sys
@@ -28,6 +29,30 @@ from contextlib import redirect_stderr, redirect_stdout
 import ontodag.__main__ as cli
 from ontodag.dag import Item, OntoDAG
 from recordstore import MemoryBytesStore, MemoryPointer, RecordStore
+
+
+# Capability gates. These are not "nice to have" skips: a machine that
+# installed `ontodag[test]` has neither pycryptodome nor a Graphviz binary,
+# and a Windows machine has no POSIX permission bits at all. Without the
+# gates those environments report failures that say nothing about the code
+# — which is exactly what the 2026-08-24 Windows run produced.
+def _installed(module):
+    """Is `module` importable? `find_spec` answers without importing — and
+    is allowed to raise rather than return None when a parent package is
+    missing, so a bare `is not None` is not the whole test."""
+    try:
+        return importlib.util.find_spec(module) is not None
+    except (ImportError, ValueError):
+        return False
+
+
+HAVE_CRYPTO = _installed("Crypto")
+
+# Windows `os.chmod` toggles the read-only attribute and nothing else, so a
+# mode assertion there tests the platform rather than `_write_config`. What
+# keeps the signer key private on Windows is the NTFS ACL on the user
+# profile; the limitation is stated in USER_GUIDE §2.
+POSIX_MODES = os.name != "nt"
 
 
 def _run(argv, session):
@@ -908,9 +933,13 @@ class TestLocalRecordStore(unittest.TestCase):
         backend = cli._make_backend("rs:/tmp/x")
         self.assertIsInstance(backend, cli.LocalRecordBackend)
         # The path is absolutised inside the prefix, so a spec saved to
-        # config means the same thing from any working directory.
-        self.assertTrue(
-            cli._normalize_spec("rs:./rel").startswith("rs:/"))
+        # config means the same thing from any working directory. Asserted
+        # with `isabs`, not a leading slash: on Windows an absolute path
+        # starts with a drive letter.
+        normalized = cli._normalize_spec("rs:./rel")
+        self.assertTrue(normalized.startswith("rs:"))
+        self.assertTrue(os.path.isabs(normalized[len("rs:"):]),
+                        f"not absolutised: {normalized}")
         self.assertEqual(cli._normalize_spec("swarm:x"), "swarm:x")
 
     def test_it_persists_and_has_a_real_root(self):
@@ -1121,6 +1150,7 @@ class TestConfigSecrecy(unittest.TestCase):
     def _session(self):
         return cli.Session(cli._resolve_store(None))
 
+    @unittest.skipUnless(POSIX_MODES, "Windows has no POSIX permission bits")
     def test_the_config_file_is_owner_only(self):
         session = self._session()
         self.assertEqual(_run(["set", "bee_signer", self.KEY], session),
@@ -1128,6 +1158,7 @@ class TestConfigSecrecy(unittest.TestCase):
         mode = os.stat(cli._config_path()).st_mode & 0o777
         self.assertEqual(mode, 0o600, f"config is {oct(mode)}, not 0o600")
 
+    @unittest.skipUnless(POSIX_MODES, "Windows has no POSIX permission bits")
     def test_a_config_written_before_this_gets_repaired(self):
         """The case that matters: the key is already on disk, world-readable,
         written by an older version. The next write must tighten it."""
@@ -1246,6 +1277,7 @@ class TestGenerateSigner(unittest.TestCase):
         self.assertIn(cli._config_path(), err)
         self.assertIn("back it up", err)
 
+    @unittest.skipUnless(POSIX_MODES, "Windows has no POSIX permission bits")
     def test_the_file_is_owner_only(self):
         self._set("bee_signer", "generate")
         self.assertEqual(os.stat(cli._config_path()).st_mode & 0o777, 0o600)
@@ -1648,8 +1680,74 @@ class TestVisualizeScoping(unittest.TestCase):
     def test_every_backend_spelling_yields_a_name(self):
         self.assertEqual(cli._image_base("/store/trips.od"), "/store/trips")
         self.assertEqual(cli._image_base("swarm:pets"), "pets")
-        self.assertEqual(cli._image_base("rs:/store/pets/"), "/store/pets")
+        # `rs:` normalizes the directory, so the separator is the platform's:
+        # compare against normpath rather than pinning a POSIX spelling.
+        self.assertEqual(cli._image_base("rs:/store/pets/"),
+                         os.path.normpath("/store/pets"))
 
+
+
+class TestMissingGraphvizBinary(unittest.TestCase):
+    """Rendering needs two things and pip installs only one: the `graphviz`
+    package is a wrapper around the `dot` program, which comes from the OS
+    and is a separate download on Windows. So the *import* succeeds and the
+    failure lands later, inside graphviz, as `ExecutableNotFound` — thirty
+    lines of stack whose useful sentence is at the bottom. That is the same
+    shape 0.17.1 fixed for missing packages, and it was still live for the
+    binary: the likeliest Windows failure of all printed a traceback.
+    """
+
+    class ExecutableNotFound(RuntimeError):
+        """Stands in for graphviz's own exception, which `_rendered` matches
+        by class name — so this test needs neither graphviz nor a machine
+        without `dot`."""
+
+    def test_it_becomes_an_instruction(self):
+        from ontodag.viz import _rendered
+        from ontodag._extras import MissingExtra
+
+        def render():
+            raise self.ExecutableNotFound("failed to execute PosixPath('dot')")
+
+        with self.assertRaises(MissingExtra) as caught:
+            _rendered(render)
+        message = str(caught.exception)
+        self.assertIn("dot", message)
+        self.assertIn("install graphviz", message)     # apt/brew/winget
+        self.assertNotIn("Traceback", message)
+
+    def test_every_other_failure_is_left_alone(self):
+        # Only the missing binary is an instruction; a real rendering bug
+        # must keep its traceback.
+        from ontodag.viz import _rendered
+        with self.assertRaises(ZeroDivisionError):
+            _rendered(lambda: 1 // 0)
+
+    def _run_err(self, argv, session):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.dispatch(argv, session)
+        return code, out.getvalue(), err.getvalue()
+
+    def test_the_cli_reports_it_like_any_other_refusal(self):
+        from ontodag._extras import MissingExtra
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "trips.od"))
+            _run(["put", "doc"], session)
+
+            class Refusing:
+                def __init__(self, *a, **kw):
+                    pass
+
+                def visualize(self, dag, filename=None, color_mapping=None):
+                    raise MissingExtra("rendering needs the Graphviz system "
+                                       "program `dot`")
+
+            with mock.patch("ontodag.viz.OntoDAGVisualizer", Refusing):
+                code, _out, err = self._run_err(["visualize"], session)
+        self.assertEqual(code, 1)
+        self.assertTrue(err.startswith("odag: "), err)
+        self.assertIn("dot", err)
 
 class TestExcerptContext(unittest.TestCase):
     """`excerpt --context` is the sendable form: the answer *plus the
@@ -3020,6 +3118,7 @@ class TestPutTeachingError(unittest.TestCase):
             self.assertNotIn("odag pack", err)
 
 
+@unittest.skipUnless(HAVE_CRYPTO, 'needs the crypto extra: pip install "ontodag[crypto]"')
 class TestEncryptedStore(unittest.TestCase):
     """The single-audience encrypted rs: store (PACKS.md §14 item 3):
     ciphertext at rest, deterministic (convergence within one audience),

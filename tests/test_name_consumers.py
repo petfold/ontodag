@@ -23,6 +23,7 @@ remembered were consumers.
 """
 
 import os
+import shutil
 import sys
 import tempfile
 
@@ -128,7 +129,11 @@ class TestGraphvizConsumer:
     def test_graphviz_actually_accepts_it(self):
         # The check that matters: bad DOT is only an error once `dot` parses
         # it. Asserting on the source alone is what let 0.10.0 through.
+        # Two gates, because rendering needs two things: the Pillow package
+        # and the `dot` binary, which pip does not install.
         pytest.importorskip("PIL")
+        if shutil.which("dot") is None:
+            pytest.skip("needs the Graphviz `dot` binary on PATH")
         image = OntoDAGVisualizer().generate_image(corpus_dag())
         assert image.size[0] > 0
 

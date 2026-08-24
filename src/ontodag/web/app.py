@@ -5,6 +5,7 @@ import uuid
 import random
 from collections import Counter
 
+from ontodag._extras import MissingExtra
 from ontodag.dag import OntoDAG, Item
 from ontodag.viz import OntoDAGVisualizer, query_picture
 from datetime import datetime, timedelta
@@ -75,6 +76,19 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_APP_SECRET_KEY")
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=float(os.getenv("FLASK_SESSION_LIFETIME", 60)))
 app.session_interface = InMemorySessionInterface()
+
+
+@app.errorhandler(MissingExtra)
+def _missing_extra(exc):
+    """An optional dependency is not installed — 501, with the instruction.
+
+    Most often Graphviz's `dot`, which pip cannot install: the picture
+    routes reach it only at render time, so without this the server's answer
+    is a 500 and a stack trace whose useful sentence is at the bottom. 501
+    Not Implemented is the honest code: this deployment cannot do it, and
+    the body says what would make it able to.
+    """
+    return jsonify({"error": str(exc)}), 501
 
 
 def current_dag():
