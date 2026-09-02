@@ -112,8 +112,6 @@ CORE = (
     ("human", ("mammal", "person")),        # the species is also a person
     ("man", ("human",)),
     ("woman", ("human",)),
-    ("child", ("human",)),
-    ("adult", ("human",)),
     ("dog", ("mammal",)),
     ("cat", ("mammal",)),
     ("horse", ("mammal",)),
@@ -125,7 +123,6 @@ CORE = (
     ("amphibian", ("vertebrate",)),
     ("invertebrate", ("animal",)),
     ("insect", ("invertebrate",)),
-    ("bee", ("insect",)),
     ("arachnid", ("invertebrate",)),
     ("spider", ("arachnid",)),
     ("mollusc", ("invertebrate",)),
@@ -140,7 +137,7 @@ CORE = (
     ("grain", ("food",)),
     ("dairy-product", ("food",)),
     ("drink", ("substance",)),
-    ("water", ("drink",)),
+    ("water", ("substance",)),
     ("fuel", ("substance",)),
     ("drug", ("substance",)),                # the substance; the field is `medicine`
 

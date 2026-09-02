@@ -16,7 +16,7 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
-- **The `core` pack: a small upper ontology** (`odag pack core`, 197
+- **The `core` pack: a small upper ontology** (`odag pack core`, 194
   categories, docs/CORE.md). Seven branches — physical object, substance,
   agent, event, information, place, field of study — so that a plane
   ticket is a transport ticket is a ticket is a document, an email from a

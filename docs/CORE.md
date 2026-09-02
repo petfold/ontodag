@@ -20,8 +20,8 @@ workflow on the agent surface, never as refusal.
 
 What the pack *does* give is the thing a flat tag set cannot: paths.
 Query `document` and the invoice, the email and the plane ticket are all
-in the cone; query `human` and everything filed under `man`, `woman`,
-`child` is there. An email filed under `email` and `man` (the sender's
+in the cone; query `human` and everything filed under `man` or `woman`
+is there. An email filed under `email` and `man` (the sender's
 category, spelled as a plain parent) is found by `email human`. That is
 the whole mechanism, and the pack's only job is to make the common
 paths exist before anyone has to build them.
@@ -35,7 +35,11 @@ needs coordination). So admission is a one-way door, and the test is
 
 - **Coarse-but-true beats fine-but-arguable.** `dog ⊑ mammal` is in.
   `pet` is out: it is a role, not a kind, and roles are the user's flat
-  dimension heads (USER_GUIDE §5.12).
+  dimension heads (USER_GUIDE §5.12). Life stages go the same way:
+  `child` and `adult` were dropped in review (2026-09-02) because a child
+  becomes an adult, and a kind is something you cannot grow out of.
+  `water` moved from `drink` to `substance` in the same review: sea water
+  is not a drink.
 - **One reading where a word has two.** A paper letter is a physical
   object *and* information. The pack files `document` under
   `information` only, because that is the reading people file by, and
@@ -52,12 +56,19 @@ needs coordination). So admission is a one-way door, and the test is
   the collision hazard PACKS.md principle 4 describes: `pack --diff`
   shows the shared names before you adopt.
 
-Sources were read for their decisions and none was imported: BFO and
-DOLCE for the object / substance / event / information split, schema.org
-for what "everyday size" looks like, Cyc for the care over individual vs.
-collective and tangible vs. intangible. Wikidata's P279 top was not used
-even as a quarry here (instance/subclass muddles); it remains the right
-source for *derived domain* packs.
+The list was written by hand from general knowledge of the ontologies
+the EVOLUTION.md research compared, not extracted from any of them: no
+file was fetched, parsed or copied. What each contributed is a decision,
+not nodes. BFO and DOLCE gave the object / substance / event /
+information split at the top; schema.org set the sense of "everyday
+size" and the business-shaped middle (organization, event, ticket,
+place); Cyc's care over individual vs. collective (`group` beside
+`person`) and tangible vs. intangible (`software` under `information`,
+`software-agent` under `agent`). Wikidata's P279 top was not used even
+as a quarry here (instance/subclass muddles); it remains the right
+source for *derived domain* packs. The consequence is that every reading
+here is a judgment to review, which is what the admission rule and this
+page exist for.
 
 ## The seven branches
 
