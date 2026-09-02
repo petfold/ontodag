@@ -933,9 +933,27 @@ section is the *current* state and the cross-repo pins.
 
 | package | version | verified by | pins |
 |---|---|---|---|
-| **ontodag** | **0.19.0** (2026-09-02, evening) | `scripts/release_smoke.py --pypi 0.19.0` → 27/27, plus the workflow's own `verify` job (all four jobs green first time, downstream gate included) | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
+| **ontodag** | **0.19.1** (2026-09-02, late evening) | `scripts/release_smoke.py --pypi 0.19.1` → 27/27, plus the workflow's own `verify` job (all four jobs green) | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
 | **recordstore** | **0.20.1** | fresh-venv install; undo/history exercised | none (stdlib-only base) |
 | **ontodag-fs** | **0.3.3** (2026-09-02, ceiling bump only) | ontodag 0.19.0's downstream gate ran its suite against the candidate; fresh-venv install of `ontodag-fs==0.3.3 ontodag==0.19.0` resolves | needs `ontodag>=0.16.0,<0.20.0` |
+
+**What 0.19.1 is** (2026-09-02 late evening, published by tag, all four jobs
+green, verified from PyPI): **core v3** — 0.19.0's core (v2) had shipped with
+106 names still carrying WordNet field suffixes (`condition.state`,
+`organ.body`) because the hand-naming pass ran before the last three
+branches were added and was never re-run, and without its three kind-level
+edges; v3 names every one by hand (the filed sense takes the word: `tooth`,
+`organ`, `condition`; the minor sense is renamed: `gear-tooth`, `pipe-organ`,
+`precondition`), drops sixteen near-duplicates, carries the edges — 2,914
+categories. Released the same day because a rename never propagates by
+merge. Also: **the prelude is pack zero** (`packs.PACKS["prelude"]`,
+`odag pack prelude`; `presumes_prelude` applies it first for any pack that
+names its nodes). **Lesson recorded: a "no qualified names left" check has
+to be re-run after every batch that adds concepts; it is now part of the
+build output in ontodag-core.** The physics pack (ontodag-core
+`packs/physics/`, 173 concepts, 12 new unit heads) is built but NOT in this
+release: two rulings pending Peter (`theory ⊑ concept`,
+`elementary-particle ⊑ particle`).
 
 **What 0.19.0 is** (2026-09-02 evening, published by tag, all four jobs green,
 verified from PyPI): **the core pack v2** — 2,914 categories in ten branches,
