@@ -27,6 +27,20 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **core v3 replaces v2: 106 names in 0.19.0's core still carried WordNet
+  field suffixes** (`condition.state`, `organ.body`, `king.artifact`) — the
+  hand-naming pass had run before the attribute, possession and cognition
+  branches were added and was never re-run. Every one is now a plain word
+  chosen by hand; where the suffixed sense was the one people file under it
+  took the word (`tooth`, `organ`, `condition`, `conflict`, `memory`,
+  `paper`, `rule`, `shoulder`, `sphere`, `opinion`, `orange`, `culture`,
+  `capital`, `credit`, `cream`, `failure`, `feature`, `guard`, `hemisphere`,
+  `marble`, `momentum`, `mushroom`, `lemon`, `acquaintance`) and the minor
+  sense was renamed (`gear-tooth`, `pipe-organ`, `precondition`,
+  `scheduling-conflict`, `computer-memory`, `scholarly-paper`, `ruler`,
+  ...); sixteen near-duplicates dropped. 2,914 categories. A store that
+  adopted v2 keeps the old names (a rename never propagates by merge),
+  which is why this ships the same day.
 - **core v2 shipped in 0.19.0 without its three kind-level edges.** The
   generator dropped `linear-dimension`, `count-dimension` and
   `calendar-dimension` as "prelude names" when they were the *subjects* of

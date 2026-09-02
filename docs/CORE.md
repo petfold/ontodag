@@ -1,7 +1,8 @@
 # The `core` pack: an upper ontology built by consensus
 
 Design record for `src/ontodag/core_ontology.py`, shipped as the pack
-`core` (v2, 2026-09-02). The list is **generated** in the sister repository
+`core` (v3, 2026-09-02; v2 was published in 0.19.0 the same day and is
+superseded — see Versioning). The list is **generated** in the sister repository
 [ontodag-core](https://github.com/petfold/ontodag-core); this page says
 what the pack is for, how it was built, how a node earns its place, and
 what it deliberately cannot do. `odag pack core --show` prints the list.
@@ -129,6 +130,17 @@ therefore belong in a pack. When unsure, pack.
   versions to be rare, argued, and monotone.
 
 ## Versioning and verification
+
+**v3 supersedes v2 within a day.** v2 (0.19.0) shipped with 106 names that
+still carried WordNet field suffixes (`condition.state`, `organ.body`,
+`king.artifact`) — the naming pass had run before the attribute, possession
+and cognition branches were added and was never re-run — and without the
+three kind-level edges. v3 names every one of them by hand under the
+decision-6 rule (the more-filed sense takes the word: `tooth` is the body
+part and the gear tooth is `gear-tooth`), drops sixteen near-duplicates, and
+carries the edges. A store that adopted v2 keeps its old names; nothing
+merges them away, which is exactly why the fix went out the same day.
+
 
 `CORE_VERSION` bumps whenever the list changes; the list itself is
 regenerated from ontodag-core's review files, never edited by hand.
