@@ -43,4 +43,8 @@ web interface — the browse/console page is shipped; the demo site and store
 selection are not), ROADMAP,
 DATABASE_DIRECTION (what OntoDAG refuses to become, with tripwires),
 BROWSER (Pyodide), SEMANTIC_CODES, MERKLE_NOTES,
-PHILOSOPHICAL_LANGUAGES, SWARM_DESIGN_update (POT/beeson proposal).
+PHILOSOPHICAL_LANGUAGES, SWARM_DESIGN_update (POT/beeson proposal),
+SEMANTIC_OS (an essay: the five sister repos read as the layers of an
+operating system for what you know, keep and attend to), WINDOWS_ROUND_3
+(the third Windows test round — a copy-pasteable PowerShell script for the
+tester, with expected outputs; round 2 is summarized in USER_GUIDE §2).

@@ -17,3 +17,6 @@ ontodag_vis.*
 # setuptools build output — accidentally committed 2026-07-28 in 4ba635e and
 # stale ever since (it never tracked later source changes).
 build/
+
+# Peter's private working notes — never tracked (untracked 2026-09-02).
+issues.txt
