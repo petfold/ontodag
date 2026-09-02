@@ -261,5 +261,5 @@ CORE = (
     ("engineering", ("field-of-study",)),
     ("medicine", ("field-of-study",)),       # the field; the substance is `drug`
     ("law", ("field-of-study",)),
-    ("business", ("field-of-study",)),
+    ("business-studies", ("field-of-study",)),
 )

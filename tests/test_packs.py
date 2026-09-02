@@ -22,7 +22,7 @@ from ontodag.packs import PACKS, apply, pack_dag
 
 GOLDEN_ROOTS = {  # pack v1 fingerprints: everyone merging these converges
     "core":  # v1, 2026-09-02 — the upper ontology (docs/CORE.md)
-        "ef8dfdaa2ed2c859659782ad9a4e487c4ed7875cc499a29c02ecc0cd70a1a0da",
+        "de92c77c21f404b69c7776fb58318687cdfbae5c5dbef3e625a6587086901656",
     "crypto-core":
         "4d501a439e109269252300d2777145be6ef736bbe5468b7812f016acb730d566",
     "crypto-majors":
@@ -228,7 +228,7 @@ SWARM_GOLDEN_ROOTS = {  # the same packs under Swarm (BMT) addressing —
     # the fingerprints real Swarm publication must reproduce (PACKS.md §14
     # item 1). Computable offline: BMT is a hash, not a network.
     "core":
-        "944dd4bc4db1c54e4a4966a4ea554b34ddbcf0d7d46630986d9708ac548b19ec",
+        "d6633916ad221abb93ad2c23f081281627a6dca7fea66532b1a8067d397de242",
     "crypto-core":
         "bbd0a930d7888aae3ea65c3ce794e793b5362f4e1837f816567889c75c22ea14",
     "crypto-majors":
