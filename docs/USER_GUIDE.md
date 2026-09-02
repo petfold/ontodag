@@ -886,7 +886,7 @@ mail-from-bob.eml
 Nobody filed anything under `human` or `document`; the paths were in the
 pack (`plane-ticket ⊑ transport-ticket ⊑ ticket ⊑ document`,
 `man ⊑ human ⊑ person`, and `human ⊑ mammal` too), and a query is the
-intersection of cones. It is 2,914 categories in ten branches — physical
+intersection of cones. It is 2,927 categories in ten branches — physical
 object, substance, agent, event, information, place, attribute,
 possession, cognition, field of study — and `odag pack core --show`
 prints every claim. Version 3 was not written by hand: it was built by

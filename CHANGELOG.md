@@ -14,7 +14,17 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **core v4: Wikidata joins the witnesses.** 2,085 of the core's concepts
+  align to Wikidata exactly, through its WordNet synset ids (P8814) and the
+  3.1→3.0 sense-key bridge; the subclass edges among those items are a
+  fourth independent witness. Net effect on the published v3: 13 concepts
+  newly placed, 72 gain a parent (`doctor ⊑ professional`, `singer ⊑
+  musician`), nothing lost — published edges are sticky by construction,
+  and the two Wikidata contradicts (`money ⊑ currency`, `research-worker ⊑
+  scientist`) are queued for a ruling rather than retracted. 2,927
+  categories.
 
 ## [0.19.1] — 2026-09-02
 
