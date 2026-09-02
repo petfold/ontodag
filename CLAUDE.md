@@ -256,6 +256,34 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     `/stamps` before believing anything about a batch — two node
     managers share the port on this box.** The batch still lapses
     ~2026-09-05 unless topped up; the expiry experiment stands.
+    **Later the same day: the node identity moved from Nook (bee 2.8.1,
+    no upgrade path) into Swarm Desktop 0.55.2 (bee 2.8.2).** What was
+    learned, because it cost an afternoon: (a) a batch belongs to the
+    wallet key and cannot be transferred — "moving batches" = moving the
+    key; (b) bee's `swarm.key`, `libp2p_v2.key` and `pss.key` are
+    keystores encrypted with the `password:` line in **config.yaml**, so
+    a data-dir backup without its config is a locked box — Swarm
+    Desktop's old key (`0x2f55…`, 0.02 xBZZ, an expired batch) was lost
+    exactly that way (`rm -r "Swarm Desktop/"` before the reinstall);
+    back up config.yaml WITH data-dir; (c) a fresh statestore makes bee
+    **deploy a new empty chequebook** — the old one (`0x29bb…`, 5.65 xBZZ)
+    was found via the `swap_chequebook_last_issued_*` cheque records in
+    Nook's statestore (each cheque names the issuer's chequebook) and
+    confirmed on chain (`issuer()` = the wallet); (d) the **stamperstore**
+    holds the batch's bucket counters — a fresh one would have reported
+    empty buckets for a 7/8-full batch and overissued. Final procedure
+    that worked: re-encrypt Nook's `swarm.key` under Swarm Desktop's own
+    config password (keystore v3 scrypt/aes-128-ctr, pycryptodome), copy
+    Nook's statestore + stamperstore + localstore + kademlia-metrics,
+    keep the NEW install's libp2p/pss keys (network identity only),
+    `swap-enable: true` + Nook's Gnosis RPC in config. Verified from the
+    API: 2.8.2, wallet `0xbd93…` 9.47 xBZZ, "using existing chequebook"
+    `0x29bb…` (5.65 total / 2.68 available), batch `c931c8a5…` usable
+    with the fullest bucket at 7/8, peers reconnecting. Backups kept:
+    `~/swarm-desktop-OLD-0x2f55-data-dir-password-lost`,
+    `~/swarm-desktop-fresh-statestore-0xcde3-bak` (the orphan empty
+    chequebook's state), `~/NookDataDirBu`; Nook's own dir untouched.
+    Script: scratchpad `move_nook_key_to_desktop.py` (session-local).
 
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
 
