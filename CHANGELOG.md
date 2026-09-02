@@ -14,6 +14,10 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.19.0] — 2026-09-02
+
 ### Added
 
 - **The `core` pack, version 2: an upper ontology built by consensus**

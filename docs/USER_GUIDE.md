@@ -1309,7 +1309,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.18.1 - type help for help
+Ontodag 0.19.0 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png
