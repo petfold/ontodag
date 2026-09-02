@@ -16,17 +16,29 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
-- **The `core` pack: a small upper ontology** (`odag pack core`, 194
-  categories, docs/CORE.md). Seven branches — physical object, substance,
-  agent, event, information, place, field of study — so that a plane
-  ticket is a transport ticket is a ticket is a document, an email from a
-  man is an email from a human, and `get document` or `get email human`
-  find them without anyone building the paths. Taxonomy without teeth:
-  it states subsumption only and refuses no filing (the disjointness
-  wall). Admission rule from EVOLUTION.md: coarse-but-true, no roles, no
-  coverage ambitions; versioned and golden-rooted under both addressing
-  schemes like every pack. Packs can now carry plain categories beside
-  unit declarations (`pack_entries`, `is_unit_pack`); `pack --show`
+- **The `core` pack, version 2: an upper ontology built by consensus**
+  (`odag pack core`, 2,934 categories in ten branches — physical object,
+  substance, agent, event, information, place, attribute, possession,
+  cognition, field of study; docs/CORE.md). Version 1 (194 hand-written
+  categories, never published) was reviewed as too small and arbitrary;
+  v2 is generated in the sister repository `ontodag-core` from WordNet
+  3.0, SUMO, OpenCyc, schema.org, YAGO 4, BFO and DOLCE: concepts are
+  Princeton Core WordNet's nouns plus v1's names, aligned across the
+  sources on WordNet synsets, and an edge enters only when two independent
+  sources entail it or Peter accepted it on review (Claude read every
+  single-witness WordNet edge against both glosses — about 1,900
+  judgements). Every name is a plain English word; a sense that shares its
+  word with another got its own name (`book-copy`, `prepared-dish`,
+  `capital-city`) or, where it is the sense people file under, took the
+  word (`accident`, `injection`, `match`, `notebook`, `staff`). v2 is a
+  strict superset of v1. It presumes the prelude and asserts that the
+  registry's measured kinds (`linear-dimension`, `count-dimension`,
+  `calendar-dimension`) are attributes; dimension heads, unit spellings
+  and currency denominations belong to the registry and are absent.
+  `pack core` applies the prelude first. Taxonomy without teeth, as
+  before: subsumption only, no filing refused. Packs can carry plain
+  categories beside unit declarations (`pack_entries`, `is_unit_pack`);
+  `pack --show`
   prints category claims as `child ⊑ parent`; the listing says
   `categories` or `declarations`; `GET /dag/pack` gains `kind`. The
   missing-parent hint (`'invoice' arrives with: odag pack core`) now

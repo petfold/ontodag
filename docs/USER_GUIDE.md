@@ -886,23 +886,31 @@ mail-from-bob.eml
 Nobody filed anything under `human` or `document`; the paths were in the
 pack (`plane-ticket ⊑ transport-ticket ⊑ ticket ⊑ document`,
 `man ⊑ human ⊑ person`, and `human ⊑ mammal` too), and a query is the
-intersection of cones. It is 194 categories in seven branches — physical
-object, substance, agent, event, information, place, field of study —
-and `odag pack core --show` prints every claim. Like the prelude and the
-unit packs, adopting it is an explicit, idempotent merge with a pinned
-fingerprint, so everyone who adopts `core` v1 converges on the same
-bytes; `odag pack core --diff` shows what it would add to *your* store
-first, including any names you already use.
+intersection of cones. It is 2,934 categories in ten branches — physical
+object, substance, agent, event, information, place, attribute,
+possession, cognition, field of study — and `odag pack core --show`
+prints every claim. Version 2 was not written by hand: it was built by
+consensus over WordNet, SUMO, OpenCyc, schema.org, YAGO, BFO and DOLCE
+(every edge entailed by two independent sources, or accepted on review),
+with every name a hand-checked plain English word; the construction and
+its decisions live in the sister repository `ontodag-core`. Like the
+prelude and the unit packs, adopting it is an explicit, idempotent merge
+with a pinned fingerprint, so everyone who adopts `core` v2 converges on
+the same bytes; `odag pack core --diff` shows what it would add to *your*
+store first, including any names you already use. It presumes the
+prelude (applied for you), because it declares that measured dimensions
+are attributes; the dimension heads and unit spellings themselves stay
+with the registry.
 
 Two things to know before leaning on it. **It has branches and no
 fences**: OntoDAG states only what is under what, so the pack cannot
 stop you filing a spreadsheet under `mammal`, and it does not try. And
-**it is deliberately small**: every node in it is a permanent commitment
-for everyone who merges it, so the rule for admission was "could we be
-wrong about this?", not "would this be handy?" — which is why there is a
-`dog` but no `pet` (a role, not a kind), and a `document` but no
-`smartphone`. Detail belongs in domain packs, where a mistake is
-survivable. The reasoning is in `docs/CORE.md`.
+**every node is a permanent commitment** for everyone who merges it, so
+the rule for admission was "could we be wrong about this?", not "would
+this be handy?" — which is why there is a `dog` but no `pet` (a role, not
+a kind), and why the sciences contribute only their hinges (`disease`,
+`chemical-element`, `cell`), with the contents left to domain packs where
+a mistake is survivable. The reasoning is in `docs/CORE.md`.
 
 ## 5. The command line
 

@@ -1,119 +1,139 @@
-# The `core` pack: a small upper ontology
+# The `core` pack: an upper ontology built by consensus
 
 Design record for `src/ontodag/core_ontology.py`, shipped as the pack
-`core` (v1, 2026-09-02). This page says what the pack is for, how a node
-earns its place, and what the pack deliberately cannot do. The list itself
-is the module; `odag pack core --show` prints it.
+`core` (v2, 2026-09-02). The list is **generated** in the sister repository
+[ontodag-core](https://github.com/petfold/ontodag-core); this page says
+what the pack is for, how it was built, how a node earns its place, and
+what it deliberately cannot do. `odag pack core --show` prints the list.
 
 ## Taxonomy without teeth
 
 OntoDAG states subsumption and nothing else, so this top ontology has
 **branches and no fences**. It can say that every plane ticket is a
-transport ticket is a ticket is a document; it cannot say that a
-document is not a mammal, and nothing here will refuse a filing that
-mixes them (the disjointness wall, `DATABASE_DIRECTION.md`; factbond is
-its second consumer). Cyc's upper levels got most of their discipline
-from partitions that turned wrong filings into contradictions. Ours will
-have Cyc's taxonomy without Cyc's teeth: the discipline arrives as
-convention, `merge --diff` and `pack --diff` preview, and the review
-workflow on the agent surface, never as refusal.
+transport ticket is a ticket is a document; it cannot say that a document
+is not a mammal, and nothing here refuses a filing that mixes them (the
+disjointness wall, `DATABASE_DIRECTION.md`). The discipline a top ontology
+usually gets from partitions arrives here as convention, `merge --diff`
+and `pack --diff` preview, and the review workflow on the agent surface,
+never as refusal.
 
-What the pack *does* give is the thing a flat tag set cannot: paths.
-Query `document` and the invoice, the email and the plane ticket are all
-in the cone; query `human` and everything filed under `man` or `woman`
-is there. An email filed under `email` and `man` (the sender's
-category, spelled as a plain parent) is found by `email human`. That is
-the whole mechanism, and the pack's only job is to make the common
-paths exist before anyone has to build them.
+What the pack *does* give is the thing a flat tag set cannot: paths. Query
+`document` and the invoice, the email and the plane ticket are all in the
+cone; query `email human` and the mail filed under `email` and `man` is
+found, because `man ⊑ human`. The pack's job is to make the common paths
+exist before anyone has to build them.
+
+## How version 2 was built
+
+Version 1 (194 categories, hand-written from general knowledge) was
+reviewed as good but too small and arbitrary-looking. Version 2 replaces
+taste with witnesses:
+
+- **Concepts** are Princeton Core WordNet's 3,299 most frequent nouns plus
+  v1's names, each a WordNet synset. The synset is the hub: SUMO aligns
+  through its own WordNet mapping, OpenCyc, schema.org, YAGO 4, BFO and
+  DOLCE by name, with hand alignments where the automatic ones were wrong
+  (WordNet's sense 1 of `whale` is "a very large person").
+- **Edges** enter by **consensus**: an edge `A ⊑ B` is in when at least two
+  independent sources entail it in their own graphs and none entails the
+  reverse, or when Peter accepted it on review. Single-witness edges were
+  read one by one against both glosses (about 1,900 judgements; roughly
+  one in six rejected — parts filed as kinds, WordNet's wheeled-vehicle ⊑
+  container chain, drugs under causal agent, disciplines nested where they
+  are siblings). Sources disagreeing on direction leave both directions
+  out; near-synonym pairs keep one name.
+- **Names** are the one-way door, so they got the review time. A sense that
+  shares its word with another sense has its own name (`book-copy`,
+  `prepared-dish`, `capital-city`, `constituent-state`); where the more
+  filed sense was the qualified one, it took the plain word (`accident`,
+  `injection`, `match`, `notebook`, `seat`, `staff`, `claim`, `state`,
+  `process`). Nothing is numbered.
+- **v2 is a strict superset of v1**: every v1 claim is still entailed.
+
+Every decision, with its reasons, is in ontodag-core's `docs/UPPER.md` §6;
+the review files there rebuild the pack.
 
 ## How a node earns its place
 
-Every node here is inherited by the whole ecosystem and cannot be
-retracted by merge (EVOLUTION.md §1: refinement converges, retraction
-needs coordination). So admission is a one-way door, and the test is
-**could we conceivably be wrong about it?**, never *would it be useful?*
+Every node is inherited by the whole ecosystem and cannot be retracted by
+merge (EVOLUTION.md §1: refinement converges, retraction needs
+coordination). A version therefore commits exactly two things, **names**
+and **the truth of every edge**, and never coverage: adding nodes,
+inserting levels and deepening the top all propagate by merge. So the
+admission test is *could we conceivably be wrong about it?*, never *would
+it be useful?*, and versions are monotone.
 
-- **Coarse-but-true beats fine-but-arguable.** `dog ⊑ mammal` is in.
-  `pet` is out: it is a role, not a kind, and roles are the user's flat
-  dimension heads (USER_GUIDE §5.12). Life stages go the same way:
-  `child` and `adult` were dropped in review (2026-09-02) because a child
-  becomes an adult, and a kind is something you cannot grow out of.
-  `water` moved from `drink` to `substance` in the same review: sea water
-  is not a drink.
-- **One reading where a word has two.** A paper letter is a physical
-  object *and* information. The pack files `document` under
-  `information` only, because that is the reading people file by, and
-  says so. Likewise `medicine` is the field and `drug` the substance;
-  `flight` is the event of flying, `airplane` the vehicle;
-  `transport` is the event of moving people or goods, so the worked
-  example's `transport` acquires `event` as a parent on merge and
-  nothing else changes.
-- **Coverage is not a goal.** The pack stops where being wrong would
-  start to be survivable, which is where domain packs begin. That is
-  why there is no `pet`, no `smartphone`, no `startup`, no `jazz`.
-- **Names are identity.** A pack node called `car` becomes *your* `car`
-  on merge. That is the convergence property doing its job, and also
-  the collision hazard PACKS.md principle 4 describes: `pack --diff`
-  shows the shared names before you adopt.
+- **Two witnesses or a ruling.** No edge rests on one source's habit.
+- **Coarse-but-true beats fine-but-arguable.** `organism ⊑ agent` (SUMO and
+  DUL) was rejected: a plant is not an agent except in a botanical sense.
+- **One reading where a word has two.** A document is information only,
+  never also an artifact, though a paper letter is one; a conversation is
+  communication, not information, though it carries some.
+- **Roles and stages are out.** `pet`, `child`, `adult` are not kinds.
 
-The list was written by hand from general knowledge of the ontologies
-the EVOLUTION.md research compared, not extracted from any of them: no
-file was fetched, parsed or copied. What each contributed is a decision,
-not nodes. BFO and DOLCE gave the object / substance / event /
-information split at the top; schema.org set the sense of "everyday
-size" and the business-shaped middle (organization, event, ticket,
-place); Cyc's care over individual vs. collective (`group` beside
-`person`) and tangible vs. intangible (`software` under `information`,
-`software-agent` under `agent`). Wikidata's P279 top was not used even
-as a quarry here (instance/subclass muddles); it remains the right
-source for *derived domain* packs. The consequence is that every reading
-here is a judgment to review, which is what the admission rule and this
-page exist for.
+## The ten branches
 
-## The seven branches
-
-| branch | what goes under it | why it is a branch |
+| branch | what goes under it | size |
 |---|---|---|
-| `physical-object` | natural objects, artifacts, organisms | bounded, located, has extent |
-| `substance` | materials, food, drink, fuel, drugs | stuff by kind, not by piece |
-| `agent` | persons, organizations, groups, software agents | can act and be held responsible |
-| `event` | activities, transport, communication, transactions, natural events | happens; has a time extent |
-| `information` | documents, images, video, audio, datasets, software | content that copies without loss |
-| `place` | continents to streets, venues; also landforms and buildings by a second parent | a location one can be at |
-| `field-of-study` | sciences, humanities, arts, engineering, medicine, law, business studies | what something is *about*, for filing by subject |
+| `physical-object` | artifacts, organisms, body parts, natural objects | ~1,100 |
+| `event` | acts, activities, processes, natural events, changes | ~530 |
+| `agent` | persons and groups: can act and be held responsible | ~440 |
+| `attribute` | qualities, states, feelings, colours, shapes | ~400 |
+| `information` | documents, messages, symbols, music, images, software | ~400 |
+| `place` | regions, buildings, rooms, bodies of water, roads | ~180 |
+| `substance` | food, materials, chemicals, drugs, fuels | ~170 |
+| `cognition` | beliefs, concepts, ideas, skills, methods, the senses | ~120 |
+| `possession` | money, debts, income, belongings | ~50 |
+| `field-of-study` | sciences, humanities, arts, engineering, medicine, law | ~50 |
 
-`human` has two parents, `mammal` and `person`: the species is also an
-agent. `building`, `landform` and `body-of-water` are physical and also
-places. `map` is an image and a document; `voice-message` is audio and a
-message. Multi-parent nodes are the point of the structure, and the
-reduction keeps them canonical.
+Multi-parent nodes are the point of the structure: `human` is a mammal and
+a person; `building`, `landform` and `body-of-water` are physical and also
+places; `map` is an image and a document.
+
+## Quantities: the registry, not the pack
+
+Measured dimensions (weight, length, temperature, energy, ...) and every
+unit spelling (mile, gallon, calorie) belong to the unit registry and the
+prelude; the pack ships none of them as categories, and neither the time
+nouns nor the quantity nouns. It asserts the connection once, at kind
+level: `linear-dimension`, `count-dimension` and `calendar-dimension` are
+attributes, so every present and future head and every value inherits the
+attribute branch (`geo-dimension` is left out: a geo value is a place).
+The pack therefore presumes the prelude, and `pack core` applies it first.
+Currency denominations (`dollar`, `penny`) are synonyms of the fiat pack's
+unit spellings and are absent too; `money`, `cash`, `coin` stay.
+
+## The sciences: hinges here, contents in packs
+
+A science contributes its **hinge** to core — the highest node a
+non-specialist files under (`disease`, `chemical-element`, `cell`,
+`planet`) — so that a domain pack merges onto a shared anchor. Its
+**contents** (the 118 elements, the tree of life, ICD) are packs with
+their own sources and versioning. Numbers are values, not nodes;
+mathematical structures need qualified names (`mathematical-group`) and
+therefore belong in a pack. When unsure, pack.
 
 ## What it is not
 
 - **Not roles.** `author`, `owner`, `sender`, `pet` are relations to a
-  filler. Spell them as dimension heads or plain categories on the item
-  that has them, per the flat-roles rule.
-- **Not the math skeleton.** Number kinds and the registry reflection
-  (`count-dimension ⊑ integer-valued-dimension`) are EVOLUTION.md §3's
-  separate, better-founded first upper pack.
+  filler: dimension heads or plain categories on the item, per the
+  flat-roles rule (USER_GUIDE §5.12).
+- **Not the math skeleton.** Number kinds and the registry reflection are
+  EVOLUTION.md §3's separate first upper pack; the three kind-level edges
+  above are the only place the pack touches the registry.
 - **Not inference.** The pack knows *that* every mammal is a vertebrate,
-  never *why*; nothing is derived except cone membership.
+  never *why*.
 - **Not the prelude.** PACKS.md principle 3: the prelude holds only names
-  the interpreter dereferences (the kind nodes). `core` is pack-tier by
-  distribution while EVOLUTION.md argues prelude-grade governance for it,
-  and both are true at once: adopt it with one command, and expect its
-  versions to be rare and argued.
+  the interpreter dereferences. `core` is pack-tier by distribution and
+  prelude-grade in governance: adopt it with one command, and expect its
+  versions to be rare, argued, and monotone.
 
 ## Versioning and verification
 
-`CORE_VERSION` bumps whenever the list changes. `tests/test_packs.py`
-pins the pack's canonical root under both addressing schemes, so
-adopting it into any `rs:` store reproduces one fingerprint and
-publishing it to Swarm reproduces the other, and a silent change is
-impossible. The same file checks closure (every parent is in the pack),
-no duplicates, the size bound (under 200), the motivating paths, that it
-carries no unit declarations, and that it composes with the prelude.
-
-Adoption is a merge, so it is idempotent and order-free, previewable
-with `odag pack core --diff`, and reversible only the way any addition
-is: by `undo` locally, never by merge.
+`CORE_VERSION` bumps whenever the list changes; the list itself is
+regenerated from ontodag-core's review files, never edited by hand.
+`tests/test_packs.py` pins the pack's canonical root under both addressing
+schemes, checks closure against the pack plus the prelude, a size window,
+the motivating paths, that it carries no unit declarations, and that it
+composes with the prelude idempotently. Adoption is a merge: idempotent,
+order-free, previewable with `odag pack core --diff`.

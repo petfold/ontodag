@@ -168,6 +168,11 @@ def pack_dag(name) -> OntoDAG:
     dag = OntoDAG()
     if is_unit_pack(name):
         dag.put(UNIT_DECLARATION, [])
+    if name == "core":
+        # core v2 asserts that the registry's measured kinds are attributes,
+        # so it presumes the prelude (pack zero): dependencies ship as closure.
+        from ontodag import prelude
+        prelude.apply(dag)
     # Order-free by I3 — but a parent must exist before its child is put,
     # and `core` is written by branch, not topologically; so create every
     # node first, then the edges (put on an existing node adds edges).
