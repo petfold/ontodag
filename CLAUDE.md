@@ -851,9 +851,21 @@ section is the *current* state and the cross-repo pins.
 
 | package | version | verified by | pins |
 |---|---|---|---|
-| **ontodag** | **0.18.0** (2026-08-20) | `scripts/release_smoke.py --pypi 0.18.0` → 27/27, plus the workflow's own `verify` job | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
+| **ontodag** | **0.18.1** (2026-09-02) | `scripts/release_smoke.py --pypi 0.18.1` → 27/27, plus the workflow's own `verify` job (all four jobs green first time, downstream gate included) | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
 | **recordstore** | **0.20.1** | fresh-venv install; undo/history exercised | none (stdlib-only base) |
 | **ontodag-fs** | **0.3.2** (2026-08-20, ceiling bump only) | ontodag 0.18.0's downstream gate ran its suite against the candidate | needs `ontodag>=0.16.0,<0.19.0` |
+
+**What 0.18.1 is** (2026-09-02, published by tag, all four jobs green):
+the Windows round's fixes plus the encrypted `rs:` stores that had sat
+unreleased since 2026-08-20 — a missing Graphviz *binary* is an instruction
+(exit 1 naming apt/brew/winget; the web app answers 501), tests skip what
+an environment cannot run (`crypto` in the `test` extra, so CI covers
+encryption again), the three POSIX-shaped assertions made platform-neutral,
+and the `store_key` setting / `crypto` extra. Shipped as a patch on Peter's
+call even though encrypted stores are additive new surface, which kept
+ontodag-fs's `<0.19.0` ceiling valid — no downstream release needed. Same
+pass: `issues.txt` untracked (Peter's private note, now in `.gitignore`),
+the essay and the Windows round-3 tester script filed under `docs/plans/`.
 
 **What 0.18.0 is** (2026-08-20, published by tag; the first tag was
 correctly stopped by the workflow's suite gate — a swarm-addressing test
