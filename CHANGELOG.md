@@ -25,14 +25,14 @@ the version numbers appear in commit history and docs.
   and the two Wikidata contradicts (`money ⊑ currency`, `research-worker ⊑
   scientist`) are queued for a ruling rather than retracted. 2,927
   categories.
+  Regenerated 2026-09-03 from ontodag-core `5bf8167`: `pan` is the cooking pan
+  (the chimpanzee genus became `genus-pan`), `pb` is `lead-metal`; golden roots
+  re-pinned.
 
 ## [0.19.1] — 2026-09-02
 
 ### Changed
 
-  Regenerated 2026-09-03 from ontodag-core `5bf8167`: `pan` is the cooking pan
-  (the chimpanzee genus became `genus-pan`), `pb` is `lead-metal`; golden roots
-  re-pinned.
 - **The prelude is pack zero.** It is registered in `ontodag.packs.PACKS`
   (`odag pack prelude` lists, shows, diffs and adopts it exactly like `core`
   or `crypto-core`; `odag prelude` stays as the short form). What made it
