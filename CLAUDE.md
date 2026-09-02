@@ -284,6 +284,14 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     `~/swarm-desktop-fresh-statestore-0xcde3-bak` (the orphan empty
     chequebook's state), `~/NookDataDirBu`; Nook's own dir untouched.
     Script: scratchpad `move_nook_key_to_desktop.py` (session-local).
+    **Batch maintained the same evening (Peter's decision: keep it, not
+    the expiry experiment):** diluted 19 → 20 (tx `0x01b326…`, TTL
+    halved 2.74 → 1.37 d as expected, bucket cap 8 → 16 so the 7/8 fill
+    became 7/16) then topped up 43,163,020,800 PLUR/chunk (+30 days at
+    83,262 PLUR/chunk/block, tx `0xcff3b9…`, ≈ 4.53 xBZZ): now **depth
+    20, TTL 31.4 days, usable, wallet 4.94 xBZZ**. Each PATCH confirmed
+    on chain in ~45 s. The expiry/GC experiment is therefore still not
+    run; it needs a batch nobody minds losing.
 
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
 
