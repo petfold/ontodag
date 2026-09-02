@@ -36,8 +36,8 @@ rejects it (`split_term`: no nested parens, one head one parameter); if
 the spelling is ever wanted, it is an `elaborate()` job — expand to the
 conjunction before the core, never store the nested name.
 
-This works **not by luck but by a scope rule**, which should be
-documented wherever the worked example lands:
+This works **not by luck but by a scope rule**, documented with the
+worked example in USER_GUIDE §5.12 (2026-09-02, executed transcript):
 
 > **Flat roles are sound for one filler per role per item.** Beyond
 > that, composition is a query-layer join, not a bigger name.

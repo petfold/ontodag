@@ -1864,6 +1864,107 @@ different words still agree on the state — which is what makes canonical roots
 dedup and merge work. If attribution has to *travel*, that is a signed
 provenance record about the claim (§9), not a commit message.
 
+### 5.12 A worked example: a ticket from London to Rome
+
+"I want to get from London to Rome in under ten hours, and I don't care
+whether it's a plane, a train or a bus." Nothing in this section is new
+machinery. It shows how far the two things you already have — categories
+and typed values — go when you point them at one ordinary question, and
+exactly where they stop.
+
+The trick is to treat *where from*, *where to* and *how long* as three
+more categories. Each one is a dimension head (§4.7): `duration` comes
+with the prelude, and `from`/`to` you declare as **prefix** dimensions,
+because place codes nest — `EU-UK-London` is inside `EU-UK`, which is
+inside `EU`, and a prefix dimension computes exactly that containment
+from the spelling. No geography tree to build, no edges to maintain.
+
+```console
+$ odag prelude
+$ odag put from prefix-dimension
+$ odag put to prefix-dimension
+$ odag put transport
+$ odag put flight transport
+$ odag put train transport
+$ odag put bus transport
+```
+
+Now every offer is one `put`, with its coordinates as supercategories:
+
+```console
+$ odag put BA2551 flight 'from(EU-UK-London)' 'to(EU-IT-Rome)' 'duration(155min)'
+$ odag put FR9821 flight 'from(EU-UK-London)' 'to(EU-IT-Rome)' 'duration(165min)'
+$ odag put ES9012 train  'from(EU-UK-London)' 'to(EU-FR-Paris)' 'duration(136min)'
+$ odag put FR9236 train  'from(EU-FR-Paris)'  'to(EU-IT-Rome)'  'duration(11h)'
+$ odag put N42    bus    'from(EU-UK-London)' 'to(EU-IT-Rome)'  'duration(30h)'
+```
+
+(Quote the parentheses — your shell would otherwise read them. Durations
+are one number and one unit: `155min`, `11h`, not `2h35min`.)
+
+The question is then a plain intersection, and it already spans every
+mode of transport, because everything is filed under `transport`:
+
+```console
+$ odag get transport 'from(EU-UK-London)' 'to(EU-IT-Rome)' 'duration(..10h)'
+BA2551
+FR9821
+```
+
+`duration(..10h)` is a term nobody ever filed anything under — it exists
+only in the query, and the arithmetic puts every stored duration of ten
+hours or less beneath it. The thirty-hour bus drops out. Loosen the
+places instead of the time and the prefix containment does the work: any
+departure in the UK, any arrival in Italy —
+
+```console
+$ odag get transport 'from(EU-UK)' 'to(EU-IT)'
+BA2551
+FR9821
+N42
+$ odag below 'from(EU-UK-London)' 'from(EU-UK)'
+true
+```
+
+Three coordinates as three supercategories *is* the product of three
+orders, and `get` intersects it. You might have expected to write the
+question as one nested term, `transport(from(London), to(Rome),
+duration(..10h))`. OntoDAG deliberately does not accept that spelling:
+it would be sugar for exactly the conjunction above, and storing it as a
+name would make two people who chose different coordinate orders file
+different things. The flat form is the canonical one.
+
+**The rule that makes this sound, and where it stops.** Flat coordinates
+work because each offer has **one departure, one arrival, one duration**
+— one filler per role per item. A two-leg journey breaks that: filing it
+under `from(London)`, `to(Paris)`, `from(Paris)`, `to(Rome)` loses which
+`from` pairs with which `to` (a set of categories has no pairs in it).
+So legs are the items, and a journey is a *join* that you, or a program,
+perform across two queries:
+
+```console
+$ odag get transport 'from(EU-UK-London)' 'to(EU-FR-Paris)'
+ES9012
+$ odag get transport 'from(EU-FR-Paris)' 'to(EU-IT-Rome)'
+FR9236
+```
+
+The shared endpoint is the join key; OntoDAG has no variables and does
+not do this for you, by design — a route planner (or a marketplace
+matcher, which is the same shape with a loop instead of a path) sits on
+top and asks the queries. If you want to *store* the itinerary as well,
+it is an honest item in its own right — it truly is `transport`,
+`from(EU-UK-London)`, `to(EU-IT-Rome)` and about thirteen and a half
+hours — and the leg sequence goes in its payload, because "consists of
+leg one then leg two" is parthood, not membership. The cost, stated
+plainly: you cannot then ask the lattice for "itineraries whose second
+leg is a train". What not to do is invent positional heads
+(`leg1-from(...)`, `leg2-from(...)`): tolerable for a fixed outbound/return
+pair, unworkable for chains, and a sign that you are encoding as one name
+what wants to be separate items. (A proposal to let *one* bundled term
+such as `leg(from(A), to(B))` carry its own internal pairing is written up
+in `docs/plans/BINDING.md`; it is a discussion draft, not a feature.)
+
 ---
 
 ## 6. The web app and REST API
