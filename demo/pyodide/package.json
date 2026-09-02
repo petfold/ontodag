@@ -1,0 +1,7 @@
+{
+  "name": "ontodag-pyodide-check",
+  "private": true,
+  "type": "module",
+  "description": "node harness for demo/pyodide/check.py — runs ontodag under Pyodide, installing from PyPI",
+  "dependencies": { "pyodide": "0.27.7" }
+}

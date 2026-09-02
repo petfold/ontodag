@@ -20,3 +20,7 @@ build/
 
 # Peter's private working notes — never tracked (untracked 2026-09-02).
 issues.txt
+
+# the Pyodide demo's node harness
+demo/pyodide/node_modules/
+demo/pyodide/package-lock.json

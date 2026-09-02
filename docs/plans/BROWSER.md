@@ -1,9 +1,19 @@
 # OntoDAG in a browser, against Swarm
 
-**Status: adapters written and unit-tested, cost measured, nothing has run
-in a browser.** Everything below is either a measurement (marked as such, and
-reproducible with `experiments/browser_rounds.py`) or a design awaiting a
-first run. Two questions for Peter are open in §7.
+**Status (2026-09-02): the offline half HAS RUN under wasm.** §8 steps
+1–3 are done and repeatable: `demo/pyodide/check.py` installs the released
+`ontodag` wheel from PyPI into Pyodide 0.27.7 (under node), builds the
+London→Rome knowledge, answers a typed query and a `below`, and commits —
+**the canonical root is byte-identical to the native one**
+(`be7afb84…`; install 5 s, run 0.3 s). The `odag` interpreter itself runs
+there too (`dispatch` over an `rs:` store on Pyodide's in-memory
+filesystem, with `history`/`undo` working, and prelude v3 hydrating to its
+golden root `9a732928…`). `demo/pyodide/index.html` is the page: a console
+running that interpreter, no server, no build step. What has NOT run is the
+Swarm half — §4–§6 below remain a measured design; the two questions for
+Peter in §7 still gate it. Everything else below is either a measurement
+(marked as such, and reproducible with `experiments/browser_rounds.py`) or
+a design awaiting a first run.
 
 Written 2026-08-02, after making the base install pure-Python — which is
 what turned this from impossible into a page you can open.
@@ -208,13 +218,18 @@ Python-side signing is **not an option** (see §1).
 
 ## 8. What a first page should demonstrate
 
-Ordered by how much each proves:
+Ordered by how much each proves (1–3 **done 2026-09-02**, see the status
+note at the top; 4–5 wait on the Swarm half):
 
-1. `micropip.install("ontodag")` succeeds — proves §1 end to end.
-2. Build a small DAG, query it, run `below` on a typed value — proves the
-   core is intact under wasm, including the dimension arithmetic.
-3. Print the canonical root, and check it equals the one the same
-   knowledge produces on a laptop — proves peerhood (§2).
+1. ~~`micropip.install("ontodag")` succeeds~~ — proves §1 end to end.
+   Done: 0.18.1 from PyPI, 5 s under node, no local wheel.
+2. ~~Build a small DAG, query it, run `below` on a typed value~~ — proves
+   the core is intact under wasm, including the dimension arithmetic.
+   Done: `get transport duration(..10h)` and `below BA2551 duration(..3h)`
+   answer identically.
+3. ~~Print the canonical root, and check it equals the one the same
+   knowledge produces on a laptop~~ — proves peerhood (§2). Done:
+   `demo/pyodide/check.py` exits 0 iff the two roots agree; they do.
 4. Query a **large published store lazily** — the point of the exercise.
    Confirm the round-trip count matches §4 in the real world; latency and
    HTTP overhead will make it worse than the simulation, and by how much is
@@ -227,13 +242,12 @@ the encoding differs under wasm and everything else is built on sand.
 
 ## 9. Known unknowns
 
-- Nothing here has run in Pyodide. The failure most likely to bite first is
-  not the design but something dull: a Pyodide version pin, a CORS header on
-  the PyPI fetch, `micropip` resolving a version we did not expect.
-- Wheel freshness: `micropip.install("ontodag")` takes the latest PyPI
-  release. **0.10.1 on PyPI still has the old hard dependencies** and will
-  therefore fail — the pure-Python base install is unreleased as of writing.
-  Until it ships, a demo must install from a locally-served wheel.
+- ~~Nothing here has run in Pyodide.~~ The offline half has (node harness
+  and the page); none of the dull failures predicted here occurred. The
+  Swarm half still has not.
+- ~~Wheel freshness~~ — resolved: every release since 0.11 is pure Python
+  on PyPI, and `micropip.install("ontodag")` resolves it directly (verified
+  with 0.18.1). `check.mjs VERSION` pins a release when comparing one.
 - Pyodide's own size (~10 MB, cached after first load) dominates the
   transfer; ontodag's 896 KB is noise beside it.
 - The round-trip counts in §4 are a *simulation* on an in-memory store: they

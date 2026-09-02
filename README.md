@@ -181,6 +181,13 @@ browser can run and why the rest cannot.
 The web app's DAG is server memory per session — a workbench and a demo, not a
 front end onto your store.
 
+**Without a server at all:** `demo/pyodide/index.html` runs the released
+package inside the browser (Pyodide, installed from PyPI at page load) with
+the same `odag` interpreter against an in-memory store. Equal knowledge gives
+the same canonical root there as on a laptop — `demo/pyodide/check.py`
+verifies that on every release. Swarm from a browser is designed but not yet
+run; see `docs/plans/BROWSER.md`.
+
 ## For AI agents
 
 Serve any store to an agent over MCP with **`odag-mcp`**

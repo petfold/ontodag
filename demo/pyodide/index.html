@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OntoDAG in the browser</title>
+<style>
+  :root { color-scheme: light dark; --fg: #222; --bg: #fafafa; --dim: #777; --ok: #2a7; --bad: #c33; --box: #fff; --line: #ddd; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #ddd; --bg: #161616; --dim: #999; --box: #1e1e1e; --line: #333; } }
+  body { font: 15px/1.5 system-ui, sans-serif; color: var(--fg); background: var(--bg); margin: 0; padding: 1.5rem; max-width: 60rem; margin-inline: auto; }
+  h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+  p { margin: .4rem 0; }
+  .dim { color: var(--dim); }
+  #status { font-family: ui-monospace, monospace; padding: .5rem .75rem; border: 1px solid var(--line); border-radius: 6px; background: var(--box); }
+  #status.ok { border-color: var(--ok); } #status.bad { border-color: var(--bad); }
+  pre#out { font: 13px/1.45 ui-monospace, monospace; background: var(--box); border: 1px solid var(--line); border-radius: 6px; padding: .75rem; min-height: 14rem; max-height: 60vh; overflow: auto; white-space: pre-wrap; margin: .75rem 0 .5rem; }
+  .cmd { color: var(--dim); } .err { color: var(--bad); }
+  form { display: flex; gap: .5rem; }
+  input { flex: 1; font: 14px ui-monospace, monospace; padding: .45rem .6rem; border: 1px solid var(--line); border-radius: 6px; background: var(--box); color: var(--fg); }
+  button { font: 14px system-ui, sans-serif; padding: .45rem .8rem; border: 1px solid var(--line); border-radius: 6px; background: var(--box); color: var(--fg); cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
+  code { font-family: ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<h1>OntoDAG in the browser</h1>
+<p>The real package, installed from PyPI into <a href="https://pyodide.org">Pyodide</a>
+on this page, running the same <code>odag</code> interpreter you get on a
+laptop, against a content-addressed <code>rs:</code> store in the page's
+memory. Nothing is sent anywhere; reload and it is gone.</p>
+<div id="status">loading Pyodide (about 10 MB, cached by your browser after the first time)…</div>
+
+<pre id="out"></pre>
+<form id="f"><input id="in" autocomplete="off" spellcheck="false" placeholder="odag command, e.g.  put insurance.pdf Japan   —   help lists them" disabled><button id="go" disabled>run</button></form>
+<div class="row">
+  <button id="example" disabled>run the London→Rome example</button>
+  <button id="root" disabled>status (canonical root)</button>
+  <button id="clear" disabled>clear</button>
+</div>
+<p class="dim">The example ends with <code>status</code>. Its root should be
+<code id="expected">be7afb84b0a8a43252c2b46048b19d6c2e548a79bb0f2c04bcf2f7b329784ac3</code>
+— the same bytes a laptop computes for the same knowledge (<code>demo/pyodide/check.py</code>
+in the repository checks exactly that). Equal knowledge, equal root, whatever the machine.</p>
+
+<script type="module">
+import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.mjs";
+
+const $ = (id) => document.getElementById(id);
+const out = $("out"), status = $("status");
+const show = (text, cls) => { const s = document.createElement("span"); if (cls) s.className = cls; s.textContent = text; out.appendChild(s); out.scrollTop = out.scrollHeight; };
+
+const GLUE = `
+import io, os, shlex
+from ontodag.__main__ import Session, dispatch
+os.makedirs(os.path.expanduser("~/.ontodag"), exist_ok=True)
+session = Session("rs:" + os.path.expanduser("~/store"))
+def run(line):
+    try:
+        argv = shlex.split(line)
+    except ValueError as e:
+        return 2, "", f"odag: {e}"
+    out, err = io.StringIO(), io.StringIO()
+    code = dispatch(argv, session, out=out, err=err)
+    return code, out.getvalue(), err.getvalue()
+`;
+
+const EXAMPLE = [
+  "prelude",
+  "put from prefix-dimension",
+  "put to prefix-dimension",
+  "put transport",
+  "put flight transport",
+  "put BA2551 flight from(EU-UK-London) to(EU-IT-Rome) duration(155min)",
+  "put N42 transport from(EU-UK-London) to(EU-IT-Rome) duration(30h)",
+  "get transport duration(..10h)",
+  "below BA2551 duration(..3h)",
+  "canon duration(155min)",
+  "status",
+];
+
+let run;
+function exec(line) {
+  if (!line.trim()) return;
+  show(`> ${line}\n`, "cmd");
+  const [code, o, e] = run(line).toJs();
+  if (o) show(o);
+  if (e) show(e, "err");
+  if (code && !e) show(`(exit ${code})\n`, "err");
+}
+
+try {
+  const t0 = performance.now();
+  const py = await loadPyodide();
+  status.textContent = "installing ontodag from PyPI…";
+  await py.loadPackage("micropip");
+  await py.pyimport("micropip").install("ontodag");
+  py.runPython(GLUE);
+  run = py.globals.get("run");
+  const version = py.runPython("from importlib.metadata import version; version('ontodag')");
+  status.textContent = `ontodag ${version} on Pyodide ${py.version}, ready in ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+  status.className = "ok";
+  for (const id of ["in", "go", "example", "root", "clear"]) $(id).disabled = false;
+  $("in").focus();
+} catch (err) {
+  status.textContent = `failed: ${err}`;
+  status.className = "bad";
+}
+
+$("f").addEventListener("submit", (ev) => { ev.preventDefault(); exec($("in").value); $("in").value = ""; });
+$("example").addEventListener("click", () => EXAMPLE.forEach(exec));
+$("root").addEventListener("click", () => exec("status"));
+$("clear").addEventListener("click", () => { out.textContent = ""; });
+</script>
+</body>
+</html>
