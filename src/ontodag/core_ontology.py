@@ -1,7 +1,7 @@
 """The `core` pack, version 2: an upper ontology built by consensus, adopted by merge.
 
 GENERATED — do not edit by hand. The list is produced in the sister repo
-github.com/petfold/ontodag-core (tools/build.sh, commit 6aa19d7) from WordNet 3.0,
+github.com/petfold/ontodag-core (tools/build.sh, commit aa23b37) from WordNet 3.0,
 SUMO, OpenCyc, schema.org, YAGO 4, BFO and DOLCE: every edge below is entailed
 by at least two independent sources, or accepted by Peter's review; every
 name is a hand-checked plain English word (a sense that shares its word with
@@ -384,6 +384,7 @@ CORE = (
     ('burn', ('injury',)),
     ('bus', ('artifact',)),
     ('bus-ticket', ('artifact', 'transport-ticket')),
+    ('business', ('organization',)),
     ('business-deal', ('transaction',)),
     ('business-operation', ('undertaking',)),
     ('business-studies', ('field-of-study',)),
@@ -432,7 +433,7 @@ CORE = (
     ('career', ('occupation',)),
     ('carnival', ('entertainment',)),
     ('carriage', ('attribute',)),
-    ('carrot', ('root',)),
+    ('carrot', ('plant-root',)),
     ('carrying-out', ('act',)),
     ('cartoon', ('information',)),
     ('case', ('container',)),
@@ -935,7 +936,7 @@ CORE = (
     ('drinking', ('activity',)),
     ('drive', ('journey',)),
     ('drive.attribute', ('trait',)),
-    ('driver', ('agent',)),
+    ('driver', ('person',)),
     ('driveway', ('road',)),
     ('drop', ('shape',)),
     ('drug', ('substance',)),
@@ -2016,6 +2017,7 @@ CORE = (
     ('planet', ('celestial-body',)),
     ('plank', ('lumber',)),
     ('plant', ('organism',)),
+    ('plant-root', ('natural-object',)),
     ('plaster', ('tape',)),
     ('plastic', ('substance',)),
     ('plate', ('artifact',)),
@@ -2329,7 +2331,6 @@ CORE = (
     ('roll', ('shape',)),
     ('roof', ('artifact',)),
     ('room', ('artifact', 'place')),
-    ('root', ('natural-object',)),
     ('rope', ('artifact',)),
     ('rose', ('shrub',)),
     ('roster', ('list',)),

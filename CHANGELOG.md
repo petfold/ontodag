@@ -17,7 +17,7 @@ the version numbers appear in commit history and docs.
 ### Added
 
 - **The `core` pack, version 2: an upper ontology built by consensus**
-  (`odag pack core`, 2,934 categories in ten branches — physical object,
+  (`odag pack core`, 2,935 categories in ten branches — physical object,
   substance, agent, event, information, place, attribute, possession,
   cognition, field of study; docs/CORE.md). Version 1 (194 hand-written
   categories, never published) was reviewed as too small and arbitrary;
