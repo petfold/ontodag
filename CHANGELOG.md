@@ -30,6 +30,9 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+  Regenerated 2026-09-03 from ontodag-core `5bf8167`: `pan` is the cooking pan
+  (the chimpanzee genus became `genus-pan`), `pb` is `lead-metal`; golden roots
+  re-pinned.
 - **The prelude is pack zero.** It is registered in `ontodag.packs.PACKS`
   (`odag pack prelude` lists, shows, diffs and adopts it exactly like `core`
   or `crypto-core`; `odag prelude` stays as the short form). What made it

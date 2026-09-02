@@ -1,7 +1,7 @@
 """The `core` pack, version 4: an upper ontology built by consensus, adopted by merge.
 
 GENERATED — do not edit by hand. The list is produced in the sister repo
-github.com/petfold/ontodag-core (tools/build.sh, commit d7a0d34) from WordNet 3.0, Wikidata,
+github.com/petfold/ontodag-core (tools/build.sh, commit 5bf8167) from WordNet 3.0, Wikidata,
 SUMO, OpenCyc, schema.org, YAGO 4, BFO and DOLCE: every edge below is entailed
 by at least two independent sources, or accepted by Peter's review; every
 name is a hand-checked plain English word (a sense that shares its word with
@@ -676,7 +676,6 @@ CORE = (
     ('conviction', ('belief',)),
     ('cook', ('worker',)),
     ('cookie', ('cake', 'food')),
-    ('cooking-pan', ('artifact',)),
     ('cooking-pot', ('vessel',)),
     ('cooperation', ('practice',)),
     ('copper', ('electrical-conductor', 'metal')),
@@ -1498,7 +1497,7 @@ CORE = (
     ('justice', ('virtue',)),
     ('justification', ('information',)),
     ('keep', ('possession',)),
-    ('kettle', ('cooking-pot', 'device')),
+    ('kettle', ('cooking-pot', 'pan')),
     ('key', ('device',)),
     ('kid', ('goat',)),
     ('kidney', ('organ',)),
@@ -1545,6 +1544,7 @@ CORE = (
     ('layer', ('place',)),
     ('layout', ('arrangement-scheme',)),
     ('lead', ('leadership',)),
+    ('lead-metal', ('metal',)),
     ('leader', ('person',)),
     ('leadership', ('activity',)),
     ('leaf', ('natural-object',)),
@@ -1904,6 +1904,7 @@ CORE = (
     ('pair', ('group',)),
     ('palace', ('house',)),
     ('palm', ('tree',)),
+    ('pan', ('device',)),
     ('panel', ('artifact',)),
     ('panic', ('fear',)),
     ('paper', ('material',)),
@@ -1945,7 +1946,6 @@ CORE = (
     ('patriotism', ('loyalty',)),
     ('patrol', ('military-unit',)),
     ('payment', ('commerce',)),
-    ('pb', ('metal',)),
     ('peace', ('feeling',)),
     ('peacetime', ('state',)),
     ('peak', ('topographic-point',)),
