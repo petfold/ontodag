@@ -238,6 +238,25 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
    bucket capacity (7/8 in the fullest bucket) — further writes risk 402
    overissued; dilute one depth (halves the ~16-day TTL) and top up.**
 
+10. **Real node, 2026-09-02 — both gated tests green, and a lesson about
+    which node you are talking to.** `localhost:1633` first answered as
+    **Swarm Desktop's** bee 2.8.2 with one unrelated batch
+    (`3721da97…`, label `wintercluster-kopia-live`, ~3 h TTL, wallet 0.02
+    xBZZ); the keyless CLI test passed on it, the signer test refused
+    because swarmfs requires ≥ 1 day of batch validity (`TTL 11315s is
+    below the minimum 86400s` — a *rule*, not a bug), and `c931c8a5…`
+    was absent from its stamp list, which I misread as expiry. Peter
+    stopped that node and started **Nook's** bee 2.8.1 light node: batch
+    `c931c8a5…` TTL 2.81 days, utilization 7/8 (unchanged since run 9's
+    88% warning), 9.47 xBZZ, 90 peers. Both `tests/test_swarm_bee.py`
+    tests **passed** (56 s, throwaway signer); the fullest bucket stayed
+    at 7/8. Also checked from the network: all four unit-pack roots
+    published in run 9 are `isRetrievable: true`; the `core` root is
+    not (never published). **Rule for next time: `curl /health` and
+    `/stamps` before believing anything about a batch — two node
+    managers share the port on this box.** The batch still lapses
+    ~2026-09-05 unless topped up; the expiry experiment stands.
+
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
 
 ### `LazyOntoDAG` on-demand reader (`src/ontodag/lazy.py`) — DONE (2026-07-25)
