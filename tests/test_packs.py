@@ -22,7 +22,7 @@ from ontodag.packs import PACKS, apply, pack_dag
 
 GOLDEN_ROOTS = {  # pack v1 fingerprints: everyone merging these converges
     "core":  # v1, 2026-09-02 — the upper ontology (docs/CORE.md)
-        "97a0b4d1bbe6706cf82015f4c5afaf83adb774e76278be70752af69569775e4c",
+        "474f6edef6a5bc1196a0a642b74972359674922ef2f1c4172c8542e64775bbea",
     "crypto-core":
         "4d501a439e109269252300d2777145be6ef736bbe5468b7812f016acb730d566",
     "crypto-majors":
@@ -228,7 +228,7 @@ SWARM_GOLDEN_ROOTS = {  # the same packs under Swarm (BMT) addressing —
     # the fingerprints real Swarm publication must reproduce (PACKS.md §14
     # item 1). Computable offline: BMT is a hash, not a network.
     "core":
-        "13a4afb46b40c1281da1ab0946e4aadb088ebb3dc1085e6959cf63e13725adbb",
+        "50804512b7d52a1b0a49b808c254ddfa581ca063d28228fb32a2b2b83ac6da1f",
     "crypto-core":
         "bbd0a930d7888aae3ea65c3ce794e793b5362f4e1837f816567889c75c22ea14",
     "crypto-majors":
@@ -326,7 +326,7 @@ class TestCorePack(unittest.TestCase):
         self.assertFalse(is_unit_pack("core"))
         self.assertNotIn(UNIT_DECLARATION, pack_dag("core").nodes)
         for other in PACKS:
-            if other != "core":
+            if other not in ("core", "prelude"):
                 self.assertTrue(is_unit_pack(other), other)
 
     def test_composes_with_the_prelude_and_is_idempotent(self):

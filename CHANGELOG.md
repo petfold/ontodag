@@ -14,7 +14,25 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **The prelude is pack zero.** It is registered in `ontodag.packs.PACKS`
+  (`odag pack prelude` lists, shows, diffs and adopts it exactly like `core`
+  or `crypto-core`; `odag prelude` stays as the short form). What made it
+  look special was five names the interpreter dereferences (`dimension` and
+  the kind nodes); mechanically it was always a pack. Any pack that names a
+  prelude node — `core`'s kind-level edges, a physics pack declaring
+  `force ⊑ linear-dimension` — gets the prelude applied first
+  (`packs.presumes_prelude`): dependencies ship as closure.
+
+### Fixed
+
+- **core v2 shipped in 0.19.0 without its three kind-level edges.** The
+  generator dropped `linear-dimension`, `count-dimension` and
+  `calendar-dimension` as "prelude names" when they were the *subjects* of
+  the `⊑ attribute` edges. They are in the list now; the pack's golden
+  roots changed accordingly. Adopting 0.19.0's core and then this one is a
+  plain additive merge.
 
 ## [0.19.0] — 2026-09-02
 

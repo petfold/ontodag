@@ -19,6 +19,7 @@ denominations are declared where a protocol fixes them.
 """
 
 from ontodag.core_ontology import CORE, CORE_VERSION
+from ontodag.prelude import DECLARATIONS as _PRELUDE, PRELUDE_VERSION as _PRELUDE_VERSION
 from ontodag.dag import OntoDAG
 from ontodag.dimensions import UNIT_DECLARATION
 
@@ -88,6 +89,10 @@ _CRYPTO_CORE = (
 # Bump a pack's version when its entries change; the golden-root tests pin
 # each version's fingerprint.
 PACKS = {
+    # pack zero: the pack that carries the interpreter's five reflection names
+    # (`dimension`, `linear-dimension`, ...) — special only in that the code
+    # dereferences those names; mechanically a pack like the others.
+    "prelude": (_PRELUDE_VERSION, _PRELUDE),
     "core": (CORE_VERSION, CORE),
     "crypto-core": (1, _CRYPTO_CORE),
     "crypto-majors": (1, _crypto_majors()),
@@ -116,8 +121,12 @@ def is_unit_pack(name):
 
 def describe(name):
     """`12 declarations` or `181 categories` — for listings."""
-    n = len(PACKS[name][1])
-    return f"{n} {'declarations' if is_unit_pack(name) else 'categories'}"
+    if is_unit_pack(name):
+        return f"{len(PACKS[name][1])} declarations"
+    # count what the pack introduces: an edge hung on a prelude node (core's
+    # `linear-dimension ⊑ attribute`) adds a claim, not a category
+    prelude_names = {n for n, _ in _PRELUDE} if name != "prelude" else set()
+    return f"{sum(1 for e in PACKS[name][1] if e[0] not in prelude_names)} categories"
 
 
 _SUFFIX_INDEX = None
@@ -162,17 +171,28 @@ def packs_declaring_node(name):
     return sorted(matches)
 
 
+def presumes_prelude(name) -> bool:
+    """Does pack `name` hang anything from a prelude node?"""
+    prelude_names = {n for n, _ in pack_entries("prelude")}
+    return any(n in prelude_names or any(p in prelude_names for p in parents)
+               for n, parents in pack_entries(name))
+
+
 def pack_dag(name) -> OntoDAG:
     """The pack as a fresh OntoDAG, ready to merge into any store."""
     entries = pack_entries(name)
     dag = OntoDAG()
     if is_unit_pack(name):
         dag.put(UNIT_DECLARATION, [])
-    if name == "core":
-        # core v2 asserts that the registry's measured kinds are attributes,
-        # so it presumes the prelude (pack zero): dependencies ship as closure.
-        from ontodag import prelude
-        prelude.apply(dag)
+    if name != "prelude" and presumes_prelude(name):
+        # Dependencies ship as closure: a pack whose parents name the
+        # prelude's nodes (core: `linear-dimension ⊑ attribute`; a science
+        # pack declaring `force ⊑ linear-dimension`) gets pack zero first.
+        for node, parents in pack_entries("prelude"):
+            dag.put(node, list(parents)) if node not in dag.nodes else None
+        for node, parents in pack_entries("prelude"):
+            if parents:
+                dag.put(node, list(parents))
     # Order-free by I3 — but a parent must exist before its child is put,
     # and `core` is written by branch, not topologically; so create every
     # node first, then the edges (put on an existing node adds edges).

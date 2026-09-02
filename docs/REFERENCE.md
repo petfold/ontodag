@@ -25,7 +25,7 @@ prelude `3` · surface `0.1`.
 | claim | `sub ⊑ sup` — the subject of provenance records; survives edge pruning. |
 | root (store) | Content hash of the whole store; equal content ⇒ equal root, whatever the history. |
 | prelude | The standard declarations, adopted by explicit idempotent merge (`odag prelude`). |
-| pack | A published ontology meant to be merged: `core` (the upper ontology, 2,935 categories built by consensus, docs/CORE.md) and the unit vocabularies. |
+| pack | A published ontology meant to be merged: `prelude` (pack zero — the dimension kinds and everyday heads; `odag prelude` is its alias), `core` (the upper ontology, 2,935 categories built by consensus, docs/CORE.md) and the unit vocabularies. |
 
 ## 2. Install
 
