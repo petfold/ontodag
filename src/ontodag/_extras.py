@@ -29,6 +29,7 @@ EXTRAS = {
     "owl": "OWL and Manchester import/export",
     "store": "persisted, content-addressed stores",
     "crypto": "encrypted stores",
+    "act": "category-based access control",
     "swarm": "storing a DAG on Ethereum Swarm",
     "web": "the web app and REST API",
 }

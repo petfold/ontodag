@@ -63,6 +63,10 @@ owl = ["owlready2"]
 store = ["recordstore>=0.20.0"]
 # Encrypted rs: stores (the `store_key` setting): AES-SIV via pycryptodome.
 crypto = ["pycryptodome"]
+# Category-based access control (ontodag.act): secp256k1 ECDH via coincurve
+# and Keccak via pycryptodome — Bee's ACT primitives, so grantee entries
+# are bit-compatible with a Bee node's.
+act = ["coincurve", "pycryptodome"]
 web = ["ontodag[viz,owl]", "flask", "dot2tex"]
 # The `swarm:NAME` CLI backend talks to a Bee node via recordstore's
 # BeeBytesStore (needs `requests`, recordstore's [bee] extra); resolves the
@@ -88,12 +92,12 @@ swarm = ["recordstore[swarm-only,local-first-swarm]>=0.20.0"]
 # delivering. Targets that cannot take a compiler (Pyodide, embedded) ask for
 # what they need; `test` deliberately stays without `swarm`, so CI keeps
 # proving the suite passes when Swarm is absent.
-all = ["ontodag[viz,owl,store,swarm,web]"]
+all = ["ontodag[viz,owl,store,swarm,web,crypto,act]"]
 # `crypto` is here because the suite covers encrypted stores: without it
 # TestEncryptedStore skips, and a feature nobody runs in CI is a feature
 # nobody tests. (`viz` still only installs the *wrapper* — the `dot`
 # binary comes from the OS, and the rendering tests skip without it.)
-test = ["pytest", "ontodag[viz,owl,store,crypto]"]
+test = ["pytest", "ontodag[viz,owl,store,crypto,act]"]
 
 [project.scripts]
 odag = "ontodag.__main__:main"

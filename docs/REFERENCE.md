@@ -38,6 +38,7 @@ Base install (`pip install ontodag`) is pure Python: the core plus
 | `owl` | owlready2 | `.owl` / `.omn` import and export |
 | `store` | recordstore | alias of the base dependency |
 | `crypto` | pycryptodome | encrypted `rs:` stores (the `store_key` setting): AES-SIV, deterministic so same key + same knowledge = same root |
+| `act` | coincurve, pycryptodome | `ontodag.act`: category-based access control — a key graph whose tokens follow subsumption, Bee-ACT-compatible grantee entries (experimental, Phase 1: client side, no node) |
 | `swarm` | recordstore[swarm-only,local-first-swarm] ≥ 0.19 | `swarm:` stores — local-first: commits land in a store directory instantly (offline works) and sync to Swarm in the background; with a signer the head publishes to a feed after network confirmation |
 | `web` | flask, dot2tex, viz, owl | the web app and REST API (`odag web`) |
 | `all` | everything above | |
@@ -184,7 +185,9 @@ Related modules: `ontodag.prelude` (`apply(dag)`), `ontodag.packs`
 `ontodag.surface` (`render`/`elaborate`; law `elaborate(render(t)) == t`),
 `ontodag.cones` (published cone summaries), `ontodag.certificates`
 (`prove_below`/`verify_below` — self-contained proofs against a root),
-`ontodag.provenance` (signed claim records), `ontodag.migrate`
+`ontodag.provenance` (signed claim records), `ontodag.act`
+(`KeyGraph`/`Resolver`: category keys, rekeying tokens, grantee entries,
+`store_key_for` into the encrypted store), `ontodag.migrate`
 (replay a store across registry majors), `ontodag.OWLOntology` (OWL).
 
 ## 6. Dimensions (typed values)

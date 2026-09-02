@@ -32,6 +32,21 @@ the version numbers appear in commit history and docs.
   missing-parent hint (`'invoice' arrives with: odag pack core`) now
   fires for real names, as its docstring promised it would the day a
   pack shipped categories.
+- **`ontodag.act` — category-based access control, Phase 1 (experimental;
+  `act` extra: coincurve + pycryptodome).** Every category gets a key and
+  every edge access flows along gets a public rekeying token, so a reader
+  decrypts a document iff a token path leads from their personal key to
+  it: people keys flow upward, document keys downward, a bridge is a
+  grant (docs/plans/act-categories/DESIGN.md §2). Grantee entries are Bee
+  ACT entries bit for bit (the v2.8.1 Go vectors from the August spike are
+  now pinned in `tests/test_act.py`); tokens are ours, per-edge-keyed so
+  no keystream is ever reused. `KeyGraph` (mint, link, grant, rotate,
+  forward-only revoke, `align` with an OntoDAG's cones), `Resolver` (walk
+  from a private key; works over a `RecordStore.at(old_root, …)` snapshot for old epochs),
+  `audience_key` (AND audiences, sorted so two writers agree),
+  `store_key_for` (the seam into `EncryptedBytesStore`: a private overlay
+  keyed from the audience's node). Client side only, no Bee changes;
+  manifests/feeds and the on-Swarm format are not started. Guide §9.3.
 - **The browser runs the real package.** `demo/pyodide/index.html`
   installs the released wheel from PyPI into Pyodide and runs the `odag`
   interpreter against an in-page `rs:` store; `demo/pyodide/check.py`

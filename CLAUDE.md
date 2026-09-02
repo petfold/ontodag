@@ -670,6 +670,32 @@ overlays (needs a design for `about`/root citation over a composed view —
 a view has no root to cite), and single-audience encryption (PACKS §14
 item 3's other half).
 
+## act-categories Phase 1, items 1–3 (2026-09-02) — `ontodag.act`
+
+Peter asked for PACKS §14 item 4 to start ahead of its multi-audience
+tripwire. Shipped client-side only, no Bee involved: `KeyGraph` (the key
+manager: mint K_v, `link(u, v)` publishes T(u→v) = Enc(K_u, K_v) under a
+**per-edge** key — one keystream per edge, because Bee's stream cipher is
+an XOR and reusing K_u's keystream across two children would leak their
+XOR; `grant(person, pk)` publishes a Bee-ACT grantee entry bit for bit
+(`lookup = Keccak(x‖0)`, wrap under `Keccak(x‖1)`, vectors from the
+August spike pinned in `tests/test_act.py`); `rotate`/`revoke` are
+forward-only epoch events — categories rotate, document leaves do not,
+since their content is already out; `align(dag, people=, documents=,
+bridges=)` mints along asserted cones, people upward, documents
+downward), `Resolver` (walk from a personal secp256k1 key, memoized BFS
+over `act/t/` records, works over a `RecordStore.at(old_root, blobs)` snapshot), `audience_key`
+(sorted-name AND), `store_key_for` (→ `EncryptedBytesStore`: the seam the
+2026-08-20 encstore note promised). Node ids are sha256 of the name
+(opaque in the store). `act` extra; module imports stdlib-only. Tests
+(`tests/test_act.py`, gated): Bee vectors, the §2.2 picture incl. the
+audience trap as a modeling rule, a 12-seed reachability oracle, the
+two-time-pad guard, revocation + old epochs, equal keys ⇒ equal store,
+the encstore seam, the align shapes. NOT done: item 4 (category manifests
++ feeds), anything Bee-side, the on-Swarm format (Phase 3). Open
+questions in DESIGN.md §9 were answered by default (flat KVS token set,
+per-node epochs, aligned twin) and say so in its Phase 1 status note.
+
 ## Single-audience encryption (2026-08-20, after 0.18.0) — PACKS §14 item 3 closed
 
 `ontodag.encstore` (stdlib-only at module level; pycryptodome behind the new
@@ -737,7 +763,8 @@ Two platform facts now written in USER_GUIDE §2 rather than discovered:
   CP852, then written UTF-16LE. Not ours to fix: `-o FILE` writes the file
   itself and is correct, which is what the tester's second attempt proved.
 
-Suite after the pass: **913 passed + 2 skipped** locally; **890 passed + 25
+Suite after the pass: **913 passed + 2 skipped** locally (**932 + 2 as of
+2026-09-02**, with `TestCorePack` and `tests/test_act.py`); **890 passed + 25
 skipped, zero failed** with `dot` hidden from `PATH` — the check that the
 gates work, and the one worth repeating whenever a test grows a dependency.
 (Checked while here: owlready2 is still sdist-only on PyPI — the `.whl` in

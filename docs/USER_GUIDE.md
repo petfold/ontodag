@@ -2482,6 +2482,71 @@ be validated. Both answers work — "parcel fits" and "parcel does not fit"
 are equally provable. The design details live in `docs/CONTRACT.md` (what
 any program may rely on) and `docs/AGENT_SURFACE.md` (the tool shapes).
 
+### 9.3 Experimental: who may read what, by category
+
+`ontodag.act` makes subsumption *cryptographically* mean something. Every
+category gets a key; along every edge access should flow, a public
+**token** lets whoever holds the parent's key derive the child's. People
+keys flow upward (`alice → eng-dept → company`: the more specific the
+node, the fewer hold it), document keys flow downward (a grant on
+`eng-documents` opens everything under it), and a **bridge** from a
+people node to a document category is the grant. A reader can decrypt a
+document exactly when a token path leads from their own key to it — which
+is `is_below`, spelled in keys. It needs the `act` extra
+(`pip install "ontodag[act]"`).
+
+```python
+from recordstore import MemoryBytesStore, RecordStore
+from ontodag import act
+
+store = RecordStore(MemoryBytesStore())            # any rs:/swarm: store works
+org = act.KeyGraph(store, org_private_key=(7).to_bytes(32, "big"))
+org.link("alice", "eng-dept"); org.link("eng-dept", "company")   # people: upward
+org.link("bob", "sales-dept"); org.link("sales-dept", "company")
+org.link("eng-documents", "design-specs")                        # documents: downward
+org.link("company-docs", "handbook")
+org.link("eng-dept", "eng-documents")                            # a bridge = a grant
+org.link("company", "company-docs")
+alice_key, bob_key = (42).to_bytes(32, "big"), (43).to_bytes(32, "big")
+org.grant("alice", act.public_key(alice_key))
+org.grant("bob", act.public_key(bob_key))
+root = org.commit()
+
+alice = act.Resolver(store, alice_key)
+bob = act.Resolver(store, bob_key)
+print(alice.can_read("design-specs"), bob.can_read("design-specs"), bob.can_read("handbook"))
+```
+
+```
+True False True
+```
+
+Eleven small public records did that: one per token, one per person, one
+naming the organization's public key. Hiring someone is one record and
+touches no document; publishing a document into a category is one token
+and touches no reader. A person's record is a Swarm ACT grantee entry bit
+for bit (the same secp256k1 key `bee_signer` uses, the same derivation a
+Bee node performs), so this is Swarm's access control lifted from lists
+of people to categories of them. `alice.key_for("eng-documents")` hands
+you the key, and `act.store_key_for(...)` turns it into the key an
+encrypted `rs:` store takes — so a private overlay for the engineering
+department is an ordinary encrypted store whose key comes from the graph.
+
+Three things to hold in mind, because the design is honest about them.
+**Document categories say what a document is about, never who may read
+it**: if you filed `eng-documents` *under* `company-docs`, every company
+reader would derive the engineering key, exactly as the arrows say —
+audience lives only in where bridges start. **Whoever holds the
+`KeyGraph` can read everything**, as with any publisher-centric scheme.
+And **revocation is forward-only**: `org.revoke("alice", ...)` deletes her
+entry and rotates every category she could reach, so nothing published
+from now on is hers to read, but what she already fetched stays fetched —
+on Swarm, forever. Old epochs remain resolvable from old roots
+(`RecordStore.at(root, store.blobs)`). What is not here yet: category manifests and feeds
+for the documents themselves, a Bee node that accepts a resolved key, and
+the on-Swarm format that would let other clients interoperate
+(`docs/plans/act-categories/DESIGN.md`, Phases 1.4–3).
+
 ## 10. Rules OntoDAG enforces (and why you'll be glad)
 
 These behaviors are guarantees, not accidents. You can rely on them:

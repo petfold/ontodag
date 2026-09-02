@@ -215,6 +215,24 @@ belongs in the client.
 
 ### Phase 1 — MVP, zero Bee changes (all OntoDAG)
 
+**Status 2026-09-02: items 1–3 shipped as `ontodag.act`** (`KeyGraph`
+mints keys, publishes tokens and ACT-shaped grantee entries, rotates and
+revokes forward-only, aligns with an OntoDAG's people/document cones;
+`Resolver` walks from a personal secp256k1 key; the Bee vectors from the
+spike are pinned in `tests/test_act.py`; `store_key_for` is the encstore
+seam; `act` extra). Decisions taken by default and open to revision:
+tokens are per-edge-keyed stream-cipher wraps (one keystream per edge —
+never the same keystream for two children); node ids are sha256 of the
+name (opaque in the store, computable by anyone who knows the name);
+token-set storage is one flat record per edge under `act/t/<u>/<v>`
+(the flat-KVS option of §9); epochs are per node, bumped by `rotate`,
+which re-mints incident tokens and drops grantee entries on the rotated
+leaf (they cannot be re-wrapped without the person's public key, so the
+caller re-grants); the key graph is an **aligned twin**, not the
+knowledge DAG itself (`KeyGraph.align(dag, people=, documents=,
+bridges=)` mints along asserted edges only). Item 4 (category manifests +
+feeds) and everything Bee-side are not started; guide §9.3.
+
 OntoDAG implements the scheme entirely client-side against a stock Bee node:
 
 1. **Category keypair management** — mint/store secp256k1 keypairs per
