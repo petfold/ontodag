@@ -14,6 +14,10 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.19.1] — 2026-09-02
+
 ### Changed
 
 - **The prelude is pack zero.** It is registered in `ontodag.packs.PACKS`

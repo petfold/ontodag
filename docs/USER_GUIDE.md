@@ -889,13 +889,13 @@ pack (`plane-ticket ⊑ transport-ticket ⊑ ticket ⊑ document`,
 intersection of cones. It is 2,914 categories in ten branches — physical
 object, substance, agent, event, information, place, attribute,
 possession, cognition, field of study — and `odag pack core --show`
-prints every claim. Version 2 was not written by hand: it was built by
+prints every claim. Version 3 was not written by hand: it was built by
 consensus over WordNet, SUMO, OpenCyc, schema.org, YAGO, BFO and DOLCE
 (every edge entailed by two independent sources, or accepted on review),
 with every name a hand-checked plain English word; the construction and
 its decisions live in the sister repository `ontodag-core`. Like the
 prelude and the unit packs, adopting it is an explicit, idempotent merge
-with a pinned fingerprint, so everyone who adopts `core` v2 converges on
+with a pinned fingerprint, so everyone who adopts `core` v3 converges on
 the same bytes; `odag pack core --diff` shows what it would add to *your*
 store first, including any names you already use. It presumes the
 prelude (applied for you), because it declares that measured dimensions
@@ -1309,7 +1309,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.19.0 - type help for help
+Ontodag 0.19.1 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png
