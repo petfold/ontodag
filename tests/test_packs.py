@@ -21,6 +21,8 @@ from ontodag.dimensions import UNIT_DECLARATION
 from ontodag.packs import PACKS, apply, pack_dag
 
 GOLDEN_ROOTS = {  # pack v1 fingerprints: everyone merging these converges
+    "core":  # v1, 2026-09-02 — the upper ontology (docs/CORE.md)
+        "3e2dfe2c8995f03ed784efcb0b5f7236e78124063cb3bf5430781084f554183d",
     "crypto-core":
         "4d501a439e109269252300d2777145be6ef736bbe5468b7812f016acb730d566",
     "crypto-majors":
@@ -225,6 +227,8 @@ if __name__ == "__main__":
 SWARM_GOLDEN_ROOTS = {  # the same packs under Swarm (BMT) addressing —
     # the fingerprints real Swarm publication must reproduce (PACKS.md §14
     # item 1). Computable offline: BMT is a hash, not a network.
+    "core":
+        "667a98b3757aa7367543ea35b963998c6c3ccbaf4e38397aa40bec0bae3b1451",
     "crypto-core":
         "bbd0a930d7888aae3ea65c3ce794e793b5362f4e1837f816567889c75c22ea14",
     "crypto-majors":
@@ -276,3 +280,92 @@ class TestPublishedPackStores(unittest.TestCase):
                 dag = ontodag.EagerOntoDAG(RecordStore(blobs))
                 dag.merge(pack_dag(name))
                 self.assertEqual(dag.commit(), golden, name)
+
+
+class TestCorePack(unittest.TestCase):
+    """docs/CORE.md: the upper ontology as a pack — closure, size discipline,
+    the motivating paths, no unit declarations, composition with the
+    prelude, and the missing-parent hint that starts firing for real
+    categories the day a pack ships them."""
+
+    def setUp(self):
+        from ontodag.core_ontology import CORE
+        self.core = CORE
+        self.names = [name for name, _ in CORE]
+
+    def test_closed_no_duplicates_and_small(self):
+        self.assertEqual(len(self.names), len(set(self.names)), "duplicate")
+        parents = {p for _, ps in self.core for p in ps}
+        self.assertFalse(parents - set(self.names), "parent outside the pack")
+        # EVOLUTION.md §3: admission is a one-way door, so the top stays
+        # small. Coverage is a domain pack's job.
+        self.assertLess(len(self.names), 200)
+        self.assertTrue(all(n == n.lower() and " " not in n
+                            for n in self.names), "names: lowercase-hyphenated")
+
+    def test_the_motivating_paths(self):
+        dag = pack_dag("core")
+        self.assertTrue(dag.is_below("plane-ticket", "transport-ticket"))
+        self.assertTrue(dag.is_below("plane-ticket", "document"))
+        self.assertTrue(dag.is_below("man", "human"))
+        self.assertTrue(dag.is_below("human", "person"))      # two parents
+        self.assertTrue(dag.is_below("human", "mammal"))
+        self.assertTrue(dag.is_below("email", "information"))
+        # an email from a man is an email from a human: the query works
+        dag.put("mail-from-bob.eml", ["email", "man"])
+        self.assertEqual({x.name for x in dag.get(["email", "human"])},
+                         {"mail-from-bob.eml"})
+        # taxonomy without teeth: a wrong filing is not refused (documented)
+        dag.put("odd.xlsx", ["spreadsheet", "mammal"])
+
+    def test_carries_no_unit_declarations(self):
+        from ontodag.packs import is_unit_pack
+        self.assertFalse(is_unit_pack("core"))
+        self.assertNotIn(UNIT_DECLARATION, pack_dag("core").nodes)
+        for other in PACKS:
+            if other != "core":
+                self.assertTrue(is_unit_pack(other), other)
+
+    def test_composes_with_the_prelude_and_is_idempotent(self):
+        from ontodag.prelude import apply as prelude
+        dag = ontodag.EagerOntoDAG(RecordStore(MemoryBytesStore()))
+        prelude(dag)
+        apply(dag, "core")
+        first = dag.commit()
+        apply(dag, "core")
+        prelude(dag)
+        self.assertEqual(dag.commit(), first)
+        # and a typed value files under a core category with no conflict
+        dag.put("parcel", ["container", "weight(..5kg)"])
+        self.assertTrue(dag.is_below("parcel", "artifact"))
+
+    def test_missing_parent_hint_names_the_pack(self):
+        from ontodag.packs import packs_declaring_node
+        self.assertEqual(packs_declaring_node("invoice"), ["core"])
+        self.assertEqual(packs_declaring_node("BTC"), [])
+        import io as _io
+        import ontodag.__main__ as cli
+        with tempfile.TemporaryDirectory() as home:
+            os.environ["ONTODAG_HOME"] = home
+            session = cli.Session(os.path.join(home, "s.od"))
+            err = _io.StringIO()
+            code = cli.dispatch(["put", "report.pdf", "invoice"], session,
+                                out=_io.StringIO(), err=err)
+            self.assertEqual(code, 1)
+            self.assertIn("odag pack core", err.getvalue())
+
+    def test_show_prints_claims_and_listing_says_categories(self):
+        import io as _io
+        import ontodag.__main__ as cli
+        with tempfile.TemporaryDirectory() as home:
+            os.environ["ONTODAG_HOME"] = home
+            session = cli.Session(os.path.join(home, "s.od"))
+            out = _io.StringIO()
+            cli.dispatch(["pack", "core", "--show"], session, out=out,
+                         err=_io.StringIO())
+            self.assertIn("plane-ticket ⊑ transport-ticket", out.getvalue())
+            self.assertIn("human ⊑ mammal, person", out.getvalue())
+            out = _io.StringIO()
+            cli.dispatch(["pack"], session, out=out, err=_io.StringIO())
+            self.assertIn("core v1 (197 categories)", out.getvalue())
+            self.assertIn("declarations)", out.getvalue())   # unit packs

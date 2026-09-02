@@ -22,6 +22,7 @@ to add a section somewhere, check it isn't another document's job.
 | [AGENT_SURFACE.md](AGENT_SURFACE.md) | The MCP surface: tools, envelope, write gating, review. |
 | [DIMENSIONS.md](DIMENSIONS.md) | Parametric values: computed order, kinds, anchors. |
 | [UNITS.md](UNITS.md) | The unit registry: rational anchoring, families, packs, registry versioning. |
+| [CORE.md](CORE.md) | The `core` pack: a small upper ontology — taxonomy without teeth, the admission rule, the seven branches. |
 | [SWARM_DESIGN.md](SWARM_DESIGN.md) | Persistence architecture: recordstore, the node schema, multi-writer merge. |
 | [recordstore-interface.md](recordstore-interface.md) | Consumer-side view of the `recordstore` dependency (what OntoDAG uses, with floor notes). The full, current API is upstream's test-pinned [recordstore REFERENCE.md](https://github.com/petfold/recordstore/blob/main/docs/REFERENCE.md) (likewise [swarmfs's](https://github.com/petfold/swarmfs/blob/main/docs/REFERENCE.md)). |
 

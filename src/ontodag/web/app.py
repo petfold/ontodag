@@ -756,13 +756,14 @@ def adopt_pack():
     GET lists what is shipped; POST `{"name": ...}` merges one in. Same
     vocabulary-travels-with-the-store story as `odag pack`: nothing here is a
     release-coupled table."""
-    from ontodag.packs import PACKS, pack_dag
+    from ontodag.packs import PACKS, is_unit_pack, pack_dag
 
     if request.method == "GET":
         return jsonify({"packs": [
             {"name": name, "version": version,
-             "declarations": len(declarations)}
-            for name, (version, declarations) in sorted(PACKS.items())]})
+             "declarations": len(entries),     # kept: the count of entries
+             "kind": "units" if is_unit_pack(name) else "categories"}
+            for name, (version, entries) in sorted(PACKS.items())]})
     name = (request.json or {}).get("name")
     if not name:
         return jsonify({"error": "need a pack name (GET /dag/pack lists them)"}), 400

@@ -12,6 +12,35 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Added
+
+- **The `core` pack: a small upper ontology** (`odag pack core`, 197
+  categories, docs/CORE.md). Seven branches — physical object, substance,
+  agent, event, information, place, field of study — so that a plane
+  ticket is a transport ticket is a ticket is a document, an email from a
+  man is an email from a human, and `get document` or `get email human`
+  find them without anyone building the paths. Taxonomy without teeth:
+  it states subsumption only and refuses no filing (the disjointness
+  wall). Admission rule from EVOLUTION.md: coarse-but-true, no roles, no
+  coverage ambitions; versioned and golden-rooted under both addressing
+  schemes like every pack. Packs can now carry plain categories beside
+  unit declarations (`pack_entries`, `is_unit_pack`); `pack --show`
+  prints category claims as `child ⊑ parent`; the listing says
+  `categories` or `declarations`; `GET /dag/pack` gains `kind`. The
+  missing-parent hint (`'invoice' arrives with: odag pack core`) now
+  fires for real names, as its docstring promised it would the day a
+  pack shipped categories.
+- **The browser runs the real package.** `demo/pyodide/index.html`
+  installs the released wheel from PyPI into Pyodide and runs the `odag`
+  interpreter against an in-page `rs:` store; `demo/pyodide/check.py`
+  proves a browser is a peer (identical canonical root to native).
+  Swarm from a browser remains designed, not run (docs/plans/BROWSER.md).
+- **Guide §5.12**: the London→Rome worked example, and the flat-roles
+  rule that makes it sound (one filler per role per item; legs are items,
+  journeys are joins).
+
 ## [0.18.1] — 2026-09-02
 
 ### Fixed

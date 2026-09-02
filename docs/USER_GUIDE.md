@@ -862,6 +862,48 @@ preserves) is in [DIMENSIONS.md](DIMENSIONS.md).
 
 ---
 
+### 4.8 A starting vocabulary: the `core` pack
+
+A fresh store knows nothing, and the first thing people build by hand is
+always the same: that an invoice is a document, that a man is a human,
+that a plane ticket is a ticket. The `core` pack is that first hour,
+done once and merged in:
+
+```console
+$ odag put report.pdf invoice
+odag: unknown super-category: 'invoice' (create with `odag put NAME` first)
+  'invoice' arrives with:  odag pack core
+$ odag pack core
+$ odag put report.pdf invoice
+$ odag put trip-to-rome.pdf plane-ticket
+$ odag put mail-from-bob.eml email man
+$ odag below trip-to-rome.pdf document
+true
+$ odag get email human
+mail-from-bob.eml
+```
+
+Nobody filed anything under `human` or `document`; the paths were in the
+pack (`plane-ticket ⊑ transport-ticket ⊑ ticket ⊑ document`,
+`man ⊑ human ⊑ person`, and `human ⊑ mammal` too), and a query is the
+intersection of cones. It is 197 categories in seven branches — physical
+object, substance, agent, event, information, place, field of study —
+and `odag pack core --show` prints every claim. Like the prelude and the
+unit packs, adopting it is an explicit, idempotent merge with a pinned
+fingerprint, so everyone who adopts `core` v1 converges on the same
+bytes; `odag pack core --diff` shows what it would add to *your* store
+first, including any names you already use.
+
+Two things to know before leaning on it. **It has branches and no
+fences**: OntoDAG states only what is under what, so the pack cannot
+stop you filing a spreadsheet under `mammal`, and it does not try. And
+**it is deliberately small**: every node in it is a permanent commitment
+for everyone who merges it, so the rule for admission was "could we be
+wrong about this?", not "would this be handy?" — which is why there is a
+`dog` but no `pet` (a role, not a kind), and a `document` but no
+`smartphone`. Detail belongs in domain packs, where a mistake is
+survivable. The reasoning is in `docs/CORE.md`.
+
 ## 5. The command line
 
 Everything in §4 can be done without writing any Python. The command is `odag`, and

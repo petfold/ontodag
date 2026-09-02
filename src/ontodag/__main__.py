@@ -1630,21 +1630,24 @@ def cmd_pack(args, session, out):
     # Unit packs (UNITS.md §7): graph-declared vocabulary adopted by an
     # explicit, idempotent merge — the prelude pattern, for units. The
     # vocabulary then travels inside the store itself.
-    from ontodag.packs import PACKS, pack_dag
+    from ontodag.dimensions import UNIT_DECLARATION
+    from ontodag.packs import PACKS, describe, pack_dag, pack_entries
     if not args.name:
         for name in sorted(PACKS):
-            version, declarations = PACKS[name]
-            print(f"{name} v{version} ({len(declarations)} declarations)",
-                  file=out)
+            version, _entries = PACKS[name]
+            print(f"{name} v{version} ({describe(name)})", file=out)
         return
     if args.show:
-        version, declarations = PACKS.get(args.name, (None, None))
-        if declarations is None:
-            raise ValueError(f"unknown pack {args.name!r} "
-                             f"(available: {', '.join(sorted(PACKS))})")
+        entries = pack_entries(args.name)       # unknown pack: teaching error
+        version, _ = PACKS[args.name]
         print(f"# ontodag pack {args.name} v{version}", file=out)
-        for declaration in declarations:
-            print(declaration, file=out)
+        for node, parents in entries:
+            # unit declarations print bare (their parent is always
+            # unit-declaration); categories print their claims
+            if parents == (UNIT_DECLARATION,) or not parents:
+                print(node, file=out)
+            else:
+                print(f"{node} ⊑ {', '.join(parents)}", file=out)
         return
     if args.diff:
         # Diff-preview adoption (PACKS.md §13.2): same preview as

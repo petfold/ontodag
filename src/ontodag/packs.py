@@ -18,6 +18,7 @@ currency is one family (exchange rates and pegs are never arithmetic);
 denominations are declared where a protocol fixes them.
 """
 
+from ontodag.core_ontology import CORE, CORE_VERSION
 from ontodag.dag import OntoDAG
 from ontodag.dimensions import UNIT_DECLARATION
 
@@ -81,14 +82,42 @@ _CRYPTO_CORE = (
     "unit-family(xDAI)",                     # Gnosis Chain's native coin
 )
 
-# name -> (version, declaration node names). Bump a pack's version when its
-# declarations change; the golden-root tests pin each version's fingerprint.
+# name -> (version, entries). An entry is either a unit-declaration spelling
+# (a str: `unit-family(BTC)`, filed under `unit-declaration`) or a plain
+# category, `(name, parents)` — the shape `core` uses (core_ontology.py).
+# Bump a pack's version when its entries change; the golden-root tests pin
+# each version's fingerprint.
 PACKS = {
+    "core": (CORE_VERSION, CORE),
     "crypto-core": (1, _CRYPTO_CORE),
     "crypto-majors": (1, _crypto_majors()),
     "stablecoins": (1, tuple(f"unit-family({c})" for c in _STABLECOINS)),
     "fiat-iso4217": (1, tuple(f"unit-family({c})" for c in _ISO4217)),
 }
+
+
+def pack_entries(name):
+    """The pack as `(node, parents)` pairs, whichever shape it is written in:
+    a unit declaration becomes `(spelling, (unit-declaration,))`."""
+    try:
+        _version, entries = PACKS[name]
+    except KeyError:
+        raise ValueError(f"unknown pack {name!r} "
+                         f"(available: {', '.join(sorted(PACKS))})") from None
+    return [(e, (UNIT_DECLARATION,)) if isinstance(e, str) else (e[0], tuple(e[1]))
+            for e in entries]
+
+
+def is_unit_pack(name):
+    """True when every entry is a unit declaration (the packs UNIT_TABLE.md
+    lists); `core` is not one."""
+    return all(isinstance(e, str) for e in PACKS[name][1])
+
+
+def describe(name):
+    """`12 declarations` or `181 categories` — for listings."""
+    n = len(PACKS[name][1])
+    return f"{n} {'declarations' if is_unit_pack(name) else 'categories'}"
 
 
 _SUFFIX_INDEX = None
@@ -103,6 +132,8 @@ def packs_defining(suffix):
         index = {}
         for pack, (_version, declarations) in PACKS.items():
             for declaration in declarations:
+                if not isinstance(declaration, str):
+                    continue        # a plain category defines no unit
                 if declaration.startswith("unit-family("):
                     spelling = declaration[len("unit-family("):-1]
                 else:
@@ -118,29 +149,34 @@ def packs_declaring_node(name):
     (PACKS.md §14, the name-level generalization of `packs_defining`).
 
     Deliberately exact: it answers "would this name exist after adopting
-    the pack", never "does the pack mention something similar". Today's
-    packs are all unit packs, whose node names are declaration spellings
-    (`unit(BTC=…)`) nobody files under — so this fires for none of the
-    names people actually mistype, which is correct: hinting `odag pack
-    crypto-core` at someone who wrote `put x BTC` would not make `BTC` a
-    node, and a teaching error must never teach a falsehood. It starts
-    firing the day a pack ships real categories (a geo pack's `Japan`)."""
-    matches = [pack for pack, (_version, declarations) in PACKS.items()
-               if name == UNIT_DECLARATION or name in declarations]
+    the pack", never "does the pack mention something similar". For the
+    unit packs it fires only on `unit-declaration` and the declaration
+    spellings themselves (`unit(BTC=…)`) — hinting `odag pack crypto-core`
+    at someone who wrote `put x BTC` would not make `BTC` a node, and a
+    teaching error must never teach a falsehood. Since `core` (2026-09-02)
+    it fires for real categories: `put report.pdf invoice` before adoption
+    says which pack brings `invoice`."""
+    matches = [pack for pack in PACKS
+               if (name == UNIT_DECLARATION and is_unit_pack(pack))
+               or any(node == name for node, _parents in pack_entries(pack))]
     return sorted(matches)
 
 
 def pack_dag(name) -> OntoDAG:
     """The pack as a fresh OntoDAG, ready to merge into any store."""
-    try:
-        _version, declarations = PACKS[name]
-    except KeyError:
-        raise ValueError(f"unknown pack {name!r} "
-                         f"(available: {', '.join(sorted(PACKS))})") from None
+    entries = pack_entries(name)
     dag = OntoDAG()
-    dag.put(UNIT_DECLARATION, [])
-    for declaration in declarations:
-        dag.put(declaration, [UNIT_DECLARATION])
+    if is_unit_pack(name):
+        dag.put(UNIT_DECLARATION, [])
+    # Order-free by I3 — but a parent must exist before its child is put,
+    # and `core` is written by branch, not topologically; so create every
+    # node first, then the edges (put on an existing node adds edges).
+    for node, _parents in entries:
+        if node not in dag.nodes:
+            dag.put(node, [])
+    for node, parents in entries:
+        if parents:
+            dag.put(node, list(parents))
     return dag
 
 

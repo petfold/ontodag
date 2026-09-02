@@ -25,7 +25,7 @@ prelude `3` · surface `0.1`.
 | claim | `sub ⊑ sup` — the subject of provenance records; survives edge pruning. |
 | root (store) | Content hash of the whole store; equal content ⇒ equal root, whatever the history. |
 | prelude | The standard declarations, adopted by explicit idempotent merge (`odag prelude`). |
-| pack | A published ontology meant to be merged (unit vocabularies today). |
+| pack | A published ontology meant to be merged: `core` (a small upper ontology, docs/CORE.md) and the unit vocabularies. |
 
 ## 2. Install
 
@@ -179,7 +179,8 @@ Persistence adapters (all reachable as `ontodag.X`, imported lazily):
 | `SparseOntoDAG(store)` | resident set | yes | writing into a large store without hydrating it; `sync(other_root)` folds a peer at divergence cost (store must sit at the writer's own lineage) |
 
 Related modules: `ontodag.prelude` (`apply(dag)`), `ontodag.packs`
-(`crypto-core`, `crypto-majors`, `stablecoins`, `fiat-iso4217`),
+(`core` — the upper ontology, `pack_entries`/`is_unit_pack`; the unit packs
+`crypto-core`, `crypto-majors`, `stablecoins`, `fiat-iso4217`),
 `ontodag.surface` (`render`/`elaborate`; law `elaborate(render(t)) == t`),
 `ontodag.cones` (published cone summaries), `ontodag.certificates`
 (`prove_below`/`verify_below` — self-contained proofs against a root),
@@ -237,7 +238,7 @@ empty `cat` = everything.
 | `/dag/overlapping?term=…` | GET | candidates whose value merely overlaps the term (G6) |
 | `/dag/canon[?term=…]` | GET | what a spelling stores (`canonical` + `display`); bare: surface/registry versions |
 | `/dag/prelude` | GET / POST | preview / adopt the standard dimension declarations — **typed values need this first on this surface** |
-| `/dag/pack` | GET / POST `{name}` | list / adopt a unit vocabulary pack |
+| `/dag/pack` | GET / POST `{name}` | list (with `kind`: units or categories) / adopt a pack |
 | `/market`, `/cars…` | GET | the car-market demo |
 
 Serving the page (all read-only except the console and the example):
