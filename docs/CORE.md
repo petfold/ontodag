@@ -80,7 +80,7 @@ page exist for.
 | `event` | activities, transport, communication, transactions, natural events | happens; has a time extent |
 | `information` | documents, images, video, audio, datasets, software | content that copies without loss |
 | `place` | continents to streets, venues; also landforms and buildings by a second parent | a location one can be at |
-| `field-of-study` | sciences, humanities, arts, engineering, medicine, law, business | what something is *about*, for filing by subject |
+| `field-of-study` | sciences, humanities, arts, engineering, medicine, law, business studies | what something is *about*, for filing by subject |
 
 `human` has two parents, `mammal` and `person`: the species is also an
 agent. `building`, `landform` and `body-of-water` are physical and also
