@@ -933,9 +933,9 @@ section is the *current* state and the cross-repo pins.
 
 | package | version | verified by | pins |
 |---|---|---|---|
-| **ontodag** | **0.23.0** (2026-09-04, small hours) | RELEASE IN PROGRESS — see "What 0.23.0 is" | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
+| **ontodag** | **0.23.0** (2026-09-04, small hours) | `scripts/release_smoke.py --pypi 0.23.0` → 27/27 after the index caught up, plus the workflow's `verify` job (all four jobs green, `downstream` ran ontodag-fs's suite) | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
 | **recordstore** | **0.20.1** | fresh-venv install; undo/history exercised | none (stdlib-only base) |
-| **ontodag-fs** | **0.3.6** (2026-09-03, ceiling bump only) | ontodag 0.22.0's downstream gate ran its suite against the candidate; published by tag, both jobs green | needs `ontodag>=0.16.0,<0.23.0` |
+| **ontodag-fs** | **0.3.7** (2026-09-04, ceiling bump only) | ontodag 0.23.0's downstream gate ran its suite against the candidate; published by tag, both jobs green | needs `ontodag>=0.16.0,<0.24.0` |
 
 **What 0.23.0 is** (2026-09-04, small hours, on Peter's "go" and his
 instruction to finish, push and power off): **core v6, the everyday goods
@@ -1397,7 +1397,7 @@ replica clones from the published root, since swarmfs cannot heal a ref it never
 knew).
 
 **Standing cross-repo rules.**
-- ontodag-fs pins a *ceiling* (`<0.23.0` now) because a released consumer cannot
+- ontodag-fs pins a *ceiling* (`<0.24.0` now) because a released consumer cannot
   be re-tested against a future ontodag. **Raise it — by hand — after ontodag's
   publish workflow's `downstream` job runs ontodag-fs's suite against the
   candidate.** That job is the evidence; the bump is the acknowledgement.
