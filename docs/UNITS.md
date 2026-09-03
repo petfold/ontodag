@@ -444,3 +444,57 @@ a second bare-number head would be a G1 synonym hazard (`count(2)` vs
 dimensional heads; anyone needing signed or rational bare numbers can
 declare their own head under `linear-dimension` — which stays exactly as
 permissive as before.
+
+## 12. Verdict: measured values are intervals, definitional values are points (2026-09-03, Peter)
+
+Prompted by the chemistry pack: filing `hydrogen ⊑ boiling-point(20.271K)`
+invites the expert who knows it is 20.27134 K to file a second node, and
+two point values never contain one another — the store then holds two
+incompatible-looking categories for one fact, and G1's equal-knowledge,
+equal-root promise is lost for exactly the values it was meant to serve.
+
+**Rule.** A *measured* quantity is stored as an **interval**, never as a
+point: `20.271 K` written to five significant figures means
+`boiling-point(20.2705K..20.2715K)`, and that is the name. A more precise
+measurement is a narrower interval and therefore *below* the coarser one
+by ordinary containment — a refinement, the monotone shape everything
+else in OntoDAG has, so the textbook value and the expert's value coexist
+with the expert's filed under the textbook's. Two measurements that
+disagree are *disjoint* intervals, which `overlapping` (G6) reports as a
+possibility that fails; a dispute is detectable instead of silent. The
+registry's own principle survives unchanged — "only exact arithmetic
+enters the canonical order" — because the *claim* "between a and b" is
+exact even when the quantity is not: the endpoints are rationals. (The
+FCA paper's interval pattern structures are the same idea; meet is the
+interval hull.)
+
+**The exception is definitional numbers**, which are points legitimately
+because they are exact by fiat: `0C` is 273.15 K, one inch is 2.54 cm,
+one Bitcoin is 100,000,000 satoshi, and since 1983 the speed of light
+is 299,792,458 m/s. These are the numbers the registry itself is made
+of. Peter's example was `0C` and `100C`, and the second is the
+cautionary half: `100C` was the boiling point of water *by definition*
+until 1954, and under the current definition of the kelvin water boils
+at about 99.97 °C at one atmosphere — the number did not change, its
+*status* did, from definitional point to measured interval. That is an
+intervention in EVOLUTION.md's sense, not a refinement, and it is the
+reason a definitional point should be admitted only when the definition
+is the one a standards body has actually written down.
+
+**What the rule does not settle.** Who measured, under which pressure
+convention, and whether a later table supersedes an earlier one are
+defeasible, attributed statements — provenance territory, not category
+structure. And a measured constant is *data about* a concept, not part
+of what the concept is: a pack version commits names and edge truth
+(ontodag-core UPPER.md §1), and a boiling point is neither. So the
+science packs stay conceptual; measured values, if anyone wants them,
+come as a separate provenance-carrying data pack whose entries are
+intervals with a stated source and pressure. The `boiling-point` head was
+deliberately not declared either: a head nobody fills is an invitation to
+point values.
+
+Nothing in the code changes for this: intervals have parsed and ordered
+since registry v1, and the demonstration that state-at-temperature is a
+query (`get chemical-element 'boiling-point(..20C)'` → the gases) works
+today. What changes is the guidance to writers, and the first time it
+bites will be a weight filed as `3.2kg`.
