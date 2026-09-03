@@ -933,7 +933,7 @@ section is the *current* state and the cross-repo pins.
 
 | package | version | verified by | pins |
 |---|---|---|---|
-| **ontodag** | **0.22.1** (2026-09-03, late night) | RELEASE IN PROGRESS — see "What 0.22.1 is" | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
+| **ontodag** | **0.22.1** (2026-09-03, late night) | `scripts/release_smoke.py --pypi 0.22.1` → 27/27, plus the workflow's `verify` job (all four jobs green; ontodag-fs 0.3.6's `<0.23.0` ceiling already covers it, no downstream release) | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
 | **recordstore** | **0.20.1** | fresh-venv install; undo/history exercised | none (stdlib-only base) |
 | **ontodag-fs** | **0.3.6** (2026-09-03, ceiling bump only) | ontodag 0.22.0's downstream gate ran its suite against the candidate; published by tag, both jobs green | needs `ontodag>=0.16.0,<0.23.0` |
 
