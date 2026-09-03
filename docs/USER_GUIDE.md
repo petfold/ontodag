@@ -910,17 +910,20 @@ mail-from-bob.eml
 Nobody filed anything under `human` or `document`; the paths were in the
 pack (`plane-ticket ⊑ transport-ticket ⊑ ticket ⊑ document`,
 `man ⊑ human ⊑ person`, and `human ⊑ mammal` too), and a query is the
-intersection of cones. It is 2,930 categories in ten branches — physical
+intersection of cones. It is 4,137 categories in ten branches — physical
 object, substance, agent, event, information, place, attribute,
 possession, cognition, field of study — and `odag pack core --show`
-prints every claim. Version 5 was not written by hand: it was built by
+prints every claim. Version 6 was not written by hand: it was built by
 consensus over WordNet, SUMO, OpenCyc, schema.org, YAGO, BFO, DOLCE and
 Wikidata (every edge entailed by two independent sources, or accepted on
-review),
+review), and since version 6 it carries the **everyday goods layer**: about
+1,200 things people buy and sell — toaster, jeans, duvet, aspirin, stroller —
+selected by the Google Product Taxonomy (as a witness, never imported) and
+defined by WordNet, so a marketplace offer can name its kind precisely,
 with every name a hand-checked plain English word; the construction and
 its decisions live in the sister repository `ontodag-core`. Like the
 prelude and the unit packs, adopting it is an explicit, idempotent merge
-with a pinned fingerprint, so everyone who adopts `core` v5 converges on
+with a pinned fingerprint, so everyone who adopts `core` v6 converges on
 the same bytes; `odag pack core --diff` shows what it would add to *your*
 store first, including any names you already use. It presumes the
 prelude (applied for you), because it declares that measured dimensions
@@ -1372,7 +1375,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.22.1 - type help for help
+Ontodag 0.23.0 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png

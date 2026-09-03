@@ -1,7 +1,7 @@
-"""The `economics` pack, version 3: 1130 categories, adopted by merge.
+"""The `economics` pack, version 4: 1126 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/economics, commit fb54269) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/economics, commit 0db7b31) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack economics` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 3
+VERSION = 4
 
 BORROWED = ()
 
@@ -155,7 +155,6 @@ PACK = (
     ('capital-market', ('financial-market',)),
     ('capitalization', ('merchandising',)),
     ('car-boot-sale', ('cut-rate-sale',)),
-    ('cargo', ('goods',)),
     ('cargo-aircraft', ('aircraft',)),
     ('cargo-ship', ('ship',)),
     ('carriage-trade', ('commerce',)),
@@ -619,7 +618,6 @@ PACK = (
     ('lockage', ('fee',)),
     ('logistics', ('management',)),
     ('long-position', ('state',)),
-    ('loss-leader', ('pricing-strategy',)),
     ('lump-sum', ('payment', 'payment-amount')),
     ('mail-order', ('document',)),
     ('mail-order-buying', ('buying',)),
@@ -738,7 +736,6 @@ PACK = (
     ('overproduction', ('economic-production',)),
     ('ownership', ('concept',)),
     ('packaging', ('commercial-enterprise',)),
-    ('pallet', ('container',)),
     ('par-value', ('concept',)),
     ('pareto-efficiency', ('concept',)),
     ('participation-loan', ('loan',)),
@@ -777,7 +774,7 @@ PACK = (
     ('personal-loan', ('loan',)),
     ('petty-cash', ('fund',)),
     ('physical-capital', ('possession',)),
-    ('pipage', ('fee',)),
+    ('pipage-fee', ('fee',)),
     ('platform-economy', ('concept',)),
     ('pledge', ('security-interest',)),
     ('point-of-sale', ('event',)),
@@ -786,7 +783,6 @@ PACK = (
     ('pooling-of-interest', ('procedure',)),
     ('pork-butcher', ('butcher',)),
     ('porterage', ('price-charged',)),
-    ('portfolio', ('financial-asset', 'possession')),
     ('post-obit-bond', ('bond',)),
     ('postage-batch', ('swarm-storage',)),
     ('postage-charge', ('price-charged',)),

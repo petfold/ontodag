@@ -933,9 +933,35 @@ section is the *current* state and the cross-repo pins.
 
 | package | version | verified by | pins |
 |---|---|---|---|
-| **ontodag** | **0.22.1** (2026-09-03, late night) | `scripts/release_smoke.py --pypi 0.22.1` → 27/27, plus the workflow's `verify` job (all four jobs green; ontodag-fs 0.3.6's `<0.23.0` ceiling already covers it, no downstream release) | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
+| **ontodag** | **0.23.0** (2026-09-04, small hours) | RELEASE IN PROGRESS — see "What 0.23.0 is" | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
 | **recordstore** | **0.20.1** | fresh-venv install; undo/history exercised | none (stdlib-only base) |
 | **ontodag-fs** | **0.3.6** (2026-09-03, ceiling bump only) | ontodag 0.22.0's downstream gate ran its suite against the candidate; published by tag, both jobs green | needs `ontodag>=0.16.0,<0.23.0` |
+
+**What 0.23.0 is** (2026-09-04, small hours, on Peter's "go" and his
+instruction to finish, push and power off): **core v6, the everyday goods
+layer.** Peter asked whether loopmarket's products and services could be
+named precisely; a probe of ~390 marketplace terms against the union found
+the hinges and almost no leaves (`appliance` had no children). The
+everyday-word rule puts the layer in core, not a pack — and puts services
+there too, so there is no "commerce pack" (I had said otherwise; corrected).
+Source: the **Google Product Taxonomy** as a witness (ontodag-core
+`tools/extract_gpt.py` + `tools/align_gpt.py`, UPPER.md §10): 1,207 new
+categories defined by WordNet, 350 hand sense picks, a hand list of 84
+goods GPT lacks (jeans, aspirin, duvet); ~1,050 single-witness edges read,
+~130 rejected; thirty GPT department words cleared where they hit a core
+word in another sense; `appliance` corrected to the durable-good sense
+(its old sense was a childless leaf). Core is **4,137 categories**; the
+packs ceded 29 names and are regenerated (physics v3, medicine v4,
+economics v4, computing v3, geography v4). Two aligner lessons: the
+generator's baseline must subtract its own previous output, and a
+hand-named synset must not reserve its first lemma (core's `grinder`,
+`station`, `trail`, `shot` had been renamed away — fixed). **For Peter
+(CORE.md "open sense questions"):** core-wordnet's first senses make
+`table` the laid table, `window` a service hatch, `case` a display case,
+`stake` the bet, `bag` the suitcase, `product` the arithmetic product,
+`television` the system — each a v7 sense correction to decide. **Still
+owed for loopmarket:** the services half, the ~6,000 retail compounds,
+a `humidity` registry family, secure-storage kinds.
 
 **What 0.22.1 is** (2026-09-03 late night, a patch on Peter's verdicts):
 **domain packs v3** for medicine, ai, economics and geography. The

@@ -183,6 +183,51 @@ Later the same night (0.22.1): medicine, ai, economics and geography are
 keep the first) and geography's water spring renamed `natural-spring`; core
 itself unchanged.
 
+**v6 (0.23.0, 2026-09-03): the everyday goods layer.** Peter's question was
+whether the products and services traded on loopmarket could be named
+precisely — supermarket items, clothes, appliances, phones, furniture,
+tools, vehicle parts, storage, tickets, treatments. Core had the hinges
+(`clothing`, `furniture`, `appliance`, `vehicle`, `food`, `service`,
+`ticket`) and almost none of the leaves: `appliance` had no children and
+`concert`, `flower` and `pen` were leaves. The goods half is now in: 1,207
+categories selected by the **Google Product Taxonomy** and defined by
+WordNet. GPT is a shopping taxonomy — 21 departments, a strict tree,
+plural labels, a quarter of them union bins ("Toasters & Grills") — so it
+enters as a *witness*, exactly as SUMO and OpenCyc did: `tools/extract_gpt.py`
+singularises the labels, keeps each bin as a path and splits its kinds out
+beside it, merges same-label nodes (gloves under Apparel and under Baseball
+become one multi-parent node — the DAG's improvement on the tree), and
+`tools/align_gpt.py` picks each kind's WordNet sense by the department's
+hinge and the GPT parent's own synset, with 350 senses picked by hand
+(`align/gpt-picks.tsv`). A hand list (`align/goods-extra.tsv`) adds 84
+everyday goods GPT has no node for — jeans, sweatshirt, duvet, aspirin,
+teddy bear, stroller, wine glass. Every WordNet or GPT single-witness edge on
+the new concepts was read: about 1,050, some 130 rejected, the recurring
+patterns being GPT's department filing (a canoe under *sport*, a capacitor
+under *electronics* the science, gloves under *baseball* the game — thirty
+department words were cleared where they match a core word in another
+sense) and WordNet's chains (`wheeled vehicle ⊑ container`, `face powder ⊑
+medication`). The retail compounds WordNet cannot define (about 6,000:
+"guitar stand", "toy boat", 360 "X accessories") wait for a later layer;
+services, experiences and rentals are the other half still owed. 4,137
+listed categories; the packs ceded 29 names (thermometer, aspirin, laptop,
+barometer, scalpel, cargo …) and were regenerated.
+
+**Open sense questions the goods layer exposed** (core-wordnet's first
+senses, each an intervention if changed, so listed rather than done):
+`table` is the laid table, not the furniture (`table-furniture` for now);
+`window` is a service hatch (`window-unit`); `case` a display case
+(`carrying-case`); `stake` the bet (`ground-stake`); `bag` the suitcase
+(the generic bag is skipped); `mask` the disguise (`protective-mask`);
+`pool` the puddle (`swimming-pool`); `jelly` the substance (`fruit-jelly`);
+`pepper` the plant (`capsicum-pepper`); `carrot`, `onion`, `mushroom` the
+plant or fungus (`carrot-vegetable`, `onion-vegetable`, `mushroom-food`);
+`product` the arithmetic product (unplaced); `television` the broadcasting
+system (`television-receiver`); `bowl`, `screen`, `sleeve`, `deck`,
+`fountain`, `housing`, `grinder` (the sandwich), `station` (a sentry's
+post), `trail` (evidence), `shot` (a film shot). Switching each to the
+everyday artifact or food sense is the recommendation; it is a v7 decision.
+
 The same weeks built **ten domain packs** in ontodag-core beside core —
 physics, mathematics, chemistry, biology, medicine, ai, economics,
 computing, geography, space, about 6,900 categories together — under the

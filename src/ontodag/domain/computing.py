@@ -1,7 +1,7 @@
-"""The `computing` pack, version 2: 1369 categories, adopted by merge.
+"""The `computing` pack, version 3: 1357 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/computing, commit fb54269) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/computing, commit 0db7b31) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack computing` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 2
+VERSION = 3
 
 BORROWED = ('theorem',)
 
@@ -87,7 +87,6 @@ PACK = (
     ('asynchronous-io', ('data-processing',)),
     ('asynchronous-operation', ('computer-operation',)),
     ('atomic-operation', ('computer-operation',)),
-    ('audio-cd', ('compact-disk',)),
     ('audio-coding-format', ('compression-format',)),
     ('audio-file-format', ('file-format',)),
     ('authenticated-data-structure', ('data-structure',)),
@@ -169,8 +168,8 @@ PACK = (
     ('cascading-style-sheets', ('computer-language',)),
     ('cataloged-procedure', ('subroutine',)),
     ('cbor', ('data-serialization-format',)),
-    ('cd-r', ('compact-disk',)),
-    ('cd-rom', ('compact-disk', 'read-only-memory')),
+    ('cd-r', ('cd', 'optical-disk')),
+    ('cd-rom', ('cd', 'rom')),
     ('cellular-network', ('computer-network', 'telecommunication')),
     ('central-processing-unit', ('chip', 'equipment', 'hardware')),
     ('certificate-authority', ('organization',)),
@@ -202,10 +201,8 @@ PACK = (
     ('command-prompt', ('communication',)),
     ('command-query-responsibility-segregation', ('software-design-pattern',)),
     ('communications-protocol', ('information',)),
-    ('compact-disk', ('optical-disk', 'recording')),
     ('compatible-software', ('software',)),
     ('compiled-language', ('programming-language',)),
-    ('compiler', ('computer-program', 'programming-tool')),
     ('complex-instruction-set-computer', ('computer-architecture',)),
     ('complex-instruction-set-computing', ('computer-architecture',)),
     ('compression-algorithm', ('algorithm', 'data-compression')),
@@ -229,7 +226,7 @@ PACK = (
     ('computer-hardware', ('hardware',)),
     ('computer-icon', ('symbol',)),
     ('computer-instruction', ('code',)),
-    ('computer-keyboard', ('data-input-device',)),
+    ('computer-keyboard', ('device', 'input-device')),
     ('computer-language', ('language',)),
     ('computer-network', ('artifact',)),
     ('computer-operation', ('data-operation',)),
@@ -347,7 +344,6 @@ PACK = (
     ('dependency-injection', ('inversion-of-control',)),
     ('depth-first-search', ('graph-algorithm',)),
     ('design-by-contract', ('software-development-methodology',)),
-    ('desktop-computer', ('personal-computer',)),
     ('desktop-environment', ('system-software',)),
     ('desktop-publishing', ('commercial-enterprise',)),
     ('device-driver', ('utility-program',)),
@@ -374,7 +370,6 @@ PACK = (
     ('disk-block', ('data-block',)),
     ('disk-cache', ('computer-cache',)),
     ('disk-controller', ('mechanism',)),
-    ('disk-drive', ('storage-drive',)),
     ('disk-error', ('hardware-error',)),
     ('disk-file', ('computer-file',)),
     ('disk-image', ('computer-file',)),
@@ -484,7 +479,6 @@ PACK = (
     ('firmware', ('software',)),
     ('fixed-cycle-operation', ('computer-operation',)),
     ('flac', ('audio-coding-format', 'audio-file-format')),
-    ('flash-memory', ('non-volatile-storage',)),
     ('floating-point-format', ('code', 'primitive-data-type')),
     ('floating-point-operation', ('computer-operation',)),
     ('flow-chart', ('multidimensional-language',)),
@@ -650,7 +644,7 @@ PACK = (
     ('javascript', ('scripting-language',)),
     ('job-control', ('computer-program',)),
     ('journaling-file-system', ('file-system',)),
-    ('joystick', ('data-input-device', 'mechanism')),
+    ('joystick', ('input-device', 'mechanism')),
     ('jpeg', ('compression-format', 'image-file-format')),
     ('json', ('data-serialization-format',)),
     ('json-ld', ('rdf-serialization-format',)),
@@ -674,7 +668,6 @@ PACK = (
     ('kubernetes', ('software',)),
     ('lambda-calculus', ('model-of-computation',)),
     ('lamport-timestamp', ('logical-clock',)),
-    ('laptop', ('portable-computer',)),
     ('latency', ('network-performance-measure',)),
     ('latex', ('markup-language',)),
     ('lazy-evaluation', ('data-processing-technique',)),
@@ -728,7 +721,7 @@ PACK = (
     ('macos', ('unix-like',)),
     ('macro-instruction', ('computer-instruction',)),
     ('magnetic-bubble-memory', ('non-volatile-storage',)),
-    ('magnetic-core-memory', ('random-access-memory',)),
+    ('magnetic-core-memory', ('ram',)),
     ('magnetic-disk', ('device',)),
     ('magnetic-stripe', ('magnetic-tape',)),
     ('magnetic-tape', ('device',)),
@@ -772,7 +765,7 @@ PACK = (
     ('metadata-standard', ('technical-standard',)),
     ('metadata-tag', ('metadata',)),
     ('metaprogramming', ('computer-programming', 'programming-paradigm')),
-    ('microcontroller', ('chip', 'hardware')),
+    ('microcontroller', ('chip', 'hardware', 'integrated-circuit')),
     ('microprocessor', ('chip',)),
     ('microservices', ('service-oriented-architecture',)),
     ('microsoft-windows', ('operating-system',)),
@@ -784,7 +777,6 @@ PACK = (
     ('mixin', ('object-class',)),
     ('model-of-computation', ('concept',)),
     ('model-view-controller', ('software-design-pattern',)),
-    ('modem', ('equipment',)),
     ('monadic-operation', ('computer-operation',)),
     ('monitor-program', ('computer-program',)),
     ('monolithic-application', ('software-architecture',)),
@@ -917,7 +909,6 @@ PACK = (
     ('persistent-identifier', ('identifier',)),
     ('personal-computer', ('digital-computer',)),
     ('phishing', ('cyberattack', 'fraud')),
-    ('phonograph-record', ('audio',)),
     ('php', ('scripting-language',)),
     ('physical-layer', ('concept',)),
     ('pixel', ('component',)),
@@ -990,7 +981,7 @@ PACK = (
     ('raft-consensus-algorithm', ('consensus-algorithm',)),
     ('raid', ('data-storage', 'hardware')),
     ('ram-disk', ('storage-drive',)),
-    ('random-access-memory', ('volatile-storage',)),
+    ('random-access-memory', ('computer-memory',)),
     ('random-number-generator', ('subroutine',)),
     ('randomized-algorithm', ('algorithm',)),
     ('ransomware', ('malware',)),
@@ -1029,7 +1020,7 @@ PACK = (
     ('relational-model', ('data-model',)),
     ('relocatable-program', ('computer-program',)),
     ('remote-procedure-call', ('communications-protocol',)),
-    ('removable-disk', ('hard-disc',)),
+    ('removable-disk', ('hard-disk', 'magnetic-disk')),
     ('replication-in-computing', ('data-replication',)),
     ('representational-state-transfer', ('software-architecture',)),
     ('requirements-analysis', ('activity', 'data-processing')),
@@ -1091,7 +1082,7 @@ PACK = (
     ('serverless-computing', ('cloud-computing',)),
     ('service-oriented-architecture', ('software-architecture',)),
     ('set-data-structure', ('abstract-data-type',)),
-    ('seventy-eight', ('phonograph-record',)),
+    ('seventy-eight', ('audio',)),
     ('shannon-source-coding-theorem', ('concept', 'theorem')),
     ('shared-library', ('computer-file', 'software-library')),
     ('shareware', ('software',)),
@@ -1221,7 +1212,6 @@ PACK = (
     ('technical-standard', ('document',)),
     ('telecommunication', ('communication',)),
     ('telecommunications-engineering', ('engineering',)),
-    ('telephony', ('artifact', 'telecommunication')),
     ('temporal-database', ('database',)),
     ('terminal-emulation', ('hardware-emulation',)),
     ('terminal-emulator', ('application',)),
@@ -1317,7 +1307,6 @@ PACK = (
     ('versioned-database', ('immutable-database',)),
     ('video-coding-format', ('compression-format',)),
     ('video-file-format', ('file-format',)),
-    ('videodisk', ('optical-disk',)),
     ('videotape', ('magnetic-tape',)),
     ('virtual-machine', ('application',)),
     ('virtual-memory', ('computer-memory', 'memory-management')),
@@ -1369,7 +1358,6 @@ PACK = (
     ('word-processing', ('data-processing',)),
     ('word-processor', ('application',)),
     ('wordnet', ('lexical-database',)),
-    ('workstation', ('desktop-computer',)),
     ('world-wide-web', ('computer-network', 'internet')),
     ('world-wide-web-consortium', ('standards-organization',)),
     ('write-ahead-log', ('append-only-log',)),

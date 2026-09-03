@@ -1,7 +1,7 @@
-"""The `physics` pack, version 2: 196 categories, adopted by merge.
+"""The `physics` pack, version 3: 195 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/physics, commit fb54269) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/physics, commit 0db7b31) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack physics` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 2
+VERSION = 3
 
 BORROWED = ()
 
@@ -119,7 +119,6 @@ PACK = (
     ('libration', ('orbital-variation',)),
     ('luminous-flux', ('linear-dimension',)),
     ('luminous-intensity', ('linear-dimension',)),
-    ('magnet', ('device',)),
     ('magnetic-dip', ('angle',)),
     ('magnetic-dipole-moment', ('physical-phenomenon',)),
     ('magnetic-flux', ('linear-dimension',)),

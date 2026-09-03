@@ -1,7 +1,7 @@
-"""The `medicine` pack, version 3: 1045 categories, adopted by merge.
+"""The `medicine` pack, version 4: 1037 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/medicine, commit fb54269) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/medicine, commit 0db7b31) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack medicine` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 3
+VERSION = 4
 
 BORROWED = ()
 
@@ -59,7 +59,6 @@ PACK = (
     ('amrinone', ('medication',)),
     ('amygdalotomy', ('psychosurgery',)),
     ('amyloid', ('protein',)),
-    ('analgesic', ('medication',)),
     ('anatomical-landmark', ('body-part',)),
     ('anemia', ('disease',)),
     ('anesthesiologist', ('medical-specialist',)),
@@ -86,7 +85,6 @@ PACK = (
     ('antiemetic', ('medication',)),
     ('antigen', ('chemical',)),
     ('antigenic-determinant', ('physical-object',)),
-    ('antihistamine', ('medication',)),
     ('antihypertensive', ('medication',)),
     ('antimycin', ('medication',)),
     ('antineoplastic-antibiotic', ('cytotoxic-drug',)),
@@ -686,7 +684,6 @@ PACK = (
     ('ophthalmectomy', ('ablation',)),
     ('ophthalmologist', ('medical-specialist',)),
     ('ophthalmology', ('medical-specialty',)),
-    ('ophthalmoscope', ('instrument',)),
     ('opportunistic-infection', ('condition',)),
     ('oral-cancer', ('carcinoma',)),
     ('orchidectomy', ('ablation',)),
@@ -705,7 +702,6 @@ PACK = (
     ('otolaryngologist', ('medical-specialist',)),
     ('otology', ('medical-specialty',)),
     ('otoplasty', ('plastic-surgery',)),
-    ('otoscope', ('instrument',)),
     ('over-the-counter-drug', ('medication',)),
     ('overbite', ('malocclusion',)),
     ('overcompensation', ('psychological-compensation',)),
@@ -882,7 +878,6 @@ PACK = (
     ('scabies', ('condition',)),
     ('scald', ('burn',)),
     ('scalenus-syndrome', ('syndrome',)),
-    ('scalpel', ('surgical-knife',)),
     ('scar', ('symptom', 'tissue')),
     ('scatology', ('activity',)),
     ('schistosomiasis', ('condition',)),
@@ -932,7 +927,6 @@ PACK = (
     ('stapedectomy', ('ablation',)),
     ('staphylococcal-infection', ('condition',)),
     ('steatorrhea', ('symptom',)),
-    ('stethoscope', ('instrument',)),
     ('strabotomy', ('operation',)),
     ('streptococcal-sore-throat', ('inflammatory-disease',)),
     ('streptomycin', ('antibacterial',)),
@@ -954,7 +948,6 @@ PACK = (
     ('surgical-instrument', ('instrument',)),
     ('surgical-knife', ('knife', 'surgical-instrument')),
     ('surgical-ligation', ('act',)),
-    ('surgical-probe', ('surgical-instrument',)),
     ('surgical-retractor', ('surgical-instrument',)),
     ('surgical-snare', ('surgical-instrument',)),
     ('surgical-sterilization', ('operation',)),
@@ -964,7 +957,6 @@ PACK = (
     ('sympathectomy', ('ablation',)),
     ('symptomatic-aura', ('symptom',)),
     ('symptomatic-effect', ('symptom',)),
-    ('syringe', ('instrument', 'tool')),
     ('tapeworm-infection', ('condition',)),
     ('tetanus', ('condition',)),
     ('tetany', ('syndrome',)),

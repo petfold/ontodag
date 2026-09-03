@@ -1,7 +1,7 @@
-"""The `geography` pack, version 3: 1001 categories, adopted by merge.
+"""The `geography` pack, version 4: 995 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/geography, commit fb54269) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/geography, commit 0db7b31) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack geography` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 3
+VERSION = 4
 
 BORROWED = ('classification-scheme', 'data-processing', 'database', 'file-format', 'theory')
 
@@ -41,7 +41,6 @@ PACK = (
     ('alp', ('mountain',)),
     ('alpine-glacier', ('glacier',)),
     ('alps', ('mountain-range',)),
-    ('altimeter', ('instrument',)),
     ('altitude', ('geographic-coordinate',)),
     ('altocumulus', ('cumulus',)),
     ('altostratus', ('stratus',)),
@@ -49,7 +48,6 @@ PACK = (
     ('americas', ('landmass',)),
     ('ammonite', ('fossil',)),
     ('andes', ('mountain-range',)),
-    ('anemometer', ('instrument',)),
     ('antarctic-circle', ('circle-of-latitude',)),
     ('antarctic-ice-sheet', ('ice-sheet',)),
     ('antarctica', ('continent',)),
@@ -91,7 +89,6 @@ PACK = (
     ('azimuthal-projection', ('map-projection',)),
     ('backwater', ('body-of-water',)),
     ('bad-weather', ('weather',)),
-    ('barometer', ('instrument',)),
     ('barrier-island', ('island',)),
     ('barrier-reef', ('coral-reef',)),
     ('bathymetric-chart', ('chart', 'topographic-map')),
@@ -441,7 +438,6 @@ PACK = (
     ('hydrography', ('geography', 'oceanography')),
     ('hydrology', ('geophysics',)),
     ('hydrosphere', ('earth-sphere',)),
-    ('hygrometer', ('instrument',)),
     ('hypocenter', ('place',)),
     ('hypsography', ('geology',)),
     ('ice-age', ('geological-period',)),
@@ -720,7 +716,6 @@ PACK = (
     ('quaternary', ('geological-period',)),
     ('quicksand', ('cavity',)),
     ('radar', ('instrument', 'tool')),
-    ('rain-gauge', ('instrument',)),
     ('rain-wash', ('washout',)),
     ('rainstorm', ('rain', 'storm')),
     ('rainy-season', ('season',)),
@@ -890,7 +885,6 @@ PACK = (
     ('territorial-waters', ('body-of-water',)),
     ('thaw', ('weather',)),
     ('thematic-map', ('map',)),
-    ('theodolite', ('instrument', 'tool')),
     ('thermal-updraft', ('convection', 'wind')),
     ('thermohaline-circulation', ('ocean-current',)),
     ('thermosphere', ('atmospheric-layer',)),

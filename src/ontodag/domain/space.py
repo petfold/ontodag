@@ -1,7 +1,7 @@
-"""The `space` pack, version 2: 352 categories, adopted by merge.
+"""The `space` pack, version 3: 351 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/space, commit fb54269) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/space, commit 0db7b31) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack space` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 2
+VERSION = 3
 
 BORROWED = ('coordinate-system',)
 
@@ -48,7 +48,7 @@ PACK = (
     ('astronomical-nutation', ('natural-event',)),
     ('astronomical-opposition', ('natural-event',)),
     ('astronomical-photometry', ('activity',)),
-    ('astronomical-telescope', ('telescope',)),
+    ('astronomical-telescope', ('instrument', 'telescope')),
     ('astronomical-transit', ('natural-event',)),
     ('astronomy-satellite', ('device', 'satellite')),
     ('astrophotography', ('photography',)),
@@ -303,7 +303,7 @@ PACK = (
     ('solar-physics', ('astronomy', 'physics')),
     ('solar-radiation', ('radiation',)),
     ('solar-system', ('planetary-system',)),
-    ('solar-telescope', ('telescope',)),
+    ('solar-telescope', ('instrument', 'telescope')),
     ('solar-wind', ('natural-event',)),
     ('solid-propellant-rocket', ('rocket',)),
     ('solstice', ('natural-event',)),
@@ -346,13 +346,12 @@ PACK = (
     ('supernova', ('star',)),
     ('supernova-remnant', ('emission-nebula',)),
     ('synodic-month', ('quantity',)),
-    ('telescope', ('instrument',)),
     ('terrestrial-planet', ('planet',)),
     ('tidal-locking', ('natural-event',)),
     ('titan', ('natural-satellite',)),
     ('total-eclipse', ('event',)),
     ('trans-neptunian-object', ('minor-planet',)),
-    ('transit-instrument', ('telescope',)),
+    ('transit-instrument', ('instrument', 'telescope')),
     ('trapezium-cluster', ('multiple-star',)),
     ('triton', ('natural-satellite',)),
     ('uranus', ('planet',)),

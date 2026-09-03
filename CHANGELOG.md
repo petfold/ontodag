@@ -12,6 +12,34 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [0.23.0] — 2026-09-03
+
+### Added
+
+- **core v6: the everyday goods layer.** 1,207 new categories — the things
+  people buy and sell: toaster, jeans, duvet, aspirin, stroller, wine glass,
+  brake pad — selected by the Google Product Taxonomy (5,595 retail nodes,
+  used as a *witness* for coverage and edge truth, never imported: its labels
+  are singularised, its union bins split into kinds, its same-label nodes
+  merged into multi-parent nodes) and defined by WordNet, so a marketplace
+  offer can name its kind precisely (loopmarket's question). Every
+  single-witness edge on the new concepts was read (about 1,050; some 130
+  rejected — GPT files by department, WordNet's `wheeled vehicle ⊑
+  container` and `antibiotic`-style chains recur). Core is 4,137 categories.
+  The retail compounds WordNet has no noun for (about 6,000: "guitar stand",
+  "X accessories") are deliberately left for a later layer.
+- Twenty-nine names moved from the domain packs into core (thermometer,
+  aspirin, laptop, barometer, scalpel, cargo …); the packs regenerated
+  (physics v3, medicine v4, economics v4, computing v3, geography v4). Golden
+  roots re-pinned for every pack, since a pack's root is core + pack.
+
+### Fixed
+
+- Core's `grinder`, `station`, `trail` and `shot` had been renamed away by
+  a name-reservation rule in ontodag-core's aligner when the goods layer
+  arrived; the rule is corrected and the names are back. `trouser` is
+  `trousers`.
+
 ## [0.22.1] — 2026-09-03
 
 ### Changed
