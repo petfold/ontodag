@@ -1,7 +1,7 @@
-"""The `physics` pack, version 1: 196 categories, adopted by merge.
+"""The `physics` pack, version 2: 196 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/physics, commit b58fdab) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/physics, commit 7c39beb) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack physics` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 1
+VERSION = 2
 
 BORROWED = ()
 
@@ -147,7 +147,7 @@ PACK = (
     ('orbital-plane', ('shape',)),
     ('orbital-variation', ('perturbation',)),
     ('oscillation', ('wave-motion',)),
-    ('outer-planet', ('planet',)),
+    ('outer-planet', ('major-planet',)),
     ('parity-conservation', ('conservation-law',)),
     ('pencil-of-lines', ('shape',)),
     ('periapsis', ('place',)),

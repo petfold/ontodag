@@ -910,17 +910,17 @@ mail-from-bob.eml
 Nobody filed anything under `human` or `document`; the paths were in the
 pack (`plane-ticket ⊑ transport-ticket ⊑ ticket ⊑ document`,
 `man ⊑ human ⊑ person`, and `human ⊑ mammal` too), and a query is the
-intersection of cones. It is 2,929 categories in ten branches — physical
+intersection of cones. It is 2,930 categories in ten branches — physical
 object, substance, agent, event, information, place, attribute,
 possession, cognition, field of study — and `odag pack core --show`
-prints every claim. Version 4 was not written by hand: it was built by
+prints every claim. Version 5 was not written by hand: it was built by
 consensus over WordNet, SUMO, OpenCyc, schema.org, YAGO, BFO, DOLCE and
 Wikidata (every edge entailed by two independent sources, or accepted on
 review),
 with every name a hand-checked plain English word; the construction and
 its decisions live in the sister repository `ontodag-core`. Like the
 prelude and the unit packs, adopting it is an explicit, idempotent merge
-with a pinned fingerprint, so everyone who adopts `core` v4 converges on
+with a pinned fingerprint, so everyone who adopts `core` v5 converges on
 the same bytes; `odag pack core --diff` shows what it would add to *your*
 store first, including any names you already use. It presumes the
 prelude (applied for you), because it declares that measured dimensions
@@ -950,7 +950,7 @@ $ odag put base-camp.jpg mount-everest
 $ odag below base-camp.jpg landform
 true
 $ odag count landform
-118
+116
 ```
 
 A pack sometimes hangs a concept from a name that belongs to a *sibling*
@@ -971,8 +971,9 @@ true
 
 The scope of each pack — and what was deliberately left out (economics
 carries no macroeconomics, geography no countries, space no numbers) — is
-in ontodag-core's `docs/UPPER.md` §8. Every one of them has had one
-reading; the science packs two.
+in ontodag-core's `docs/UPPER.md` §8. Every one of them has had two
+readings (§9 there records the second: about 3% of the single-source
+edges were wrong each time, and what kinds).
 
 ## 5. The command line
 
@@ -1371,7 +1372,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.21.0 - type help for help
+Ontodag 0.22.0 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png

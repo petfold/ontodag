@@ -163,6 +163,22 @@ so only the alignment moved). Renames in the same pass: the cooking `pan`
 takes the word and the chimpanzee genus is `genus-pan`; `pb` is
 `lead-metal`. 2,929 listed categories.
 
+**v5 (0.22.0, 2026-09-03): the planet.** One sense correction and one
+concept, found by the second reading of the domain packs: `exoplanet ⊑
+planet` was refused because core's `planet` was WordNet's *solar-system*
+sense ("any of the nine large celestial bodies that revolve around the
+sun", 09394007). It is now the generic body orbiting a star (09394646 —
+what the word means; the edge `planet ⊑ celestial-body` is unchanged), and
+the freed synset enters as **`major-planet ⊑ planet`**, WordNet's own second
+lemma for it, placed by ruling (WordNet files both senses directly under
+celestial body). The space pack's `planetary-body` collapses into `planet`,
+and `inferior-`, `superior-`, `jovian-` and `outer-planet` hang from
+`major-planet`. 2,930 listed categories. The same pass re-read every
+single-source edge in the six domain packs that had had one reading
+(medicine, ai, economics, computing, geography, space — 108 of 3,649
+rejected, 3.0%; ontodag-core UPPER.md §9), so those seven pack modules
+(physics included, for `outer-planet`) are **v2**.
+
 The same weeks built **ten domain packs** in ontodag-core beside core —
 physics, mathematics, chemistry, biology, medicine, ai, economics,
 computing, geography, space, about 6,900 categories together — under the

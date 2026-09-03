@@ -933,9 +933,37 @@ section is the *current* state and the cross-repo pins.
 
 | package | version | verified by | pins |
 |---|---|---|---|
-| **ontodag** | **0.21.0** (2026-09-03, evening) | `scripts/release_smoke.py --pypi 0.21.0` → 27/27 after the index caught up, plus the workflow's `verify` job (all four jobs green, `downstream` ran ontodag-fs's suite) | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
+| **ontodag** | **0.22.0** (2026-09-03, night) | RELEASE IN PROGRESS — see "What 0.22.0 is" | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
 | **recordstore** | **0.20.1** | fresh-venv install; undo/history exercised | none (stdlib-only base) |
 | **ontodag-fs** | **0.3.5** (2026-09-03, ceiling bump only) | ontodag 0.21.0's downstream gate ran its suite against the candidate; published by tag, both jobs green | needs `ontodag>=0.16.0,<0.22.0` |
+
+**What 0.22.0 is** (2026-09-03 night): **the second reading and core v5.**
+Every single-source edge in the six domain packs that had had one reading
+(medicine, ai, economics, computing, geography, space — 3,649 edges, listed
+with both glosses by ontodag-core's new `tools/second_reading.py`) was read
+against the glosses: **108 rejected and re-ruled (3.0%)**, the morning's rate
+for the sciences again. The patterns, not the list, are the record (UPPER.md
+§9): WordNet's chains misfile by hypernym (`antibiotic ⊑ antibacterial`
+drags antifungals and anticancer antibiotics along; accounting *methods*
+under `transaction-record` via the `account` chain), Wikidata files by loose
+association (search algorithms ⊑ information retrieval, devices ⊑ user
+interface, statements ⊑ control flow, cloud genera under each other,
+zoonoses ⊑ animal disease), and sense mismatches show in the gloss column
+(economics' `stock` was merchandise while Wikidata's is shares). **Core v5:**
+`exoplanet ⊑ planet` exposed core's `planet` as WordNet's solar-system sense;
+it is now the generic body orbiting a star and the freed synset enters as
+`major-planet ⊑ planet` (2,930 categories) — one concept, one ruling, but a
+new version, because a sense correction never propagates by merge. Seven
+pack modules are v2 (physics too, for `outer-planet`); mathematics,
+chemistry, biology stay v1 **but their golden roots moved anyway** — a
+domain pack's root is core + pack, so every pin in `tests/test_packs.py`
+was recomputed (both addressings, plus the union: 9,786 categories, sha
+`81650b1b…`, BMT `e36871b3…`). Two tool lessons: `regen_ontodag_packs.py`
+now keeps each module's hand-bumped VERSION instead of resetting it to 1;
+and `integrate.py` reads the *shipped* core module from `../ontodag`, so
+regenerate first, integrate second — the first re-run showed `major-planet`
+at top level for exactly that reason. Rulings I make at core level now
+live in `align/claude-ruling.tsv` there too (first entry: this one).
 
 **What 0.21.0 is** (2026-09-03 evening, published by tag, all four jobs
 green, verified from PyPI 27/27): **the ten domain packs ship in the wheel**

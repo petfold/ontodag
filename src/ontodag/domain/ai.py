@@ -1,7 +1,7 @@
-"""The `ai` pack, version 1: 676 categories, adopted by merge.
+"""The `ai` pack, version 2: 676 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/ai, commit b58fdab) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/ai, commit 7c39beb) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack ai` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 1
+VERSION = 2
 
 BORROWED = ('database',)
 
@@ -21,7 +21,7 @@ PACK = (
     ('abductive-logic-programming', ('logic-programming',)),
     ('abductive-reasoning', ('thinking',)),
     ('activation-function', ('concept',)),
-    ('active-learning', ('incremental-learning', 'semi-supervised-learning')),
+    ('active-learning', ('machine-learning',)),
     ('actor-critic-algorithm', ('reinforcement-learning',)),
     ('actuator', ('device',)),
     ('adam-optimizer', ('stochastic-gradient-descent',)),
@@ -41,7 +41,7 @@ PACK = (
     ('alpha-beta-pruning', ('search-algorithm',)),
     ('analogical-reasoning', ('thinking',)),
     ('android-robot', ('humanoid-robot',)),
-    ('animatronics', ('automaton', 'robotics')),
+    ('animatronics', ('robotics',)),
     ('anomaly-detection', ('machine-learning',)),
     ('answer-set-programming', ('logic-programming',)),
     ('ant-colony-optimization', ('swarm-intelligence',)),
@@ -54,7 +54,7 @@ PACK = (
     ('artificial-consciousness', ('field-of-study',)),
     ('artificial-empathy', ('artificial-intelligence',)),
     ('artificial-general-intelligence', ('artificial-intelligence',)),
-    ('artificial-immune-system', ('rule-based-machine-learning',)),
+    ('artificial-immune-system', ('computational-intelligence',)),
     ('artificial-intelligence', ('computer-science',)),
     ('artificial-life', ('field-of-study',)),
     ('artificial-neural-network', ('ai-model',)),
@@ -77,7 +77,7 @@ PACK = (
     ('autonomous-underwater-vehicle', ('autonomous-vehicle',)),
     ('autonomous-vehicle', ('automaton', 'vehicle')),
     ('autonomous-weapon', ('military-robot',)),
-    ('autoregressive-model', ('artificial-neural-network', 'statistical-model')),
+    ('autoregressive-model', ('statistical-model',)),
     ('backpropagation', ('algorithm',)),
     ('backpropagation-through-time', ('backpropagation',)),
     ('backtracking-search', ('search-algorithm',)),
@@ -119,7 +119,7 @@ PACK = (
     ('capsule-neural-network', ('convolutional-neural-network',)),
     ('case-based-reasoning', ('artificial-intelligence',)),
     ('catastrophic-forgetting', ('problem',)),
-    ('causal-diagram', ('bayesian-network',)),
+    ('causal-diagram', ('statistical-model',)),
     ('cellular-automaton', ('concept',)),
     ('centrality', ('concept',)),
     ('chatbot', ('software', 'software-agent')),
@@ -150,7 +150,7 @@ PACK = (
     ('computational-learning-theory', ('machine-learning',)),
     ('computational-linguistics', ('linguistics',)),
     ('computational-neuroscience', ('science',)),
-    ('computational-ontology', ('cognition', 'knowledge-base')),
+    ('computational-ontology', ('knowledge-base',)),
     ('computational-theory-of-mind', ('concept',)),
     ('computer-chess', ('artificial-intelligence',)),
     ('computer-go', ('artificial-intelligence',)),
@@ -171,7 +171,7 @@ PACK = (
     ('control-system', ('artifact',)),
     ('control-theory', ('engineering', 'mathematics')),
     ('controlled-vocabulary', ('dataset',)),
-    ('conversational-ai', ('chatbot',)),
+    ('conversational-ai', ('natural-language-processing',)),
     ('convex-optimization', ('mathematical-optimization',)),
     ('convolutional-neural-network', ('feedforward-neural-network',)),
     ('cosine-similarity', ('similarity-measure',)),
@@ -187,7 +187,7 @@ PACK = (
     ('decision-theory', ('field-of-study',)),
     ('decision-tree', ('concept',)),
     ('decision-tree-learning', ('machine-learning-algorithm',)),
-    ('deep-belief-network', ('artificial-neural-network', 'bayesian-network')),
+    ('deep-belief-network', ('artificial-neural-network',)),
     ('deep-generative-model', ('generative-model',)),
     ('deep-learning', ('machine-learning',)),
     ('deep-neural-network', ('artificial-neural-network',)),
@@ -311,7 +311,7 @@ PACK = (
     ('hierarchical-classifier', ('classification-algorithm',)),
     ('hierarchical-clustering', ('cluster-analysis',)),
     ('hierarchical-task-network', ('automated-planning',)),
-    ('hierarchical-temporal-memory', ('artificial-neural-network', 'machine-learning')),
+    ('hierarchical-temporal-memory', ('artificial-neural-network',)),
     ('hill-climbing-search', ('search-algorithm',)),
     ('hits-algorithm', ('algorithm',)),
     ('hopfield-network', ('recurrent-neural-network',)),
@@ -440,7 +440,7 @@ PACK = (
     ('multi-task-learning', ('machine-learning',)),
     ('multiclass-classification', ('statistical-classification',)),
     ('multilayer-perceptron', ('feedforward-neural-network',)),
-    ('multimodal-artificial-intelligence', ('artificial-intelligence', 'foundation-model')),
+    ('multimodal-artificial-intelligence', ('artificial-intelligence',)),
     ('multimodal-large-language-model', ('large-language-model',)),
     ('multimodal-learning', ('machine-learning',)),
     ('multiple-instance-learning', ('supervised-learning',)),
@@ -539,12 +539,12 @@ PACK = (
     ('residual-neural-network', ('artificial-neural-network',)),
     ('resource-description-framework', ('concept',)),
     ('restricted-boltzmann-machine', ('boltzmann-machine', 'stochastic-neural-network')),
-    ('retrieval-augmented-generation', ('generative-ai', 'information-retrieval')),
+    ('retrieval-augmented-generation', ('generative-ai', 'natural-language-processing')),
     ('reversible-cellular-automaton', ('cellular-automaton',)),
     ('reward-hacking', ('specification-gaming',)),
     ('roboethics', ('ethics-of-artificial-intelligence',)),
     ('robot-control', ('robotics',)),
-    ('robot-end-effector', ('actuator',)),
+    ('robot-end-effector', ('device',)),
     ('robot-learning', ('machine-learning',)),
     ('robot-navigation', ('robotics',)),
     ('robot-planning', ('robotics',)),
@@ -571,7 +571,7 @@ PACK = (
     ('self-reconfiguring-modular-robot', ('automaton',)),
     ('self-supervised-learning', ('unsupervised-learning',)),
     ('semantic-analysis', ('natural-language-processing',)),
-    ('semantic-network', ('knowledge-graph',)),
+    ('semantic-network', ('knowledge-representation',)),
     ('semantic-parsing', ('natural-language-processing',)),
     ('semantic-reasoner', ('inference-engine',)),
     ('semantic-role-labeling', ('natural-language-processing',)),
@@ -603,7 +603,7 @@ PACK = (
     ('sparse-dictionary-learning', ('feature-learning',)),
     ('sparse-distributed-memory', ('ai-model',)),
     ('spatial-temporal-reasoning', ('artificial-intelligence',)),
-    ('speaker-verification', ('natural-language-processing',)),
+    ('speaker-verification', ('signal-processing',)),
     ('specification-gaming', ('problem',)),
     ('speech-dataset', ('dataset',)),
     ('speech-recognition', ('machine-perception', 'natural-language-processing')),
@@ -675,7 +675,7 @@ PACK = (
     ('value-function', ('concept',)),
     ('vanishing-gradient-problem', ('problem',)),
     ('variational-autoencoder', ('autoencoder',)),
-    ('vector-database', ('dataset',)),
+    ('vector-database', ('software',)),
     ('vector-embedding', ('concept',)),
     ('virtual-assistant', ('software-agent',)),
     ('virtual-human', ('computer-simulation',)),

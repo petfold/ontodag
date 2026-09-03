@@ -12,6 +12,31 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [0.22.0] — 2026-09-03
+
+### Changed
+
+- **core v5: the planet.** `exoplanet ⊑ planet` exposed that core's `planet`
+  was WordNet's solar-system sense; it is now the generic body orbiting a
+  star, and the freed sense enters as `major-planet ⊑ planet` (2,930
+  categories; `docs/CORE.md`). The space pack's `planetary-body` collapses
+  into `planet`.
+- **Domain packs v2** for `medicine`, `ai`, `economics`, `computing`,
+  `geography`, `space` and `physics`: the second reading of every
+  single-source edge in the six packs that had had one — 108 of 3,649
+  rejected and re-ruled (3.0%): WordNet's `antibiotic ⊑ antibacterial`
+  chain had filed the antifungals and anticancer antibiotics as
+  antibacterials, its `account` chain filed accounting *methods* as
+  records, Wikidata filed search algorithms under information retrieval and
+  input/output devices under user interface, cloud genera under each other,
+  zoonoses under animal disease; two sense mismatches (`stock`,
+  `ocean-swell`) and two live questions (`convertible-bond ⊑ derivative`,
+  `race-condition ⊑ security-vulnerability`) went too; eight concepts
+  dropped (`motto`, `cove`, `sand-bar`, `summer-camp`, the burrows, the
+  calculi). ontodag-core `docs/UPPER.md` §9 is the record; golden roots
+  re-pinned for both addressings; `mathematics`, `chemistry` and `biology`
+  are unchanged (v1).
+
 ## [0.21.0] — 2026-09-03
 
 ### Added

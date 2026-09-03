@@ -1,7 +1,7 @@
-"""The `economics` pack, version 1: 1135 categories, adopted by merge.
+"""The `economics` pack, version 2: 1135 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/economics, commit b58fdab) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/economics, commit 7c39beb) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack economics` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 1
+VERSION = 2
 
 BORROWED = ()
 
@@ -23,7 +23,7 @@ PACK = (
     ('accounts-receivable', ('asset',)),
     ('accredited-investor', ('investor',)),
     ('accrual', ('concept',)),
-    ('accrual-basis', ('transaction-record',)),
+    ('accrual-basis', ('procedure',)),
     ('active-management', ('asset-management', 'investing')),
     ('actual-purchase-price', ('purchase-price',)),
     ('actuary', ('professional',)),
@@ -66,7 +66,7 @@ PACK = (
     ('atomic-swap', ('financial-transaction',)),
     ('auction-bid', ('price', 'purchase-price')),
     ('auction-theory', ('game-theory',)),
-    ('audited-account', ('transaction-record',)),
+    ('audited-account', ('information', 'procedure')),
     ('authorized-shares', ('share-capital',)),
     ('automated-market-maker', ('decentralized-exchange',)),
     ('automobile-insurance', ('possession',)),
@@ -165,8 +165,8 @@ PACK = (
     ('cartage', ('hauling',)),
     ('cartel', ('organization',)),
     ('cash-account', ('brokerage-account',)),
-    ('cash-basis', ('transaction-record',)),
-    ('cash-card', ('credit-card',)),
+    ('cash-basis', ('procedure',)),
+    ('cash-card', ('payment-card',)),
     ('cash-flow', ('income',)),
     ('cash-flow-statement', ('financial-statement',)),
     ('cash-payment', ('payment-amount',)),
@@ -229,7 +229,7 @@ PACK = (
     ('control-account', ('transaction-record',)),
     ('control-stock', ('share-capital',)),
     ('controlling-interest', ('share',)),
-    ('convertible-bond', ('bond', 'derivative-finance')),
+    ('convertible-bond', ('bond',)),
     ('convertible-security', ('legal-document',)),
     ('corkage', ('service-charge',)),
     ('corn-exchange', ('workplace',)),
@@ -448,7 +448,7 @@ PACK = (
     ('fishmonger', ('trader',)),
     ('fixed-asset', ('asset',)),
     ('fixed-charge', ('price-charged',)),
-    ('fleet', ('steamship-company',)),
+    ('fleet', ('group',)),
     ('fleet-management', ('management',)),
     ('floater-policy', ('policy',)),
     ('floating-rate-note', ('bond',)),
@@ -500,7 +500,7 @@ PACK = (
     ('greengrocer', ('grocer',)),
     ('grey-market', ('activity', 'market')),
     ('grocer', ('shopkeeper',)),
-    ('gross-profit', ('net-income',)),
+    ('gross-profit', ('income',)),
     ('gross-sales', ('income',)),
     ('ground-rent', ('rent',)),
     ('group-insurance', ('insurance', 'possession')),
@@ -599,7 +599,7 @@ PACK = (
     ('leverage', ('exchange', 'investing')),
     ('liability-insurance', ('insurance', 'possession')),
     ('library-fine', ('fine',)),
-    ('licensee', ('retailer',)),
+    ('licensee', ('person',)),
     ('licensing-agreement', ('contract',)),
     ('lien', ('security-interest',)),
     ('life-insurance', ('insurance', 'possession')),
@@ -608,7 +608,7 @@ PACK = (
     ('lightning-network', ('layer-2',)),
     ('limit-order', ('trade-order',)),
     ('limited-audit', ('audited-account',)),
-    ('limited-review', ('transaction-record',)),
+    ('limited-review', ('information', 'procedure')),
     ('linage-rate', ('charge-rate',)),
     ('line-of-credit', ('credit',)),
     ('linendraper', ('draper',)),
@@ -617,7 +617,7 @@ PACK = (
     ('liquidity-risk', ('financial-risk',)),
     ('list-price', ('asking-price', 'price')),
     ('listed-security', ('legal-document',)),
-    ('loan-point', ('loan',)),
+    ('loan-point', ('fee',)),
     ('loan-principal', ('debt',)),
     ('lock-up-option', ('purchase-option',)),
     ('lockage', ('fee',)),
@@ -721,7 +721,7 @@ PACK = (
     ('operating-expense', ('expense',)),
     ('operating-income', ('income',)),
     ('operational-risk', ('financial-risk',)),
-    ('opportunity-cost', ('outgo',)),
+    ('opportunity-cost', ('concept',)),
     ('optimistic-rollup', ('rollup',)),
     ('option-finance', ('derivative-finance',)),
     ('option-straddle', ('purchase-option',)),
@@ -731,7 +731,7 @@ PACK = (
     ('organization-expense', ('business-expense',)),
     ('origination-fee', ('fee',)),
     ('output-contract', ('contract',)),
-    ('over-the-counter-market', ('stock-exchange',)),
+    ('over-the-counter-market', ('financial-market',)),
     ('over-the-counter-stock', ('unlisted-security',)),
     ('overcapitalization', ('capitalization',)),
     ('overcharge', ('price-charged',)),
@@ -787,7 +787,7 @@ PACK = (
     ('point-of-sale', ('event',)),
     ('ponzi-scheme', ('pyramid-scheme',)),
     ('pooled-fund', ('fund',)),
-    ('pooling-of-interest', ('transaction-record',)),
+    ('pooling-of-interest', ('procedure',)),
     ('pork-butcher', ('butcher',)),
     ('porterage', ('price-charged',)),
     ('portfolio', ('financial-asset', 'possession')),
@@ -1012,7 +1012,7 @@ PACK = (
     ('stored-supply', ('possession',)),
     ('stowage', ('storage',)),
     ('stowage-charge', ('price-charged',)),
-    ('straight-line-method', ('depreciation',)),
+    ('straight-line-method', ('procedure',)),
     ('strike-pay', ('wage',)),
     ('strike-price', ('price', 'purchase-price')),
     ('structured-product', ('derivative-finance',)),
@@ -1110,7 +1110,7 @@ PACK = (
     ('utility-bond', ('municipal-bond',)),
     ('utility-token', ('crypto-token',)),
     ('validator', ('staking',)),
-    ('valuation', ('purchase-price',)),
+    ('valuation', ('price',)),
     ('valuation-reserve', ('reserve-account',)),
     ('value-at-risk', ('concept',)),
     ('value-investing', ('investing',)),

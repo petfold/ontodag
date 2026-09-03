@@ -1,7 +1,7 @@
-"""The `space` pack, version 1: 353 categories, adopted by merge.
+"""The `space` pack, version 2: 352 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/space, commit b58fdab) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/space, commit 7c39beb) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack space` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 1
+VERSION = 2
 
 BORROWED = ('coordinate-system',)
 
@@ -61,7 +61,7 @@ PACK = (
     ('barycenter', ('point',)),
     ('bayer-designation', ('code',)),
     ('big-bang', ('explosion',)),
-    ('binary-star', ('star', 'star-system')),
+    ('binary-star', ('star-system',)),
     ('black-hole', ('stellar-remnant',)),
     ('bolide', ('meteor',)),
     ('booster-rocket', ('engine',)),
@@ -120,7 +120,7 @@ PACK = (
     ('europa', ('galilean-satellite',)),
     ('european-space-agency', ('space-agency',)),
     ('event-horizon', ('region',)),
-    ('exoplanet', ('planet', 'planetary-body')),
+    ('exoplanet', ('planet',)),
     ('expansion-of-the-universe', ('natural-event',)),
     ('extravehicular-activity', ('activity',)),
     ('falcon-9', ('reusable-launch-system',)),
@@ -136,7 +136,7 @@ PACK = (
     ('galilean-satellite', ('natural-satellite',)),
     ('galilean-telescope', ('refracting-telescope',)),
     ('ganymede', ('galilean-satellite',)),
-    ('gas-giant', ('planet', 'planetary-body')),
+    ('gas-giant', ('planet',)),
     ('geomagnetic-storm', ('natural-event',)),
     ('geostationary-orbit', ('geosynchronous-orbit',)),
     ('geosynchronous-orbit', ('orbit',)),
@@ -159,8 +159,8 @@ PACK = (
     ('hubble-space-telescope', ('space-telescope',)),
     ('hubbles-law', ('concept',)),
     ('human-spaceflight', ('spaceflight',)),
-    ('ice-giant', ('planet', 'planetary-body')),
-    ('inferior-planet', ('planet',)),
+    ('ice-giant', ('planet',)),
+    ('inferior-planet', ('major-planet',)),
     ('inner-planet', ('terrestrial-planet',)),
     ('interferometry', ('method',)),
     ('intergalactic-space', ('place',)),
@@ -174,7 +174,7 @@ PACK = (
     ('isro', ('space-agency',)),
     ('j2000', ('concept',)),
     ('james-webb-space-telescope', ('space-telescope',)),
-    ('jovian-planet', ('planet',)),
+    ('jovian-planet', ('major-planet',)),
     ('jupiter', ('planet',)),
     ('keplers-laws', ('concept',)),
     ('kessler-syndrome', ('concept',)),
@@ -211,7 +211,7 @@ PACK = (
     ('micrometeorite', ('meteorite',)),
     ('milky-way', ('galaxy',)),
     ('minor-planet', ('celestial-body',)),
-    ('multiple-star', ('star',)),
+    ('multiple-star', ('star-system',)),
     ('nadir', ('place',)),
     ('nasa', ('space-agency',)),
     ('natural-satellite', ('celestial-body',)),
@@ -242,7 +242,7 @@ PACK = (
     ('orbital-spaceflight', ('spaceflight',)),
     ('orbiter', ('satellite',)),
     ('orion', ('constellation',)),
-    ('outer-planet', ('planet', 'planetary-body')),
+    ('outer-planet', ('major-planet',)),
     ('pallasite', ('meteorite',)),
     ('parallax', ('angle',)),
     ('partial-eclipse', ('event',)),
@@ -254,7 +254,6 @@ PACK = (
     ('phobos', ('natural-satellite',)),
     ('photosphere', ('layer',)),
     ('planetarium', ('building',)),
-    ('planetary-body', ('celestial-body',)),
     ('planetary-moon', ('natural-satellite',)),
     ('planetary-nebula', ('emission-nebula',)),
     ('planetary-rover', ('spacecraft',)),
@@ -342,13 +341,13 @@ PACK = (
     ('sun-synchronous-orbit', ('polar-orbit',)),
     ('sunspot', ('natural-event',)),
     ('supergiant-star', ('star',)),
-    ('superior-planet', ('planet',)),
+    ('superior-planet', ('major-planet',)),
     ('supermassive-black-hole', ('black-hole',)),
     ('supernova', ('star',)),
     ('supernova-remnant', ('emission-nebula',)),
     ('synodic-month', ('quantity',)),
     ('telescope', ('instrument',)),
-    ('terrestrial-planet', ('planet', 'planetary-body')),
+    ('terrestrial-planet', ('planet',)),
     ('tidal-locking', ('natural-event',)),
     ('titan', ('natural-satellite',)),
     ('total-eclipse', ('event',)),
