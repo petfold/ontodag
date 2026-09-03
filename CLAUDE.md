@@ -933,9 +933,27 @@ section is the *current* state and the cross-repo pins.
 
 | package | version | verified by | pins |
 |---|---|---|---|
-| **ontodag** | **0.19.1** (2026-09-02, late evening) | `scripts/release_smoke.py --pypi 0.19.1` → 27/27, plus the workflow's own `verify` job (all four jobs green) | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
+| **ontodag** | **0.20.0** (2026-09-03, afternoon) | `scripts/release_smoke.py --pypi 0.20.0` → 27/27, plus the workflow's own `verify` job (all four jobs green, `downstream` ran ontodag-fs's suite) | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
 | **recordstore** | **0.20.1** | fresh-venv install; undo/history exercised | none (stdlib-only base) |
-| **ontodag-fs** | **0.3.3** (2026-09-02, ceiling bump only) | ontodag 0.19.0's downstream gate ran its suite against the candidate; fresh-venv install of `ontodag-fs==0.3.3 ontodag==0.19.0` resolves | needs `ontodag>=0.16.0,<0.20.0` |
+| **ontodag-fs** | **0.3.4** (2026-09-03, ceiling bump only) | ontodag 0.20.0's downstream gate ran its suite against the candidate; published by tag after the REFERENCE.md version line was updated (its `test_reference` stopped the first tag) | needs `ontodag>=0.16.0,<0.21.0` |
+
+**What 0.20.0 is** (2026-09-03 afternoon, published by tag, all four jobs
+green, verified from PyPI 27/27): **core v4** — Wikidata as the fourth
+witness (2,085 concepts aligned through P8814; 13 newly placed, ~80 gain a
+parent, nothing lost), three **sense corrections** made now because a sense
+never propagates by merge (`dividend` = the company dividend, `meteorology` =
+the science, `star` = the physical star), two renames (`pan`/`genus-pan`,
+`pb`/`lead-metal`); 2,929 listed categories. Docs: CORE.md's v4 section
+also records the ten domain packs built in ontodag-core (~6,900 categories,
+one integration build of core + all ten converging on a single root) and
+that they are **not in the wheel** — distribution is Peter's open decision.
+ontodag-fs 0.3.4 released the same hour (ceiling `<0.21.0`); its first tag
+was stopped by its own `test_reference` (REFERENCE.md must name the version
+being released — the same docs-sweep rule this repo has), fixed and
+re-tagged. Local lesson: `release_smoke.py --pypi` failed twice on pip
+before the index served the wheel; the workflow's `verify` job had already
+passed against PyPI, and the third local run passed — index lag, not the
+artifact, as the Releasing section warns.
 
 **What 0.19.1 is** (2026-09-02 late evening, published by tag, all four jobs
 green, verified from PyPI): **core v3** — 0.19.0's core (v2) had shipped with
@@ -1278,7 +1296,7 @@ replica clones from the published root, since swarmfs cannot heal a ref it never
 knew).
 
 **Standing cross-repo rules.**
-- ontodag-fs pins a *ceiling* (`<0.17.0` now) because a released consumer cannot
+- ontodag-fs pins a *ceiling* (`<0.21.0` now) because a released consumer cannot
   be re-tested against a future ontodag. **Raise it — by hand — after ontodag's
   publish workflow's `downstream` job runs ontodag-fs's suite against the
   candidate.** That job is the evidence; the bump is the acknowledgement.
