@@ -1,7 +1,7 @@
-"""The `economics` pack, version 2: 1135 categories, adopted by merge.
+"""The `economics` pack, version 3: 1130 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/economics, commit 7c39beb) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/economics, commit fb54269) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack economics` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 2
+VERSION = 3
 
 BORROWED = ()
 
@@ -409,7 +409,6 @@ PACK = (
     ('expense-account', ('account',)),
     ('expense-allowance', ('reimbursement',)),
     ('expiration-date', ('concept',)),
-    ('export', ('international-trade',)),
     ('export-credit', ('credit',)),
     ('exporting', ('international-trade',)),
     ('express-delivery', ('transportation',)),
@@ -477,7 +476,6 @@ PACK = (
     ('fundamental-analysis', ('procedure',)),
     ('fungibility', ('attribute',)),
     ('futures-contract', ('forward-contract',)),
-    ('futures-exchange', ('commodity-exchange', 'derivatives-market')),
     ('futures-market', ('derivatives-market',)),
     ('gambling-contract', ('contract',)),
     ('game-theory', ('concept',)),
@@ -596,7 +594,6 @@ PACK = (
     ('letter-of-credit', ('credit', 'information', 'payment-system')),
     ('letter-security', ('legal-document',)),
     ('letter-stock', ('letter-security',)),
-    ('leverage', ('exchange', 'investing')),
     ('liability-insurance', ('insurance', 'possession')),
     ('library-fine', ('fine',)),
     ('licensee', ('person',)),
@@ -610,7 +607,6 @@ PACK = (
     ('limited-audit', ('audited-account',)),
     ('limited-review', ('information', 'procedure')),
     ('linage-rate', ('charge-rate',)),
-    ('line-of-credit', ('credit',)),
     ('linendraper', ('draper',)),
     ('liquidity', ('attribute',)),
     ('liquidity-pool', ('automated-market-maker',)),
@@ -852,7 +848,6 @@ PACK = (
     ('rack-rent', ('rent',)),
     ('rake-off', ('share-of-profits',)),
     ('rate-of-depreciation', ('charge-rate',)),
-    ('rate-of-exchange', ('charge-rate', 'ratio')),
     ('rate-of-return', ('concept',)),
     ('real-estate-business', ('business', 'commercial-enterprise')),
     ('real-estate-loan', ('loan',)),

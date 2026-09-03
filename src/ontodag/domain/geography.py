@@ -1,7 +1,7 @@
-"""The `geography` pack, version 2: 1001 categories, adopted by merge.
+"""The `geography` pack, version 3: 1001 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/geography, commit 7c39beb) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/geography, commit fb54269) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack geography` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 2
+VERSION = 3
 
 BORROWED = ('classification-scheme', 'data-processing', 'database', 'file-format', 'theory')
 
@@ -432,7 +432,7 @@ PACK = (
     ('hoodoo', ('geological-formation',)),
     ('horizontal-datum', ('geodetic-datum',)),
     ('horse-latitude', ('place',)),
-    ('hot-spring', ('body-of-water', 'outflow')),
+    ('hot-spring', ('body-of-water', 'natural-spring')),
     ('hot-weather', ('weather',)),
     ('hour-circle', ('place',)),
     ('humidity', ('quantity',)),
@@ -591,6 +591,7 @@ PACK = (
     ('natural-basin', ('natural-depression',)),
     ('natural-elevation', ('geological-formation',)),
     ('natural-ridge', ('natural-elevation',)),
+    ('natural-spring', ('geographical-feature', 'geological-formation')),
     ('nautical-chart', ('chart',)),
     ('naval-chart', ('chart',)),
     ('navigation', ('activity', 'skill')),
@@ -649,7 +650,6 @@ PACK = (
     ('orthometric-height', ('altitude',)),
     ('orthophoto', ('image',)),
     ('outcrop', ('rock',)),
-    ('outflow', ('geographical-feature', 'geological-formation')),
     ('outthrust', ('outcrop',)),
     ('overlying-stratum', ('layer',)),
     ('oxbow', ('land',)),

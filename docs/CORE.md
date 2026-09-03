@@ -178,6 +178,10 @@ single-source edge in the six domain packs that had had one reading
 (medicine, ai, economics, computing, geography, space — 108 of 3,649
 rejected, 3.0%; ontodag-core UPPER.md §9), so those seven pack modules
 (physics included, for `outer-planet`) are **v2**.
+Later the same night (0.22.1): medicine, ai, economics and geography are
+**v3** — nine synonym duplicates dropped on Peter's rule (of two synonyms
+keep the first) and geography's water spring renamed `natural-spring`; core
+itself unchanged.
 
 The same weeks built **ten domain packs** in ontodag-core beside core —
 physics, mathematics, chemistry, biology, medicine, ai, economics,

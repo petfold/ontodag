@@ -933,9 +933,29 @@ section is the *current* state and the cross-repo pins.
 
 | package | version | verified by | pins |
 |---|---|---|---|
-| **ontodag** | **0.22.0** (2026-09-03, night) | `scripts/release_smoke.py --pypi 0.22.0` → 27/27, plus the workflow's `verify` job (all four jobs green, `downstream` ran ontodag-fs's suite) | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
+| **ontodag** | **0.22.1** (2026-09-03, late night) | RELEASE IN PROGRESS — see "What 0.22.1 is" | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
 | **recordstore** | **0.20.1** | fresh-venv install; undo/history exercised | none (stdlib-only base) |
 | **ontodag-fs** | **0.3.6** (2026-09-03, ceiling bump only) | ontodag 0.22.0's downstream gate ran its suite against the candidate; published by tag, both jobs green | needs `ontodag>=0.16.0,<0.23.0` |
+
+**What 0.22.1 is** (2026-09-03 late night, a patch on Peter's verdicts):
+**domain packs v3** for medicine, ai, economics and geography. The
+cross-pack check had 21 Wikidata items carrying two names each; Peter's
+rule — *of two synonyms keep the first* — dropped nine (`rate-of-exchange`,
+`lunacy`, `line-of-credit`, `export`, `leverage`, `android-robot`,
+`clinical-neurology`, `abarticulation`, `futures-exchange`); the other
+twelve were Wikidata's P8814 merging two distinct WordNet concepts onto one
+item (`sudorific` on *prescription drug* was the one Peter queried), so both
+names stay and the alignment is cleared on the one not matching the label.
+Core's water spring is `natural-spring` (`outflow` reads as finance) — but
+core's build did not carry that concept (it was unplaced in core and placed
+by geography), so core stays v5 and only geography's file changed. Released
+as a patch the same night because a drop or rename never propagates by
+merge. **Two build mechanics that cost an hour** (UPPER.md §9): a drop of a
+*renamed* WordNet concept must name the offset, not the names.tsv name; and
+a hand ruling about a name admits that name even after a drop — the ai pack
+came back with `android-robot` from its own `android-robot ⊑ humanoid-robot`
+ruling, and economics from `wikidata-roots.tsv`. Union: 9,777 categories,
+root `1d67a670…`.
 
 **What 0.22.0 is** (2026-09-03 night): **the second reading and core v5.**
 Every single-source edge in the six domain packs that had had one reading

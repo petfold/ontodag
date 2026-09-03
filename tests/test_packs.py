@@ -39,16 +39,16 @@ GOLDEN_ROOTS = {  # pack fingerprints: everyone merging these converges (a domai
         "b59eedf86a25daa0446b4fc3f07f37014f4f8188d956e2853bf78f8c80f58403",
     "biology":  # v1 over core v5, 2026-09-03 — a domain pack over core (ontodag-core packs/biology)
         "9e6c4bb1f1269d3fc236f05153209e8809b0871fee5129bb4acbd887fca87e38",
-    "medicine":  # v2, 2026-09-03 — a domain pack over core (ontodag-core packs/medicine)
-        "8ae8877d7d5b228f827a180814a8423fee4c72e5cd5a312dc9072faedefda7c9",
-    "ai":  # v2, 2026-09-03 — a domain pack over core (ontodag-core packs/ai)
-        "8a427555f6df845c766e6435ab0bc926201b4609b8e809f8e2e2f0861fdf33d1",
-    "economics":  # v2, 2026-09-03 — a domain pack over core (ontodag-core packs/economics)
-        "376c4afa94442c9f308ec23ccae6955e6b9c8a8f43f688c44ee1fd952208847d",
+    "medicine":  # v3, 2026-09-03 — a domain pack over core (ontodag-core packs/medicine)
+        "16eb760186f77dfe0a87321efb6103fc11f9c0a837e34b5a66ec15b55418b188",
+    "ai":  # v3, 2026-09-03 — a domain pack over core (ontodag-core packs/ai)
+        "ab6d06f9e4b46921d62fc08efcaf30076972ea81d58722cfe89891d1ee31dd1a",
+    "economics":  # v3, 2026-09-03 — a domain pack over core (ontodag-core packs/economics)
+        "f7be077de11928ba88059a3d6a0b5e8d9c6e8f5b793dd77f29d8fec04b0e4610",
     "computing":  # v2, 2026-09-03 — a domain pack over core (ontodag-core packs/computing)
         "930cf132042c7750ee52465378c7fad49ae07d95941114cf654185df6876d591",
-    "geography":  # v2, 2026-09-03 — a domain pack over core (ontodag-core packs/geography)
-        "5c70b7407b96b098edbd24049450a991ee88bb9734b0c3f06ea2fd9ba1ebfd8b",
+    "geography":  # v3, 2026-09-03 — a domain pack over core (ontodag-core packs/geography)
+        "5044a0658400765339a74c9b27130123882456d68acebd97426fdc0825079286",
     "space":  # v2, 2026-09-03 — a domain pack over core (ontodag-core packs/space)
         "0af13b42bea190b305ed4b68e5127eb7d1ef0b19b820e28a0849f6c6f96400b4",
 }
@@ -266,22 +266,22 @@ SWARM_GOLDEN_ROOTS = {  # the same packs under Swarm (BMT) addressing —
     "biology":
         "52116988bbfde1c1ba1624816773115aba9691584cbb3f9193a361e48f236a15",
     "medicine":
-        "0964e77c9b140f541c299216f7348de7ba273989c4187d40f3f9028b6e7c5c4a",
+        "5d7775fbe17f82ba9326944d00976b18d34356d380fa8e557509cf4b3979fd8d",
     "ai":
-        "c270517563ca226009e9101db3fe25c12b146eff05684f24bb2c2268a5ffa315",
+        "2f186ae26059e17ffa2ad80ec4bae6e38cc2af2da55df1c7f5b50ec5d7a80ea1",
     "economics":
-        "b49aa71d2e4dfae4911ee0b6ff99d7ea32e3034bc014146116b062d69895efbd",
+        "cd820c2090cc45999b59ae6c1ce589c5a9fb72f3c243961f03b72c372a2f41d4",
     "computing":
         "8b3e6267c1ef3688ceef5c3a503f471594e1d360720ce8da23352a305068df7c",
     "geography":
-        "0430bc5b797c60faa9a4ac41bef639599ea9cc42b685ba054cd852f136ee7001",
+        "f1bcc3ccb9a0d47c9a5a88806054feea7502c0fb6e2338bb6d9c3784a509bb22",
     "space":
         "503159e77982f7933780bd33e34aed299ecf8daa4f67491625d452d39f46655e",
 }
 
 
 UNION_ROOT = (  # core + all ten domain packs, any order (ontodag-core tools/integrate.py, UPPER.md §8.1)
-    "81650b1bf01610530e30afac069d8fc68223e6efbb31023a46a6de102328c2b6")
+    "1d67a67033859582e63faba79538f1e81ab8260e241e36e2cdd18d544f3f0482")
 
 DOMAIN_PACKS = ["physics", "mathematics", "chemistry", "biology", "medicine", "ai",
                 "economics", "computing", "geography", "space"]
@@ -350,7 +350,7 @@ class TestDomainPacks(unittest.TestCase):
         for name in DOMAIN_PACKS:
             apply(dag, name)
         self.assertEqual(dag.commit(), UNION_ROOT)
-        self.assertEqual(len(dag.nodes) - 1, 9786)
+        self.assertEqual(len(dag.nodes) - 1, 9777)
         # cross-pack claims resolve in the union
         self.assertTrue(dag.is_below("shapefile", "file-format"))          # geography -> computing
         self.assertTrue(dag.is_below("merkle-dag", "directed-acyclic-graph"))  # computing -> mathematics

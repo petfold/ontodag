@@ -1,7 +1,7 @@
 """The `core` pack, version 5: an upper ontology built by consensus, adopted by merge.
 
 GENERATED — do not edit by hand. The list is produced in the sister repo
-github.com/petfold/ontodag-core (tools/build.sh, commit 7c39beb) from WordNet 3.0, Wikidata,
+github.com/petfold/ontodag-core (tools/build.sh, commit fb54269) from WordNet 3.0, Wikidata,
 SUMO, OpenCyc, schema.org, YAGO 4, BFO and DOLCE: every edge below is entailed
 by at least two independent sources, or accepted by Peter's review; every
 name is a hand-checked plain English word (a sense that shares its word with

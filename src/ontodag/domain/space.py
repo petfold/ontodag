@@ -1,7 +1,7 @@
 """The `space` pack, version 2: 352 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/space, commit 7c39beb) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/space, commit fb54269) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack space` applies first; core's names appear below only as parents.

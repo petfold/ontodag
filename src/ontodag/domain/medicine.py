@@ -1,7 +1,7 @@
-"""The `medicine` pack, version 2: 1048 categories, adopted by merge.
+"""The `medicine` pack, version 3: 1045 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/medicine, commit 7c39beb) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/medicine, commit fb54269) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack medicine` applies first; core's names appear below only as parents.
@@ -10,13 +10,12 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 2
+VERSION = 3
 
 BORROWED = ()
 
 # (name, parents) — sorted by name.
 PACK = (
-    ('abarticulation', ('joint-dislocation',)),
     ('abdominoplasty', ('plastic-surgery',)),
     ('ablation', ('operation',)),
     ('abortionist', ('person',)),
@@ -208,7 +207,6 @@ PACK = (
     ('ciprofloxacin', ('antibacterial',)),
     ('circulatory-shock', ('illness',)),
     ('client-centered-therapy', ('psychotherapy-treatment',)),
-    ('clinical-neurology', ('medical-specialty', 'science')),
     ('clinical-psychology', ('psychology',)),
     ('clinical-sign', ('evidence',)),
     ('clinician', ('professional',)),
@@ -314,7 +312,7 @@ PACK = (
     ('dyspnea', ('event', 'symptom')),
     ('ear-doctor', ('medical-specialist',)),
     ('ebola-hemorrhagic-fever', ('hemorrhagic-fever',)),
-    ('ecchymosis', ('bruise',)),
+    ('ecchymosis', ('injury',)),
     ('echolalia', ('activity',)),
     ('electric-burn', ('burn',)),
     ('electric-shock-injury', ('injury',)),
@@ -573,7 +571,6 @@ PACK = (
     ('low-level-radioactive-waste', ('material',)),
     ('lower-respiratory-infection', ('respiratory-tract-infection',)),
     ('lumpectomy', ('ablation',)),
-    ('lunacy', ('insanity',)),
     ('lung-cancer', ('carcinoma',)),
     ('lymphoblastic-leukemia', ('lymphocytic-leukemia',)),
     ('lymphocytic-leukemia', ('leukemia',)),
@@ -945,7 +942,7 @@ PACK = (
     ('subtilin', ('antibacterial',)),
     ('sucralfate', ('medication',)),
     ('suction-curettage', ('abortion', 'curettage')),
-    ('sudorific', ('medication',)),
+    ('sudorific', ('substance',)),
     ('sunburn', ('event', 'first-degree-burn', 'skin-disease')),
     ('superinfection', ('condition',)),
     ('suppository', ('medication',)),

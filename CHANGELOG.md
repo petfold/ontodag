@@ -12,6 +12,21 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [0.22.1] — 2026-09-03
+
+### Changed
+
+- **Domain packs v3** for `medicine`, `ai`, `economics` and `geography`: the
+  duplicate list from ontodag-core's `crosspack.py` resolved with Peter's
+  rule — of two synonyms keep the first. Dropped: `rate-of-exchange`,
+  `lunacy`, `line-of-credit`, `export`, `leverage`, `android-robot`,
+  `clinical-neurology`, `abarticulation`, `futures-exchange`. Geography's
+  water spring is `natural-spring` (`outflow` read as finance). Twelve other
+  pairs were Wikidata merging two distinct WordNet concepts onto one item;
+  both names stay. Released as a patch the same day because a rename or a
+  drop never propagates by merge. Core is unchanged (v5). Golden roots
+  re-pinned for the four packs and the union.
+
 ## [0.22.0] — 2026-09-03
 
 ### Changed
