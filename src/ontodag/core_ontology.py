@@ -1,7 +1,7 @@
 """The `core` pack, version 4: an upper ontology built by consensus, adopted by merge.
 
 GENERATED — do not edit by hand. The list is produced in the sister repo
-github.com/petfold/ontodag-core (tools/build.sh, commit 5bf8167) from WordNet 3.0, Wikidata,
+github.com/petfold/ontodag-core (tools/build.sh, commit a34dab3) from WordNet 3.0, Wikidata,
 SUMO, OpenCyc, schema.org, YAGO 4, BFO and DOLCE: every edge below is entailed
 by at least two independent sources, or accepted by Peter's review; every
 name is a hand-checked plain English word (a sense that shares its word with
@@ -1205,6 +1205,7 @@ CORE = (
     ('gaze', ('activity',)),
     ('gear', ('mechanism',)),
     ('gear-tooth', ('artifact',)),
+    ('gem', ('mineral',)),
     ('general', ('worker',)),
     ('genius', ('human',)),
     ('gentleman', ('man',)),
@@ -2669,7 +2670,7 @@ CORE = (
     ('symbol', ('information',)),
     ('sympathetic-concern', ('feeling',)),
     ('symptom', ('evidence',)),
-    ('syndrome', ('symptom',)),
+    ('syndrome', ('disease', 'symptom')),
     ('table', ('furniture',)),
     ('tactic', ('plan',)),
     ('tail', ('body-part',)),

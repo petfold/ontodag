@@ -27,7 +27,9 @@ the version numbers appear in commit history and docs.
   categories.
   Regenerated 2026-09-03 from ontodag-core `5bf8167`: `pan` is the cooking pan
   (the chimpanzee genus became `genus-pan`), `pb` is `lead-metal`; golden roots
-  re-pinned.
+  re-pinned. Regenerated again from `a34dab3` (afternoon): `dividend` is the
+  company dividend, not WordNet's "a bonus" sense; `gem ⊑ mineral`; `syndrome
+  ⊑ disease`; 2,928 categories.
 
 ## [0.19.1] — 2026-09-02
 
