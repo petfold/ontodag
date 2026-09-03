@@ -1,8 +1,8 @@
 # The `core` pack: an upper ontology built by consensus
 
 Design record for `src/ontodag/core_ontology.py`, shipped as the pack
-`core` (v3, 2026-09-02; v2 was published in 0.19.0 the same day and is
-superseded — see Versioning). The list is **generated** in the sister repository
+`core` (v4, 2026-09-03; v3 shipped in 0.19.1 and v2 in 0.19.0 the day
+before, both superseded — see Versioning). The list is **generated** in the sister repository
 [ontodag-core](https://github.com/petfold/ontodag-core); this page says
 what the pack is for, how it was built, how a node earns its place, and
 what it deliberately cannot do. `odag pack core --show` prints the list.
@@ -141,6 +141,37 @@ part and the gear tooth is `gear-tooth`), drops sixteen near-duplicates, and
 carries the edges. A store that adopted v2 keeps its old names; nothing
 merges them away, which is exactly why the fix went out the same day.
 
+
+
+**v4 (0.20.0, 2026-09-03): Wikidata joins the witnesses.** 2,085 of the
+core's concepts align to Wikidata exactly (through its WordNet synset ids,
+P8814, and the 3.1→3.0 sense-key bridge), so the subclass edges among those
+items are a fourth independent source. Against v3: 13 concepts newly
+placed, about 80 gain a parent (`doctor ⊑ professional`, `singer ⊑
+musician`; `cave`, `glacier`, `hill`, `ridge`, `mountain-range`, `valley`
+and `cliff` ⊑ `landform`; `fog ⊑ cloud`; `bill ⊑ cash`; `option ⊑
+contract`), nothing lost — published edges are sticky by construction, and
+Wikidata's two contradictions of v3 (`money ⊑ currency`, `research-worker ⊑
+scientist`) are queued for a ruling rather than retracted. Three **sense
+corrections**, each an intervention against the published name and made
+now because a sense, like a rename, never propagates by merge: `dividend`
+is the company dividend (v3 had WordNet's "a bonus; something extra");
+`meteorology` is the science (v3 had "predicting what the weather will be",
+and unplaced); `star` is the physical star (v3 had "any celestial body
+visible as a point of light" — the edge `star ⊑ celestial-body` is the same,
+so only the alignment moved). Renames in the same pass: the cooking `pan`
+takes the word and the chimpanzee genus is `genus-pan`; `pb` is
+`lead-metal`. 2,929 listed categories.
+
+The same weeks built **ten domain packs** in ontodag-core beside core —
+physics, mathematics, chemistry, biology, medicine, ai, economics,
+computing, geography, space, about 6,900 categories together — under the
+policy of §7 there: hinges in core, contents in packs, everyday words never
+taken by a pack. They are **not in this wheel**; how they ship is an open
+decision (PACKS.md Part II). What is settled is that they fit: ontodag-core's
+`tools/integrate.py` merges core and all ten into one store — 9,793
+categories, the same root in every merge order, every cross-pack claim
+resolving — with roots pinned in ontodag-core's UPPER.md §8.1.
 
 `CORE_VERSION` bumps whenever the list changes; the list itself is
 regenerated from ontodag-core's review files, never edited by hand.

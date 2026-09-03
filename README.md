@@ -47,7 +47,7 @@ currencies, `crypto-majors` for the market's top coins — or declare your
 own: vocabulary is graph data that travels with the store, no release
 needed; the shipped packs are also published on Swarm, adoptable by
 fingerprint alone, and adopting one reproduces the pinned golden root
-byte-identically). `odag prelude` declares the everyday dimensions in one command. A **starting vocabulary** ships the same way: `odag pack core` merges an upper ontology of ~2,900 categories in ten branches, built by consensus over WordNet, SUMO, OpenCyc, schema.org, YAGO, BFO and DOLCE (every edge carried by two independent sources or an explicit ruling; [docs/CORE.md](docs/CORE.md)), so a plane ticket is a document and an email from a man is an email from a human before you file anything. Weights and sizes (`weight(..5kg)`), hierarchical codes like geohash
+byte-identically). `odag prelude` declares the everyday dimensions in one command. A **starting vocabulary** ships the same way: `odag pack core` merges an upper ontology of ~2,900 categories in ten branches, built by consensus over WordNet, SUMO, OpenCyc, schema.org, YAGO, BFO, DOLCE and Wikidata (every edge carried by two independent sources or an explicit ruling; [docs/CORE.md](docs/CORE.md); ten domain packs from physics to space are built the same way in [ontodag-core](https://github.com/petfold/ontodag-core) and will follow), so a plane ticket is a document and an email from a man is an email from a human before you file anything. Weights and sizes (`weight(..5kg)`), hierarchical codes like geohash
 cells, and does-it-fit tuples all work the same way. See
 [User Guide §4.7](docs/USER_GUIDE.md) and the design record
 [docs/DIMENSIONS.md](docs/DIMENSIONS.md).

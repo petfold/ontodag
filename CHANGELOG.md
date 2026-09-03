@@ -12,29 +12,42 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
-## [Unreleased]
+## [0.20.0] — 2026-09-03
 
 ### Changed
 
 - **core v4: Wikidata joins the witnesses.** 2,085 of the core's concepts
   align to Wikidata exactly, through its WordNet synset ids (P8814) and the
-  3.1→3.0 sense-key bridge; the subclass edges among those items are a
-  fourth independent witness. Net effect on the published v3: 13 concepts
-  newly placed, 72 gain a parent (`doctor ⊑ professional`, `singer ⊑
-  musician`), nothing lost — published edges are sticky by construction,
-  and the two Wikidata contradicts (`money ⊑ currency`, `research-worker ⊑
-  scientist`) are queued for a ruling rather than retracted. 2,927
-  categories.
-  Regenerated 2026-09-03 from ontodag-core `5bf8167`: `pan` is the cooking pan
-  (the chimpanzee genus became `genus-pan`), `pb` is `lead-metal`; golden roots
-  re-pinned. Regenerated again from `a34dab3` (afternoon): `dividend` is the
-  company dividend, not WordNet's "a bonus" sense; `gem ⊑ mineral`; `syndrome
-  ⊑ disease`; regenerated again 2026-09-03 evening from ontodag-core
-  7ecc92c after the geography pack's Wikidata pull refined core by consensus —
-  cave, glacier, hill, ridge, mountain-range, valley and cliff now ⊑ landform,
-  fog ⊑ cloud, bill ⊑ cash, option ⊑ contract — and core's `meteorology`, which
-  had been WordNet's *forecast* sense and unplaced, is the science; 2,929 listed
-  categories.
+  3.1→3.0 sense-key bridge, so the subclass edges among those items are a
+  fourth independent source beside WordNet, SUMO and OpenCyc. Against v3:
+  13 concepts newly placed and about 80 gain a parent (`doctor ⊑
+  professional`, `singer ⊑ musician`, `gem ⊑ mineral`, `syndrome ⊑ disease`;
+  `cave`, `glacier`, `hill`, `ridge`, `mountain-range`, `valley` and `cliff`
+  ⊑ `landform`; `fog ⊑ cloud`; `bill ⊑ cash`; `option ⊑ contract`), nothing
+  lost — published edges are sticky by construction; Wikidata's two
+  contradictions of v3 (`money ⊑ currency`, `research-worker ⊑ scientist`)
+  are queued for a ruling, not retracted. 2,929 listed categories; golden
+  roots re-pinned under both addressings (docs/CORE.md, Versioning).
+- **Three core senses corrected** — a sense, like a rename, never
+  propagates by merge, which is why they go out now rather than accrue:
+  `dividend` is the company dividend (was WordNet's "a bonus; something
+  extra"); `meteorology` is the science (was "predicting what the weather
+  will be", and unplaced); `star` is the physical star (was "any celestial
+  body visible as a point of light" — same edge, so only the alignment
+  moved). Two renames: the cooking `pan` takes the word (the chimpanzee
+  genus is `genus-pan`); `pb` is `lead-metal`.
+
+### Documentation
+
+- Guide §4.7: **a measurement is a range, not a point** — a scale's 3.2 kg is
+  `weight(3.15kg..3.25kg)`, a finer reading refines by containment and a
+  disagreement is detectable; definitional values (`0C`, `1in`) are points
+  (UNITS.md §12, executed snippet).
+- CORE.md records v4 and points at the ten domain packs built in
+  ontodag-core (physics, mathematics, chemistry, biology, medicine, ai,
+  economics, computing, geography, space — about 6,900 categories, one
+  integration build of core plus all ten converging on a single root).
+  They are not in this wheel; distribution is an open decision.
 
 ## [0.19.1] — 2026-09-02
 
