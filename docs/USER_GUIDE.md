@@ -773,6 +773,30 @@ What to know:
   nothing at all.
 - **A point is not a range.** `weight(3kg)` is *not* below `weight(5kg)` —
   a 3 kg bag is not a special case of a 5 kg one. Use `weight(..5kg)`.
+- **A measurement is a range, not a point.** Your scale said 3.2 kg; that
+  means *between 3.15 and 3.25*, and that is what to file:
+  `weight(3.15kg..3.25kg)`. A point value claims infinite precision, so when
+  someone reweighs the parcel and files `weight(3.21kg)` the store holds two
+  categories for one fact and neither contains the other. Filed as ranges,
+  the more precise reading sits *below* the coarser one by ordinary
+  containment — a refinement, not a conflict — and two readings that
+  genuinely disagree show up as ranges that do not overlap:
+
+  ```console
+  $ odag put parcel 'weight(3.15kg..3.25kg)'            # the scale said 3.2 kg
+  $ odag put parcel-reweighed 'weight(3.21kg..3.22kg)'  # a better scale
+  $ odag below parcel-reweighed 'weight(3.15kg..3.25kg)'
+  true
+  $ odag get 'weight(3.15kg..3.25kg)'
+  parcel
+  parcel-reweighed
+  weight(321/100kg..161/50kg)
+  ```
+
+  Points are for numbers that are exact by definition — `0C`, `1in`, a
+  pack of six, a 2 kg *nominal* bag — never for anything read off an
+  instrument. The full verdict, with the boiling-point case that prompted
+  it, is `UNITS.md` §12.
 - **An item sits in the intersection of its parents**, so filing one thing
   under two non-overlapping values of the same dimension
   (`time(..2026-01-01)` *and* `time(2026-12-31..)`) is refused with an error. For
