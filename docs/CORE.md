@@ -167,8 +167,9 @@ The same weeks built **ten domain packs** in ontodag-core beside core —
 physics, mathematics, chemistry, biology, medicine, ai, economics,
 computing, geography, space, about 6,900 categories together — under the
 policy of §7 there: hinges in core, contents in packs, everyday words never
-taken by a pack. They are **not in this wheel**; how they ship is an open
-decision (PACKS.md Part II). What is settled is that they fit: ontodag-core's
+taken by a pack. Since 0.21.0 they **ship in the wheel** (`odag pack geography`; each applies
+core first, `ontodag.domain`), the reversible half of the PACKS.md Part II
+decision — publishing them to Swarm later is the same stores. They fit: ontodag-core's
 `tools/integrate.py` merges core and all ten into one store — 9,793
 categories, the same root in every merge order, every cross-pack claim
 resolving — with roots pinned in ontodag-core's UPPER.md §8.1.

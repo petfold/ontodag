@@ -31,6 +31,26 @@ GOLDEN_ROOTS = {  # pack v1 fingerprints: everyone merging these converges
         "71aa064725388fc8a5b0fbefa8b5053a4afdda415d23f78ef7a677d280465ff5",
     "fiat-iso4217":
         "f1a2226ca3f4bbb90437d7331bbb5aa8758673a8f8350eec8c5b3d57c7b5ba7b",
+    "physics":  # v1, 2026-09-03 — a domain pack over core (ontodag-core packs/physics)
+        "b148bf5de9b8229210301bd60f6af4defa37fe50f37c3d997bf998185785a072",
+    "mathematics":  # v1, 2026-09-03 — a domain pack over core (ontodag-core packs/mathematics)
+        "adc892dcae95012ed9a5daa942c02034c4175bf569954fc2464bd597a749ce93",
+    "chemistry":  # v1, 2026-09-03 — a domain pack over core (ontodag-core packs/chemistry)
+        "206db41a1bc59f9b88cfa4f25363541ebe4e8352cb545a439797390db04318d1",
+    "biology":  # v1, 2026-09-03 — a domain pack over core (ontodag-core packs/biology)
+        "8e4413582c6a7a68a19d69fa1a77830b7eb37abd4d5ea54384e188c8efe423b0",
+    "medicine":  # v1, 2026-09-03 — a domain pack over core (ontodag-core packs/medicine)
+        "380ca8349d3519c3a9fb9892cc717b0f2691c86343dea7f0570bfbabd60afea9",
+    "ai":  # v1, 2026-09-03 — a domain pack over core (ontodag-core packs/ai)
+        "b86e048286de64a0fc9fb0a047f5766b782aed44ec2689d647b68e2bec6fda36",
+    "economics":  # v1, 2026-09-03 — a domain pack over core (ontodag-core packs/economics)
+        "abb74252b52016b6f652515b52ca750750002f0376bbb83f3a432e945a3cc2c2",
+    "computing":  # v1, 2026-09-03 — a domain pack over core (ontodag-core packs/computing)
+        "7c3d6a5e7e7130a3e1561857dc1546fd9d90e1da6732a6bbea668b1cf73e895f",
+    "geography":  # v1, 2026-09-03 — a domain pack over core (ontodag-core packs/geography)
+        "4b1a14b9ac5664cd06022ab431a8a6ddb5efae17fb6a0b00e9f915ac4354355e",
+    "space":  # v1, 2026-09-03 — a domain pack over core (ontodag-core packs/space)
+        "fbd2756c069d6b7283aaa0f8c1c2dd5d229aae68d519708c6fca6be6d131c2aa",
 }
 
 
@@ -237,7 +257,35 @@ SWARM_GOLDEN_ROOTS = {  # the same packs under Swarm (BMT) addressing —
         "5bcad36bf97c08af3affdbd73ef56a3bd357441ac0ce4633e4b37d6d5bbd08d1",
     "fiat-iso4217":
         "36a9e1e2fdce1f87b273a50938f30cf931a0880b2bba8ab1a3dea1fe0309dd7b",
+    "physics":
+        "d294774d44350c60a916b30acbb939731c4f8b6ee9a373d9c138ceec9dc2e7bb",
+    "mathematics":
+        "2c29f3729965c0e3c7cbb78899ffbd58f3e1b955179c067700a4b18651291d2f",
+    "chemistry":
+        "28f0649fe5ce870db1dd70df939cc43753d385d10839a0b9c2b0d7ca05f8e60b",
+    "biology":
+        "8ac757ebb13eafc03225ec5a3ec84aa96ac5a46f75b13b901a9469f0d654f26c",
+    "medicine":
+        "201e0b8e1ce1d0d3de39bbb7f99838af23026a21d6fbd525b7c10f60d49a256a",
+    "ai":
+        "3658d68c342429cee3d896c28baa5b54449ba1c4dded4df4a0390706e2cdcfe0",
+    "economics":
+        "b07549b34e1b885d05ab3f90bc284f6ccb8fb000bbe4483e2f39e441689884d9",
+    "computing":
+        "99684265b443dc1e4bd0ce2ea182064d340bb1719e196495da4968d25dcc44fb",
+    "geography":
+        "3b5c2d5c9ca87551318ce03b53842d867768d9e23e1d78e3da1b8cf8a6c6eb40",
+    "space":
+        "b6379f5c713db7ecbcfe0b1d269d2767823c2e28fbdb0d0df2ef103df626ac8b",
 }
+
+
+UNION_ROOT = (  # core + all ten domain packs, any order (ontodag-core tools/integrate.py, UPPER.md §8.1)
+    "759ebb5a5613cb9d309cbd5665f07e9227c4aad22d3214d12116ccabc334881a")
+
+DOMAIN_PACKS = ["physics", "mathematics", "chemistry", "biology", "medicine", "ai",
+                "economics", "computing", "geography", "space"]
+SLOW_DOMAIN_PACKS = set(DOMAIN_PACKS) - {"space"}   # the smallest one runs always; see the two gated loops
 
 
 class TestPublishedPackStores(unittest.TestCase):
@@ -252,6 +300,9 @@ class TestPublishedPackStores(unittest.TestCase):
         import io as _io
         import ontodag.__main__ as cli
         for name, golden in GOLDEN_ROOTS.items():
+            if name in SLOW_DOMAIN_PACKS and not os.environ.get("ONTODAG_SLOW_TESTS"):
+                continue    # a full on-disk adoption per domain pack is minutes of blob writes;
+                            # `space` stands in for the path, ONTODAG_SLOW_TESTS=1 runs them all
             with tempfile.TemporaryDirectory() as home:
                 os.environ["ONTODAG_HOME"] = home
                 path = os.path.join(home, "pack")
@@ -275,11 +326,50 @@ class TestPublishedPackStores(unittest.TestCase):
             except Exception as exc:                # extra not installed
                 self.skipTest(f"swarm addressing unavailable: {exc}")
         for name, golden in SWARM_GOLDEN_ROOTS.items():
+            if name in SLOW_DOMAIN_PACKS and not os.environ.get("ONTODAG_SLOW_TESTS"):
+                continue    # BMT-hashing ~4,000 records per pack; `space` stands in, ONTODAG_SLOW_TESTS=1 runs all
             with tempfile.TemporaryDirectory() as d:
                 blobs = DirBytesStore(d, addressing="swarm")
                 dag = ontodag.EagerOntoDAG(RecordStore(blobs))
-                dag.merge(pack_dag(name))
+                apply(dag, name)
                 self.assertEqual(dag.commit(), golden, name)
+
+
+class TestDomainPacks(unittest.TestCase):
+    """The ten domain packs of 0.21.0: each presumes core, each adopts alone
+    (a sibling's name it leans on sits at top level until the sibling comes),
+    and all ten with core converge on ONE root in any order — the integration
+    build ontodag-core runs, reproduced here from the shipped modules."""
+
+    def test_union_of_core_and_every_pack_has_one_root(self):
+        if not os.environ.get("ONTODAG_SLOW_TESTS"):
+            self.skipTest("~3 min: ten merges into a 9,000-node store; ONTODAG_SLOW_TESTS=1 runs it "
+                          "(ontodag-core's tools/integrate.py is the other witness to this root)")
+        dag = ontodag.EagerOntoDAG(RecordStore(MemoryBytesStore()))
+        apply(dag, "core")
+        for name in DOMAIN_PACKS:
+            apply(dag, name)
+        self.assertEqual(dag.commit(), UNION_ROOT)
+        self.assertEqual(len(dag.nodes) - 1, 9793)
+        # cross-pack claims resolve in the union
+        self.assertTrue(dag.is_below("shapefile", "file-format"))          # geography -> computing
+        self.assertTrue(dag.is_below("merkle-dag", "directed-acyclic-graph"))  # computing -> mathematics
+        self.assertTrue(dag.is_below("celestial-coordinate-system", "coordinate-system"))  # space -> geography
+        # and nothing but core's roots and the prelude's kind node sits at the top
+        tops = {x.name for x in dag.nodes["*"].neighbors}
+        self.assertEqual(tops, {"agent", "attribute", "cognition", "dimension", "event", "field-of-study",
+                                "information", "physical-object", "place", "possession", "substance"})
+
+    def test_a_pack_alone_leaves_a_borrowed_name_at_top_level_until_its_sibling_comes(self):
+        from ontodag.packs import pack_dag, describe, packs_declaring_node
+        dag = pack_dag("geography")
+        self.assertIn("file-format", {x.name for x in dag.nodes["*"].neighbors})   # computing's, borrowed
+        self.assertTrue(dag.is_below("shapefile", "file-format"))
+        apply(dag, "computing")
+        self.assertNotIn("file-format", {x.name for x in dag.nodes["*"].neighbors})  # filed under information
+        self.assertEqual(describe("geography"), "1008 categories")             # borrowed names not counted
+        self.assertEqual(packs_declaring_node("file-format"), ["computing"])   # and never hinted as geography's
+        self.assertEqual(packs_declaring_node("mount-everest"), ["geography"])
 
 
 class TestCorePack(unittest.TestCase):
@@ -326,8 +416,11 @@ class TestCorePack(unittest.TestCase):
         self.assertFalse(is_unit_pack("core"))
         self.assertNotIn(UNIT_DECLARATION, pack_dag("core").nodes)
         for other in PACKS:
-            if other not in ("core", "prelude"):
+            if other not in ("core", "prelude") and other not in DOMAIN_PACKS:
                 self.assertTrue(is_unit_pack(other), other)
+        for other in DOMAIN_PACKS:                 # categories over core, never units
+            self.assertFalse(is_unit_pack(other), other)
+            self.assertNotIn(UNIT_DECLARATION, pack_dag(other).nodes)
 
     def test_composes_with_the_prelude_and_is_idempotent(self):
         from ontodag.prelude import apply as prelude

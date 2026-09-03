@@ -937,6 +937,43 @@ a kind), and why the sciences contribute only their hinges (`disease`,
 `chemical-element`, `cell`), with the contents left to domain packs where
 a mistake is survivable. The reasoning is in `docs/CORE.md`.
 
+**The domain packs** are those contents, ten of them since 0.21.0, built the
+same way in the same repository: `physics`, `mathematics`, `chemistry`,
+`biology`, `medicine`, `ai`, `economics`, `computing`, `geography`, `space`
+— about 6,900 categories over core. Each applies `core` for you (as core
+applies the prelude), and all ten with core converge on one root whatever
+order you adopt them in:
+
+```console
+$ odag pack geography
+$ odag put base-camp.jpg mount-everest
+$ odag below base-camp.jpg landform
+true
+$ odag count landform
+118
+```
+
+A pack sometimes hangs a concept from a name that belongs to a *sibling*
+pack — geography's GIS formats under computing's `file-format`. Adopted
+alone, that borrowed name sits at the top level, and the moment the
+sibling arrives it is filed; nothing has to be redone:
+
+```console
+$ odag put readme.md shapefile
+$ odag get file-format
+geographic-data-format
+geojson
+geotiff
+$ odag pack computing
+$ odag below readme.md information
+true
+```
+
+The scope of each pack — and what was deliberately left out (economics
+carries no macroeconomics, geography no countries, space no numbers) — is
+in ontodag-core's `docs/UPPER.md` §8. Every one of them has had one
+reading; the science packs two.
+
 ## 5. The command line
 
 Everything in §4 can be done without writing any Python. The command is `odag`, and
@@ -1334,7 +1371,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.20.0 - type help for help
+Ontodag 0.21.0 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png

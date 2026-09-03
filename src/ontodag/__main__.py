@@ -1631,7 +1631,7 @@ def cmd_pack(args, session, out):
     # explicit, idempotent merge — the prelude pattern, for units. The
     # vocabulary then travels inside the store itself.
     from ontodag.dimensions import UNIT_DECLARATION
-    from ontodag.packs import PACKS, describe, pack_dag, pack_entries
+    from ontodag.packs import PACKS, adoption_dag, describe, pack_dag, pack_entries
     if not args.name:
         for name in sorted(PACKS):
             version, _entries = PACKS[name]
@@ -1652,8 +1652,8 @@ def cmd_pack(args, session, out):
     if args.diff:
         # Diff-preview adoption (PACKS.md §13.2): same preview as
         # `merge --diff`, because adopting a pack IS a merge.
-        return _preview_merge(args, session, pack_dag(args.name), out)
-    session.dag.merge(pack_dag(args.name))
+        return _preview_merge(args, session, adoption_dag(session.dag, args.name), out)
+    session.dag.merge(adoption_dag(session.dag, args.name))
     session.save()
 
 

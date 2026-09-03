@@ -19,6 +19,9 @@ denominations are declared where a protocol fixes them.
 """
 
 from ontodag.core_ontology import CORE, CORE_VERSION
+from ontodag.domain import (physics as _physics, mathematics as _mathematics, chemistry as _chemistry,
+                            biology as _biology, medicine as _medicine, ai as _ai, economics as _economics,
+                            computing as _computing, geography as _geography, space as _space)
 from ontodag.prelude import DECLARATIONS as _PRELUDE, PRELUDE_VERSION as _PRELUDE_VERSION
 from ontodag.dag import OntoDAG
 from ontodag.dimensions import UNIT_DECLARATION
@@ -100,6 +103,22 @@ PACKS = {
     "fiat-iso4217": (1, tuple(f"unit-family({c})" for c in _ISO4217)),
 }
 
+# The domain packs (ontodag 0.21.0): built by consensus in ontodag-core beside
+# core, under its policy — hinges in core, contents in packs, everyday words
+# never taken by a pack. Each presumes `core` (applied first, as core presumes
+# the prelude). A name a pack hangs things from that belongs to a SIBLING pack
+# is entered parentless (its module's BORROWED) so the pack adopts alone; the
+# sibling files it on adoption — refinement by merge. Together with core they
+# form one store: ontodag-core's tools/integrate.py, golden root in
+# tests/test_packs.py.
+_DOMAIN = {
+    "physics": _physics, "mathematics": _mathematics, "chemistry": _chemistry,
+    "biology": _biology, "medicine": _medicine, "ai": _ai, "economics": _economics,
+    "computing": _computing, "geography": _geography, "space": _space,
+}
+for _name, _module in _DOMAIN.items():
+    PACKS[_name] = (_module.VERSION, _module.PACK)
+
 
 def pack_entries(name):
     """The pack as `(node, parents)` pairs, whichever shape it is written in:
@@ -126,7 +145,8 @@ def describe(name):
     # count what the pack introduces: an edge hung on a prelude node (core's
     # `linear-dimension ⊑ attribute`) adds a claim, not a category
     prelude_names = {n for n, _ in _PRELUDE} if name != "prelude" else set()
-    return f"{sum(1 for e in PACKS[name][1] if e[0] not in prelude_names)} categories"
+    borrowed = set(_DOMAIN[name].BORROWED) if name in _DOMAIN else set()
+    return f"{sum(1 for e in PACKS[name][1] if e[0] not in prelude_names and e[0] not in borrowed)} categories"
 
 
 _SUFFIX_INDEX = None
@@ -167,7 +187,8 @@ def packs_declaring_node(name):
     says which pack brings `invoice`."""
     matches = [pack for pack in PACKS
                if (name == UNIT_DECLARATION and is_unit_pack(pack))
-               or any(node == name for node, _parents in pack_entries(pack))]
+               or any(node == name and not (pack in _DOMAIN and node in _DOMAIN[pack].BORROWED)
+                      for node, _parents in pack_entries(pack))]   # a borrowed name is the sibling's to bring
     return sorted(matches)
 
 
@@ -178,13 +199,29 @@ def presumes_prelude(name) -> bool:
                for n, parents in pack_entries(name))
 
 
+def presumes_core(name) -> bool:
+    """Does pack `name` build on the upper ontology? The domain packs do."""
+    return name in _DOMAIN
+
+
 def pack_dag(name) -> OntoDAG:
     """The pack as a fresh OntoDAG, ready to merge into any store."""
     entries = pack_entries(name)
     dag = OntoDAG()
+    if presumes_core(name):
+        # The pack's own claims only; the core names it hangs from enter as
+        # parentless stubs. Merged into a store that has core, a stub's root
+        # edge is redundant and reduction drops it; `apply` brings core first
+        # when it is missing, so `odag pack geography` alone still gets the
+        # closure. Building core here instead made every adoption rebuild and
+        # re-merge 2,929 nodes (the suite went from 52 s to 11 min).
+        for node, parents in entries:
+            for parent in parents:
+                if parent not in dag.nodes:
+                    dag.put(parent, [])
     if is_unit_pack(name):
         dag.put(UNIT_DECLARATION, [])
-    if name != "prelude" and presumes_prelude(name):
+    if name not in ("prelude",) and not presumes_core(name) and presumes_prelude(name):
         # Dependencies ship as closure: a pack whose parents name the
         # prelude's nodes (core: `linear-dimension ⊑ attribute`; a science
         # pack declaring `force ⊑ linear-dimension`) gets pack zero first.
@@ -205,7 +242,23 @@ def pack_dag(name) -> OntoDAG:
     return dag
 
 
+def adoption_dag(dag, name) -> OntoDAG:
+    """What adopting pack `name` into `dag` merges: the pack, preceded by
+    `core` (and through it the prelude) when the store lacks the core names
+    the pack hangs from — dependencies ship as closure. This is also what
+    `odag pack --diff` previews, so the preview and the act cannot differ."""
+    incoming = pack_dag(name)
+    if presumes_core(name):
+        core_names = {n for n, _ in CORE}
+        needed = {p for _node, parents in pack_entries(name) for p in parents} & core_names
+        if needed - set(dag.nodes):
+            closure = pack_dag("core")
+            closure.merge(incoming)
+            return closure
+    return incoming
+
+
 def apply(dag, name) -> None:
     """Merge pack `name` into `dag`. Idempotent (merge semantics), and the
     vocabulary then travels with the store."""
-    dag.merge(pack_dag(name))
+    dag.merge(adoption_dag(dag, name))
