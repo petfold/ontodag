@@ -22,7 +22,7 @@ from ontodag.packs import PACKS, apply, pack_dag
 
 GOLDEN_ROOTS = {  # pack v1 fingerprints: everyone merging these converges
     "core":  # v1, 2026-09-02 — the upper ontology (docs/CORE.md)
-        "1af481e2d34133b26584cd37b4898a8e2a084448c0ec7a261f0edee3edafc399",
+        "fc49774d178269c7d9ecf48a8012901ceac2b055a33127d38c1fe7cca63c7f26",
     "crypto-core":
         "4d501a439e109269252300d2777145be6ef736bbe5468b7812f016acb730d566",
     "crypto-majors":
@@ -228,7 +228,7 @@ SWARM_GOLDEN_ROOTS = {  # the same packs under Swarm (BMT) addressing —
     # the fingerprints real Swarm publication must reproduce (PACKS.md §14
     # item 1). Computable offline: BMT is a hash, not a network.
     "core":
-        "7602064ff4e48fa0c84dcccf4d07ff9364507b64624174adcceee13535feea6f",
+        "0238dc860933e8d4e737ad155a6e597191f42fef2f16accb0680dbf33b8e8006",
     "crypto-core":
         "bbd0a930d7888aae3ea65c3ce794e793b5362f4e1837f816567889c75c22ea14",
     "crypto-majors":
@@ -370,5 +370,5 @@ class TestCorePack(unittest.TestCase):
             self.assertIn("human ⊑ mammal, person", out.getvalue())
             out = _io.StringIO()
             cli.dispatch(["pack"], session, out=out, err=_io.StringIO())
-            self.assertIn("core v4 (2928 categories)", out.getvalue())
+            self.assertIn("core v4 (2929 categories)", out.getvalue())
             self.assertIn("declarations)", out.getvalue())   # unit packs

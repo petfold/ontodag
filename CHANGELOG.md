@@ -29,7 +29,12 @@ the version numbers appear in commit history and docs.
   (the chimpanzee genus became `genus-pan`), `pb` is `lead-metal`; golden roots
   re-pinned. Regenerated again from `a34dab3` (afternoon): `dividend` is the
   company dividend, not WordNet's "a bonus" sense; `gem ⊑ mineral`; `syndrome
-  ⊑ disease`; 2,928 categories.
+  ⊑ disease`; regenerated again 2026-09-03 evening from ontodag-core
+  7ecc92c after the geography pack's Wikidata pull refined core by consensus —
+  cave, glacier, hill, ridge, mountain-range, valley and cliff now ⊑ landform,
+  fog ⊑ cloud, bill ⊑ cash, option ⊑ contract — and core's `meteorology`, which
+  had been WordNet's *forecast* sense and unplaced, is the science; 2,929 listed
+  categories.
 
 ## [0.19.1] — 2026-09-02
 
