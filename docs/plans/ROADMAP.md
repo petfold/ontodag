@@ -335,6 +335,17 @@ tripwire has to be rediscovered mid-build.
   fires yet — P4's Tier 1 ships with zero new cryptography — but loopmarket
   commits to firing this wall and co-designing rather than building
   circuits independently.
+- **Overlap-mode terms inside `get`'s adaptive planner** (filed
+  2026-09-07, issue #14; `DIMENSIONS.md` §8). Consumer firing now:
+  loopmarket's `DimensionIndex.candidates` computes `get(concepts) &
+  get_overlapping(window)` client-side, two complete queries, so the
+  planner's early termination never applies across dimensions — a
+  category offered only in a few windows/regions can't cut the search
+  short. The overlap result is already a computed cone; let it enter the
+  plan as one (never pre-intersected as a meet). Query-side only, no
+  model change. Fires at **loopmarket P1** (wiring the indexed generator
+  behind its measured book-size threshold); place joins the same call
+  when spacetime terms enter the shared catalogue.
 - **Query workload data for the parked index machinery**
   (`SEMANTIC_CODES.md`'s triggers). Not a feature request: loopmarket will
   log solver query category-sets from day one and deliver the measured

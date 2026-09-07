@@ -290,6 +290,24 @@ normalized before names are formed.
   bucket-decomposition + loopmarket's exact re-check remains
   recall-safe. A match report can then be three-valued: guaranteed /
   possible / impossible.
+- **Overlap terms inside the planner** (filed 2026-09-07 by loopmarket,
+  issue #14). `get_overlapping` shipped as a standalone op, so a
+  consumer needing *containment ∩ overlap* runs two complete queries
+  and intersects client-side — and the planner's smallest-first /
+  walk-vs-probe / empty-stop logic never sees the overlap side. The
+  cheapest plan (walk a small concept cone, then probe upward from the
+  few survivors for an overlapping anchor) is unavailable; a category
+  offered only in a few windows or regions cannot cut the search short.
+  Yet `get_overlapping`'s result is already a *computed cone* — ⋃ over
+  overlapping anchors of ({anchor} ∪ descendants) — the very shape
+  `_virtual_cone` hands the planner for virtual containment terms.
+  Proposal: `get(terms, overlapping=[...])`, each overlap term one more
+  computed cone in the same adaptive plan; probe = climb until an
+  ancestor is in the anchor set. Two rules: overlap terms are **never
+  pre-intersected as meets** (overlapping A and overlapping B does not
+  imply overlapping A ∩ B), and nothing changes in storage or canonical
+  form — the doctrine above stands: overlap is not a cone *in the
+  order*; its query-time denotation is nonetheless a set.
 
 ## 9. Regions and generated sets (agreed 2026-07-30)
 
@@ -360,6 +378,12 @@ tooling, not model.
   quantization error), geohash cells become a `prefix-dimension`
   (containment computed from the name; only used cells materialize).
   The chain/bucket generators survive only as optional derived indexes.
+- loopmarket's candidate generation should be **one planned query**, not
+  three intersected client-side (§8, issue #14, 2026-09-07): meaning
+  (containment), service time (overlap) and — once cell/region terms are
+  in the shared catalogue — place, in one adaptive plan, so whichever
+  dimension is selective prunes first. Its `DimensionIndex.candidates`
+  collapses to one `get(..., overlapping=[...])` call when that lands.
 - Offers pin ontology roots; since the registry's semantics participates
   in reduction, the **registry version must be pinned alongside the
   root** (a module-level `REGISTRY_VERSION`; where it rides in
