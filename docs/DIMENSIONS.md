@@ -307,7 +307,12 @@ normalized before names are formed.
   pre-intersected as meets** (overlapping A and overlapping B does not
   imply overlapping A ∩ B), and nothing changes in storage or canonical
   form — the doctrine above stands: overlap is not a cone *in the
-  order*; its query-time denotation is nonetheless a set.
+  order*; its query-time denotation is nonetheless a set. Companion ask
+  (same issue): make the items-only presentation flag real, so the
+  consumer's remaining `& filed_ids` filter disappears too — the
+  principle is that ontodag is the one intersection engine and the
+  consumer does no set arithmetic on the answer, only its exact
+  pairwise check per candidate.
 
 ## 9. Regions and generated sets (agreed 2026-07-30)
 
