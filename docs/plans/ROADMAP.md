@@ -311,7 +311,7 @@ tripwire has to be rediscovered mid-build.
 
 - **Derived per-node cone-commitment index** (the Merkle-cone-commitment
   wall, `DATABASE_DIRECTION.md`). Fires at **loopmarket P2 start**: its
-  on-chain settlement wants to verify fits-within claims under a pinned
+  on-chain clearing wants to verify fits-within claims under a pinned
   root without re-implementing subsumption verification marketplace-side;
   `is_below` certificates cover the pairwise case today, and the
   cone-commitment index is the batch/streaming form. loopmarket commits to
@@ -447,7 +447,7 @@ Not "someday" items — each is worked out in a design note and waits on a trigg
   monotone claim/implication fragment for knowledge-graph collateral
   netting (`is_below` as implication, disjointness claims as exclusion).
   loopmarket's P3 "guarantee fabric" (bonded stakes on catalogue edges,
-  settlement-attached insurance) is the first structured consumer. Nothing
+  clearing-attached insurance) is the first structured consumer. Nothing
   in this repo depends on any of it.
 - **Materialized intermediate categories.** Adding (and removing) intermediate
   nodes purely to speed up search, chosen by usage statistics; the derived,

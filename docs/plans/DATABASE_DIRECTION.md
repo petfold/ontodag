@@ -328,7 +328,7 @@ future session recognizes the moment instead of pre-building:
   construction. Kin: the POT track in recordstore's ROADMAP (the
   storage-side cousin, with the Solidity verifier). Tripwire: someone
   needs a ⊑ claim verified **on-chain** (factbond dispute settlement,
-  loopmarket P2 settlement), or certificate volume makes cone-sized
+  loopmarket P2 clearing), or certificate volume makes cone-sized
   proofs measurably painful. Until then, the 2026-08-01 certificates
   answer every off-chain need, and building this is pre-building.
 
