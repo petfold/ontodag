@@ -290,6 +290,22 @@ normalized before names are formed.
   bucket-decomposition + loopmarket's exact re-check remains
   recall-safe. A match report can then be three-valued: guaranteed /
   possible / impossible.
+- **Operators along a dimension** (filed 2026-09-07 by loopmarket, not
+  yet an issue). loopmarket's cleared object is now a *circulation* with
+  composed legs: one want satisfied by several gives together — a
+  toothbrush on a forecourt plus a courier's carriage satisfies "toothbrush
+  at the hotel reception by 00:35" (`loopmarket/docs/plans/P2-loop-selection.md`
+  §10–11). The composition is an operator on a dimension's coordinate:
+  transport shifts *place* (cell a → cell b over a time window), storage
+  shifts *time*, exchange shifts *denomination*. The question for ontodag:
+  can such an operator be a catalogue term with computed ordering like a
+  dimension value — `transport(u2ed→u2ef, 00:15..00:35)` — so that
+  `brush@u2ed ⊗ transport(u2ed→u2ef) ⊑ brush@u2ef` is decided by the
+  planner, with the intermediate coordinate of a multi-hop chain left as a
+  free variable the solver binds? Until then loopmarket composes in its
+  own `check_composition` over exact dimension values, and clearing
+  re-verifies it (U3), so this is a pruning ask like overlap, not a
+  correctness one.
 - **Overlap terms inside the planner** (filed 2026-09-07 by loopmarket,
   issue #14). `get_overlapping` shipped as a standalone op, so a
   consumer needing *containment ∩ overlap* runs two complete queries
