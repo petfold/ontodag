@@ -1020,7 +1020,7 @@ odag <command> ...
   ingest [FILE]         load a projection stream — JSON lines of
                         {"item": N, "supercategories": [...]} — from FILE
                         or stdin, as emitted by machine cataloguers like
-                        datacat; idempotent, one commit; --drop NODE
+                        holdings; idempotent, one commit; --drop NODE
                         cone-deletes NODE first (full-rebuild semantics).
                         Usually into its own store, read via `overlays`
   excerpt FILE [CAT...] write just that query's answer to FILE, with the

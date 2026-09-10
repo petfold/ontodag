@@ -2,7 +2,7 @@
 """The PROJECTIONS.md §10.1 measurement: full-rebuild ingestion and
 overlay-view composition at personal-corpus scale, with no real files.
 
-Generates a datacat-shaped projection stream (fake hashes; sys:on:MEDIUM,
+Generates a holdings-shaped projection stream (fake hashes; sys:on:MEDIUM,
 sys:type:EXT, sys:backup:N supercategories; ~20% of items on a second
 medium) and times, per size:
 

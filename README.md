@@ -140,7 +140,7 @@ $ odag get photos sys:on:drive-budapest   # your judgment ∩ the machine's cata
 layer can never leak into a file you send. The contract behind this (sources
 of truth, regenerable projections, the human layer as the only irreplaceable
 data) is [`docs/plans/PROJECTIONS.md`](docs/plans/PROJECTIONS.md), shared with
-[shelfmark](https://github.com/petfold/shelfmark)'s `datacat`, which emits
+[holdings](https://github.com/petfold/holdings), which emits
 exactly this stream from your filesystems and backup drives.
 
 ## Where a store lives

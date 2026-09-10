@@ -89,7 +89,7 @@ of one specific, underdeveloped part of beeson.
   now gets a name, a canonical wire format, and a hash-addressable reference.
 - Persist concept nodes through `recordstore`, keyed by concept ID (or by content hash,
   if concept identity should be structural — see open question in §8).
-- The `sys:` projection namespace in `datacat.py` (regenerable mapping from placement
+- The `sys:` projection namespace in `holdings.py` (regenerable mapping from placement
   facts to human categories) keeps its existing role as a local, disposable *view*. The
   only change is that the authoritative store it's regenerated from becomes
   Swarm-persisted via `recordstore` rather than local SQLite.

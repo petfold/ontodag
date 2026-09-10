@@ -319,7 +319,7 @@ scorched-earth re-adoption by root).
   anonymous session would serve strangers another user's data.
 - **`odag ingest [FILE] [--drop NODE]`**: load a projection stream —
   JSON lines of `{"item": N, "supercategories": [...]}`, the
-  PROJECTIONS.md §4 wire format emitted by datacat's `project-ontodag`.
+  PROJECTIONS.md §4 wire format emitted by holdings' `project-ontodag`.
   Idempotent (re-runs are graph no-ops), order-free (missing categories
   are created provisionally at top level and refined when their own line
   arrives), one commit per run, and `--drop` cone-deletes a namespace

@@ -10,8 +10,7 @@ store over content-addressed storage
 where directories are queries
 ([ontodag-fs](https://github.com/petfold/ontodag-fs)), a catalog that
 knows which backup drive holds which file
-([shelfmark](https://github.com/petfold/shelfmark), and its `datacat`
-tool), and a middleware that treats every chat, inbox and feed as one
+([holdings](https://github.com/petfold/holdings)), and a middleware that treats every chat, inbox and feed as one
 kind of thing ([ucomm](https://github.com/petfold/ucomm)).
 
 Then we drew the diagram, and laughed, because we had seen it before —
@@ -22,7 +21,7 @@ in every operating systems textbook:
 | block device | recordstore over Swarm (content-addressed, versioned) |
 | filesystem | ontodag-fs (directories are queries; one file, several true names) |
 | namespace | OntoDAG (the category lattice itself) |
-| volume manager | shelfmark/datacat (which media hold which bytes; redundancy as a report) |
+| volume manager | holdings (which media hold which bytes; redundancy as a report) |
 | IPC & notifications | ucomm (channels, envelopes, one inbox) |
 | scheduler | ucomm's attention layer (the scarcest resource is you) |
 | standard library | the prelude and packs (shared vocabulary, adopted by merge) |

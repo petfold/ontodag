@@ -36,7 +36,7 @@ BINDING (roles, bundles, multiplicity),
 EVOLUTION (how an ontology changes; the top ontology), PACKS (published
 ontologies and trust; Part II = the 2026-08-20 decisions and build
 order), PROJECTIONS (sources of truth vs. regenerable
-machine layers, the ingest contract with datacat/ucomm, retention
+machine layers, the ingest contract with holdings/ucomm, retention
 classes), SEMA (relation to the SEMA project: hash-of-definition vs.
 canonical-state grains, lessons, collaboration options), SURFACE_LAYER
 (the human layer), WEB_UI (a simpler

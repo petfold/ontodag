@@ -704,7 +704,7 @@ Optional, pull-forward-anytime (agreed 2026-07-20): **in-memory cone bitmaps beh
 
 **Overlay views + `odag ingest` + the projection-drop golden test**, in one
 commit (`c92696b`), making the personal-data pipeline runnable end to end:
-datacat scan → `project-ontodag` JSONL → `odag -f proj.od ingest` → joined
+holdings scan → `project-ontodag` JSONL → `odag -f proj.od ingest` → joined
 browse with `set overlays proj.od`. The seam is `Session.view()` (primary ∪
 configured overlays, cached, invalidated on load/switch/save); the routing
 rule is the excerpt/visualize asymmetry generalized — **answers and pictures
@@ -1438,7 +1438,7 @@ directed token path from a person's leaf to a document's key is what
 decrypts; Bee-side work near zero, Phase 1 all client-side; extended
 2026-08-20 with knowledge-DAG mutation interactions and the claims-vs-
 payload division of labor), BINDING, EVOLUTION, PACKS, PROJECTIONS (2026-08-20:
-the shared auto-categorization contract with shelfmark/datacat and ucomm —
+the shared auto-categorization contract with holdings and ucomm —
 sources of truth / regenerable `sys:` projections / the human layer; the
 JSONL ingest format; the overlay-view seam and cone-drop fit as ontodag's
 owed pieces; retention classes for local-first vs. link vs. live data),

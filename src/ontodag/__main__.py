@@ -1771,7 +1771,7 @@ def cmd_ingest(args, session, out):
     """Load a projection stream: JSON lines of
     `{"item": NAME, "supercategories": [NAME, ...]}` — the wire format of
     `docs/plans/PROJECTIONS.md` §4, emitted by source-side projectors
-    (datacat's `project-ontodag`; ucomm's envelope projector when built).
+    (holdings' `project-ontodag`; ucomm's envelope projector when built).
 
     Semantics follow the contract exactly:
 
@@ -1779,7 +1779,7 @@ def cmd_ingest(args, session, out):
       graph no-op — safe to re-run after a failure or a rescan.
     * **Full rebuild, not diffing**: `--drop NODE` cone-deletes NODE before
       ingesting (the survival rule keeps anything the human layer also
-      holds), so `ingest --drop sys:datacat stream.jsonl` is the contract's
+      holds), so `ingest --drop sys:holdings stream.jsonl` is the contract's
       "drop every sys: membership, re-ingest" in one command. Staleness is
       the only permitted failure mode; drift is not.
     * **Missing categories are created at top level first**, then refined:
