@@ -11,7 +11,7 @@ license = { text = "BSD-3-Clause" }
 requires-python = ">=3.11"
 keywords = ["ontology", "knowledge-representation", "knowledge-graph", "concept-lattice", "fca", "formal-concept-analysis", "formal concept analysis", "pattern-structures", "concrete-domains", "dag", "taxonomy", "associative-memory", "swarm", "web3"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
