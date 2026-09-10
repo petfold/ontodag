@@ -1,7 +1,7 @@
-"""The `biology` pack, version 1: 345 categories, adopted by merge.
+"""The `biology` pack, version 2: 344 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/biology, commit 0db7b31) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/biology, commit 4830925) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack biology` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 1
+VERSION = 2
 
 BORROWED = ()
 
@@ -289,7 +289,6 @@ PACK = (
     ('reticulocyte', ('red-blood-cell',)),
     ('rna-translation', ('organic-process',)),
     ('rod-cell', ('visual-cell',)),
-    ('roe', ('animal-egg',)),
     ('saltation', ('mutation',)),
     ('schwann-cell', ('neurogliacyte',)),
     ('scurf', ('plant-part',)),

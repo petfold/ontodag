@@ -1,7 +1,7 @@
-"""The `economics` pack, version 4: 1126 categories, adopted by merge.
+"""The `economics` pack, version 5: 1120 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/economics, commit 0db7b31) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/economics, commit 4830925) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack economics` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 4
+VERSION = 5
 
 BORROWED = ()
 
@@ -31,8 +31,7 @@ PACK = (
     ('adjusting-entry', ('accounting-entry',)),
     ('advance-death-benefit', ('death-benefit',)),
     ('adverse-selection', ('concept',)),
-    ('advertising', ('commercial-enterprise', 'information', 'service')),
-    ('aerial-delivery', ('airlift', 'goods-delivery')),
+    ('aerial-delivery', ('airlift', 'delivery')),
     ('agio', ('price-charged',)),
     ('agribusiness', ('commercial-enterprise',)),
     ('air-transportation', ('transportation',)),
@@ -121,7 +120,6 @@ PACK = (
     ('book-fair', ('bazaar',)),
     ('book-value', ('concept',)),
     ('bookdealer', ('merchant',)),
-    ('bookkeeping', ('procedure',)),
     ('borrowing-cost', ('outgo',)),
     ('bounty', ('reward-payment',)),
     ('breakage', ('reimbursement',)),
@@ -216,8 +214,7 @@ PACK = (
     ('conditional-contract', ('contract',)),
     ('conditional-sale', ('security-interest',)),
     ('consensus-mechanism', ('procedure',)),
-    ('consignment', ('goods-delivery', 'sale')),
-    ('construction-industry', ('economic-production',)),
+    ('consignment', ('delivery', 'sale')),
     ('consumer-choice', ('concept',)),
     ('consumer-credit', ('credit-line',)),
     ('container-ship', ('cargo-ship',)),
@@ -324,7 +321,7 @@ PACK = (
     ('digital-signature', ('information',)),
     ('direct-debit', ('financial-transaction', 'payment')),
     ('direct-loan', ('loan',)),
-    ('direct-marketing', ('marketing',)),
+    ('direct-marketing', ('ad', 'marketing')),
     ('disability-benefit', ('payment-amount',)),
     ('discount-business', ('commercial-enterprise',)),
     ('discount-rate', ('interest-rate',)),
@@ -489,7 +486,6 @@ PACK = (
     ('going-out-of-business-sale', ('cut-rate-sale',)),
     ('goods', ('possession',)),
     ('goods-and-services', ('concept',)),
-    ('goods-delivery', ('transport',)),
     ('goodwill-asset', ('financial-asset', 'possession')),
     ('government-bond', ('bond',)),
     ('government-security', ('legal-document',)),
@@ -735,7 +731,6 @@ PACK = (
     ('overpayment', ('payment',)),
     ('overproduction', ('economic-production',)),
     ('ownership', ('concept',)),
-    ('packaging', ('commercial-enterprise',)),
     ('par-value', ('concept',)),
     ('pareto-efficiency', ('concept',)),
     ('participation-loan', ('loan',)),
@@ -787,7 +782,7 @@ PACK = (
     ('postage-batch', ('swarm-storage',)),
     ('postage-charge', ('price-charged',)),
     ('postage-stamp', ('artifact',)),
-    ('postal-delivery', ('goods-delivery',)),
+    ('postal-delivery', ('delivery',)),
     ('poultryman', ('merchant',)),
     ('poundage', ('fee',)),
     ('preferred-stock', ('share', 'share-capital')),
@@ -998,7 +993,6 @@ PACK = (
     ('stop-loss-order', ('trade-order',)),
     ('stop-order', ('document', 'trade-order')),
     ('stop-payment', ('document',)),
-    ('storage', ('commercial-enterprise',)),
     ('store-of-value', ('concept',)),
     ('stored-supply', ('possession',)),
     ('stowage', ('storage',)),

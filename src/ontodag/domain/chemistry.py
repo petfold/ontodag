@@ -1,7 +1,7 @@
-"""The `chemistry` pack, version 1: 248 categories, adopted by merge.
+"""The `chemistry` pack, version 2: 241 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/chemistry, commit 0db7b31) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/chemistry, commit 4830925) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack chemistry` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 1
+VERSION = 2
 
 BORROWED = ()
 
@@ -25,7 +25,6 @@ PACK = (
     ('alkaline-earth', ('metal',)),
     ('allomerism', ('variation',)),
     ('allotrope', ('chemical-element',)),
-    ('alloy', ('mixture',)),
     ('alloy-iron', ('cast-iron',)),
     ('alpha-iron', ('iron',)),
     ('alum', ('chemical-element', 'compound')),
@@ -33,7 +32,7 @@ PACK = (
     ('ammonia-alum', ('chemical-element', 'compound')),
     ('amount-of-substance', ('linear-dimension',)),
     ('anticatalyst', ('substance',)),
-    ('antimonial-lead', ('lead-metal',)),
+    ('antimonial-lead', ('lead',)),
     ('antimony', ('metal',)),
     ('argon', ('noble-gas',)),
     ('arsenic', ('chemical-element',)),
@@ -88,7 +87,6 @@ PACK = (
     ('chemical-process', ('process',)),
     ('chemist', ('scientist',)),
     ('chlorine', ('chemical-element',)),
-    ('chromium', ('metal',)),
     ('cinder-pig', ('pig-iron',)),
     ('closed-chain', ('chemical-chain',)),
     ('cobalt', ('metal',)),
@@ -129,7 +127,7 @@ PACK = (
     ('grid-metal', ('antimonial-lead',)),
     ('guinea-gold', ('gold',)),
     ('hafnium', ('metal',)),
-    ('hard-lead', ('lead-metal',)),
+    ('hard-lead', ('lead',)),
     ('hassium', ('chemical-element',)),
     ('heavy-metal', ('metal',)),
     ('helium', ('noble-gas', 'nonmetal')),
@@ -157,7 +155,6 @@ PACK = (
     ('lithium', ('metal',)),
     ('long-chain', ('chemical-chain',)),
     ('lutetium', ('metal',)),
-    ('magnesium', ('metal',)),
     ('manganese', ('metal',)),
     ('meitnerium', ('chemical-element',)),
     ('mendelevium', ('chemical-element',)),
@@ -172,7 +169,6 @@ PACK = (
     ('neptunium', ('metal', 'radioactive-material')),
     ('ni-hard', ('alloy-iron',)),
     ('ni-resist', ('alloy-iron',)),
-    ('nickel', ('metal',)),
     ('niobium', ('metal',)),
     ('nitrogen', ('chemical-element',)),
     ('nobelium', ('chemical-element',)),
@@ -189,8 +185,7 @@ PACK = (
     ('ph-value', ('concentration',)),
     ('phosphorus', ('chemical-element',)),
     ('pig-iron', ('alloy', 'iron')),
-    ('pig-lead', ('lead-metal',)),
-    ('platinum', ('noble-metal',)),
+    ('pig-lead', ('lead',)),
     ('plutonium', ('chemical-element', 'radioactive-material')),
     ('plutonium-239', ('plutonium', 'radioisotope')),
     ('polonium', ('metal', 'radioactive-material')),
@@ -241,7 +236,6 @@ PACK = (
     ('thorium', ('metal', 'radioactive-material')),
     ('thorium-228', ('radioisotope', 'thorium')),
     ('thulium', ('metal',)),
-    ('titanium', ('metal',)),
     ('trace-element', ('chemical-element',)),
     ('transactinide', ('chemical-element',)),
     ('transuranic-element', ('chemical-element',)),
@@ -262,6 +256,5 @@ PACK = (
     ('xenon', ('noble-gas',)),
     ('ytterbium', ('metal',)),
     ('yttrium', ('metal',)),
-    ('zinc', ('metal',)),
     ('zirconium', ('metal',)),
 )

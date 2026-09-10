@@ -1,7 +1,7 @@
-"""The `computing` pack, version 3: 1357 categories, adopted by merge.
+"""The `computing` pack, version 4: 1356 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/computing, commit 0db7b31) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/computing, commit 4830925) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack computing` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 3
+VERSION = 4
 
 BORROWED = ('theorem',)
 
@@ -722,7 +722,6 @@ PACK = (
     ('macro-instruction', ('computer-instruction',)),
     ('magnetic-bubble-memory', ('non-volatile-storage',)),
     ('magnetic-core-memory', ('ram',)),
-    ('magnetic-disk', ('device',)),
     ('magnetic-stripe', ('magnetic-tape',)),
     ('magnetic-tape', ('device',)),
     ('mainframe-computer', ('computer-server', 'digital-computer')),

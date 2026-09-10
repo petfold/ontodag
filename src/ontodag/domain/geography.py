@@ -1,7 +1,7 @@
-"""The `geography` pack, version 4: 995 categories, adopted by merge.
+"""The `geography` pack, version 5: 993 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/geography, commit 0db7b31) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/geography, commit 4830925) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack geography` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 4
+VERSION = 5
 
 BORROWED = ('classification-scheme', 'data-processing', 'database', 'file-format', 'theory')
 
@@ -634,7 +634,6 @@ PACK = (
     ('oceanic-ridge', ('geological-formation', 'landform')),
     ('oceanic-trench', ('landform', 'natural-depression')),
     ('oceanography', ('earth-science',)),
-    ('odometer', ('instrument',)),
     ('offing', ('body-of-water',)),
     ('omnirange', ('artifact',)),
     ('open-location-code', ('geocode',)),
@@ -665,7 +664,6 @@ PACK = (
     ('paleozoology', ('paleobiology',)),
     ('pebble', ('rock',)),
     ('pedology', ('earth-science',)),
-    ('pedometer', ('instrument', 'tool')),
     ('pedosphere', ('earth-sphere',)),
     ('pelagic-zone', ('body-of-water',)),
     ('peneplain', ('plain',)),

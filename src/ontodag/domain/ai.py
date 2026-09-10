@@ -1,7 +1,7 @@
-"""The `ai` pack, version 3: 675 categories, adopted by merge.
+"""The `ai` pack, version 4: 675 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/ai, commit 0db7b31) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/ai, commit 4830925) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack ai` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 3
+VERSION = 4
 
 BORROWED = ('database',)
 
