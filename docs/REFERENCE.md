@@ -7,7 +7,7 @@ pinned against the code by `tests/test_reference.py` — if a name in this
 file and the code disagree, the suite fails.
 
 Versions this file describes: contract `0.1` · registry `4.1` ·
-prelude `3` · surface `0.1`.
+prelude `3` · surface `0.1` · core `9`.
 
 ## 1. Vocabulary
 
@@ -25,7 +25,7 @@ prelude `3` · surface `0.1`.
 | claim | `sub ⊑ sup` — the subject of provenance records; survives edge pruning. |
 | root (store) | Content hash of the whole store; equal content ⇒ equal root, whatever the history. |
 | prelude | The standard declarations, adopted by explicit idempotent merge (`odag prelude`). |
-| pack | A published ontology meant to be merged: `prelude` (pack zero — the dimension kinds and everyday heads; `odag prelude` is its alias), `core` (the upper ontology, 4,137 categories built by consensus, docs/CORE.md), the ten domain packs over it — `physics`, `mathematics`, `chemistry`, `biology`, `medicine`, `ai`, `economics`, `computing`, `geography`, `space` (about 6,900 categories together; each applies `core` first) — and the unit vocabularies. |
+| pack | A published ontology meant to be merged: `prelude` (pack zero — the dimension kinds and everyday heads; `odag prelude` is its alias), `core` (the upper ontology, 4,614 categories built by consensus, docs/CORE.md), the ten domain packs over it — `physics`, `mathematics`, `chemistry`, `biology`, `medicine`, `ai`, `economics`, `computing`, `geography`, `space` (about 6,900 categories together; each applies `core` first) — and the unit vocabularies. |
 
 ## 2. Install
 

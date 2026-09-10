@@ -1,8 +1,8 @@
 # The `core` pack: an upper ontology built by consensus
 
 Design record for `src/ontodag/core_ontology.py`, shipped as the pack
-`core` (v4, 2026-09-03; v3 shipped in 0.19.1 and v2 in 0.19.0 the day
-before, both superseded — see Versioning). The list is **generated** in the sister repository
+`core` (v9, 2026-09-10; v6 shipped in 0.23.0 and is superseded, and
+v7 and v8 were built but never released — see Versioning). The list is **generated** in the sister repository
 [ontodag-core](https://github.com/petfold/ontodag-core); this page says
 what the pack is for, how it was built, how a node earns its place, and
 what it deliberately cannot do. `odag pack core --show` prints the list.
@@ -209,9 +209,45 @@ department words were cleared where they match a core word in another
 sense) and WordNet's chains (`wheeled vehicle ⊑ container`, `face powder ⊑
 medication`). The retail compounds WordNet cannot define (about 6,000:
 "guitar stand", "toy boat", 360 "X accessories") wait for a later layer;
-services, experiences and rentals are the other half still owed. 4,137
+services, experiences and rentals are the other half still owed. 4,614
 listed categories; the packs ceded 29 names (thermometer, aspirin, laptop,
 barometer, scalpel, cargo …) and were regenerated.
+
+**v9 (0.24.0, 2026-09-10): services, CPC's goods half, and the sense list
+decided.** Three layers at once, because v7 and v8 were built in ontodag-core
+and never released — 0.23.0 carried v6. Each is recorded in full in that
+repo's `docs/UPPER.md`, §11, §12 and §13.
+
+- **v7, the services layer** (§11): the other half of §10's question. `service`
+  had almost nothing under it, because core carried WordNet's *act of help*
+  sense (01209576) with `credit-card` its only child. It is now the economic
+  sense (00577525, "work done by one person or group that benefits another;
+  *budget separately for goods and services*") — WordNet's hyponym of `work`,
+  schema.org's `Service`, Wikidata's Q7406919. WordNet's own cone there is
+  seven synsets, so the layer needed a selection witness the way the goods
+  layer needed the Google Product Taxonomy: the **UN Central Product
+  Classification 2.1** and Wikidata. 4,220 categories (+80 over v6), nothing
+  lost.
+- **v8, CPC's goods half** (§12): the CPC's goods sections (0-4 and division
+  53, 2,713 codes) run over the goods layer as a second witness for the edges
+  GPT alone had carried, and as a coverage check. The witness half came back
+  a negative — of the 105 GPT-only edges, CPC corroborated **none** — but the
+  coverage half was the yield: **374** everyday goods and materials entered
+  (footwear, garment, spice, poultry, hand-tool, kitchenware, valve, ink, ore,
+  natural-gas, cement, plywood). 4,594 categories (+374 over v7), nothing lost.
+- **v9, the sense list decided** (§13): the sense questions §10 and §12 had
+  accumulated, put to Peter as one list and ruled on. **Sixteen bare words
+  move to their everyday sense**, the displaced sense keeping a hand name or
+  dropped where it duplicated a neighbour: `battery` becomes the electric
+  battery (`assault-and-battery`), `bag` the flexible container
+  (`traveling-bag`, and `backpack`, `sack`, `pannier`, `duffel-bag` moved under
+  it at once), `lead` the metal, `bearing` the machine part (`comportment`),
+  `stone` the material (`fruit-stone`), `table`, `case`, `pool`, `pepper`,
+  `potato`, `television` likewise; `gas` stays the state of matter. `commodity`
+  was refused under `artifact` and accepted under `physical-object`.
+  **4,614 listed categories, nothing lost** — a sense correction is an
+  intervention against a published name, made now because a rename never
+  propagates by merge.
 
 **Open sense questions the goods layer exposed** (core-wordnet's first
 senses, each an intervention if changed, so listed rather than done):
@@ -235,7 +271,7 @@ policy of §7 there: hinges in core, contents in packs, everyday words never
 taken by a pack. Since 0.21.0 they **ship in the wheel** (`odag pack geography`; each applies
 core first, `ontodag.domain`), the reversible half of the PACKS.md Part II
 decision — publishing them to Swarm later is the same stores. They fit: ontodag-core's
-`tools/integrate.py` merges core and all ten into one store — 9,793
+`tools/integrate.py` merges core and all ten into one store — 11,410
 categories, the same root in every merge order, every cross-pack claim
 resolving — with roots pinned in ontodag-core's UPPER.md §8.1.
 

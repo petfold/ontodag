@@ -15,6 +15,8 @@ import unittest
 import ontodag
 from ontodag import dimensions as dims
 from ontodag.__main__ import _SETTINGS
+from ontodag.core_ontology import CORE_VERSION
+from ontodag.packs import describe
 from ontodag.prelude import DECLARATIONS, PRELUDE_VERSION
 from ontodag.surface import SURFACE_VERSION
 
@@ -36,6 +38,19 @@ class TestReferenceIsPinned(unittest.TestCase):
         self.assertIn(f"registry `{dims.REGISTRY_VERSION}`", self.text)
         self.assertIn(f"prelude `{PRELUDE_VERSION}`", self.text)
         self.assertIn(f"surface `{SURFACE_VERSION}`", self.text)
+        self.assertIn(f"core `{CORE_VERSION}`", self.text)
+
+    def test_docs_state_cores_current_size(self):
+        """A regeneration changes core's size, and prose that quotes the old
+        one goes stale silently — CORE_VERSION is hand-bumped, so nothing else
+        ties the label to the content. core v9's 4,614 categories shipped under
+        a `v6` label with docs still saying 4,137 because no test looked."""
+        size = int(describe("core").split()[0])          # the number `odag pack --list` prints
+        for path in ("docs/CORE.md", "docs/USER_GUIDE.md", "docs/REFERENCE.md"):
+            text = open(os.path.join(os.path.dirname(__file__), "..", path)).read()
+            self.assertTrue(f"{size:,}" in text,      # not assertIn: it dumps the file
+                            f"{path} does not state core's current size {size:,} "
+                            f"(regenerated the pack? sweep the docs)")
 
     def test_every_cli_command_is_listed(self):
         from ontodag import __main__ as cli

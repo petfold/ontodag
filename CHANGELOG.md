@@ -12,6 +12,57 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [0.24.0] — 2026-09-10
+
+### Added
+
+- **core v9: services, CPC's goods half, and the sense list decided.** Three
+  layers, because v7 and v8 were built in ontodag-core and never released.
+  **v7** gave `service` its economic sense (WordNet 00577525, "budget
+  separately for goods and services" — core had carried the *act of help*
+  sense with `credit-card` its only child) and a layer beneath it, witnessed
+  by the UN Central Product Classification 2.1 and Wikidata: 4,220 categories.
+  **v8** ran the CPC's goods sections (2,713 codes) over the goods layer as a
+  second witness and a coverage check; as a witness it came back a negative —
+  of the 105 Google-Product-Taxonomy-only edges the CPC corroborated **none** —
+  but the coverage half added **374** everyday goods and materials (footwear,
+  garment, spice, poultry, hand-tool, kitchenware, valve, ink, ore,
+  natural-gas, cement, plywood): 4,594 categories. **v9** settled the sense
+  questions the goods work had accumulated: sixteen bare words move to their
+  everyday sense — `battery` the electric one (`assault-and-battery` keeps the
+  assault), `bag` the flexible container (`traveling-bag`), `lead` the metal,
+  `bearing` the machine part, `stone` the material, `table`, `case`, `pool`,
+  `pepper`, `potato`, `television` likewise — with `gas` left as the state of
+  matter and `commodity` accepted under `physical-object`, refused under
+  `artifact`. **Core is 4,614 categories, nothing lost.** ontodag-core's
+  `docs/UPPER.md` §11-§13 records every decision; `docs/CORE.md` the summary.
+
+### Changed
+
+- **Every pack root moves, so a pinned root must be re-pinned.** A domain
+  pack's adoption root is core + pack, so core v9 shifts all ten as well as
+  core's own, under both sha256 and Swarm (BMT) addressing. The union of core
+  and all ten is now **11,410 categories, 12,877 edges**, sha256 root
+  `871bdde8…` — reproduced in reversed merge order as an independent witness,
+  and by ontodag-core's `tools/integrate.py`. Adoption itself is unchanged:
+  idempotent, order-free, previewable with `--diff`.
+- **The ten domain packs are regenerated over core v9** and each bumps one
+  version: physics v4, mathematics v2, chemistry v2, biology v2, medicine v5,
+  ai v4, economics v5, computing v4, geography v5, space v4. Names core
+  reclaimed leave the packs; a pack never takes an everyday word.
+- **`Development Status :: 4 - Beta`**, up from `3 - Alpha`.
+
+### Fixed
+
+- **The docs can no longer drift from the pack.** `CORE_VERSION` is
+  hand-bumped by design — the generator preserves whatever the module says,
+  since a rename never propagates by merge — and nothing tied the label to the
+  content, so v9's list had been sitting under a `v6` label with the docs
+  still quoting v6's 4,137 categories. `tests/test_reference.py` now pins
+  `core` in REFERENCE.md's version line alongside contract, registry, prelude
+  and surface, and asserts that CORE.md, USER_GUIDE.md and REFERENCE.md state
+  core's current size. `docs/CORE.md`'s header had been stale since v6.
+
 ## [0.23.0] — 2026-09-03
 
 ### Added

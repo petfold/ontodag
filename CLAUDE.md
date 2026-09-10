@@ -1026,7 +1026,7 @@ through it, so preview and act cannot differ. A name borrowed from a
 *sibling* pack (`BORROWED` in each module) sits at top level until the
 sibling is adopted; `odag pack` counts and `packs_declaring_node` exclude
 such names. Golden roots pinned per pack under both addressings; the union
-root `759ebb5a…` (core + all ten, any order, 9,793 categories) is pinned too
+root `871bdde8…` (core + all ten, any order, 11,410 categories) is pinned too
 and reproduced from the shipped modules — that test and the per-pack
 on-disk/BMT loops for the nine larger packs are gated behind
 `ONTODAG_SLOW_TESTS=1` (the first version of `pack_dag` rebuilt and
