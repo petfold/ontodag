@@ -213,7 +213,9 @@ the tool shapes in [docs/AGENT_SURFACE.md](docs/AGENT_SURFACE.md).
 ## Roadmap
 
 The roadmap — what is done, what is queued next, what is parked and why — is in
-**[ROADMAP.md](ROADMAP.md)**.
+**[ROADMAP.md](ROADMAP.md)**. The suite is **938 tests** (`pip install -e
+".[test]" && pytest`); a guard in `tests/test_reference.py` fails if that
+number drifts, so it is current by construction.
 Longer-term goals for the database direction (and the features deliberately not
 built yet) are in [docs/plans/DATABASE_DIRECTION.md](docs/plans/DATABASE_DIRECTION.md); the
 day-to-day task list is in `CLAUDE.md`.
