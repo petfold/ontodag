@@ -475,6 +475,18 @@ The freeze this document imposed is **lifted, into the following order**
    (authenticity + updates). The four fingerprints: crypto-core
    `bbd0a930…`, crypto-majors `83337936…`, stablecoins `5bcad36b…`,
    fiat-iso4217 `36a9e1e2…` (full values in `tests/test_packs.py`).]**
+   **[core v9 and the ten domain packs PUBLISHED 2026-09-11** (Bee 2.8.2
+   light node, Gnosis mainnet, same batch `c931c8a5…`, still keyless): all
+   eleven pushed the same way, every root **equal to its re-pinned BMT
+   fingerprint**, all eleven `isRetrievable: true` — but only after repairs.
+   Two of the eleven reported a successful upload and stayed unretrievable,
+   because ~29.6k chunks came back with **shallow receipts** that Bee counts
+   and never re-queues, so the pusher reported its queue drained while the
+   content was stranded. Re-uploading placed them (second attempt for
+   `computing`, third plus a stewardship re-push for `geography`). **The
+   operational rule this adds to the recipe above: after pushing, verify each
+   root with `GET /stewardship/<ref>`; an exit code of 0 says the node
+   accepted the chunks, not that the network holds them.]**
 2. **Collision warnings in the preview + name-level pack hints** in
    unknown-name errors. **[Built 2026-08-20, with an honesty
    correction: `put` now names its missing parents and hints a pack

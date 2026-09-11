@@ -238,6 +238,31 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
    bucket capacity (7/8 in the fullest bucket) — further writes risk 402
    overissued; dilute one depth (halves the ~16-day TTL) and top up.**
 
+10. **Real node, 2026-09-11 — core v9 and the ten domain packs published.**
+   Bee **2.8.2** light node, Gnosis mainnet, the same batch `c931c8a5…`
+   (21.6 days TTL, 11% utilized, fullest bucket 13/16 — the 88% warning above
+   was against the older, shallower state), **keyless** as before. All eleven
+   stores pushed with `odag -f swarm:pack-NAME pack NAME` from a scratch home;
+   **every root byte-equal to its re-pinned `SWARM_GOLDEN_ROOTS` fingerprint**,
+   and after the repairs below **all eleven `isRetrievable: true`**.
+   **What the run cost, and the lesson: an upload that succeeds is not an
+   upload that landed.** All eleven exceeded the client's 60 s sync window,
+   and two — `computing` and `geography`, the largest — stayed unretrievable
+   afterwards while the node's own pusher reported its queue fully drained
+   (`to_push == synced`). The cause was **29,602 shallow receipts**: chunks
+   receipted by peers too shallow to be their storers, counted as errors and
+   never re-queued. Ruled out as causes: bucket overflow (max 13/16, none
+   full), invalid stamps (0), send failures (12 of 322,161) and funds (2.51
+   BZZ available, 3.61 BZZ already settled). The `overdraft_refresh` count of
+   142,180 — 477 peers pinned at the ~1e8 PLUR payment threshold — is
+   *time-metered* throttling, independent of the chequebook, and explains the
+   60 s timeouts but not the loss. **Re-uploading fixes it, probabilistically**:
+   `computing` landed on the second upload, `geography` on the third plus a
+   `PUT /stewardship/<ref>` (which needs `swarm-postage-batch-id`, and returns
+   an opaque 500 while the node no longer holds the chunks). So verify every
+   root with `GET /stewardship/<ref>` after publishing — never trust exit 0.
+   Written up for upstream in `~/projects/bee-shallow-receipt-report.md`.
+
 10. **Real node, 2026-09-02 — both gated tests green, and a lesson about
     which node you are talking to.** `localhost:1633` first answered as
     **Swarm Desktop's** bee 2.8.2 with one unrelated batch
