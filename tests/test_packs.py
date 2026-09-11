@@ -350,7 +350,7 @@ class TestDomainPacks(unittest.TestCase):
         for name in DOMAIN_PACKS:
             apply(dag, name)
         self.assertEqual(dag.commit(), UNION_ROOT)
-        self.assertEqual(len(dag.nodes) - 1, 10952)
+        self.assertEqual(len(dag.nodes) - 1, 11410)   # core v9; integrate.py agrees
         # cross-pack claims resolve in the union
         self.assertTrue(dag.is_below("shapefile", "file-format"))          # geography -> computing
         self.assertTrue(dag.is_below("merkle-dag", "directed-acyclic-graph"))  # computing -> mathematics
