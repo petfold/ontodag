@@ -14,6 +14,19 @@ the engineering rationale is in `SWARM_DESIGN.md` and `SEMANTIC_CODES.md`.
 Last updated 2026-08-07 (loopmarket consumer needs filed — see the dated
 section below).
 
+## Status at a glance
+
+- [x] **Delivered** — the core structure, persistence, the query planner, the
+      CLI and web app, lazy reading, cone summaries.
+- [x] **Next up: 9 of 12 done** — items 1-4, 7-11 landed between 2026-07-31
+      and 2026-08-01. Item numbers are cited from the code
+      (`src/ontodag/lazy.py`), so they are kept.
+- [ ] **Item 12** — OntoDAG in a browser, on Swarm: queued, not built.
+- [ ] **Then: more capability, still no model change** — open.
+- [ ] **Filed consumer needs (loopmarket, 2026-08-07)** — open.
+- [ ] **Under discussion / Parked / Research horizon** — no decisions yet, by
+      design; nothing to tick.
+
 ## Direction (agreed 2026-08-01): agents first
 
 OntoDAG's differentiators — knowledge that is **canonical** (equal knowledge,
@@ -37,22 +50,22 @@ replayable answer, which the existing snapshot machinery already supports.
 
 ## Delivered
 
-- The core structure — `put`/`get`/`remove`/`merge`, minimal-link maintenance
+- [x] The core structure — `put`/`get`/`remove`/`merge`, minimal-link maintenance
   (§2), exact descendant counts, and the invariant suite that pins them (§7).
-- Save/load, OWL and Manchester-syntax import/export, DOT/LaTeX export, Graphviz
+- [x] Save/load, OWL and Manchester-syntax import/export, DOT/LaTeX export, Graphviz
   visualization, an extensive test suite, and a demo ontology to build on.
-- The `odag` command line and the Flask web app / REST API, including the
+- [x] The `odag` command line and the Flask web app / REST API, including the
   car-market demo.
-- A query planner with exact statistics and provably result-preserving rewrites
+- [x] A query planner with exact statistics and provably result-preserving rewrites
   (§4) — this is what the old roadmap called "optimize retrieval by choosing
   subsets of query items".
-- Content-addressed persistence: the generic `recordstore` layer (now its own
+- [x] Content-addressed persistence: the generic `recordstore` layer (now its own
   package) and `EagerOntoDAG`, validated against a real Bee node on Gnosis
   mainnet — the "DAG-only graph database for Ethereum Swarm" line item, in its
   library form rather than as a Bee plugin.
-- Fast loading from a published store (2026-07-25): hydration goes through
+- [x] Fast loading from a published store (2026-07-25): hydration goes through
   recordstore's batched, concurrent bulk read instead of one fetch per item.
-- **Reading without loading everything** (2026-07-25): `LazyOntoDAG` answers
+- [x] **Reading without loading everything** (2026-07-25): `LazyOntoDAG` answers
   queries by fetching items as the query walks them, so a published ontology can
   be queried without downloading it. On a 3,200-item store a specific query
   touches a few dozen items. It is read-only by construction (see the next
@@ -61,7 +74,7 @@ replayable answer, which the existing snapshot machinery already supports.
 
 ## Next up (concrete, queued)
 
-1. ~~**Cone summaries for broad queries.**~~ **Done (2026-07-31).** A small
+1. [x] **Cone summaries for broad queries.** **Done (2026-07-31).** A small
    deterministically-derived summary per broad category (sorted name lists in
    a *separate* derived store, manifest-pinned to the data root and the
    dimensions registry version) is fetched instead of walked: a two-broad-term
@@ -69,7 +82,7 @@ replayable answer, which the existing snapshot machinery already supports.
    Being *derived*, it never touches the canonical form — indexing writes
    nothing to the asserted store, and a stale or version-skewed index is
    ignored, never silently wrong.
-2. ~~**Writing back from a partially-loaded graph.**~~ **Done (2026-07-31):
+2. [x] **Writing back from a partially-loaded graph.** **Done (2026-07-31):
    `SparseOntoDAG`** — LazyOntoDAG's residency with the full mutation
    semantics. The two open problems resolved as the analysis predicted:
    (a) *change detection* needs no Merkle diff at all — every mutation runs
@@ -84,18 +97,18 @@ replayable answer, which the existing snapshot machinery already supports.
    with contraction, and dimension renormalization. Measured on a
    447-record store: a `put` costs **7 fetches** and its commit stages
    **7 records**; a `remove` 3 more and 5.
-3. ~~**A published "latest version" pointer.**~~ **Done (2026-07-31).** With a
+3. [x] **A published "latest version" pointer.** **Done (2026-07-31).** With a
    signing key configured (`odag set bee_signer …` or `$BEE_SIGNER`) the store's
    latest root lives in an owner-signed Swarm feed — a stable address others can
    follow. Keyless stores keep the local-file pointer. Validated live 2026-08-01
    (Gnosis mainnet): the root of a store rebuilt in an empty environment came
    back purely via the feed.
-4. ~~**Multi-writer collaboration.**~~ **Done (2026-07-31).** `EagerOntoDAG.sync`
+4. [x] **Multi-writer collaboration.** **Done (2026-07-31).** `EagerOntoDAG.sync`
    folds a peer's published root in at the graph level (the order-independent
    merge, re-reduced, then recommitted); writers syncing each other's roots land
    on the byte-identical root. Several writers, one shared ontology, no server —
    with the documented union semantics (removals lose to concurrent re-adds).
-5. **The higher-layer contract** — [CONTRACT.md](docs/CONTRACT.md), drafted and
+5. [x] **The higher-layer contract** — [CONTRACT.md](docs/CONTRACT.md), drafted and
    **reviewed & agreed the same day (2026-08-01, contract version 0.1)**:
    the operations and guarantees a higher layer or agent may rely on
    (G1–G6, including `get_overlapping`'s candidate semantics), the
@@ -105,7 +118,7 @@ replayable answer, which the existing snapshot machinery already supports.
    policy. The conformance test suite asserting the guarantees through the
    public API only landed the same day (`tests/test_contract.py`, 15 tests
    covering G1–G6, the as-of clause, and the version constant).
-6. **Provenance design** — [PROVENANCE.md](docs/PROVENANCE.md), drafted and
+6. [x] **Provenance design** — [PROVENANCE.md](docs/PROVENANCE.md), drafted and
    **reviewed & agreed the same day (2026-08-01)**: attribution in a
    parallel provenance store (never in the knowledge record, so agreement-
    by-fingerprint survives); **subjects are claims, not edges** (stable
@@ -115,7 +128,7 @@ replayable answer, which the existing snapshot machinery already supports.
    admission-by-reference. **Gates all agent writes** — the design gate is
    now open; implementation is Phase 2. Promoted from the research horizon
    by the agents-first decision.
-7. ~~**Readable rendering + `odag canon`.**~~ **Done (2026-08-01).** On a
+7. [x] **Readable rendering + `odag canon`.** **Done (2026-08-01).** On a
    terminal, `odag` now prints `time(2026)` and `weight(3kg)`; pipes, files
    and `-o` always get the exact canonical bytes, so `odag get ... | odag`
    round-trips by default (`--render`/`--raw`/`ONTODAG_SURFACE` override;
@@ -127,7 +140,7 @@ replayable answer, which the existing snapshot machinery already supports.
    the round-trip law `elaborate(render(t)) == t` — the promised one-way
    direction only. Serves humans and agents at once: the canonical echo is
    the confirm mechanism for both.
-8. ~~**Read-only agent surface (MCP) + a discoverability record.**~~
+8. [x] **Read-only agent surface (MCP) + a discoverability record.**
    **Done (2026-08-01).** `odag-mcp` serves any odag store over MCP's stdio
    transport (stdlib-only, no SDK dependency): six tools — `about` (the
    what-is-this-store record, computed on demand, never stored), `query`
@@ -140,7 +153,7 @@ replayable answer, which the existing snapshot machinery already supports.
    equal root). Failed calls are logged from day one — the tripwire
    instrument the walls wait for. Design note: `docs/AGENT_SURFACE.md`.
    Writes stay absent until the provenance layer exists.
-9. ~~**Verifiable answers.**~~ **Done (2026-08-01).** recordstore v0.16.0
+9. [x] **Verifiable answers.** **Done (2026-08-01).** recordstore v0.16.0
    ships `prove`/`verify_proof` — Merkle inclusion *and absence* proofs
    from the canonically-encoded trie (absence is provable precisely because
    the encoding is canonical: one root, one possible location per key), and
@@ -153,7 +166,7 @@ replayable answer, which the existing snapshot machinery already supports.
    loudly. Live on the agent surface as `certify: true`: "trust the store"
    is now "verify against 32 bytes", for humans, agents, and — when the
    time comes — factbond's mechanical dispute rung.
-10. **Agent writes** — the provenance store **and the write path shipped
+10. [x] **Agent writes** — the provenance store **and the write path shipped
     (2026-08-01)**: attribution lives in a per-writer store beside the
     knowledge (never inside it, so identical knowledge keeps identical
     fingerprints whoever asserted it); subjects are *claims*, stable under
@@ -171,7 +184,7 @@ replayable answer, which the existing snapshot machinery already supports.
     standing, and an acceptance verdict under the reader's own trust
     list. What lands in a store is never what a reader must accept:
     claims merge, acceptance is policy.
-11. **The human track:** ~~a standard prelude~~ + ~~the quick start~~ —
+11. [x] **The human track:** a standard prelude + the quick start —
     **done (2026-08-01).** `odag prelude` adopts the everyday dimension
     declarations (weight, length, duration, time, geo, size) in one
     idempotent merge — never a silent default: adoption is explicit,
@@ -208,7 +221,7 @@ replayable answer, which the existing snapshot machinery already supports.
     Remaining wishes (upper ontologies, computed values) stay on the
     list, not on this item; the wasm/Pyodide one became the next item.
 
-12. **OntoDAG in a browser, on Swarm.** Two things landed on 2026-08-02
+12. [ ] **OntoDAG in a browser, on Swarm.** Two things landed on 2026-08-02
     that turn this from an aspiration into a queued task. The base install
     became pure Python — measured: 2 packages, 896 KB, no compiled code —
     so `micropip.install("ontodag")` is possible, where before it failed
