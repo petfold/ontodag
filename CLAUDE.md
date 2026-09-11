@@ -261,7 +261,9 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
    `PUT /stewardship/<ref>` (which needs `swarm-postage-batch-id`, and returns
    an opaque 500 while the node no longer holds the chunks). So verify every
    root with `GET /stewardship/<ref>` after publishing — never trust exit 0.
-   Written up for upstream in `~/projects/bee-shallow-receipt-report.md`.
+   Written up in `../swarmfs/docs/bee-push-sync-findings.md`, with the
+   evidence beside it. Not filed upstream: a plain HTTP upload could not
+   reproduce the loss, and Bee's tags already answer "did it land".
 
 10. **Real node, 2026-09-02 — both gated tests green, and a lesson about
     which node you are talking to.** `localhost:1633` first answered as
