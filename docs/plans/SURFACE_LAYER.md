@@ -26,7 +26,7 @@ sharpens its criterion into two axes and adds the as-of/root-pinning clause
 and a verifiability section — and §14's provenance prerequisite became the
 design note `PROVENANCE.md`. Positions were also recorded (not decided) on
 the remaining §9 questions and on §12's fork; they are marked inline below.
-The working plan is in `ROADMAP.md` ("Next up") and `CLAUDE.md`.
+The working plan is in `../../ROADMAP.md` ("Next up") and `CLAUDE.md`.
 
 Read `DIMENSIONS.md` first for the canonical-form discipline this must not
 break, and `SEMANTIC_CODES.md` §9 for the precedent of a derived, local,

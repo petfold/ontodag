@@ -19,7 +19,7 @@ Associative memory and categories based on a directed acyclic graph data structu
   OntoDAG may rely on: the guarantees, versioned.
 - **[docs/README.md](docs/README.md)** — the full documentation map: design records
   (`docs/`) and discussion drafts / future directions (`docs/plans/`, including the
-  [Roadmap](docs/plans/ROADMAP.md)).
+  [Roadmap](ROADMAP.md)).
 
 See also **[ontodag-fs](https://github.com/petfold/ontodag-fs)**: any OntoDAG
 store can be browsed as a filesystem — paths are category queries, files are
@@ -213,7 +213,7 @@ the tool shapes in [docs/AGENT_SURFACE.md](docs/AGENT_SURFACE.md).
 ## Roadmap
 
 The roadmap — what is done, what is queued next, what is parked and why — is in
-**[docs/plans/ROADMAP.md](docs/plans/ROADMAP.md)**.
+**[ROADMAP.md](ROADMAP.md)**.
 Longer-term goals for the database direction (and the features deliberately not
 built yet) are in [docs/plans/DATABASE_DIRECTION.md](docs/plans/DATABASE_DIRECTION.md); the
 day-to-day task list is in `CLAUDE.md`.

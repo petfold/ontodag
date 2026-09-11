@@ -13,7 +13,7 @@ built yet, together with the tripwire that would signal each one has
 become necessary. Nothing here is scheduled by virtue of being written
 down; the "Pure now" items are the ones considered ready to start, and
 even those are sequenced against the near-term engineering queue in
-`ROADMAP.md`. The day-to-day task list is in `CLAUDE.md`. Expect this
+`../../ROADMAP.md`. The day-to-day task list is in `CLAUDE.md`. Expect this
 file to outlive several of those.
 
 ## The governing principle (Peter, verbatim)
@@ -57,7 +57,7 @@ this document:
    (`RecordStore.at(root)` + `LazyOntoDAG`). The walls guard the living,
    merging store; they were never about snapshot questions.
 3. **Agents are the tripwire instrument.** With agents-first agreed
-   (`ROADMAP.md` "Direction"), the read-only MCP surface will log what
+   (`../../ROADMAP.md` "Direction"), the read-only MCP surface will log what
    agents try to express and can't — walls stop waiting on anecdote and
    start accumulating evidence. Expect the constraints and relations
    tripwires to be probed far sooner than human usage would have.
