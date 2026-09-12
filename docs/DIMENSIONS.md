@@ -330,6 +330,12 @@ normalized before names are formed.
   consumer does no set arithmetic on the answer, only its exact
   pairwise check per candidate.
 
+- **Role heads and node parameters** (issue #15, shipped 2026-09-12):
+  a head declared under another head is a *role* of that dimension and
+  may take the base dimension's *nodes* as parameters — `from(my_home)`,
+  `where(ljubljana)`. The order is then the graph's own order in the
+  base dimension, and it follows the catalogue. §14 is the record.
+
 ## 9. Regions and generated sets (agreed 2026-07-30)
 
 Set-valued concepts whose members are expressible as parametric terms
@@ -564,3 +570,123 @@ until a consumer trips the wire:
 
 None of these are scheduled. The rule stands: kinds are added when a
 real workload arrives (the loopmarket precedent), never speculatively.
+
+## 14. Role heads: parameters that name nodes (issue #15, 2026-09-12)
+
+**The problem.** A role head is a head declared under another head so
+that it inherits the value space and the kind: `put("from", ["geo"])`,
+`put("when", ["time"])`. Values work at once — `from(u2e4x) ⊑ from(u2e4)`
+computes. But places are *nodes*, not values: `my_home` sits under
+`geo(u2e4x)`, `ljubljana` sits above `geo(u2e4)` and `geo(u2e5)`. Before
+this, `from(ljubljana)` parsed as the literal cell `ljubljana` — a
+parameter that *is* a node was silently read as a value that happened to
+spell the same, and a region has no single value a consumer could
+substitute (loopmarket's `_value_of` workaround covered places only).
+
+**What a role is.** `_dimension_of(head)` walks the declaration chain
+upward and returns `(kind, base)`, where the *base* is the head directly
+under the kind node. A head whose base is another head is a role of that
+dimension. Two consequences of the same walk: **values are leaves of the
+declaration walk** — a node filed under `geo(u2e4x)` is not thereby a
+head, whatever its name looks like (`shop(1)` under a cell stays an
+opaque atom, where before it parsed as a prefix term); and a role with
+two bases is refused like a head with two kinds.
+
+**Parameters.** Only role heads look a parameter up — a base head's
+parameters are values by definition, however a category happens to be
+named, which is loopmarket's guard ("a place called `u2e` must not become
+the cell `u2e`") answered structurally. For a role head:
+
+- a parameter naming a **present node in the base dimension** — below its
+  head (a place under a cell, a floor under a building, an offer under a
+  role value), or above one of its values (a region) — denotes that node;
+- a parameter naming a present node **outside** the dimension is refused
+  (`ValueError`), never guessed;
+- any other parameter is a value of the base's kind, as before.
+
+**Canonical form is the name as spelled.** `from(my_home)` is stored as
+`from(my_home)`; the node's position may move with the catalogue, which
+is the point (a place whose cell is refined changes no stored name).
+There is no value to canonicalize to: a floor has no cell of its own and a
+region has no single cell.
+
+**The order.** `R(x) ⊑ R(y)` iff `x ⊑ y` in the base dimension — values
+spelled as terms of the base head (`from(my_home) ⊑ from(u2e4)` iff
+`my_home ⊑ geo(u2e4)`), nodes as themselves. So a place is below the
+cells above it and below every region containing those cells; a region
+is above the cells it covers and everything finer; two floors of one
+building are siblings although they share a cell. One combined order,
+everywhere: `is_below`, `get` (virtual and present role terms alike),
+reduction, `remove`'s contraction, the lazy reader, certificates.
+Two rules that fall out of monotonicity (CONTRACT G2):
+
+- **A region's covering is a lower bound only.** Its cells are what it is
+  *known* to cover; `from(ljubljana) ⊑ from(u2)` is False until someone
+  files the region under `geo(u2)`. Reading the covering as an upper
+  bound would let a later cell flip a True answer to False.
+- **Same-head role terms never pre-intersect as meets.** No single term
+  names `from(my_home) ∩ from(u2e5)`; when one contains the other the
+  planner keeps the finer, otherwise both stay separate cones. The
+  disjoint-parents guard likewise refuses provably disjoint *values*
+  only — the graph cannot prove two named places apart (the disjointness
+  wall), so a place and a cell it is not known to lie in are accepted.
+
+**Overlap.** `get_overlapping` and `overlaps` (#16) decide value pairs by
+arithmetic; nodes are individuated by the graph: two named things
+overlap when one is below the other, or when what one is known to
+**cover** (the values below it) meets what the other lies within or
+covers. Deliberately excluded is upper × upper — two distinct places
+under one cell are two places, not one — so a ground-floor courier and a
+fourth-floor want never match, while a give to the whole building serves
+the fourth floor (the floor is below the building). This is Peter's
+third-coordinate case (issue #15's comment): a floor is a sub-place node,
+`my_home_4th ⊑ my_home ⊑ geo(u24mc)`, and "floors 1–4" is a region node
+above four floors — the same device as a region above cells, no metric
+invented. A by-product fixed on the way: `get_overlapping` used to walk
+*computed* hops below an overlapping anchor and so returned items under a
+finer value that provably does not overlap (`weight(0.9kg)` under
+`weight(0.8kg..1.5kg)` against `weight(1kg..)`); it now walks asserted
+edges below each anchor, finer values being anchors in their own right.
+Completeness for possibility (G6) is kept; the walk stopped inventing it.
+
+**Stored form stays canonical (I3, I7).** The order of role terms follows
+the catalogue, so filing a place or growing a region can make an asserted
+edge redundant *after the fact*: `ride ⊑ from(ljubljana)` and
+`ride ⊑ from(u2e6)` are both kept while `u2e6` is outside the region;
+adding the cell makes the first redundant, and no rectangle around the
+new edge sees it (the computed hop is a wormhole between the role's star
+and the base dimension). `add_edge` therefore ends with
+`_reduce_roles_touching`: every node whose position the edge changed —
+`to` and what is below it gained ancestors, `from` and what is above it
+gained descendants — is checked for role terms naming it, and each such
+term's computed hops are re-reduced through the same rectangle. Tested
+against direct filing in both natural shapes (a region grows; a place's
+cell is refined), as byte-identical eager roots across orders, as merge
+commutativity, and as sparse-writer = eager-writer roots. Cost: nothing
+when the graph declares no role; otherwise `|touched| × |roles|` name
+lookups per edge.
+
+**Interpretation depends on the catalogue, so three guards keep it
+stable.** A role-named node cannot be `remove`d or cone-deleted while the
+term stands (the term would turn into a literal spelling the same, or
+stop parsing at all — remove the term first); `reclassify` refuses to
+move it out of its dimension; and `put` refuses to *create* a category
+whose name a role term already carries as a literal unless the new
+category lands inside the dimension — inside, the literal becomes the
+node and the reduction pass follows (a store where `from(my_home)` was
+filed before the place existed heals itself when the place is filed).
+Replays (`merge`, `sync`) add nodes before edges, so inside them a not-
+yet-placed node is read as an isolated node rather than refused; the
+final state is the peer's, which was valid. Interpretation can loop
+without the graph cycling (deciding whether `offer` is in the dimension
+walks through the role star that contains `from(offer)`), so the lookup
+is re-entrancy-guarded and reads a re-entered parameter as a literal.
+
+**Deferred, recorded here.** Peter's refinement in the issue — a
+*covering as a value*, `where(u24m+u24q)`, a set of cells with no node
+and therefore no name — is not built: it is a grammar change to the
+prefix kind (canonical form = sorted minimal set), and region nodes
+answer the named case today. It fires if anonymity of regions becomes
+the tripwire. Performance: a role star's containment checks are graph
+walks rather than string arithmetic, so the parked per-dimension index
+(§12 step 6) has a second reason to exist when a role star grows large.

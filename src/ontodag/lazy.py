@@ -229,27 +229,17 @@ class LazyOntoDAG(OntoDAG):
     # costs the climbed path, never the graph; names without "(" short-
     # circuit before any fetch, keeping dimension-free budgets unchanged.
 
-    def _dimension_kind(self, head_name):
-        node = self.nodes.get(head_name)   # loads + expands (or None)
-        if node is None or head_name in _dims.KINDS:
-            return None
-        kinds = set()
-        seen = set()
-        stack = [node]
-        while stack:
-            for parent in self._expand(stack.pop()).parents:
-                if dict.get(self.nodes, parent.name) is not parent:
-                    continue
-                if parent.name in _dims.KINDS:
-                    kinds.add(parent.name)
-                elif parent not in seen:
-                    seen.add(parent)
-                    stack.append(parent)
-        if len(kinds) > 1:
-            raise ValueError(
-                f"dimension {head_name!r} inherits multiple kinds: "
-                f"{', '.join(sorted(kinds))} — declare exactly one")
-        return next(iter(kinds), None)
+    def _kind_walk_parents(self, node):
+        """The declaration walk's seam: expand as it climbs, follow only this
+        DAG's own parents, and skip parametric values like the eager one."""
+        out = []
+        for parent in self._expand(node).parents:
+            if dict.get(self.nodes, parent.name) is not parent:
+                continue
+            self._expand(parent)
+            if not self._looks_like_value(parent):
+                out.append(parent)
+        return out
 
     # ------------------------------------------------------- traversals
 
@@ -489,7 +479,7 @@ class SparseOntoDAG(LazyOntoDAG):
     def remove_edge(self, from_node, to_node):
         self._expand(from_node)
         self._expand(to_node)
-        DAG.remove_edge(self, from_node, to_node)
+        OntoDAG.remove_edge(self, from_node, to_node)
 
     def put(self, subcategory, super_categories, optimized=False):
         OntoDAG.put(self, subcategory, super_categories, optimized=optimized)
@@ -638,12 +628,13 @@ class SparseOntoDAG(LazyOntoDAG):
                 self._payloads[key] = record["payload"]
         # Pass 2: replay the peer's asserted edges (order-free: add_edge
         # maintains the complete redundancy rectangle).
-        for key in sorted(touched):
-            if key == self.root.name:
-                continue
-            node = self.nodes[key]
-            for parent_name in touched[key]["up"]:
-                parent = self.nodes.get(parent_name)
-                if parent is not None:
-                    self.add_edge(parent, node)
+        with self._lenient_roles():      # nodes landed before their edges
+            for key in sorted(touched):
+                if key == self.root.name:
+                    continue
+                node = self.nodes[key]
+                for parent_name in touched[key]["up"]:
+                    parent = self.nodes.get(parent_name)
+                    if parent is not None:
+                        self.add_edge(parent, node)
         return bool(touched)

@@ -202,11 +202,13 @@ def render(name, dag=None, kind=None):
     context at all) is returned unchanged — output must never fail."""
     try:
         resolved = _resolve(name, dag, kind)
+        if resolved is None:
+            return name
+        head, resolved_kind, canonical = resolved
+        param = _dims.split_term(canonical)[1]
+        if dag is not None and dag._param_node(head, param) is not None:
+            return canonical   # a role naming a node: the name is the display
+        units = dag._declared_units() if dag is not None else None
+        return f"{head}({_friendly_param(param, resolved_kind, units)})"
     except ValueError:
         return name
-    if resolved is None:
-        return name
-    head, resolved_kind, canonical = resolved
-    param = _dims.split_term(canonical)[1]
-    units = dag._declared_units() if dag is not None else None
-    return f"{head}({_friendly_param(param, resolved_kind, units)})"

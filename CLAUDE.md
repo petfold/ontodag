@@ -727,6 +727,38 @@ Next candidates after the current task — **this list is complete (all three la
 
 Optional, pull-forward-anytime (agreed 2026-07-20): **in-memory cone bitmaps behind `get()`** — step (1) of `docs/plans/SEMANTIC_CODES.md` §8's sequencing, exempted from that note's parking because it is bounded, in-memory-only, dependency-free (Python ints), schema-invisible, and oracle-tested by I5 (`popcount == descendant_count`). Do it if/when queries are measurably hot (web UI); it neither advances nor blocks items 1–3. The **`get()` query planner** — **DONE (2026-07-21), including the adaptive walk-vs-probe step**: `OntoDAG.get` resolves/dedups terms by name, drops query terms that are ancestors of other terms (upward `_has_ancestors` walk from the smaller-count term, so planning scales with the query, never the graph; `descendant_count` as the cheap necessary condition), orders cones smallest-count-first, then executes adaptively — before each remaining term it picks walk (traverse the cone, intersect) or probe (upward walk per surviving candidate settling all remaining terms at once) from the now-known running-result size, with early exit on empty. All steps are result-preserving; `_PROBE_COST_ESTIMATE` only steers operator choice (time, never correctness). Tests: `tests/testdag.py::TestQueryPlanner` — brute-force oracle over all 1/2/3-term fixture queries, forced-probe/forced-walk modes, a 60-node seeded-random DAG under all modes, and the meet-substitution guard (a node named "AB" under A and B is NOT the meet of A and B — `put(X, [A, B])` creates a *sibling* of AB — so do not "optimize" `get` through such nodes; see `SEMANTIC_CODES.md` §10).
 
+## Role heads (2026-09-12) — issue #15 closed, DIMENSIONS.md §14
+
+Peter's order for the session: #15, then #16, then #14 (loopmarket's three
+GitHub issues). **#15 shipped:** a head declared under another head (`from`
+under `geo`) is a *role* of that dimension and takes the base dimension's
+**nodes** as parameters — `from(my_home)`, `from(ljubljana)`,
+`where(my_home_4th)` — stored as spelled, ordered by the graph
+(`from(x) ⊑ from(y)` iff `x ⊑ y` under `geo`), one combined order for
+`is_below`/`get`/reduction/lazy/certificates. Design record: DIMENSIONS.md
+§14; tests: `tests/test_roles.py` (23; 957 passed + 4 skipped). What cost
+the most thought, kept here so it is not re-derived: (a) the *heavy* stance
+was chosen — role hops are part of the combined order, so stored form stays
+canonical only because `add_edge` ends with `_reduce_roles_touching` (a
+place filed or a region grown after the terms naming it re-reduces those
+terms' computed hops; the rectangle around the new edge cannot see them —
+the hop is a wormhole between the role's star and the base dimension); the
+*light* stance (query-time only) was rejected because it makes `is_below`
+and `add_edge` disagree about redundancy. (b) A region's covering is a
+**lower bound only** (G2 monotonicity: an upper reading lets a later cell
+flip True→False). (c) Overlap for nodes excludes upper×upper — two places
+under one cell are two places (Peter's floors rule) — and `get_overlapping`
+now walks asserted edges below each anchor (it had followed computed hops,
+over-including items under provably non-overlapping finer values: a latent
+bug, fixed). (d) Values are leaves of the declaration walk (a node under
+`geo(u2e4x)` is no longer a head). (e) Guards: role-named nodes cannot be
+removed/cone-deleted/moved out of the dimension; creating a category a role
+term already names as a literal must land it inside; replays (`merge`,
+`sync`) are lenient while nodes precede their edges. (f) Interpretation can
+loop without the graph cycling — `_param_node` is re-entrancy-guarded.
+Deferred: Peter's covering-as-a-value (`where(u24m+u24q)`) — a prefix-kind
+grammar change, fires on the anonymity tripwire.
+
 ## The projection seam (2026-08-20) — PROJECTIONS.md §4–§5 shipped
 
 **Overlay views + `odag ingest` + the projection-drop golden test**, in one

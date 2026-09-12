@@ -881,8 +881,53 @@ each is checked on its own, so if separate sources gave you `20..30` and
 `25..40`, assert the intersection `25..30` yourself to make the combined
 knowledge queryable (the graph then prunes both originals).
 
+**Roles: the same dimension, several coordinates.** An offer has a
+*from* and a *to*; a delivery has a *where* and a *when*. Declare a head
+under an existing one and it becomes a **role** of that dimension — same
+kind, same values — and, unlike the base head, it also accepts the
+dimension's *nodes* as parameters: a place you filed under a cell, a
+region you filed above cells, a floor you filed under a building.
+
+```python
+dag = OntoDAG(); prelude.apply(dag)
+dag.put("ljubljana", [])                          # a region: above its cells
+dag.put("geo(u2e4)", ["ljubljana"]); dag.put("geo(u2e5)", ["ljubljana"])
+dag.put("my_home", ["geo(u2e4x)"])                # a place: under one cell
+dag.put("from", ["geo"])                          # `from` is a role of geo
+
+dag.put("offer", ["from(my_home)"])               # the place, by name
+dag.put("ride",  ["from(ljubljana)"])             # the region, by name
+
+dag.is_below("offer", "from(u2e4)")          # True  — my_home is in u2e4
+dag.is_below("offer", "from(ljubljana)")     # True  — and u2e4 is in the region
+dag.is_below("from(ljubljana)", "from(u2)")  # False — nothing filed it under u2
+dag.get(["from(u2e)"])                       # offer (and the values above it)
+dag.get(["from(ljubljana)"])                 # offer, ride
+
+dag.put("my_home_4th", ["my_home"])          # a floor: a sub-place node
+dag.put("want", ["from(my_home_4th)"])
+dag.is_below("want", "from(my_home)")        # True  — the floor is in the building
+dag.is_below("offer", "from(my_home_4th)")   # False — the building is not the floor
+dag.get_overlapping("from(my_home_4th)")     # includes offer: a give to the whole
+                                             # building may serve the fourth floor
+dag.put("Flight", [])
+dag.put("x", ["from(Flight)"])               # ValueError: Flight is a category
+                                             # outside the geo dimension
+```
+
+The order between role terms is the graph's own order in the base
+dimension, so it follows your catalogue: refine `my_home` into a finer
+cell and every `from(my_home)` claim moves with it, with no stored name
+changing. Two consequences worth knowing: a region's cells are what it is
+*known* to cover (a lower bound — file the region under a coarser cell
+yourself if that is true), and a node named by a role term cannot be
+removed or moved out of its dimension while the term stands (remove the
+term first). Values still work exactly as before — `from(u2e4x)` is a
+cell — and only role heads look names up, so a category that merely
+happens to be called `u2e4` never becomes the cell.
+
 The full design (why the order is computed rather than stored, and what that
-preserves) is in [DIMENSIONS.md](DIMENSIONS.md).
+preserves) is in [DIMENSIONS.md](DIMENSIONS.md); roles are its §14.
 
 ---
 

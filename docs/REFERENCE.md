@@ -217,6 +217,16 @@ market-shaped ships as packs; graph-declared units via
 `unit(NAME=VALUE)` / `unit-family(NAME)` nodes under `unit-declaration`
 travel with the store.
 
+Roles (DIMENSIONS.md §14): a head declared under another head —
+`from` under `geo`, `when` under `time` — inherits its kind and value
+space and may take the base dimension's *nodes* as parameters:
+`from(my_home)` (a place under a cell), `from(ljubljana)` (a region above
+cells), `where(my_home_4th)` (a floor under a building). Stored as
+spelled; ordered by the graph (`from(x) ⊑ from(y)` iff `x ⊑ y` under
+`geo`); a parameter naming a present node outside the dimension is
+refused. A node named by a role term cannot be removed or moved out of
+its dimension while the term stands.
+
 Prelude v3 declares: the five kind nodes and heads `weight`, `length`,
 `duration`, `area`, `volume`, `speed`, `pressure`, `temperature`,
 `energy`, `count`, `time`, `geo`, `size`.

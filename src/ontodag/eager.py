@@ -276,14 +276,15 @@ class EagerOntoDAG(OntoDAG):
         # record names exists by now: an unchanged-in-both parent is
         # already ours, a changed or peer-new one is in the diff, and a
         # locally-removed one is dirty — all land in pass 1.
-        for key in sorted(touched):
-            if key == self.root.name:
-                continue
-            node = self.nodes[key]
-            for parent_name in touched[key]["up"]:
-                parent = self.nodes.get(parent_name)
-                if parent is not None:
-                    self.add_edge(parent, node)
+        with self._lenient_roles():      # nodes landed before their edges
+            for key in sorted(touched):
+                if key == self.root.name:
+                    continue
+                node = self.nodes[key]
+                for parent_name in touched[key]["up"]:
+                    parent = self.nodes.get(parent_name)
+                    if parent is not None:
+                        self.add_edge(parent, node)
 
         if getattr(self.store, "root", None) == other_root:
             for key, _mine, theirs in diff:

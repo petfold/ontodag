@@ -12,6 +12,39 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Added
+
+- **Role heads take the base dimension's nodes as parameters**
+  (issue #15, `docs/DIMENSIONS.md` §14). A head declared under another
+  head (`from` under `geo`, `when` under `time`) is a *role* of that
+  dimension; `from(my_home)` names the place filed under a cell,
+  `from(ljubljana)` the region filed above cells, `where(my_home_4th)` a
+  floor under a building. Stored as spelled; ordered by the graph
+  (`from(x) ⊑ from(y)` iff `x ⊑ y` under `geo`) in `is_below`, `get`,
+  reduction, the lazy reader and certificates alike. A parameter naming a
+  present node outside the dimension is refused rather than read as a
+  literal; only role heads look names up, so a category that happens to
+  be called `u2e4` never becomes the cell. Stored form stays canonical
+  when a place is filed or a region grows after the terms naming it
+  (`_reduce_roles_touching`; tested against direct filing, across put
+  orders as eager roots, under merge in both directions, sparse = eager).
+  Guards: a role-named node cannot be removed, cone-deleted or moved out
+  of its dimension while the term stands; creating a category whose name
+  a role term already carries as a literal must land it in the dimension.
+
+### Changed
+
+- **Values are leaves of the declaration walk**: a node filed under a
+  parametric value is no longer a dimension head, so `shop(1)` under
+  `geo(u2e4x)` is an opaque atom (it used to parse as a prefix term).
+- **`get_overlapping` walks asserted edges below each overlapping
+  anchor**, finer values being anchors in their own right. It used to
+  follow computed hops too and so returned items under a finer value that
+  provably does not overlap (`weight(0.9kg)` under `weight(0.8kg..1.5kg)`
+  against `weight(1kg..)`). Completeness for possibility (G6) is kept.
+
 ## [0.24.0] — 2026-09-10
 
 ### Added

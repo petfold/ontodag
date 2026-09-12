@@ -473,23 +473,51 @@ class OntoDAG(DAG):
     # materialized as edges (dense orders have no transitive reduction).
 
     def _dimension_kind(self, head_name):
-        """The registry kind a declared dimension head inherits (ancestor
-        walk from the head to a kind node), or None. Inheriting two
-        different kinds is an error, not an MRO puzzle (DIMENSIONS.md §3).
-        The walk stops at kind nodes, so kind nodes themselves and plain
-        categories resolve to None."""
+        """The registry kind a declared dimension head inherits, or None."""
+        return self._dimension_of(head_name)[0]
+
+    def _looks_like_value(self, node):
+        """Syntactic anchor test — `head(param)` with a parent named `head`.
+        No parse and no walk, so the declaration walk can afford it."""
+        split = _dims.split_term(node.name)
+        if split is None:
+            return False
+        return any(parent.name == split[0] for parent in node.parents)
+
+    def _kind_walk_parents(self, node):
+        """The parents the declaration walk follows: this DAG's own, with
+        parametric VALUES left out. A value is a leaf of the declaration
+        walk, not a link in a head chain — a place filed under a geohash
+        cell is not thereby a dimension head, whatever its name looks like.
+        Seam for the lazy reader, which expands as it walks."""
+        return [parent for parent in node.parents
+                if self.nodes.get(parent.name) is parent
+                and not self._looks_like_value(parent)]
+
+    def _dimension_of(self, head_name):
+        """(kind, base) for a declared dimension head, (None, None) otherwise.
+
+        The kind is the registry node the head inherits (ancestor walk from
+        the head to a kind node; inheriting two different kinds is an error,
+        not an MRO puzzle — DIMENSIONS.md §3). The *base* is the head
+        directly under the kind node on that walk: the dimension's own head.
+        A head whose base is another head is a ROLE of that dimension
+        (`from` under `geo`, DIMENSIONS.md §14): it shares the value space
+        and the kind, and its parameters may name the base dimension's
+        nodes. The walk stops at kind nodes, so kind nodes themselves and
+        plain categories resolve to (None, None)."""
         node = self.nodes.get(head_name)
         if node is None or head_name in _dims.KINDS:
-            return None
-        kinds = set()
-        seen = set()
+            return None, None
+        kinds, bases = set(), set()
+        seen = {node}
         stack = [node]
         while stack:
-            for parent in stack.pop().parents:
-                if self.nodes.get(parent.name) is not parent:
-                    continue
+            current = stack.pop()
+            for parent in self._kind_walk_parents(current):
                 if parent.name in _dims.KINDS:
                     kinds.add(parent.name)
+                    bases.add(current.name)
                 elif parent not in seen:
                     seen.add(parent)
                     stack.append(parent)
@@ -497,7 +525,319 @@ class OntoDAG(DAG):
             raise ValueError(
                 f"dimension {head_name!r} inherits multiple kinds: "
                 f"{', '.join(sorted(kinds))} — declare exactly one")
-        return next(iter(kinds), None)
+        if not kinds:
+            return None, None
+        if len(bases) > 1:
+            raise ValueError(
+                f"dimension head {head_name!r} belongs to several "
+                f"dimensions: {', '.join(sorted(bases))} — a role has "
+                f"exactly one base")
+        return next(iter(kinds)), next(iter(bases))
+
+    def _heads(self):
+        """Every declared head -> (kind, base), walked DOWN from the kind
+        nodes through plain (non-parametric) children. Cached — the only
+        edges that can change it are a kind node or a head gaining or losing
+        a plain child, and `add_edge`/`remove_edge`/`_forget` invalidate on
+        exactly those; hydration bypasses `add_edge`, so the cache starts
+        empty and builds on first use."""
+        cached = getattr(self, "_heads_cache", None)
+        if cached is not None:
+            return cached
+        heads = {}
+        for kind in sorted(_dims.KINDS):
+            kind_node = self.nodes.get(kind)
+            if kind_node is None:
+                continue
+            stack = list(kind_node.neighbors)
+            while stack:
+                child = self.nodes.get(stack.pop().name)   # expands on lazy
+                if child is None or child.name in heads \
+                        or child.name in _dims.KINDS \
+                        or _dims.split_term(child.name) is not None:
+                    continue
+                try:
+                    kind_of, base = self._dimension_of(child.name)
+                except ValueError:
+                    continue      # ambiguous declarations refuse at use
+                if kind_of is None:
+                    continue
+                heads[child.name] = (kind_of, base)
+                stack.extend(child.neighbors)
+        self._heads_cache = heads
+        return heads
+
+    def _role_heads(self):
+        """role head -> base head, for every role declared in the graph."""
+        return {name: base for name, (_kind, base) in self._heads().items()
+                if base != name}
+
+    def _maybe_invalidate_heads(self, from_node, to_node):
+        """An edge from a kind node or a head to a PLAIN node can create or
+        retire a head (or a role); nothing else can."""
+        cached = getattr(self, "_heads_cache", None)
+        if cached is None:
+            return
+        if _dims.split_term(to_node.name) is not None:
+            return
+        if from_node.name in _dims.KINDS or from_node.name in cached:
+            self._heads_cache = None
+
+    def remove_edge(self, from_node, to_node):
+        self._maybe_invalidate_heads(from_node, to_node)
+        super().remove_edge(from_node, to_node)
+
+    # ---- role parameters that name nodes (DIMENSIONS.md §14) --------------
+
+    def _param_node(self, head, param):
+        """The node a role term's parameter names, or None when the parameter
+        is a literal value. Only ROLE heads look parameters up — a base
+        head's parameters are values by definition, however a place happens
+        to be named — and a present node OUTSIDE the role's dimension is
+        refused rather than read as a value that spells the same."""
+        _kind, base = self._dimension_of(head)
+        if base is None or base == head:
+            return None
+        node = self.nodes.get(param)
+        if node is None or node.name in _dims.KINDS:
+            return None
+        # Interpretation can loop without the graph cycling: deciding whether
+        # `offer` is in the dimension walks below/above it, and a role term
+        # met on the way parses its own parameter. Re-entry on the same
+        # (head, param) reads the parameter as a literal — fail closed.
+        active = getattr(self, "_param_active", None)
+        if active is None:
+            active = self._param_active = set()
+        if (head, param) in active:
+            return None
+        active.add((head, param))
+        try:
+            inside = self._in_dimension(node, base)
+        finally:
+            active.discard((head, param))
+        if not inside and getattr(self, "_role_lenient", 0):
+            # A replay (merge, sync) adds nodes edgeless before their edges:
+            # the node is momentarily outside, and as an isolated node it
+            # relates to nothing — safe for reduction, which re-runs when
+            # its edges land. The loud refusal is for authors, not replays.
+            return node
+        if not inside:
+            raise ValueError(
+                f"{head}({param}): {param!r} names a category outside the "
+                f"{base!r} dimension — a role of {base!r} takes its values "
+                f"or the categories filed in it (a place under a cell, a "
+                f"region above cells), never a category from elsewhere")
+        return node
+
+    @contextmanager
+    def _lenient_roles(self):
+        """Replays (merge, sync) add nodes before edges; inside this block a
+        role parameter naming a not-yet-placed node is an isolated node
+        rather than a refusal (see `_param_node`)."""
+        self._role_lenient = getattr(self, "_role_lenient", 0) + 1
+        try:
+            yield
+        finally:
+            self._role_lenient -= 1
+
+    def _in_dimension(self, node, base):
+        """Is `node` a member of the dimension headed by `base`: below its
+        head (a place under a cell), or above some value of it (a region)?"""
+        base_node = self.nodes.get(base)
+        if base_node is None:
+            return False
+        # Asserted edges suffice upward: every value hangs under its head by
+        # its anchor edge, so anything below a value reaches the head
+        # without a computed hop — and the computed walk would parse every
+        # role star it passes, re-entering this very question.
+        if node is base_node \
+                or self._has_ancestors(node, (base_node,), computed=False):
+            return True
+        for value in self._values_below(node):
+            if self._dimension_of(self._parse_parametric(value.name)[0])[1] \
+                    == base:
+                return True
+        return False
+
+    def _values_below(self, node):
+        """Parametric nodes below `node` along ASSERTED edges, not descending
+        past one (finer cells under a covered cell add nothing to what the
+        node covers). Refetches by name so the lazy reader expands."""
+        seen = {node.name}
+        stack = [node]
+        while stack:
+            current = self.nodes.get(stack.pop().name)
+            if current is None:
+                continue
+            for child in current.neighbors:
+                if child.name in seen:
+                    continue
+                seen.add(child.name)
+                if self._parse_parametric(child.name) is not None:
+                    yield self.nodes.get(child.name)
+                else:
+                    stack.append(child)
+
+    def _role_terms_naming(self, name):
+        """Present role terms whose parameter names `name` (`from(my_home)`
+        for `my_home`) — the terms that would change meaning if it moved."""
+        return [self.nodes[term] for term in
+                (f"{role}({name})" for role in sorted(self._role_heads()))
+                if term in self.nodes]
+
+    def _below_guarded(self, sub, sup):
+        """`is_below` with a re-entrancy guard: a place filed under a role
+        term of itself would otherwise recurse forever. Fail closed."""
+        guard = getattr(self, "_role_guard", None)
+        if guard is None:
+            guard = self._role_guard = set()
+        key = (sub, sup)
+        if key in guard:
+            return False
+        guard.add(key)
+        try:
+            return self.is_below(sub, sup)
+        finally:
+            guard.discard(key)
+
+    def _contains(self, outer, inner, kind):
+        """denotation(inner) ⊆ denotation(outer) over the combined order:
+        arithmetic between values (`dimensions.contains`), the GRAPH when a
+        role parameter names a node — `from(x) ⊑ from(y)` iff x ⊑ y in the
+        base dimension, values spelled as terms of the base head. So a
+        place is below the cells above it, a region is above the cells it
+        covers, and two floors of one building are siblings even though
+        they share a cell."""
+        head, param_outer, param_inner = _dims._same_head(outer, inner)
+        node_outer = self._param_node(head, param_outer)
+        node_inner = self._param_node(head, param_inner)
+        if node_outer is None and node_inner is None:
+            return _dims.contains(outer, inner, kind,
+                                  units=self._declared_units())
+        base = self._dimension_of(head)[1]
+        sub = node_inner.name if node_inner is not None \
+            else f"{base}({param_inner})"
+        sup = node_outer.name if node_outer is not None \
+            else f"{base}({param_outer})"
+        return self._below_guarded(sub, sup)
+
+    def _fold_meet(self, upper, head, value, kind):
+        """upper[head] := upper[head] ∩ value (None once provably empty)."""
+        if head not in upper:
+            upper[head] = value
+        elif upper[head] is not None:
+            upper[head] = _dims.intersect(upper[head], value, kind,
+                                          units=self._declared_units())
+
+    def _bounds(self, name):
+        """What a term or node is known to lie within and known to cover:
+        (upper, lower) — `upper` maps head -> the MEET of the parametric
+        values above it (the finest cell a place sits in), `lower` maps
+        head -> the parametric values below it (the cells a region covers).
+        A value term is both its own upper and lower bound; a role term
+        whose parameter names a node carries that node's bounds respelled
+        under the role. The two are what `overlaps` compares."""
+        active = getattr(self, "_bounds_active", None)
+        if active is None:
+            active = self._bounds_active = set()
+        if name in active:
+            return {}, {}
+        active.add(name)
+        try:
+            return self._bounds_uncached(name)
+        finally:
+            active.discard(name)
+
+    def _bounds_uncached(self, name):
+        parsed = self._parse_parametric(name)
+        if parsed is not None:
+            head, kind, canonical = parsed
+            param = _dims.split_term(canonical)[1]
+            node = self._param_node(head, param)
+            if node is None:
+                return {head: canonical}, {head: {canonical}}
+            base = self._dimension_of(head)[1]
+            upper_raw, lower_raw = self._node_bounds(node)
+            respell = lambda term: f"{head}({_dims.split_term(term)[1]})"
+            upper, lower = {}, {}
+            for other, value in upper_raw.items():
+                if self._dimension_of(other)[1] == base:
+                    self._fold_meet(upper, head, respell(value), kind)
+            for other, values in lower_raw.items():
+                if self._dimension_of(other)[1] == base:
+                    lower.setdefault(head, set()).update(
+                        respell(v) for v in values)
+            return ({h: v for h, v in upper.items() if v is not None},
+                    lower)
+        node = self.nodes.get(name)
+        if node is None:
+            return {}, {}
+        return self._node_bounds(node)
+
+    def _node_bounds(self, node):
+        upper, lower = {}, {}
+        for ancestor in self._walk_ancestors(node):
+            parsed = self._parse_parametric(ancestor.name)
+            if parsed is None:
+                continue
+            head, kind, canonical = parsed
+            if self._param_node(head, _dims.split_term(canonical)[1]) is None:
+                self._fold_meet(upper, head, canonical, kind)
+            else:
+                inner, _ = self._bounds(canonical)
+                if head in inner:
+                    self._fold_meet(upper, head, inner[head], kind)
+        for value in self._values_below(node):
+            head, kind, canonical = self._parse_parametric(value.name)
+            if self._param_node(head, _dims.split_term(canonical)[1]) is None:
+                lower.setdefault(head, set()).add(canonical)
+            else:
+                _, inner = self._bounds(canonical)
+                lower.setdefault(head, set()).update(inner.get(head, ()))
+        return {h: v for h, v in upper.items() if v is not None}, lower
+
+    def _overlap(self, a, b):
+        """Do the denotations of `a` and `b` share a point — as far as the
+        graph and the arithmetic can tell? Terms or node names, any mix.
+
+        Values decide by arithmetic. Nodes are individuated by the graph:
+        two named places overlap when one is below the other, or when what
+        one is known to COVER (its lower bound) meets what the other lies
+        within or covers. What is deliberately excluded is upper × upper —
+        two distinct named places under the same cell are two places, not
+        one — so a ground-floor courier and a fourth-floor want never
+        match, while a give to the whole building serves the fourth floor
+        (it is below the building). The possibly-satisfies mode of
+        `get_overlapping`, generalized to pairs (G6)."""
+        if self._below_guarded(a, b) or self._below_guarded(b, a):
+            return True
+        upper_a, lower_a = self._bounds(a)
+        upper_b, lower_b = self._bounds(b)
+
+        def meets(low, up, lows):
+            for head, values in low.items():
+                kind = self._dimension_of(head)[0]
+                others = set(lows.get(head, ()))
+                if head in up:
+                    others.add(up[head])
+                for u in values:
+                    for w in others:
+                        if _dims.intersect(u, w, kind,
+                                           units=self._declared_units()) \
+                                is not None:
+                            return True
+            return False
+        return meets(lower_a, upper_b, lower_b) or meets(lower_b, upper_a, {})
+
+    def _overlap_terms(self, a, b, kind):
+        """`_overlap` for two same-head terms — arithmetic when both
+        parameters are values, the general rule otherwise."""
+        head, param_a, param_b = _dims._same_head(a, b)
+        if self._param_node(head, param_a) is None \
+                and self._param_node(head, param_b) is None:
+            return _dims.intersect(a, b, kind,
+                                   units=self._declared_units()) is not None
+        return self._overlap(a, b)
 
     def _declared_units(self):
         """Graph-declared unit vocabulary (UNITS.md §7): the resolved map
@@ -526,6 +866,11 @@ class OntoDAG(DAG):
         kind = self._dimension_kind(split[0])
         if kind is None:
             return None
+        if self._param_node(split[0], split[1]) is not None:
+            # A role parameter naming a node: the node's name IS the
+            # parameter's identity (its position may move with the
+            # catalogue, which is the point — DIMENSIONS.md §14).
+            return split[0], kind, name
         return split[0], kind, _dims.canonicalize(
             name, kind, units=self._declared_units())
 
@@ -560,9 +905,8 @@ class OntoDAG(DAG):
             return
         head, kind, canonical = parsed
         for sibling, _ in self._star(head):
-            if sibling is not node and _dims.contains(
-                    canonical, sibling.name, kind,
-                    units=self._declared_units()):
+            if sibling is not node and self._contains(
+                    canonical, sibling.name, kind):
                 yield sibling
 
     def _computed_parents(self, node):
@@ -571,9 +915,8 @@ class OntoDAG(DAG):
             return
         head, kind, canonical = parsed
         for sibling, _ in self._star(head):
-            if sibling is not node and _dims.contains(
-                    sibling.name, canonical, kind,
-                    units=self._declared_units()):
+            if sibling is not node and self._contains(
+                    sibling.name, canonical, kind):
                 yield sibling
 
     def get_overlapping(self, term):
@@ -600,10 +943,17 @@ class OntoDAG(DAG):
         head, kind, canonical = parsed
         result = set()
         for value, _ in self._star(head):
-            if _dims.intersect(canonical, value.name, kind,
-                               units=self._declared_units()) is not None:
+            if self._overlap_terms(canonical, value.name, kind):
                 result.add(value)
-                result |= self.get_descendants(value)
+                # ASSERTED descendants only: what hangs below a finer value
+                # is decided when the loop reaches that value, which is in
+                # the star too — so items under a finer value that does NOT
+                # overlap (weight(0.9kg) under weight(0.8kg..1.5kg) against
+                # weight(1kg..); a ground-floor courier against the fourth
+                # floor) are left out, while everything filed directly
+                # under an overlapping value stays in. Completeness for
+                # possibility is kept; the walk merely stops inventing it.
+                result |= self.get_descendants(value, computed=False)
         return result
 
     def _virtual_cone(self, head, kind, canonical):
@@ -615,8 +965,7 @@ class OntoDAG(DAG):
         (DIMENSIONS.md §8)."""
         cone = set()
         for value, _ in self._star(head):
-            if _dims.contains(canonical, value.name, kind,
-                              units=self._declared_units()):
+            if self._contains(canonical, value.name, kind):
                 cone.add(value)
                 cone |= self.get_descendants(value)
         return cone
@@ -629,16 +978,22 @@ class OntoDAG(DAG):
         node = self.nodes.get(canonical)
         if node is not None:
             return node
-        space = _dims.space_of(canonical, kind,
-                               units=self._declared_units())
-        for sibling, _ in self._star(head):
-            sibling_space = _dims.space_of(sibling.name, kind,
-                                           units=self._declared_units())
-            if sibling_space != space:
-                raise ValueError(
-                    f"dimension {head!r} holds {sibling_space} values "
-                    f"({sibling.name}); {canonical} is {space}")
-            break  # one consistent sibling proves the whole star
+        if self._param_node(head, _dims.split_term(canonical)[1]) is None:
+            # A role parameter naming a node has no value space of its
+            # own (it sits in the dimension's); only values are checked.
+            space = _dims.space_of(canonical, kind,
+                                   units=self._declared_units())
+            for sibling, _ in self._star(head):
+                if self._param_node(
+                        head, _dims.split_term(sibling.name)[1]) is not None:
+                    continue
+                sibling_space = _dims.space_of(sibling.name, kind,
+                                               units=self._declared_units())
+                if sibling_space != space:
+                    raise ValueError(
+                        f"dimension {head!r} holds {sibling_space} values "
+                        f"({sibling.name}); {canonical} is {space}")
+                break  # one consistent sibling proves the whole star
         node = Item(canonical)
         self.add_node(node)
         self.add_edge(self.nodes[head], node)  # the anchor (schema edge)
@@ -679,10 +1034,12 @@ class OntoDAG(DAG):
         # hops really does change asserted reachability — and persisted
         # counts are asserted-only by design (DIMENSIONS.md §5).
         deltas = None if self._counts_frozen else self._plan_add(from_node, to_node)
+        self._maybe_invalidate_heads(from_node, to_node)
         with self._counts_unchanged():
             super().add_edge(from_node, to_node)              # structure only
         self._apply_count_deltas(deltas)
         self._remove_unneeded_edges(from_node, to_node)
+        self._reduce_roles_touching(from_node, to_node)
 
     # Stand-in for the typical ancestor-cone size, which is not maintained
     # per node. Used only to choose between two *exact* operators in get(),
@@ -773,19 +1130,36 @@ class OntoDAG(DAG):
         # is result-preserving, and an empty meet is an empty result before
         # the graph is touched at all. (Contrast SEMANTIC_CODES.md §10:
         # asserted "meet-named" nodes must never be used this way.)
+        # Role terms naming nodes (DIMENSIONS.md §14) join in only through
+        # containment — one below the other keeps the finer — never as an
+        # arithmetic meet, which no single term could name; incomparable
+        # ones stay separate cones for the planner to intersect.
         if parametric:
-            by_head = {}
+            by_head, head_kind = {}, {}
             for name, (head, kind) in parametric.items():
-                if head in by_head:
-                    met = _dims.intersect(by_head[head][0], name, kind,
-                                          units=self._declared_units())
-                    if met is None:
-                        return set()
-                    by_head[head] = (met, kind)
+                head_kind[head] = kind
+                kept = by_head.setdefault(head, [])
+                for index, other in enumerate(kept):
+                    if self._contains(other, name, kind):
+                        kept[index] = name
+                        break
+                    if self._contains(name, other, kind):
+                        break
+                    if self._param_node(head, _dims.split_term(name)[1]) \
+                            is None and self._param_node(
+                                head, _dims.split_term(other)[1]) is None:
+                        met = _dims.intersect(other, name, kind,
+                                              units=self._declared_units())
+                        if met is None:
+                            return set()
+                        kept[index] = met
+                        break
                 else:
-                    by_head[head] = (name, kind)
+                    kept.append(name)
+            chosen = {name: (head, head_kind[head])
+                      for head, kept in by_head.items() for name in kept}
             virtual = {}
-            for head, (name, kind) in by_head.items():
+            for name, (head, kind) in chosen.items():
                 node = self.nodes.get(name)
                 if node is not None:
                     terms[name] = node    # present: the planner handles it
@@ -923,16 +1297,14 @@ class OntoDAG(DAG):
         # with a virtual side it is also complete, short of cross edges.
         if sub_parsed is not None and sup_parsed is not None \
                 and sub_parsed[0] == sup_parsed[0] \
-                and _dims.contains(sup, sub, sup_parsed[1],
-                                   units=self._declared_units()):
+                and self._contains(sup, sub, sup_parsed[1]):
             return True
         if sub_node is None:
             # A virtual subject relates upward only through the present
             # values that contain it.
             head, kind, _ = sub_parsed
             return any(
-                _dims.contains(value.name, sub, kind,
-                               units=self._declared_units())
+                self._contains(value.name, sub, kind)
                 and self.is_below(value, sup)
                 for value, _kind in self._star(head))
         if sup_node is None:
@@ -948,8 +1320,7 @@ class OntoDAG(DAG):
             for ancestor in self._walk_ancestors(sub_node):
                 parsed = self._parse_parametric(ancestor.name)
                 if parsed is not None and parsed[0] == head \
-                        and _dims.contains(sup, ancestor.name, kind,
-                                           units=self._declared_units()):
+                        and self._contains(sup, ancestor.name, kind):
                     return True
             return False
         return self._has_ancestors(sub_node, (sup_node,))
@@ -1007,6 +1378,15 @@ class OntoDAG(DAG):
         are the dimension's enumeration index (DIMENSIONS.md §5), and
         pruning them would leave stored form dependent on which other
         values happen to exist. They remain valid witness-path steps."""
+        self._prune_rectangle(from_node, to_node)
+
+    def _prune_rectangle(self, upper, lower):
+        """Remove every asserted edge made redundant by upper ⇒ lower — the
+        new asserted edge in `_remove_unneeded_edges`, or a COMPUTED hop
+        that has just appeared (`_reduce_roles_touching`). The pair
+        itself is never touched: as an asserted edge it is the one being
+        added, as a computed hop it is not an edge at all."""
+        from_node, to_node = upper, lower
         ancestors = self.get_ancestors(from_node)  # combined order
         for ancestor in ancestors:
             if to_node in ancestor.neighbors \
@@ -1029,6 +1409,36 @@ class OntoDAG(DAG):
                         and not self._is_anchor(parent, descendant):
                     self.remove_edge(parent, descendant)
 
+    def _reduce_roles_touching(self, from_node, to_node):
+        """Keep stored form canonical when a NODE PARAMETER moves.
+
+        `from(my_home) ⊑ from(u2e4x)` is a computed hop that exists only
+        while `my_home` sits under `geo(u2e4x)` — so filing the place can
+        make an asserted edge redundant that no rectangle around the new
+        edge sees (the hop is a wormhole between the role's star and the
+        base dimension). Every node whose position the new edge changed —
+        `to` and what is below it gained ancestors, `from` and what is
+        above it gained descendants — is checked for role terms naming it,
+        and each such term's computed hops are re-reduced. Without this the
+        stored form would depend on whether places were filed before or
+        after the offers naming them (I3, and therefore I7)."""
+        roles = self._role_heads()
+        if not roles:
+            return
+        touched = ({to_node, from_node} | self.get_descendants(to_node)
+                   | self.get_ancestors(from_node))
+        affected = []
+        for node in touched:
+            for role in roles:
+                term = self.nodes.get(f"{role}({node.name})")
+                if term is not None:
+                    affected.append(term)
+        for term in affected:
+            for parent in list(self._computed_parents(term)):
+                self._prune_rectangle(parent, term)
+            for child in list(self._computed_children(term)):
+                self._prune_rectangle(term, child)
+
     def _forget(self, name):
         """Drop a node from the graph — the ONE place a node stops existing.
 
@@ -1037,6 +1447,55 @@ class OntoDAG(DAG):
         directly is exactly how a sparse cone removal came to commit a root
         that still contained the deleted records."""
         del self.nodes[name]
+        self._heads_cache = None
+
+    def _refuse_if_role_named(self, name, gone=()):
+        """A node named by a role term (`from(my_home)` names `my_home`) may
+        not cease to exist while the term stands: the term would silently
+        turn into a literal value spelling the same, or stop parsing at
+        all. Remove the term first."""
+        for term in self._role_terms_naming(name):
+            if term.name not in gone:
+                raise ValueError(
+                    f"{name} is named by {term.name}: remove that term "
+                    f"first — a role parameter must keep naming a category "
+                    f"in its dimension (DIMENSIONS.md §14)")
+
+    def _check_role_reference_stays(self, name, parent_names):
+        """A move must leave a role-named node inside its dimension."""
+        terms = self._role_terms_naming(name)
+        if not terms:
+            return
+        node = self.nodes.get(name)      # None while being created
+        for term in terms:
+            base = self._dimension_of(_dims.split_term(term.name)[0])[1]
+            base_node = self.nodes.get(base)
+            still = False
+            for parent in parent_names:
+                if parent == base:
+                    still = True
+                elif parent not in self.nodes:
+                    # A value about to be materialized: in the dimension
+                    # iff its head is.
+                    parsed = self._parse_parametric(parent)
+                    still = parsed is not None and \
+                        self._dimension_of(parsed[0])[1] == base
+                elif base_node is not None and self._has_ancestors(
+                        self.nodes[parent], (base_node,), computed=False):
+                    still = True
+                if still:
+                    break
+            if not still and node is not None and any(
+                    self._dimension_of(
+                        self._parse_parametric(v.name)[0])[1] == base
+                    for v in self._values_below(node)):
+                still = True
+            if not still:
+                raise ValueError(
+                    f"{name} is named by {term.name} and would sit outside "
+                    f"the {base!r} dimension — a role parameter must name a "
+                    f"category in its dimension; file {name} under {base!r} "
+                    f"(or retract the term) first (DIMENSIONS.md §14)")
 
     def _live_parent_names(self, name):
         """Names of a node's own parents (empty for a name not in the graph)."""
@@ -1083,6 +1542,10 @@ class OntoDAG(DAG):
                 parametric_supers[parsed[0]].append((name, parsed[1]))
         for head, entries in parametric_supers.items():
             for (name_a, kind), (name_b, _) in combinations(entries, 2):
+                if self._param_node(head, _dims.split_term(name_a)[1]) \
+                        is not None or self._param_node(
+                            head, _dims.split_term(name_b)[1]) is not None:
+                    continue   # named places: the graph proves no disjointness
                 if _dims.intersect(name_a, name_b, kind,
                                    units=self._declared_units()) is None:
                     raise ValueError(
@@ -1107,6 +1570,13 @@ class OntoDAG(DAG):
         self._check_parametric_placement(
             subcategory.name, super_names,
             also=self._live_parent_names(subcategory.name))
+        if subcategory.name not in self.nodes:
+            # A role term may already spell this name as a LITERAL value
+            # (`from(my_home)` filed before the place existed). Creating the
+            # category turns the parameter into a node — fine inside the
+            # dimension (the reduction pass below follows), refused outside
+            # it, where the term would otherwise turn loud on every read.
+            self._check_role_reference_stays(subcategory.name, super_names)
 
         # Materialize parametric super-categories on first use, anchored
         # under their head (declare-the-dimension-first is enforced by the
@@ -1186,6 +1656,7 @@ class OntoDAG(DAG):
             raise ValueError(f"Item {name} does not exist.")
         if name == self.root.name:
             raise ValueError("Cannot remove the root.")
+        self._refuse_if_role_named(name)
         node_to_remove = self.nodes[name]
 
         super_categories = {parent for parent in node_to_remove.parents
@@ -1334,6 +1805,7 @@ class OntoDAG(DAG):
             keeping = [name for name in self._live_parent_names(item)
                        if name not in retract[item] and name != self.root.name]
             self._check_parametric_placement(item, destinations, also=keeping)
+            self._check_role_reference_stays(item, destinations + keeping)
 
         for name, head, kind in pending:
             self._ensure_parametric_node(name, head, kind)
@@ -1423,6 +1895,8 @@ class OntoDAG(DAG):
         cone first if you want it back — merging that restores the exact root.
         """
         cone, deleted = self.cone_removal_plan(names)
+        for name in sorted(deleted):
+            self._refuse_if_role_named(name, gone=deleted)
 
         # Whose counts can move: the asserted ancestors of everything going.
         # Captured before the graph moves, recomputed after it — because the
@@ -1494,13 +1968,16 @@ class OntoDAG(DAG):
 
         # Pass 2: add edges in topological order (general → specific) using
         # add_edge so _remove_unneeded_edges prunes redundant edges correctly.
-        for other_node in other_dag.topological_sort():
-            self_node = self.nodes[other_node.name]
-            for neighbor in other_node.neighbors:
-                if neighbor.name in self.nodes:
-                    self.add_edge(self_node, self.nodes[neighbor.name])
+        # Lenient about role parameters meanwhile: a place arrives here
+        # before the edge that files it (DIMENSIONS.md §14).
+        with self._lenient_roles():
+            for other_node in other_dag.topological_sort():
+                self_node = self.nodes[other_node.name]
+                for neighbor in other_node.neighbors:
+                    if neighbor.name in self.nodes:
+                        self.add_edge(self_node, self.nodes[neighbor.name])
 
-        self._remove_duplicate_root_edges()
+            self._remove_duplicate_root_edges()
 
     def prune_to_common_descendants(self, interesting_nodes):
         # Gather each node's descendants in a list of sets

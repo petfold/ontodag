@@ -129,10 +129,19 @@ def _cover(lazy, seeds):
             if canonical != name:
                 nxt.add(canonical)
             name = canonical
+            param_node = lazy._param_node(head, _dims.split_term(canonical)[1])
+            if param_node is not None:
+                # A role parameter naming a node (DIMENSIONS.md §14): the
+                # comparison runs in the BASE dimension, over the node's
+                # position and — for a virtual value side — the base's
+                # whole star. All of it must be in the fragment.
+                base = lazy._dimension_of(head)[1]
+                nxt.add(param_node.name)
+                nxt.add(base)
+                nxt.update(v.name for v, _ in lazy._star(base))
             for value, vkind in lazy._star(head):
                 if value.name != canonical and \
-                        _dims.contains(value.name, canonical, vkind,
-                                       units=lazy._declared_units()):
+                        lazy._contains(value.name, canonical, vkind):
                     nxt.add(value.name)
         node = lazy.nodes.get(name)
         if node is not None:
