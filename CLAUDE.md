@@ -1072,8 +1072,8 @@ workflow, each verified against what PyPI serves rather than what is on disk.
 `CHANGELOG.md` in each repo is the authoritative per-release history; this
 section is the *current* state and the cross-repo pins.
 
-**What 0.25.0 is** (2026-09-13, tagged after the live Bee suite; verify
-from PyPI with `scripts/release_smoke.py --pypi 0.25.0`): the three
+**What 0.25.0 is** (2026-09-13, published by tag after the live Bee suite
+and the opt-in slow pack test, all four workflow jobs green incl. verify): the three
 loopmarket asks of 2026-09-12 — role heads take the base dimension's
 nodes as parameters (#15), `overlaps`/`meet` (#16), `items_only` (#14's
 second half) — plus the `_dimension_of` cache (#18) and the refusal of
