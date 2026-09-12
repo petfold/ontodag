@@ -1198,7 +1198,7 @@ def _disjuncts(categories):
     return queries
 
 
-def _query(categories, dag, overlapping=(), items_only=False):
+def _query(categories, dag, items_only=False):
     """Run a command-line query and return the matching items.
 
     The literal argument `or` separates disjuncts:
@@ -1213,16 +1213,14 @@ def _query(categories, dag, overlapping=(), items_only=False):
     query into a full dump."""
     queries = _disjuncts(categories)
     if len(queries) == 1:
-        return dag.get(queries[0], overlapping=overlapping,
-                       items_only=items_only)
-    return dag.get_any(queries, overlapping=overlapping,
-                       items_only=items_only)
+        return dag.get(queries[0], items_only=items_only)
+    return dag.get_any(queries, items_only=items_only)
 
 
 def _query_flags(args):
-    """The two planner flags `get` and `count` share (issue #14)."""
-    return {"overlapping": getattr(args, "overlapping", None) or (),
-            "items_only": bool(getattr(args, "items_only", False))}
+    """The flag `get` and `count` share (issue #14; `--overlapping` was
+    withdrawn 2026-09-12 — every query term is a containment term)."""
+    return {"items_only": bool(getattr(args, "items_only", False))}
 
 
 def cmd_get(args, session, out):
@@ -2350,11 +2348,8 @@ Commands:
                         Japan) OR Hotel).
                         With no CAT at all the query is unconstrained, so
                         it prints everything — the same as `list`.
-                        --overlapping TERM adds a possibly-satisfies
-                        constraint to the same plan (repeatable):
-                        `get ride --overlapping 'when(2026-08-15)'` = rides
-                        whose window overlaps that day; --items-only leaves
-                        out typed values and anything with children
+                        --items-only leaves out typed values and anything
+                        with children
   count [CAT...]        how many items that same query matches: one number,
                         complete, never capped (same flags as `get`)
   overlapping TERM      items that MIGHT satisfy a typed term: their value
@@ -2596,11 +2591,6 @@ def build_parser():
     p.set_defaults(func=cmd_put)
 
     def _add_query_flags(parser):
-        parser.add_argument(
-            "--overlapping", action="append", metavar="TERM", default=None,
-            help="also require the answer to possibly satisfy TERM (its "
-                 "value overlaps it) — an overlap constraint inside the "
-                 "same plan; repeatable")
         parser.add_argument(
             "--items-only", action="store_true", dest="items_only",
             help="leave out typed values and anything with something filed "

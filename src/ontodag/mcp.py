@@ -307,11 +307,12 @@ class AgentSurface:
             raise ToolError(
                 "pass at most one of `terms` (a conjunction) or `any_of` "
                 "(a list of conjunctions, answered as their union)")
-        overlapping = arguments.get("overlapping") or []
-        if not isinstance(overlapping, list):
-            raise ToolError("overlapping must be a list of parametric terms")
-        flags = {"overlapping": overlapping,
-                 "items_only": bool(arguments.get("items_only", False))}
+        if arguments.get("overlapping"):
+            raise ToolError(
+                "`overlapping` was withdrawn: every query term is a "
+                "containment term — put the place or time term in `terms`; "
+                "for possibly-satisfies candidates use the `overlapping` tool")
+        flags = {"items_only": bool(arguments.get("items_only", False))}
         if any_of is None:
             # No terms at all — including neither argument — is the empty
             # query: an intersection of no constraints, so every item.
@@ -326,9 +327,6 @@ class AgentSurface:
             echo = [self._canonical_terms(dag, q) for q in any_of]
             result = dag.get_any(any_of, **flags)
             payload = {"any_of": echo}
-        if overlapping:
-            payload["overlapping"] = [dag._canonical_name(t)
-                                      for t in overlapping]
         if flags["items_only"]:
             payload["items_only"] = True
         items = sorted(item.name for item in result)
@@ -709,13 +707,6 @@ TOOL_SPECS = [
                     "items": {"type": "array",
                               "items": {"type": "string"}},
                     "description": "union of conjunctions (DNF)"},
-         "overlapping": {"type": "array", "items": {"type": "string"},
-                         "description": "parametric terms the answer must "
-                                        "POSSIBLY satisfy (denotations "
-                                        "overlap) — overlap constraints "
-                                        "planned together with the "
-                                        "containment terms; applies to "
-                                        "every disjunct"},
          "items_only": {"type": "boolean",
                         "description": "drop typed values and anything with "
                                        "something filed under it: leaves "

@@ -388,20 +388,21 @@ class TestOverlapsAndMeet(unittest.TestCase):
 
 
 class TestTheDimensionItselfIsNoParameter(unittest.TestCase):
-    """Issue #17, answered the other way round (Peter, 2026-09-12): "from
-    anywhere" is said by saying no `from(...)` at all — an item stating
-    nothing under a head is unconstrained on it and passes every overlap
-    term of that head unvisited (§8). A term for the whole space,
-    `from(geo)`, would only ever be redundant beside anything finer (the
-    overlap of everything with A is A), so the dimension itself is refused
-    as a role parameter, with the reason."""
+    """Issue #17, closed the other way round (Peter, 2026-09-12): there is
+    no "from anywhere" term. `get` is containment — a want's place is a
+    query term and the gives in the answer fit within it — and an item that
+    says nothing about `from` simply has no `from` cone to be in. A term
+    for the whole space, `from(geo)`, would only ever be redundant beside
+    anything finer (the overlap of everything with A is A), so the
+    dimension itself is refused as a role parameter, with the reason."""
 
     def test_refused_with_the_reason(self):
         d = make_dag()
         for call in (lambda: d.is_below("from(geo)", "from(u2e)"),
                      lambda: d.overlaps("from(geo)", "from(u2e)"),
                      lambda: d.put("anywhere", ["from(geo)"]),
-                     lambda: d.get([], overlapping=["from(geo)"])):
+                     lambda: d.get(["from(geo)"]),
+                     lambda: d.get_overlapping("from(geo)")):
             with self.assertRaises(ValueError) as caught:
                 call()
             self.assertIn("is the dimension itself", str(caught.exception))
@@ -410,28 +411,26 @@ class TestTheDimensionItselfIsNoParameter(unittest.TestCase):
         # a base head's own parameters stay values: geo(geo) is a literal
         self.assertIsNone(d._param_node("geo", "geo"))
 
-    def test_saying_nothing_is_anywhere(self):
-        """The issue's reproduction, done right: nothing filed under any
-        geo(...) and no whole-space term — the silent item is found by
-        every `from` overlap query, a stated contradiction is not."""
+    def test_place_is_a_query_term_like_any_other(self):
+        """The want is the wider cone, the give the narrower: a give at a
+        place fits within a want for the cell above it; a give that says
+        nothing about `from` is in no `from` cone; a give elsewhere is out."""
         d = OntoDAG()
         prelude.apply(d)
-        d.put("from", ["geo"]); d.put("when", ["time"]); d.put("cat", [])
-        d.put("anywhere", ["cat"])
-        d.put("anytime", ["cat", "from(u2e4)"])
+        d.put("from", ["geo"]); d.put("cat", [])
+        d.put("my_home", ["geo(u2e4x)"])
+        d.put("silent", ["cat"])
+        d.put("at_home", ["cat", "from(my_home)"])
+        d.put("in_cell", ["cat", "from(u2e4)"])
         d.put("elsewhere", ["cat", "from(u2f)"])
-        w = "when(2026-09-12T11:00:00Z..2026-09-12T13:00:00Z)"
-        self.assertEqual(names(d.get(["cat"], overlapping=["from(u2e)"],
-                                     items_only=True)), {"anywhere", "anytime"})
-        self.assertEqual(names(d.get(["cat"], overlapping=[w],
-                                     items_only=True)),
-                         {"anywhere", "anytime", "elsewhere"})
-        self.assertEqual(names(d.get(["cat"], overlapping=["from(u2e)", w],
-                                     items_only=True)), {"anywhere", "anytime"})
+        self.assertEqual(names(d.get(["cat", "from(u2e)"], items_only=True)),
+                         {"at_home", "in_cell"})
+        self.assertEqual(names(d.get(["cat", "from(u2e4x)"], items_only=True)),
+                         {"at_home"})
+        self.assertEqual(names(d.get(["cat"], items_only=True)),
+                         {"silent", "at_home", "in_cell", "elsewhere"})
         self.assertEqual(names(d.get_overlapping("from(u2e)")),
-                         {"anytime", "from(u2e4)"})       # what STATES it
-        self.assertTrue(d.overlaps("anywhere", "from(u2f)"))
-        self.assertFalse(d.overlaps("elsewhere", "from(u2e)"))
+                         {"at_home", "in_cell", "from(my_home)", "from(u2e4)"})
 
 
 class TestRoleGuards(unittest.TestCase):

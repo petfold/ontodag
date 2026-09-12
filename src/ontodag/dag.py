@@ -855,21 +855,6 @@ class OntoDAG(DAG):
             return True
         upper_a, lower_a = self._bounds(a)
         upper_b, lower_b = self._bounds(b)
-        # A node that states nothing under a term's head is unconstrained on
-        # it: it could be anywhere the term is (possibly-satisfies, G6) —
-        # the pairwise face of `get(overlapping=...)` letting such items
-        # through. Applies to a NODE against a TERM only; two terms of one
-        # head always have bounds, and two nodes are individuated by the
-        # graph (a place with no cell is not "possibly" every place).
-        for term, node_upper, node_lower in ((a, upper_b, lower_b),
-                                             (b, upper_a, lower_a)):
-            parsed = self._parse_parametric(term)
-            if parsed is not None and (
-                    parsed[0] not in node_upper and parsed[0] not in node_lower):
-                other = b if term is a else a
-                if self._parse_parametric(other) is None \
-                        and other in self.nodes:
-                    return True
 
         def meets(low, up, lows):
             for head, values in low.items():
@@ -992,12 +977,11 @@ class OntoDAG(DAG):
         query term. Raises ValueError for a term of no declared dimension,
         since overlap is only defined for computed denotations.
 
-        This ENUMERATES what states an overlapping value. An item that
-        states nothing under the head is not here — it cannot be reached
-        from the star — although it does not contradict the term; the
-        query that lets such items through is `get(terms,
-        overlapping=[term])`, where they pass by the other terms and are
-        never searched for (DIMENSIONS.md §8, 2026-09-12)."""
+        This ENUMERATES what states an overlapping value; an item that
+        states nothing under the head is not here. It is a candidate
+        generator for a consumer's own exact check, not a query mode:
+        `get` is containment, and every query term is a containment term
+        (DIMENSIONS.md §8, 2026-09-12)."""
         name = _name_of(term)
         parsed = self._parse_parametric(name)
         if parsed is None:
@@ -1030,15 +1014,12 @@ class OntoDAG(DAG):
         region above cells, an offer under a role term. Values decide by
         arithmetic; nodes by the graph (DIMENSIONS.md §14): one below the
         other, or what one is known to cover meeting what the other lies
-        within or covers — never two distinct places under one cell. A
-        node that states NOTHING under the term's head overlaps the term:
-        it is unconstrained on it (the pairwise face of `get(overlapping=)`
-        letting unstated items through, 2026-09-12). Units come from the
-        store, as they do for `is_below`. Two terms of different heads
-        raise, as `dimensions.intersect` does; a malformed value raises;
-        unknown plain names fail closed to False. `is_below(a, b) or
-        is_below(b, a)` implies `overlaps(a, b)`. Overlap is not
-        transitive, so it is a question, never an edge."""
+        within or covers — never two distinct places under one cell.
+        Units come from the store, as they do for `is_below`. Two terms of
+        different heads raise, as `dimensions.intersect` does; a malformed
+        value raises; unknown plain names fail closed to False.
+        `is_below(a, b) or is_below(b, a)` implies `overlaps(a, b)`.
+        Overlap is not transitive, so it is a question, never an edge."""
         a = self._canonical_name(_name_of(a))
         b = self._canonical_name(_name_of(b))
         parsed_a = self._parse_parametric(a)
@@ -1179,7 +1160,7 @@ class OntoDAG(DAG):
     # this) so the probe only fires when it is clearly the cheaper plan.
     _PROBE_COST_ESTIMATE = 16
 
-    def get(self, super_categories, overlapping=(), items_only=False):
+    def get(self, super_categories, items_only=False):
         """Return all items that are subcategories of all specified super-categories.
 
         The result is the intersection of the query terms' descendant cones.
@@ -1225,28 +1206,14 @@ class OntoDAG(DAG):
         (walk = the descendant cone, probe = an upward climb) and virtual
         containment terms (walk = the contained present values and their
         cones, probe = a climb to a contained value — `is_below`'s virtual
-        bound). OVERLAP-mode terms passed as `overlapping=[...]` are not
-        cones at all: they are constraints a candidate must not contradict.
-        A candidate that states a value of the term's head (an ASSERTED
-        ancestor in that head's star, or the candidate itself) passes iff
-        every such value overlaps the term; a candidate that states NOTHING
-        under that head is unconstrained on it and passes untouched (Peter,
-        2026-09-12: what is unconstrained is not visited — the other
-        constraints give the result). So an overlap term is applied by one
-        asserted climb per surviving candidate, O(ancestor cone), and never
-        by walking anything: not the term's anchors, not their cones, and
-        not the graph in search of the items that lack a value — a query
-        with no containment term starts from the universe, which is what
-        the empty query already means. `get(["ride"], overlapping=[window])`
-        walks the `ride` cone and climbs from each survivor; the
-        client-side `get(...) & get_overlapping(...)` disappears, and so
-        does the consumer's need to file a whole-space value for what an
-        item does not say. Overlap terms are never pre-intersected as meets
-        — overlapping A and overlapping B does not imply overlapping A ∩ B —
-        and nothing about them is stored: overlap is not a cone in the ORDER
-        (DIMENSIONS.md §8), only a question asked of each candidate. Every
-        step remains result-preserving. `get_overlapping(term)` remains the
-        enumeration of what STATES an overlapping value; this is the query.
+        bound). There is no overlap mode: `get` is containment, and every
+        term of a query is a containment term — a want's place and time
+        are terms like its categories, and the gives in the answer fit
+        within all of them (Peter, 2026-09-12: a want is the wider cone,
+        a give the narrower one; overlap terms in the planner were built
+        that day and withdrawn the same night, DIMENSIONS.md §8). A
+        possibly-satisfies question is `get_overlapping`/`overlaps`, asked
+        separately by a consumer that wants candidates rather than answers.
 
         `items_only=True` drops what carries the order rather than answers
         the question: parametric values (and any node with something filed
@@ -1280,22 +1247,7 @@ class OntoDAG(DAG):
             if node is None:
                 return set()
             terms[node.name] = node
-        # Overlap-mode terms need a computed denotation, like get_overlapping.
-        overlap = {}     # canonical name -> (head, kind)
-        for term in overlapping:
-            raw = _name_of(term)
-            parsed = self._parse_parametric(raw)
-            if parsed is None:
-                raise ValueError(
-                    f"{raw!r} is not a parametric term of a declared "
-                    "dimension — an overlap term needs a computed denotation")
-            overlap[parsed[2]] = (parsed[0], parsed[1])
-
-        def finish(found):
-            if overlap:
-                found = {candidate for candidate in found
-                         if self._passes_overlap(candidate, overlap)}
-            return self._items_only(found) if items_only else found
+        finish = self._items_only if items_only else (lambda found: found)
         if not terms and not parametric:
             # The EMPTY query is the universe, not an error: an intersection
             # of no cones is unconstrained, so everything qualifies. That is
@@ -1361,8 +1313,6 @@ class OntoDAG(DAG):
         # 3. One list of cones, smallest estimated first (name as tiebreak,
         # keeping traversal deterministic). Sizes are asserted counts — the
         # exact walk cost for present terms, a lower bound for the others.
-        # Overlap terms are not in the list: they are applied to whatever
-        # survives, by `_passes_overlap` in `finish`.
         cones = [_Cone("node", node.descendant_count, node.name, node)
                  for node in minimal]
         for name, (head, kind) in virtual.items():
@@ -1429,37 +1379,6 @@ class OntoDAG(DAG):
                 return True
         return False
 
-    def _stated_values(self, candidate, heads):
-        """head -> the values of `heads` the candidate STATES: itself when
-        it is one, and its ASSERTED parametric ancestors — the values it
-        was filed under, not the coarser ones computed containment adds
-        (an item under `when(10..12)` states that window, not the day).
-        One climb for every head asked about; O(ancestor cone)."""
-        stated = {}
-        for node in (candidate, *self._walk_ancestors(candidate,
-                                                      computed=False)):
-            parsed = self._parse_parametric(node.name)
-            if parsed is not None and parsed[0] in heads:
-                stated.setdefault(parsed[0], []).append(parsed[2])
-        return stated
-
-    def _passes_overlap(self, candidate, overlap):
-        """Does `candidate` fail to contradict every overlap term? A term
-        of head H constrains only candidates that state a value of H:
-        each stated value must overlap the term (an item filed under two
-        same-head values sits in their meet, so this is the possibly-
-        satisfies reading — complete for possibility, G6). A candidate
-        stating nothing under H is unconstrained on H and passes: the
-        other terms of the query decide it, and nothing is walked to find
-        it (DIMENSIONS.md §8, 2026-09-12)."""
-        stated = self._stated_values(candidate,
-                                     {head for head, _ in overlap.values()})
-        for name, (head, kind) in overlap.items():
-            for value in stated.get(head, ()):
-                if not self._overlap_terms(name, value, kind):
-                    return False
-        return True
-
     def _items_only(self, found):
         """The answer minus what only carries the order: parametric values
         and anything with something filed under it (DIMENSIONS.md §8's
@@ -1473,7 +1392,7 @@ class OntoDAG(DAG):
                 kept.add(item)
         return kept
 
-    def get_any(self, queries, overlapping=(), items_only=False):
+    def get_any(self, queries, items_only=False):
         """Union of conjunctive queries — `get` in disjunctive normal form.
 
         Each element of `queries` is a collection of terms exactly as
@@ -1483,8 +1402,7 @@ class OntoDAG(DAG):
 
             get_any([{"Flight", "Japan"}, {"Hotel"}])  # (Flight AND Japan) OR Hotel
 
-        `overlapping` and `items_only` apply to every disjunct exactly as
-        they do to `get`.
+        `items_only` applies to every disjunct exactly as it does to `get`.
 
         Query-side only: no stored state, no new edge kind, canonical form
         untouched (DATABASE_DIRECTION.md "Pure now" item 3 — union is a
@@ -1515,8 +1433,7 @@ class OntoDAG(DAG):
                    if not any(other < terms for other in normalized)]
         result = set()
         for terms in minimal:
-            result |= self.get(terms, overlapping=overlapping,
-                               items_only=items_only)
+            result |= self.get(terms, items_only=items_only)
         return result
 
     def is_below(self, node, super_category):

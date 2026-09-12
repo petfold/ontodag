@@ -994,7 +994,7 @@ class TestDeclaringDimensionsOverRest:
 
 
 class TestQueryFlagsOverRest:
-    """`/dag/query?...&overlapping=T&items_only=1` (issue #14)."""
+    """`/dag/query?...&items_only=1` (issue #14; `overlapping=` withdrawn)."""
 
     def _fixture(self, client):
         client.post("/dag/prelude")
@@ -1006,17 +1006,12 @@ class TestQueryFlagsOverRest:
         put(client, "r2", ["ride", w2])
         put(client, "r3", ["bike", w1])
 
-    def test_overlapping_and_items_only(self, client):
+    def test_items_only_and_a_window_as_a_term(self, client):
         self._fixture(client)
-        q = "time(2026-08-15T11:00:00Z..2026-08-15T11:30:00Z)"
+        hour = "time(2026-08-15T10:00:00Z..2026-08-15T13:00:00Z)"
         response = client.get("/dag/query",
-                              query_string={"cat": "ride", "overlapping": q})
+                              query_string={"cat": f"ride,{hour}", "items_only": "1"})
         assert response.status_code == 200
-        # `bike` states no window: unconstrained, it passes (2026-09-12)
-        assert {n["name"] for n in response.get_json()["nodes"]} == {"r1", "r3", "bike"}
-        response = client.get("/dag/query",
-                              query_string={"cat": "ride", "overlapping": q,
-                                            "items_only": "1"})
         assert {n["name"] for n in response.get_json()["nodes"]} == {"r1", "r3"}
         response = client.get("/dag/query", query_string={"cat": "ride"})
         assert "bike" in {n["name"] for n in response.get_json()["nodes"]}
@@ -1025,8 +1020,8 @@ class TestQueryFlagsOverRest:
         assert {n["name"] for n in response.get_json()["nodes"]} == {"r1", "r2",
                                                                       "r3"}
         response = client.get("/dag/query",
-                              query_string={"cat": "ride", "overlapping": "bike"})
-        assert response.status_code == 400
+                              query_string={"cat": "ride", "overlapping": hour})
+        assert response.status_code == 400                # withdrawn
 
 
 class TestOverlapsAndMeetOverRest:

@@ -180,20 +180,14 @@ class TestTools(SurfaceHarness):
         self.assertNotIn("light", answer["candidates"])
         self.assertIn("possible coexistence", answer["note"])
 
-    def test_query_takes_overlap_terms_and_items_only(self):
-        # Fixture: box weight(2kg), heavy weight(1kg..5kg)?, light below 1kg.
-        answer = self.call("query", {"terms": [],
-                                     "overlapping": ["weight(1kg..)"]})
-        self.assertIn("heavy", answer["items"])
-        self.assertNotIn("light", answer["items"])
-        self.assertEqual(answer["overlapping"], ["weight(1kg..)"])
+    def test_query_takes_items_only_and_refuses_overlapping(self):
         plain = self.call("query", {"terms": []})
         self.assertTrue(any("(" in name for name in plain["items"]))
         only = self.call("query", {"terms": [], "items_only": True})
         self.assertFalse(any("(" in name for name in only["items"]))
         self.assertTrue(only["items_only"])
-        with self.assertRaises(Exception):
-            self.call("query", {"terms": ["box"], "overlapping": ["light"]})
+        with self.assertRaises(Exception):          # withdrawn 2026-09-12
+            self.call("query", {"terms": [], "overlapping": ["weight(1kg..)"]})
 
     def test_overlaps_and_meet_are_the_pairwise_faces(self):
         # The fixture: box weight(2kg), heavy weight(1kg..5kg)?, light below.

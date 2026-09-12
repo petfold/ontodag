@@ -2679,7 +2679,7 @@ class TestHistoryAndUndo(unittest.TestCase):
 
 
 class TestQueryFlags(unittest.TestCase):
-    """`get`/`count --overlapping TERM --items-only` (issue #14)."""
+    """`get`/`count --items-only` (issue #14; `--overlapping` withdrawn 2026-09-12)."""
 
     def _session(self, home):
         session = cli.Session(os.path.join(home, "rides.od"))
@@ -2691,23 +2691,14 @@ class TestQueryFlags(unittest.TestCase):
             self.assertEqual(_run(argv, session)[0], 0)
         return session
 
-    def test_overlapping_narrows_the_same_plan(self):
+    def test_a_window_is_a_query_term(self):
         with tempfile.TemporaryDirectory() as home:
             session = self._session(home)
-            q = "time(2026-08-15T11:00:00Z..2026-08-15T11:30:00Z)"
-            # `bike` states no window: unconstrained on time, it passes
-            # (2026-09-12); it is a category, so --items-only drops it
-            code, out = _run(["get", "ride", "--overlapping", q], session)
-            self.assertEqual((code, sorted(out.split())), (0, ["bike", "r1", "r3"]))
-            code, out = _run(["get", "ride", "--overlapping", q, "--items-only"],
-                             session)
+            hour = "time(2026-08-15T10:00:00Z..2026-08-15T13:00:00Z)"
+            code, out = _run(["get", "ride", hour, "--items-only"], session)
             self.assertEqual((code, sorted(out.split())), (0, ["r1", "r3"]))
-            code, out = _run(["count", "ride", "--overlapping", q], session)
-            self.assertEqual((code, out.strip()), (0, "3"))
-            code, out = _run(["get", "ride", "--overlapping", q,
-                              "--overlapping", "time(2026-08-16)", "--items-only"],
-                             session)
-            self.assertEqual((code, out.strip()), (0, ""))
+            code, out = _run(["count", "ride", hour, "--items-only"], session)
+            self.assertEqual((code, out.strip()), (0, "2"))
 
     def test_items_only(self):
         with tempfile.TemporaryDirectory() as home:
@@ -2719,15 +2710,14 @@ class TestQueryFlags(unittest.TestCase):
             code, out = _run(["count", "ride", "--items-only"], session)
             self.assertEqual((code, out.strip()), (0, "3"))
 
-    def test_an_overlap_term_of_no_dimension_is_an_error(self):
+    def test_the_overlapping_flag_is_gone(self):
         with tempfile.TemporaryDirectory() as home:
             session = self._session(home)
             out, err = io.StringIO(), io.StringIO()
             with redirect_stdout(out), redirect_stderr(err):
                 code = cli.dispatch(["get", "ride", "--overlapping", "bike"],
                                     session)
-            self.assertEqual(code, 1)
-            self.assertIn("denotation", err.getvalue())
+            self.assertNotEqual(code, 0)
 
 
 class TestOverlapsAndMeetCommands(unittest.TestCase):

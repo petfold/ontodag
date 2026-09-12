@@ -847,13 +847,14 @@ def get_query():
         # closed (empty result / empty disjunct), parametric terms may be
         # virtual (weight(..5kg) needs no node), malformed parameters are
         # a client error.
-        # `overlapping=T1,T2` adds possibly-satisfies constraints to the
-        # same plan; `items_only=1` drops typed values and non-leaves
-        # (issue #14). Both apply to every disjunct.
+        # `items_only=1` drops typed values and non-leaves (issue #14);
+        # it applies to every disjunct. (`overlapping=` was withdrawn
+        # 2026-09-12: every query term is a containment term.)
+        if request.args.get("overlapping"):
+            return jsonify({"error": "overlapping was withdrawn: put the "
+                            "place or time term in cat; /dag/overlapping "
+                            "answers possibly-satisfies"}), 400
         flags = {
-            "overlapping": [t for t in
-                            (request.args.get("overlapping") or "").split(",")
-                            if t],
             "items_only": request.args.get("items_only", "").lower()
             in ("1", "true", "yes"),
         }
