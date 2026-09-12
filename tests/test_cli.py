@@ -2695,12 +2695,18 @@ class TestQueryFlags(unittest.TestCase):
         with tempfile.TemporaryDirectory() as home:
             session = self._session(home)
             q = "time(2026-08-15T11:00:00Z..2026-08-15T11:30:00Z)"
+            # `bike` states no window: unconstrained on time, it passes
+            # (2026-09-12); it is a category, so --items-only drops it
             code, out = _run(["get", "ride", "--overlapping", q], session)
+            self.assertEqual((code, sorted(out.split())), (0, ["bike", "r1", "r3"]))
+            code, out = _run(["get", "ride", "--overlapping", q, "--items-only"],
+                             session)
             self.assertEqual((code, sorted(out.split())), (0, ["r1", "r3"]))
             code, out = _run(["count", "ride", "--overlapping", q], session)
-            self.assertEqual((code, out.strip()), (0, "2"))
+            self.assertEqual((code, out.strip()), (0, "3"))
             code, out = _run(["get", "ride", "--overlapping", q,
-                              "--overlapping", "time(2026-08-16)"], session)
+                              "--overlapping", "time(2026-08-16)", "--items-only"],
+                             session)
             self.assertEqual((code, out.strip()), (0, ""))
 
     def test_items_only(self):

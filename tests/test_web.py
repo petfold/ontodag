@@ -1012,6 +1012,11 @@ class TestQueryFlagsOverRest:
         response = client.get("/dag/query",
                               query_string={"cat": "ride", "overlapping": q})
         assert response.status_code == 200
+        # `bike` states no window: unconstrained, it passes (2026-09-12)
+        assert {n["name"] for n in response.get_json()["nodes"]} == {"r1", "r3", "bike"}
+        response = client.get("/dag/query",
+                              query_string={"cat": "ride", "overlapping": q,
+                                            "items_only": "1"})
         assert {n["name"] for n in response.get_json()["nodes"]} == {"r1", "r3"}
         response = client.get("/dag/query", query_string={"cat": "ride"})
         assert "bike" in {n["name"] for n in response.get_json()["nodes"]}

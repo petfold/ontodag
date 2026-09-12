@@ -424,10 +424,25 @@ class TestOverlapTermsInThePlanner(unittest.TestCase):
         dag.put("parcel", ["from(u2e4x)", self.W1, "weight(3kg)"])
         return dag
 
+    @staticmethod
+    def _states(dag, node, head):
+        """Does `node` state a value of `head` — itself, or an asserted
+        parametric ancestor of that head?"""
+        for n in (node, *dag._walk_ancestors(node, computed=False)):
+            parsed = dag._parse_parametric(n.name)
+            if parsed is not None and parsed[0] == head:
+                return True
+        return False
+
     def _oracle(self, dag, terms, overlapping):
+        """The two-query form the consumer used to run, plus the 2026-09-12
+        rule: a candidate stating nothing under the term's head passes."""
         found = dag.get(terms)
         for term in overlapping:
-            found &= dag.get_overlapping(term)
+            head = dag._parse_parametric(term)[0]
+            stated = dag.get_overlapping(term)
+            found = {node for node in found
+                     if node in stated or not self._states(dag, node, head)}
         return found
 
     def test_matches_the_two_query_oracle_in_every_planner_mode(self):
@@ -462,8 +477,13 @@ class TestOverlapTermsInThePlanner(unittest.TestCase):
         # Containment: r1's window sits inside the hour; r3's does not.
         hour = "when(2026-08-15T10:00:00Z..2026-08-15T13:00:00Z)"
         self.assertEqual(names(dag.get(["ride", hour])), {"r1", "r3"})
+        # Overlap: r1 and r3 state windows meeting the quarter-hour; `bike`
+        # states no window at all and is unconstrained on `when` (it is a
+        # category, so `items_only` is what drops it)
         self.assertEqual(names(dag.get(["ride"], overlapping=[self.Q])),
-                         {"r1", "r3"})
+                         {"r1", "r3", "bike"})
+        self.assertEqual(names(dag.get(["ride"], overlapping=[self.Q],
+                                       items_only=True)), {"r1", "r3"})
         self.assertEqual(names(dag.get(["ride", self.Q])), set())
 
     def test_items_only(self):
@@ -524,6 +544,84 @@ class TestOverlapTermsInThePlanner(unittest.TestCase):
         self.assertLess(planned, walker.fetches // 4,
                         f"one plan fetched {planned}, the overlap walk "
                         f"{walker.fetches}: the probe did not fire")
+
+
+class TestUnconstrainedPasses(unittest.TestCase):
+    """2026-09-12 (Peter): what is unconstrained is not visited. An overlap
+    term constrains only candidates that STATE a value of its head; a
+    candidate stating nothing passes by the other terms, and the term is
+    applied by one asserted climb per candidate — never by walking its
+    anchors, their cones, or the graph."""
+
+    W = "when(2026-08-15T10:00:00Z..2026-08-15T12:00:00Z)"
+    Q = "when(2026-08-15T11:00:00Z..2026-08-15T11:30:00Z)"
+    LATE = "when(2026-08-15T20:00:00Z..2026-08-15T21:00:00Z)"
+
+    def _dag(self):
+        dag = make_dag()
+        dag.put("time", ["linear-dimension"])
+        dag.put("when", ["time"]); dag.put("from", ["geo"])
+        dag.put("ride", [])
+        dag.put("timed", ["ride", self.W])
+        dag.put("late", ["ride", self.LATE])
+        dag.put("anytime", ["ride"])                       # states no when
+        dag.put("placed", ["ride", "from(u2e4x)"])         # states no when
+        return dag
+
+    def test_unstated_passes_contradicted_fails(self):
+        dag = self._dag()
+        self.assertEqual(names(dag.get(["ride"], overlapping=[self.Q])),
+                         {"timed", "anytime", "placed"})
+        self.assertEqual(names(dag.get(["ride"], overlapping=[self.Q, "from(u2e)"])),
+                         {"timed", "anytime", "placed"})
+        self.assertEqual(names(dag.get(["ride"], overlapping=[self.Q, "from(u2f)"])),
+                         {"timed", "anytime"})              # placed contradicts
+        self.assertEqual(names(dag.get(["ride"], overlapping=[self.LATE])),
+                         {"late", "anytime", "placed"})
+
+    def test_two_stated_values_must_both_overlap(self):
+        dag = self._dag()
+        dag.put("route", ["ride", "from(u2e4x)", "when(2026-08-15T09:00:00Z..2026-08-15T10:30:00Z)"])
+        self.assertIn("route", names(dag.get(["ride"], overlapping=[self.W])))
+        self.assertNotIn("route", names(dag.get(["ride"], overlapping=[self.Q])))
+
+    def test_nothing_is_walked_for_an_overlap_term(self):
+        dag = self._dag()
+        walked = []
+        original = dag._walk_cone
+
+        def spy(cone):
+            walked.append(cone.kind)
+            return original(cone)
+        dag._walk_cone = spy
+        stars = []
+        original_star = dag._star
+
+        def star_spy(head):
+            stars.append(head)
+            return original_star(head)
+        dag._star = star_spy
+        dag.get(["ride"], overlapping=[self.Q, "from(u2e)"])
+        self.assertEqual(walked, ["node"])                 # the ride cone only
+        self.assertNotIn("when", stars); self.assertNotIn("from", stars)
+
+    def test_overlap_alone_is_the_universe_filtered(self):
+        dag = self._dag()
+        found = names(dag.get([], overlapping=[self.Q], items_only=True))
+        self.assertIn("anytime", found); self.assertIn("timed", found)
+        self.assertNotIn("late", found)
+        # get_overlapping still enumerates what STATES an overlapping value
+        self.assertEqual(names(dag.get_overlapping(self.Q)), {"timed", self.W})
+
+    def test_the_pairwise_face_agrees(self):
+        dag = self._dag()
+        for node in ("timed", "late", "anytime", "placed"):
+            self.assertEqual(dag.overlaps(node, self.Q),
+                             dag.nodes[node] in dag.get([], overlapping=[self.Q]), node)
+        self.assertTrue(dag.overlaps("anytime", self.Q))
+        self.assertFalse(dag.overlaps("late", self.Q))
+        self.assertFalse(dag.overlaps("placed", "from(u2f)"))
+        self.assertTrue(dag.overlaps("placed", self.Q))
 
 
 class TestDimensionCache(unittest.TestCase):
