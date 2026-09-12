@@ -320,6 +320,21 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     on chain in ~45 s. The expiry/GC experiment is therefore still not
     run; it needs a batch nobody minds losing.
 
+11. **Real node, 2026-09-12 — the gated tests after the role-head wave, and
+    batch maintenance.** Bee 2.8.2 (Swarm Desktop), batch `c931c8a5…`,
+    throwaway signer: both `tests/test_swarm_bee.py` tests passed (56 s)
+    on the #15/#16/#14 code. The node warned the batch was at 81% bucket
+    capacity (13/16 in the fullest bucket, depth 20, TTL 19.8 d). On
+    Peter's instruction: **diluted 20 → 21** (tx `0x18feac…`, confirmed
+    ~30 s; TTL halved to 9.9 d, fill 13/32 = 41%) then **topped up
+    21,000,000,000 PLUR/chunk** (tx `0xc440ba…`, ~30 s; ≈ 4.40 xBZZ at
+    89,004 PLUR/chunk/block) → **depth 21, TTL 23.5 days, usable, wallet
+    0.537 xBZZ / 1.185 xDAI**. Sizing rule used: amount per chunk =
+    price × 17,280 blocks/day × days; cost = amount × 2^depth PLUR
+    (1 xBZZ = 1e16 PLUR) — at depth 21 a 30-day top-up would have been
+    ≈ 9 xBZZ, more than the wallet held, hence 13.7 days. The wallet now
+    needs xBZZ before the next top-up.
+
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
 
 ### `LazyOntoDAG` on-demand reader (`src/ontodag/lazy.py`) — DONE (2026-07-25)
