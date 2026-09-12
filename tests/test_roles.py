@@ -387,6 +387,106 @@ class TestOverlapsAndMeet(unittest.TestCase):
                          "weight(3kg..5kg)")
 
 
+class TestWholeSpace(unittest.TestCase):
+    """Issue #17: the base head named as a role parameter — `from(geo)`,
+    `when(time)` — denotes the WHOLE SPACE of its dimension, read
+    structurally, never as the head's asserted covering. So a give filed
+    under `from(geo)` is "from anywhere": every term of the head fits
+    within it, it fits within nothing but itself, it overlaps everything,
+    and it is found by `get_overlapping` and the planner whether or not
+    any value of the dimension happens to be present."""
+
+    def _dag(self):
+        d = with_offers(make_dag())
+        d.put("when", ["time"])
+        d.put("anywhere", ["from(geo)"])
+        d.put("anytime", ["when(time)"])
+        return d
+
+    def test_is_the_top_of_the_combined_order(self):
+        d = self._dag()
+        for term in ["from(u2e)", "from(u2e4x)", "from(my_home)",
+                     "from(ljubljana)", "from(geo)"]:
+            self.assertTrue(d.is_below(term, "from(geo)"), term)
+        self.assertTrue(d.is_below("offer", "from(geo)"))
+        self.assertTrue(d.is_below("anywhere", "from(geo)"))
+        self.assertFalse(d.is_below("from(geo)", "from(u2e)"))
+        self.assertFalse(d.is_below("from(geo)", "from(ljubljana)"))
+        self.assertFalse(d.is_below("anywhere", "from(u2e)"))
+        # a base head's own parameters stay values: geo(geo) is a literal
+        self.assertIsNone(d._param_node("geo", "geo"))
+
+    def test_overlaps_everything_and_is_the_identity_of_the_meet(self):
+        d = self._dag()
+        for other in ["from(u2f)", "from(u2e4x)", "from(my_home)",
+                      "from(ljubljana)"]:
+            self.assertTrue(d.overlaps("from(geo)", other), other)
+            self.assertTrue(d.overlaps(other, "from(geo)"), other)
+            self.assertEqual(d.meet("from(geo)", other), other)
+            self.assertEqual(d.meet(other, "from(geo)"), other)
+        # a node under the whole space overlaps every same-head term
+        self.assertTrue(d.overlaps("from(u2f)", "anywhere"))
+        self.assertTrue(d.overlaps("anywhere", "from(u2e4)"))
+        self.assertTrue(d.overlaps(
+            "anytime", "when(2026-09-12T10:00:00Z..2026-09-12T11:00:00Z)"))
+
+    def test_found_with_no_value_of_the_dimension_present(self):
+        """The issue's reproduction: nothing filed under any geo(...)."""
+        d = OntoDAG()
+        prelude.apply(d)
+        d.put("from", ["geo"]); d.put("when", ["time"]); d.put("cat", [])
+        d.put("anywhere", ["cat", "from(geo)"])
+        d.put("anytime", ["cat", "when(time)"])
+        w = "when(2026-09-12T11:00:00Z..2026-09-12T13:00:00Z)"
+        self.assertTrue(d.overlaps("from(geo)", "from(u2e)"))
+        self.assertEqual(names(d.get_overlapping("from(u2e)")),
+                         {"anywhere", "from(geo)"})
+        self.assertEqual(names(d.get(["cat"], overlapping=["from(u2e)"],
+                                     items_only=True)), {"anywhere"})
+        self.assertEqual(names(d.get(["cat"], overlapping=[w],
+                                     items_only=True)), {"anytime"})
+        self.assertEqual(names(d.get(["cat"], overlapping=["from(u2e)", w],
+                                     items_only=True)), set())
+
+    def test_planner_and_get_overlapping_agree_with_overlaps(self):
+        """`x in get_overlapping(t)` ⟺ `overlaps(x, t)` for every present
+        value, whole space included — the G6 gap the issue reports closed."""
+        d = self._dag()
+        for term in ["from(u2f)", "from(u2e4)", "from(ljubljana)", "from(geo)"]:
+            found = names(d.get_overlapping(term))
+            for value, _ in d._star("from"):
+                self.assertEqual(value.name in found,
+                                 d.overlaps(value.name, term), (term, value.name))
+            self.assertEqual(names(d.get([], overlapping=[term])), found)
+        # its cone is the whole star and everything below it
+        self.assertEqual(names(d.get(["from(geo)"])),
+                         names(d.get_descendants(d.nodes["from"])) - {"from", "from(geo)"})
+
+    def test_stored_form_is_the_meet(self):
+        """`from(u2e) ∧ from(geo)` is `from(u2e)`: the whole-space edge is
+        redundant and reduction drops it, like any computed hop."""
+        d = self._dag()
+        d.put("both", ["from(u2e)", "from(geo)"])
+        self.assertEqual({p.name for p in d.nodes["both"].parents}, {"from(u2e)"})
+        e = EagerOntoDAG(RecordStore(MemoryBytesStore()))
+        with_offers(make_dag(e)); e.put("when", ["time"])
+        e.put("anywhere", ["from(geo)"]); e.put("anytime", ["when(time)"])
+        e.put("both", ["from(u2e)", "from(geo)"])
+        self.assertEqual(edge_set(e), edge_set(d))
+
+    def test_lazy_reader_reads_the_whole_space(self):
+        blobs = MemoryBytesStore()
+        eager = with_offers(make_dag(EagerOntoDAG(RecordStore(blobs))))
+        eager.put("anywhere", ["from(geo)"])
+        root = eager.commit()
+        reader = LazyOntoDAG(RecordStore.at(root, blobs))
+        self.assertTrue(reader.is_below("from(u2e)", "from(geo)"))
+        self.assertTrue(reader.overlaps("anywhere", "from(u2f)"))
+        self.assertIn("anywhere", names(reader.get_overlapping("from(u2f)")))
+        self.assertEqual(names(reader.get([], overlapping=["from(u2f)"],
+                                          items_only=True)), {"anywhere"})
+
+
 class TestRoleGuards(unittest.TestCase):
     def test_remove_refuses_while_a_role_term_names_the_node(self):
         d = with_offers(make_dag())

@@ -730,6 +730,35 @@ class OntoDAG(DAG):
         finally:
             guard.discard(key)
 
+    def _whole_space(self, head, param):
+        """Is `head(param)` the whole space of its dimension — a role term
+        whose parameter names the BASE head itself (`from(geo)`,
+        `when(time)`; DIMENSIONS.md §14, issue #17)? The base head is a
+        node of its own dimension, and everything filed in the dimension
+        is below it, so the term denotes "anywhere"/"any time": every
+        value and node of the dimension fits within it, it fits within
+        nothing but itself, and it overlaps every term of its head. Read
+        structurally, never as the head's asserted covering — that would
+        be the lower bound a region gets, and would depend on which values
+        happen to be present."""
+        node = self._param_node(head, param)
+        return node is not None and node.name == self._dimension_of(head)[1]
+
+    def _is_whole_term(self, term):
+        split = _dims.split_term(term)
+        return split is not None and self._whole_space(split[0], split[1])
+
+    def _intersect_terms(self, a, b, kind):
+        """`dimensions.intersect` with the store's units, and the whole
+        space as the identity of the meet (`from(u2e) ∩ from(geo)` is
+        `from(u2e)`) — the arithmetic would otherwise read `geo` as a
+        literal prefix."""
+        if self._is_whole_term(a):
+            return b
+        if self._is_whole_term(b):
+            return a
+        return _dims.intersect(a, b, kind, units=self._declared_units())
+
     def _contains(self, outer, inner, kind):
         """denotation(inner) ⊆ denotation(outer) over the combined order:
         arithmetic between values (`dimensions.contains`), the GRAPH when a
@@ -737,7 +766,9 @@ class OntoDAG(DAG):
         base dimension, values spelled as terms of the base head. So a
         place is below the cells above it, a region is above the cells it
         covers, and two floors of one building are siblings even though
-        they share a cell."""
+        they share a cell. The base head named as the parameter is the
+        whole space (`_whole_space`): it contains every same-head term and
+        is contained by none but itself."""
         head, param_outer, param_inner = _dims._same_head(outer, inner)
         node_outer = self._param_node(head, param_outer)
         node_inner = self._param_node(head, param_inner)
@@ -745,6 +776,10 @@ class OntoDAG(DAG):
             return _dims.contains(outer, inner, kind,
                                   units=self._declared_units())
         base = self._dimension_of(head)[1]
+        if node_outer is not None and node_outer.name == base:
+            return True                  # the whole space contains all
+        if node_inner is not None and node_inner.name == base:
+            return False                 # ...and nothing else contains it
         sub = node_inner.name if node_inner is not None \
             else f"{base}({param_inner})"
         sup = node_outer.name if node_outer is not None \
@@ -756,8 +791,7 @@ class OntoDAG(DAG):
         if head not in upper:
             upper[head] = value
         elif upper[head] is not None:
-            upper[head] = _dims.intersect(upper[head], value, kind,
-                                          units=self._declared_units())
+            upper[head] = self._intersect_terms(upper[head], value, kind)
 
     def _bounds(self, name):
         """What a term or node is known to lie within and known to cover:
@@ -784,7 +818,9 @@ class OntoDAG(DAG):
             head, kind, canonical = parsed
             param = _dims.split_term(canonical)[1]
             node = self._param_node(head, param)
-            if node is None:
+            if node is None or self._whole_space(head, param):
+                # A value is its own bound; so is the whole space — the
+                # universe of its head, not the head's asserted covering.
                 return {head: canonical}, {head: {canonical}}
             base = self._dimension_of(head)[1]
             upper_raw, lower_raw = self._node_bounds(node)
@@ -852,9 +888,7 @@ class OntoDAG(DAG):
                     others.add(up[head])
                 for u in values:
                     for w in others:
-                        if _dims.intersect(u, w, kind,
-                                           units=self._declared_units()) \
-                                is not None:
+                        if self._intersect_terms(u, w, kind) is not None:
                             return True
             return False
         return meets(lower_a, upper_b, lower_b) or meets(lower_b, upper_a, {})
@@ -1640,6 +1674,7 @@ class OntoDAG(DAG):
         that still contained the deleted records."""
         del self.nodes[name]
         self._heads_cache = None
+        self._dim_cache = None
 
     def _refuse_if_role_named(self, name, gone=()):
         """A node named by a role term (`from(my_home)` names `my_home`) may
@@ -1674,7 +1709,6 @@ class OntoDAG(DAG):
                         self._dimension_of(parsed[0])[1] == base
                 elif base_node is not None and self._has_ancestors(
                         self.nodes[parent], (base_node,), computed=False):
-        self._dim_cache = None
                     still = True
                 if still:
                     break
