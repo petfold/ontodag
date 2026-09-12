@@ -823,6 +823,8 @@ and `_forget`; when the heads cache is empty the dim cache is dropped on
 every plain edge instead (no upward walk on a lazy writer's put). Tests:
 `TestDimensionCache` in
 `tests/test_dimensions_dag.py` (6). Numbers in the issues.
+**993 passed + 4 skipped (997 collected) as of 2026-09-12 night; README
+count updated.**
 
 **Revised the same night (Peter): "when something is unconstrained, it
 should not be visited at all, the other constraints will give the result;
