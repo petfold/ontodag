@@ -9,7 +9,10 @@ asserted-only by design, so the count oracle walks `neighbors` alone."""
 
 import unittest
 
+from ontodag import prelude
 from ontodag.dag import OntoDAG
+from ontodag.eager import EagerOntoDAG
+from recordstore import MemoryBytesStore, RecordStore
 
 
 def reach(node):
@@ -521,6 +524,95 @@ class TestOverlapTermsInThePlanner(unittest.TestCase):
         self.assertLess(planned, walker.fetches // 4,
                         f"one plan fetched {planned}, the overlap walk "
                         f"{walker.fetches}: the probe did not fire")
+
+
+class TestDimensionCache(unittest.TestCase):
+    """Issue #18: `_dimension_of` (the declaration walk from a head to its
+    kind) is asked once per star member on every containment or overlap
+    decision, so it is cached per DAG and dropped exactly when `_heads`
+    is — an edge from a kind node or a head to a plain node, or a node
+    ceasing to exist. Filing items and values never drops it."""
+
+    def _dag(self):
+        dag = make_dag()
+        dag.put("from", ["geo"])
+        dag.put("ride", [])
+        dag.put("r1", ["ride", "from(u2e4x)"])
+        return dag
+
+    def _walks(self, dag, thunk):
+        count = [0]
+        original = dag._kind_walk_parents
+
+        def counting(node):
+            count[0] += 1
+            return original(node)
+        dag._kind_walk_parents = counting
+        try:
+            thunk()
+        finally:
+            del dag._kind_walk_parents
+        return count[0]
+
+    def test_second_ask_walks_nothing(self):
+        dag = self._dag()
+        dag._dim_cache = None                          # cold: the puts warmed it
+        for name in ("from", "ride"):
+            self.assertGreater(self._walks(dag, lambda: dag._dimension_of(name)), 0)
+            self.assertEqual(self._walks(dag, lambda: dag._dimension_of(name)), 0)
+        self.assertEqual(dag._dimension_of("from"), ("prefix-dimension", "geo"))
+        self.assertEqual(dag._dimension_of("ride"), (None, None))
+
+    def test_filing_items_and_values_keeps_the_cache(self):
+        dag = self._dag()
+        dag._dimension_of("from")
+        dag._heads()                                   # populated: no walks on puts
+        dag.put("r2", ["ride", "from(u2e5)"])
+        dag.put("geo(u2f)", [])
+        self.assertEqual(self._walks(dag, lambda: dag._dimension_of("from")), 0)
+
+    def test_head_edges_and_deletion_drop_it(self):
+        dag = self._dag()
+        dag.put("to", [])                              # plain, not yet a head
+        self.assertEqual(dag._dimension_of("to"), (None, None))
+        dag.put("to", ["geo"])                         # an edge from a head
+        self.assertEqual(dag._dimension_of("to"), ("prefix-dimension", "geo"))
+        dag.put("colour", ["prefix-dimension"])        # an edge from a kind
+        self.assertEqual(dag._dimension_of("colour"), ("prefix-dimension", "colour"))
+        dag.remove(dag.nodes["colour"])                # the node stops existing
+        self.assertEqual(dag._dimension_of("colour"), (None, None))
+        dag.put("colour", ["ride"])                    # re-created plain
+        self.assertEqual(dag._dimension_of("colour"), (None, None))
+
+    def test_an_absent_name_is_not_cached(self):
+        dag = self._dag()
+        self.assertEqual(dag._dimension_of("later"), (None, None))
+        dag.put("later", ["geo"])
+        self.assertEqual(dag._dimension_of("later"), ("prefix-dimension", "geo"))
+
+    def test_an_ambiguous_declaration_stays_loud(self):
+        dag = self._dag()
+        dag.put("x", ["geo"])
+        dag.put("y", ["weight"])
+        try:
+            dag.put("z", ["x", "y"])                   # two kinds
+        except ValueError:
+            return                                     # refused at put: loud
+        for _ in range(2):                             # never cached as an answer
+            with self.assertRaises(ValueError):
+                dag._dimension_of("z")
+
+    def test_cached_answers_do_not_change_roots(self):
+        a = EagerOntoDAG(RecordStore(MemoryBytesStore())); prelude.apply(a)
+        b = EagerOntoDAG(RecordStore(MemoryBytesStore())); prelude.apply(b)
+        b._dimension_of("geo"); b._heads()             # warm before the puts
+        for dag, order in ((a, ("r", "s")), (b, ("s", "r"))):
+            dag.put("from", ["geo"])
+            values = {"r": "from(u2e4x)", "s": "from(u2e4)"}
+            for name in order:
+                dag.put(name, [values[name]])
+        self.assertEqual(a.commit(), b.commit())
+        self.assertEqual({p.name for p in a.nodes["r"].parents}, {"from(u2e4x)"})
 
 
 class TestEagerDimensions(unittest.TestCase):

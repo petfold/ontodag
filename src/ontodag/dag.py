@@ -512,10 +512,24 @@ class OntoDAG(DAG):
         (`from` under `geo`, DIMENSIONS.md §14): it shares the value space
         and the kind, and its parameters may name the base dimension's
         nodes. The walk stops at kind nodes, so kind nodes themselves and
-        plain categories resolve to (None, None)."""
+        plain categories resolve to (None, None).
+
+        Cached per DAG (issue #18): every containment or overlap decision
+        on a role star re-asks this for each member — tens of thousands of
+        walks per query on a names-heavy graph — and the answer changes
+        only when an edge from a kind node or a head to a plain node is
+        added or removed, which is exactly when `_heads` is invalidated
+        (`_maybe_invalidate_heads`; `_forget`). Absent names are not
+        cached (they may appear), and an ambiguous declaration raises
+        uncached, so the error stays loud at every use."""
         node = self.nodes.get(head_name)
         if node is None or head_name in _dims.KINDS:
             return None, None
+        cache = getattr(self, "_dim_cache", None)
+        if cache is None:
+            cache = self._dim_cache = {}
+        elif head_name in cache:
+            return cache[head_name]
         kinds, bases = set(), set()
         seen = {node}
         stack = [node]
@@ -533,13 +547,15 @@ class OntoDAG(DAG):
                 f"dimension {head_name!r} inherits multiple kinds: "
                 f"{', '.join(sorted(kinds))} — declare exactly one")
         if not kinds:
+            cache[head_name] = (None, None)
             return None, None
         if len(bases) > 1:
             raise ValueError(
                 f"dimension head {head_name!r} belongs to several "
                 f"dimensions: {', '.join(sorted(bases))} — a role has "
                 f"exactly one base")
-        return next(iter(kinds)), next(iter(bases))
+        cache[head_name] = (next(iter(kinds)), next(iter(bases)))
+        return cache[head_name]
 
     def _heads(self):
         """Every declared head -> (kind, base), walked DOWN from the kind
@@ -581,14 +597,21 @@ class OntoDAG(DAG):
 
     def _maybe_invalidate_heads(self, from_node, to_node):
         """An edge from a kind node or a head to a PLAIN node can create or
-        retire a head (or a role); nothing else can."""
+        retire a head (or a role), and change what dimension the nodes
+        below it belong to; nothing else can. Both caches go together:
+        `_heads` decides "is `from_node` a head" without a walk while it is
+        populated; when it is not, the `_dimension_of` cache is dropped on
+        every plain edge instead — conservative, and free of the upward
+        walk a lazy writer could not afford on each put."""
+        if _dims.split_term(to_node.name) is not None:
+            return
         cached = getattr(self, "_heads_cache", None)
         if cached is None:
-            return
-        if _dims.split_term(to_node.name) is not None:
+            self._dim_cache = None
             return
         if from_node.name in _dims.KINDS or from_node.name in cached:
             self._heads_cache = None
+            self._dim_cache = None
 
     def remove_edge(self, from_node, to_node):
         self._maybe_invalidate_heads(from_node, to_node)
@@ -1651,6 +1674,7 @@ class OntoDAG(DAG):
                         self._dimension_of(parsed[0])[1] == base
                 elif base_node is not None and self._has_ancestors(
                         self.nodes[parent], (base_node,), computed=False):
+        self._dim_cache = None
                     still = True
                 if still:
                     break
