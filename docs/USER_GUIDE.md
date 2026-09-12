@@ -937,6 +937,21 @@ dag.meet("from(u2e4)", "from(u2e5)")              # None  — provably empty
 dag.meet("from(ljubljana)", "from(u2e4x)")        # 'from(u2e4x)' — contained
 ```
 
+The base head itself may be the parameter: `from(geo)` is *from anywhere*,
+`when(time)` *any time* — the whole space of the dimension, read
+structurally, whether or not any cell or window is filed. Every term of
+the head fits within it, it overlaps everything, and it is the identity
+of the meet, so an offer filed under `from(geo)` is found by every
+`from(...)` overlap query and `from(u2e) ∧ from(geo)` stores as `from(u2e)`:
+
+```python
+dag.put("anywhere", ["from(geo)"])
+dag.is_below("from(my_home)", "from(geo)")        # True
+dag.overlaps("anywhere", "from(u2f)")             # True  — anywhere includes u2f
+dag.meet("from(geo)", "from(u2e)")                # 'from(u2e)'
+dag.get(["ride"], overlapping=["from(u2f)"])      # includes anywhere
+```
+
 On the command line `odag overlaps A B` prints `true`/`false` and exits
 0/1 like `below`; `odag meet A B` prints the term, or nothing with exit 1
 when the meet is empty. REST has `/dag/overlaps?a=&b=` and

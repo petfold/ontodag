@@ -699,6 +699,34 @@ without the graph cycling (deciding whether `offer` is in the dimension
 walks through the role star that contains `from(offer)`), so the lookup
 is re-entrancy-guarded and reads a re-entered parameter as a literal.
 
+**The whole space (issue #17, 2026-09-12).** The base head is a node of
+its own dimension, so a role may name it: `from(geo)`, `when(time)`. It
+denotes the whole space — "from anywhere", "any time" — read
+*structurally*, not as the head's asserted covering (that would be a
+region's lower bound, and the answer would depend on which values happen
+to be present, which is exactly how loopmarket found the gap: `overlaps`
+said yes while `get`'s overlap planner said no on a graph with no cell
+filed). The rule: every term of the head fits within `R(base)`, `R(base)`
+fits within nothing but itself, it overlaps every same-head term, it is
+the identity of the meet (`from(u2e) ∩ from(geo) = from(u2e)`), and a node
+under it carries it as an upper bound that meets everything. One
+consequence for stored form: `put(x, [from(u2e), from(geo)])` keeps only
+`from(u2e)` — the whole-space edge is a computed hop, redundant like any
+other. The consumer's use is a give silent on a role: filed under
+`from(geo)` it is one edge, found by every overlap query, and the region
+scaffold it needed before (a node above the 62 one-character prefixes) is
+gone. A base head's own parameters stay values (`geo(geo)` is the literal
+prefix `geo`): only roles look names up.
+
+**Cost (issue #18, 2026-09-12).** `_dimension_of` — the declaration walk
+from a head to its kind — is asked once per star member on every
+containment or overlap decision, and role stars make those decisions
+graph walks; on a names-heavy graph that was tens of thousands of walks
+per query. It is now cached per DAG and dropped exactly when `_heads` is
+(an edge from a kind node or a head to a plain node; a node ceasing to
+exist), so filing items and values never clears it. Absent names are not
+cached and an ambiguous declaration raises uncached.
+
 **Deferred, recorded here.** Peter's refinement in the issue — a
 *covering as a value*, `where(u24m+u24q)`, a set of cells with no node
 and therefore no name — is not built: it is a grammar change to the

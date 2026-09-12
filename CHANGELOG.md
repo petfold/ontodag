@@ -58,8 +58,26 @@ the version numbers appear in commit history and docs.
   `/dag/query?overlapping=&items_only=`, MCP `query` `overlapping` /
   `items_only`; `get_any` passes both through.
 
+- **The base head as a role parameter is the whole space** (issue #17,
+  `docs/DIMENSIONS.md` §14): `from(geo)` is "from anywhere", `when(time)`
+  "any time" — every term of the head fits within it, it fits within
+  nothing but itself, it overlaps every same-head term and is the
+  identity of the meet, in `is_below`, `overlaps`, `meet`,
+  `get_overlapping` and `get(overlapping=...)` alike, whether or not any
+  value of the dimension is present. Before, `overlaps` said yes while
+  the planner read the head as a region covering only the values filed
+  (loopmarket's consumer report). `put(x, [from(u2e), from(geo)])`
+  stores `from(u2e)`: the whole-space edge is a redundant computed hop.
+
 ### Changed
 
+- **`_dimension_of` is cached per DAG** (issue #18): the declaration walk
+  from a head to its kind was recomputed for every star member on every
+  containment or overlap decision — 44,131 calls in six `get`s on a
+  names-heavy graph. Dropped exactly when `_heads` is (an edge from a
+  kind node or a head to a plain node; a node ceasing to exist); filing
+  items and values keeps it. Absent names are not cached; an ambiguous
+  declaration still raises at every use.
 - **Values are leaves of the declaration walk**: a node filed under a
   parametric value is no longer a dimension head, so `shop(1)` under
   `geo(u2e4x)` is an opaque atom (it used to parse as a prefix term).

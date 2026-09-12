@@ -59,7 +59,7 @@ and [swarmfs REFERENCE.md](https://github.com/petfold/swarmfs/blob/main/docs/REF
 | `get_any` / `or` / `\|` | union of intersections (DNF) | `get_any([])` = empty set |
 | `is_below(sub, sup)` | Boolean, reflexive, **fail-closed** | asserted edges + computed order, uniformly |
 | `get_overlapping(term)` | possibly-satisfies | complete for possibility, silent on satisfaction (G6) |
-| `overlaps(a, b)` | Boolean possibly-satisfies for a pair | terms or named places/regions either side; values by arithmetic, nodes by the graph (DIMENSIONS.md §14) |
+| `overlaps(a, b)` | Boolean possibly-satisfies for a pair | terms or named places/regions either side; values by arithmetic, nodes by the graph; the base head as a role parameter (`from(geo)`) is the whole space (DIMENSIONS.md §14) |
 | `meet(a, b)` | the intersection of two same-head terms as one term | `None` when provably empty; raises when no single term names it |
 | `count` | size of the `get` answer | never capped |
 

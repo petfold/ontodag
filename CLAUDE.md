@@ -809,6 +809,23 @@ issues are closed in code and docs; the GitHub issues themselves are still
 open — closing them (with the consumer commitments quoted back) is Peter's
 call or the next session's.
 
+**#17 and #18 (same night, from loopmarket's consumption of the three):**
+(#17) the base head named as a role parameter — `from(geo)`, `when(time)`
+— is the WHOLE SPACE, read structurally (`_whole_space`/`_is_whole_term`
+in dag.py: top of `_contains`, its own bound in `_bounds`, identity of
+the meet in `_fold_meet`/`meets` via `_intersect_terms`). loopmarket had
+found `overlaps` saying yes while `get`'s planner read the head as a
+region with a lower-bound covering (nothing filed ⇒ nothing found). It
+lets a give silent on a role be filed under `from(geo)` as one edge; the
+whole-space edge is redundant beside any finer term and reduction drops
+it. Tests: `TestWholeSpace` in `tests/test_roles.py` (6). (#18)
+`_dimension_of` cached per DAG (`_dim_cache`), dropped with `_heads_cache`
+in `_maybe_invalidate_heads` and `_forget`; when the heads cache is empty
+the dim cache is dropped on every plain edge instead (no upward walk on a
+lazy writer's put). Tests: `TestDimensionCache` in
+`tests/test_dimensions_dag.py` (6). Numbers in the issues. **992 passed + 4
+skipped (996 collected) as of 2026-09-12 night; README count updated.**
+
 ## The projection seam (2026-08-20) — PROJECTIONS.md §4–§5 shipped
 
 **Overlay views + `odag ingest` + the projection-drop golden test**, in one
