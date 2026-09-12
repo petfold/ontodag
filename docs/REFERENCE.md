@@ -57,6 +57,8 @@ and [swarmfs REFERENCE.md](https://github.com/petfold/swarmfs/blob/main/docs/REF
 | `get_any` / `or` / `\|` | union of intersections (DNF) | `get_any([])` = empty set |
 | `is_below(sub, sup)` | Boolean, reflexive, **fail-closed** | asserted edges + computed order, uniformly |
 | `get_overlapping(term)` | possibly-satisfies | complete for possibility, silent on satisfaction (G6) |
+| `overlaps(a, b)` | Boolean possibly-satisfies for a pair | terms or named places/regions either side; values by arithmetic, nodes by the graph (DIMENSIONS.md §14) |
+| `meet(a, b)` | the intersection of two same-head terms as one term | `None` when provably empty; raises when no single term names it |
 | `count` | size of the `get` answer | never capped |
 
 Structural invariants (I1–I7, `tests/test_invariants.py`): acyclicity;
@@ -77,6 +79,8 @@ results one per line on stdout. No command = read commands from stdin
 | `count [CAT…]` | the same query, as one number |
 | `below SUB SUP` | prints `true`/`false`, exits 0/1 (grep-style); alias `?` at the prompt |
 | `overlapping TERM` | items that *might* satisfy a typed term — candidates whose value overlaps it (G6). A term of no declared dimension is an error, not an empty answer |
+| `overlaps A B` | could A and B share a point? `true`/`false`, exits 0/1; either side a typed term or a named place/region |
+| `meet A B` | the intersection of two same-head typed terms as one term; nothing and exit 1 when provably empty |
 | `list` | everything (same path as the empty `get`) |
 | `show` | the whole DAG as indented text |
 | `move NAME… --to CAT… [--from CAT…] [--dry-run]` | reclassify: assert the new categories, retract the old ones (`--from` omitted = all of them, so `--to` alone means "under this and nothing else"; `--to` omitted = unfile, becoming top-level). Reports the **contested set** — items now under both the old and new category, which subsumption cannot resolve |
@@ -148,6 +152,8 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `get_by_dag(query_dag)` | intersect against another DAG's categories (the web app's path) |
 | `is_below(sub, sup)` | reflexive, fail-closed Boolean |
 | `get_overlapping(term)` | possibly-satisfies candidates |
+| `overlaps(a, b)` | pairwise possibly-satisfies Boolean (terms or nodes) |
+| `meet(a, b)` | intersection of two same-head terms as one term, store units; `None` if empty |
 | `get_descendants` / `get_ancestors` | one cone, either direction |
 | `remove(name)` | remove with contraction (children keep coarser parents) |
 | `reclassify(names, to, from_=None)` | assert new classifications, retract old ones; asserts before retracting, never orphans, and refuses any placement `put` would refuse |
@@ -242,6 +248,8 @@ empty `cat` = everything.
 | `/dag/node` | POST, DELETE | put / remove |
 | `/dag/query?cat=A,B\|C` | GET | query (DNF) |
 | `/dag/below?sub=&sup=` | GET | Boolean containment |
+| `/dag/overlaps?a=&b=` | GET | Boolean possible overlap (pairwise G6) |
+| `/dag/meet?a=&b=` | GET | intersection of two same-head terms as one term (`null` if empty) |
 | `/dag/image`, `/dag/query/image` | GET | rendered PNG |
 | `/dag/import`, `/dag/query/import` | POST | native/OWL upload |
 | `/dag/export[/omn\|/dot\|/tex]` | GET | exports of the whole DAG |
@@ -275,7 +283,7 @@ The web DAG is server memory per session — not your `odag` store.
 Read tools: `about` (the discoverability record), `query` (`terms` xor
 `any_of`, explicit `limit`, answers carry `truncated` and complete
 `count`), `is_below` (accepts `certify: true` → a verifiable
-certificate), `overlapping`, `describe`, `canon`, `review` (per-claim
+certificate), `overlapping`, `overlaps`, `meet`, `describe`, `canon`, `review` (per-claim
 audit: every record signature-verified, standing from verified records
 only, reader-side `trust`). Write tools (`--write`, signer required,
 `swarm:`/`rs:` stores only): `propose_put`/`put`,

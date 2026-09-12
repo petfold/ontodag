@@ -126,6 +126,7 @@ accidental — each surface exposes what makes sense for who is using it:
 | **excerpt** (query-scoped export) | ✓ `excerpt` | ✓ `excerpt` | ✓ `/dag/query/export*` | — |
 | **diff two stores** | ✓ `ontodag.compare` | ✓ `diff` | — | — |
 | **overlapping** (might-satisfy, G6) | ✓ `get_overlapping` | ✓ `overlapping` | ✓ `/dag/overlapping` | ✓ |
+| **overlaps / meet** (pairwise G6, one-term meet) | ✓ `overlaps`, `meet` | ✓ `overlaps`, `meet` | ✓ `/dag/overlaps`, `/dag/meet` | ✓ |
 | **canon** (what a spelling stores) | ✓ `ontodag.surface` | ✓ `canon` | ✓ `/dag/canon` | ✓ |
 | **declare dimensions** (prelude / packs) | ✓ | ✓ | ✓ `/dag/prelude`, `/dag/pack` | — |
 | **version history** (`history`/`undo`/`redo`) | ✓ via the store | ✓ | n/a | — |
@@ -914,6 +915,32 @@ dag.put("Flight", [])
 dag.put("x", ["from(Flight)"])               # ValueError: Flight is a category
                                              # outside the geo dimension
 ```
+
+**The pairwise question: `overlaps`, and the one-term meet.** `get_overlapping`
+lists candidates for a term; `overlaps(a, b)` answers it for a *pair*, and
+either side may be a typed term or a named place or region. Values decide
+by arithmetic, named things by the graph — a place is possibly in any cell
+that overlaps the cell it sits in, a region overlaps whatever meets one of
+its cells, and two distinct places under one cell are two places. `meet`
+gives the intersection of two same-head terms as one term, using the
+store's units, so you can reduce before you ask:
+
+```python
+dag.overlaps("from(ljubljana)", "from(u2e)")      # True  — u2e4 is in both
+dag.overlaps("from(my_home)", "from(u2e4xz)")     # True  — possibly: my_home
+                                                  #         is somewhere in u2e4x
+dag.overlaps("from(my_home)", "from(u2f)")        # False — provably elsewhere
+dag.overlaps("ljubljana", "my_home")              # True  — nodes both sides
+dag.overlaps("offer", "from(u2e4)")               # True  — an item and a term
+dag.meet("from(u2e)", "from(u2e4x)")              # 'from(u2e4x)'
+dag.meet("from(u2e4)", "from(u2e5)")              # None  — provably empty
+dag.meet("from(ljubljana)", "from(u2e4x)")        # 'from(u2e4x)' — contained
+```
+
+On the command line `odag overlaps A B` prints `true`/`false` and exits
+0/1 like `below`; `odag meet A B` prints the term, or nothing with exit 1
+when the meet is empty. REST has `/dag/overlaps?a=&b=` and
+`/dag/meet?a=&b=`; agents have `overlaps` and `meet` tools.
 
 The order between role terms is the graph's own order in the base
 dimension, so it follows your catalogue: refine `my_home` into a finer

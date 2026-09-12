@@ -759,6 +759,19 @@ loop without the graph cycling — `_param_node` is re-entrancy-guarded.
 Deferred: Peter's covering-as-a-value (`where(u24m+u24q)`) — a prefix-kind
 grammar change, fires on the anonymity tripwire.
 
+**#16 shipped the same session:** `OntoDAG.overlaps(a, b)` (pairwise G6 —
+terms or nodes either side; values by arithmetic, nodes by the graph, the
+§14 rule) and `OntoDAG.meet(a, b)` (the one-term intersection with store
+units; `None` when provably empty; raises when no single term names it,
+which is the node-parameter case with neither containing the other). On
+every surface: `odag overlaps A B` / `odag meet A B` (grep-style exits),
+`GET /dag/overlaps` / `GET /dag/meet`, MCP `overlaps` / `meet` read tools;
+REFERENCE §3/§4/§5/§7/§8 and AGENT_SURFACE rows added (test_reference pins
+them). `TestOverlapsAndMeet` (7) + CLI/REST/MCP tests; 969 passed + 4
+skipped (973 collected, README count updated). Invariant pinned:
+`is_below(a,b) or is_below(b,a) ⇒ overlaps(a,b)`; `meet is None ⟺ not
+overlaps` for the node case by construction.
+
 ## The projection seam (2026-08-20) — PROJECTIONS.md §4–§5 shipped
 
 **Overlay views + `odag ingest` + the projection-drop golden test**, in one

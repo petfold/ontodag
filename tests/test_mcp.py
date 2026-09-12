@@ -89,7 +89,8 @@ class TestProtocol(SurfaceHarness):
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
         names = {t["name"] for t in listed["result"]["tools"]}
         self.assertEqual(names, {"about", "query", "is_below",
-                                 "overlapping", "describe", "canon"})
+                                 "overlapping", "overlaps", "meet",
+                                 "describe", "canon"})
         for tool in listed["result"]["tools"]:
             self.assertIn("inputSchema", tool)
             self.assertTrue(tool["description"])
@@ -178,6 +179,20 @@ class TestTools(SurfaceHarness):
         self.assertIn("heavy", answer["candidates"])
         self.assertNotIn("light", answer["candidates"])
         self.assertIn("possible coexistence", answer["note"])
+
+    def test_overlaps_and_meet_are_the_pairwise_faces(self):
+        # The fixture: box weight(2kg), heavy weight(1kg..5kg)?, light below.
+        answer = self.call("overlaps", {"a": "weight(1kg..)", "b": "heavy"})
+        self.assertTrue(answer["result"])
+        self.assertIn("possible coexistence", answer["note"])
+        answer = self.call("overlaps", {"a": "weight(1kg..)", "b": "light"})
+        self.assertFalse(answer["result"])
+        answer = self.call("meet", {"a": "weight(1kg..)", "b": "weight(..3kg)"})
+        self.assertEqual(answer["meet"], "weight(1kg..3kg)")
+        answer = self.call("meet", {"a": "weight(5kg..)", "b": "weight(..3kg)"})
+        self.assertIsNone(answer["meet"])
+        with self.assertRaises(Exception):
+            self.call("meet", {"a": "weight(1kg..)", "b": "box"})
 
     def test_describe_returns_display_beside_the_name(self):
         answer = self.call("describe", {"term": "weight(2kg)"})

@@ -146,7 +146,8 @@ def init_session_visualizer():
 # CLI command without anyone deciding it should.
 CONSOLE_COMMANDS = {
     "put", "get", "count", "below", "?", "canon", "list", "show",
-    "move", "remove", "overlapping", "prelude", "pack", "help",
+    "move", "remove", "overlapping", "overlaps", "meet", "prelude", "pack",
+    "help",
 }
 
 # Why each absent command is absent, in the CLI's own voice.
@@ -403,7 +404,8 @@ def _shape(parser):
 COMMAND_GROUPS = (
     ("Filing things", ("put", "move", "remove")),
     ("Asking questions",
-     ("get", "count", "list", "show", "below", "overlapping", "canon")),
+     ("get", "count", "list", "show", "below", "overlapping", "overlaps",
+      "meet", "canon")),
     ("Vocabulary", ("prelude", "pack")),
     ("Files and pictures",
      ("import", "export", "merge", "ingest", "excerpt", "diff",
@@ -703,6 +705,35 @@ def get_overlapping():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     return jsonify({"nodes": [node.to_dict() for node in nodes]})
+
+
+@app.route("/dag/overlaps", methods=["GET"])
+def get_overlaps():
+    """Could `a` and `b` share a point? The pairwise Boolean face of
+    `/dag/overlapping` (contract G6, issue #16): either side a typed term or
+    a named place/region. Different heads or a malformed value are client
+    errors; unknown plain names are false, like `/dag/below`."""
+    a, b = request.args.get("a"), request.args.get("b")
+    if not a or not b:
+        return jsonify({"error": "need both a and b"}), 400
+    try:
+        return jsonify({"overlaps": current_dag().overlaps(a, b)})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/dag/meet", methods=["GET"])
+def get_meet():
+    """The intersection of two same-head typed terms as ONE canonical term,
+    with the store's units — `null` when provably empty; a meet no single
+    term can name is a client error."""
+    a, b = request.args.get("a"), request.args.get("b")
+    if not a or not b:
+        return jsonify({"error": "need both a and b"}), 400
+    try:
+        return jsonify({"meet": current_dag().meet(a, b)})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
 
 @app.route("/dag/canon", methods=["GET"])

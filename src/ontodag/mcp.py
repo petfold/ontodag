@@ -363,6 +363,30 @@ class AgentSurface:
                     "or your own exact test (CONTRACT.md G6)",
         })
 
+    def tool_overlaps(self, arguments):
+        dag, root = self._dag_at(arguments.get("as_of"))
+        a = self._need(arguments, "a")
+        b = self._need(arguments, "b")
+        return self._envelope(root, {
+            "a": dag._canonical_name(a),
+            "b": dag._canonical_name(b),
+            "result": bool(dag.overlaps(a, b)),
+            "note": "possible coexistence, not satisfaction: true means the "
+                    "two denotations may share a point (values by "
+                    "arithmetic, named places by the graph); use is_below "
+                    "for guaranteed containment (CONTRACT.md G6)",
+        })
+
+    def tool_meet(self, arguments):
+        dag, root = self._dag_at(arguments.get("as_of"))
+        a = self._need(arguments, "a")
+        b = self._need(arguments, "b")
+        return self._envelope(root, {
+            "a": dag._canonical_name(a),
+            "b": dag._canonical_name(b),
+            "meet": dag.meet(a, b),      # None: provably empty
+        })
+
     def tool_describe(self, arguments):
         dag, root = self._dag_at(arguments.get("as_of"))
         term = self._need(arguments, "term")
@@ -625,6 +649,8 @@ TOOL_HANDLERS = {
     "query": AgentSurface.tool_query,
     "is_below": AgentSurface.tool_is_below,
     "overlapping": AgentSurface.tool_overlapping,
+    "overlaps": AgentSurface.tool_overlaps,
+    "meet": AgentSurface.tool_meet,
     "describe": AgentSurface.tool_describe,
     "canon": AgentSurface.tool_canon,
 }
@@ -707,6 +733,24 @@ TOOL_SPECS = [
                     "not assert satisfaction — verify candidates yourself.",
      "inputSchema": {"type": "object", "required": ["term"],
                      "properties": {"term": {"type": "string"},
+                                    "as_of": _AS_OF}}},
+    {"name": "overlaps",
+     "description": "Could A and B share a point? The pairwise Boolean of "
+                    "`overlapping`: either side a typed term or a named "
+                    "place/region. Values decide by arithmetic, named "
+                    "things by the graph. Not satisfaction — use is_below "
+                    "for that.",
+     "inputSchema": {"type": "object", "required": ["a", "b"],
+                     "properties": {"a": {"type": "string"},
+                                    "b": {"type": "string"},
+                                    "as_of": _AS_OF}}},
+    {"name": "meet",
+     "description": "The intersection of two same-head typed terms as one "
+                    "canonical term, with the store's units; null when "
+                    "provably empty. Reduce same-head terms before asking.",
+     "inputSchema": {"type": "object", "required": ["a", "b"],
+                     "properties": {"a": {"type": "string"},
+                                    "b": {"type": "string"},
                                     "as_of": _AS_OF}}},
     {"name": "describe",
      "description": "One item: canonical name, friendly display spelling, "

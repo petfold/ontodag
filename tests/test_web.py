@@ -993,6 +993,40 @@ class TestDeclaringDimensionsOverRest:
         assert client.post("/dag/pack", json={}).status_code == 400
 
 
+class TestOverlapsAndMeetOverRest:
+    """The pairwise faces of G6 (issue #16) over HTTP."""
+
+    def _fixture(self, client):
+        client.post("/dag/prelude")
+        put(client, "parcel", ["weight(3kg)"])
+        put(client, "wide", ["weight(2kg..6kg)"])
+
+    def test_overlaps(self, client):
+        self._fixture(client)
+        response = client.get("/dag/overlaps",
+                              query_string={"a": "wide", "b": "weight(5kg..)"})
+        assert response.status_code == 200
+        assert response.get_json() == {"overlaps": True}
+        response = client.get("/dag/overlaps",
+                              query_string={"a": "parcel", "b": "weight(5kg..)"})
+        assert response.get_json() == {"overlaps": False}
+        response = client.get("/dag/overlaps",
+                              query_string={"a": "weight(1kg)", "b": "geo(u2)"})
+        assert response.status_code == 400
+
+    def test_meet(self, client):
+        self._fixture(client)
+        response = client.get("/dag/meet", query_string={
+            "a": "weight(1kg..5kg)", "b": "weight(3kg..)"})
+        assert response.get_json() == {"meet": "weight(3kg..5kg)"}
+        response = client.get("/dag/meet", query_string={
+            "a": "weight(..1kg)", "b": "weight(3kg..)"})
+        assert response.get_json() == {"meet": None}
+        response = client.get("/dag/meet", query_string={"a": "parcel",
+                                                         "b": "weight(1kg)"})
+        assert response.status_code == 400
+
+
 class TestOverlappingOverRest:
     """The weaker matching mode (contract G6) — candidates, not guarantees."""
 

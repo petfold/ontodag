@@ -2678,6 +2678,42 @@ class TestHistoryAndUndo(unittest.TestCase):
         self.assertEqual(len(line.split()), 4)
 
 
+class TestOverlapsAndMeetCommands(unittest.TestCase):
+    """`overlaps A B` and `meet A B` — the pairwise faces of G6 (issue #16)."""
+
+    def _session(self, home):
+        session = cli.Session(os.path.join(home, "parcels.od"))
+        for argv in (["prelude"], ["put", "parcel", "weight(3kg)"],
+                     ["put", "wide", "weight(2kg..6kg)"]):
+            self.assertEqual(_run(argv, session)[0], 0)
+        return session
+
+    def test_overlaps_is_grep_style(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            code, out = _run(["overlaps", "wide", "weight(5kg..)"], session)
+            self.assertEqual((code, out.strip()), (0, "true"))
+            code, out = _run(["overlaps", "parcel", "weight(5kg..)"], session)
+            self.assertEqual((code, out.strip()), (1, "false"))
+            code, out = _run(["overlaps", "weight(1kg..4kg)", "weight(3.5kg..)"],
+                             session)
+            self.assertEqual((code, out.strip()), (0, "true"))
+
+    def test_meet_prints_one_term_or_nothing(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            code, out = _run(["meet", "weight(1kg..5kg)", "weight(3kg..)"],
+                             session)
+            self.assertEqual((code, out.strip()), (0, "weight(3kg..5kg)"))
+            code, out = _run(["meet", "weight(..1kg)", "weight(3kg..)"], session)
+            self.assertEqual((code, out), (1, ""))
+            out, err = io.StringIO(), io.StringIO()
+            with redirect_stdout(out), redirect_stderr(err):
+                code = cli.dispatch(["meet", "weight(1kg)", "parcel"], session)
+            self.assertEqual(code, 1)
+            self.assertIn("parametric", err.getvalue())
+
+
 class TestOverlappingCommand(unittest.TestCase):
     """`overlapping TERM` — contract G6 on the command line.
 

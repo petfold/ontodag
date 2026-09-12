@@ -956,6 +956,70 @@ class OntoDAG(DAG):
                 result |= self.get_descendants(value, computed=False)
         return result
 
+    def overlaps(self, a, b):
+        """Do the denotations of `a` and `b` share a point? The Boolean face
+        of `get_overlapping`, for a given PAIR — the mirror of `is_below` in
+        the possibly-satisfies mode (contract G6; issue #16).
+
+        Either side may be a parametric term (present or virtual) or a node
+        whose denotation comes from its position: a place under a cell, a
+        region above cells, an offer under a role term. Values decide by
+        arithmetic; nodes by the graph (DIMENSIONS.md §14): one below the
+        other, or what one is known to cover meeting what the other lies
+        within or covers — never two distinct places under one cell.
+        Units come from the store, as they do for `is_below`. Two terms of
+        different heads raise, as `dimensions.intersect` does; a malformed
+        value raises; unknown plain names fail closed to False.
+        `is_below(a, b) or is_below(b, a)` implies `overlaps(a, b)`.
+        Overlap is not transitive, so it is a question, never an edge."""
+        a = self._canonical_name(_name_of(a))
+        b = self._canonical_name(_name_of(b))
+        parsed_a = self._parse_parametric(a)
+        parsed_b = self._parse_parametric(b)
+        if (parsed_a is None and a not in self.nodes) or \
+                (parsed_b is None and b not in self.nodes):
+            return False                     # unknown vocabulary fails closed
+        if parsed_a is not None and parsed_b is not None:
+            if parsed_a[0] != parsed_b[0]:
+                raise ValueError(
+                    f"cannot compare across heads: {a!r} vs {b!r}")
+            return self._overlap_terms(a, b, parsed_a[1])
+        return self._overlap(a, b)
+
+    def meet(self, a, b):
+        """The canonical name of denotation(a) ∩ denotation(b) for two
+        same-head parametric terms, or None when the intersection is
+        provably empty — `dimensions.intersect` with the store's declared
+        units, so a consumer can reduce same-head terms before asking
+        (issue #16). With a parameter naming a node (DIMENSIONS.md §14)
+        the meet is nameable only when one term contains the other (the
+        finer one), or empty when they do not overlap; anything else
+        raises, since no single term denotes it — pass both to `get`."""
+        a = self._canonical_name(_name_of(a))
+        b = self._canonical_name(_name_of(b))
+        parsed_a = self._parse_parametric(a)
+        parsed_b = self._parse_parametric(b)
+        if parsed_a is None or parsed_b is None:
+            raise ValueError(
+                f"meet needs two parametric terms of one declared "
+                f"dimension: {a!r}, {b!r}")
+        if parsed_a[0] != parsed_b[0]:
+            raise ValueError(f"cannot compare across heads: {a!r} vs {b!r}")
+        head, kind = parsed_a[0], parsed_a[1]
+        if self._param_node(head, _dims.split_term(a)[1]) is None and \
+                self._param_node(head, _dims.split_term(b)[1]) is None:
+            return _dims.intersect(a, b, kind, units=self._declared_units())
+        if self._contains(a, b, kind):
+            return b
+        if self._contains(b, a, kind):
+            return a
+        if not self._overlap(a, b):
+            return None
+        raise ValueError(
+            f"no single term names the meet of {a!r} and {b!r} (a named "
+            f"place or region is involved and neither contains the other) "
+            f"— query with both terms instead")
+
     def _virtual_cone(self, head, kind, canonical):
         """The cone of a parametric term that need not exist as a node: the
         present values of its dimension contained in its denotation, plus

@@ -45,6 +45,8 @@ Every successful answer is one JSON object:
 | `query` | `terms` (conjunction) **or** `any_of` (list of conjunctions, answered as their union) — at most one, and neither means the empty query; `limit?`, `as_of?`, `certify?` | `items` (sorted canonical names), `count`, `truncated`, and the **canonical echo** of the terms actually answered |
 | `is_below` | `sub`, `sup`; `as_of?`, `certify?` | `result` (fail-closed boolean), canonical echo of both sides |
 | `overlapping` | `term`; `as_of?` | `candidates`, `count`, and a `note` naming the modality (G6: recall-complete candidacy, not satisfaction) |
+| `overlaps` | `a`, `b`; `as_of?` | `result` (Boolean) + `note` — the pairwise face of `overlapping`: could these two share a point? either side a term or a named place/region (issue #16) |
+| `meet` | `a`, `b`; `as_of?` | `meet` — the intersection of two same-head terms as one canonical term with the store's units, `null` when provably empty |
 | `describe` | `term`; `as_of?` | canonical `name`, rendered `display`, `exists`, `parents`, `children`, `descendant_count` |
 | `canon` | `term` | `canonical`, `display`, surface + registry versions |
 

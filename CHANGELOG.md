@@ -34,6 +34,16 @@ the version numbers appear in commit history and docs.
   of its dimension while the term stands; creating a category whose name
   a role term already carries as a literal must land it in the dimension.
 
+- **`overlaps(a, b)` and `meet(a, b)`** (issue #16) — the pairwise Boolean
+  face of `get_overlapping`, either side a typed term or a named
+  place/region (values by arithmetic, nodes by the graph, upper×upper
+  excluded), and the intersection of two same-head terms as one canonical
+  term with the store's declared units (`None` when provably empty; a meet
+  no single term can name raises). On every surface: `odag overlaps A B`
+  (exit 0/1) and `odag meet A B` (nothing + exit 1 when empty),
+  `GET /dag/overlaps`, `GET /dag/meet`, MCP tools `overlaps` and `meet`.
+  `is_below(a, b) or is_below(b, a)` implies `overlaps(a, b)`.
+
 ### Changed
 
 - **Values are leaves of the declaration walk**: a node filed under a

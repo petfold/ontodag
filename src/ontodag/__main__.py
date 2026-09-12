@@ -1255,6 +1255,28 @@ def cmd_below(args, session, out):
     return 0 if result else 1
 
 
+def cmd_overlaps(args, session, out):
+    # The pairwise face of `overlapping` (contract G6, issue #16): do these
+    # two — terms or named places/regions, any mix — possibly share a
+    # point? Same grep-style shape as `below`; different heads or a
+    # malformed value are errors, unknown plain names are false.
+    result = session.view().overlaps(args.a, args.b)
+    print("true" if result else "false", file=out)
+    return 0 if result else 1
+
+
+def cmd_meet(args, session, out):
+    # The intersection of two same-head typed terms as ONE term, with the
+    # store's units: what the planner pre-intersects, offered to scripts
+    # that reduce terms before asking. Empty prints nothing and exits 1
+    # (grep-style: no result); a meet no single term can name is an error.
+    result = session.view().meet(args.a, args.b)
+    if result is None:
+        return 1
+    print(_namer(args, session, out)(result), file=out)
+    return 0
+
+
 # --------------------------------------------------------------------------- #
 # `odag swarm` — the on-ramp, because the wall is the node, not the pip install
 # --------------------------------------------------------------------------- #
@@ -2325,6 +2347,16 @@ Commands:
                         overlaps it rather than fitting inside it, so these
                         are candidates for your own exact check (`get` is
                         the guaranteed-satisfaction answer)
+  overlaps A B          could A and B share a point? prints true/false and
+                        exits 0/1 like `below`. Either side may be a typed
+                        term or a named place/region (a node in the
+                        dimension); values decide by arithmetic, named
+                        things by the graph. The pairwise face of
+                        `overlapping`.
+  meet A B              the intersection of two same-head typed terms as one
+                        term (`meet 'weight(1kg..5kg)' 'weight(3kg..)'` ->
+                        weight(3kg..5kg)); prints nothing and exits 1 when
+                        it is provably empty
   below SUB SUP       does SUB fit within SUP? prints true/false and
                         exits 0/1 (grep-style), so `odag below A B && ...`
                         works; `?` is a synonym at the interactive prompt.
@@ -2576,6 +2608,21 @@ def build_parser():
     p.add_argument("sub")
     p.add_argument("sup")
     p.set_defaults(func=cmd_below, stream_output=True)
+
+    p = sub.add_parser("overlaps", add_help=True,
+                       help="test whether A and B possibly share a point "
+                            "(exit 0/1)")
+    p.add_argument("a")
+    p.add_argument("b")
+    p.set_defaults(func=cmd_overlaps, stream_output=True)
+
+    p = sub.add_parser("meet", add_help=True,
+                       help="the intersection of two same-head typed terms "
+                            "as one term (nothing + exit 1 when empty)")
+    p.add_argument("a")
+    p.add_argument("b")
+    _add_surface_flags(p)
+    p.set_defaults(func=cmd_meet, stream_output=True)
 
     p = sub.add_parser("swarm", add_help=True,
                        help="check whether this machine can talk to Swarm, "

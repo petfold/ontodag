@@ -299,6 +299,94 @@ class TestStoredFormWithRoles(unittest.TestCase):
             self.assertEqual(verify_below(cert, root), expected, (sub, sup))
 
 
+class TestOverlapsAndMeet(unittest.TestCase):
+    """The Boolean overlap face (issue #16): `overlaps(a, b)` for any pair of
+    terms or nodes, and `meet(a, b)` as one canonical term with store units."""
+
+    def test_values_decide_by_arithmetic(self):
+        d = make_dag()
+        self.assertTrue(d.overlaps("geo(u2e)", "geo(u2e4x)"))
+        self.assertFalse(d.overlaps("geo(u2e4)", "geo(u2e5)"))
+        self.assertTrue(d.overlaps("from(u2e)", "from(u2e4x)"))   # both ways
+        self.assertTrue(d.overlaps("from(u2e4x)", "from(u2e)"))
+        d.put("when", ["time"])
+        self.assertTrue(d.overlaps("when(2026-08)", "when(2026-08-15..2026-09-02)"))
+        self.assertFalse(d.overlaps("when(2026-08)", "when(2026-09)"))
+
+    def test_nodes_decide_by_the_graph(self):
+        d = with_offers(make_dag())
+        self.assertTrue(d.overlaps("from(ljubljana)", "from(u2e)"))
+        self.assertFalse(d.overlaps("from(ljubljana)", "from(u2f)"))
+        self.assertTrue(d.overlaps("from(my_home)", "from(u2e4xz)"))  # possibly
+        self.assertFalse(d.overlaps("from(my_home)", "from(u2f)"))
+        self.assertTrue(d.overlaps("from(my_home)", "from(ljubljana)"))
+        # region ∩ region, both sides nodes — never consumer enumeration
+        d.put("central", [])
+        d.put("geo(u2e5)", ["central"])
+        d.put("geo(u2e6)", ["central"])
+        self.assertTrue(d.overlaps("ljubljana", "central"))
+        self.assertTrue(d.overlaps("from(ljubljana)", "from(central)"))
+        d.put("north", [])
+        d.put("geo(u2f1)", ["north"])
+        self.assertFalse(d.overlaps("ljubljana", "north"))
+        # an item against a term, and two plain nodes
+        self.assertTrue(d.overlaps("offer", "from(u2e4)"))
+        self.assertFalse(d.overlaps("offer", "from(u2f)"))
+        self.assertTrue(d.overlaps("ljubljana", "my_home"))
+
+    def test_two_places_under_one_cell_are_two_places(self):
+        d = with_offers(make_dag())
+        d.put("shop", ["geo(u2e4x)"])
+        self.assertFalse(d.overlaps("from(shop)", "from(my_home)"))
+        self.assertFalse(d.overlaps("shop", "my_home"))
+        d.put("my_home_4th", ["my_home"])
+        self.assertTrue(d.overlaps("from(my_home_4th)", "from(my_home)"))
+
+    def test_below_implies_overlaps(self):
+        d = with_offers(make_dag())
+        pairs = [("from(u2e4x)", "from(u2e4)"), ("from(my_home)", "from(u2e)"),
+                 ("from(u2e5)", "from(ljubljana)"), ("offer", "from(ljubljana)"),
+                 ("my_home", "geo(u2e4)")]
+        for a, b in pairs:
+            self.assertTrue(d.is_below(a, b) or d.is_below(b, a), (a, b))
+            self.assertTrue(d.overlaps(a, b), (a, b))
+            self.assertTrue(d.overlaps(b, a), (a, b))
+
+    def test_errors_and_fail_closed(self):
+        d = make_dag()
+        with self.assertRaises(ValueError):
+            d.overlaps("from(u2e4)", "geo(u2e4)")          # different heads
+        with self.assertRaises(ValueError):
+            d.overlaps("weight(3kg)", "weight(nonsense)")  # malformed
+        self.assertFalse(d.overlaps("nobody", "geo(u2e4)"))  # unknown: False
+
+    def test_units_come_from_the_store(self):
+        d = make_dag()
+        d.put("unit-declaration", [])
+        d.put("unit(stone=14lb)", ["unit-declaration"])
+        d.put("load", ["weight"])                     # a role over a linear head
+        self.assertTrue(d.overlaps("load(1stone..)", "load(..7kg)"))
+        self.assertFalse(d.overlaps("load(1stone..)", "load(..6kg)"))
+        self.assertEqual(d.meet("load(1stone..)", "load(..7kg)"),
+                         "load(317514659/50000000kg..7kg)")
+
+    def test_meet(self):
+        d = with_offers(make_dag())
+        self.assertEqual(d.meet("from(u2e)", "from(u2e4x)"), "from(u2e4x)")
+        self.assertIsNone(d.meet("from(u2e4)", "from(u2e5)"))
+        self.assertEqual(d.meet("from(ljubljana)", "from(u2e4x)"), "from(u2e4x)")
+        self.assertEqual(d.meet("from(my_home)", "from(ljubljana)"), "from(my_home)")
+        self.assertIsNone(d.meet("from(my_home)", "from(u2f)"))    # no overlap
+        with self.assertRaises(ValueError):
+            d.meet("from(ljubljana)", "from(u2e)")   # overlap, but no one term
+        with self.assertRaises(ValueError):
+            d.meet("from(u2e4)", "geo(u2e4)")
+        with self.assertRaises(ValueError):
+            d.meet("offer", "from(u2e4)")
+        self.assertEqual(d.meet("weight(1kg..5kg)", "weight(3kg..)"),
+                         "weight(3kg..5kg)")
+
+
 class TestRoleGuards(unittest.TestCase):
     def test_remove_refuses_while_a_role_term_names_the_node(self):
         d = with_offers(make_dag())
