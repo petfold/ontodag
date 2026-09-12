@@ -343,7 +343,7 @@ class TestDomainPacks(unittest.TestCase):
 
     def test_union_of_core_and_every_pack_has_one_root(self):
         if not os.environ.get("ONTODAG_SLOW_TESTS"):
-            self.skipTest("~3 min: ten merges into a 9,000-node store; ONTODAG_SLOW_TESTS=1 runs it "
+            self.skipTest("~6 min alone (measured 2026-09-12, core v9): ten merges into an 11,400-node store; ONTODAG_SLOW_TESTS=1 runs it "
                           "(ontodag-core's tools/integrate.py is the other witness to this root)")
         dag = ontodag.EagerOntoDAG(RecordStore(MemoryBytesStore()))
         apply(dag, "core")
