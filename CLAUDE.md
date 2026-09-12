@@ -1079,8 +1079,8 @@ nodes as parameters (#15), `overlaps`/`meet` (#16), `items_only` (#14's
 second half) — plus the `_dimension_of` cache (#18) and the refusal of
 the dimension itself as a role parameter (#17). #14's overlap query mode
 was built and withdrawn the same day (§8): every query term is a
-containment term. loopmarket 0.4.0 pins `ontodag>=0.25.0`. ontodag-fs's
-ceiling (`<0.24.0`) is already behind and needs its own bump.
+containment term. loopmarket 0.4.0 pins `ontodag>=0.25.0` (released by tag the same day);
+ontodag-fs 0.6.1 (same day, pin-only) raises its ceiling to `<0.26.0`.
 
 | package | version | verified by | pins |
 |---|---|---|---|
