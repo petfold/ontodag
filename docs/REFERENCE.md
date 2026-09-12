@@ -54,6 +54,8 @@ and [swarmfs REFERENCE.md](https://github.com/petfold/swarmfs/blob/main/docs/REF
 | operation | answer | notes |
 |---|---|---|
 | `get(A, B, …)` | intersection of the cones | complete; empty query = everything (the universe) |
+| `get(…, overlapping=[T…])` | ∩ with possibly-satisfies cones | overlap constraints planned with the containment terms — walk or probe per step; never pre-intersected as meets |
+| `get(…, items_only=True)` | the leaves that are not typed values | drops parametric values and anything with children |
 | `get_any` / `or` / `\|` | union of intersections (DNF) | `get_any([])` = empty set |
 | `is_below(sub, sup)` | Boolean, reflexive, **fail-closed** | asserted edges + computed order, uniformly |
 | `get_overlapping(term)` | possibly-satisfies | complete for possibility, silent on satisfaction (G6) |
@@ -75,8 +77,8 @@ results one per line on stdout. No command = read commands from stdin
 | command | does |
 |---|---|
 | `put NAME [SUPER…]` | file NAME under the supers (creates as needed at top level) |
-| `get [CAT…]` | items below all CATs; `or` separates disjuncts; empty = everything |
-| `count [CAT…]` | the same query, as one number |
+| `get [CAT…]` | items below all CATs; `or` separates disjuncts; empty = everything; `--overlapping TERM` (repeatable) adds a possibly-satisfies constraint to the same plan; `--items-only` leaves out typed values and anything with children |
+| `count [CAT…]` | the same query, as one number; takes the same `--overlapping`/`--items-only` flags |
 | `below SUB SUP` | prints `true`/`false`, exits 0/1 (grep-style); alias `?` at the prompt |
 | `overlapping TERM` | items that *might* satisfy a typed term — candidates whose value overlaps it (G6). A term of no declared dimension is an error, not an empty answer |
 | `overlaps A B` | could A and B share a point? `true`/`false`, exits 0/1; either side a typed term or a named place/region |
@@ -148,7 +150,7 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | method | one line |
 |---|---|
 | `put(name, supers, optimized=False)` | file under supers (strings or Items) |
-| `get(terms)` / `get_any(queries)` | intersection / union-of-intersections; returns Items |
+| `get(terms, overlapping=(), items_only=False)` / `get_any(queries, …)` | intersection / union-of-intersections; returns Items; `overlapping` = possibly-satisfies terms in the same plan, `items_only` = leaves that are not typed values |
 | `get_by_dag(query_dag)` | intersect against another DAG's categories (the web app's path) |
 | `is_below(sub, sup)` | reflexive, fail-closed Boolean |
 | `get_overlapping(term)` | possibly-satisfies candidates |
@@ -246,7 +248,7 @@ empty `cat` = everything.
 |---|---|---|
 | `/dag` | GET, POST | dump / reset |
 | `/dag/node` | POST, DELETE | put / remove |
-| `/dag/query?cat=A,B\|C` | GET | query (DNF) |
+| `/dag/query?cat=A,B\|C[&overlapping=T1,T2][&items_only=1]` | GET | query (DNF); overlap constraints in the same plan; leaves only |
 | `/dag/below?sub=&sup=` | GET | Boolean containment |
 | `/dag/overlaps?a=&b=` | GET | Boolean possible overlap (pairwise G6) |
 | `/dag/meet?a=&b=` | GET | intersection of two same-head terms as one term (`null` if empty) |

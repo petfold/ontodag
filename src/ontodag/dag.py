@@ -1,3 +1,4 @@
+from collections import namedtuple
 from contextlib import contextmanager
 from itertools import combinations
 
@@ -74,6 +75,12 @@ class Item:
         if self.metadata:
             out["metadata"] = self.metadata
         return out
+
+
+# One cone of a query plan: kind in {"node", "virtual", "overlap"}, an
+# estimated size, the canonical name (tiebreak), and the payload the walk
+# and the probe read (the node, or the list of values/anchors).
+_Cone = namedtuple("_Cone", "kind size name payload")
 
 
 def _name_of(node_or_name):
@@ -1112,7 +1119,7 @@ class OntoDAG(DAG):
     # this) so the probe only fires when it is clearly the cheaper plan.
     _PROBE_COST_ESTIMATE = 16
 
-    def get(self, super_categories):
+    def get(self, super_categories, overlapping=(), items_only=False):
         """Return all items that are subcategories of all specified super-categories.
 
         The result is the intersection of the query terms' descendant cones.
@@ -1154,6 +1161,31 @@ class OntoDAG(DAG):
         The loop also stops as soon as the running result is empty, so the
         largest cones are often never walked at all.
 
+        Three kinds of cone take part in ONE plan (issue #14): present
+        terms (walk = the descendant cone, probe = an upward climb), virtual
+        containment terms (walk = the contained present values and their
+        cones, probe = a climb to a contained value — `is_below`'s virtual
+        bound), and OVERLAP-mode terms passed as `overlapping=[...]` (walk =
+        every anchor whose denotation merely overlaps the term, with what is
+        asserted below it — exactly `get_overlapping`; probe = an asserted
+        climb into that anchor set, O(ancestor cone), independent of how
+        large the overlap cone is). So `get(["ride"], overlapping=[window])`
+        with a small `ride` cone walks it and probes the few survivors
+        upward instead of enumerating every overlapping window's cone, and
+        the client-side `get(...) & get_overlapping(...)` disappears.
+        Overlap terms are never pre-intersected as meets — overlapping A and
+        overlapping B does not imply overlapping A ∩ B — and nothing about
+        them is stored: overlap is not a cone in the ORDER (DIMENSIONS.md
+        §8), only its query-time denotation is a set, which is all a plan
+        needs. Every step remains result-preserving.
+
+        `items_only=True` drops what carries the order rather than answers
+        the question: parametric values (and any node with something filed
+        under it) — the leaves that are not typed values. OntoDAG has no
+        class/instance distinction, so "item" here is structural: nothing
+        below it, not a value. On the lazy reader this costs one record per
+        answer member served from a cone index.
+
         Note for future optimizers: a node whose parents are exactly {A, B} is
         NOT the meet of A and B — put(X, [A, B]) creates a *sibling* of such a
         node, never a child of it — so rewriting a query through "meet-named"
@@ -1179,7 +1211,18 @@ class OntoDAG(DAG):
             if node is None:
                 return set()
             terms[node.name] = node
-        if not terms and not parametric:
+        # Overlap-mode terms need a computed denotation, like get_overlapping.
+        overlap = {}     # canonical name -> (head, kind)
+        for term in overlapping:
+            raw = _name_of(term)
+            parsed = self._parse_parametric(raw)
+            if parsed is None:
+                raise ValueError(
+                    f"{raw!r} is not a parametric term of a declared "
+                    "dimension — an overlap term needs a computed denotation")
+            overlap[parsed[2]] = (parsed[0], parsed[1])
+        finish = self._items_only if items_only else (lambda found: found)
+        if not terms and not parametric and not overlap:
             # The EMPTY query is the universe, not an error: an intersection
             # of no cones is unconstrained, so everything qualifies. That is
             # the identity of the operation `get` performs — adding a term can
@@ -1187,7 +1230,7 @@ class OntoDAG(DAG):
             # it to the top — and it makes `get` total. Equivalently it is the
             # root's cone, so `get([])`, `get(["*"])` and the CLI's `list` are
             # one question with one answer.
-            return self.get_descendants(self.root)
+            return finish(self.get_descendants(self.root))
 
         # 1a. Same-head parametric terms pre-intersect EXACTLY — within a
         # dimension, meets are computable (interval intersection), so this
@@ -1198,6 +1241,7 @@ class OntoDAG(DAG):
         # containment — one below the other keeps the finer — never as an
         # arithmetic meet, which no single term could name; incomparable
         # ones stay separate cones for the planner to intersect.
+        virtual = {}
         if parametric:
             by_head, head_kind = {}, {}
             for name, (head, kind) in parametric.items():
@@ -1220,34 +1264,15 @@ class OntoDAG(DAG):
                         break
                 else:
                     kept.append(name)
-            chosen = {name: (head, head_kind[head])
-                      for head, kept in by_head.items() for name in kept}
-            virtual = {}
-            for name, (head, kind) in chosen.items():
-                node = self.nodes.get(name)
-                if node is not None:
-                    terms[name] = node    # present: the planner handles it
-                else:
-                    virtual[name] = (head, kind)
-            # 1b. Virtual cones intersect first (they are computed sets
-            # anyway), then the surviving present terms settle by one upward
-            # probe per candidate — every step result-preserving.
-            if virtual:
-                cones = sorted((self._virtual_cone(head, kind, name)
-                                for name, (head, kind) in virtual.items()),
-                               key=len)
-                common = cones[0]
-                for cone in cones[1:]:
-                    if not common:
-                        return set()
-                    common &= cone
-                if terms and common:
-                    remaining = list(terms.values())
-                    common = {candidate for candidate in common
-                              if self._has_ancestors(candidate, remaining)}
-                return common
+            for head, kept in by_head.items():
+                for name in kept:
+                    node = self.nodes.get(name)
+                    if node is not None:
+                        terms[name] = node   # present: an ordinary cone
+                    else:
+                        virtual[name] = (head, head_kind[head])
 
-        # 2. Drop terms subsumed by another term.
+        # 2. Drop present terms subsumed by another present term.
         nodes = list(terms.values())
         minimal = [
             node for node in nodes
@@ -1259,28 +1284,104 @@ class OntoDAG(DAG):
             )
         ]
 
-        # 3. Smallest cone first.
-        minimal.sort(key=lambda node: (node.descendant_count, node.name))
+        # 3. One list of cones, smallest estimated first (name as tiebreak,
+        # keeping traversal deterministic). Sizes are asserted counts — the
+        # exact walk cost for present terms, a lower bound for the others.
+        cones = [_Cone("node", node.descendant_count, node.name, node)
+                 for node in minimal]
+        for name, (head, kind) in virtual.items():
+            values = [value for value, _ in self._star(head)
+                      if self._contains(name, value.name, kind)]
+            cones.append(_Cone("virtual", self._cone_size(values), name,
+                               values))
+        for name, (head, kind) in overlap.items():
+            anchors = [value for value, _ in self._star(head)
+                       if self._overlap_terms(name, value.name, kind)]
+            cones.append(_Cone("overlap", self._cone_size(anchors), name,
+                               anchors))
+        cones.sort(key=lambda cone: (cone.size, cone.name))
 
         # Adaptive execution: walk or probe, decided per step from the now-
         # known size of the running result.
-        common_subcategories = self.get_descendants(minimal[0])
-        for index, node in enumerate(minimal[1:], start=1):
-            if not common_subcategories:
+        result = self._walk_cone(cones[0])
+        for index, cone in enumerate(cones[1:], start=1):
+            if not result:
                 break
-            remaining = minimal[index:]
-            probe_cost = len(common_subcategories) * self._PROBE_COST_ESTIMATE
-            if probe_cost < sum(term.descendant_count for term in remaining):
-                # One upward walk per candidate settles every remaining term.
-                # (Candidates can never equal query terms: a surviving term
-                # is an ancestor of no other term, so no term lies inside the
-                # first term's cone — strict ancestry is the right test.)
-                return {candidate for candidate in common_subcategories
-                        if self._has_ancestors(candidate, remaining)}
-            common_subcategories &= self.get_descendants(node)
-        return common_subcategories
+            remaining = cones[index:]
+            probe_cost = len(result) * self._PROBE_COST_ESTIMATE
+            if probe_cost < sum(other.size for other in remaining):
+                # One climb per candidate settles every remaining cone.
+                # (A candidate can never equal a present query term: a
+                # surviving term is an ancestor of no other term, so no term
+                # lies inside another's cone — strict ancestry is right.)
+                result = {candidate for candidate in result
+                          if self._probe_cones(candidate, remaining)}
+                break
+            result &= self._walk_cone(cone)
+        return finish(result)
 
-    def get_any(self, queries):
+    def _cone_size(self, values):
+        """Estimated size of a computed cone: the values and what is
+        asserted below them. Counts on an unexpanded lazy stub read 0, so
+        a small anchor set is resolved through `self.nodes` first (which
+        expands on the lazy reader, is a dict hit on the eager one); a large
+        one is already a large estimate by its count alone."""
+        if len(values) <= 32:
+            values[:] = [self.nodes.get(value.name, value) for value in values]
+        return sum(value.descendant_count + 1 for value in values)
+
+    def _walk_cone(self, cone):
+        if cone.kind == "node":
+            return self.get_descendants(cone.payload)
+        found = set()
+        for value in cone.payload:
+            found.add(value)
+            if cone.kind == "virtual":
+                found |= self.get_descendants(value)        # combined order
+            else:
+                # Overlap: asserted only — a finer value below the anchor is
+                # an anchor in its own right if it overlaps, and if it does
+                # not, what hangs under it is provably out (get_overlapping).
+                found |= self.get_descendants(value, computed=False)
+        return found
+
+    def _probe_cones(self, candidate, cones):
+        """Is `candidate` in every one of `cones`, decided by climbing from
+        it: present terms are strict ancestors (one combined climb, all at
+        once); a virtual containment term is met when the candidate or a
+        combined ancestor is one of its contained values; an overlap term
+        when the candidate or an ASSERTED ancestor is one of its anchors."""
+        nodes = [cone.payload for cone in cones if cone.kind == "node"]
+        if nodes and not self._has_ancestors(candidate, nodes):
+            return False
+        for kind, computed in (("virtual", True), ("overlap", False)):
+            pending = [set(cone.payload) for cone in cones
+                       if cone.kind == kind and candidate not in cone.payload]
+            if not pending:
+                continue
+            for ancestor in self._walk_ancestors(candidate, computed=computed):
+                pending = [members for members in pending
+                           if ancestor not in members]
+                if not pending:
+                    break
+            if pending:
+                return False
+        return True
+
+    def _items_only(self, found):
+        """The answer minus what only carries the order: parametric values
+        and anything with something filed under it (DIMENSIONS.md §8's
+        "items-only is a presentation flag", made real by issue #14)."""
+        kept = set()
+        for item in found:
+            if self._parse_parametric(item.name) is not None:
+                continue
+            node = self.nodes.get(item.name, item)   # expands on lazy
+            if not node.neighbors:
+                kept.add(item)
+        return kept
+
+    def get_any(self, queries, overlapping=(), items_only=False):
         """Union of conjunctive queries — `get` in disjunctive normal form.
 
         Each element of `queries` is a collection of terms exactly as
@@ -1289,6 +1390,9 @@ class OntoDAG(DAG):
         the conjunctions:
 
             get_any([{"Flight", "Japan"}, {"Hotel"}])  # (Flight AND Japan) OR Hotel
+
+        `overlapping` and `items_only` apply to every disjunct exactly as
+        they do to `get`.
 
         Query-side only: no stored state, no new edge kind, canonical form
         untouched (DATABASE_DIRECTION.md "Pure now" item 3 — union is a
@@ -1319,7 +1423,8 @@ class OntoDAG(DAG):
                    if not any(other < terms for other in normalized)]
         result = set()
         for terms in minimal:
-            result |= self.get(terms)
+            result |= self.get(terms, overlapping=overlapping,
+                               items_only=items_only)
         return result
 
     def is_below(self, node, super_category):

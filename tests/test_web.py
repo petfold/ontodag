@@ -993,6 +993,37 @@ class TestDeclaringDimensionsOverRest:
         assert client.post("/dag/pack", json={}).status_code == 400
 
 
+class TestQueryFlagsOverRest:
+    """`/dag/query?...&overlapping=T&items_only=1` (issue #14)."""
+
+    def _fixture(self, client):
+        client.post("/dag/prelude")
+        w1 = "time(2026-08-15T10:00:00Z..2026-08-15T12:00:00Z)"
+        w2 = "time(2026-08-15T18:00:00Z..2026-08-15T20:00:00Z)"
+        put(client, "ride")
+        put(client, "bike", ["ride"])
+        put(client, "r1", ["ride", w1])
+        put(client, "r2", ["ride", w2])
+        put(client, "r3", ["bike", w1])
+
+    def test_overlapping_and_items_only(self, client):
+        self._fixture(client)
+        q = "time(2026-08-15T11:00:00Z..2026-08-15T11:30:00Z)"
+        response = client.get("/dag/query",
+                              query_string={"cat": "ride", "overlapping": q})
+        assert response.status_code == 200
+        assert {n["name"] for n in response.get_json()["nodes"]} == {"r1", "r3"}
+        response = client.get("/dag/query", query_string={"cat": "ride"})
+        assert "bike" in {n["name"] for n in response.get_json()["nodes"]}
+        response = client.get("/dag/query",
+                              query_string={"cat": "ride", "items_only": "1"})
+        assert {n["name"] for n in response.get_json()["nodes"]} == {"r1", "r2",
+                                                                      "r3"}
+        response = client.get("/dag/query",
+                              query_string={"cat": "ride", "overlapping": "bike"})
+        assert response.status_code == 400
+
+
 class TestOverlapsAndMeetOverRest:
     """The pairwise faces of G6 (issue #16) over HTTP."""
 

@@ -306,8 +306,25 @@ normalized before names are formed.
   own `check_composition` over exact dimension values, and clearing
   re-verifies it (U3), so this is a pruning ask like overlap, not a
   correctness one.
-- **Overlap terms inside the planner** (filed 2026-09-07 by loopmarket,
-  issue #14). `get_overlapping` shipped as a standalone op, so a
+- **Overlap terms inside the planner — SHIPPED 2026-09-12** (filed
+  2026-09-07 by loopmarket, issue #14): `get(terms, overlapping=[...],
+  items_only=False)`. Each overlap term is one more computed cone in the
+  same adaptive plan — its anchors are the star values whose denotation
+  overlaps it, its walk is `get_overlapping`'s (anchors plus what is
+  *asserted* below them), its probe an asserted climb from a candidate
+  into the anchor set — so a small concept cone is walked and the few
+  survivors are probed, never the whole overlap cone. Virtual containment
+  terms got the same treatment (they were walk-only and always first);
+  present terms keep their one-climb probe. Overlap terms are never
+  pre-intersected as meets (tested: a ride serving `u2e` qualifies for
+  "overlapping u2e4 AND overlapping u2e5" although the cells' meet is
+  empty). `items_only` drops parametric values and anything with something
+  filed under it — the structural "item", since the core has no
+  class/instance distinction. Every surface: `odag get/count
+  --overlapping TERM --items-only`, `/dag/query?overlapping=&items_only=`,
+  MCP `query` `overlapping`/`items_only`. Oracle: the consumer's old
+  `get(...) & get_overlapping(...)`, in all three planner modes. The
+  original filing follows. `get_overlapping` shipped as a standalone op, so a
   consumer needing *containment ∩ overlap* runs two complete queries
   and intersects client-side — and the planner's smallest-first /
   walk-vs-probe / empty-stop logic never sees the overlap side. The

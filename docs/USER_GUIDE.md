@@ -942,6 +942,39 @@ On the command line `odag overlaps A B` prints `true`/`false` and exits
 when the meet is empty. REST has `/dag/overlaps?a=&b=` and
 `/dag/meet?a=&b=`; agents have `overlaps` and `meet` tools.
 
+**Overlap inside a query.** Until now "rides from around here whose
+window overlaps my quarter-hour" took two complete queries and a set
+intersection in your own code. `get` now takes the overlap side as a
+constraint of the *same* plan, and `items_only` drops the typed values
+(and anything with something filed under it) from the answer, so it
+arrives ready to iterate:
+
+```python
+dag.put("when", ["time"])                    # a role of time
+dag.put("ride", [])
+dag.put("r1", ["ride", "from(my_home)",
+               "when(2026-08-15T10:00:00Z..2026-08-15T12:00:00Z)"])
+dag.put("r2", ["ride", "from(u2e5)",
+               "when(2026-08-15T18:00:00Z..2026-08-15T20:00:00Z)"])
+quarter = "when(2026-08-15T11:30:00Z..2026-08-15T11:45:00Z)"
+
+dag.get(["ride"], overlapping=[quarter])                  # {r1}
+dag.get(["ride"], overlapping=[quarter, "from(u2e)"])     # {r1} — three-way
+dag.get(["from(u2e)"])                       # from(my_home), from(u2e5), r1, r2
+dag.get(["from(u2e)"], items_only=True)      # r1, r2
+```
+
+The planner treats an overlap term as one more cone: when the concept
+cone is small it walks that and climbs upward from the few survivors
+looking for an overlapping window, instead of enumerating every
+overlapping window's cone — the answer is the same, the cost is the
+query's. Two overlap terms are two constraints, never their intersection
+(a ride serving all of `u2e` overlaps both `u2e4` and `u2e5`, whose meet
+is empty). On the command line: `odag get ride --overlapping 'when(…)'
+--items-only`, and `count` takes the same flags; REST:
+`/dag/query?cat=ride&overlapping=when(…)&items_only=1`; agents: the
+`query` tool's `overlapping` and `items_only`.
+
 The order between role terms is the graph's own order in the base
 dimension, so it follows your catalogue: refine `my_home` into a finer
 cell and every `from(my_home)` claim moves with it, with no stored name

@@ -2678,6 +2678,52 @@ class TestHistoryAndUndo(unittest.TestCase):
         self.assertEqual(len(line.split()), 4)
 
 
+class TestQueryFlags(unittest.TestCase):
+    """`get`/`count --overlapping TERM --items-only` (issue #14)."""
+
+    def _session(self, home):
+        session = cli.Session(os.path.join(home, "rides.od"))
+        w1 = "time(2026-08-15T10:00:00Z..2026-08-15T12:00:00Z)"
+        w2 = "time(2026-08-15T18:00:00Z..2026-08-15T20:00:00Z)"
+        for argv in (["prelude"], ["put", "ride"], ["put", "bike", "ride"],
+                     ["put", "r1", "ride", w1], ["put", "r2", "ride", w2],
+                     ["put", "r3", "bike", w1]):
+            self.assertEqual(_run(argv, session)[0], 0)
+        return session
+
+    def test_overlapping_narrows_the_same_plan(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            q = "time(2026-08-15T11:00:00Z..2026-08-15T11:30:00Z)"
+            code, out = _run(["get", "ride", "--overlapping", q], session)
+            self.assertEqual((code, sorted(out.split())), (0, ["r1", "r3"]))
+            code, out = _run(["count", "ride", "--overlapping", q], session)
+            self.assertEqual((code, out.strip()), (0, "2"))
+            code, out = _run(["get", "ride", "--overlapping", q,
+                              "--overlapping", "time(2026-08-16)"], session)
+            self.assertEqual((code, out.strip()), (0, ""))
+
+    def test_items_only(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            code, out = _run(["get", "ride"], session)
+            self.assertIn("bike", out.split())
+            code, out = _run(["get", "ride", "--items-only"], session)
+            self.assertEqual((code, sorted(out.split())), (0, ["r1", "r2", "r3"]))
+            code, out = _run(["count", "ride", "--items-only"], session)
+            self.assertEqual((code, out.strip()), (0, "3"))
+
+    def test_an_overlap_term_of_no_dimension_is_an_error(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            out, err = io.StringIO(), io.StringIO()
+            with redirect_stdout(out), redirect_stderr(err):
+                code = cli.dispatch(["get", "ride", "--overlapping", "bike"],
+                                    session)
+            self.assertEqual(code, 1)
+            self.assertIn("denotation", err.getvalue())
+
+
 class TestOverlapsAndMeetCommands(unittest.TestCase):
     """`overlaps A B` and `meet A B` — the pairwise faces of G6 (issue #16)."""
 

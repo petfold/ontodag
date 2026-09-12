@@ -396,6 +396,133 @@ class TestGetOverlapping(unittest.TestCase):
             dag.get_overlapping("foo(3kg)")   # undeclared head
 
 
+class TestOverlapTermsInThePlanner(unittest.TestCase):
+    """Issue #14: `get(terms, overlapping=[...])` — containment ∩ overlap in
+    ONE adaptive plan, and `items_only`. The oracle is the two-query form
+    the consumer used to run: `get(terms) & get_overlapping(t) & ...`."""
+
+    W1 = "when(2026-08-15T10:00:00Z..2026-08-15T12:00:00Z)"
+    W2 = "when(2026-08-15T18:00:00Z..2026-08-15T20:00:00Z)"
+    W3 = "when(2026-08-15T11:00:00Z..2026-08-15T13:00:00Z)"
+    Q = "when(2026-08-15T11:30:00Z..2026-08-15T11:45:00Z)"
+    EVENING = "when(2026-08-15T17:00:00Z..2026-08-15T23:00:00Z)"
+
+    def _dag(self):
+        dag = make_dag()
+        dag.put("time", ["linear-dimension"])
+        dag.put("when", ["time"])
+        dag.put("from", ["geo"])
+        dag.put("ride", [])
+        dag.put("bike", ["ride"])
+        dag.put("r1", ["ride", "from(u2e4x)", self.W1])
+        dag.put("r2", ["ride", "from(u2e5)", self.W2])
+        dag.put("r3", ["bike", "from(u2f)", self.W3])
+        dag.put("r4", ["bike", "from(u2e4)", self.W2])
+        dag.put("parcel", ["from(u2e4x)", self.W1, "weight(3kg)"])
+        return dag
+
+    def _oracle(self, dag, terms, overlapping):
+        found = dag.get(terms)
+        for term in overlapping:
+            found &= dag.get_overlapping(term)
+        return found
+
+    def test_matches_the_two_query_oracle_in_every_planner_mode(self):
+        dag = self._dag()
+        cases = [(["ride"], [self.Q]), (["ride"], [self.Q, "from(u2e)"]),
+                 (["bike"], [self.Q]), (["ride"], [self.EVENING]),
+                 (["ride", "from(u2e4)"], [self.Q]),
+                 (["weight(..5kg)"], [self.Q]),          # virtual + overlap
+                 ([], [self.Q]),                          # overlap alone
+                 ([], [self.Q, "from(u2e4)"]),
+                 (["ride"], [self.Q, self.EVENING]),      # provably empty
+                 (["ride"], ["from(u2e4)", "from(u2e5)"])]  # NOT a meet
+        for estimate in (16, 0, 10 ** 9):
+            dag._PROBE_COST_ESTIMATE = estimate
+            for terms, overlapping in cases:
+                self.assertEqual(
+                    names(dag.get(terms, overlapping=overlapping)),
+                    names(self._oracle(dag, terms, overlapping)),
+                    (estimate, terms, overlapping))
+
+    def test_overlap_terms_are_not_pre_intersected_as_meets(self):
+        # Overlapping u2e4 AND overlapping u2e5: a ride serving both cells
+        # (a coarser value) qualifies although the two cells' meet is empty.
+        dag = self._dag()
+        dag.put("r5", ["ride", "from(u2e)"])
+        found = names(dag.get(["ride"], overlapping=["from(u2e4)", "from(u2e5)"]))
+        self.assertIn("r5", found)
+        self.assertEqual(dag.get(["ride", "from(u2e4)", "from(u2e5)"]), set())
+
+    def test_the_two_modes_differ_exactly_as_documented(self):
+        dag = self._dag()
+        # Containment: r1's window sits inside the hour; r3's does not.
+        hour = "when(2026-08-15T10:00:00Z..2026-08-15T13:00:00Z)"
+        self.assertEqual(names(dag.get(["ride", hour])), {"r1", "r3"})
+        self.assertEqual(names(dag.get(["ride"], overlapping=[self.Q])),
+                         {"r1", "r3"})
+        self.assertEqual(names(dag.get(["ride", self.Q])), set())
+
+    def test_items_only(self):
+        dag = self._dag()
+        full = dag.get(["from(u2e)"])
+        expected = {item for item in full
+                    if dag._parse_parametric(item.name) is None
+                    and not item.neighbors}
+        self.assertEqual(dag.get(["from(u2e)"], items_only=True), expected)
+        self.assertTrue(any("(" in item.name for item in full))
+        self.assertEqual(names(dag.get(["ride"], items_only=True)),
+                         {"r1", "r2", "r3", "r4"})            # not `bike`
+        self.assertEqual(names(dag.get([], items_only=True)),
+                         names(dag.get([])) - {n for n in names(dag.get([]))
+                                               if dag.nodes[n].neighbors
+                                               or "(" in n})
+        self.assertEqual(
+            names(dag.get_any([{"ride"}, {"weight(..5kg)"}], items_only=True,
+                              overlapping=[self.Q])),
+            {"r1", "r3", "parcel"})
+
+    def test_an_overlap_term_needs_a_dimension(self):
+        dag = self._dag()
+        with self.assertRaises(ValueError):
+            dag.get(["ride"], overlapping=["bike"])
+        with self.assertRaises(ValueError):
+            dag.get(["ride"], overlapping=["foo(3kg)"])
+
+    def test_probe_makes_a_small_cone_cheap_on_the_lazy_reader(self):
+        from ontodag.eager import EagerOntoDAG
+        from ontodag.lazy import LazyOntoDAG
+        from recordstore import MemoryBytesStore, RecordStore
+        blobs = MemoryBytesStore()
+        eager = EagerOntoDAG(RecordStore(blobs))
+        for name, supers in [("dimension", []),
+                             ("linear-dimension", ["dimension"]),
+                             ("time", ["linear-dimension"]),
+                             ("when", ["time"]), ("ride", []), ("rare", [])]:
+            eager.put(name, supers)
+        # Every window covers the query's quarter-hour: the overlap cone is
+        # the whole book, the concept cone two items — the issue's case.
+        windows = [f"when(2026-08-15T{h:02d}:00:00Z..2026-08-15T{h+4:02d}:00:00Z)"
+                   for h in range(8, 12)]
+        for i in range(240):
+            eager.put(f"r{i}", ["ride", windows[i % len(windows)]])
+        eager.put("x1", ["rare", windows[1]])
+        eager.put("x2", ["rare", windows[2]])
+        root = eager.commit()
+        q = "when(2026-08-15T11:40:00Z..2026-08-15T11:50:00Z)"
+        expected = names(eager.get(["rare"], overlapping=[q]))
+        self.assertEqual(expected, {"x1", "x2"})
+
+        reader = LazyOntoDAG(RecordStore.at(root, blobs))
+        self.assertEqual(names(reader.get(["rare"], overlapping=[q])), expected)
+        planned = reader.fetches
+        walker = LazyOntoDAG(RecordStore.at(root, blobs))
+        walker.get_overlapping(q)
+        self.assertLess(planned, walker.fetches // 4,
+                        f"one plan fetched {planned}, the overlap walk "
+                        f"{walker.fetches}: the probe did not fire")
+
+
 class TestEagerDimensions(unittest.TestCase):
     STEPS = [("weight", ["linear-dimension"]),
              ("parcel", ["weight(..5kg)"]),

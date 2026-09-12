@@ -847,10 +847,20 @@ def get_query():
         # closed (empty result / empty disjunct), parametric terms may be
         # virtual (weight(..5kg) needs no node), malformed parameters are
         # a client error.
+        # `overlapping=T1,T2` adds possibly-satisfies constraints to the
+        # same plan; `items_only=1` drops typed values and non-leaves
+        # (issue #14). Both apply to every disjunct.
+        flags = {
+            "overlapping": [t for t in
+                            (request.args.get("overlapping") or "").split(",")
+                            if t],
+            "items_only": request.args.get("items_only", "").lower()
+            in ("1", "true", "yes"),
+        }
         if len(queries) == 1:
-            result_nodes = my_dag.get(queries[0])
+            result_nodes = my_dag.get(queries[0], **flags)
         else:
-            result_nodes = my_dag.get_any(queries)
+            result_nodes = my_dag.get_any(queries, **flags)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 

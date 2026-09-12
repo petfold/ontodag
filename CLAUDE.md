@@ -772,6 +772,28 @@ skipped (973 collected, README count updated). Invariant pinned:
 `is_below(a,b) or is_below(b,a) ⇒ overlaps(a,b)`; `meet is None ⟺ not
 overlaps` for the node case by construction.
 
+**#14 shipped last, completing Peter's order:** `get(terms, overlapping=[…],
+items_only=False)` (and `get_any`). The planner now runs ONE list of cones
+of three kinds — present nodes, virtual containment terms, overlap terms —
+sorted by estimated size, walk-or-probe per step: an overlap cone's anchors
+are the star values overlapping the term, its walk is `get_overlapping`'s
+(asserted below each anchor), its probe an *asserted* climb into the anchor
+set; virtual containment terms gained a probe too (they were walk-only and
+always first). Overlap terms are never pre-intersected as meets (pinned).
+`items_only` = not a parametric value and no asserted children — the
+structural "item", since the core has no class/instance distinction; note
+the prelude's unused heads are childless plain nodes and so count as items
+in a universe query (a test fixture tripped on exactly that). Lazy-reader
+budget test pins the probe firing (small concept cone × whole-book overlap
+cone: one plan fetches < ¼ of the overlap walk). Surfaces: `odag get/count
+--overlapping TERM --items-only`, `/dag/query?overlapping=&items_only=`,
+MCP `query` `overlapping`/`items_only` (echoed). Oracle everywhere: the
+consumer's old `get(...) & get_overlapping(...)`, all three planner modes.
+**980 passed + 4 skipped (984 collected) as of 2026-09-12.** All three
+issues are closed in code and docs; the GitHub issues themselves are still
+open — closing them (with the consumer commitments quoted back) is Peter's
+call or the next session's.
+
 ## The projection seam (2026-08-20) — PROJECTIONS.md §4–§5 shipped
 
 **Overlay views + `odag ingest` + the projection-drop golden test**, in one

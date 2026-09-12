@@ -1198,7 +1198,7 @@ def _disjuncts(categories):
     return queries
 
 
-def _query(categories, dag):
+def _query(categories, dag, overlapping=(), items_only=False):
     """Run a command-line query and return the matching items.
 
     The literal argument `or` separates disjuncts:
@@ -1213,12 +1213,20 @@ def _query(categories, dag):
     query into a full dump."""
     queries = _disjuncts(categories)
     if len(queries) == 1:
-        return dag.get(queries[0])
-    return dag.get_any(queries)
+        return dag.get(queries[0], overlapping=overlapping,
+                       items_only=items_only)
+    return dag.get_any(queries, overlapping=overlapping,
+                       items_only=items_only)
+
+
+def _query_flags(args):
+    """The two planner flags `get` and `count` share (issue #14)."""
+    return {"overlapping": getattr(args, "overlapping", None) or (),
+            "items_only": bool(getattr(args, "items_only", False))}
 
 
 def cmd_get(args, session, out):
-    result = _query(args.categories, session.view())
+    result = _query(args.categories, session.view(), **_query_flags(args))
     _print_names((item.name for item in result), args, session, out)
 
 
@@ -1242,7 +1250,8 @@ def cmd_count(args, session, out):
     # flag on `get`: it is the complete answer to "how big is this" — never
     # capped, never rendered — for exactly the cases where printing the answer
     # is what you are trying to avoid.
-    print(len(_query(args.categories, session.view())), file=out)
+    print(len(_query(args.categories, session.view(), **_query_flags(args))),
+          file=out)
 
 
 def cmd_below(args, session, out):
@@ -2340,9 +2349,14 @@ Commands:
                         `get Flight Japan or Hotel` = (Flight AND
                         Japan) OR Hotel).
                         With no CAT at all the query is unconstrained, so
-                        it prints everything — the same as `list`
+                        it prints everything — the same as `list`.
+                        --overlapping TERM adds a possibly-satisfies
+                        constraint to the same plan (repeatable):
+                        `get ride --overlapping 'when(2026-08-15)'` = rides
+                        whose window overlaps that day; --items-only leaves
+                        out typed values and anything with children
   count [CAT...]        how many items that same query matches: one number,
-                        complete, never capped
+                        complete, never capped (same flags as `get`)
   overlapping TERM      items that MIGHT satisfy a typed term: their value
                         overlaps it rather than fitting inside it, so these
                         are candidates for your own exact check (`get` is
@@ -2581,9 +2595,21 @@ def build_parser():
                    help="infer most-specific parents")
     p.set_defaults(func=cmd_put)
 
+    def _add_query_flags(parser):
+        parser.add_argument(
+            "--overlapping", action="append", metavar="TERM", default=None,
+            help="also require the answer to possibly satisfy TERM (its "
+                 "value overlaps it) — an overlap constraint inside the "
+                 "same plan; repeatable")
+        parser.add_argument(
+            "--items-only", action="store_true", dest="items_only",
+            help="leave out typed values and anything with something filed "
+                 "under it: the leaves")
+
     p = sub.add_parser("get", add_help=True, help="query common subcategories")
     p.add_argument("categories", nargs="*")
     p.add_argument("-o", "--output")
+    _add_query_flags(p)
     _add_surface_flags(p)
     _add_limit_flag(p)
     p.set_defaults(func=cmd_get, stream_output=True)
@@ -2592,6 +2618,7 @@ def build_parser():
                        help="how many items a query matches")
     p.add_argument("categories", nargs="*")
     p.add_argument("-o", "--output")
+    _add_query_flags(p)
     p.set_defaults(func=cmd_count, stream_output=True)
 
     p = sub.add_parser("overlapping", add_help=True,

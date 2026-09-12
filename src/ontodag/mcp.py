@@ -307,20 +307,30 @@ class AgentSurface:
             raise ToolError(
                 "pass at most one of `terms` (a conjunction) or `any_of` "
                 "(a list of conjunctions, answered as their union)")
+        overlapping = arguments.get("overlapping") or []
+        if not isinstance(overlapping, list):
+            raise ToolError("overlapping must be a list of parametric terms")
+        flags = {"overlapping": overlapping,
+                 "items_only": bool(arguments.get("items_only", False))}
         if any_of is None:
             # No terms at all — including neither argument — is the empty
             # query: an intersection of no constraints, so every item.
             terms = [] if terms is None else terms
             echo = self._canonical_terms(dag, terms, allow_empty=True)
-            result = dag.get(terms)
+            result = dag.get(terms, **flags)
             payload = {"terms": echo}
         else:
             if not isinstance(any_of, list) or not any_of:
                 raise ToolError("any_of must be a non-empty list of "
                                 "term lists")
             echo = [self._canonical_terms(dag, q) for q in any_of]
-            result = dag.get_any(any_of)
+            result = dag.get_any(any_of, **flags)
             payload = {"any_of": echo}
+        if overlapping:
+            payload["overlapping"] = [dag._canonical_name(t)
+                                      for t in overlapping]
+        if flags["items_only"]:
+            payload["items_only"] = True
         items = sorted(item.name for item in result)
         # `count` is always the size of the complete answer, `items` may be a
         # prefix of it — so a caller can always tell what it is holding.
@@ -699,6 +709,17 @@ TOOL_SPECS = [
                     "items": {"type": "array",
                               "items": {"type": "string"}},
                     "description": "union of conjunctions (DNF)"},
+         "overlapping": {"type": "array", "items": {"type": "string"},
+                         "description": "parametric terms the answer must "
+                                        "POSSIBLY satisfy (denotations "
+                                        "overlap) — overlap constraints "
+                                        "planned together with the "
+                                        "containment terms; applies to "
+                                        "every disjunct"},
+         "items_only": {"type": "boolean",
+                        "description": "drop typed values and anything with "
+                                       "something filed under it: leaves "
+                                       "only"},
          "limit": {"type": "integer", "minimum": 0,
                    "description": "at most this many items; the answer "
                                   "still reports the full count and sets "

@@ -44,6 +44,20 @@ the version numbers appear in commit history and docs.
   `GET /dag/overlaps`, `GET /dag/meet`, MCP tools `overlaps` and `meet`.
   `is_below(a, b) or is_below(b, a)` implies `overlaps(a, b)`.
 
+- **Overlap terms inside `get`'s planner, and `items_only`** (issue #14).
+  `get(terms, overlapping=[...])` plans containment and possibly-satisfies
+  constraints together — an overlap term is one more computed cone
+  (anchors = the star values overlapping it, walk = `get_overlapping`'s,
+  probe = an asserted climb into the anchor set), so a small concept cone
+  is walked and the survivors probed, never the whole overlap cone; the
+  consumer's `get(...) & get_overlapping(...)` goes. Virtual containment
+  terms joined the same plan (they were walk-only and always first).
+  Overlap terms are never pre-intersected as meets. `items_only=True`
+  drops parametric values and anything with something filed under it.
+  Everywhere: `odag get/count --overlapping TERM --items-only`,
+  `/dag/query?overlapping=&items_only=`, MCP `query` `overlapping` /
+  `items_only`; `get_any` passes both through.
+
 ### Changed
 
 - **Values are leaves of the declaration walk**: a node filed under a

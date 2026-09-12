@@ -42,7 +42,7 @@ Every successful answer is one JSON object:
 | tool | in | out (beyond the envelope) |
 |---|---|---|
 | `about` | — | store description, item count, top-level categories (≤100), declared dimensions `{head: kind}`, registry + surface versions, server info, capability list. **Read this first** — the discoverability record. |
-| `query` | `terms` (conjunction) **or** `any_of` (list of conjunctions, answered as their union) — at most one, and neither means the empty query; `limit?`, `as_of?`, `certify?` | `items` (sorted canonical names), `count`, `truncated`, and the **canonical echo** of the terms actually answered |
+| `query` | `terms` (conjunction) **or** `any_of` (list of conjunctions, answered as their union) — at most one, and neither means the empty query; `overlapping?` (parametric terms the answer must *possibly* satisfy, planned with the containment terms — issue #14), `items_only?` (leaves that are not typed values); `limit?`, `as_of?`, `certify?` | `items` (sorted canonical names), `count`, `truncated`, and the **canonical echo** of the terms actually answered |
 | `is_below` | `sub`, `sup`; `as_of?`, `certify?` | `result` (fail-closed boolean), canonical echo of both sides |
 | `overlapping` | `term`; `as_of?` | `candidates`, `count`, and a `note` naming the modality (G6: recall-complete candidacy, not satisfaction) |
 | `overlaps` | `a`, `b`; `as_of?` | `result` (Boolean) + `note` — the pairwise face of `overlapping`: could these two share a point? either side a term or a named place/region (issue #16) |
