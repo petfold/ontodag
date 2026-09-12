@@ -1072,6 +1072,16 @@ workflow, each verified against what PyPI serves rather than what is on disk.
 `CHANGELOG.md` in each repo is the authoritative per-release history; this
 section is the *current* state and the cross-repo pins.
 
+**What 0.25.0 is** (2026-09-13, tagged after the live Bee suite; verify
+from PyPI with `scripts/release_smoke.py --pypi 0.25.0`): the three
+loopmarket asks of 2026-09-12 — role heads take the base dimension's
+nodes as parameters (#15), `overlaps`/`meet` (#16), `items_only` (#14's
+second half) — plus the `_dimension_of` cache (#18) and the refusal of
+the dimension itself as a role parameter (#17). #14's overlap query mode
+was built and withdrawn the same day (§8): every query term is a
+containment term. loopmarket 0.4.0 pins `ontodag>=0.25.0`. ontodag-fs's
+ceiling (`<0.24.0`) is already behind and needs its own bump.
+
 | package | version | verified by | pins |
 |---|---|---|---|
 | **ontodag** | **0.23.0** (2026-09-04, small hours) | `scripts/release_smoke.py --pypi 0.23.0` → 27/27 after the index caught up, plus the workflow's `verify` job (all four jobs green, `downstream` ran ontodag-fs's suite) | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |

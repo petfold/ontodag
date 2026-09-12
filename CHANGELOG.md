@@ -14,6 +14,14 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.25.0] — 2026-09-13
+
+Three loopmarket asks landed in one day (#15, #16, #14) and one of them
+was withdrawn the same night, when its consumer's author asked why overlap
+was relevant at all: ontodag is intersection, a want is the wider cone and
+a give the narrower one, and every query term is a containment term.
+Design record: `docs/DIMENSIONS.md` §8 and §14.
+
 ### Added
 
 - **Role heads take the base dimension's nodes as parameters**
@@ -50,8 +58,26 @@ the version numbers appear in commit history and docs.
   `get_any` passes it through. Everywhere: `odag get/count --items-only`,
   `/dag/query?items_only=1`, MCP `query` `items_only`.
 
+### Removed
+
+- **Overlap terms in `get`** (issue #14's first ask, shipped and withdrawn
+  within the day — `docs/DIMENSIONS.md` §8). `get` is containment, and
+  every query term is a containment term: a want's place and time are
+  terms like its categories, and the gives in the answer fit within all
+  of them (Peter: a want is the wider cone, a give the narrower). The
+  `overlapping=` argument of `get`/`get_any`, the CLI's `--overlapping`,
+  REST's `overlapping=` and the MCP `query` argument are gone (REST and
+  MCP answer a request for them with a pointer to `terms`/`cat`).
+  `get_overlapping`, `overlaps` and `meet` stay as a consumer's candidate
+  question and pairwise arithmetic, not as a query mode.
+
 ### Changed
 
+- **The dimension itself is refused as a role parameter** (issue #17,
+  `docs/DIMENSIONS.md` §14): `from(geo)` would mean "from anywhere", and
+  there is nothing to say — a want that does not name `from` does not
+  constrain it — so the term is refused with that reason rather than
+  carried as a redundant edge. A base head's own parameters stay values.
 - **`_dimension_of` is cached per DAG** (issue #18): the declaration walk
   from a head to its kind was recomputed for every star member on every
   containment or overlap decision — 44,131 calls in six `get`s on a
