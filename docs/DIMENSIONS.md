@@ -306,73 +306,32 @@ normalized before names are formed.
   own `check_composition` over exact dimension values, and clearing
   re-verifies it (U3), so this is a pruning ask like overlap, not a
   correctness one.
-- **Overlap terms are constraints, not cones — REVISED 2026-09-12 night**
-  (Peter: *what is unconstrained is not visited; the other constraints
-  give the result — and we cannot walk the whole DAG when it gets really
-  big*). An overlap term in `get(overlapping=[...])` is applied to the
-  candidates the containment cones produce, by one ASSERTED climb per
-  candidate (`_stated_values`/`_passes_overlap`): a candidate that
-  *states* a value of the term's head — itself, or the values it was
-  filed under — passes iff every stated value overlaps the term; a
-  candidate that states nothing under that head is unconstrained on it
-  and passes untouched. Nothing is walked for the term: not its anchors,
-  not their cones, and never the graph in search of the items that lack a
-  value. A query with no containment term starts from the universe, which
-  is what the empty query already means. The consequences: (i) the
-  consumer files nothing for what an item does not say — no whole-space
-  value, no region scaffold (loopmarket's silent roles are now one edge
-  fewer, not one edge more); (ii) `get_overlapping(term)` keeps its
-  meaning — the enumeration of what STATES an overlapping value — and the
-  planner no longer reuses it; (iii) the pairwise `overlaps(node, term)`
-  follows the same rule: a node stating nothing under the term's head
-  overlaps it (possibly-satisfies, G6), so `x ∈ get(overlapping=[t])` ⟺
-  `overlaps(x, t)` for items; (iv) the "small overlap cone first" plan of
-  the original shipping below is gone — it was incomplete under this
-  rule, since it could never reach an unstated item. The oracle in the
-  tests became `get(terms) ∩ (get_overlapping(t) ∪ {states nothing under
-  head(t)})` per term. The paragraph below is the original shipping, kept
-  for the record.
-- **Overlap terms inside the planner — SHIPPED 2026-09-12** (filed
-  2026-09-07 by loopmarket, issue #14): `get(terms, overlapping=[...],
-  items_only=False)`. Each overlap term is one more computed cone in the
-  same adaptive plan — its anchors are the star values whose denotation
-  overlaps it, its walk is `get_overlapping`'s (anchors plus what is
-  *asserted* below them), its probe an asserted climb from a candidate
-  into the anchor set — so a small concept cone is walked and the few
-  survivors are probed, never the whole overlap cone. Virtual containment
-  terms got the same treatment (they were walk-only and always first);
-  present terms keep their one-climb probe. Overlap terms are never
-  pre-intersected as meets (tested: a ride serving `u2e` qualifies for
-  "overlapping u2e4 AND overlapping u2e5" although the cells' meet is
-  empty). `items_only` drops parametric values and anything with something
-  filed under it — the structural "item", since the core has no
-  class/instance distinction. Every surface: `odag get/count
-  --overlapping TERM --items-only`, `/dag/query?overlapping=&items_only=`,
-  MCP `query` `overlapping`/`items_only`. Oracle: the consumer's old
-  `get(...) & get_overlapping(...)`, in all three planner modes. The
-  original filing follows. `get_overlapping` shipped as a standalone op, so a
-  consumer needing *containment ∩ overlap* runs two complete queries
-  and intersects client-side — and the planner's smallest-first /
-  walk-vs-probe / empty-stop logic never sees the overlap side. The
-  cheapest plan (walk a small concept cone, then probe upward from the
-  few survivors for an overlapping anchor) is unavailable; a category
-  offered only in a few windows or regions cannot cut the search short.
-  Yet `get_overlapping`'s result is already a *computed cone* — ⋃ over
-  overlapping anchors of ({anchor} ∪ descendants) — the very shape
-  `_virtual_cone` hands the planner for virtual containment terms.
-  Proposal: `get(terms, overlapping=[...])`, each overlap term one more
-  computed cone in the same adaptive plan; probe = climb until an
-  ancestor is in the anchor set. Two rules: overlap terms are **never
-  pre-intersected as meets** (overlapping A and overlapping B does not
-  imply overlapping A ∩ B), and nothing changes in storage or canonical
-  form — the doctrine above stands: overlap is not a cone *in the
-  order*; its query-time denotation is nonetheless a set. Companion ask
-  (same issue): make the items-only presentation flag real, so the
-  consumer's remaining `& filed_ids` filter disappears too — the
-  principle is that ontodag is the one intersection engine and the
-  consumer does no set arithmetic on the answer, only its exact
-  pairwise check per candidate.
-
+- **Overlap terms in the planner — built and WITHDRAWN 2026-09-12** (issue
+  #14, filed 2026-09-07 by loopmarket). `get(terms, overlapping=[...])`
+  shipped in the afternoon: each overlap term one more cone in the plan,
+  anchors = the star values overlapping it, walk = `get_overlapping`'s,
+  probe = an asserted climb into the anchor set. The same night it was
+  first revised (overlap terms as per-candidate constraints, an item
+  stating nothing under the head passing unvisited — Peter: *what is
+  unconstrained is not visited; the other constraints give the result*)
+  and then removed altogether, when Peter asked the question the design
+  had skipped: *why is overlap relevant at all? ontodag is based on
+  intersection.* The answer: it was relevant only under a reading of
+  loopmarket's offers the author of loopmarket does not hold. A want is
+  the wider cone and a give the narrower one — the toothbrush wanted
+  within five metres of the reception desk within thirty minutes is a
+  narrow want, and the give that fits within it matches — so a want's
+  place and time are query terms like its categories, and the gives in
+  the answer are `get(want.terms)`: containment, term by term, one plan.
+  "A handover point exists" (two flexible sides, a non-empty meet) was
+  the modelling error, not a missing operator. What stays: `items_only`
+  (the second ask of #14, a presentation flag made real: no parametric
+  values, nothing with something filed under it); `get_overlapping` and
+  `overlaps`/`meet` (#16) as a consumer's *candidate* question and the
+  pairwise arithmetic of two terms — neither is a query mode of `get`.
+  The CLI flag `--overlapping`, REST `overlapping=` and the MCP `query`
+  argument are gone (the REST and MCP surfaces answer a request for them
+  with a pointer to `terms`).
 - **Role heads and node parameters** (issue #15, shipped 2026-09-12):
   a head declared under another head is a *role* of that dimension and
   may take the base dimension's *nodes* as parameters — `from(my_home)`,

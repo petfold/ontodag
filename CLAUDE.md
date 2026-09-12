@@ -823,25 +823,23 @@ and `_forget`; when the heads cache is empty the dim cache is dropped on
 every plain edge instead (no upward walk on a lazy writer's put). Tests:
 `TestDimensionCache` in
 `tests/test_dimensions_dag.py` (6). Numbers in the issues.
-**993 passed + 4 skipped (997 collected) as of 2026-09-12 night; README
-count updated.**
 
-**Revised the same night (Peter): "when something is unconstrained, it
-should not be visited at all, the other constraints will give the result;
-we cannot walk the whole DAG when it gets really big."** Overlap terms
-left the cone list: `get(overlapping=[...])` applies each to the
-candidates the containment cones produce by one asserted climb
-(`_stated_values` → `_passes_overlap`) — a candidate stating a value of
-the head passes iff every stated value overlaps, one stating nothing
-passes untouched; nothing is walked for the term (anchors, cones, or the
-graph for the silent items); overlap-only queries start from the
-universe. `overlaps(node, term)` got the same rule so the pairwise face
-agrees with the query. `get_overlapping` unchanged (enumerates what
-states). The consumer files nothing for silence. Design record:
-DIMENSIONS.md §8 (the REVISED bullet), tests `TestUnconstrainedPasses`
-(5) + the oracle in `TestOverlapTermsInThePlanner` now `get(terms) ∩
-(get_overlapping(t) ∪ states-nothing)`. The `*` in loopmarket's docs was
-my misreading of a question, not a proposal — removed there.
+**Withdrawn the same night.** Peter, after two revisions of the overlap
+mode: *"why is overlap relevant at all? Ontodag is based on intersection."*
+And the modelling correction: *a want is a wider cone and a give a
+narrower cone* — the toothbrush wanted within five metres of the
+reception desk within thirty minutes is a narrow want, and the give that
+fits within it matches; my "a handover point exists" (both sides flexible,
+overlap of two ranges) was not his model. So `get(overlapping=...)` is
+gone from `get`/`get_any`, CLI, REST and MCP; `items_only` stays;
+`get_overlapping`/`overlaps`/`meet` stay as the candidate question and
+pairwise arithmetic; `from(geo)` stays refused. loopmarket matches every
+term by containment and its `DimensionIndex.candidates` is
+`get([line, *want.concepts], items_only=True)` — the want's conjunction
+IS the query. Record: DIMENSIONS.md §8 ("built and WITHDRAWN"). **984
+passed + 4 skipped (988 collected) as of 2026-09-12 night.** Lesson for
+the file: when a consumer asks for an operator, ask what reading of the
+data makes it necessary before building it.
 
 ## The projection seam (2026-08-20) — PROJECTIONS.md §4–§5 shipped
 

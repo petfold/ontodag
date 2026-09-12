@@ -937,57 +937,36 @@ dag.meet("from(u2e4)", "from(u2e5)")              # None  — provably empty
 dag.meet("from(ljubljana)", "from(u2e4x)")        # 'from(u2e4x)' — contained
 ```
 
-**Saying nothing is anywhere.** An item that states *nothing* under
-`from` is unconstrained on it, and an overlap term constrains only what
-states a value of its head: `get(["ride"], overlapping=["from(u2f)"])`
-returns every ride that either says `from(...)` overlapping `u2f` or says
-no `from(...)` at all — decided by one climb from each candidate the
-`ride` cone produced, never by walking the term's values or the graph. So
-file what an item says, and nothing for what it does not; there is no
-"from anywhere" term to write (`from(geo)`, the dimension itself, is
-refused with that reason — the overlap of everything with A is just A).
-`get_overlapping` is the other question — *what states* an overlapping
-value — and does not include the silent items.
+**Saying nothing.** An item that states nothing under `from` is in no
+`from` cone: `get(["ride", "from(u2f)"])` does not return it, and there
+is no "from anywhere" term to write — `from(geo)`, the dimension itself,
+is refused with that reason (the overlap of everything with A is just A).
+A *query* that does not name `from` does not constrain it; that is the
+only unconstrained side there is.
 
-```python
-dag.put("anywhere", ["ride"])                     # says nothing about from
-dag.overlaps("anywhere", "from(u2f)")             # True  — unconstrained
-dag.get(["ride"], overlapping=["from(u2f)"])      # includes anywhere
-dag.get_overlapping("from(u2f)")                  # does not: it states nothing
-```
-
-**Overlap inside a query.** Until now "rides from around here whose
-window overlaps my quarter-hour" took two complete queries and a set
-intersection in your own code. `get` now takes the overlap side as a
-constraint of the *same* plan, and `items_only` drops the typed values
-(and anything with something filed under it) from the answer, so it
-arrives ready to iterate:
+**Place and time are query terms.** A want's place and window go into
+the query beside its categories, and the answer is the gives that fit
+within all of them — the want is the wider cone, the give the narrower:
 
 ```python
 dag.put("when", ["time"])                    # a role of time
 dag.put("ride", [])
 dag.put("r1", ["ride", "from(my_home)",
-               "when(2026-08-15T10:00:00Z..2026-08-15T12:00:00Z)"])
+               "when(2026-08-15T10:00:00Z..2026-08-15T10:30:00Z)"])
 dag.put("r2", ["ride", "from(u2e5)",
                "when(2026-08-15T18:00:00Z..2026-08-15T20:00:00Z)"])
-quarter = "when(2026-08-15T11:30:00Z..2026-08-15T11:45:00Z)"
+morning = "when(2026-08-15T08:00:00Z..2026-08-15T12:00:00Z)"
 
-dag.get(["ride"], overlapping=[quarter])                  # {r1}
-dag.get(["ride"], overlapping=[quarter, "from(u2e)"])     # {r1} — three-way
+dag.get(["ride", morning])                   # {r1}
+dag.get(["ride", morning, "from(u2e4)"])     # {r1} — three cones, one plan
 dag.get(["from(u2e)"])                       # from(my_home), from(u2e5), r1, r2
 dag.get(["from(u2e)"], items_only=True)      # r1, r2
 ```
 
-The planner treats an overlap term as one more cone: when the concept
-cone is small it walks that and climbs upward from the few survivors
-looking for an overlapping window, instead of enumerating every
-overlapping window's cone — the answer is the same, the cost is the
-query's. Two overlap terms are two constraints, never their intersection
-(a ride serving all of `u2e` overlaps both `u2e4` and `u2e5`, whose meet
-is empty). On the command line: `odag get ride --overlapping 'when(…)'
---items-only`, and `count` takes the same flags; REST:
-`/dag/query?cat=ride&overlapping=when(…)&items_only=1`; agents: the
-`query` tool's `overlapping` and `items_only`.
+There is no overlap mode in `get` (one was built and withdrawn on
+2026-09-12: "a handover point exists" was a modelling error, not a missing
+operator — see DIMENSIONS.md §8). `get_overlapping` remains the separate
+*candidate* question for a consumer with its own exact check.
 
 The order between role terms is the graph's own order in the base
 dimension, so it follows your catalogue: refine `my_home` into a finer

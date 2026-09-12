@@ -44,40 +44,11 @@ the version numbers appear in commit history and docs.
   `GET /dag/overlaps`, `GET /dag/meet`, MCP tools `overlaps` and `meet`.
   `is_below(a, b) or is_below(b, a)` implies `overlaps(a, b)`.
 
-- **Overlap terms inside `get`'s planner, and `items_only`** (issue #14).
-  `get(terms, overlapping=[...])` plans containment and possibly-satisfies
-  constraints together — an overlap term is one more computed cone
-  (anchors = the star values overlapping it, walk = `get_overlapping`'s,
-  probe = an asserted climb into the anchor set), so a small concept cone
-  is walked and the survivors probed, never the whole overlap cone; the
-  consumer's `get(...) & get_overlapping(...)` goes. Virtual containment
-  terms joined the same plan (they were walk-only and always first).
-  Overlap terms are never pre-intersected as meets. `items_only=True`
-  drops parametric values and anything with something filed under it.
-  Everywhere: `odag get/count --overlapping TERM --items-only`,
-  `/dag/query?overlapping=&items_only=`, MCP `query` `overlapping` /
-  `items_only`; `get_any` passes both through.
-
-- **Overlap terms in `get(overlapping=[...])` are constraints, not
-  cones; what is unstated passes** (Peter, 2026-09-12; `docs/DIMENSIONS.md`
-  §8). An overlap term is applied to the candidates the containment terms
-  produce, by one asserted climb per candidate: a candidate that states
-  a value of the term's head passes iff every stated value overlaps the
-  term; a candidate stating nothing under that head is unconstrained on
-  it and passes. Nothing is walked for the term — not its anchors, not
-  their cones, never the graph looking for items without a value; a
-  query with only overlap terms starts from the universe, as the empty
-  query does. `overlaps(node, term)` follows the same rule (a node
-  stating nothing under the term's head overlaps it), so `x ∈
-  get(overlapping=[t])` ⟺ `overlaps(x, t)` for items. `get_overlapping`
-  is unchanged: the enumeration of what states an overlapping value. A
-  consumer files nothing for what an item does not say.
-- **The dimension itself is refused as a role parameter** (issue #17,
-  resolved the other way round — `docs/DIMENSIONS.md` §14): `from(geo)`
-  would mean "from anywhere", and an item that is from anywhere states no
-  `from(...)` at all (the rule above), so the term is refused with that
-  reason rather than carried as a redundant edge. A base head's own
-  parameters stay values.
+- **`items_only`** (issue #14's second ask): `get(terms, items_only=True)`
+  drops parametric values and anything with something filed under it —
+  DIMENSIONS.md §8's "items-only is a presentation flag", made real;
+  `get_any` passes it through. Everywhere: `odag get/count --items-only`,
+  `/dag/query?items_only=1`, MCP `query` `items_only`.
 
 ### Changed
 
