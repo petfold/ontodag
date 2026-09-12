@@ -59,7 +59,7 @@ and [swarmfs REFERENCE.md](https://github.com/petfold/swarmfs/blob/main/docs/REF
 | `get_any` / `or` / `\|` | union of intersections (DNF) | `get_any([])` = empty set |
 | `is_below(sub, sup)` | Boolean, reflexive, **fail-closed** | asserted edges + computed order, uniformly |
 | `get_overlapping(term)` | possibly-satisfies | complete for possibility, silent on satisfaction (G6) |
-| `overlaps(a, b)` | Boolean possibly-satisfies for a pair | terms or named places/regions either side; values by arithmetic, nodes by the graph; the base head as a role parameter (`from(geo)`) is the whole space (DIMENSIONS.md §14) |
+| `overlaps(a, b)` | Boolean possibly-satisfies for a pair | terms or named places/regions either side; values by arithmetic, nodes by the graph; a node stating nothing under the term's head overlaps it; the dimension itself is refused as a role parameter (DIMENSIONS.md §8, §14) |
 | `meet(a, b)` | the intersection of two same-head terms as one term | `None` when provably empty; raises when no single term names it |
 | `count` | size of the `get` answer | never capped |
 
@@ -80,7 +80,7 @@ results one per line on stdout. No command = read commands from stdin
 | `get [CAT…]` | items below all CATs; `or` separates disjuncts; empty = everything; `--overlapping TERM` (repeatable) adds a possibly-satisfies constraint to the same plan; `--items-only` leaves out typed values and anything with children |
 | `count [CAT…]` | the same query, as one number; takes the same `--overlapping`/`--items-only` flags |
 | `below SUB SUP` | prints `true`/`false`, exits 0/1 (grep-style); alias `?` at the prompt |
-| `overlapping TERM` | items that *might* satisfy a typed term — candidates whose value overlaps it (G6). A term of no declared dimension is an error, not an empty answer |
+| `overlapping TERM` | items that *might* satisfy a typed term (G6): a candidate stating a value of the term's head passes iff it overlaps, one stating nothing under that head passes unconstrained — applied per candidate, never walked. A term of no declared dimension is an error, not an empty answer |
 | `overlaps A B` | could A and B share a point? `true`/`false`, exits 0/1; either side a typed term or a named place/region |
 | `meet A B` | the intersection of two same-head typed terms as one term; nothing and exit 1 when provably empty |
 | `list` | everything (same path as the empty `get`) |

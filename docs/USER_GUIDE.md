@@ -937,25 +937,24 @@ dag.meet("from(u2e4)", "from(u2e5)")              # None  — provably empty
 dag.meet("from(ljubljana)", "from(u2e4x)")        # 'from(u2e4x)' — contained
 ```
 
-The base head itself may be the parameter: `from(geo)` is *from anywhere*,
-`when(time)` *any time* — the whole space of the dimension, read
-structurally, whether or not any cell or window is filed. Every term of
-the head fits within it, it overlaps everything, and it is the identity
-of the meet, so an offer filed under `from(geo)` is found by every
-`from(...)` overlap query and `from(u2e) ∧ from(geo)` stores as `from(u2e)`:
+**Saying nothing is anywhere.** An item that states *nothing* under
+`from` is unconstrained on it, and an overlap term constrains only what
+states a value of its head: `get(["ride"], overlapping=["from(u2f)"])`
+returns every ride that either says `from(...)` overlapping `u2f` or says
+no `from(...)` at all — decided by one climb from each candidate the
+`ride` cone produced, never by walking the term's values or the graph. So
+file what an item says, and nothing for what it does not; there is no
+"from anywhere" term to write (`from(geo)`, the dimension itself, is
+refused with that reason — the overlap of everything with A is just A).
+`get_overlapping` is the other question — *what states* an overlapping
+value — and does not include the silent items.
 
 ```python
-dag.put("anywhere", ["from(geo)"])
-dag.is_below("from(my_home)", "from(geo)")        # True
-dag.overlaps("anywhere", "from(u2f)")             # True  — anywhere includes u2f
-dag.meet("from(geo)", "from(u2e)")                # 'from(u2e)'
+dag.put("anywhere", ["ride"])                     # says nothing about from
+dag.overlaps("anywhere", "from(u2f)")             # True  — unconstrained
 dag.get(["ride"], overlapping=["from(u2f)"])      # includes anywhere
+dag.get_overlapping("from(u2f)")                  # does not: it states nothing
 ```
-
-On the command line `odag overlaps A B` prints `true`/`false` and exits
-0/1 like `below`; `odag meet A B` prints the term, or nothing with exit 1
-when the meet is empty. REST has `/dag/overlaps?a=&b=` and
-`/dag/meet?a=&b=`; agents have `overlaps` and `meet` tools.
 
 **Overlap inside a query.** Until now "rides from around here whose
 window overlaps my quarter-hour" took two complete queries and a set

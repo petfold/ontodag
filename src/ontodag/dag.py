@@ -831,21 +831,6 @@ class OntoDAG(DAG):
                     self._fold_meet(upper, head, inner[head], kind)
         for value in self._values_below(node):
             head, kind, canonical = self._parse_parametric(value.name)
-        # A node that states nothing under a term's head is unconstrained on
-        # it: it could be anywhere the term is (possibly-satisfies, G6) —
-        # the pairwise face of `get(overlapping=...)` letting such items
-        # through. Applies to a NODE against a TERM only; two terms of one
-        # head always have bounds, and two nodes are individuated by the
-        # graph (a place with no cell is not "possibly" every place).
-        for term, node_upper, node_lower in ((a, upper_b, lower_b),
-                                             (b, upper_a, lower_a)):
-            parsed = self._parse_parametric(term)
-            if parsed is not None and (
-                    parsed[0] not in node_upper and parsed[0] not in node_lower):
-                other = b if term is a else a
-                if self._parse_parametric(other) is None \
-                        and other in self.nodes:
-                    return True
             if self._param_node(head, _dims.split_term(canonical)[1]) is None:
                 lower.setdefault(head, set()).add(canonical)
             else:
@@ -870,6 +855,21 @@ class OntoDAG(DAG):
             return True
         upper_a, lower_a = self._bounds(a)
         upper_b, lower_b = self._bounds(b)
+        # A node that states nothing under a term's head is unconstrained on
+        # it: it could be anywhere the term is (possibly-satisfies, G6) —
+        # the pairwise face of `get(overlapping=...)` letting such items
+        # through. Applies to a NODE against a TERM only; two terms of one
+        # head always have bounds, and two nodes are individuated by the
+        # graph (a place with no cell is not "possibly" every place).
+        for term, node_upper, node_lower in ((a, upper_b, lower_b),
+                                             (b, upper_a, lower_a)):
+            parsed = self._parse_parametric(term)
+            if parsed is not None and (
+                    parsed[0] not in node_upper and parsed[0] not in node_lower):
+                other = b if term is a else a
+                if self._parse_parametric(other) is None \
+                        and other in self.nodes:
+                    return True
 
         def meets(low, up, lows):
             for head, values in low.items():
@@ -1339,8 +1339,6 @@ class OntoDAG(DAG):
                 else:
                     kept.append(name)
             for head, kept in by_head.items():
-        # Overlap terms are not in the list: they are applied to whatever
-        # survives, by `_passes_overlap` in `finish`.
                 for name in kept:
                     node = self.nodes.get(name)
                     if node is not None:
@@ -1363,6 +1361,8 @@ class OntoDAG(DAG):
         # 3. One list of cones, smallest estimated first (name as tiebreak,
         # keeping traversal deterministic). Sizes are asserted counts — the
         # exact walk cost for present terms, a lower bound for the others.
+        # Overlap terms are not in the list: they are applied to whatever
+        # survives, by `_passes_overlap` in `finish`.
         cones = [_Cone("node", node.descendant_count, node.name, node)
                  for node in minimal]
         for name, (head, kind) in virtual.items():

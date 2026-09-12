@@ -58,16 +58,26 @@ the version numbers appear in commit history and docs.
   `/dag/query?overlapping=&items_only=`, MCP `query` `overlapping` /
   `items_only`; `get_any` passes both through.
 
-- **The base head as a role parameter is the whole space** (issue #17,
-  `docs/DIMENSIONS.md` §14): `from(geo)` is "from anywhere", `when(time)`
-  "any time" — every term of the head fits within it, it fits within
-  nothing but itself, it overlaps every same-head term and is the
-  identity of the meet, in `is_below`, `overlaps`, `meet`,
-  `get_overlapping` and `get(overlapping=...)` alike, whether or not any
-  value of the dimension is present. Before, `overlaps` said yes while
-  the planner read the head as a region covering only the values filed
-  (loopmarket's consumer report). `put(x, [from(u2e), from(geo)])`
-  stores `from(u2e)`: the whole-space edge is a redundant computed hop.
+- **Overlap terms in `get(overlapping=[...])` are constraints, not
+  cones; what is unstated passes** (Peter, 2026-09-12; `docs/DIMENSIONS.md`
+  §8). An overlap term is applied to the candidates the containment terms
+  produce, by one asserted climb per candidate: a candidate that states
+  a value of the term's head passes iff every stated value overlaps the
+  term; a candidate stating nothing under that head is unconstrained on
+  it and passes. Nothing is walked for the term — not its anchors, not
+  their cones, never the graph looking for items without a value; a
+  query with only overlap terms starts from the universe, as the empty
+  query does. `overlaps(node, term)` follows the same rule (a node
+  stating nothing under the term's head overlaps it), so `x ∈
+  get(overlapping=[t])` ⟺ `overlaps(x, t)` for items. `get_overlapping`
+  is unchanged: the enumeration of what states an overlapping value. A
+  consumer files nothing for what an item does not say.
+- **The dimension itself is refused as a role parameter** (issue #17,
+  resolved the other way round — `docs/DIMENSIONS.md` §14): `from(geo)`
+  would mean "from anywhere", and an item that is from anywhere states no
+  `from(...)` at all (the rule above), so the term is refused with that
+  reason rather than carried as a redundant edge. A base head's own
+  parameters stay values.
 
 ### Changed
 

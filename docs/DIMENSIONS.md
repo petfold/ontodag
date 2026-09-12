@@ -306,6 +306,32 @@ normalized before names are formed.
   own `check_composition` over exact dimension values, and clearing
   re-verifies it (U3), so this is a pruning ask like overlap, not a
   correctness one.
+- **Overlap terms are constraints, not cones — REVISED 2026-09-12 night**
+  (Peter: *what is unconstrained is not visited; the other constraints
+  give the result — and we cannot walk the whole DAG when it gets really
+  big*). An overlap term in `get(overlapping=[...])` is applied to the
+  candidates the containment cones produce, by one ASSERTED climb per
+  candidate (`_stated_values`/`_passes_overlap`): a candidate that
+  *states* a value of the term's head — itself, or the values it was
+  filed under — passes iff every stated value overlaps the term; a
+  candidate that states nothing under that head is unconstrained on it
+  and passes untouched. Nothing is walked for the term: not its anchors,
+  not their cones, and never the graph in search of the items that lack a
+  value. A query with no containment term starts from the universe, which
+  is what the empty query already means. The consequences: (i) the
+  consumer files nothing for what an item does not say — no whole-space
+  value, no region scaffold (loopmarket's silent roles are now one edge
+  fewer, not one edge more); (ii) `get_overlapping(term)` keeps its
+  meaning — the enumeration of what STATES an overlapping value — and the
+  planner no longer reuses it; (iii) the pairwise `overlaps(node, term)`
+  follows the same rule: a node stating nothing under the term's head
+  overlaps it (possibly-satisfies, G6), so `x ∈ get(overlapping=[t])` ⟺
+  `overlaps(x, t)` for items; (iv) the "small overlap cone first" plan of
+  the original shipping below is gone — it was incomplete under this
+  rule, since it could never reach an unstated item. The oracle in the
+  tests became `get(terms) ∩ (get_overlapping(t) ∪ {states nothing under
+  head(t)})` per term. The paragraph below is the original shipping, kept
+  for the record.
 - **Overlap terms inside the planner — SHIPPED 2026-09-12** (filed
   2026-09-07 by loopmarket, issue #14): `get(terms, overlapping=[...],
   items_only=False)`. Each overlap term is one more computed cone in the
@@ -699,24 +725,21 @@ without the graph cycling (deciding whether `offer` is in the dimension
 walks through the role star that contains `from(offer)`), so the lookup
 is re-entrancy-guarded and reads a re-entered parameter as a literal.
 
-**The whole space (issue #17, 2026-09-12).** The base head is a node of
-its own dimension, so a role may name it: `from(geo)`, `when(time)`. It
-denotes the whole space — "from anywhere", "any time" — read
-*structurally*, not as the head's asserted covering (that would be a
-region's lower bound, and the answer would depend on which values happen
-to be present, which is exactly how loopmarket found the gap: `overlaps`
-said yes while `get`'s overlap planner said no on a graph with no cell
-filed). The rule: every term of the head fits within `R(base)`, `R(base)`
-fits within nothing but itself, it overlaps every same-head term, it is
-the identity of the meet (`from(u2e) ∩ from(geo) = from(u2e)`), and a node
-under it carries it as an upper bound that meets everything. One
-consequence for stored form: `put(x, [from(u2e), from(geo)])` keeps only
-`from(u2e)` — the whole-space edge is a computed hop, redundant like any
-other. The consumer's use is a give silent on a role: filed under
-`from(geo)` it is one edge, found by every overlap query, and the region
-scaffold it needed before (a node above the 62 one-character prefixes) is
-gone. A base head's own parameters stay values (`geo(geo)` is the literal
-prefix `geo`): only roles look names up.
+**The dimension itself is not a parameter (issue #17, 2026-09-12).** The
+base head is a node of its own dimension, so #15's rule would let a role
+name it — `from(geo)`, `when(time)` — and read it as the whole space.
+loopmarket asked for exactly that, to file a give silent on `from` under
+"from anywhere" so an overlap term could reach it. Built for an hour, then
+undone on Peter's rule: *when something is unconstrained it should not be
+visited at all; the other constraints give the result* — and *the overlap
+of everything with A is just A*, so a term for the whole space is never
+more than a redundant edge beside anything finer. The answer is in §8: an
+overlap term constrains only candidates that state a value of its head,
+so an item that says nothing under `from` IS from anywhere, with no edge
+at all. `from(geo)` is therefore refused, with the reason ("`geo` is the
+dimension itself, not a value or a place in it — an item that is from
+anywhere states no from(...) at all"). A base head's own parameters stay
+values (`geo(geo)` is the literal prefix `geo`): only roles look names up.
 
 **Cost (issue #18, 2026-09-12).** `_dimension_of` — the declaration walk
 from a head to its kind — is asked once per star member on every
