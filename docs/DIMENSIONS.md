@@ -191,6 +191,8 @@ compatibility rule, affine temperatures, graph-declared units and packs.
 | `prefix-dimension`    | identifier subtrees                  | string prefix test                       | geohash cells; generated hierarchies |
 | `dominance-dimension` | boxes (componentwise intervals), components canonically sorted descending | componentwise | parcels/luggage ("fits in"), `size(390x230x190mm)` |
 | `calendar-dimension`  | the same interval denotations as linear over the time family, but every literal is a calendar period: `2026` the year, `2026-08` the month, `2026-08-15` the day, a timestamp the instant | identical to linear (shared code path) | dates on documents, "last summer", "everything from 2026" |
+| `count-dimension`     | whole numbers ≥ 1 of discrete things; ranges with floor 1 | interval containment | multiplicities (§ UNITS.md 11) |
+| `category-dimension`  | a conjunction of constraints on the graph — category names and terms of other dimensions (`transport(small-item weight(..8kg))`), sorted, deduplicated, none redundant | **by the graph**, not the name: every outer constraint is above some inner one; meet = union, reduced (§15) | what an operator accepts (loopmarket's courier), any "things such that" argument |
 
 **`calendar-dimension` (added 2026-08-01, `REGISTRY_VERSION` 2).** A separate
 kind for one reason, and it is a grammar collision rather than a semantic
@@ -238,7 +240,8 @@ value  := integer unit | iso-utc-timestamp | prefix-string
           | calendar-period            -- calendar kinds: YYYY | YYYY-MM | YYYY-MM-DD | iso-utc-timestamp
 ```
 
-Canonical form: no whitespace; integers without leading zeros or `+`;
+Canonical form: no whitespace (except between the constraints of a
+category term, §15); integers without leading zeros or `+`;
 base unit suffix; full-precision timestamps. Inclusive bounds only in
 v1 (exclusivity doubles canonical-form cases for near-zero matching
 benefit on exact values; revisit on real need).
@@ -248,8 +251,13 @@ resolves to a present node descending from `dimension`. Every other
 name remains an opaque atom — full backward compatibility; nothing
 changes for existing graphs. Declare the dimension before putting
 values (error otherwise). `(` `)` `..` `x` are reserved in new names
-going forward. The grammar is defined recursively (terms as parameters)
-though v1 kinds are flat. CLI note: parentheses need shell quoting.
+going forward. The grammar is defined recursively (terms as parameters):
+the flat kinds refuse a nested parameter as before (`weight(x(y))` under a
+declared `weight` stays an opaque atom), and the category kind (§15) is
+the one whose parameter holds terms — `split_term` accepts balanced
+parentheses inside a parameter since registry 4.2. CLI note: parentheses
+need shell quoting, and a category term with several constraints holds a
+space, so it needs quoting as one token.
 
 Boundary sugar (CLI/web, never the identity): friendly units
 (`3000g` → `3kg`), bare dates, bare numbers → `number(...)`,
@@ -717,3 +725,67 @@ answer the named case today. It fires if anonymity of regions becomes
 the tripwire. Performance: a role star's containment checks are graph
 walks rather than string arithmetic, so the parked per-dimension index
 (§12 step 6) has a second reason to exist when a role star grows large.
+
+## 15. The category kind: constraints on the graph itself (issue #19, 2026-09-13)
+
+**The case.** loopmarket's courier offers `transport(small-item
+weight(..8kg))`; a wanter writes `transport(bicycle weight(5kg))`. The
+argument of `transport` is not a value of some arithmetic space — it is a
+set of *constraints on the graph*: categories a thing must be under and
+terms of other dimensions it must satisfy. Whether the wanter's argument
+fits the courier's is a question the graph already answers (`bicycle ⊑
+small-item`, `weight(5kg) ⊑ weight(..8kg)`); what was missing was a term
+grammar that lets a head take such an argument, and the ordering of two
+such terms. Which side must be inside is the consumer's rule (loopmarket
+reads the argument as what an operator *accepts*, so its want is inside
+its give); ontodag only orders.
+
+**Declaration.** A head under the kind node `category-dimension`:
+`odag put category-dimension dimension`, then `odag put transport
+category-dimension`. The kind is deliberately **not in the prelude**:
+adding a node to the prelude moves its golden root and, through `core`,
+the root of every pack and every published pack store — a cost the
+everyday dimensions justified and a kind only operator vocabularies use
+does not. A store that needs it declares it, like any other seed line. Roles work as for every kind — a head under
+`transport` is a role of it with its own star; role parameters are never
+looked up as nodes here, because every constraint *is* a node or a term.
+
+**Grammar.** `H(c1 c2 ...)`: constraints separated by whitespace at
+parenthesis depth 0, so a nested term stays whole. Each constraint must be
+a present category (kind nodes excluded) or a term of a declared
+dimension, else the term fails closed (`transport(unicorn)` raises).
+Canonical form: each constraint canonical (`weight(8000g)` →
+`weight(8kg)`), deduplicated, sorted; at least one constraint. A
+**redundant** constraint — one that another constraint of the same term
+already implies (`transport(bicycle small-item)` with `bicycle ⊑
+small-item`) — is **refused**, for the reason a whole-dimension parameter
+is refused (§14, #17): it would give one denotation two canonical names,
+and I1 (distinct canonical names are never mutually contained) is what
+keeps the computed order acyclic. Because the graph decides redundancy,
+the spelling a writer must use can change as the graph grows; a stored
+name is never re-read against the rule, and replays (merge, sync) run
+lenient like role parameters naming not-yet-placed nodes.
+
+**Order.** `H(X…) ⊑ H(A…)` iff every constraint `A` is above (or is) some
+constraint `X` — a thing meeting all of `X…` meets all of `A…`. Fewer
+constraints is the wider term; `H(A B) ⊑ H(A)`. Constraints compare by
+`is_below` either way (nodes, terms, a node against a term). Terms of
+distinct heads are incomparable, as with every kind. The meet of two
+same-head terms is the union of their constraints, reduced — never empty,
+since categories carry no disjointness (two same-head parents on one item
+are admitted; `overlaps` is always true). `H(A B)` ≡ `H(A) H(B)` as a
+*query*: an item under the conjunction is found whichever way the question
+is spelled, and the planner pre-intersects the two terms to the one. (An
+*item* filed under two separate same-head terms is not in the cone of
+their meet — `put` does not refile parents under their meet; that is
+every kind's behaviour today, `weight(..8kg)` + `weight(5kg..)` alike, and
+belongs to §8's open list, not to this kind.)
+
+**What it is not.** No defined classes: `transport(small-item
+weight(..8kg))` is not a category a bicycle is *under*; it is a term that
+*contains* `transport(bicycle weight(5kg))`. And no cross-dimension
+computation: a constraint is checked one dimension at a time.
+
+Registry **4.2** (additive: a kind, no canonical name of an existing kind
+changes); prelude unchanged (v3); `dimensions.constraints(param)` splits
+a parameter for consumers; `split_term` accepts balanced nesting.

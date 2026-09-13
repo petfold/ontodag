@@ -625,9 +625,9 @@ class OntoDAG(DAG):
         head's parameters are values by definition, however a place happens
         to be named — and a present node OUTSIDE the role's dimension is
         refused rather than read as a value that spells the same."""
-        _kind, base = self._dimension_of(head)
-        if base is None or base == head:
-            return None
+        kind, base = self._dimension_of(head)
+        if kind == _dims.KIND_CATEGORY or base is None or base == head:
+            return None                  # a category term's parameter is constraints
         if param == base:
             # The dimension itself is not a place in it. "From anywhere" is
             # said by saying no from(...) at all: an item that states no
@@ -750,6 +750,8 @@ class OntoDAG(DAG):
         place is below the cells above it, a region is above the cells it
         covers, and two floors of one building are siblings even though
         they share a cell."""
+        if kind == _dims.KIND_CATEGORY:
+            return self._category_contains(outer, inner)
         head, param_outer, param_inner = _dims._same_head(outer, inner)
         node_outer = self._param_node(head, param_outer)
         node_inner = self._param_node(head, param_inner)
@@ -768,8 +770,7 @@ class OntoDAG(DAG):
         if head not in upper:
             upper[head] = value
         elif upper[head] is not None:
-            upper[head] = _dims.intersect(upper[head], value, kind,
-                                          units=self._declared_units())
+            upper[head] = self._intersect(upper[head], value, kind)
 
     def _bounds(self, name):
         """What a term or node is known to lie within and known to cover:
@@ -864,9 +865,7 @@ class OntoDAG(DAG):
                     others.add(up[head])
                 for u in values:
                     for w in others:
-                        if _dims.intersect(u, w, kind,
-                                           units=self._declared_units()) \
-                                is not None:
+                        if self._intersect(u, w, kind) is not None:
                             return True
             return False
         return meets(lower_a, upper_b, lower_b) or meets(lower_b, upper_a, {})
@@ -877,9 +876,90 @@ class OntoDAG(DAG):
         head, param_a, param_b = _dims._same_head(a, b)
         if self._param_node(head, param_a) is None \
                 and self._param_node(head, param_b) is None:
-            return _dims.intersect(a, b, kind,
-                                   units=self._declared_units()) is not None
+            return self._intersect(a, b, kind) is not None
         return self._overlap(a, b)
+
+    def _intersect(self, a, b, kind):
+        """`dimensions.intersect` with the category kind routed to the
+        graph: the meet of two constraint terms is their union, reduced."""
+        if kind == _dims.KIND_CATEGORY:
+            return self._category_intersect(a, b)
+        return _dims.intersect(a, b, kind, units=self._declared_units())
+
+    # ---- the category kind: constraints on the graph itself (#19) ---------
+
+    def _category_contains(self, outer, inner):
+        """denotation(inner) ⊆ denotation(outer) for two same-head category
+        terms: every constraint of `outer` is above (or is) some constraint
+        of `inner` — a thing meeting all of `inner`'s constraints meets all
+        of `outer`'s. `H(bicycle weight(5kg)) ⊑ H(small-item weight(..8kg))`
+        when `bicycle ⊑ small-item`. Constraints are nodes or terms of
+        other dimensions, ordered by `is_below` either way; distinct heads
+        are incomparable here, as with every other kind (a role's star is
+        its own)."""
+        head_o, param_o = _dims.split_term(outer)
+        head_i, param_i = _dims.split_term(inner)
+        if head_o != head_i:
+            raise ValueError(f"cannot compare across heads: {outer!r} vs {inner!r}")
+        ins = _dims.constraints(param_i)
+        return all(any(x == a or self._below_guarded(x, a) for x in ins)
+                   for a in _dims.constraints(param_o))
+
+    def _category_intersect(self, a, b):
+        """The meet of two same-head category terms: a thing under both
+        meets both constraint sets, so the meet is their union — reduced,
+        so the name stays canonical (a constraint above another says
+        nothing more). Never empty: categories carry no disjointness."""
+        head_a, param_a = _dims.split_term(a)
+        head_b, param_b = _dims.split_term(b)
+        if head_a != head_b:
+            raise ValueError(f"cannot compare across heads: {a!r} vs {b!r}")
+        union = set(_dims.constraints(param_a)) | set(_dims.constraints(param_b))
+        return f"{head_a}({' '.join(self._reduce_constraints(union))})"
+
+    def _reduce_constraints(self, items):
+        """Sorted constraints with every one that contains another dropped."""
+        items = sorted(set(items))
+        return [a for a in items
+                if not any(b != a and self._below_guarded(b, a) for b in items)]
+
+    def _canonical_category(self, name):
+        """The canonical spelling of a category term — constraints each
+        canonical, deduplicated, sorted — with every constraint checked
+        (a present category or a term of a declared dimension; anything
+        else fails closed) and a REDUNDANT constraint refused: `H(bicycle
+        small-item)` with `bicycle ⊑ small-item` denotes what `H(bicycle)`
+        denotes, and two names for one set would break the order (I1:
+        distinct canonical names are never mutually contained) — the
+        same reason a term for a whole dimension is refused (#17). The
+        graph decides redundancy, so the spelling a writer must use can
+        change as the graph grows; a stored name is never re-read against
+        that rule. Replays (merge, sync) land nodes before their edges and
+        run lenient, like role parameters naming not-yet-placed nodes."""
+        head, param = _dims.split_term(name)
+        lenient = getattr(self, "_role_lenient", 0)
+        canonical = []
+        for c in _dims.constraints(param):
+            parsed = self._parse_parametric(c)
+            if parsed is not None:
+                canonical.append(parsed[2])
+            elif (c in self.nodes and c not in _dims.KINDS) or lenient:
+                canonical.append(c)
+            else:
+                raise ValueError(
+                    f"{name}: {c!r} is neither a category the graph knows "
+                    f"nor a term of a declared dimension — a category term's "
+                    f"constraints fail closed")
+        canonical = sorted(set(canonical))
+        if not lenient:
+            for a in canonical:
+                for b in canonical:
+                    if a != b and self._below_guarded(a, b):
+                        raise ValueError(
+                            f"{name}: {b!r} is redundant beside {a!r} "
+                            f"({a} ⊑ {b}) — write {head}"
+                            f"({' '.join(x for x in canonical if x != b)})")
+        return f"{head}({' '.join(canonical)})"
 
     def _declared_units(self):
         """Graph-declared unit vocabulary (UNITS.md §7): the resolved map
@@ -908,6 +988,10 @@ class OntoDAG(DAG):
         kind = self._dimension_kind(split[0])
         if kind is None:
             return None
+        if kind == _dims.KIND_CATEGORY:
+            return split[0], kind, self._canonical_category(name)
+        if "(" in split[1]:
+            return None       # the flat kinds: a nested parameter stays opaque, as before
         if self._param_node(split[0], split[1]) is not None:
             # A role parameter naming a node: the node's name IS the
             # parameter's identity (its position may move with the
@@ -1056,7 +1140,7 @@ class OntoDAG(DAG):
         head, kind = parsed_a[0], parsed_a[1]
         if self._param_node(head, _dims.split_term(a)[1]) is None and \
                 self._param_node(head, _dims.split_term(b)[1]) is None:
-            return _dims.intersect(a, b, kind, units=self._declared_units())
+            return self._intersect(a, b, kind)
         if self._contains(a, b, kind):
             return b
         if self._contains(b, a, kind):
@@ -1090,9 +1174,11 @@ class OntoDAG(DAG):
         node = self.nodes.get(canonical)
         if node is not None:
             return node
-        if self._param_node(head, _dims.split_term(canonical)[1]) is None:
+        if kind != _dims.KIND_CATEGORY and \
+                self._param_node(head, _dims.split_term(canonical)[1]) is None:
             # A role parameter naming a node has no value space of its
             # own (it sits in the dimension's); only values are checked.
+            # A category term's space is the graph: nothing to check.
             space = _dims.space_of(canonical, kind,
                                    units=self._declared_units())
             for sibling, _ in self._star(head):
@@ -1282,8 +1368,7 @@ class OntoDAG(DAG):
                     if self._param_node(head, _dims.split_term(name)[1]) \
                             is None and self._param_node(
                                 head, _dims.split_term(other)[1]) is None:
-                        met = _dims.intersect(other, name, kind,
-                                              units=self._declared_units())
+                        met = self._intersect(other, name, kind)
                         if met is None:
                             return set()
                         kept[index] = met
@@ -1725,8 +1810,7 @@ class OntoDAG(DAG):
                         is not None or self._param_node(
                             head, _dims.split_term(name_b)[1]) is not None:
                     continue   # named places: the graph proves no disjointness
-                if _dims.intersect(name_a, name_b, kind,
-                                   units=self._declared_units()) is None:
+                if self._intersect(name_a, name_b, kind) is None:
                     raise ValueError(
                         f"{sub_name} cannot sit under both {name_a} "
                         f"and {name_b}: provably disjoint {head!r} terms — "

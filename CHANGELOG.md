@@ -14,7 +14,32 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
-## [0.25.0] — 2026-09-13
+## [0.26.0] — 2026-09-13
+
+Issue #19, from loopmarket the same evening: the argument of an operator
+is a set of constraints on the graph, and the graph should order it.
+
+### Added
+
+- **The category kind** (`category-dimension`, registry **4.2**;
+  `docs/DIMENSIONS.md` §15). A head declared under it — `odag put
+  category-dimension dimension`, `odag put transport category-dimension`;
+  the kind is not in the prelude, so no pack root moves — takes as its
+  parameter a
+  conjunction of constraints on the graph itself: category names and
+  terms of other dimensions, `transport(small-item weight(..8kg))`.
+  Canonical form: each constraint canonical, deduplicated, sorted; a
+  constraint the graph does not know fails closed, a redundant one
+  (`transport(bicycle small-item)` with `bicycle ⊑ small-item`) is
+  refused, like a whole-dimension parameter. Order by the graph:
+  `H(X…) ⊑ H(A…)` iff every `A` is above some `X`, so
+  `transport(bicycle weight(5kg)) ⊑ transport(small-item weight(..8kg))`
+  and moves when the graph does. Meet = union of constraints, reduced;
+  never empty. `H(A B)` and `H(A) H(B)` are one query. `split_term`
+  accepts balanced nesting inside a parameter (the flat kinds still read
+  a nested parameter as opaque); `dimensions.constraints(param)` splits
+  one. Tests: `tests/test_category_kind.py`.
+
 
 Three loopmarket asks landed in one day (#15, #16, #14) and one of them
 was withdrawn the same night, when its consumer's author asked why overlap

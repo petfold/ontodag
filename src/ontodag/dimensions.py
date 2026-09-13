@@ -54,7 +54,7 @@ from fractions import Fraction
 #      MAJOR because two canonical anchors change and bare C/F change
 #      meaning: a 3.x store carrying bare-C/F values must rewrite them to
 #      coulomb/farad spellings before an ontodag.migrate replay).
-REGISTRY_VERSION = "4.1"
+REGISTRY_VERSION = "4.2"
 
 
 def registry_compatible(version, other=None):
@@ -91,8 +91,18 @@ KIND_CALENDAR = "calendar-dimension"
 # An unbounded lower end therefore normalizes to 1 the way plain numeric
 # families normalize theirs to 0 (`count(..5)` == `count(1..5)`, one name).
 KIND_COUNT = "count-dimension"
+# Category is the kind whose values are CONSTRAINTS ON THE GRAPH ITSELF
+# (registry 4.2, issue #19): a parameter is a conjunction of category names
+# and terms of other dimensions — `transport(small-item weight(..8kg))` —
+# and containment is decided by the graph, not by arithmetic on the name:
+# `H(X ...) ⊑ H(A ...)` iff every A is above some X. Nothing here can order
+# such terms; this module only splits, sorts and renders them, and the DAG
+# owns the rest (`OntoDAG._category_contains`). The consumer that asked
+# reads the argument as what an operator ACCEPTS, so a wider argument is
+# the more useful one — that direction is the consumer's, not this kind's.
+KIND_CATEGORY = "category-dimension"
 KINDS = frozenset({KIND_LINEAR, KIND_PREFIX, KIND_DOMINANCE, KIND_CALENDAR,
-                   KIND_COUNT})
+                   KIND_COUNT, KIND_CATEGORY})
 _LINEARISH = frozenset({KIND_LINEAR, KIND_CALENDAR})
 _INTERVALISH = _LINEARISH | {KIND_COUNT}
 
@@ -328,10 +338,37 @@ def split_term(name):
     if idx <= 0:
         return None
     head, param = name[:idx], name[idx + 1:-1]
-    # v1 kinds are flat: no nested terms, no empty parameter.
-    if not param or "(" in param or ")" in param:
+    if not param:
+        return None
+    # A parameter may hold whole terms (`transport(small-item weight(..8kg))`,
+    # the category kind, #19): parentheses inside must balance. The flat
+    # kinds refuse such a parameter at parse time, as they always did.
+    depth = 0
+    for ch in param:
+        depth += (ch == "(") - (ch == ")")
+        if depth < 0:
+            return None
+    if depth:
         return None
     return head, param
+
+
+def constraints(param):
+    """The constituents of a category-kind parameter: the whitespace-
+    separated pieces at parenthesis depth 0, so a nested term stays whole
+    (`small-item weight(..8kg)` -> `("small-item", "weight(..8kg)")`)."""
+    out, depth, cur = [], 0, ""
+    for ch in param:
+        depth += (ch == "(") - (ch == ")")
+        if ch.isspace() and depth == 0:
+            if cur:
+                out.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    if cur:
+        out.append(cur)
+    return tuple(out)
 
 
 # ---- value parsing (exact; every error is a ValueError with the offender) --
@@ -617,6 +654,11 @@ def _render_count(family, lo, hi):
 
 
 def _denotation(param, kind, units=None):
+    if kind == KIND_CATEGORY:
+        items = constraints(param)
+        if not items:
+            raise ValueError(f"{param!r}: a category term needs at least one constraint")
+        return tuple(sorted(set(items)))     # one spelling: sorted, deduplicated
     if kind == KIND_CALENDAR:
         return _parse_calendar(param)
     if kind == KIND_LINEAR:
@@ -631,6 +673,8 @@ def _denotation(param, kind, units=None):
 
 
 def _render(denotation, kind):
+    if kind == KIND_CATEGORY:
+        return " ".join(denotation)
     if kind in _LINEARISH:
         return _render_linear(*denotation)
     if kind == KIND_COUNT:
@@ -668,6 +712,8 @@ def space_of(name, kind, units=None):
         return f"linear:{denotation[0]}"
     if kind == KIND_DOMINANCE:
         return f"dominance:{denotation[0]}:{len(denotation[1])}"
+    if kind == KIND_CATEGORY:
+        return "category"
     return "prefix"
 
 
@@ -722,6 +768,10 @@ def contains(outer, inner, kind, units=None):
     if kind == KIND_PREFIX:
         return _parse_prefix(param_inner).startswith(
             _parse_prefix(param_outer))
+    if kind == KIND_CATEGORY:
+        raise ValueError(
+            f"{outer!r} vs {inner!r}: a category term is ordered by the "
+            f"graph — ask the DAG (`is_below`), not the name arithmetic")
     raise ValueError(f"unknown dimension kind {kind!r}")
 
 
@@ -757,6 +807,10 @@ def intersect(a, b, kind, units=None):
         if value_b.startswith(value_a):
             return f"{head}({value_b})"
         return None
+    if kind == KIND_CATEGORY:
+        raise ValueError(
+            f"{a!r} ∩ {b!r}: a category term is met by the graph — ask the "
+            f"DAG, not the name arithmetic")
     raise ValueError(f"unknown dimension kind {kind!r}")
 
 

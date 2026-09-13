@@ -421,10 +421,10 @@ class TestRegistry:
     def test_reserved_names(self):
         assert dims.KINDS == {"linear-dimension", "prefix-dimension",
                               "dominance-dimension", "calendar-dimension",
-                              "count-dimension"}
+                              "count-dimension", "category-dimension"}
         assert dims.DIMENSION_ROOT == "dimension"
         # MAJOR.MINOR since v3 (UNITS.md D10): same major = same
         # canonical-name arithmetic; minors add vocabulary only.
-        assert dims.REGISTRY_VERSION == "4.1"
+        assert dims.REGISTRY_VERSION == "4.2"
         assert dims.registry_compatible("4.7")
         assert not dims.registry_compatible("3.2")

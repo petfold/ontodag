@@ -764,7 +764,15 @@ What to know:
   and `count-dimension` for whole numbers of discrete things
   (`count(3)` is below `count(2..)` — "at least two"; the prelude's `count`
   head uses it). `linear-dimension` is the fifth: numbers with units, which
-  is what `weight(3kg)` above uses.
+  is what `weight(3kg)` above uses. The sixth, `category-dimension`, takes
+  constraints on the graph itself as its value and is not in the prelude
+  (a store declares it when it needs it): after `odag put
+  category-dimension dimension` and `odag put transport
+  category-dimension`, `transport(small-item weight(..8kg))` is a term, and
+  `transport(bicycle weight(5kg))` is inside it whenever `bicycle` is under
+  `small-item` — the ordering is the graph's, so the constraints must name
+  categories the graph knows (or terms of other dimensions), and a
+  constraint that another one already implies is refused.
 - **Counts are whole and start at one.** `count(2dz)` is fine (that's 24);
   `count(2.5)` refuses — continuous stuff belongs under a dimensional head
   like `weight` or `volume`. `count(0)` also refuses, with a reason worth
