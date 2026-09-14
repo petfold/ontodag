@@ -14,6 +14,17 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.26.1] — 2026-09-14
+
+### Changed
+
+- **`category-dimension` → `graph-dimension`** (Peter: everything in
+  OntoDAG is a category). A kind names how a head's values are ordered;
+  this one orders them by the graph, so that is its name. Renamed hours
+  after 0.26.0, before any store declared it; `KIND_GRAPH`, space tag
+  `graph`. USER_GUIDE and DIMENSIONS.md §15 now say what a kind is and
+  why the sixth is the odd one out.
+
 ## [0.26.0] — 2026-09-13
 
 Issue #19, from loopmarket the same evening: the argument of an operator
@@ -21,9 +32,9 @@ is a set of constraints on the graph, and the graph should order it.
 
 ### Added
 
-- **The category kind** (`category-dimension`, registry **4.2**;
+- **The graph kind** (`graph-dimension`, registry **4.2**;
   `docs/DIMENSIONS.md` §15). A head declared under it — `odag put
-  category-dimension dimension`, `odag put transport category-dimension`;
+  graph-dimension dimension`, `odag put transport graph-dimension`;
   the kind is not in the prelude, so no pack root moves — takes as its
   parameter a
   conjunction of constraints on the graph itself: category names and

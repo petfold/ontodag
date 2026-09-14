@@ -764,15 +764,35 @@ What to know:
   and `count-dimension` for whole numbers of discrete things
   (`count(3)` is below `count(2..)` — "at least two"; the prelude's `count`
   head uses it). `linear-dimension` is the fifth: numbers with units, which
-  is what `weight(3kg)` above uses. The sixth, `category-dimension`, takes
-  constraints on the graph itself as its value and is not in the prelude
-  (a store declares it when it needs it): after `odag put
-  category-dimension dimension` and `odag put transport
-  category-dimension`, `transport(small-item weight(..8kg))` is a term, and
-  `transport(bicycle weight(5kg))` is inside it whenever `bicycle` is under
-  `small-item` — the ordering is the graph's, so the constraints must name
-  categories the graph knows (or terms of other dimensions), and a
-  constraint that another one already implies is refused.
+  is what `weight(3kg)` above uses.
+- **What a kind is, and the sixth one.** Everything in OntoDAG is a
+  category, and every typed value narrows a query, so a kind is neither
+  "a kind of node" nor "a kind of constraint". A kind says **how the
+  values in a head's parentheses are ordered**: `weight(3kg)` is inside
+  `weight(..5kg)` by interval arithmetic (linear), `geo(u2ed)` inside
+  `geo(u2)` by string prefix, `size(19x23x39cm)` inside `size(20x30x40cm)`
+  componentwise, `time(2026-08)` inside `time(2026)` by calendar periods,
+  `count(3)` inside `count(2..)` by whole numbers. Five orderings, five
+  kinds, each computed from the two names alone. The sixth,
+  **`graph-dimension`**, is the kind whose values are ordered **by the
+  graph itself**: the parenthesised value is a list of categories and
+  terms — `transport(small-item weight(..8kg))` — and
+  `transport(bicycle weight(5kg))` is inside it because `bicycle` sits
+  under `small-item` in the graph and `weight(5kg)` inside `weight(..8kg)`
+  by the linear rule. Nothing about the *names* decides it; the graph
+  does, and the answer moves when the graph does (file `piano` under
+  `small-item` and `transport(piano)` slides inside). That is the whole
+  difference, and the reason for the name: the other five order by
+  arithmetic on the name, this one orders by the graph. It is what you
+  reach for when a value is "things such that …" — what a courier
+  accepts, what a course requires — and the consumer decides which side
+  of a match has to be inside (loopmarket reads the courier's argument as
+  what the courier *accepts*, so the wanter's must be inside it). Rules:
+  each listed category must exist and each term must parse, or the whole
+  term fails closed; a constraint another one already implies
+  (`transport(bicycle small-item)`) is refused, so one set has one name;
+  the kind is not in the prelude — declare it with `odag put
+  graph-dimension dimension`, then `odag put transport graph-dimension`.
 - **Counts are whole and start at one.** `count(2dz)` is fine (that's 24);
   `count(2.5)` refuses — continuous stuff belongs under a dimensional head
   like `weight` or `volume`. `count(0)` also refuses, with a reason worth

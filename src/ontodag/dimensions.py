@@ -97,12 +97,12 @@ KIND_COUNT = "count-dimension"
 # and containment is decided by the graph, not by arithmetic on the name:
 # `H(X ...) ⊑ H(A ...)` iff every A is above some X. Nothing here can order
 # such terms; this module only splits, sorts and renders them, and the DAG
-# owns the rest (`OntoDAG._category_contains`). The consumer that asked
+# owns the rest (`OntoDAG._graph_contains`). The consumer that asked
 # reads the argument as what an operator ACCEPTS, so a wider argument is
 # the more useful one — that direction is the consumer's, not this kind's.
-KIND_CATEGORY = "category-dimension"
+KIND_GRAPH = "graph-dimension"
 KINDS = frozenset({KIND_LINEAR, KIND_PREFIX, KIND_DOMINANCE, KIND_CALENDAR,
-                   KIND_COUNT, KIND_CATEGORY})
+                   KIND_COUNT, KIND_GRAPH})
 _LINEARISH = frozenset({KIND_LINEAR, KIND_CALENDAR})
 _INTERVALISH = _LINEARISH | {KIND_COUNT}
 
@@ -341,7 +341,7 @@ def split_term(name):
     if not param:
         return None
     # A parameter may hold whole terms (`transport(small-item weight(..8kg))`,
-    # the category kind, #19): parentheses inside must balance. The flat
+    # the graph kind, #19): parentheses inside must balance. The flat
     # kinds refuse such a parameter at parse time, as they always did.
     depth = 0
     for ch in param:
@@ -654,7 +654,7 @@ def _render_count(family, lo, hi):
 
 
 def _denotation(param, kind, units=None):
-    if kind == KIND_CATEGORY:
+    if kind == KIND_GRAPH:
         items = constraints(param)
         if not items:
             raise ValueError(f"{param!r}: a category term needs at least one constraint")
@@ -673,7 +673,7 @@ def _denotation(param, kind, units=None):
 
 
 def _render(denotation, kind):
-    if kind == KIND_CATEGORY:
+    if kind == KIND_GRAPH:
         return " ".join(denotation)
     if kind in _LINEARISH:
         return _render_linear(*denotation)
@@ -712,8 +712,8 @@ def space_of(name, kind, units=None):
         return f"linear:{denotation[0]}"
     if kind == KIND_DOMINANCE:
         return f"dominance:{denotation[0]}:{len(denotation[1])}"
-    if kind == KIND_CATEGORY:
-        return "category"
+    if kind == KIND_GRAPH:
+        return "graph"
     return "prefix"
 
 
@@ -768,7 +768,7 @@ def contains(outer, inner, kind, units=None):
     if kind == KIND_PREFIX:
         return _parse_prefix(param_inner).startswith(
             _parse_prefix(param_outer))
-    if kind == KIND_CATEGORY:
+    if kind == KIND_GRAPH:
         raise ValueError(
             f"{outer!r} vs {inner!r}: a category term is ordered by the "
             f"graph — ask the DAG (`is_below`), not the name arithmetic")
@@ -807,7 +807,7 @@ def intersect(a, b, kind, units=None):
         if value_b.startswith(value_a):
             return f"{head}({value_b})"
         return None
-    if kind == KIND_CATEGORY:
+    if kind == KIND_GRAPH:
         raise ValueError(
             f"{a!r} ∩ {b!r}: a category term is met by the graph — ask the "
             f"DAG, not the name arithmetic")

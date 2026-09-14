@@ -626,7 +626,7 @@ class OntoDAG(DAG):
         to be named — and a present node OUTSIDE the role's dimension is
         refused rather than read as a value that spells the same."""
         kind, base = self._dimension_of(head)
-        if kind == _dims.KIND_CATEGORY or base is None or base == head:
+        if kind == _dims.KIND_GRAPH or base is None or base == head:
             return None                  # a category term's parameter is constraints
         if param == base:
             # The dimension itself is not a place in it. "From anywhere" is
@@ -750,8 +750,8 @@ class OntoDAG(DAG):
         place is below the cells above it, a region is above the cells it
         covers, and two floors of one building are siblings even though
         they share a cell."""
-        if kind == _dims.KIND_CATEGORY:
-            return self._category_contains(outer, inner)
+        if kind == _dims.KIND_GRAPH:
+            return self._graph_contains(outer, inner)
         head, param_outer, param_inner = _dims._same_head(outer, inner)
         node_outer = self._param_node(head, param_outer)
         node_inner = self._param_node(head, param_inner)
@@ -880,15 +880,15 @@ class OntoDAG(DAG):
         return self._overlap(a, b)
 
     def _intersect(self, a, b, kind):
-        """`dimensions.intersect` with the category kind routed to the
+        """`dimensions.intersect` with the graph kind routed to the
         graph: the meet of two constraint terms is their union, reduced."""
-        if kind == _dims.KIND_CATEGORY:
-            return self._category_intersect(a, b)
+        if kind == _dims.KIND_GRAPH:
+            return self._graph_intersect(a, b)
         return _dims.intersect(a, b, kind, units=self._declared_units())
 
-    # ---- the category kind: constraints on the graph itself (#19) ---------
+    # ---- the graph kind: constraints on the graph itself (#19) ---------
 
-    def _category_contains(self, outer, inner):
+    def _graph_contains(self, outer, inner):
         """denotation(inner) ⊆ denotation(outer) for two same-head category
         terms: every constraint of `outer` is above (or is) some constraint
         of `inner` — a thing meeting all of `inner`'s constraints meets all
@@ -905,7 +905,7 @@ class OntoDAG(DAG):
         return all(any(x == a or self._below_guarded(x, a) for x in ins)
                    for a in _dims.constraints(param_o))
 
-    def _category_intersect(self, a, b):
+    def _graph_intersect(self, a, b):
         """The meet of two same-head category terms: a thing under both
         meets both constraint sets, so the meet is their union — reduced,
         so the name stays canonical (a constraint above another says
@@ -923,7 +923,7 @@ class OntoDAG(DAG):
         return [a for a in items
                 if not any(b != a and self._below_guarded(b, a) for b in items)]
 
-    def _canonical_category(self, name):
+    def _canonical_graph_term(self, name):
         """The canonical spelling of a category term — constraints each
         canonical, deduplicated, sorted — with every constraint checked
         (a present category or a term of a declared dimension; anything
@@ -988,8 +988,8 @@ class OntoDAG(DAG):
         kind = self._dimension_kind(split[0])
         if kind is None:
             return None
-        if kind == _dims.KIND_CATEGORY:
-            return split[0], kind, self._canonical_category(name)
+        if kind == _dims.KIND_GRAPH:
+            return split[0], kind, self._canonical_graph_term(name)
         if "(" in split[1]:
             return None       # the flat kinds: a nested parameter stays opaque, as before
         if self._param_node(split[0], split[1]) is not None:
@@ -1174,7 +1174,7 @@ class OntoDAG(DAG):
         node = self.nodes.get(canonical)
         if node is not None:
             return node
-        if kind != _dims.KIND_CATEGORY and \
+        if kind != _dims.KIND_GRAPH and \
                 self._param_node(head, _dims.split_term(canonical)[1]) is None:
             # A role parameter naming a node has no value space of its
             # own (it sits in the dimension's); only values are checked.

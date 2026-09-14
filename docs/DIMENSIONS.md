@@ -192,7 +192,7 @@ compatibility rule, affine temperatures, graph-declared units and packs.
 | `dominance-dimension` | boxes (componentwise intervals), components canonically sorted descending | componentwise | parcels/luggage ("fits in"), `size(390x230x190mm)` |
 | `calendar-dimension`  | the same interval denotations as linear over the time family, but every literal is a calendar period: `2026` the year, `2026-08` the month, `2026-08-15` the day, a timestamp the instant | identical to linear (shared code path) | dates on documents, "last summer", "everything from 2026" |
 | `count-dimension`     | whole numbers ≥ 1 of discrete things; ranges with floor 1 | interval containment | multiplicities (§ UNITS.md 11) |
-| `category-dimension`  | a conjunction of constraints on the graph — category names and terms of other dimensions (`transport(small-item weight(..8kg))`), sorted, deduplicated, none redundant | **by the graph**, not the name: every outer constraint is above some inner one; meet = union, reduced (§15) | what an operator accepts (loopmarket's courier), any "things such that" argument |
+| `graph-dimension`  | a conjunction of constraints on the graph — category names and terms of other dimensions (`transport(small-item weight(..8kg))`), sorted, deduplicated, none redundant | **by the graph**, not the name: every outer constraint is above some inner one; meet = union, reduced (§15) | what an operator accepts (loopmarket's courier), any "things such that" argument |
 
 **`calendar-dimension` (added 2026-08-01, `REGISTRY_VERSION` 2).** A separate
 kind for one reason, and it is a grammar collision rather than a semantic
@@ -253,7 +253,7 @@ changes for existing graphs. Declare the dimension before putting
 values (error otherwise). `(` `)` `..` `x` are reserved in new names
 going forward. The grammar is defined recursively (terms as parameters):
 the flat kinds refuse a nested parameter as before (`weight(x(y))` under a
-declared `weight` stays an opaque atom), and the category kind (§15) is
+declared `weight` stays an opaque atom), and the graph kind (§15) is
 the one whose parameter holds terms — `split_term` accepts balanced
 parentheses inside a parameter since registry 4.2. CLI note: parentheses
 need shell quoting, and a category term with several constraints holds a
@@ -726,7 +726,7 @@ the tripwire. Performance: a role star's containment checks are graph
 walks rather than string arithmetic, so the parked per-dimension index
 (§12 step 6) has a second reason to exist when a role star grows large.
 
-## 15. The category kind: constraints on the graph itself (issue #19, 2026-09-13)
+## 15. The graph kind: constraints on the graph itself (issue #19, 2026-09-13)
 
 **The case.** loopmarket's courier offers `transport(small-item
 weight(..8kg))`; a wanter writes `transport(bicycle weight(5kg))`. The
@@ -740,9 +740,9 @@ such terms. Which side must be inside is the consumer's rule (loopmarket
 reads the argument as what an operator *accepts*, so its want is inside
 its give); ontodag only orders.
 
-**Declaration.** A head under the kind node `category-dimension`:
-`odag put category-dimension dimension`, then `odag put transport
-category-dimension`. The kind is deliberately **not in the prelude**:
+**Declaration.** A head under the kind node `graph-dimension`:
+`odag put graph-dimension dimension`, then `odag put transport
+graph-dimension`. The kind is deliberately **not in the prelude**:
 adding a node to the prelude moves its golden root and, through `core`,
 the root of every pack and every published pack store — a cost the
 everyday dimensions justified and a kind only operator vocabularies use
@@ -780,6 +780,16 @@ is spelled, and the planner pre-intersects the two terms to the one. (An
 their meet — `put` does not refile parents under their meet; that is
 every kind's behaviour today, `weight(..8kg)` + `weight(5kg..)` alike, and
 belongs to §8's open list, not to this kind.)
+
+**The name.** Every node is a category and every typed value narrows a
+query, so neither "category" nor "constraint" says what is special here.
+What a kind names is *how a head's values are ordered*: linear by
+intervals, prefix by string prefix, dominance componentwise, calendar by
+periods, count by whole numbers — five orderings computed from the two
+names alone. This kind is the one whose values are ordered by the graph
+itself, hence `graph-dimension` (it was released for a few hours in
+0.26.0 as `category-dimension`; renamed in 0.26.1 before any store
+declared it).
 
 **What it is not.** No defined classes: `transport(small-item
 weight(..8kg))` is not a category a bicycle is *under*; it is a term that

@@ -211,7 +211,7 @@ stored as edges. Registry `4.2`; same major = same arithmetic.
 | `count-dimension` | whole numbers ≥ 1; ranges (floor 1) | interval containment | `count(2..)` contains `count(24)` |
 | `prefix-dimension` | path strings | prefix | `geo(u2)` contains `geo(u2ed)` |
 | `dominance-dimension` | sorted tuples `AxBxC` + unit | componentwise ≥ | `size(20x30x40cm)` contains `size(19x23x39cm)` |
-| `category-dimension` | a conjunction of constraints on the graph — category names and terms of other dimensions, sorted, each present or parseable, none redundant (issue #19) | by the graph: every outer constraint above some inner one | `transport(small-item weight(..8kg))` contains `transport(bicycle weight(5kg))` when `bicycle ⊑ small-item` |
+| `graph-dimension` | a conjunction of constraints on the graph — category names and terms of other dimensions, sorted, each present or parseable, none redundant (issue #19) | by the graph: every outer constraint above some inner one | `transport(small-item weight(..8kg))` contains `transport(bicycle weight(5kg))` when `bicycle ⊑ small-item` |
 
 Rules that refuse, with teaching errors: cycles; a point filed under two
 provably disjoint values of one head; `count(0)` (an absence claim);
@@ -235,7 +235,7 @@ spelled; ordered by the graph (`from(x) ⊑ from(y)` iff `x ⊑ y` under
 refused. A node named by a role term cannot be removed or moved out of
 its dimension while the term stands.
 
-Prelude v3 declares: five of the six kind nodes (not `category-dimension`, which a store declares itself when it needs it — `odag put category-dimension dimension`; the prelude's root, and every pack's, stay put) and heads `weight`, `length`,
+Prelude v3 declares: five of the six kind nodes (not `graph-dimension`, which a store declares itself when it needs it — `odag put graph-dimension dimension`; the prelude's root, and every pack's, stay put) and heads `weight`, `length`,
 `duration`, `area`, `volume`, `speed`, `pressure`, `temperature`,
 `energy`, `count`, `time`, `geo`, `size`.
 

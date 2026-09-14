@@ -1,5 +1,5 @@
-"""The category kind (registry 4.2, issue #19): a head under
-`category-dimension` takes as its parameter a conjunction of constraints on
+"""The graph kind (registry 4.2, issue #19): a head under
+`graph-dimension` takes as its parameter a conjunction of constraints on
 the graph itself — category names and terms of other dimensions — and the
 graph orders such terms: `H(X ...) ⊑ H(A ...)` iff every A is above some X.
 
@@ -20,8 +20,8 @@ from recordstore import MemoryBytesStore, RecordStore
 def city():
     dag = OntoDAG()
     prelude.apply(dag)
-    dag.put("category-dimension", ["dimension"])    # not in the prelude: a seed line
-    dag.put("transport", ["category-dimension"])
+    dag.put("graph-dimension", ["dimension"])    # not in the prelude: a seed line
+    dag.put("transport", ["graph-dimension"])
     dag.put("goods", [])
     dag.put("small-item", ["goods"])
     dag.put("bicycle", ["small-item"])
@@ -132,8 +132,8 @@ class TestPersistence(unittest.TestCase):
         store = RecordStore(MemoryBytesStore())
         dag = EagerOntoDAG(store)
         prelude.apply(dag)
-        dag.put("category-dimension", ["dimension"])
-        dag.put("transport", ["category-dimension"])
+        dag.put("graph-dimension", ["dimension"])
+        dag.put("transport", ["graph-dimension"])
         dag.put("goods", []); dag.put("small-item", ["goods"]); dag.put("bicycle", ["small-item"])
         dag.put("courier", ["transport(small-item weight(..8kg))"])
         root = dag.commit()
