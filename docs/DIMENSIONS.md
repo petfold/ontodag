@@ -276,10 +276,13 @@ normalized before names are formed.
   sorted index — **derived, regenerable, never merged**, like every
   other index in this stack. `LazyOntoDAG` gets the same via the head
   record's `down` — bounded fetches, no writes.
-- **Planner integration.** Same-dimension query terms pre-intersect
-  exactly (within a dimension, meets are real and computable — the one
-  place the SEMANTIC_CODES §10 meet-substitution guard does not apply);
-  empty intersection short-circuits to the empty result.
+- **Planner integration.** Same-dimension query terms: one inside the
+  other keeps the finer; provably disjoint ones short-circuit to the
+  empty result; incomparable ones stay separate cones the planner
+  intersects. (Until 0.26.1 they were met into one virtual term — not
+  result-preserving: the meet's cone holds the present values inside it,
+  and an item filed under both terms was below neither. `put` now files
+  such an item under the meet, §9, and the planner no longer substitutes.)
 - `get` returns matching parametric nodes as well as items below them
   (consistent with today's whole-cone results; items-only is a
   presentation flag).
@@ -347,6 +350,24 @@ normalized before names are formed.
   base dimension, and it follows the catalogue. §14 is the record.
 
 ## 9. Regions and generated sets (agreed 2026-07-30)
+
+**Canonical placement (0.26.2).** An item sits in the *intersection* of
+its parents, and within one dimension that intersection has a name — so
+`put(x, ["weight(1kg..3kg)", "weight(2kg..5kg)"])` files `x` under
+`weight(2kg..3kg)`, in one call or across two (`reclassify` folds with
+the parents the item keeps). One denotation, one stored form, and every
+query path — a two-term `get`, a `get` on the meet, `is_below` against a
+bound only the meet is inside — finds the item where it is. Every value
+named in the put is still materialized (a value once named stays), so
+stored form does not depend on the order of puts. Role terms naming nodes
+have no nameable meet and keep their several parents; a provably empty
+meet is the disjoint-parents refusal below. A legacy or edge-built store
+may still hold an item under two values of one head; the planner
+intersects the two cones and `is_below` consults the meet of the item's
+same-head ancestors, so it is found there too — the gap found while
+building §15. This is the "canonical placement" SEMANTIC_CODES.md §10
+names as the soundness condition for materialized meets, holding for
+dimension values (whose meets are computed, never asserted).
 
 Set-valued concepts whose members are expressible as parametric terms
 need **no new kind**: they are ordinary asserted nodes over generated
@@ -773,13 +794,10 @@ constraints is the wider term; `H(A B) ⊑ H(A)`. Constraints compare by
 distinct heads are incomparable, as with every kind. The meet of two
 same-head terms is the union of their constraints, reduced — never empty,
 since categories carry no disjointness (two same-head parents on one item
-are admitted; `overlaps` is always true). `H(A B)` ≡ `H(A) H(B)` as a
-*query*: an item under the conjunction is found whichever way the question
-is spelled, and the planner pre-intersects the two terms to the one. (An
-*item* filed under two separate same-head terms is not in the cone of
-their meet — `put` does not refile parents under their meet; that is
-every kind's behaviour today, `weight(..8kg)` + `weight(5kg..)` alike, and
-belongs to §8's open list, not to this kind.)
+are admitted and fold to their union; `overlaps` is always true).
+`H(A B)` ≡ `H(A) H(B)`: as a query, two cones with the same intersection;
+as an item, `put` under the two terms files it under the one (canonical
+placement, §9).
 
 **The name.** Every node is a category and every typed value narrows a
 query, so neither "category" nor "constraint" says what is special here.

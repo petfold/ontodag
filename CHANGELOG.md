@@ -14,6 +14,26 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.26.2] — 2026-09-14
+
+### Fixed
+
+- **An item under two values of one head was invisible to the query that
+  named them.** `put(x, ["weight(..8kg)", "weight(5kg..)"])` then
+  `get(["weight(..8kg)", "weight(5kg..)"])` returned nothing: the planner
+  met the two terms into a virtual `weight(5kg..8kg)` whose cone holds the
+  present values inside it, and `x` was below neither. Found while
+  building the graph kind; every kind had it. Three changes, one rule:
+  **canonical placement** (DIMENSIONS.md §9) — `put` and `reclassify`
+  file such an item under the meet (`weight(5kg..8kg)`, or the union of
+  constraints for the graph kind), the named values still materialized so
+  stored form stays history-free; the planner intersects same-head cones
+  instead of substituting their meet (disjoint terms still short-circuit);
+  and `is_below` against a virtual bound also asks the meet of the
+  subject's same-head ancestors, so a legacy or edge-built two-parent item
+  is found where it is. Tests in `tests/test_dimensions_dag.py`
+  (`TestPutGuards`) and `tests/test_graph_kind.py`.
+
 ## [0.26.1] — 2026-09-14
 
 ### Changed

@@ -86,13 +86,11 @@ class TestOrder(unittest.TestCase):
         self.assertFalse(below("bicycle-courier(bicycle)", "transport(goods)"))
 
     def test_a_conjunction_is_the_same_as_its_constraints_as_separate_terms(self):
-        """`H(A B)` ≡ `H(A) H(B)` as a QUERY: an item under the conjunction is
-        found whichever way the question is spelled, and the two separate
-        terms meet to the one canonical conjunction. (An ITEM filed under
-        two separate same-head terms is not in the cone of their meet —
-        the planner pre-intersects query terms but `put` does not refile
-        parents under their meet; that is every kind's behaviour today,
-        `weight(..8kg)` + `weight(5kg..)` alike, and not this kind's.)"""
+        """`H(A B)` ≡ `H(A) H(B)`: an item under the conjunction is found
+        whichever way the question is spelled, the two separate query terms
+        are two cones whose intersection is the same answer, and an item put
+        under the two separate terms is filed under their meet (canonical
+        placement, DIMENSIONS.md §9)."""
         dag = city()
         dag.put("courier-1", ["transport(small-item weight(..8kg))"])
         dag.put("courier-3", ["transport(piano)"])
@@ -109,10 +107,13 @@ class TestOrder(unittest.TestCase):
         self.assertEqual(dag.meet("transport(bicycle)", "transport(small-item)"),
                          "transport(bicycle)")
         self.assertTrue(dag.overlaps("transport(bicycle)", "transport(piano)"))
-        # two same-head parents are admitted (no disjointness among categories)
+        # two same-head parents fold to their meet, the union of the
+        # constraints — so `H(A B)` ≡ `H(A) H(B)` as an ITEM too
         dag.put("courier-2", ["transport(small-item)", "transport(weight(..8kg))"])
-        self.assertTrue(dag.is_below("courier-2", "transport(small-item)"))
-        self.assertTrue(dag.is_below("courier-2", "transport(goods)"))
+        self.assertEqual({p.name for p in dag.nodes["courier-2"].parents},
+                         {"transport(small-item weight(..8kg))"})
+        self.assertEqual(names(dag.get(["transport(small-item weight(..8kg))"], items_only=True)),
+                         {"courier-1", "courier-2"})
 
     def test_the_order_follows_the_graph(self):
         """A constraint names a node, so the term moves with it (the #15

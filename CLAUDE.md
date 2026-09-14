@@ -837,7 +837,7 @@ pairwise arithmetic; `from(geo)` stays refused. loopmarket matches every
 term by containment and its `DimensionIndex.candidates` is
 `get([line, *want.concepts], items_only=True)` — the want's conjunction
 IS the query. Record: DIMENSIONS.md §8 ("built and WITHDRAWN"). **984
-passed + 4 skipped (988 collected) as of 2026-09-12 night.** **991 passed + 4 skipped (995 collected) as of 2026-09-13 evening — 0.26.0, the graph kind (#19, renamed from category-dimension in 0.26.1, `tests/test_graph_kind.py`), registry 4.2, prelude deliberately unchanged.** Lesson for
+passed + 4 skipped (988 collected) as of 2026-09-12 night.** **991 passed + 4 skipped (995 collected) as of 2026-09-13 evening — 0.26.0, the graph kind (#19, renamed from category-dimension in 0.26.1, `tests/test_graph_kind.py`), registry 4.2, prelude deliberately unchanged.** **992 passed + 4 skipped (996 collected) 2026-09-14 — 0.26.2, canonical placement: an item under several values of one head is filed under their meet (DIMENSIONS.md §9).** Lesson for
 the file: when a consumer asks for an operator, ask what reading of the
 data makes it necessary before building it.
 

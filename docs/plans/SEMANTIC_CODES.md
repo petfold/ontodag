@@ -325,7 +325,7 @@ with this section as the destination it points toward.
   *sibling* of AB (`_remove_unneeded_edges` prunes redundant ancestors, never
   reroutes through descendants), so substituting AB for {A, B} in a query plan
   silently loses results. §9's admission policy is therefore incomplete without
-  one of: (a) **canonical placement** — once a meet is materialized, every
+  one of: (a) **canonical placement** — holds since 0.26.2 for *dimension values*, whose meets are computed (`put` files an item under the meet of its same-head values, DIMENSIONS.md §9), not for asserted meet-named nodes — once a meet is materialized, every
   later put whose supers subsume its parent set must route through it; or
   (b) treating materialized meets as unverified cache with explicit
   invalidation. Sound without either: using AB only to *prune* (candidates

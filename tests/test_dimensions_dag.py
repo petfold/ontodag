@@ -223,12 +223,47 @@ class TestPutGuards(unittest.TestCase):
         with self.assertRaises(ValueError):
             dag.put("x", ["weight(3kg..)"])
 
-    def test_overlapping_parents_are_fine(self):
+    def test_overlapping_parents_file_under_their_meet(self):
+        """Canonical placement (DIMENSIONS.md §9, 0.26.2): an item under two
+        values of one head sits in their intersection, and the intersection
+        has a name — so that is where it is filed, in one call or across
+        two, and every query path finds it there. The named values stay
+        present (a value once named stays), so stored form is history-free."""
         dag = make_dag()
         dag.put("x", ["weight(1kg..3kg)", "weight(2kg..5kg)"])
-        self.assertEqual(names(dag.nodes["x"].parents),
-                         {"weight(1kg..3kg)",
-                          "weight(2kg..5kg)"})
+        self.assertEqual(names(dag.nodes["x"].parents), {"weight(2kg..3kg)"})
+        self.assertIn("weight(1kg..3kg)", dag.nodes)
+        dag.put("y", ["weight(1kg..3kg)"])
+        dag.put("y", ["weight(2kg..5kg)"])                    # across calls: refiled
+        self.assertEqual(names(dag.nodes["y"].parents), {"weight(2kg..3kg)"})
+        for query in (["weight(1kg..3kg)", "weight(2kg..5kg)"], ["weight(2kg..3kg)"],
+                      ["weight(..3kg)"], ["weight(2kg..)"]):
+            self.assertEqual(names(dag.get(query)) & {"x", "y"}, {"x", "y"}, query)
+        self.assertTrue(dag.is_below("x", "weight(2kg..3kg)"))
+        self.assertFalse(dag.is_below("x", "weight(2500g..3kg)"))
+        # a move folds with the parents the item keeps, not with those it leaves
+        dag.reclassify(["y"], to=["weight(2500g..4kg)"])
+        self.assertEqual(names(dag.nodes["y"].parents), {"weight(5/2kg..4kg)"})
+        dag.reclassify(["x"], to=["weight(1kg..5kg)"], from_=[])
+        self.assertEqual(names(dag.nodes["x"].parents), {"weight(2kg..3kg)"})
+
+    def test_a_legacy_two_parent_item_is_still_found(self):
+        """A store written before 0.26.2 (or built edge by edge) may hold an
+        item under two same-head values. The planner intersects the two
+        cones instead of meeting the terms, and `is_below` asks the meet of
+        the item's same-head ancestors, so such an item is found where it
+        is — the gap this release closes."""
+        dag = make_dag()
+        dag.put("a", ["weight(..8kg)"]); dag.put("b", ["weight(5kg..)"])
+        dag.put("x", [])
+        dag.add_edge(dag.nodes["weight(..8kg)"], dag.nodes["x"])
+        dag.add_edge(dag.nodes["weight(5kg..)"], dag.nodes["x"])
+        self.assertEqual(names(dag.nodes["x"].parents), {"weight(..8kg)", "weight(5kg..)"})
+        self.assertEqual(names(dag.get(["weight(..8kg)", "weight(5kg..)"])) & {"a", "b", "x"}, {"x"})
+        self.assertTrue(dag.is_below("x", "weight(5kg..8kg)"))
+        self.assertTrue(dag.is_below("x", "weight(4kg..9kg)"))
+        self.assertFalse(dag.is_below("x", "weight(6kg..8kg)"))
+        self.assertFalse(dag.is_below("a", "weight(5kg..8kg)"))
 
     def test_unit_family_consistency_per_head(self):
         dag = make_dag()

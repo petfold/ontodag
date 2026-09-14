@@ -1344,15 +1344,14 @@ class OntoDAG(DAG):
             # one question with one answer.
             return finish(self.get_descendants(self.root))
 
-        # 1a. Same-head parametric terms pre-intersect EXACTLY — within a
-        # dimension, meets are computable (interval intersection), so this
-        # is result-preserving, and an empty meet is an empty result before
-        # the graph is touched at all. (Contrast SEMANTIC_CODES.md §10:
-        # asserted "meet-named" nodes must never be used this way.)
-        # Role terms naming nodes (DIMENSIONS.md §14) join in only through
-        # containment — one below the other keeps the finer — never as an
-        # arithmetic meet, which no single term could name; incomparable
-        # ones stay separate cones for the planner to intersect.
+        # 1a. Same-head parametric terms: one below the other keeps the
+        # finer (its cone is the subset); provably disjoint ones are an
+        # empty result before the graph is touched. Incomparable ones stay
+        # SEPARATE cones for the planner to intersect — until 0.26.1 they
+        # were met into one virtual term, which is not result-preserving:
+        # the meet's cone holds the present values inside it, and an item
+        # filed under both terms (a legacy or merged store; `put` now files
+        # it under the meet, DIMENSIONS.md §9) is below neither of those.
         virtual = {}
         if parametric:
             by_head, head_kind = {}, {}
@@ -1367,12 +1366,9 @@ class OntoDAG(DAG):
                         break
                     if self._param_node(head, _dims.split_term(name)[1]) \
                             is None and self._param_node(
-                                head, _dims.split_term(other)[1]) is None:
-                        met = self._intersect(other, name, kind)
-                        if met is None:
-                            return set()
-                        kept[index] = met
-                        break
+                                head, _dims.split_term(other)[1]) is None \
+                            and self._intersect(other, name, kind) is None:
+                        return set()
                 else:
                     kept.append(name)
             for head, kept in by_head.items():
@@ -1585,7 +1581,12 @@ class OntoDAG(DAG):
                 if parsed is not None and parsed[0] == head \
                         and self._contains(sup, ancestor.name, kind):
                     return True
-            return False
+            # A subject under several same-head values (a legacy or merged
+            # store; `put` files under the meet since 0.26.2) sits in their
+            # meet, which may be inside the bound though no single value is.
+            upper = self._bounds(sub)[0].get(head)
+            return upper is not None and upper != sub \
+                and self._contains(sup, upper, kind)
         return self._has_ancestors(sub_node, (sup_node,))
 
     def get_by_dag(self, query_dag):
@@ -1769,6 +1770,53 @@ class OntoDAG(DAG):
         return [parent.name for parent in node.parents
                 if self.nodes.get(parent.name) is parent]
 
+    def _fold_same_head_values(self, sub_name, super_names, live=()):
+        """Canonical placement (DIMENSIONS.md §9): an item that would sit
+        under several VALUE terms of one head is filed under their meet
+        instead — `weight(1kg..3kg)` and `weight(2kg..5kg)` become
+        `weight(2kg..3kg)` — because an item sits in the intersection of
+        its parents and that intersection has a name. One denotation, one
+        stored form, and every query path sees the item where it is: before
+        this (until 0.26.1) the planner met two same-head query terms into
+        one virtual term whose cone held neither parent, so `get([A, B])`
+        silently missed an item filed under both. Parents the item already
+        has (`live`) fold in too, and the reduction pass prunes their edges
+        once the meet's edge exists. Role terms naming nodes have no
+        nameable meet and stay as they are (the graph orders them); a
+        provably empty meet is the disjoint-parents refusal. Returns the
+        super names to file under."""
+        by_head = {}
+        for name in [*super_names, *live]:
+            parsed = self._parse_parametric(name)
+            if parsed is None or self._param_node(
+                    parsed[0], _dims.split_term(name)[1]) is not None:
+                continue
+            by_head.setdefault(parsed[0], (parsed[1], []))[1].append(name)
+        folded = {}
+        for head, (kind, names) in by_head.items():
+            distinct = list(dict.fromkeys(names))
+            if len(distinct) < 2:
+                continue
+            meet = distinct[0]
+            for other in distinct[1:]:
+                met = self._intersect(meet, other, kind)
+                if met is None:
+                    raise ValueError(
+                        f"{sub_name} cannot sit under both {meet} "
+                        f"and {other}: provably disjoint {head!r} terms — "
+                        "an item is in the intersection of its parents; for "
+                        "a union, use a region node (DIMENSIONS.md §9)")
+                meet = met
+            for name in distinct:
+                folded[name] = meet
+        out = []
+        for name in [*super_names, *live]:
+            target = folded.get(name)
+            if name in super_names or target is not None:
+                if (target or name) not in out:
+                    out.append(target or name)
+        return out
+
     def _check_parametric_placement(self, sub_name, super_names, also=()):
         """Refuse a placement the dimension arithmetic can prove wrong.
 
@@ -1853,6 +1901,16 @@ class OntoDAG(DAG):
 
         if any(name not in self.nodes for name in super_names):
             raise ValueError("One or more super-categories do not exist.")
+        # Canonical placement (DIMENSIONS.md §9): several values of one head
+        # fold to their meet — after the named values are materialized, so
+        # stored form does not depend on the order of puts (a value once
+        # named stays, whether or not an edge to it survives).
+        super_names = self._fold_same_head_values(
+            subcategory.name, super_names, self._live_parent_names(subcategory.name))
+        for name in super_names:
+            if name not in self.nodes:
+                parsed = self._parse_parametric(name)
+                self._ensure_parametric_node(name, parsed[0], parsed[1])
         if subcategory.name == self.root.name and self.root.name in self.nodes:
             raise ValueError("Already exists as root.")
 
@@ -2038,7 +2096,7 @@ class OntoDAG(DAG):
 
         # Everything is validated against the pre-move graph before a single
         # edge moves, so a refusal never leaves half a move behind.
-        retract = {}
+        retract, targets = {}, {}
         for item in items:
             if from_ is None:
                 retract[item] = [name for name in self._live_parent_names(item)
@@ -2067,14 +2125,18 @@ class OntoDAG(DAG):
                         f"Edge {destination} -> {item} would create a cycle.")
             keeping = [name for name in self._live_parent_names(item)
                        if name not in retract[item] and name != self.root.name]
-            self._check_parametric_placement(item, destinations, also=keeping)
-            self._check_role_reference_stays(item, destinations + keeping)
+            targets[item] = self._fold_same_head_values(item, destinations, keeping)
+            self._check_parametric_placement(item, targets[item], also=keeping)
+            self._check_role_reference_stays(item, targets[item] + keeping)
 
         for name, head, kind in pending:
             self._ensure_parametric_node(name, head, kind)
 
         for item in items:
-            for destination in destinations:
+            for destination in targets[item]:
+                if destination not in self.nodes:      # a meet the fold named
+                    parsed = self._parse_parametric(destination)
+                    self._ensure_parametric_node(destination, parsed[0], parsed[1])
                 self.add_edge(self.nodes[destination], self.nodes[item])
 
         retracted = set()

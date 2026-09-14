@@ -213,7 +213,7 @@ stored as edges. Registry `4.2`; same major = same arithmetic.
 | `dominance-dimension` | sorted tuples `AxBxC` + unit | componentwise ≥ | `size(20x30x40cm)` contains `size(19x23x39cm)` |
 | `graph-dimension` | a conjunction of constraints on the graph — category names and terms of other dimensions, sorted, each present or parseable, none redundant (issue #19) | by the graph: every outer constraint above some inner one | `transport(small-item weight(..8kg))` contains `transport(bicycle weight(5kg))` when `bicycle ⊑ small-item` |
 
-Rules that refuse, with teaching errors: cycles; a point filed under two
+Several values of one head on one item fold to their meet (`put(x, ["weight(1kg..3kg)", "weight(2kg..5kg)"])` files `x` under `weight(2kg..3kg)`; DIMENSIONS.md §9). Rules that refuse, with teaching errors: cycles; a point filed under two
 provably disjoint values of one head; `count(0)` (an absence claim);
 fractional counts; negatives (except affine `C`/`F` spellings); values
 below absolute zero; unknown units (the error names the pack or
