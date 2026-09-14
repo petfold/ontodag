@@ -787,9 +787,7 @@ What a kind names is *how a head's values are ordered*: linear by
 intervals, prefix by string prefix, dominance componentwise, calendar by
 periods, count by whole numbers — five orderings computed from the two
 names alone. This kind is the one whose values are ordered by the graph
-itself, hence `graph-dimension` (it was released for a few hours in
-0.26.0 as `category-dimension`; renamed in 0.26.1 before any store
-declared it).
+itself, hence `graph-dimension`.
 
 **What it is not.** No defined classes: `transport(small-item
 weight(..8kg))` is not a category a bicycle is *under*; it is a term that

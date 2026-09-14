@@ -49,7 +49,7 @@ is a set of constraints on the graph, and the graph should order it.
   never empty. `H(A B)` and `H(A) H(B)` are one query. `split_term`
   accepts balanced nesting inside a parameter (the flat kinds still read
   a nested parameter as opaque); `dimensions.constraints(param)` splits
-  one. Tests: `tests/test_category_kind.py`.
+  one. Tests: `tests/test_graph_kind.py`.
 
 
 Three loopmarket asks landed in one day (#15, #16, #14) and one of them
