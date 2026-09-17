@@ -1825,10 +1825,24 @@ def cmd_ingest(args, session, out):
     One commit at the end, not one per line: a projection rebuild is one
     state change, and per-line commits would flood an rs:/swarm: store's
     history with meaningless intermediates.
+
+    `--source-key KEY` records what the stream was built from, as the node
+    `sys:source:KEY` filed under the `--drop` nodes. A projection is only
+    meaningful against the source it was derived from, and a consumer that
+    cannot tell which one cannot tell whether it is stale — which matters
+    the moment a projection is materialised somewhere other than the device
+    that rebuilt it (PROJECTIONS.md §3). Living inside the dropped cone is
+    the point: a rebuild replaces the key along with everything else, so a
+    stale key cannot outlive the stream it describes.
     """
     for name in args.drop or []:
         if name in session.dag.nodes:
             session.dag.remove_cone([name])
+    if getattr(args, "source_key", None):
+        for parent in args.drop or []:
+            if parent not in session.dag.nodes:
+                session.dag.put(parent, [])
+        session.dag.put(f"sys:source:{args.source_key}", list(args.drop or []))
     stream = (sys.stdin if args.file in (None, "-")
               else open(args.file, encoding="utf-8"))
     try:
@@ -2765,6 +2779,10 @@ def build_parser():
     p.add_argument("--drop", action="append", metavar="NODE",
                    help="cone-delete NODE before ingesting (full-rebuild "
                         "semantics); repeatable")
+    p.add_argument("--source-key", metavar="KEY",
+                   help="record what this stream was built from, as "
+                        "sys:source:KEY under the --drop nodes, so a "
+                        "consumer can tell whether it is stale")
     p.set_defaults(func=cmd_ingest)
 
     p = sub.add_parser("export", add_help=True, help="write the store to a file")

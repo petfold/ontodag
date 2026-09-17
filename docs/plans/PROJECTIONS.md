@@ -70,10 +70,24 @@ themselves like any other edges.
 - **Idempotent full rebuild.** Ingestion drops the namespace layer and
   re-ingests the whole stream. No incremental diffing: *staleness is
   the only permitted failure mode, drift is not.*
-- **Local, never synced.** The projection is rebuilt on each device
-  from the (synced) source of facts — holdings' SQLite, ucomm's logs —
-  not synced itself. Merge, provenance, certificates and the retraction
-  wall therefore never see it.
+- **Derived, never authoritative.** *(amended 2026-09-17; was "Local,
+  never synced" — see §10.4.)* A projection is never merged, never
+  hand-edited, never behind the retraction wall, and never a source of
+  truth. Merge, provenance and certificates do not see it. It **may** be
+  materialised — as a local cache rebuilt from the source, or as an
+  immutable published artifact — provided that:
+  1. the materialisation is **keyed to its source's content**, so a
+     consumer can tell whether it is stale (`odag ingest --source-key`
+     records this as `sys:source:KEY` inside the dropped cone);
+  2. consumers treat it as regenerable and non-authoritative, and
+     **rebuilding from source remains the definition of correct**.
+
+  The original wording said "local" because that was the only place a
+  cache could live. What it protected was (a) that derived facts stay out
+  of the merge algebra, and (b) that staleness is noticed — and it
+  achieved (b) incidentally, by having the device that used a cache also
+  be the device that rebuilt it. An immutable published artifact keeps
+  (a) by construction and needs condition 1 to keep (b).
 - **Items are shared; memberships are layered.** Item nodes
   (hash-identified, §6) are referenced by both layers; a rebuild drops
   projected *memberships*, not the items the human layer has touched.
@@ -318,13 +332,32 @@ shared piece is this contract, not a package.
    copies (404 MB at 10⁵, 3.7 GB at 10⁶) argues for (b) eventually.
    Decision deferred until the pattern is used in anger; (c) is true
    today and costs nothing.
+2. **Materialising a projection off-device — decided 2026-09-17.**
+   Raised by holdings#3: its browser viewer reads a *published* catalog
+   over range reads (5 pages to open a 157 MB file), so there is no local
+   SQLite to rebuild from, and rebuilding in-browser would fetch the whole
+   catalog and destroy the economy that makes the viewer work.
+
+   Decided: the rule was protecting the merge algebra, not the transport.
+   §3 is amended to **Derived, never authoritative**, with the two
+   conditions above. A `bzz://` root is not merged, cannot be hand-edited,
+   and is content-addressed; what it lacked was a way to say which source
+   it came from, which `--source-key` now provides.
+
+   Deliberately *not* decided here: whether a browser composes the view
+   itself (needs BROWSER.md §4–§6, a design that has never been run) or
+   consumes memberships already composed by the writer. holdings is
+   prototyping the second, which needs no ontodag code — `Session.view()`
+   and the cone query both shipped 2026-08-20. Note this is independent of
+   BROWSER.md §7, whose two questions are both about the *write* path.
+
 2. **Contact projection.** ucomm's contact book is itself a human-
    curated source of truth. Are identity edges projected from it
    (regenerable, but then not human-editable in the DAG) or native to
    the human layer (editable, but then two homes for one fact)? The
    general rule "every fact has exactly one home" wants this decided
    once.
-3. **The edited-file residue.** Content-hash identity makes an edited
+4. **The edited-file residue.** Content-hash identity makes an edited
    document a new item. Do human categories carry forward, and by what
    act? (A `version-of`-shaped link brushes the relations wall;
    re-filing by hand is honest but tedious; holdings inherits the same

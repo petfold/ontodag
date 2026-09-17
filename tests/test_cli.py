@@ -2990,6 +2990,66 @@ class TestProjectionDrop(unittest.TestCase):
             self.assertEqual(out, "trip.jpg\n")       # classification intact
 
 
+class TestIngestSourceKey(unittest.TestCase):
+    """`--source-key`: PROJECTIONS.md §3's condition that a materialised
+    projection says what it was built from. A projection is only meaningful
+    against its source, and a consumer that cannot tell which one cannot
+    tell whether it is stale."""
+
+    def _stream(self, home, lines, name="stream.jsonl"):
+        path = os.path.join(home, name)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + "\n")
+        return path
+
+    def test_the_key_is_recorded_as_a_node(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "p.od"))
+            stream = self._stream(home, [
+                '{"item": "h1", "supercategories": ["sys:on:drive"]}'])
+            code, _ = _run(["ingest", stream, "--drop", "sys:",
+                            "--source-key", "cat-abc123"], session)
+            self.assertEqual(code, 0)
+            code, out = _run(["list"], session)
+            self.assertIn("sys:source:cat-abc123", out.split())
+
+    def test_a_rebuild_replaces_the_key(self):
+        """It lives inside the dropped cone on purpose: a stale key must not
+        outlive the stream it describes."""
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "p.od"))
+            stream = self._stream(home, [
+                '{"item": "h1", "supercategories": ["sys:on:drive"]}'])
+            _run(["ingest", stream, "--drop", "sys:",
+                  "--source-key", "old"], session)
+            _run(["ingest", stream, "--drop", "sys:",
+                  "--source-key", "new"], session)
+            names = set(_run(["list"], session)[1].split())
+            self.assertIn("sys:source:new", names)
+            self.assertNotIn("sys:source:old", names)
+
+    def test_no_key_records_nothing(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "p.od"))
+            stream = self._stream(home, [
+                '{"item": "h1", "supercategories": ["sys:on:drive"]}'])
+            _run(["ingest", stream, "--drop", "sys:"], session)
+            names = set(_run(["list"], session)[1].split())
+            self.assertFalse(any(n.startswith("sys:source:") for n in names))
+
+    def test_the_key_does_not_disturb_the_items(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "p.od"))
+            stream = self._stream(home, [
+                '{"item": "h1", "supercategories": ["sys:on:drive"]}',
+                '{"item": "h2", "supercategories": ["sys:on:drive"]}'])
+            _run(["ingest", stream, "--drop", "sys:",
+                  "--source-key", "k"], session)
+            code, out = _run(["get", "sys:on:drive"], session)
+            self.assertEqual(code, 0)
+            self.assertEqual(sorted(out.split()), ["h1", "h2"])
+
+
 class TestIngest(unittest.TestCase):
     """`odag ingest`: the PROJECTIONS.md §4 wire format, with the contract's
     semantics — idempotent, order-free, full rebuild via --drop."""
