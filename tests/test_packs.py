@@ -43,8 +43,8 @@ GOLDEN_ROOTS = {  # pack fingerprints: everyone merging these converges (a domai
         "5287190b0eb1a807e21b03a759806ab75c248b682541724d9ea6de9cdaf677a3",
     "ai":  # v4, 2026-09-10 — a domain pack over core (ontodag-core packs/ai)
         "57d0f6e2e8f1878ffb0902940b9676a024b037c91b447394fbc7b643c3d788c6",
-    "economics":  # v5, 2026-09-10 — a domain pack over core (ontodag-core packs/economics)
-        "e6a18031130f8e4d82d181e2aa5c9a948baee30182e513eda42ff64667c251ff",
+    "economics":  # v6, 2026-09-19 — v5 plus dai/xdai/usdc under stablecoin, bzz/xbzz under crypto-token (ontodag-core 845d789)
+        "e3cf9cd178ff3fa29febdd6f72dfc8f37dee7db0252153388e1a42b2de5f3d27",
     "computing":  # v4, 2026-09-10 — a domain pack over core (ontodag-core packs/computing)
         "9426e5f172d744e7e4998cc89b6b1c3973d6384c1e2e66c877a0081113752697",
     "geography":  # v5, 2026-09-10 — a domain pack over core (ontodag-core packs/geography)
@@ -269,8 +269,8 @@ SWARM_GOLDEN_ROOTS = {  # the same packs under Swarm (BMT) addressing —
         "34b07722a84b1a0609fe4287d962d809abcb74fb9c00bb6e5a6ea9dbc945be7c",
     "ai":
         "982fa3218a2b48fd6eb3127d8c94a9c9aa2f20475f58514dd6ec60bd15120a72",
-    "economics":
-        "83ce3b4a31405aa751f838dc49138b03bb0eafe8dafd6b5e430d18be1ee93fde",
+    "economics":  # v6, 2026-09-19
+        "ba0f2aeb58b9860ffcb52f23e41d99c54a428cbfad14d22e5651002f95085f01",
     "computing":
         "cf76d4e183ea07133b9f610a0706f2964cbc49994eff38c2d6c857a043713d2b",
     "geography":

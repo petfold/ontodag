@@ -1,7 +1,7 @@
-"""The `economics` pack, version 5: 1120 categories, adopted by merge.
+"""The `economics` pack, version 6: 1125 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/economics, commit 4830925) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/economics, commit 4830925; v6 adds dai, xdai, usdc under stablecoin and bzz, xbzz under crypto-token from ontodag-core 845d789, 2026-09-19 — the assets loopmarket's bonds name) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack economics` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 5
+VERSION = 6
 
 BORROWED = ()
 
@@ -143,6 +143,7 @@ PACK = (
     ("buyer's-market", ('activity',)),
     ('buying', ('exchange', 'purchase')),
     ('byzantine-fault-tolerance', ('consensus-mechanism',)),
+    ('bzz', ('crypto-token',)),
     ('cab-fare', ('fare',)),
     ('call-loan', ('loan',)),
     ('call-option', ('option', 'option-finance', 'purchase-option')),
@@ -282,6 +283,7 @@ PACK = (
     ('customs-broker', ('professional',)),
     ('cut-rate-sale', ('event',)),
     ('cutler', ('craftsman', 'trader')),
+    ('dai', ('stablecoin',)),
     ('damages', ('compensation',)),
     ('dark-pool', ('capital-market',)),
     ('day-trading', ('trading',)),
@@ -1091,6 +1093,7 @@ PACK = (
     ('unsecured-bond', ('bond',)),
     ('unspent-transaction-output', ('information',)),
     ('upset-price', ('asking-price',)),
+    ('usdc', ('stablecoin',)),
     ('usury', ('interest', 'interest-rate')),
     ('utility-bond', ('municipal-bond',)),
     ('utility-token', ('crypto-token',)),
@@ -1129,6 +1132,8 @@ PACK = (
     ('working-capital', ('capital',)),
     ('wrapped-token', ('crypto-token',)),
     ('write-off', ('depreciation',)),
+    ('xbzz', ('crypto-token',)),
+    ('xdai', ('stablecoin',)),
     ('yellow-dog-contract', ('labor-contract',)),
     ('yield-curve', ('concept',)),
     ('yield-farming', ('decentralized-finance',)),
