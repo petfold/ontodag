@@ -181,7 +181,10 @@ rejected, 3.0%; ontodag-core UPPER.md §9), so those seven pack modules
 Later the same night (0.22.1): medicine, ai, economics and geography are
 **v3** — nine synonym duplicates dropped on Peter's rule (of two synonyms
 keep the first) and geography's water spring renamed `natural-spring`; core
-itself unchanged.
+itself unchanged. **Economics v6 (0.26.3, 2026-09-19):** `dai`, `xdai`,
+`usdc` under `stablecoin` and `bzz`, `xbzz` under `crypto-token` — the
+asset categories loopmarket's bonds are deposited in and accepted as
+compensation (its v5 record); five hand-added entries, nothing else moved.
 
 **v6 (0.23.0, 2026-09-03): the everyday goods layer.** Peter's question was
 whether the products and services traded on loopmarket could be named

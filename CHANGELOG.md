@@ -14,6 +14,20 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.26.3] — 2026-09-19
+
+### Added
+
+- **Economics pack v6: the assets a deposit is held in.** `dai`, `xdai`
+  and `usdc` under `stablecoin`, `bzz` and `xbzz` under `crypto-token`
+  (with `xdai` noted as Gnosis Chain's native coin, the gas token Swarm
+  settles in). loopmarket's v5 record names the asset category a giver's
+  bond is deposited in and the categories a wanter accepts as
+  compensation; those names are now the shared catalogue's, so a bond in
+  xDAI and an acceptance of any `stablecoin` meet by the graph. Pack
+  roots re-pinned under both addressings in `tests/test_packs.py`; the
+  other packs and core are unchanged.
+
 ## [0.26.2] — 2026-09-14
 
 ### Fixed

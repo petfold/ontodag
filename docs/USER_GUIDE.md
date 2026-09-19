@@ -1100,7 +1100,10 @@ true
 
 The scope of each pack — and what was deliberately left out (economics
 carries no macroeconomics, geography no countries, space no numbers) — is
-in ontodag-core's `docs/UPPER.md` §8. Every one of them has had two
+in ontodag-core's `docs/UPPER.md` §8. Since 0.26.3 economics also names
+the assets a loopmarket deposit is held in — `dai`, `xdai`, `usdc` under
+`stablecoin`, `bzz`, `xbzz` under `crypto-token` — so a bond in xDAI and a
+wanter accepting any stablecoin meet by the graph. Every one of them has had two
 readings (§9 there records the second: about 3% of the single-source
 edges were wrong each time, and what kinds).
 

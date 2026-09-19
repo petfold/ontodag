@@ -72,6 +72,12 @@ replayable answer, which the existing snapshot machinery already supports.
   section for why). Since 2026-07-31 it can also consult **published cone
   summaries** (below), so broad queries no longer cost their cones.
 
+- [x] The starting vocabulary: core (`odag pack core`, 4,157 categories)
+  and ten domain packs shipped in the wheel since 0.21.0, converging on one
+  root in any adoption order; economics v6 (0.26.3, 2026-09-19) names the
+  assets loopmarket's deposits are held in (`xdai`, `dai`, `usdc`, `bzz`,
+  `xbzz`), the first pack change driven by a consumer's record format.
+
 ## Next up (concrete, queued)
 
 1. [x] **Cone summaries for broad queries.** **Done (2026-07-31).** A small
