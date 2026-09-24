@@ -219,6 +219,28 @@ would mean "from Alice" in one store and "for Alice" in another. Options:
 *Leaning:* (b) for stores that travel, with (a) as the library's actual
 parameter, so a host can still say "these, and only these".
 
+The collision, concretely:
+
+```
+alice@acme.com ⊑ Alice ⊑ work          # PROJECTIONS' human layer
+email-from-alice-1 ⊑ alice@acme.com    # a facet: "from Alice"
+```
+
+Read under the sharing rule, the second edge means "shared **with** Alice":
+her own mail would be shared with her. With (b), `alice@acme.com` is a
+principal only if the store files it under `principal`; "from" facets live
+elsewhere (`sys:from:alice@acme.com`, or under `Alice`).
+
+What deciding unlocks: `remove`/`move --dry-run` can report losses without
+being told whom to ask about; `shared-with` can list everyone a store
+shares with; ACT can derive its token plan from the same declaration
+(Q4). What it costs: a host declares each principal once (categor.io:
+`ada@categor.io ⊑ principal` when an address first appears in a store);
+existing stores are unchanged, since nothing is a principal until
+declared; and principals become part of what G7 promises.
+
+**Decision pending** (Peter, 2026-09-24: "I'll come back to this").
+
 **Q2 — Redundant grants vanish.** OntoDAG stores the reduction: after
 `employees ⊑ sales ⊑ harry`, Acme's explicit `employees ⊑ harry` is gone,
 and removing Harry from sales then removes both. categor.io mitigates this
@@ -269,3 +291,9 @@ index of its own?
 6. **G7** into CONTRACT.md after a review round, as G6 was.
 
 Each step is additive; nothing existing changes meaning.
+
+**Where this stands (2026-09-24).** Steps 1–2 shipped in 0.28.0, except
+`--dry-run` losses, which wait for Q1. categor.io takes the rule from
+`ontodag.sharing` (its `sharing.py` keeps only its policies). Next: decide
+Q1; then step 4 (principal declaration) and the `--dry-run` losses, then
+step 3 (filtered overlays).

@@ -1067,6 +1067,21 @@ default earns its place; one that adds weight for a file format does not.*
 
 ## Release state
 
+**Current (2026-09-24): ontodag 0.28.0**, published by tag, all four
+workflow jobs green (the `downstream` job ran ontodag-fs's suite against
+the candidate). 0.27.0 (same day) is the embedder API: `ontodag.native`,
+`OntoDAG.is_term`, `packs.pack_members`/`pack_top`, `COMMAND_EFFECTS` /
+`effects(argv)`, the markup-label fix. 0.28.0 is `ontodag.sharing`
+(`reach`/`landing`/`losses`) and `odag shared-with` / `get --as` —
+docs/plans/SHARING.md steps 1–2. Both were driven by categor.io
+(github.com/petfold/categorio), a website over OntoDAG, which now depends
+on `ontodag>=0.28`. **Owed:** ontodag-fs 0.6.2 still pins
+`ontodag<0.27.0`; its suite passes against 0.28.0 (313 passed), so a
+ceiling-only release is due. **Open:** SHARING.md Q1 (how a store marks
+its principals) awaits Peter's decision; it gates the `--dry-run` losses
+and principal declaration. The table and paragraphs below are older
+history, not updated since 0.23.0/0.25.0.
+
 **All three repos released 2026-08-06**, each by tag through its publish
 workflow, each verified against what PyPI serves rather than what is on disk.
 `CHANGELOG.md` in each repo is the authoritative per-release history; this
