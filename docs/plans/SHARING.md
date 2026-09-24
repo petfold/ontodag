@@ -1,6 +1,6 @@
 # Sharing: What One Store Shows Another
 
-Status: discussion draft (2026-09-24). **Built so far (unreleased, for
+Status: discussion draft (2026-09-24). **Built so far (released in
 0.28.0):** `ontodag.sharing` — `reach`, `landing`, `losses` — and the CLI's
 `shared-with` and `get`/`count --as` (§7, steps 1–2); principals are named
 by the caller until Q1 is settled. Everything else here is proposed. categor.io, a website over OntoDAG, implements a version of the
@@ -257,7 +257,7 @@ index of its own?
    ported from categor.io's scenarios (Acme's groups and departments, the
    private parent, members not seeing each other, the pre-registration
    exclusion as `exclude`). categor.io then drops its own copies.
-   **[Built, unreleased: `tests/test_sharing.py`.]**
+   **[Built, 0.28.0: `tests/test_sharing.py`.]**
 2. **CLI:** `shared-with`, `get --as`, and losses in `--dry-run`. This is
    single-user value, and it makes the rule inspectable by anyone.
    **[`shared-with` and `get`/`count --as` built; `--dry-run` losses wait

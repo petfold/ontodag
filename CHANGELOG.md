@@ -14,6 +14,8 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.28.0] — 2026-09-24
+
 ### Added
 
 - **What a store shares, and with whom** (docs/plans/SHARING.md, step 1 of

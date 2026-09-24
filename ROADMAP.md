@@ -83,6 +83,11 @@ replayable answer, which the existing snapshot machinery already supports.
   embedder derives what it may run instead of keeping its own list. Driven
   by categor.io, the first website built on OntoDAG, which had been
   reaching into private code for each of them.
+- [x] **What a store shares, and with whom** (0.28.0, 2026-09-24):
+  `ontodag.sharing` (`reach`, `landing`, `losses`) and `odag shared-with` /
+  `get --as` — a reader sees what is filed below their name in *this*
+  store, never in a merge; the design and its open questions in
+  [docs/plans/SHARING.md](docs/plans/SHARING.md).
 
 ## Next up (concrete, queued)
 
