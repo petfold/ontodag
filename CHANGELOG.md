@@ -14,6 +14,38 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Added
+
+- **`ontodag.keyplan`: what a store shares, enforced by keys**
+  (experimental; docs/plans/SHARING_ON_SWARM.md §4, Phase 1). It needs
+  the `act` extra.
+  - `Publisher(store, author_key).publish(dag, principals, content=)`
+    keeps a record store equal to the store's *key plan*:
+    - a Bee-ACT-shaped grantee entry per principal;
+    - a token per edge of the combined order below the principals
+      (`plan()`, the computed hops between typed values included);
+    - a sealed record per shared node, holding its name and a data key
+      for its content.
+  - `Reader(store, key, author_public_key).receive()` walks it with one
+    personal key and returns exactly the reader's reach, with exactly the
+    edges inside it.
+  - Node ids are keyed with an author secret, so a guessed name can't be
+    tested against the published shape.
+  - Every node has a rotating derivation key and per-version data keys,
+    so a rotation never re-encrypts content.
+  - Removal rotates lazily. A node someone lost gets a new key only
+    before something new is wrapped under it (a new token or a changed
+    record), then upward to a fixpoint. `eager=True` rotates everything
+    stale at once.
+  - Checked by tests/test_keyplan.py, including a random-store property
+    test: a reader that kept every key it ever held opens only record
+    versions it was once entitled to. Two deliberate mutations (no
+    fixpoint; record changes ignored) both fail it.
+  - `experiments/keyplan_spike.py` compares four rotation rules on the
+    same random edits. It shows that `KeyGraph.revoke`'s rule (rotate
+    only nodes with outgoing tokens) exposes new keys once such a node
+    gains a child.
+
 ## [0.28.0] — 2026-09-24
 
 ### Added
