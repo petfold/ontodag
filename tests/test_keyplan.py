@@ -94,9 +94,8 @@ def _derivable(store, held):
     held for each node: an attacker with old keys."""
     known = {i: set(ks) for i, ks in held.items()}
     out = {}
-    for k in store.keys(keyplan.TOKEN_PREFIX):
-        u, v = k[len(keyplan.TOKEN_PREFIX):].split("/")
-        out.setdefault(u, []).append((v, bytes.fromhex(store.get(k)["token"])))
+    for u, v, token in keyplan.tokens(store):
+        out.setdefault(u, []).append((v, token))
     changed = True
     while changed:
         changed = False
@@ -113,7 +112,7 @@ def _derivable(store, held):
 def _opens(store, node_id, keys):
     """Whether any of `keys` opens the node's current record."""
     try:
-        record = store.get(keyplan.RECORD_PREFIX + node_id)
+        record = store.get(keyplan.record_key(node_id))
     except KeyError:
         return False
     for k in keys:
@@ -182,8 +181,8 @@ class TestWhatReadersSee(unittest.TestCase):
         self.assertEqual((again.written, again.deleted), (0, 0))
 
     def test_ids_are_keyed(self):
-        ids = {k[len(keyplan.RECORD_PREFIX):]
-               for k in self.pub.store.keys(keyplan.RECORD_PREFIX)}
+        ids = {k[len(keyplan.NODE_PREFIX):]
+               for k in self.pub.store.keys(keyplan.NODE_PREFIX) if "/t/" not in k}
         self.assertEqual(len(ids), self.pub.publish(self.dag, _principals()).shared)
         self.assertNotIn(act.node_id("bob@x"), ids)
         other = keyplan.Publisher(RecordStore(MemoryBytesStore()), AUTHOR, rng=_rng(2))

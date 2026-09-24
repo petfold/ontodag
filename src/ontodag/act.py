@@ -343,7 +343,17 @@ class KeyGraph:
         it would lock out the remaining readers without hiding anything
         (forward-only revocation, module doc / DESIGN.md §6). Returns the
         rotated names, so the caller can re-`grant` anyone whose entry sat
-        on a rotated leaf."""
+        on a rotated leaf.
+
+        **Known issue (2026-09-25).** A document leaf left unrotated keeps
+        the key the revoked person holds. If it later gains a child (in
+        OntoDAG any node can), the child's key is wrapped under that old
+        key, and the revoked person derives it.
+        `experiments/keyplan_spike.py` measures this: new keys were exposed
+        after 417 of 5,866 random edits. `ontodag.keyplan` doesn't have the
+        problem: it keeps a rotating key apart from the content keys, and
+        rotates a lost node before anything new is wrapped under it
+        (docs/plans/SHARING_ON_SWARM.md §4.3)."""
         lookup, _ = act_keys(self._org_priv, person_public_key)
         self._store.delete(GRANT_PREFIX + lookup.hex())
         has_out = {u_id for u_id, _v in self.links()}

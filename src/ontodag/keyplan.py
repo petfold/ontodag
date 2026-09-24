@@ -9,12 +9,16 @@ any record store (a `RecordStore`, local or on Swarm):
     kp/g/<lookup>    a grantee entry per principal, Bee-ACT-shaped: the
                      principal node's key, found and unwrapped by ECDH
                      between author and reader (`act.act_keys`)
-    kp/t/<u>/<v>     a token per edge of the combined order below the
+    kp/n/<id>        a record per shared node: its name, its typed values,
+                     and its content's data key, sealed under the node's key
+    kp/n/<u>/t/<v>   a token per edge of the combined order below the
                      principals, asserted edges and computed hops alike:
                      v's key wrapped under u's (`act.wrap`)
-    kp/r/<id>        a record per shared node: its name, and its content's
-                     data key, sealed under the node's key
     kp/c/<id>        content, sealed under its own data key
+
+A node's tokens are filed under its record, so a reader gets both from one
+prefix read along one trie path. With random ids, separate places cost the
+trie nodes of two paths per node (SHARING_ON_SWARM §13).
 
 **What a reader gets.** A reader derives a node's key exactly when the node
 is in its reach (`experiments/keyplan_spike.py` checks this on random
@@ -71,8 +75,7 @@ KEY_LEN = 32
 
 META_KEY = "kp/meta"
 GRANT_PREFIX = "kp/g/"
-TOKEN_PREFIX = "kp/t/"
-RECORD_PREFIX = "kp/r/"
+NODE_PREFIX = "kp/n/"
 CONTENT_PREFIX = "kp/c/"
 
 EVERYONE = "everyone"
@@ -86,6 +89,24 @@ _EVERYONE_DOMAIN = b"ontodag-keyplan-everyone-v2"
 # --------------------------------------------------------------------------- #
 # Primitives
 # --------------------------------------------------------------------------- #
+
+def record_key(node_id: str) -> str:
+    """Where a node's sealed record is published."""
+    return f"{NODE_PREFIX}{node_id}"
+
+
+def token_record_key(u_id: str, v_id: str) -> str:
+    """Where the token from node u to its child v is published: under u."""
+    return f"{NODE_PREFIX}{u_id}/t/{v_id}"
+
+
+def tokens(store):
+    """Every published token, as (u id, v id, token bytes). This is what
+    anyone reading the store sees, whether or not they hold any keys."""
+    for k, rec in store.items(NODE_PREFIX):
+        head, sep, v = k[len(NODE_PREFIX):].partition("/t/")
+        if sep:
+            yield head, v, bytes.fromhex(rec["token"])
 
 def everyone_key() -> bytes:
     """The private key of the reserved principal `everyone`, known to all:
@@ -328,13 +349,13 @@ class Publisher:
         for u, v in sorted(new_plan):
             if (u, v) in self._plan and u not in renewed and v not in renewed:
                 continue
-            st.put(f"{TOKEN_PREFIX}{ids[u]}/{ids[v]}", {
+            st.put(token_record_key(ids[u], ids[v]), {
                 "v": KP_VERSION,
                 "token": wrap(self._keys[u], ids[v], self._keys[v]).hex(),
                 "epoch": self._epoch[v]})
             written += 1
         for u, v in sorted(self._plan - new_plan):
-            st.delete(f"{TOKEN_PREFIX}{ids[u]}/{ids[v]}")
+            st.delete(token_record_key(ids[u], ids[v]))
             deleted += 1
 
         # content, one sealed record per version
@@ -356,12 +377,12 @@ class Publisher:
             if n not in changed and n not in renewed:
                 continue
             header = f"{ids[n]}|{self._epoch[n]}"
-            st.put(RECORD_PREFIX + ids[n], {
+            st.put(record_key(ids[n]), {
                 "v": KP_VERSION, "epoch": self._epoch[n],
                 "box": seal(self._keys[n], header, _canonical(records[n]))})
             written += 1
         for n in sorted(set(self._records) - shared):
-            st.delete(RECORD_PREFIX + self.node_id(n))
+            st.delete(record_key(self.node_id(n)))
             deleted += 1
 
         # grantee entries
@@ -544,10 +565,17 @@ class Reader:
         with ThreadPoolExecutor(max_workers=min(self._workers, len(items))) as pool:
             return list(pool.map(fn, items))
 
-    def _tokens_of(self, u):
-        prefix = f"{TOKEN_PREFIX}{u}/"
-        return [(k[len(prefix):], bytes.fromhex(rec["token"]))
-                for k, rec in self._view().items(prefix)]
+    def _node(self, u):
+        """A node's record and its tokens, in one prefix read. Ids have a
+        fixed length, so the prefix matches no other node."""
+        prefix = record_key(u)
+        record, out = None, []
+        for k, rec in self._view().items(prefix):
+            if k == prefix:
+                record = rec
+            elif k.startswith(prefix + "/t/"):
+                out.append((k[len(prefix) + 3:], bytes.fromhex(rec["token"])))
+        return record, out
 
     @classmethod
     def public(cls, store, author_public_key):
@@ -564,23 +592,27 @@ class Reader:
 
     def walk(self):
         """(top id, {id: key}, {(parent id, child id)}): the tokens walked
-        level by level, listing each held node's own tokens only, so a walk
-        costs the reader's reach, never the author's whole graph."""
+        level by level, reading each held node's own record and tokens only,
+        so a walk costs the reader's reach, never the author's whole graph."""
+        return self._walk()[:3]
+
+    def _walk(self):
         top, key = self._entry()
         if top is None:
-            return None, {}, set()
-        keys, edges, frontier = {top: key}, set(), [top]
+            return None, {}, set(), {}
+        keys, edges, records, frontier = {top: key}, set(), {}, [top]
         while frontier:
             nxt = []
-            for u, tokens in zip(frontier, self._map(self._tokens_of, frontier)):
-                for v, token in tokens:
+            for u, (record, out) in zip(frontier, self._map(self._node, frontier)):
+                records[u] = record
+                for v, token in out:
                     edges.add((u, v))
                     if v in keys:
                         continue
                     keys[v] = unwrap(keys[u], v, token)
                     nxt.append(v)
             frontier = nxt
-        return top, keys, edges
+        return top, keys, edges, records
 
     def receive(self, public=False) -> Received:
         """Everything shared with this reader, decrypted. With `public=True`
@@ -593,14 +625,12 @@ class Reader:
         return got
 
     def _receive(self) -> Received:
-        top, keys, edges = self.walk()
+        top, keys, edges, records = self._walk()
         if top is None:
             return Received(self.store, None, (), (), {})
         names, contents, values = {}, {}, {}
-        ids = sorted(keys)
-        records = self._map(lambda i: self._view().get(RECORD_PREFIX + i), ids)
-        for i, record in zip(ids, records):
-            k = keys[i]
+        for i in sorted(keys):
+            k, record = keys[i], records[i]
             plain = json.loads(unseal(k, f"{i}|{record['epoch']}", record["box"]))
             names[i] = plain["name"]
             if "content" in plain:

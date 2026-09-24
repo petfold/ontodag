@@ -14,6 +14,15 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Known issue
+
+- **`ontodag.act.KeyGraph.revoke` can expose new keys.** It rotates only
+  the categories a revoked person could reach, not document leaves. When
+  such a leaf later gains a child, the child's key is wrapped under the
+  leaf's old key, which the revoked person still holds. The spike measured
+  this after 417 of 5,866 random edits. The docstring says so.
+  `ontodag.keyplan` is the replacement (below).
+
 ### Added
 
 - **`sharing.timeline(dag, principals, role="posted")`**: what those
@@ -57,6 +66,17 @@ the version numbers appear in commit history and docs.
   - Over a `RecordStore`, `Reader` reads each level of the walk with
     `workers` threads (16 by default), each on its own snapshot of the
     committed root over one shared blob cache.
+  - Layout: a node's record is at `kp/n/<id>`, and its tokens are filed
+    under it at `kp/n/<id>/t/<child>`. One prefix read returns both, and a
+    cold read of 130 names needs 242 fetch calls, down from 369.
+    `record_key`, `token_record_key` and `tokens(store)` name the places.
+  - `Reader.receive(public=True)` adds what the author shares with
+    `everyone`, since a wall is reach(the reader's principals and
+    `everyone`).
+  - `ontodag.act` falls back to a pure-Python secp256k1 where coincurve
+    can't install, so the key plan runs under Pyodide
+    (`demo/pyodide/keyplan.mjs`). The fallback isn't constant-time:
+    coincurve is preferred wherever it installs.
   - `experiments/keyplan_spike.py` compares four rotation rules on the
     same random edits. It shows that `KeyGraph.revoke`'s rule (rotate
     only nodes with outgoing tokens) exposes new keys once such a node

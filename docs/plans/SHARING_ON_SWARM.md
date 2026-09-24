@@ -245,8 +245,10 @@ value, and references with their data keys), encrypted under K_v.
 
 Two choices remain (S5):
 - **Where tokens live.**
-  - Today each token is its own record, `act/t/<u>/<v>`, so anyone can
-    count edges.
+  - In `ontodag.act` each token is its own record, `act/t/<u>/<v>`, so
+    anyone can count edges. `ontodag.keyplan` files them under their
+    node's record instead (`kp/n/<u>/t/<v>`), so one prefix read returns a
+    node and its tokens (§13). Anyone can still count them.
   - Kept inside each node's encrypted record, they'd hide the shape from
     outsiders. The price is rewriting the record whenever one of its edges
     changes: a busy audience node would rewrite a growing list with every
@@ -590,12 +592,14 @@ Each has options and a leaning; none is decided.
 - **S4 — Node ids.** Unkeyed sha256 (today, guessable: §4.4), or keyed by
   an author secret. *Leaning:* keyed. It's a small change, and it removes a
   real leak.
-- **S5 — Where structure lives.** Tokens as their own records (today;
-  shape visible) or inside each node's encrypted record (shape hidden;
-  busy nodes rewrite long lists). Records per node, or an excerpt per
-  audience (§4.2; ACT §9's token-set storage question). *Leaning:* records
-  per node, and tokens as their own records for now; measure the other
-  option in Phase 2.
+- **S5 — Where structure lives.** Tokens as their own records, filed under
+  their node (built; shape visible), or inside each node's encrypted
+  record (shape hidden; busy nodes rewrite long lists). Records per node,
+  or an excerpt per audience (§4.2; ACT §9's token-set storage question).
+  *Leaning:* records per node, and tokens filed under them. In memory, that
+  took a cold read of 130 names from 369 fetch calls to 242 (§13). Tokens
+  inside records would hide the shape, but save no more fetches: the trie
+  already needs a leaf per key.
 - **S6 — When to rotate.** Eager, lazy with the upward fixpoint, or once
   per period. *Leaning:* lazy, with a "rotate now" for urgent removals.
   Group principals that other stores use always rotate at once (§7).
@@ -614,6 +618,11 @@ Each has options and a leaning; none is decided.
 - **S10 — Polling at scale.** How often to poll, how many polls in flight,
   and whether a new post needs its own signal (ucomm W-Q2). *Leaning:* one
   feed per author, adaptive intervals, optional hints.
+  - Bee's sequence-feed lookup takes `?after=<index>`
+    (`pkg/api/feed.go`), so a reader that remembers the last index needn't
+    probe from the start.
+  - The miss at the head of the feed remains, and that miss is most of the
+    1–10 s measured per feed open (§13).
 - **S11 — Requests from strangers.** A GSOC mailbox (needs a full node or a
   relay), out of band only, or both. *Leaning:* both, with the mailbox
   optional.
@@ -700,15 +709,19 @@ with these leanings taken:
 - each node has a rotating derivation key, and each content version its
   own data key (§4.2);
 - a record per node names the node and its typed-value parents, never its
-  private parents or children, and tokens stay as their own records for
-  now (S5);
+  private parents or children;
+- tokens stay as their own records, filed under their node's record
+  (`kp/n/<u>/t/<v>`, S5). One prefix read returns a node and its tokens:
+  in memory, a cold read of 130 names needs 242 fetch calls instead of the
+  369 it needed with separate places;
 - rotation is lazy, with the upward fixpoint, and record changes count as
   something new; `eager=True` rotates everything stale at once (S6);
 - a removed or re-keyed principal loses everything it reached;
 - `everyone` is a principal with a published key, so one mechanism covers
   public content too (S7's first option, for now);
-- a reader lists only its own nodes' tokens, and reads each level of the
-  walk concurrently over a `RecordStore`.
+- a reader reads only the nodes it holds, a record and its tokens per
+  prefix read, and reads each level of the walk concurrently over a
+  `RecordStore`.
 
 **Walls come with it:**
 - `sharing.timeline` (WALLS_AND_INBOXES build order item 1);
@@ -769,8 +782,12 @@ and a public post:
   could skip most of it (S10).
 - **Cold reads are round-trip bound.** 130 names took 400–500 fetches of
   trie nodes and records. Reading each level concurrently made the first
-  read about 4× faster. Fewer, bigger records (tokens inside records, S5)
-  would cut the count itself.
+  read about 4× faster.
+- **The last run used the clustered layout** (each node's tokens under its
+  record). Bob's first read took 273 fetch calls instead of 470–510: 23 s
+  through our node and 17 s through the gateway. So the layout cut the load
+  sharply and the latency only a little, since feed opens and the chain of
+  levels dominate once the levels run concurrently.
 
 **Bee needs no change for this.** Its ACT (`pkg/accesscontrol`) works like
 this:

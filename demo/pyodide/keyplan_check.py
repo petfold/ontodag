@@ -52,7 +52,7 @@ lazy = pub.publish(d, principals, content=content).rotated == []
 d.put("new-post", ["friends", "posted(2026-09-25T03:00:00Z)"])
 rotated = pub.publish(d, principals, content=content).rotated
 target = pub.node_id("new-post")
-record = store.get(keyplan.RECORD_PREFIX + target)
+record = store.get(keyplan.record_key(target))
 carol_opens = False
 for key in carol_keys.values():
     try:
