@@ -598,8 +598,9 @@ Each has options and a leaning; none is decided.
   or an excerpt per audience (§4.2; ACT §9's token-set storage question).
   *Leaning:* records per node, and tokens filed under them. In memory, that
   took a cold read of 130 names from 369 fetch calls to 242 (§13). Tokens
-  inside records would hide the shape, but save no more fetches: the trie
-  already needs a leaf per key.
+  inside records would hide the shape and fetch fewer blobs, since there'd
+  be no token keys at all. They'd save hardly any round trips, because the
+  clustered layout already reads a node's tokens in the same batch.
 - **S6 — When to rotate.** Eager, lazy with the upward fixpoint, or once
   per period. *Leaning:* lazy, with a "rotate now" for urgent removals.
   Group principals that other stores use always rotate at once (§7).
