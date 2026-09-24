@@ -14,6 +14,8 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.27.0] — 2026-09-24
+
 ### Added
 
 For programs that embed OntoDAG — found while building categor.io, a

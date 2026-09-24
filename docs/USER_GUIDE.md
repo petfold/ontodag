@@ -675,7 +675,8 @@ OWLOntology.export_dag(dag, "travel.owl")
 formats open in standard ontology editors like Protégé.
 
 OntoDAG's own format, `.od` — what `odag` keeps a store in (§7) — needs no
-extra, and `ontodag.native` reads and writes it as text as well as files.
+extra, and since 0.27.0 `ontodag.native` reads and writes it as text as
+well as files.
 That is the form to reach for when a program holds a store somewhere other
 than a file: a database row, an upload, a message.
 
@@ -739,8 +740,8 @@ Now ask for a stretch of time that nobody ever created:
 ```
 
 A program that takes names from people — a form, an upload — can ask
-whether a name it has never seen is a value like these, which OntoDAG
-creates on first use, or a category that must exist first:
+(since 0.27.0) whether a name it has never seen is a value like these,
+which OntoDAG creates on first use, or a category that must exist first:
 
 ```python
 >>> from ontodag import prelude
@@ -1548,7 +1549,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.23.0 - type help for help
+Ontodag 0.27.0 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png

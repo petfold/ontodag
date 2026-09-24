@@ -77,6 +77,12 @@ replayable answer, which the existing snapshot machinery already supports.
   root in any adoption order; economics v6 (0.26.3, 2026-09-19) names the
   assets loopmarket's deposits are held in (`xdai`, `dai`, `usdc`, `bzz`,
   `xbzz`), the first pack change driven by a consumer's record format.
+- [x] **An API for programs that embed OntoDAG** (0.27.0, 2026-09-24): the
+  `.od` format as text (`ontodag.native`), `is_term`, a pack's names and
+  top without building it, and every command's declared effects — so an
+  embedder derives what it may run instead of keeping its own list. Driven
+  by categor.io, the first website built on OntoDAG, which had been
+  reaching into private code for each of them.
 
 ## Next up (concrete, queued)
 
