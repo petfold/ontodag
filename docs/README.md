@@ -42,7 +42,11 @@ reader's principals in the sharer's store, evaluated per store — ACT's
 rule drawn in one direction, filtered overlays, a proposed G7),
 WALLS_AND_INBOXES (posting to an audience and reading what arrives — the
 sharing rule in time, with `posted` as a role of `time`; joint with
-ucomm and categor.io, and ACT's document and recipient categories), SEMA
+ucomm and categor.io, and ACT's document and recipient categories),
+SHARING_ON_SWARM (the same sharing and receiving with no server: a key
+plan derived from reach, edge removal in a DAG by lazy rotation, identity
+through dappdata, delivery through ucomm; a checked spike, a phased plan
+and 18 discussion topics), SEMA
 (relation to the SEMA project: hash-of-definition vs.
 canonical-state grains, lessons, collaboration options), SURFACE_LAYER
 (the human layer), WEB_UI (a simpler

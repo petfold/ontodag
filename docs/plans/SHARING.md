@@ -258,7 +258,9 @@ accepted stores has the same shape as `review`'s trust list. Unify them
 **Q4 — ACT alignment, in detail.** Deriving tokens from reach (§3) needs
 epoch handling for the edits `losses` reports (ACT §2.7 already lists
 them). Is the token plan a pure function of (store root, principals)? It
-should be, for G1's sake.
+should be, for G1's sake. *(2026-09-25: it is, and the rotation it needs is
+worked out and checked in [SHARING_ON_SWARM.md](SHARING_ON_SWARM.md) §4.1
+and §4.3.)*
 
 **Walls and inboxes** ([WALLS_AND_INBOXES.md](WALLS_AND_INBOXES.md)) carry this
 rule into time: a post is filed under its audience and a `posted` time, a
@@ -294,6 +296,8 @@ index of its own?
 4. **Q1 settled** (principal declaration). Before this, principals stay a
    caller parameter.
 5. **ACT derivation** from reach (Q4), when ACT Phase 1 resumes.
+   **[Worked out, with a spike: [SHARING_ON_SWARM.md](SHARING_ON_SWARM.md)
+   §4.]**
 6. **G7** into CONTRACT.md after a review round, as G6 was.
 
 Each step is additive; nothing existing changes meaning.

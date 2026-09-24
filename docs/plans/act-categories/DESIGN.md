@@ -418,3 +418,11 @@ Do both, in order, and keep them small:
   every `put` a potential key ceremony.
 - Padding/decoy policy for category manifests (§6) — needed in v1 of the
   format or deferrable?
+
+*(2026-09-25: [../SHARING_ON_SWARM.md](../SHARING_ON_SWARM.md) takes up
+several of these. The key graph is derived from reach at every commit,
+which answers the aligned-twin question. Rotation is per node, and lazy:
+only before something new is wrapped under a lost node, then upward to a
+fixpoint. Its spike (`experiments/keyplan_spike.py`) also shows that
+`KeyGraph.revoke`'s rule, which skips nodes without outgoing tokens,
+leaks new keys once such a node gains a child (§4.3 there).)*
