@@ -192,6 +192,8 @@ caller names the principals):
 | `sharing.reach(dag, principals, exclude=())` | the names below any of `principals` in `dag` — the combined order, so `x` is in it iff `is_below(x, p)`; a down-set; never enters an excluded name (`exclude`: one collection, or principal → collection) |
 | `sharing.landing(dag, principals, exclude=())` | `{principal: names filed directly under it}` — where shares arrive |
 | `sharing.losses(before, after, principals, exclude=())` | `{principal: names}` the first state shows and the second does not, per principal — the check before an edit |
+| `sharing.timeline(dag, principals, role="posted", exclude=())` | `(value, name)` for each name in reach filed under a point of `role`, oldest first — the author's wall as those readers see it (WALLS_AND_INBOXES §2); ranges and the values themselves are skipped |
+| `sharing.point_values(dag, name, role)` | the points of `role` that `name` is filed under directly |
 
 Comparing two stores (`from ontodag.compare import compare` — an opt-in
 consumer, imported by nothing in the core):

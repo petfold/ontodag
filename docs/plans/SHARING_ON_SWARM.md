@@ -1,8 +1,8 @@
 # Sharing and Receiving on Swarm, Without Servers
 
-Status: plan and discussion draft (2026-09-25). **Nothing here is built**
-beyond what it cites as existing, and the one spike it reports
-(`experiments/keyplan_spike.py`). It asks how the sharing and receiving of
+Status: plan and discussion draft (2026-09-25). Phase 1 and a first
+Phase 2 run are built, unreleased, on OntoDAG's `swarm-sharing` branch
+(§13). The rest is a plan. It asks how the sharing and receiving of
 [SHARING.md](SHARING.md) and [WALLS_AND_INBOXES.md](WALLS_AND_INBOXES.md)
 can run on Swarm with no server at all:
 
@@ -237,8 +237,11 @@ value, and references with their data keys), encrypted under K_v.
 - So a reader who walks the tokens sees exactly the edges between nodes it
   reaches. That's SHARING §2.1's faithful piece of the store, with nothing
   outside it named.
-- A record may name public-vocabulary parents, which categor.io shows
-  too (SHARING §2.1).
+- A record does name its typed-value parents, such as its `posted(...)`
+  time. They are the cut parents a host may show "by another right"
+  (SHARING §2.1), and without them a reader couldn't order a wall.
+  Public-vocabulary parents, which categor.io shows, could be named the
+  same way by a host that knows which parents are public.
 
 Two choices remain (S5):
 - **Where tokens live.**

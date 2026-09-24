@@ -12,6 +12,8 @@ SHARING.md's open question Q1, so here the caller names them.
   each principal, which is where shares arrive.
 - `losses(before, after, principals)`: what an edit would stop each
   principal seeing, for asking before making it.
+- `timeline(dag, principals, role="posted")`: what they see, in time
+  order: the author's wall as those readers see it (WALLS_AND_INBOXES §2).
 
 Reach follows the combined order `get` and `is_below` use (asserted edges
 plus the computed order of typed values). So `x in reach(dag, [p])` iff
@@ -86,3 +88,37 @@ def losses(before, after, principals, exclude=()):
         if gone:
             out[principal] = sorted(gone)
     return out
+
+
+def point_values(dag, name, role):
+    """The points of `role` (a time dimension or a role of one, such as
+    `posted`) that `name` is filed under directly, as names. A range such
+    as `posted(2026)` is not a point, and is left out."""
+    from ontodag.dimensions import split_term
+    out = []
+    for parent in dag.nodes[name].parents:
+        parts = split_term(parent.name)
+        if (parts and parts[0] == role and ".." not in parts[1]
+                and dag.is_term(parent.name)):
+            out.append(parent.name)
+    return sorted(out)
+
+
+def timeline(dag, principals, role="posted", exclude=()):
+    """What `principals` see, in time order: `(value, name)` for each name
+    in their reach filed under a point of `role`, oldest first. With the
+    default role this is an author's wall as those readers see it
+    (WALLS_AND_INBOXES §2). The value is the author's claim, as ever.
+    Values that are themselves typed values are not posts, and are skipped."""
+    out = []
+    for name in reach(dag, principals, exclude):
+        if dag.is_term(name):
+            continue
+        for value in point_values(dag, name, role):
+            out.append((value, name))
+    return sorted(out, key=_by_time)
+
+
+def _by_time(pair):
+    from ontodag.dimensions import split_term
+    return (split_term(pair[0])[1], pair[1])
