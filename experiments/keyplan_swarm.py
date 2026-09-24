@@ -209,9 +209,8 @@ def main():
 
     # Carol, with every key she ever had, against the live tokens
     tokens = {}
-    for k in store.keys(keyplan.TOKEN_PREFIX):
-        u, v = k[len(keyplan.TOKEN_PREFIX):].split("/")
-        tokens.setdefault(u, []).append((v, bytes.fromhex(store.get(k)["token"])))
+    for u, v, token in keyplan.tokens(store):
+        tokens.setdefault(u, []).append((v, token))
     changed = True
     while changed:
         changed = False
@@ -223,7 +222,7 @@ def main():
                         held[v].add(cand)
                         changed = True
     target = pub.node_id("new-post")
-    record = store.get(keyplan.RECORD_PREFIX + target)
+    record = store.get(keyplan.record_key(target))
     opened = False
     for key in held.get(target, ()):
         try:

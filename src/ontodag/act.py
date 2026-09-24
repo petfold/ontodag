@@ -389,11 +389,13 @@ class KeyGraph:
         **Known gap.** A document leaf keeps the key the revoked person
         holds, and in OntoDAG any node can gain a child. Anything linked
         under such a leaf afterwards is wrapped under a key the person
-        kept, so they can derive it. Before linking anything under a leaf
-        a revoked person could read, `rotate` it and re-encrypt its
-        content under the new key. A key graph that keeps a rotating key
-        apart from content keys removes the gap; it is planned
-        (docs/plans/ROLES.md §9)."""
+        kept, so they can derive it: `experiments/keyplan_spike.py` saw
+        new keys exposed after 417 of 5,866 random edits. Before linking
+        anything under a leaf a revoked person could read, `rotate` it and
+        re-encrypt its content under the new key. `ontodag.keyplan` doesn't
+        have the gap: it keeps a rotating key apart from the content keys,
+        and rotates a lost node before anything new is wrapped under it
+        (docs/plans/SHARING_ON_SWARM.md §4.3)."""
         lookup, _ = act_keys(self._org_priv, person_public_key)
         self._store.delete(GRANT_PREFIX + lookup.hex())
         has_out = {u_id for u_id, _v in self.links()}
