@@ -1,7 +1,9 @@
 # Sharing: What One Store Shows Another
 
-Status: discussion draft (2026-09-24). **Nothing here is implemented in
-OntoDAG.** categor.io, a website over OntoDAG, implements a version of the
+Status: discussion draft (2026-09-24). **Built so far (unreleased, for
+0.28.0):** `ontodag.sharing` — `reach`, `landing`, `losses` — and the CLI's
+`shared-with` and `get`/`count --as` (§7, steps 1–2); principals are named
+by the caller until Q1 is settled. Everything else here is proposed. categor.io, a website over OntoDAG, implements a version of the
 rule server-side (its `docs/DESIGN.md` §4–§10); this record proposes which
 part of that belongs in OntoDAG, and how it meets the three mechanisms
 OntoDAG already has for more than one reader: overlays
@@ -132,7 +134,7 @@ A module, `ontodag.sharing`, standard library only (B1), over any DAG
 |---|---|
 | `reach(dag, principals, exclude=())` | the frozenset R may see in `dag`: the union of `dag.get([p])` over R's principals, walked so as never to enter a name in `exclude` |
 | `landing(dag, principals, exclude=())` | for each principal, the names filed directly under it — where shares arrive |
-| `losses(before, after, principals=None)` | `{principal: names}` that one state shows and the next does not — the check before an edit (categor.io's "This stops people seeing things") |
+| `losses(before, after, principals)` | `{principal: names}` that one state shows and the next does not, per principal — the check before an edit (categor.io's "This stops people seeing things"). The principals are named: nothing in a store says which names they are until Q1 is settled |
 | `SharedView(own, sources)` | a read-only composed view: the reader's own store, plus `(store, reach)` pairs, answering `get`/`is_below`/`browse` per source and uniting the answers — the **filtered overlay** (§4.1) |
 
 The CLI gains what a single user needs when publishing a store to others,
@@ -142,7 +144,9 @@ store is shared, server or not:
 - `odag shared-with PRINCIPAL` — reach, listed like `get`;
 - `odag get --as PRINCIPAL CAT…` — any query, answered from reach only;
 - `odag remove/move --dry-run` report `losses` beside the contested set
-  (the "residual access report" ACT §2.7 already asks for).
+  (the "residual access report" ACT §2.7 already asks for). This one waits
+  for Q1: a dry run has no principals to ask about until a store can say
+  which of its names are principals.
 
 ### 4.1 Filtered overlays
 
@@ -253,8 +257,11 @@ index of its own?
    ported from categor.io's scenarios (Acme's groups and departments, the
    private parent, members not seeing each other, the pre-registration
    exclusion as `exclude`). categor.io then drops its own copies.
+   **[Built, unreleased: `tests/test_sharing.py`.]**
 2. **CLI:** `shared-with`, `get --as`, and losses in `--dry-run`. This is
    single-user value, and it makes the rule inspectable by anyone.
+   **[`shared-with` and `get`/`count --as` built; `--dry-run` losses wait
+   for Q1.]**
 3. **Filtered overlays** in `Session.view()`, and `SharedView` for hosts.
 4. **Q1 settled** (principal declaration). Before this, principals stay a
    caller parameter.

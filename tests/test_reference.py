@@ -122,6 +122,12 @@ class TestReferenceIsPinned(unittest.TestCase):
             self.assertTrue(callable(getattr(native, name)))
             self.assertIn(f"`native.{name}(", self.text,
                           f"ontodag.native.{name} missing from REFERENCE.md §5")
+        from ontodag import sharing
+        for name in ("reach", "landing", "losses"):
+            self.assertTrue(callable(getattr(sharing, name)))
+            self.assertIn(f"`sharing.{name}(", self.text,
+                          f"ontodag.sharing.{name} missing from REFERENCE.md §5")
+        self.assertIn("`shared-with", self.text)
         for name in ("pack_members", "pack_top"):
             self.assertTrue(callable(getattr(packs, name)))
             self.assertIn(f"`{name}`", self.text, f"packs.{name} missing from REFERENCE.md §5")

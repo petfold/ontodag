@@ -14,6 +14,23 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Added
+
+- **What a store shares, and with whom** (docs/plans/SHARING.md, step 1 of
+  its build order). The rule: a reader sees what is filed below their
+  name in *this* store, never in a merge of stores. `ontodag.sharing`
+  gives `reach(dag, principals, exclude=())` (the combined order, so
+  membership is `is_below`; a down-set that keeps the store's reduction),
+  `landing` (what is filed directly under each principal) and
+  `losses(before, after, principals)` (what an edit would stop each one
+  seeing). The CLI gains `odag shared-with PRINCIPAL…` and `--as
+  PRINCIPAL` on `get` and `count`, which read the primary store alone,
+  never overlays. The caller names the principals; how a store should
+  mark them is the record's open question Q1. Standard library only.
+  Scenarios ported from categor.io, whose server-side rule this is
+  (`tests/test_sharing.py`). The web console runs `shared-with` too
+  (reads only), now 16 commands.
+
 ## [0.27.0] — 2026-09-24
 
 ### Added

@@ -2257,6 +2257,61 @@ in `docs/plans/BINDING.md`; it is a discussion draft, not a feature.)
 
 ---
 
+### 5.13 What you share, and with whom
+
+When other people can read your store — a `swarm:` store you publish, or a
+site built on OntoDAG such as categor.io — the question is what each of them
+sees. Since 0.28.0 OntoDAG answers it with one rule: **a person sees what is
+filed below their name in your store**, and nothing else. Their name is an
+ordinary category (here an address); filing something under it shares it,
+and everything below it goes along. A category filed under several people is
+a group:
+
+```console
+$ odag put ada@example.com
+$ odag put bob@example.com
+$ odag put book-club ada@example.com bob@example.com
+$ odag put reading-list book-club
+$ odag put diary
+$ odag put reading-list diary
+$ odag put dreams diary
+$ odag shared-with ada@example.com
+book-club
+reading-list
+$ odag get diary
+dreams
+reading-list
+$ odag get diary --as bob@example.com
+reading-list
+$ odag count --as bob@example.com
+2
+```
+
+The reading list is in your private diary *and* in the book club, so Bob
+sees it; he does not see the diary it also sits in, or your dreams, because
+neither is below his name. `--as` answers any `get` or `count` the way that
+person would see it, from your store alone (overlays never share anything).
+The rule and its reasons are in [plans/SHARING.md](plans/SHARING.md); for
+now nothing in a store marks which names are people, so you name them.
+
+The same from Python, with what an edit would take away — ask before
+making one:
+
+```python
+>>> from ontodag import native, sharing
+>>> dag = native.load("me.od")
+>>> sorted(sharing.reach(dag, ["ada@example.com"]))
+['book-club', 'reading-list']
+>>> sharing.landing(dag, ["ada@example.com", "bob@example.com"])
+{'ada@example.com': ['book-club'], 'bob@example.com': ['book-club']}
+>>> after = native.loads(native.dumps(dag)); after.remove("book-club")
+>>> sharing.losses(dag, after, ["ada@example.com", "bob@example.com"])
+{'ada@example.com': ['book-club'], 'bob@example.com': ['book-club']}
+```
+
+Only the club itself is lost: `remove` contracts (§5.9), so the reading list
+moves up to Ada and Bob and stays shared. `remove --cone` would take it too.
+
 ## 6. The web app and REST API
 
 The web app gives you the same DAG in a browser — browse it by query, type

@@ -1152,9 +1152,31 @@ def _query_flags(args):
     return {"items_only": bool(getattr(args, "items_only", False))}
 
 
+def _asked(args, session):
+    """The query's answer — or, with `--as PRINCIPAL`, only the part of it
+    those principals are shared (docs/plans/SHARING.md). `--as` reads the
+    primary store alone, never the overlays: what a store shares is
+    decided by its own edges."""
+    principals = getattr(args, "as_principals", None)
+    if not principals:
+        return _query(args.categories, session.view(), **_query_flags(args))
+    from ontodag.sharing import reach
+    dag = session.dag
+    shared = reach(dag, principals)
+    return [item for item in _query(args.categories, dag, **_query_flags(args))
+            if item.name in shared]
+
+
 def cmd_get(args, session, out):
-    result = _query(args.categories, session.view(), **_query_flags(args))
-    _print_names((item.name for item in result), args, session, out)
+    _print_names((item.name for item in _asked(args, session)), args, session, out)
+
+
+def cmd_shared_with(args, session, out):
+    """What this store shares with PRINCIPAL: everything below it, in this
+    store alone (docs/plans/SHARING.md) — the question to ask before
+    publishing a store others can read. `get --as` asks it of one query."""
+    from ontodag.sharing import reach
+    _print_names(sorted(reach(session.dag, args.principals)), args, session, out)
 
 
 def cmd_overlapping(args, session, out):
@@ -1177,8 +1199,7 @@ def cmd_count(args, session, out):
     # flag on `get`: it is the complete answer to "how big is this" — never
     # capped, never rendered — for exactly the cases where printing the answer
     # is what you are trying to avoid.
-    print(len(_query(args.categories, session.view(), **_query_flags(args))),
-          file=out)
+    print(len(_asked(args, session)), file=out)
 
 
 def cmd_below(args, session, out):
@@ -2314,6 +2335,11 @@ Commands:
                         works; `?` is a synonym at the interactive prompt.
                         Works on typed values from the names alone:
                         below 'weight(3kg)' 'weight(..5kg)' -> true
+  shared-with PRINCIPAL...
+                        what this store shares with PRINCIPAL: everything
+                        filed below it, in this store alone. `get --as
+                        PRINCIPAL` (and `count --as`) answers any query as
+                        they would see it. See docs/plans/SHARING.md
   move ITEM... --to CAT [--from CAT]
                         reclassify: file the items under --to and retract
                         their old categories. --from picks which one to
@@ -2546,6 +2572,7 @@ COMMAND_EFFECTS = {
     "list": frozenset({"reads"}),
     "show": frozenset({"reads"}),
     "canon": frozenset({"reads"}),
+    "shared-with": frozenset({"reads"}),
     "move": frozenset({"reads", "writes"}),
     "remove": frozenset({"reads", "writes"}),
     "pack": frozenset({"reads", "writes"}),        # listing, --show and --diff only read
@@ -2613,6 +2640,10 @@ def build_parser():
             "--items-only", action="store_true", dest="items_only",
             help="leave out typed values and anything with something filed "
                  "under it: the leaves")
+        parser.add_argument(
+            "--as", action="append", dest="as_principals", metavar="PRINCIPAL",
+            help="only what this store shares with PRINCIPAL (repeatable): "
+                 "the answer as they would see it")
 
     p = sub.add_parser("get", add_help=True, help="query common subcategories")
     p.add_argument("categories", nargs="*")
@@ -2643,6 +2674,14 @@ def build_parser():
     p.add_argument("sub")
     p.add_argument("sup")
     p.set_defaults(func=cmd_below, stream_output=True)
+
+    p = sub.add_parser("shared-with", add_help=True,
+                       help="what this store shares with PRINCIPAL")
+    p.add_argument("principals", nargs="+", metavar="PRINCIPAL")
+    p.add_argument("-o", "--output")
+    _add_surface_flags(p)
+    _add_limit_flag(p)
+    p.set_defaults(func=cmd_shared_with, stream_output=True)
 
     p = sub.add_parser("overlaps", add_help=True,
                        help="test whether A and B possibly share a point "

@@ -79,6 +79,7 @@ results one per line on stdout. No command = read commands from stdin
 | `get [CAT…]` | items below all CATs; `or` separates disjuncts; empty = everything; `--items-only` leaves out typed values and anything with children (a place or time term goes in CAT like any other) |
 | `count [CAT…]` | the same query, as one number; takes the same `--items-only` flag |
 | `below SUB SUP` | prints `true`/`false`, exits 0/1 (grep-style); alias `?` at the prompt |
+| `shared-with PRINCIPAL…` | what this store shares with PRINCIPAL: every name below it, in this store alone, never through overlays ([plans/SHARING.md](plans/SHARING.md)). `get`/`count --as PRINCIPAL` answer a query as they would see it |
 | `overlapping TERM` | items that *might* satisfy a typed term (G6): a candidate stating a value of the term's head passes iff it overlaps, one stating nothing under that head passes unconstrained — applied per candidate, never walked. A term of no declared dimension is an error, not an empty answer |
 | `overlaps A B` | could A and B share a point? `true`/`false`, exits 0/1; either side a typed term or a named place/region |
 | `meet A B` | the intersection of two same-head typed terms as one term; nothing and exit 1 when provably empty |
@@ -181,6 +182,16 @@ The `.od` format as text (`from ontodag import native` — standard library only
 |---|---|
 | `native.dumps(dag)` / `native.loads(text, source=…)` | canonical `.od` text and back; `source` names the text in a malformed-line error |
 | `native.load(path)` / `native.save(dag, path)` | the same for a file; a missing file loads as an empty store |
+
+What a store shares (`from ontodag import sharing` — standard library only;
+the rule and its reasons in [plans/SHARING.md](plans/SHARING.md); the
+caller names the principals):
+
+| call | one line |
+|---|---|
+| `sharing.reach(dag, principals, exclude=())` | the names below any of `principals` in `dag` — the combined order, so `x` is in it iff `is_below(x, p)`; a down-set; never enters an excluded name (`exclude`: one collection, or principal → collection) |
+| `sharing.landing(dag, principals, exclude=())` | `{principal: names filed directly under it}` — where shares arrive |
+| `sharing.losses(before, after, principals, exclude=())` | `{principal: names}` the first state shows and the second does not, per principal — the check before an edit |
 
 Comparing two stores (`from ontodag.compare import compare` — an opt-in
 consumer, imported by nothing in the core):
@@ -289,7 +300,7 @@ Serving the page (all read-only except the console and the example):
 
 | endpoint | methods | does |
 |---|---|---|
-| `/dag/console` | POST `{line}` | run one `odag` command line; answers `{out, err, code}` plus the page's state. **Allow-listed** — derived from the declared effects (§4): the 15 commands that only read or write a store, so none touches a filesystem path, the network, the settings or a store's versions; `-o FILE` is refused per line |
+| `/dag/console` | POST `{line}` | run one `odag` command line; answers `{out, err, code}` plus the page's state. **Allow-listed** — derived from the declared effects (§4): the 16 commands that only read or write a store, so none touches a filesystem path, the network, the settings or a store's versions; `-o FILE` is refused per line |
 | `/dag/commands` | GET | every OntoDAG command with its description, argument shape, group and `available`/`why` — read off the argparse parser, so it cannot drift |
 | `/dag/browse?cat=` | GET | the answer plus `refine`: the categories held by *some but not all* of it, each with the count clicking it returns |
 | `/dag/node/<name>` | GET | one node: parents, children, count, rendered *and* canonical name |

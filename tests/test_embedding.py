@@ -133,10 +133,11 @@ def test_the_web_console_is_derived_from_the_effects():
     pytest.importorskip("flask")
     pytest.importorskip("dot2tex")
     from ontodag.web.app import CONSOLE_COMMANDS, CONSOLE_REFUSALS
-    # What the sandbox ran before the list was derived: it must not move.
+    # What the sandbox ran before the list was derived, plus `shared-with`
+    # (0.28, reads only): it must not move without someone deciding.
     assert CONSOLE_COMMANDS == {
         "put", "get", "count", "below", "?", "canon", "list", "show",
         "move", "remove", "overlapping", "overlaps", "meet", "prelude", "pack",
-        "help"}
+        "help", "shared-with"}
     # Every command it refuses still says why.
     assert set(COMMAND_EFFECTS) - CONSOLE_COMMANDS <= set(CONSOLE_REFUSALS)

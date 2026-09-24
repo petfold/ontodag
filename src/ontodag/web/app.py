@@ -406,7 +406,7 @@ COMMAND_GROUPS = (
     ("Filing things", ("put", "move", "remove")),
     ("Asking questions",
      ("get", "count", "list", "show", "below", "overlapping", "overlaps",
-      "meet", "canon")),
+      "meet", "canon", "shared-with")),
     ("Vocabulary", ("prelude", "pack")),
     ("Files and pictures",
      ("import", "export", "merge", "ingest", "excerpt", "diff",
