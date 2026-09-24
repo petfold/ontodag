@@ -758,6 +758,17 @@ class TestPictureIsClickable:
                             query_string={"cat": "animal"}).get_json()
         assert "animal" in answer["ids"].values()
 
+    def test_a_name_shaped_like_markup_is_drawn_as_text(self, client):
+        """Graphviz reads a label written `<...>` as an HTML-like label; the
+        picture's label is the bare name for a node with no descendants, so
+        `<b>bold</b>` made `dot` fail (found by categor.io, 2026-09-24)."""
+        put(client, "<b>bold</b>")
+        answer = client.get("/dag/picture",
+                            query_string={"focus": "<b>bold</b>"}).get_json()
+        assert "svg" in answer, answer
+        assert "&lt;b&gt;bold&lt;/b&gt;" in answer["svg"]
+        assert "<b>bold</b>" not in answer["svg"]
+
     def test_too_big_to_draw_says_so_instead_of_grinding(self, client):
         from ontodag.web.app import PICTURE_LIMIT
         for i in range(PICTURE_LIMIT + 1):

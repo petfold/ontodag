@@ -1004,6 +1004,19 @@ class OntoDAG(DAG):
         parsed = self._parse_parametric(name)
         return parsed[2] if parsed else name
 
+    def is_term(self, name):
+        """Is `name` a typed value of a dimension this DAG declares?
+
+        True for `time(2026-08)` or `weight(3000g)` once `time` and `weight`
+        are declared (the prelude does); False for any other name, including
+        a term-shaped one whose head is not declared, which stays an opaque
+        atom (DIMENSIONS.md §7). A malformed value of a declared head —
+        `time(zzz)` — raises the ValueError `put` would give, since there is
+        no honest yes or no to answer. For an embedder deciding whether a
+        name it has never seen is a category that must exist or a value
+        OntoDAG creates on first use."""
+        return self._parse_parametric(name) is not None
+
     def _is_anchor(self, parent, child):
         """head -> value edges are schema, not assertions: exempt from
         transitive-reduction pruning (DIMENSIONS.md §5)."""

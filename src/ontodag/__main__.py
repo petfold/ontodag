@@ -33,6 +33,7 @@ import time
 
 from ontodag._extras import MissingExtra
 from ontodag.dag import OntoDAG, Item
+from ontodag import native as _native
 from ontodag import surface as _surface
 from ontodag.dimensions import REGISTRY_VERSION
 
@@ -266,84 +267,12 @@ def _detect_format(path):
     return "native"
 
 
-# Node metadata rides on a comment line, which is what makes the extension
-# safe in both directions. Readers released before it existed skip every line
-# starting with `#`, so they read a metadata-bearing file exactly as they read
-# one without: edges only, nothing corrupted. Putting the annotation on the
-# node's own line instead — `name parent1 | {...}` — would have every existing
-# reader take the JSON for a list of parent names and invent nodes from it.
-# The file therefore stays a valid v1 store and the header does not move: the
-# edge grammar is unchanged, and metadata is optional enrichment.
-_META_LINE = "#:meta"
-
-
-def _load_native(path):
-    """Read the native store: one line per node, `name parent1 parent2 ...`,
-    plus a `#:meta <name> <json>` line for each node carrying metadata.
-
-    A missing file is an empty DAG (the default store need not exist yet).
-    The format is canonical (nodes, parents and metadata keys sorted on save)
-    and the graph is rebuilt via add_edge, so even a hand-edited, non-reduced
-    file loads as its unique transitive reduction.
-    """
-    dag = OntoDAG()
-    if not os.path.exists(path):
-        return dag
-    edges = []
-    metadata = {}
-    with open(path, encoding="utf-8") as fh:
-        for number, line in enumerate(fh, 1):
-            line = line.strip()
-            if not line:
-                continue
-            if line.startswith(_META_LINE):
-                # Strict on purpose: dropping an unreadable annotation is the
-                # silent data loss this line type exists to end.
-                try:
-                    _, name, blob = shlex.split(line)
-                    metadata[name] = json.loads(blob)
-                except (ValueError, json.JSONDecodeError) as exc:
-                    raise ValueError(
-                        f"{path}:{number}: malformed {_META_LINE} line ({exc})"
-                    ) from exc
-                continue
-            if line.startswith("#"):
-                continue
-            tokens = shlex.split(line)
-            name = tokens[0]
-            if name not in dag.nodes:
-                dag.add_node(Item(name))
-            for parent in tokens[1:]:
-                if parent not in dag.nodes:
-                    dag.add_node(Item(parent))
-                edges.append((parent, name))
-    for parent, child in edges:
-        dag.add_edge(dag.nodes[parent], dag.nodes[child])
-    for name, values in metadata.items():
-        node = dag.nodes.get(name)
-        if node is not None:          # an annotation for a node with no edges
-            node.metadata.update(values)
-    return dag
-
-
-def _save_native(dag, path):
-    lines = ["# ontodag store v1"]
-    for name in sorted(dag.nodes):
-        if name == dag.root.name:
-            continue
-        node = dag.nodes[name]
-        if node.metadata:
-            # sort_keys so the file is byte-stable; json escapes newlines, so
-            # the token cannot break the line-oriented parse whatever a label
-            # contains.
-            blob = json.dumps(node.metadata, sort_keys=True, ensure_ascii=False)
-            lines.append(f"{_META_LINE} {shlex.quote(name)} {shlex.quote(blob)}")
-        parents = sorted(
-            p.name for p in node.parents if dag.nodes.get(p.name) is p
-        )
-        lines.append(" ".join(shlex.quote(t) for t in [name] + parents))
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write("\n".join(lines) + "\n")
+# The native `.od` format lives in `ontodag.native` (public: `loads`/`dumps`
+# for text, `load`/`save` for paths). These names stay because other code
+# reaches for them — `ontodag.migrate`, the tests, ontodag-fs's tests.
+_META_LINE = _native.META_LINE
+_load_native = _native.load
+_save_native = _native.save
 
 
 def _load(path):
@@ -2589,6 +2518,81 @@ class _Parser(argparse.ArgumentParser):
             return
         stream = _err() if file in (None, sys.stderr) else _out()
         stream.write(message)
+
+
+# What each command touches, for a program that embeds the command language
+# (a web page, an agent surface) and must decide what it may run. Declared
+# here, beside the parser, so a new command cannot arrive without saying —
+# tests/test_cli.py fails for any command missing from this table. An
+# embedder derives its allow-list from these words instead of keeping a
+# list of its own that falls behind the CLI.
+#
+#   reads     reads the store it is given
+#   writes    changes that store
+#   versions  reads or moves the store's history (needs `rs:`/`swarm:`)
+#   files     reads or writes a file named on the command line
+#   network   talks to a Bee node, or listens on a port
+#   settings  reads or changes the persistent settings
+EFFECTS = frozenset({"reads", "writes", "versions", "files", "network", "settings"})
+
+COMMAND_EFFECTS = {
+    "put": frozenset({"reads", "writes"}),
+    "get": frozenset({"reads"}),
+    "count": frozenset({"reads"}),
+    "overlapping": frozenset({"reads"}),
+    "below": frozenset({"reads"}),
+    "overlaps": frozenset({"reads"}),
+    "meet": frozenset({"reads"}),
+    "list": frozenset({"reads"}),
+    "show": frozenset({"reads"}),
+    "canon": frozenset({"reads"}),
+    "move": frozenset({"reads", "writes"}),
+    "remove": frozenset({"reads", "writes"}),
+    "pack": frozenset({"reads", "writes"}),        # listing, --show and --diff only read
+    "prelude": frozenset({"reads", "writes"}),     # --show only reads
+    "history": frozenset({"versions"}),
+    "status": frozenset({"reads", "versions"}),
+    "undo": frozenset({"versions", "writes"}),
+    "redo": frozenset({"versions", "writes"}),
+    "merge": frozenset({"reads", "writes", "files"}),
+    "import": frozenset({"writes", "files"}),
+    "ingest": frozenset({"reads", "writes", "files"}),
+    "export": frozenset({"reads", "files"}),
+    "excerpt": frozenset({"reads", "files"}),
+    "diff": frozenset({"reads", "files"}),
+    "visualize": frozenset({"reads", "files"}),
+    "index": frozenset({"reads", "files", "network"}),
+    "set": frozenset({"settings"}),
+    "swarm": frozenset({"network", "settings"}),
+    "web": frozenset({"network"}),
+    "help": frozenset(),
+}
+
+# Any command's `-o FILE`: its output goes to a file instead of stdout.
+OUTPUT_FLAGS = ("-o", "--output")
+
+
+def effects(argv):
+    """What running this command line would touch: the command's declared
+    effects, sharpened by its flags. `-o FILE` adds `files`; `pack` with no
+    name, `pack NAME --show`/`--diff` and `prelude --show` only read, so they
+    lose `writes`. Raises ValueError for a command the CLI does not have."""
+    argv = list(argv)
+    if not argv:
+        raise ValueError("no command")
+    command = "below" if argv[0] == "?" else argv[0]
+    if command not in COMMAND_EFFECTS:
+        raise ValueError(f"unknown command {argv[0]!r}")
+    found = set(COMMAND_EFFECTS[command])
+    rest = argv[1:]
+    if any(t in OUTPUT_FLAGS or t.startswith("--output=") for t in rest):
+        found.add("files")
+    if command in ("pack", "prelude"):
+        looking = {"--show", "--diff"} & set(rest)
+        named = any(not t.startswith("-") for t in rest)
+        if looking or (command == "pack" and not named):
+            found.discard("writes")
+    return frozenset(found)
 
 
 def build_parser():

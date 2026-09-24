@@ -5,6 +5,7 @@ import uuid
 import random
 from collections import Counter
 
+from ontodag import __main__ as _cli
 from ontodag._extras import MissingExtra
 from ontodag.dag import OntoDAG, Item
 from ontodag.viz import OntoDAGVisualizer, query_picture
@@ -144,11 +145,11 @@ def init_session_visualizer():
 #
 # This list is also what stops the console silently acquiring every future
 # CLI command without anyone deciding it should.
-CONSOLE_COMMANDS = {
-    "put", "get", "count", "below", "?", "canon", "list", "show",
-    "move", "remove", "overlapping", "overlaps", "meet", "prelude", "pack",
-    "help",
-}
+# Derived from the CLI's declared effects (`ontodag.__main__.COMMAND_EFFECTS`):
+# the sandbox has a store in memory and nothing else, so it runs exactly the
+# commands that only read or change a store. `-o FILE` is caught per line.
+CONSOLE_COMMANDS = {name for name, touched in _cli.COMMAND_EFFECTS.items()
+                    if touched <= {"reads", "writes"}} | {"?"}
 
 # Why each absent command is absent, in the CLI's own voice.
 CONSOLE_REFUSALS = {

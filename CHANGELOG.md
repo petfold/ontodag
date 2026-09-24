@@ -14,6 +14,39 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Added
+
+For programs that embed OntoDAG — found while building categor.io, a
+website over it, which had been reaching into private code for each of
+these (`tests/test_embedding.py`):
+
+- **`ontodag.native`: the `.od` format as text.** `dumps(dag)` and
+  `loads(text, source=…)`, plus `load(path)`/`save(dag, path)`; the reader
+  and writer `odag` has always used, moved out of the CLI module unchanged
+  (the old `_load_native`/`_save_native`/`_META_LINE` names in
+  `ontodag.__main__` remain, as the same functions). Standard library only.
+- **`OntoDAG.is_term(name)`**: is a name a typed value of a declared
+  dimension (created on first use), or an ordinary name that must exist?
+  A malformed value of a declared head raises `put`'s error.
+- **`packs.pack_members(name)` and `packs.pack_top(name)`**: a pack's names
+  (the set `describe` counts) and its top categories, read from the entry
+  list — the same as building `pack_dag(name)` and looking, without
+  building it (pinned against the built DAG for every pack).
+- **Command effects.** `ontodag.__main__.COMMAND_EFFECTS` declares what each
+  command touches — `reads`, `writes`, `versions`, `files`, `network`,
+  `settings` — and `effects(argv)` sharpens it by the line's flags (`-o`,
+  `pack --show`). A command without a declaration fails the suite. The web
+  app's console list is now derived from it (unchanged: exactly the
+  commands that only read or write a store).
+
+### Fixed
+
+- **A name shaped like markup broke the picture.** Graphviz reads a label
+  written `<…>` as an HTML-like label, and the web app labels a node with
+  no descendants by its bare name, so a node named `<b>bold</b>` made
+  `/dag/picture` fail with a `dot` syntax error. Labels are now passed as
+  text (`graphviz.nohtml`).
+
 ## [0.26.3] — 2026-09-19
 
 ### Added

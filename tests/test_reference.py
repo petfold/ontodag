@@ -115,6 +115,21 @@ class TestReferenceIsPinned(unittest.TestCase):
                           f"OntoDAG method {method!r} missing from "
                           f"REFERENCE.md §5")
 
+    def test_the_embedding_api_is_listed(self):
+        from ontodag import native, packs
+        from ontodag.__main__ import EFFECTS
+        for name in ("dumps", "loads", "load", "save"):
+            self.assertTrue(callable(getattr(native, name)))
+            self.assertIn(f"`native.{name}(", self.text,
+                          f"ontodag.native.{name} missing from REFERENCE.md §5")
+        for name in ("pack_members", "pack_top"):
+            self.assertTrue(callable(getattr(packs, name)))
+            self.assertIn(f"`{name}`", self.text, f"packs.{name} missing from REFERENCE.md §5")
+        for effect in EFFECTS:
+            self.assertIn(f"`{effect}`", self.text,
+                          f"command effect {effect!r} missing from REFERENCE.md §4")
+        self.assertIn("COMMAND_EFFECTS`", self.text)
+
     def test_plans_are_marked_unshipped(self):
         # The reference must keep sending readers to plans/ with the
         # right expectation — drafts, not features.
@@ -152,3 +167,12 @@ def test_readme_states_the_current_test_count(request):
         f"README says {claimed} tests, CI selects {collected}. "
         "Update the README (this is the reminder that docs drift silently)."
     )
+
+
+def test_the_console_count_in_the_reference_is_current():
+    """REFERENCE §7 quotes how many commands the web console runs; the list
+    is derived from the declared effects now, so the number is pinned here."""
+    import re as _re
+    from ontodag.__main__ import COMMAND_EFFECTS
+    runs = sum(1 for touched in COMMAND_EFFECTS.values() if touched <= {"reads", "writes"})
+    assert _re.search(rf"the {runs} commands that only read or write", reference_text())

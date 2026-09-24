@@ -674,6 +674,32 @@ OWLOntology.export_dag(dag, "travel.owl")
 `.omn` files are ordinary text you can read and even write by hand — see §7. Both
 formats open in standard ontology editors like Protégé.
 
+OntoDAG's own format, `.od` — what `odag` keeps a store in (§7) — needs no
+extra, and `ontodag.native` reads and writes it as text as well as files.
+That is the form to reach for when a program holds a store somewhere other
+than a file: a database row, an upload, a message.
+
+```python
+>>> from ontodag import native
+>>> dag = OntoDAG()
+>>> dag.put("Travel", []); dag.put("Japan", ["Travel"]); dag.put("Flight", [])
+>>> dag.put("jal-123.pdf", ["Japan", "Flight"])
+>>> print(native.dumps(dag), end="")
+# ontodag store v1
+Flight '*'
+Japan Travel
+Travel '*'
+jal-123.pdf Flight Japan
+>>> back = native.loads(native.dumps(dag))
+>>> native.dumps(back) == native.dumps(dag)      # canonical: equal knowledge, equal text
+True
+>>> sorted(i.name for i in back.get(["Travel"]))
+['Japan', 'jal-123.pdf']
+```
+
+`native.load(path)` and `native.save(dag, path)` do the same with a file (a
+missing file loads as an empty store, as `odag` treats a new one).
+
 ### 4.7 Typed values: parametric dimensions
 
 Everything so far has sorted itself by the edges you asserted. But dates are the
@@ -711,6 +737,24 @@ Now ask for a stretch of time that nobody ever created:
 >>> sorted(i.name for i in dag.get(["Flight", "time(2026-01-01..2026-12-31)"]))
 ['berlin-flight.pdf', 'japan-outbound.pdf', 'japan-return.pdf']
 ```
+
+A program that takes names from people — a form, an upload — can ask
+whether a name it has never seen is a value like these, which OntoDAG
+creates on first use, or a category that must exist first:
+
+```python
+>>> from ontodag import prelude
+>>> d = OntoDAG(); prelude.apply(d)
+>>> d.is_term("time(2026-08)"), d.is_term("Japan"), d.is_term("foo(bar)")
+(True, False, False)
+>>> d.is_term("time(zzz)")
+Traceback (most recent call last):
+  ...
+ValueError: invalid calendar value 'zzz' — expected YYYY, YYYY-MM, YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ
+```
+
+`foo(bar)` looks like a term, but `foo` is no declared dimension, so it is an
+ordinary name (§4.7's rule: the head decides).
 
 The same from the command line (**quote the parentheses** in a shell):
 

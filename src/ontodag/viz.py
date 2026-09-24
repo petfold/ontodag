@@ -67,6 +67,18 @@ def _digraph():
     return require("graphviz", "viz", "rendering", hint=_BINARY).Digraph
 
 
+def _text(label):
+    """A label Graphviz takes as text, whatever it looks like.
+
+    Graphviz reads a label written `<...>` as an HTML-like label, so a node
+    named `<b>bold</b>` — an ordinary name to OntoDAG — made `dot` fail with a
+    syntax error, and one whose markup parsed would have been drawn as markup.
+    The web app's labels are the bare name when a node has no descendants,
+    which is exactly that shape. `graphviz.nohtml` marks a string as text."""
+    import graphviz
+    return graphviz.nohtml(label) if hasattr(graphviz, "nohtml") else label
+
+
 def query_picture(dag, queries):
     """The drawable form of a query: its answer, under a node per query term.
 
@@ -220,7 +232,7 @@ class OntoDAGVisualizer:
             color = self.root_color if is_root else color_mapping.get(
                 node, self.default_color)
         # Synthetic id, real name in the label (see the class note).
-        graph.node(ids[node.name], self.label(node.name, node.descendant_count),
+        graph.node(ids[node.name], _text(self.label(node.name, node.descendant_count)),
                    style="filled", fillcolor=color)
         for subcategory in sorted(node.neighbors, key=lambda n: n.name):
             graph.edge(ids[node.name], ids[subcategory.name])

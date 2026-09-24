@@ -106,6 +106,16 @@ results one per line on stdout. No command = read commands from stdin
 
 **Exit codes**: 0 success; 1 error (and `below`'s "false").
 
+**What each command touches** — for a program embedding the command
+language (a web console, an agent), `ontodag.__main__.COMMAND_EFFECTS` maps
+every command to a set of effects, and `effects(argv)` gives them for a
+whole command line (`-o FILE` adds `files`; `pack` without a name, `--show`
+and `--diff` only read): `reads` the store, `writes` it, `versions` (its
+history), `files` (a path on the command line), `network` (a Bee node or a
+listening port), `settings` (the persistent settings). Derive an allow-list
+from these rather than keeping one: a test fails when a command lacks them.
+The web app's console runs exactly the commands that only read or write.
+
 **Settings** — one precedence rule: **flag > environment > config file >
 default**. `auto` means "decide from whether output is a terminal".
 
@@ -152,6 +162,7 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `get(terms, items_only=False)` / `get_any(queries, …)` | intersection / union-of-intersections; returns Items; `items_only` = leaves that are not typed values |
 | `get_by_dag(query_dag)` | intersect against another DAG's categories (the web app's path) |
 | `is_below(sub, sup)` | reflexive, fail-closed Boolean |
+| `is_term(name)` | is `name` a typed value of a dimension this DAG declares? `False` for other names, including a term-shaped one with an undeclared head; a malformed value of a declared head raises `put`'s ValueError |
 | `get_overlapping(term)` | possibly-satisfies candidates |
 | `overlaps(a, b)` | pairwise possibly-satisfies Boolean (terms or nodes) |
 | `meet(a, b)` | intersection of two same-head terms as one term, store units; `None` if empty |
@@ -163,6 +174,13 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `copy_subdag` / `induced_subdag` / `intersection_dag` / `prune_to_common_descendants` | derived DAGs, never aliasing (`copy_subdag` closes downward, `induced_subdag` copies exactly the names given) |
 | `excerpt(queries, context=False)` / `excerpt_names(...)` | a query's answer as a standalone DAG (query terms never added; `context` also brings the categories it hangs from) |
 | `contested(a, b)` | items below both — the two-states-at-once list; empty when one entails the other |
+
+The `.od` format as text (`from ontodag import native` — standard library only):
+
+| call | one line |
+|---|---|
+| `native.dumps(dag)` / `native.loads(text, source=…)` | canonical `.od` text and back; `source` names the text in a malformed-line error |
+| `native.load(path)` / `native.save(dag, path)` | the same for a file; a missing file loads as an empty store |
 
 Comparing two stores (`from ontodag.compare import compare` — an opt-in
 consumer, imported by nothing in the core):
@@ -187,7 +205,9 @@ Persistence adapters (all reachable as `ontodag.X`, imported lazily):
 | `SparseOntoDAG(store)` | resident set | yes | writing into a large store without hydrating it; `sync(other_root)` folds a peer at divergence cost (store must sit at the writer's own lineage) |
 
 Related modules: `ontodag.prelude` (`apply(dag)`), `ontodag.packs`
-(`core` — the upper ontology, `pack_entries`/`is_unit_pack`/`presumes_core`; the
+(`core` — the upper ontology, `pack_entries`/`is_unit_pack`/`presumes_core`,
+`pack_members`/`pack_top` — a pack's names and its top, from the entry
+list without building it; the
 domain packs in `ontodag.domain`; the unit packs `crypto-core`,
 `crypto-majors`, `stablecoins`, `fiat-iso4217`),
 `ontodag.surface` (`render`/`elaborate`; law `elaborate(render(t)) == t`),
@@ -269,7 +289,7 @@ Serving the page (all read-only except the console and the example):
 
 | endpoint | methods | does |
 |---|---|---|
-| `/dag/console` | POST `{line}` | run one `odag` command line; answers `{out, err, code}` plus the page's state. **Allow-listed** — the 13 commands that neither touch a filesystem path nor need a store with versions |
+| `/dag/console` | POST `{line}` | run one `odag` command line; answers `{out, err, code}` plus the page's state. **Allow-listed** — derived from the declared effects (§4): the 15 commands that only read or write a store, so none touches a filesystem path, the network, the settings or a store's versions; `-o FILE` is refused per line |
 | `/dag/commands` | GET | every OntoDAG command with its description, argument shape, group and `available`/`why` — read off the argparse parser, so it cannot drift |
 | `/dag/browse?cat=` | GET | the answer plus `refine`: the categories held by *some but not all* of it, each with the count clicking it returns |
 | `/dag/node/<name>` | GET | one node: parents, children, count, rendered *and* canonical name |

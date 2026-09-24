@@ -149,6 +149,35 @@ def describe(name):
     return f"{sum(1 for e in PACKS[name][1] if e[0] not in prelude_names and e[0] not in borrowed)} categories"
 
 
+def pack_members(name):
+    """The names pack `name` itself brings: a frozenset, the set `describe`
+    counts. A domain pack's borrowed names (its sibling's to bring) and, for
+    a pack that presumes it, the prelude's names are not members."""
+    entries = pack_entries(name)
+    prelude_names = {n for n, _ in _PRELUDE} if name != "prelude" else set()
+    borrowed = set(_DOMAIN[name].BORROWED) if name in _DOMAIN else set()
+    if is_unit_pack(name):
+        return frozenset(node for node, _ in entries)
+    return frozenset(node for node, _ in entries
+                     if node not in prelude_names and node not in borrowed)
+
+
+def pack_top(name):
+    """The names directly under the root of `pack_dag(name)`, sorted — read
+    from the entry list, so no DAG is built: every name the pack's DAG holds
+    that the pack never files under anything. For a domain pack that
+    includes the core names it hangs from; for a pack presuming the prelude,
+    the prelude's top."""
+    entries = pack_entries(name)
+    if is_unit_pack(name):
+        entries = entries + [(UNIT_DECLARATION, ())]
+    elif name != "prelude" and not presumes_core(name) and presumes_prelude(name):
+        entries = entries + pack_entries("prelude")    # shipped as closure, as in pack_dag
+    mentioned = {node for node, _ in entries} | {p for _, parents in entries for p in parents}
+    filed = {node for node, parents in entries if parents}
+    return sorted(mentioned - filed)
+
+
 _SUFFIX_INDEX = None
 
 
