@@ -17,8 +17,8 @@ any record store (a `RecordStore`, local or on Swarm):
     kp/c/<id>        content, sealed under its own data key
 
 A node's tokens are filed under its record, so a reader gets both from one
-prefix read along one trie path. With random ids, separate places cost the
-trie nodes of two paths per node (SHARING_ON_SWARM §13).
+batched prefix read instead of two lookups. A cold read of 130 names needs
+242 fetch calls instead of 369 (SHARING_ON_SWARM §13).
 
 **What a reader gets.** A reader derives a node's key exactly when the node
 is in its reach (`experiments/keyplan_spike.py` checks this on random
