@@ -260,6 +260,12 @@ epoch handling for the edits `losses` reports (ACT §2.7 already lists
 them). Is the token plan a pure function of (store root, principals)? It
 should be, for G1's sake.
 
+**Walls and inboxes** ([WALLS_AND_INBOXES.md](WALLS_AND_INBOXES.md)) carry this
+rule into time: a post is filed under its audience and a `posted` time, a
+wall is the posts in reach ordered by `posted`, and an inbox is the walls a
+reader follows, merged. They add one reserved principal, `everyone`,
+which Q1's declaration should cover.
+
 **Q5 — Cross-store names.** Filing *your* thing under *O's* shared node,
 so that one company vocabulary is used by many stores without copies.
 categor.io needs this for company packs (it currently refuses per-user

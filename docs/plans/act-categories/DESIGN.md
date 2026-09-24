@@ -175,6 +175,30 @@ originally predated:
   entitled as of root R." Few access-control systems get that property
   this cheaply.
 
+### 2.8 Walls: posts as document categories, audiences as recipient categories (added 2026-09-24)
+
+The first concrete workload for this design is posting to an audience —
+walls and inboxes, [../WALLS_AND_INBOXES.md](../WALLS_AND_INBOXES.md) (canonical;
+with [../SHARING.md](../SHARING.md) for the rule it enforces):
+
+- **Recipient categories are audiences**: principals, and the groups filed
+  under them (`friends ⊑ ada@…`), nesting as the people DAG of §2.2 does.
+- **Document categories are an author's posts and their categories**:
+  topics from the public vocabulary, and times. A post's publish time is a
+  value of `posted`, a role of `time`.
+- **A bridge is filing a post under an audience**, and the token plan is
+  derived from reach (SHARING.md §3). Nothing else declares the split
+  between people and documents.
+- **Per-post keys (§2.4) are what let each post choose its own audience**
+  on one author log, instead of a channel per audience. That's ucomm's side
+  of the same design (its `docs/WALLS_AND_INBOXES.md`).
+- **Time buckets are the open part.** "My 2026 posts, for X" is one bridge
+  to `posted(2026)`, but containment between typed values is computed, not
+  asserted, so it has no edges to carry tokens. The options are explicit
+  bucket nodes with asserted edges, or a key per epoch (WALLS_AND_INBOXES
+  Q4). Epochs here are also where §6's forward-only revocation shows: an
+  unfollowed reader keeps the posts they had.
+
 ## 3. Mapping onto Bee's existing ACT
 
 The pivotal implementation fact (Bee `pkg/accesscontrol/access.go`): **the ACT

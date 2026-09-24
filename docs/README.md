@@ -39,7 +39,10 @@ order), PROJECTIONS (sources of truth vs. regenerable
 machine layers, the ingest contract with holdings/ucomm, retention
 classes), SHARING (what one store shows another: reach as the cone of a
 reader's principals in the sharer's store, evaluated per store — ACT's
-rule drawn in one direction, filtered overlays, a proposed G7), SEMA
+rule drawn in one direction, filtered overlays, a proposed G7),
+WALLS_AND_INBOXES (posting to an audience and reading what arrives — the
+sharing rule in time, with `posted` as a role of `time`; joint with
+ucomm and categor.io, and ACT's document and recipient categories), SEMA
 (relation to the SEMA project: hash-of-definition vs.
 canonical-state grains, lessons, collaboration options), SURFACE_LAYER
 (the human layer), WEB_UI (a simpler
