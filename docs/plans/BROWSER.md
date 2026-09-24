@@ -18,6 +18,16 @@ a design awaiting a first run.
 Written 2026-08-02, after making the base install pure-Python — which is
 what turned this from impossible into a page you can open.
 
+**2026-09-25: the key plan runs here too** (SHARING_ON_SWARM.md §13).
+`demo/pyodide/keyplan.mjs` installs a local wheel and runs
+`keyplan_check.py`. Pyodide 0.27.7 ships pycryptodome but not coincurve,
+so `ontodag.act` falls back to its pure-Python secp256k1. The script
+publishes a store's shares, reads them as two readers (both exact, and the
+timeline equals the server's), revokes lazily, and checks that the revoked
+reader can't open the next post. That takes 0.5 s after a 7 s install.
+Reading a friend's shares in a browser therefore needs no TypeScript port of
+the crypto; the Swarm half, as above, still hasn't run.
+
 **The short version.** A shared ontology on Swarm is too large to download,
 so the browser fetches only the fragment each query touches. Measured on a
 3,221-node store, a session costs **~12 sequential round trips for the first
