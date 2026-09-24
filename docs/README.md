@@ -37,7 +37,10 @@ EVOLUTION (how an ontology changes; the top ontology), PACKS (published
 ontologies and trust; Part II = the 2026-08-20 decisions and build
 order), PROJECTIONS (sources of truth vs. regenerable
 machine layers, the ingest contract with holdings/ucomm, retention
-classes), SEMA (relation to the SEMA project: hash-of-definition vs.
+classes), SHARING (what one store shows another: reach as the cone of a
+reader's principals in the sharer's store, evaluated per store — ACT's
+rule drawn in one direction, filtered overlays, a proposed G7), SEMA
+(relation to the SEMA project: hash-of-definition vs.
 canonical-state grains, lessons, collaboration options), SURFACE_LAYER
 (the human layer), WEB_UI (a simpler
 web interface — the browse/console page is shipped; the demo site and store
