@@ -233,6 +233,15 @@ class TestWallsAndInboxes(unittest.TestCase):
         self.assertEqual([(a, n) for _v, a, n in inbox],
                          [("ada", "ada-1"), ("dan", "dan-1"), ("ada", "ada-2")])
 
+    def test_a_wall_includes_what_the_author_made_public(self):
+        d, dan = self._author(43, [("club-news", ["friends", "posted(2026-09-24T18:00:00Z)"]),
+                                   ("open-day", ["everyone", "posted(2026-09-25T02:00:00Z)"])])
+        reader = keyplan.Reader(dan.store, READERS["bob@x"], public_key((43).to_bytes(32, "big")))
+        self.assertNotIn("open-day", reader.receive())
+        wall = reader.receive(public=True)
+        self.assertEqual(wall.timeline(), sharing.timeline(d, ["bob@x", "everyone"]))
+        self.assertEqual(wall.principal, "bob@x")
+
 
 @unittest.skipUnless(HAVE_ACT, "needs the act extra")
 class TestLazyRevocation(unittest.TestCase):

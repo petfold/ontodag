@@ -452,6 +452,14 @@ class Received:
                     out.append((value, name))
         return sorted(out, key=lambda vn: (split_term(vn[0])[1], vn[1]))
 
+    def merged(self, other):
+        """This view and `other` (from the same author's store) as one: a
+        reader's own shares together with what the author made public."""
+        return Received(self._store, self.principal or other.principal,
+                        self.names | other.names, self.edges | other.edges,
+                        {**other._contents, **self._contents},
+                        {**other._values, **self._values})
+
     def content(self, name):
         """The content filed with `name`, or None if it has none."""
         c = self._contents.get(name)
@@ -574,8 +582,17 @@ class Reader:
             frontier = nxt
         return top, keys, edges
 
-    def receive(self) -> Received:
-        """Everything shared with this reader, decrypted."""
+    def receive(self, public=False) -> Received:
+        """Everything shared with this reader, decrypted. With `public=True`
+        it adds what the author shares with `everyone`: a wall as a reader
+        sees it is reach(their principals and `everyone`) (WALLS §2)."""
+        got = self._receive()
+        if public and self._key != everyone_key():
+            got = got.merged(Reader(self.store, everyone_key(), self._author,
+                                    self._workers)._receive())
+        return got
+
+    def _receive(self) -> Received:
         top, keys, edges = self.walk()
         if top is None:
             return Received(self.store, None, (), (), {})
@@ -597,8 +614,9 @@ class Reader:
 def inbox(received, role="posted"):
     """Several authors' walls, merged: `(value, author, name)`, oldest
     first. `received` maps an author (however the reader labels them: a
-    petname, a key) to what that author shares with the reader. Which
-    authors are in it is the reader's choice, as following is (SHARING §5)."""
+    petname, a key) to what that author shares with the reader, usually
+    `receive(public=True)`. Which authors are in it is the reader's choice,
+    as following is (SHARING §5)."""
     from ontodag.dimensions import split_term
     out = [(value, author, name)
            for author, got in received.items()

@@ -90,9 +90,20 @@ def keccak256(data: bytes) -> bytes:
     return keccak.new(digest_bits=256, data=data).digest()
 
 
+def _secp256k1():
+    """coincurve, or None where it can't be installed (Pyodide: it has no
+    pure-Python wheel). Then the pure-Python curve below stands in."""
+    try:
+        return _coincurve()
+    except ImportError:
+        return None
+
+
 def public_key(private_key: bytes) -> bytes:
     """Compressed secp256k1 public key (33 bytes) for a 32-byte secret."""
-    cc = _coincurve()
+    cc = _secp256k1()
+    if cc is None:
+        return _py_public_key(private_key)
     return cc.PublicKey.from_valid_secret(private_key).format(compressed=True)
 
 
@@ -100,9 +111,92 @@ def shared_x(private_key: bytes, other_public: bytes) -> bytes:
     """ECDH x-coordinate as Go's `big.Int.Bytes()`: big-endian, leading
     zeros STRIPPED (so it is occasionally 31 bytes — the trap the spike's
     second vector exists for)."""
-    cc = _coincurve()
+    cc = _secp256k1()
+    if cc is None:
+        return _py_shared_x(private_key, other_public)
     point = cc.PublicKey(other_public).multiply(private_key)
     return point.format(compressed=False)[1:33].lstrip(b"\x00")
+
+
+# --------------------------------------------------------------------------- #
+# secp256k1 in pure Python: the fallback for runtimes without coincurve
+# (Pyodide, so a browser can read a key plan). It is NOT constant-time:
+# prefer coincurve wherever it installs. Pinned to coincurve by the tests.
+# --------------------------------------------------------------------------- #
+
+_P = 2 ** 256 - 2 ** 32 - 977
+_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+_G = (0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
+      0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8)
+
+
+def _double(X, Y, Z):
+    if Z == 0 or Y == 0:
+        return (0, 1, 0)
+    S = 4 * X * Y * Y % _P
+    M = 3 * X * X % _P
+    X3 = (M * M - 2 * S) % _P
+    Y3 = (M * (S - X3) - 8 * pow(Y, 4, _P)) % _P
+    return X3, Y3, 2 * Y * Z % _P
+
+
+def _add(A, B):
+    X1, Y1, Z1 = A
+    X2, Y2, Z2 = B
+    if Z1 == 0:
+        return B
+    if Z2 == 0:
+        return A
+    Z1Z1, Z2Z2 = Z1 * Z1 % _P, Z2 * Z2 % _P
+    U1, U2 = X1 * Z2Z2 % _P, X2 * Z1Z1 % _P
+    S1, S2 = Y1 * Z2 * Z2Z2 % _P, Y2 * Z1 * Z1Z1 % _P
+    if U1 == U2:
+        return _double(X1, Y1, Z1) if S1 == S2 else (0, 1, 0)
+    H, R = (U2 - U1) % _P, (S2 - S1) % _P
+    HH = H * H % _P
+    HHH, V = H * HH % _P, U1 * HH % _P
+    X3 = (R * R - HHH - 2 * V) % _P
+    return X3, (R * (V - X3) - S1 * HHH) % _P, H * Z1 * Z2 % _P
+
+
+def _multiply(k, point):
+    if not 0 < k < _N:
+        raise ValueError("not a valid secp256k1 secret")
+    acc, base = (0, 1, 0), (point[0], point[1], 1)
+    for bit in bin(k)[2:]:
+        acc = _double(*acc)
+        if bit == "1":
+            acc = _add(acc, base)
+    X, Y, Z = acc
+    if Z == 0:
+        raise ValueError("the product is the point at infinity")
+    zi = pow(Z, -1, _P)
+    return X * zi * zi % _P, Y * zi * zi * zi % _P
+
+
+def _point(public: bytes):
+    if len(public) == 65 and public[0] == 4:
+        x, y = int.from_bytes(public[1:33], "big"), int.from_bytes(public[33:], "big")
+    elif len(public) == 33 and public[0] in (2, 3):
+        x = int.from_bytes(public[1:], "big")
+        y = pow((pow(x, 3, _P) + 7) % _P, (_P + 1) // 4, _P)
+        if (y & 1) != (public[0] & 1):
+            y = _P - y
+    else:
+        raise ValueError("not a secp256k1 public key")
+    if (y * y - pow(x, 3, _P) - 7) % _P:
+        raise ValueError("not a point on secp256k1")
+    return x, y
+
+
+def _py_public_key(private_key: bytes) -> bytes:
+    x, y = _multiply(int.from_bytes(private_key, "big"), _G)
+    return bytes([2 + (y & 1)]) + x.to_bytes(32, "big")
+
+
+def _py_shared_x(private_key: bytes, other_public: bytes) -> bytes:
+    x, _y = _multiply(int.from_bytes(private_key, "big"), _point(other_public))
+    return x.to_bytes(32, "big").lstrip(b"\x00")
 
 
 def act_keys(private_key: bytes, other_public: bytes):
