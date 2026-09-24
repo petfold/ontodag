@@ -491,6 +491,9 @@ principal, with a keypair**, as ACT §3 already gives every people node.
   - **The key-plan crypto** (Keccak, secp256k1, Bee's stream cipher) has
     pinned vectors already. So a TypeScript port on noble's libraries is
     transcription, as the Python one was (ACT §5).
+  - **Or none at all, for the reader:** the key plan already runs under
+    Pyodide. Pyodide has pycryptodome, and `ontodag.act` falls back to a
+    pure-Python secp256k1 where coincurve is missing (§13).
   - The open question is how much of the reader belongs in TypeScript and
     how much in Pyodide (S15).
 - **Command line and desktop:** Python end to end (`odag` with the `swarm`
@@ -676,12 +679,115 @@ Earlier runs of the spike, whose edits also drew on the key randomness,
 agree: 6,768 edits under eager and 7,318 under lazy, with no mismatches and
 no new keys exposed.
 
-What was not checked:
-- anything on a real Swarm network;
-- identity;
+What the spike doesn't check:
+- anything on a real Swarm network (§13 has the first run);
+- identity (Phase 3);
 - the real per-node records and data keys (the spike models tokens and
-  grantee entries only);
-- removing a principal, or a principal changing its key;
-- costs.
+  grantee entries only; `ontodag.keyplan` has them, §13);
+- removing a principal, or a principal changing its key (tested on
+  `keyplan`, §13);
+- costs at scale.
 
-Those are Phases 1 to 3.
+## 13. Built so far (2026-09-25)
+
+Everything here is on OntoDAG's `swarm-sharing` branch, unreleased.
+
+**Phase 1: `ontodag.keyplan`.** `Publisher` and `Reader` as §4 describes,
+with these leanings taken:
+- the plan is derived from reach at every publication, computed hops
+  included (`plan()`), in place of `KeyGraph.align`;
+- node ids are keyed (S4);
+- each node has a rotating derivation key, and each content version its
+  own data key (§4.2);
+- a record per node names the node and its typed-value parents, never its
+  private parents or children, and tokens stay as their own records for
+  now (S5);
+- rotation is lazy, with the upward fixpoint, and record changes count as
+  something new; `eager=True` rotates everything stale at once (S6);
+- a removed or re-keyed principal loses everything it reached;
+- `everyone` is a principal with a published key, so one mechanism covers
+  public content too (S7's first option, for now);
+- a reader lists only its own nodes' tokens, and reads each level of the
+  walk concurrently over a `RecordStore`.
+
+**Walls come with it:**
+- `sharing.timeline` (WALLS_AND_INBOXES build order item 1);
+- `Received.timeline()`, equal to the server's timeline for each reader;
+- `receive(public=True)`, which adds the author's public posts;
+- `keyplan.inbox()`, which merges several authors' walls.
+
+**Tests.** `tests/test_keyplan.py` has 18, `tests/test_sharing.py` 3 more,
+and `tests/test_act.py` 2 more. They cover:
+- exact reach and exact edges;
+- timelines equal to the server's;
+- lazy and eager revocation;
+- re-keyed and removed principals;
+- the pure-Python curve against coincurve and Bee's vectors;
+- a random-store property test: a reader that kept every key it ever held
+  opens only record versions it was once entitled to.
+
+That last test fails under both deliberate mutations: no fixpoint, and
+record changes ignored.
+
+**At scale, in memory** (50 members, 1,000 items):
+- 2,345 records published in 1.0 s;
+- a member reads their 1,002 names in 0.7 s;
+- a member leaving rotates nothing and deletes one record;
+- the next post rotates the group, writing 121 records.
+
+**In a browser's Python.** `demo/pyodide/keyplan.mjs` runs publish, read,
+revoke and post under Pyodide 0.27.7.
+- Pyodide has pycryptodome but not coincurve. So `ontodag.act` falls back
+  to a pure-Python secp256k1, which is pinned to coincurve and to Bee's
+  vectors by the tests, and is not constant-time.
+- Everything checked out, in 0.5 s after a 7 s install.
+
+**On Swarm mainnet** (`experiments/keyplan_swarm.py`; a light node, Bee
+2.8.2, and a one-day batch bought for it; results in
+`experiments/keyplan_swarm_2026-09-25.json`). Ada's store has 120 items in
+folders shared with a group of two, a share of all her 2026 posts with Bob,
+and a public post:
+
+| | one key at a time | 16 workers per level |
+|---|---|---|
+| first publication | 272 records, 641 chunks, 25 s | the same, 26–27 s |
+| Bob's first read (130 names), through our node | 106 s | 25–27 s |
+| the same, through the public gateway, which never held the data | 70 s | 16–17 s |
+| Carol leaves the group | nothing rotated: 1 record deleted, 1.5–1.9 s | the same |
+| Ada posts in the group | `friends` rotated: 41 records, 6–7 s | the same |
+
+- **Every read equalled `sharing.reach`** for its reader, and a stranger
+  got nothing.
+- **Carol**, holding every key she had ever had, couldn't open the post
+  made after she left; Bob read it.
+- **Bob's inbox:** a second author, Dan, published to his own feed. Bob's
+  inbox read both walls from Swarm and merged them in `posted` order,
+  public posts included (six posts from the two walls, Dan's public one included, in 17.5 s).
+- **Opening a feed cost 1–10 s** before any record was fetched, on every
+  read (1.2 s through the gateway). That's a Swarm feed lookup, the cost of
+  a miss in dappdata's T18. Readers that remember the last root and index
+  could skip most of it (S10).
+- **Cold reads are round-trip bound.** 130 names took 400–500 fetches of
+  trie nodes and records. Reading each level concurrently made the first
+  read about 4× faster. Fewer, bigger records (tokens inside records, S5)
+  would cut the count itself.
+
+**Bee needs no change for this.** Its ACT (`pkg/accesscontrol`) works like
+this:
+- it keeps one access key per ACT;
+- revoking a grantee creates a new ACT with a new key and re-adds every
+  remaining grantee;
+- downloads always use the node's own key.
+
+So the walk belongs in the client, as ACT §4 said. The optional header of
+ACT Phase 2 would matter only if content were stored as Bee ACT
+references, which `keyplan` doesn't do.
+
+**Not built yet:**
+- a CLI;
+- identity (Phase 3; dappdata's D29 is proposed);
+- a browser page reading from a node (Phase 4's Swarm half);
+- requests and push (Phase 6);
+- groups across stores (Phase 7);
+- S5's other record layout;
+- a fix for `KeyGraph.revoke` itself.

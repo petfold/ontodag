@@ -1,0 +1,470 @@
+{
+ "what": "experiments/keyplan_swarm.py on Swarm mainnet, 2026-09-25: Bee 2.8.2 light node, batch 5508731d... (depth 19, one day); the gateway reads went through https://api.gateway.ethswarm.org. Keys were random per run and are not kept.",
+ "runs": {
+  "one key at a time": {
+   "topic": "ontodag-keyplan-2026-09-25-seq2",
+   "owner": "ab3214bfdfb7b3690369ad96590262d9a99fc330",
+   "items": 120,
+   "workers": 1,
+   "steps": [
+    {
+     "step": "first publication",
+     "publish_seconds": 25.41,
+     "records_written": 272,
+     "records_deleted": 0,
+     "blobs_uploaded": 641,
+     "rotated": [],
+     "stale": 0,
+     "shared": 132,
+     "root": "07b770c126cb8da24b8403e2f8c6cc52f8d7094e542f0fed154761753c4bba4f",
+     "reads": {
+      "bob via node": {
+       "names": 130,
+       "exact": true,
+       "seconds": 106.35,
+       "feed_seconds": 6.4,
+       "round_trips": 391,
+       "blobs": 633,
+       "contents": {
+        "employee-info": "Holidays: 25 days.",
+        "hello-world": "Hello, world. This one is public.",
+        "note-to-bob": "Bob: dinner on Friday?",
+        "trip-photos": "Photos from the trip, for friends."
+       }
+      },
+      "carol via node": {
+       "names": 124,
+       "exact": true,
+       "seconds": 6.69,
+       "feed_seconds": 3.81,
+       "round_trips": 368,
+       "blobs": 604,
+       "contents": {
+        "employee-info": "Holidays: 25 days.",
+        "trip-photos": "Photos from the trip, for friends."
+       }
+      },
+      "stranger via node": {
+       "names": 0,
+       "exact": true,
+       "seconds": 3.92,
+       "feed_seconds": 3.9,
+       "round_trips": 3,
+       "blobs": 3,
+       "contents": {}
+      },
+      "everyone via node": {
+       "names": 2,
+       "exact": true,
+       "seconds": 5.44,
+       "feed_seconds": 4.07,
+       "round_trips": 18,
+       "blobs": 34,
+       "contents": {
+        "hello-world": "Hello, world. This one is public."
+       }
+      },
+      "bob via gateway": {
+       "names": 130,
+       "exact": true,
+       "seconds": 70.3,
+       "feed_seconds": 1.27,
+       "round_trips": 391,
+       "blobs": 633,
+       "contents": {
+        "employee-info": "Holidays: 25 days.",
+        "hello-world": "Hello, world. This one is public.",
+        "note-to-bob": "Bob: dinner on Friday?",
+        "trip-photos": "Photos from the trip, for friends."
+       }
+      }
+     }
+    },
+    {
+     "step": "Carol leaves the group",
+     "publish_seconds": 1.74,
+     "records_written": 0,
+     "records_deleted": 1,
+     "blobs_uploaded": 3,
+     "rotated": [],
+     "stale": 123,
+     "shared": 132,
+     "root": "9fbb6a42343569217780a2b59f32029bb3b76326da111328fe81b711ff622f5e",
+     "reads": {
+      "carol via node": {
+       "names": 1,
+       "exact": true,
+       "seconds": 4.93,
+       "feed_seconds": 4.16,
+       "round_trips": 11,
+       "blobs": 26,
+       "contents": {}
+      }
+     }
+    },
+    {
+     "step": "a new post in the group",
+     "publish_seconds": 6.36,
+     "records_written": 41,
+     "records_deleted": 0,
+     "blobs_uploaded": 108,
+     "rotated": [
+      "friends"
+     ],
+     "stale": 122,
+     "shared": 134,
+     "root": "09f30d9a77caa9e1bef8795cbfcf72224f1a64058f9ed0fd866875a8fe89b919",
+     "reads": {
+      "bob via node": {
+       "names": 132,
+       "exact": true,
+       "seconds": 21.21,
+       "feed_seconds": 9.55,
+       "round_trips": 400,
+       "blobs": 646,
+       "contents": {
+        "employee-info": "Holidays: 25 days.",
+        "hello-world": "Hello, world. This one is public.",
+        "new-post": "A new post for friends, after Carol left.",
+        "note-to-bob": "Bob: dinner on Friday?",
+        "trip-photos": "Photos from the trip, for friends."
+       }
+      },
+      "carol via node": {
+       "names": 1,
+       "exact": true,
+       "seconds": 7.92,
+       "feed_seconds": 7.86,
+       "round_trips": 11,
+       "blobs": 27,
+       "contents": {}
+      }
+     },
+     "carol_with_old_keys_opens_new_post": false
+    }
+   ]
+  },
+  "16 workers per level": {
+   "topic": "ontodag-keyplan-2026-09-25-par2",
+   "owner": "7661535ed9feadb5ae9ab9c0bc791a9042071d1a",
+   "items": 120,
+   "workers": 16,
+   "steps": [
+    {
+     "step": "first publication",
+     "publish_seconds": 27.01,
+     "records_written": 272,
+     "records_deleted": 0,
+     "blobs_uploaded": 635,
+     "rotated": [],
+     "stale": 0,
+     "shared": 132,
+     "root": "e2ae2f2dbb994396750e8c1f18d139672383c144a7ef9d37743682ebc633631f",
+     "reads": {
+      "bob via node": {
+       "names": 130,
+       "exact": true,
+       "seconds": 25.1,
+       "feed_seconds": 5.08,
+       "round_trips": 477,
+       "blobs": 732,
+       "contents": {
+        "employee-info": "Holidays: 25 days.",
+        "hello-world": "Hello, world. This one is public.",
+        "note-to-bob": "Bob: dinner on Friday?",
+        "trip-photos": "Photos from the trip, for friends."
+       }
+      },
+      "carol via node": {
+       "names": 124,
+       "exact": true,
+       "seconds": 6.33,
+       "feed_seconds": 3.88,
+       "round_trips": 448,
+       "blobs": 700,
+       "contents": {
+        "employee-info": "Holidays: 25 days.",
+        "trip-photos": "Photos from the trip, for friends."
+       }
+      },
+      "stranger via node": {
+       "names": 0,
+       "exact": true,
+       "seconds": 4.04,
+       "feed_seconds": 4.03,
+       "round_trips": 2,
+       "blobs": 2,
+       "contents": {}
+      },
+      "everyone via node": {
+       "names": 2,
+       "exact": true,
+       "seconds": 5.51,
+       "feed_seconds": 4.16,
+       "round_trips": 17,
+       "blobs": 32,
+       "contents": {
+        "hello-world": "Hello, world. This one is public."
+       }
+      },
+      "bob via gateway": {
+       "names": 130,
+       "exact": true,
+       "seconds": 15.91,
+       "feed_seconds": 1.2,
+       "round_trips": 472,
+       "blobs": 727,
+       "contents": {
+        "employee-info": "Holidays: 25 days.",
+        "hello-world": "Hello, world. This one is public.",
+        "note-to-bob": "Bob: dinner on Friday?",
+        "trip-photos": "Photos from the trip, for friends."
+       }
+      }
+     }
+    },
+    {
+     "step": "Carol leaves the group",
+     "publish_seconds": 1.85,
+     "records_written": 0,
+     "records_deleted": 1,
+     "blobs_uploaded": 3,
+     "rotated": [],
+     "stale": 123,
+     "shared": 132,
+     "root": "dbfa1cb896e1016ef7ca96ca4c75e6e6a118a8fdc3608963e2e1bbf3f8227787",
+     "reads": {
+      "carol via node": {
+       "names": 1,
+       "exact": true,
+       "seconds": 5.06,
+       "feed_seconds": 4.28,
+       "round_trips": 9,
+       "blobs": 23,
+       "contents": {}
+      }
+     }
+    },
+    {
+     "step": "a new post in the group",
+     "publish_seconds": 6.6,
+     "records_written": 41,
+     "records_deleted": 0,
+     "blobs_uploaded": 106,
+     "rotated": [
+      "friends"
+     ],
+     "stale": 122,
+     "shared": 134,
+     "root": "8cb6d367a1cdbac603988492bfc244785aa954a4a073465ca9052f38ce398601",
+     "reads": {
+      "bob via node": {
+       "names": 132,
+       "exact": true,
+       "seconds": 15.69,
+       "feed_seconds": 7.36,
+       "round_trips": 456,
+       "blobs": 717,
+       "contents": {
+        "employee-info": "Holidays: 25 days.",
+        "hello-world": "Hello, world. This one is public.",
+        "new-post": "A new post for friends, after Carol left.",
+        "note-to-bob": "Bob: dinner on Friday?",
+        "trip-photos": "Photos from the trip, for friends."
+       }
+      },
+      "carol via node": {
+       "names": 1,
+       "exact": true,
+       "seconds": 7.39,
+       "feed_seconds": 7.33,
+       "round_trips": 9,
+       "blobs": 23,
+       "contents": {}
+      }
+     },
+     "carol_with_old_keys_opens_new_post": false
+    }
+   ]
+  },
+  "final, with the two-author inbox": {
+   "topic": "ontodag-keyplan-2026-09-25-final2",
+   "owner": "3a141ce1952f5d8d3e196c248101127df17e218c",
+   "items": 120,
+   "workers": 16,
+   "steps": [
+    {
+     "step": "first publication",
+     "publish_seconds": 26.0,
+     "records_written": 272,
+     "records_deleted": 0,
+     "blobs_uploaded": 639,
+     "rotated": [],
+     "stale": 0,
+     "shared": 132,
+     "root": "43de6e726f250b7afdabcf9935b0a29af97a8538e28ccaeb37a3d273b93fe78e",
+     "reads": {
+      "bob via node": {
+       "names": 130,
+       "exact": true,
+       "seconds": 26.23,
+       "feed_seconds": 5.73,
+       "round_trips": 473,
+       "blobs": 723,
+       "contents": {
+        "employee-info": "Holidays: 25 days.",
+        "hello-world": "Hello, world. This one is public.",
+        "note-to-bob": "Bob: dinner on Friday?",
+        "trip-photos": "Photos from the trip, for friends."
+       }
+      },
+      "carol via node": {
+       "names": 124,
+       "exact": true,
+       "seconds": 6.31,
+       "feed_seconds": 3.89,
+       "round_trips": 415,
+       "blobs": 660,
+       "contents": {
+        "employee-info": "Holidays: 25 days.",
+        "trip-photos": "Photos from the trip, for friends."
+       }
+      },
+      "stranger via node": {
+       "names": 0,
+       "exact": true,
+       "seconds": 4.01,
+       "feed_seconds": 4.0,
+       "round_trips": 2,
+       "blobs": 2,
+       "contents": {}
+      },
+      "everyone via node": {
+       "names": 2,
+       "exact": true,
+       "seconds": 5.43,
+       "feed_seconds": 4.11,
+       "round_trips": 18,
+       "blobs": 32,
+       "contents": {
+        "hello-world": "Hello, world. This one is public."
+       }
+      },
+      "bob via gateway": {
+       "names": 130,
+       "exact": true,
+       "seconds": 16.87,
+       "feed_seconds": 1.16,
+       "round_trips": 480,
+       "blobs": 730,
+       "contents": {
+        "employee-info": "Holidays: 25 days.",
+        "hello-world": "Hello, world. This one is public.",
+        "note-to-bob": "Bob: dinner on Friday?",
+        "trip-photos": "Photos from the trip, for friends."
+       }
+      }
+     }
+    },
+    {
+     "step": "Carol leaves the group",
+     "publish_seconds": 1.94,
+     "records_written": 0,
+     "records_deleted": 1,
+     "blobs_uploaded": 4,
+     "rotated": [],
+     "stale": 123,
+     "shared": 132,
+     "root": "f17994d5aa085b96c57e182924c8ef08e5a31bf357e562525c16b93e28c54ac3",
+     "reads": {
+      "carol via node": {
+       "names": 1,
+       "exact": true,
+       "seconds": 5.42,
+       "feed_seconds": 4.4,
+       "round_trips": 11,
+       "blobs": 25,
+       "contents": {}
+      }
+     }
+    },
+    {
+     "step": "a new post in the group",
+     "publish_seconds": 5.85,
+     "records_written": 41,
+     "records_deleted": 0,
+     "blobs_uploaded": 112,
+     "rotated": [
+      "friends"
+     ],
+     "stale": 122,
+     "shared": 134,
+     "root": "9fe040879e1af92a19299c9935436c5faabae5a8b126f605b06d43fe320b5deb",
+     "reads": {
+      "bob via node": {
+       "names": 132,
+       "exact": true,
+       "seconds": 17.56,
+       "feed_seconds": 8.28,
+       "round_trips": 456,
+       "blobs": 708,
+       "contents": {
+        "employee-info": "Holidays: 25 days.",
+        "hello-world": "Hello, world. This one is public.",
+        "new-post": "A new post for friends, after Carol left.",
+        "note-to-bob": "Bob: dinner on Friday?",
+        "trip-photos": "Photos from the trip, for friends."
+       }
+      },
+      "carol via node": {
+       "names": 1,
+       "exact": true,
+       "seconds": 7.87,
+       "feed_seconds": 7.8,
+       "round_trips": 11,
+       "blobs": 26,
+       "contents": {}
+      }
+     },
+     "carol_with_old_keys_opens_new_post": false
+    }
+   ],
+   "inbox": {
+    "seconds": 17.53,
+    "dan_publish_seconds": 6.54,
+    "posts": [
+     [
+      "posted(2026-09-20T08:30:00Z)",
+      "ada",
+      "hello-world"
+     ],
+     [
+      "posted(2026-09-24T10:00:00Z)",
+      "ada",
+      "trip-photos"
+     ],
+     [
+      "posted(2026-09-24T12:15:00Z)",
+      "ada",
+      "note-to-bob"
+     ],
+     [
+      "posted(2026-09-24T18:00:00Z)",
+      "dan",
+      "route-report"
+     ],
+     [
+      "posted(2026-09-25T02:00:00Z)",
+      "dan",
+      "open-day"
+     ],
+     [
+      "posted(2026-09-25T03:00:00Z)",
+      "ada",
+      "new-post"
+     ]
+    ]
+   }
+  }
+ }
+}
