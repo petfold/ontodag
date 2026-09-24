@@ -16,6 +16,13 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
+- **`sharing.timeline(dag, principals, role="posted")`**: what those
+  readers see, in time order. It gives `(value, name)` for each name in
+  reach filed under a point of `role`, oldest first: an author's wall as
+  those readers see it (WALLS_AND_INBOXES.md §2 and build order item 1).
+  Ranges such as `posted(2026)`, and the values themselves, are skipped.
+  `sharing.point_values` gives one name's points.
+
 - **`ontodag.keyplan`: what a store shares, enforced by keys**
   (experimental; docs/plans/SHARING_ON_SWARM.md §4, Phase 1). It needs
   the `act` extra.
@@ -41,6 +48,15 @@ the version numbers appear in commit history and docs.
     test: a reader that kept every key it ever held opens only record
     versions it was once entitled to. Two deliberate mutations (no
     fixpoint; record changes ignored) both fail it.
+  - Records name their node's typed-value parents, such as its
+    `posted(...)` time. These are the cut parents a host may show "by
+    another right" (SHARING §2.1), and a reader needs them to order a wall.
+    `Received.timeline()` gives the wall as the reader sees it, equal to
+    `sharing.timeline` over the author's store for that reader.
+    `keyplan.inbox({author: received})` merges the walls a reader follows.
+  - Over a `RecordStore`, `Reader` reads each level of the walk with
+    `workers` threads (16 by default), each on its own snapshot of the
+    committed root over one shared blob cache.
   - `experiments/keyplan_spike.py` compares four rotation rules on the
     same random edits. It shows that `KeyGraph.revoke`'s rule (rotate
     only nodes with outgoing tokens) exposes new keys once such a node

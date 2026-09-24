@@ -233,3 +233,41 @@ def test_as_reads_the_store_alone_never_the_overlays(store, monkeypatch):
         _, as_ada, _ = _run(["get", "employees", "--as", ADA], store)
     assert "scanned-payslips" in plain.split()          # the overlay answers `get`...
     assert "scanned-payslips" not in as_ada.split()     # ...but shares nothing
+
+
+# ---- the wall: reach in time order (WALLS_AND_INBOXES §2) ---------------------
+
+def walls():
+    dag = OntoDAG()
+    prelude.apply(dag)
+    dag.put("posted", ["time"])
+    for p in (ADA, BOB, "everyone"):
+        dag.put(p, [])
+    dag.put("friends", [ADA, BOB])
+    dag.put("trip-photos", ["friends", "posted(2026-09-24T10:00:00Z)", "time(2026-08)"])
+    dag.put("hello-world", ["everyone", "posted(2026-09-20T08:30:00Z)"])
+    dag.put("note-to-ada", [ADA, "posted(2026-09-24T12:15:00Z)"])
+    dag.put("draft", ["friends"])                       # no posted time: not on the wall
+    dag.put("posted(2026)", [BOB])                      # all of 2026's posts, for Bob
+    return dag
+
+
+def test_a_wall_is_reach_in_posted_order():
+    dag = walls()
+    assert sharing.timeline(dag, [ADA, "everyone"]) == [
+        ("posted(2026-09-20T08:30:00Z)", "hello-world"),
+        ("posted(2026-09-24T10:00:00Z)", "trip-photos"),
+        ("posted(2026-09-24T12:15:00Z)", "note-to-ada")]
+    assert sharing.timeline(dag, ["everyone"]) == [
+        ("posted(2026-09-20T08:30:00Z)", "hello-world")]
+
+
+def test_a_share_of_a_year_brings_its_posts_and_skips_the_values_themselves():
+    names = [n for _v, n in sharing.timeline(walls(), [BOB])]
+    assert names == ["hello-world", "trip-photos", "note-to-ada"]
+
+
+def test_about_time_is_not_publish_time():
+    dag = walls()
+    assert sharing.point_values(dag, "trip-photos", "posted") == ["posted(2026-09-24T10:00:00Z)"]
+    assert sharing.timeline(dag, [ADA], role="time") == []   # time(2026-08) is a range

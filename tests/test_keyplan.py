@@ -191,6 +191,50 @@ class TestWhatReadersSee(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_ACT, "needs the act extra")
+class TestWallsAndInboxes(unittest.TestCase):
+    """A post's `posted` value is a parent outside the reader's reach, so
+    records carry typed-value parents, and a reader's timeline equals the
+    server's (`sharing.timeline`) for that reader."""
+
+    def _author(self, seed, posts):
+        d = OntoDAG()
+        prelude.apply(d)
+        d.put("posted", ["time"])
+        for p in ("bob@x", "carol@x", "everyone"):
+            d.put(p, [])
+        d.put("friends", ["bob@x", "carol@x"])
+        for name, parents in posts:
+            d.put(name, parents)
+        pub = keyplan.Publisher(RecordStore(MemoryBytesStore()), (seed).to_bytes(32, "big"),
+                                rng=_rng(seed))
+        pub.publish(d, _principals())
+        return d, pub
+
+    def test_timeline_equals_the_server_view(self):
+        d, pub = self._author(40, [
+            ("trip", ["friends", "posted(2026-09-24T10:00:00Z)", "time(2026-08)"]),
+            ("hello", ["everyone", "posted(2026-09-20T08:30:00Z)"]),
+            ("note", ["bob@x", "posted(2026-09-24T12:15:00Z)"]),
+            ("draft", ["friends"])])
+        for p, key in READERS.items():
+            got = keyplan.Reader(pub.store, key, public_key((40).to_bytes(32, "big"))).receive()
+            self.assertEqual(got.timeline(), sharing.timeline(d, [p]))
+        self.assertIn("time(2026-08-01T00:00:00Z..2026-08-31T23:59:59Z)",
+                      got.values("trip"))
+
+    def test_inbox_merges_the_walls_a_reader_follows(self):
+        _d1, ada = self._author(41, [("ada-1", ["friends", "posted(2026-09-24T10:00:00Z)"]),
+                                     ("ada-2", ["bob@x", "posted(2026-09-25T09:00:00Z)"])])
+        _d2, dan = self._author(42, [("dan-1", ["friends", "posted(2026-09-24T18:00:00Z)"])])
+        bob = READERS["bob@x"]
+        inbox = keyplan.inbox({
+            "ada": keyplan.Reader(ada.store, bob, public_key((41).to_bytes(32, "big"))).receive(),
+            "dan": keyplan.Reader(dan.store, bob, public_key((42).to_bytes(32, "big"))).receive()})
+        self.assertEqual([(a, n) for _v, a, n in inbox],
+                         [("ada", "ada-1"), ("dan", "dan-1"), ("ada", "ada-2")])
+
+
+@unittest.skipUnless(HAVE_ACT, "needs the act extra")
 class TestLazyRevocation(unittest.TestCase):
 
     def setUp(self):

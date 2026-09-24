@@ -18,9 +18,14 @@ any record store (a `RecordStore`, local or on Swarm):
 
 **What a reader gets.** A reader derives a node's key exactly when the node
 is in its reach (`experiments/keyplan_spike.py` checks this on random
-stores and edits). Records never name parents or children: the edges are
-the tokens. So a reader sees exactly the edges between the nodes it
-reaches, the faithful piece of the store of SHARING §2.1.
+stores and edits). Records never name private parents or children: the
+edges are the tokens. So a reader sees exactly the edges between the nodes
+it reaches, the faithful piece of the store of SHARING §2.1.
+
+A record does name the node's typed-value parents, such as its
+`posted(...)` time: the cut parents a host may show "by another right"
+(SHARING §2.1). Without them a reader couldn't order a wall. `Received`
+has `timeline()`, and `inbox()` merges several authors' timelines.
 
 **Two keys per node** (§4.2):
 - a random *derivation key*, which wraps the node's children's keys and its
@@ -54,6 +59,8 @@ import hashlib
 import hmac
 import json
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from ontodag import sharing
 from ontodag._extras import require
@@ -280,7 +287,7 @@ class Publisher:
                    else self._rng(KEY_LEN).hex())
             data[n] = {"digest": digest, "key": key, "size": len(blob),
                        "id": self._content_id(n, digest)}
-        records = {n: self._record(n, data.get(n)) for n in shared}
+        records = {n: self._record(n, data.get(n), _values(dag, n)) for n in shared}
         digests = {n: hashlib.sha256(_canonical(r)).hexdigest()
                    for n, r in records.items()}
         changed = {n for n in shared if digests[n] != self._records.get(n)}
@@ -381,12 +388,21 @@ class Publisher:
         return Published(root=root, rotated=sorted(due), stale=len(self._stale),
                          written=written, deleted=deleted, shared=len(shared))
 
-    def _record(self, name, data):
+    def _record(self, name, data, values):
         record = {"name": name}
+        if values:
+            record["values"] = values
         if data:
             record["content"] = {"id": data["id"], "key": data["key"],
                                  "size": data["size"]}
         return record
+
+
+def _values(dag, name):
+    """A node's typed-value parents: the ones a record names (SHARING §2.1's
+    cut parents, shown by another right)."""
+    return sorted(p.name for p in dag.nodes[name].parents
+                  if p.name != dag.root.name and dag.is_term(p.name))
 
 
 # --------------------------------------------------------------------------- #
@@ -398,12 +414,13 @@ class Received:
     `principal` (the reader's own node in the author's store), `names`, and
     `edges` as (parent, child) pairs, all inside the reader's reach."""
 
-    def __init__(self, store, principal, names, edges, contents):
+    def __init__(self, store, principal, names, edges, contents, values=None):
         self._store = store
         self.principal = principal
         self.names = frozenset(names)
         self.edges = frozenset(edges)
         self._contents = contents          # name -> {"id", "key", "size"}
+        self._values = values or {}        # name -> its typed-value parents
 
     def __len__(self):
         return len(self.names)
@@ -417,6 +434,24 @@ class Received:
     def parents(self, name):
         return sorted(p for p, c in self.edges if c == name)
 
+    def values(self, name):
+        """The typed values `name` is filed under, visible or not otherwise:
+        its time of posting, what time it is about."""
+        return list(self._values.get(name, ()))
+
+    def timeline(self, role="posted"):
+        """`(value, name)` for each name filed under a point of `role`,
+        oldest first: this author's wall, as this reader sees it. Equal to
+        `sharing.timeline` over the author's store, for this reader."""
+        from ontodag.dimensions import split_term
+        out = []
+        for name in self.names:
+            for value in self._values.get(name, ()):
+                parts = split_term(value)
+                if parts and parts[0] == role and ".." not in parts[1]:
+                    out.append((value, name))
+        return sorted(out, key=lambda vn: (split_term(vn[0])[1], vn[1]))
+
     def content(self, name):
         """The content filed with `name`, or None if it has none."""
         c = self._contents.get(name)
@@ -426,18 +461,85 @@ class Received:
         return unseal(bytes.fromhex(c["key"]), c["id"], record["box"])
 
 
+class _SharedBlobs:
+    """A bytes store shared by reader threads: immutable, content-addressed
+    blobs fetched once, under a lock that is never held across a fetch."""
+
+    def __init__(self, inner):
+        self._inner = inner
+        self._lock = threading.Lock()
+        self._got = {}
+
+    def get(self, ref):
+        with self._lock:
+            if ref in self._got:
+                return self._got[ref]
+        data = self._inner.get(ref)
+        with self._lock:
+            self._got[ref] = data
+        return data
+
+    def get_many(self, refs):
+        refs = list(refs)
+        with self._lock:
+            out = {r: self._got[r] for r in refs if r in self._got}
+        missing = [r for r in refs if r not in out]
+        if missing:
+            many = getattr(self._inner, "get_many", None)
+            fetched = many(missing) if many else {r: self._inner.get(r) for r in missing}
+            with self._lock:
+                self._got.update(fetched)
+            out.update(fetched)
+        return out
+
+
 class Reader:
     """Hold a personal key and read what one author shares with it.
 
     `store` is the author's published record store, or a read-only
     snapshot of it (`RecordStore.at(root, blobs)`); `author_public_key` is
     known out of band (a contact card), not taken from the store.
+
+    Over a `RecordStore` (anything with `root` and `blobs`), each level of
+    the walk is read concurrently by `workers` threads, each on its own
+    snapshot of the committed root over one shared blob cache, so a level
+    costs about one chain of round trips instead of one per node. Other
+    stores are read one key at a time.
     """
 
-    def __init__(self, store, reader_key, author_public_key):
+    def __init__(self, store, reader_key, author_public_key, workers=16):
         self.store = store
         self._key = reader_key
         self._author = author_public_key
+        self._workers = workers
+        self._local = threading.local()
+        root = getattr(store, "root", None)
+        blobs = getattr(store, "blobs", None)
+        self._parallel = workers > 1 and root is not None and blobs is not None
+        if self._parallel:
+            self._root, self._blobs = root, _SharedBlobs(blobs)
+
+    def _view(self):
+        """This thread's snapshot of the store."""
+        if not self._parallel:
+            return self.store
+        view = getattr(self._local, "view", None)
+        if view is None:
+            from recordstore import RecordStore
+            view = self._local.view = RecordStore.at(self._root, self._blobs)
+        return view
+
+    def _map(self, fn, items):
+        items = list(items)
+        if not self._parallel or len(items) < 2:
+            return [fn(i) for i in items]
+        with ThreadPoolExecutor(max_workers=min(self._workers, len(items))) as pool:
+            return list(pool.map(fn, items))
+
+    def _tokens_of(self, u):
+        prefix = f"{TOKEN_PREFIX}{u}/"
+        return [(k[len(prefix):], bytes.fromhex(rec["token"]))
+                for k, rec in self._view().items(prefix)]
 
     @classmethod
     def public(cls, store, author_public_key):
@@ -447,7 +549,7 @@ class Reader:
     def _entry(self):
         lookup, wrap_key = act_keys(self._key, self._author)
         try:
-            entry = self.store.get(GRANT_PREFIX + lookup.hex())
+            entry = self._view().get(GRANT_PREFIX + lookup.hex())
         except KeyError:
             return None, None
         return entry["node"], stream_transform(wrap_key, bytes.fromhex(entry["key"]))
@@ -462,14 +564,11 @@ class Reader:
         keys, edges, frontier = {top: key}, set(), [top]
         while frontier:
             nxt = []
-            for u in frontier:
-                prefix = f"{TOKEN_PREFIX}{u}/"
-                for k in self.store.keys(prefix):
-                    v = k[len(prefix):]
+            for u, tokens in zip(frontier, self._map(self._tokens_of, frontier)):
+                for v, token in tokens:
                     edges.add((u, v))
                     if v in keys:
                         continue
-                    token = bytes.fromhex(self.store.get(k)["token"])
                     keys[v] = unwrap(keys[u], v, token)
                     nxt.append(v)
             frontier = nxt
@@ -480,12 +579,28 @@ class Reader:
         top, keys, edges = self.walk()
         if top is None:
             return Received(self.store, None, (), (), {})
-        names, contents = {}, {}
-        for i, k in keys.items():
-            record = self.store.get(RECORD_PREFIX + i)
+        names, contents, values = {}, {}, {}
+        ids = sorted(keys)
+        records = self._map(lambda i: self._view().get(RECORD_PREFIX + i), ids)
+        for i, record in zip(ids, records):
+            k = keys[i]
             plain = json.loads(unseal(k, f"{i}|{record['epoch']}", record["box"]))
             names[i] = plain["name"]
             if "content" in plain:
                 contents[plain["name"]] = plain["content"]
-        return Received(self.store, names[top], names.values(),
-                        {(names[u], names[v]) for u, v in edges}, contents)
+            if "values" in plain:
+                values[plain["name"]] = plain["values"]
+        return Received(self._view(), names[top], names.values(),
+                        {(names[u], names[v]) for u, v in edges}, contents, values)
+
+
+def inbox(received, role="posted"):
+    """Several authors' walls, merged: `(value, author, name)`, oldest
+    first. `received` maps an author (however the reader labels them: a
+    petname, a key) to what that author shares with the reader. Which
+    authors are in it is the reader's choice, as following is (SHARING §5)."""
+    from ontodag.dimensions import split_term
+    out = [(value, author, name)
+           for author, got in received.items()
+           for value, name in got.timeline(role)]
+    return sorted(out, key=lambda van: (split_term(van[0])[1], van[1], van[2]))
