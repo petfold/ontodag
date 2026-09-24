@@ -10,7 +10,8 @@ which carries its own fold of it:
   whether they deserve attention.
 - **categor.io** (`docs/DESIGN.md` §14 there): the site's walls and inboxes.
 - **ACT** ([act-categories/DESIGN.md](act-categories/DESIGN.md) §2.8):
-  enforcing the same audiences with keys on Swarm.
+  enforcing the same audiences with keys on Swarm. How all of it runs with
+  no server is [SHARING_ON_SWARM.md](SHARING_ON_SWARM.md).
 
 Definitions live here; the folds refer back rather than restate them.
 
@@ -199,6 +200,8 @@ two halves from walls directly:
   with new golden roots), or in a small pack of its own that social stores
   adopt?
 - **Q4 — Time buckets for ACT** (§6): explicit bucket nodes, or epoch keys?
+  *(2026-09-25: neither, proposes [SHARING_ON_SWARM.md](SHARING_ON_SWARM.md)
+  §4.1: tokens can follow the computed hops between present values.)*
 - **Q5 — Replies and threads** refer to someone else's post, which needs
   names that survive between stores (SHARING.md Q5).
 - **Q6 — Public posts and spam.** Walls are pulled, never pushed. Whether
