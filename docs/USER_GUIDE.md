@@ -348,6 +348,8 @@ setup — pick the route that matches what you actually want:
 | `owl` | OWL and Manchester import/export (§4.6) | `pip install "ontodag[owl]"` |
 | `swarm` | keeping a store on Ethereum Swarm (§5.1, §8) | `pip install "ontodag[swarm]"` |
 | `web` | the browser interface and REST API (§6) | `pip install "ontodag[web]"` |
+| `crypto` | encrypted `rs:` stores — the `store_key` setting (§5.7) | `pip install "ontodag[crypto]"` |
+| `act` | keys for categories: who may read what (§9.3, §9.4) | `pip install "ontodag[act]"` |
 | `all` | every extra in this table — Swarm and web included | `pip install "ontodag[all]"` |
 
 Combine them in one spec: `pip install "ontodag[viz,owl]"`.
@@ -2312,6 +2314,45 @@ making one:
 Only the club itself is lost: `remove` contracts (§5.9), so the reading list
 moves up to Ada and Bob and stays shared. `remove --cone` would take it too.
 
+**In time order: walls** — newer than 0.28.0, so for now from a checkout
+(§2). Declare `posted` once as a role of `time` (§4.7), and file each post
+under its audience and the moment it was posted. `sharing.timeline` then
+lists what those readers see in the order it was posted — your wall, as
+they see it:
+
+```python
+>>> from ontodag import OntoDAG, prelude, sharing
+>>> dag = OntoDAG()
+>>> prelude.apply(dag)
+>>> dag.put("posted", ["time"])          # posted is a role of time
+>>> for name in ("ada@example.com", "bob@example.com", "everyone"):
+...     dag.put(name, [])
+>>> dag.put("book-club", ["ada@example.com", "bob@example.com"])
+>>> dag.put("hello-world", ["everyone", "posted(2026-09-20T08:30:00Z)"])
+>>> dag.put("reading-list", ["book-club", "posted(2026-09-24T10:00:00Z)"])
+>>> dag.put("note-to-ada", ["ada@example.com", "posted(2026-09-24T12:15:00Z)"])
+>>> for when, post in sharing.timeline(dag, ["bob@example.com", "everyone"]):
+...     print(when, post)
+posted(2026-09-20T08:30:00Z) hello-world
+posted(2026-09-24T10:00:00Z) reading-list
+>>> [post for _, post in sharing.timeline(dag, ["ada@example.com", "everyone"])]
+['hello-world', 'reading-list', 'note-to-ada']
+```
+
+`everyone` is an ordinary name that you treat, by convention, as held by
+every reader: pass it along with a person's name and their view includes
+your public posts. Only single moments count as post times
+(`posted(2026-09)` is a range, not a post), and the time is your own claim:
+it orders the wall, and nothing checks it. From the command line,
+`odag get 'posted(2026-09)' --as bob@example.com --as everyone` lists what
+Bob can see that was posted in September 2026, sorted by name instead of by
+time.
+
+So far the rule is applied by whoever holds your store: `--as` on your
+machine, or a site on its server, for each request. §9.4 publishes it as
+keys instead, so each reader works out their own share, with no server at
+all.
+
 ## 6. The web app and REST API
 
 The web app gives you the same DAG in a browser — browse it by query, type
@@ -2719,6 +2760,9 @@ category queries (`/Travel/Japan` = everything filed under both), files are
 classified objects, and the whole thing FUSE-mounts. Its `odag-fs` command
 shares odag's store settings, so `odag set store swarm:travel` configures both.
 
+To share part of a store with particular people — enforced by keys, with
+no server between you and them — see §9.4.
+
 ---
 
 ## 9. AI agents and verifiable answers
@@ -2841,14 +2885,206 @@ it**: if you filed `eng-documents` *under* `company-docs`, every company
 reader would derive the engineering key, exactly as the arrows say —
 audience lives only in where bridges start. **Whoever holds the
 `KeyGraph` can read everything**, as with any publisher-centric scheme.
-And **revocation is forward-only**: `org.revoke("alice", ...)` deletes her
-entry and rotates every category she could reach, so nothing published
-from now on is hers to read, but what she already fetched stays fetched —
-on Swarm, forever. Old epochs remain resolvable from old roots
-(`RecordStore.at(root, store.blobs)`). What is not here yet: category manifests and feeds
-for the documents themselves, a Bee node that accepts a resolved key, and
-the on-Swarm format that would let other clients interoperate
+And **revocation is forward-only**: `org.revoke("alice", ...)` deletes
+Alice's entry and rotates the categories Alice could reach, so tokens
+minted under them from now on are useless to Alice, while whatever was
+already fetched stays fetched — on Swarm, forever. Old epochs remain
+resolvable from old roots (`RecordStore.at(root, store.blobs)`).
+
+**A known flaw in `revoke`.** It rotates only the nodes Alice could reach
+that already have something under them, so the documents at the bottom —
+`design-specs` and `handbook` here — keep the keys Alice walked away with.
+But in OntoDAG any node can gain a child: file `design-specs-v2` under
+`design-specs` after the revocation, and its key is wrapped under a key
+Alice kept, so Alice can derive it. On random stores this exposed new keys
+after 417 of 5,866 edits. The key plan (§9.4) doesn't have the flaw: it
+keeps each name's rotating key apart from its content keys, so rotating
+any node is cheap, and it gives a lost name a new key before anything new
+goes under it. It also draws the tokens from your store rather than by
+hand, so that is where this work continues.
+
+What is not here yet: category manifests and feeds for the documents
+themselves, a Bee node that accepts a resolved key, and the on-Swarm
+format that would let other clients interoperate
 (`docs/plans/act-categories/DESIGN.md`, Phases 1.4–3).
+
+### 9.4 Experimental: the same sharing, with no server
+
+§5.13's rule — a person sees what is filed below their name in your store
+— has to be applied by someone. `--as` applies it on your machine, and a
+site such as categor.io applies it on its server, for every request.
+`ontodag.keyplan` applies it when you publish: it turns your shares into
+keys, and each reader works out what they may read from the published
+records and their own key alone. There is no server to run or to trust,
+and the published records can live in any record store — memory, an `rs:`
+directory, or Swarm.
+
+It is newer than 0.28.0, so for now it runs from a checkout (§2), and it
+needs the `act` extra (`pip install "ontodag[act]"`). The design, and what
+is still open, is in [plans/SHARING_ON_SWARM.md](plans/SHARING_ON_SWARM.md).
+
+Here is §5.13's store once more, with a public post and the reading list
+dated, published for Ada and Bob:
+
+```python
+from recordstore import MemoryBytesStore, RecordStore
+from ontodag import OntoDAG, act, keyplan, prelude
+
+dag = OntoDAG()                          # your store, much as in §5.13
+prelude.apply(dag)
+dag.put("posted", ["time"])
+for name in ("ada@example.com", "bob@example.com", "everyone", "diary"):
+    dag.put(name, [])
+dag.put("book-club", ["ada@example.com", "bob@example.com"])
+dag.put("reading-list", ["book-club", "diary", "posted(2026-09-24T10:00:00Z)"])
+dag.put("dreams", ["diary"])
+dag.put("hello-world", ["everyone", "posted(2026-09-20T08:30:00Z)"])
+
+me = (7).to_bytes(32, "big")             # toy keys; real ones are 32 random bytes
+ada, bob = (42).to_bytes(32, "big"), (43).to_bytes(32, "big")
+readers = {"ada@example.com": act.public_key(ada),   # a name in your store,
+           "bob@example.com": act.public_key(bob),   # and that reader's public key
+           "everyone": act.public_key(keyplan.everyone_key())}
+content = {"reading-list": b"Middlemarch, then Stoner."}
+
+published = RecordStore(MemoryBytesStore())          # any rs: or swarm: store works
+author = keyplan.Publisher(published, me)
+author.publish(dag, readers, content=content)
+
+as_bob = keyplan.Reader(published, bob, act.public_key(me)).receive()
+print(sorted(as_bob.names))
+print(as_bob.parents("reading-list"), as_bob.content("reading-list"))
+stranger = keyplan.Reader(published, (44).to_bytes(32, "big"), act.public_key(me))
+print(len(stranger.receive()))
+```
+
+```
+['bob@example.com', 'book-club', 'reading-list']
+['book-club'] b'Middlemarch, then Stoner.'
+0
+```
+
+Bob received the name `bob@example.com` plus exactly what
+`odag shared-with bob@example.com` lists — the book club and the reading
+list — and the edges among them: the reading list is under the club. It is
+in your diary too, but nothing Bob received says so, and nothing names Ada
+or your dreams. A stranger received nothing at all. Reading took only a
+personal key and your public key, which reaches a reader out of band (a
+contact card, a QR code), never from the store itself.
+
+Fifteen public records did that: one naming your public key, a grantee
+entry per reader, a token per edge, a sealed record per shared name, and
+one for the content. None of them contains a name. Ids are keyed with a
+secret of yours, so nobody can test a guess such as "does this store share
+with ada@example.com?", and a grantee entry can be found only with its
+reader's key, so readers can't list each other. What anyone can see is
+the shape: how many records (so roughly how many readers), how big, and
+when they change.
+
+**Walls work the same way.** `everyone` is in `readers` with a key
+everybody knows (`keyplan.everyone_key()`), so whatever you file under it
+is public. `receive(public=True)` adds that part to a reader's own share,
+and `timeline()` orders it by `posted` — your wall as Bob sees it, worked
+out by Bob:
+
+```python
+wall = keyplan.Reader(published, bob, act.public_key(me)).receive(public=True)
+for when, post in wall.timeline():
+    print(when, post)
+```
+
+```
+posted(2026-09-20T08:30:00Z) hello-world
+posted(2026-09-24T10:00:00Z) reading-list
+```
+
+That is what `sharing.timeline(dag, ["bob@example.com", "everyone"])`
+gives on your side (§5.13). A reader who follows several authors merges
+their walls with `keyplan.inbox({"you": wall, "dan": ...})`: one list,
+oldest first, each post labeled with its author.
+
+**Taking someone out.** You unshare by editing your store and publishing
+again. Here Ada leaves the club (the Python for
+`odag move book-club --from ada@example.com`, §5.10), and then you post in
+it:
+
+```python
+dag.reclassify(["book-club"], to=(), from_=["ada@example.com"])   # Ada leaves the club
+print(author.publish(dag, readers, content=content).rotated, sorted(author.stale))
+dag.put("next-book", ["book-club", "posted(2026-09-25T09:00:00Z)"])
+print(author.publish(dag, readers, content=content).rotated)
+for key in (bob, ada):
+    print("next-book" in keyplan.Reader(published, key, act.public_key(me)).receive())
+```
+
+```
+[] ['book-club', 'reading-list']
+['book-club']
+True
+False
+```
+
+Ada leaving rotated nothing: it deleted one record, the token from
+`ada@example.com` to the club. The club and the reading list, whose keys
+Ada had, were marked *stale* and left alone until something new was
+written under one of them. Posting in the club was such a write, so the
+club got a new key first: Bob reads `next-book`, and Ada doesn't. That
+holds even against a reader who kept every key they ever had: they can
+open only what they were once entitled to, never anything written after
+they lost it (`tests/test_keyplan.py` checks this on random stores and
+random edits).
+Anything Ada already held stays held — it was Ada's to read, and on Swarm
+nothing is unpublished. The waiting is deliberate: taking someone out of a
+group costs one record, however big the group, and rotation costs
+something only when something new goes under a name somebody lost.
+`publish(..., eager=True)` rotates everything stale at once, for a removal
+that can't wait.
+
+Two more choices are worth knowing. Every name has two kinds of key: a
+*derivation key*, which rotates, and a *data key* per version of its
+content, which never does — so a rotation re-wraps 32 bytes and never
+re-encrypts a file. And the tokens are derived from your store at every
+`publish`, typed values included: share `posted(2026)` with someone and
+every post dated in 2026 reaches them, with nothing extra to maintain.
+
+Three things to hold in mind:
+
+- **`publish` takes the whole state each time**: the store, every reader,
+  and the full `content` map. Leave a name out of `content` and its
+  content is unpublished.
+- **`author.state` is your private bookkeeping**, a JSON-ready dict with
+  every key in it. Keep it in your own encrypted store (§5.7), never beside
+  the published one, and pass it back as
+  `keyplan.Publisher(published, me, state=saved)` to carry on.
+- **Which names are people is yours to say**, as with `--as`: here it is
+  the `readers` dict, from name to public key.
+
+**On Swarm.** The published store can be a signed Swarm feed, which a
+reader opens cold by your address, holding nothing but their own key. That
+ran on mainnet on 2026-09-25 (a Bee 2.8.2 light node; a store of 120 items
+shared with a group of two). Publishing took 25 s. A friend's first read of
+their 130 names took 17–23 s, most of it round trips: opening the feed
+alone cost 1–10 s. Someone leaving the group took under 2 s and rotated
+nothing, and the next post rotated the group, 41 records in 6 s. Every
+read matched `sharing.reach` exactly, and the member who had left couldn't
+open the next post, even with every key they had ever held. Bee needed no
+change, since the walk happens in the reader's own client.
+`experiments/keyplan_swarm.py` is the whole run, ready to repeat against
+your own node and postage batch.
+
+**In a browser's Python.** Pyodide, the Python that runs in browsers,
+ships pycryptodome but not coincurve, so `ontodag.act` falls back to a
+secp256k1 written in plain Python, and the key plan runs there unchanged:
+`demo/pyodide/keyplan.mjs` (Pyodide under Node) publishes, reads, revokes
+and posts in half a second after a 7-second install. The fallback steps in
+wherever coincurve is missing, so `pip install ontodag pycryptodome` is
+enough where coincurve won't install. It is slower and not constant-time,
+which is why coincurve is used wherever it installs.
+
+Not built yet: an `odag` command; a sharing identity (which key is *you*,
+the same in every app); telling someone that something new is waiting for
+them; a browser page that reads from a node; and groups that other
+people's stores can share with.
 
 ## 10. Rules OntoDAG enforces (and why you'll be glad)
 
