@@ -172,7 +172,7 @@ Three consequences, in descending urgency:
    units the easy case. Parked on the tripwire: someone faking ranks
    as linear in a real store (loopmarket-shaped data — ratings,
    condition grades — is the likely first consumer). *(2026-09-25:)* a
-   second vertical has filed — the assurance repository's identity door
+   second vertical has filed — the hansa repository's identity door
    scale (`door-at-least-possession ⊒ door-at-least-photo ⊒
    door-at-least-proximity`, three levels) beside loopmarket's condition
    chain — which is the recorded trigger. Neither fakes ranks: both use

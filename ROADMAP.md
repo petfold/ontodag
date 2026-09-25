@@ -401,7 +401,7 @@ tripwire has to be rediscovered mid-build.
   canonical form is the string itself, so a later re-declaration changes
   no stored name). `DIMENSIONS.md` §13 carries the entry.
 - **Ordinal kind — the tripwire has its second vertical** (2026-09-25).
-  Beside loopmarket's condition chain, the assurance repository's door
+  Beside loopmarket's condition chain, the hansa repository's door
   scale (`door-at-least-possession ⊒ door-at-least-photo ⊒
   door-at-least-proximity`) and, if the evidence classes are ever ordered,
   that chain. The consumers' interim is cumulative naming as plain ⊑
