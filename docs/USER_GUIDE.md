@@ -128,6 +128,8 @@ accidental — each surface exposes what makes sense for who is using it:
 | **overlapping** (might-satisfy, G6) | ✓ `get_overlapping` | ✓ `overlapping` | ✓ `/dag/overlapping` | ✓ |
 | **overlaps / meet** (pairwise G6, one-term meet) | ✓ `overlaps`, `meet` | ✓ `overlaps`, `meet` | ✓ `/dag/overlaps`, `/dag/meet` | ✓ |
 | **canon** (what a spelling stores) | ✓ `ontodag.surface` | ✓ `canon` | ✓ `/dag/canon` | ✓ |
+| **what a person sees** (sharing, §5.13) | ✓ `ontodag.sharing` | ✓ `shared-with`, `--as` | ✓ console only | — |
+| **sharing enforced by keys** (experimental, §9.4) | ✓ `ontodag.keyplan` | — | — | — |
 | **declare dimensions** (prelude / packs) | ✓ | ✓ | ✓ `/dag/prelude`, `/dag/pack` | — |
 | **version history** (`history`/`undo`/`redo`) | ✓ via the store | ✓ | n/a | — |
 | **as-of** (read a past version) | ✓ `RecordStore.at` | ✓ `--as-of` | n/a | ✓ |
@@ -150,10 +152,21 @@ The empty cells are decisions, not oversights, and each has a reason:
   root and a canonical echo, not files.
 - **The web app has no version history, as-of, certificates or store tiers** —
   its DAG is *server memory per session* (§6). There is no store and no root
-  there, so those aren't withheld; they don't exist. Its console runs 13 of
-  the CLI's 27 commands for the same kind of reason: the rest read or write
+  there, so those aren't withheld; they don't exist. Its console runs 16 of
+  the CLI's 31 commands for the same kind of reason: the rest read or write
   filesystem paths on the server, or need a store that keeps versions. The
-  `Commands` button lists all 27 anyway, saying which is which.
+  `Commands` button lists the others anyway, saying which is which.
+- **Sharing views have no REST endpoint and no MCP tool** — the web
+  console answers `shared-with` and `--as`, but nothing else on that
+  surface or the agent surface does yet. Which names are people is still
+  a caller's parameter ([plans/SHARING.md](plans/SHARING.md) Q1), and on
+  the agent surface "answer as this person" needs deciding who may claim
+  to be whom.
+- **The key plan is Python only** — the one gap here that is a plan rather
+  than a decision: it is experimental, and an `odag` command is its next
+  step. The web app as it stands is the opposite design (a server that
+  computes reach), and a server holding readers' keys would defeat the
+  point of publishing them.
 - **The web app has no overlay views** — the `overlays` setting is read from
   the *server's* environment, and composing the operator's layers into an
   anonymous visitor's sandbox would serve strangers another user's data.
