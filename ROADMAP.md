@@ -378,6 +378,39 @@ tripwire has to be rediscovered mid-build.
   (`SEMANTIC_CODES.md`'s triggers). Not a feature request: loopmarket will
   log solver query category-sets from day one and deliver the measured
   workload — the usage data the bitmap/cone-materialization gates wait for.
+- **Identifier kind (`identifier-dimension`)** — filed 2026-09-25 with a
+  consumer: loopmarket's `item(h)`, `lot(h)`, `sample(h)`, a
+  content-addressed identity for a unique item that a want must take by
+  **equality only** (`loopmarket/docs/plans/items-and-ownership.md`; the
+  cross-repository plan `credentials-cover-and-options.md` D5, D7). The
+  prefix kind is the wrong fit: shorter is broader, so `item(ab)` would
+  cover every hash starting `ab`. No existing kind gives equality (a point
+  is covered by a range; the graph kind orders by the graph and needs a
+  node per item; an opaque atom fails closed until a node exists and
+  loopmarket's `known()` needs a declared head). The real justification is
+  *virtual comparison*: only a declared head lets `is_below` decide a
+  same-head pair from the names alone with no node present, and a node per
+  item would churn every pinned root. Shape: `contains` = `==`,
+  `intersect` = `a if a == b else None`, the prefix kind's grammar, space
+  tag `identifier`; **registry 4.3** (a minor, the graph kind's 4.2
+  precedent) with the kind node **outside the prelude**, declared by
+  loopmarket's seed so no pack root moves; role heads `lot → item`,
+  `sample → item`. No alphabet or length declaration: under equality a
+  short value matches only itself, and refusing malformed values is a
+  consumer lint. The prefix kind is a forward-compatible stopgap (its
+  canonical form is the string itself, so a later re-declaration changes
+  no stored name). `DIMENSIONS.md` §13 carries the entry.
+- **Ordinal kind — the tripwire has its second vertical** (2026-09-25).
+  Beside loopmarket's condition chain, the assurance repository's door
+  scale (`door-at-least-possession ⊒ door-at-least-photo ⊒
+  door-at-least-proximity`) and, if the evidence classes are ever ordered,
+  that chain. The consumers' interim is cumulative naming as plain ⊑
+  chains (loopmarket's `condition-at-least-good` precedent), never faked
+  linear ranks. Decision here, not urgent: the kind (`EVOLUTION.md` §3)
+  or the interim recorded as the answer.
+- **The graph kind's silent-want rule stands.** A want silent on a role
+  head (`peril`) is not within a give that names it; loopmarket's cover
+  terms accept it as is and name their perils. No ask.
 
 ## Under discussion (no decision yet)
 

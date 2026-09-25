@@ -14,6 +14,18 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Filed
+
+- **Consumer asks from the credentials, cover and options plan**
+  (2026-09-25; loopmarket's and factbond's
+  `credentials-cover-and-options.md`): an **identifier kind** with a
+  consumer (`ROADMAP.md` filed needs; `DIMENSIONS.md` §13, the first
+  parked kind whose workload arrived; registry 4.3, kind node outside
+  the prelude); the **ordinal kind's** tripwire tripped by a second
+  vertical (`EVOLUTION.md` §3); the graph kind's silent-want rule
+  accepted by the consumer, no ask. Vocabulary asks go to ontodag-core
+  (`docs/ASKS.md` there).
+
 ## [0.28.0] — 2026-09-24
 
 ### Added

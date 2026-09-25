@@ -171,7 +171,15 @@ Three consequences, in descending urgency:
    are *detectably* wrong, the same loud-conflict property that made
    units the easy case. Parked on the tripwire: someone faking ranks
    as linear in a real store (loopmarket-shaped data — ratings,
-   condition grades — is the likely first consumer).
+   condition grades — is the likely first consumer). *(2026-09-25:)* a
+   second vertical has filed — the assurance repository's identity door
+   scale (`door-at-least-possession ⊒ door-at-least-photo ⊒
+   door-at-least-proximity`, three levels) beside loopmarket's condition
+   chain — which is the recorded trigger. Neither fakes ranks: both use
+   cumulative names as plain ⊑ chains, and both stay small. The decision
+   is whether that interim *is* the answer for short scales (materialize
+   the chain, name cumulatively) and the kind waits for a long one, or
+   whether two verticals are enough. `ROADMAP.md`, filed consumer needs.
 2. **Guidance now, mechanism later**: a docs paragraph mapping scale
    level → kind, so Mohs-as-linear-with-a-fake-unit stays a documented
    smell rather than an invited pattern.

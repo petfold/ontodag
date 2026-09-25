@@ -599,8 +599,42 @@ until a consumer trips the wire:
   agreeing a canonical region-naming scheme with exact containment
   arithmetic. Recorded for completeness; no consumer is expected.
 
+- **Identifier (`identifier-dimension`)** — *filed 2026-09-25 with a
+  consumer, the first of this list to trip its wire*: values compared
+  by **equality only**, no order, no meet except equality. loopmarket's
+  `item(h)` names a content-addressed genesis record for a unique item
+  (a VIN's hash, a tagger's signed fingerprint) and a want must take
+  that item and no other. It passes the criterion trivially (the
+  discrete order is a partial order decidable from the names). Why a
+  kind and not a node per item: only a declared head lets `is_below`
+  decide a same-head pair from the names alone with no node present
+  (virtual comparison), and a node per item would move every pinned
+  root daily; why not the prefix kind: `startswith` makes the shorter
+  value the wider region, so `item(ab)` would cover every item whose
+  hash starts `ab` — a want served by an item nobody inspected. Shape,
+  about twenty lines: `contains` is `==`, `intersect` is `a if a == b
+  else None`, the prefix kind's grammar (a fixed width is *not* asked
+  for: no kind has per-head declaration parameters, and under equality
+  a short or malformed value matches only itself, so fail-closed comes
+  free and rejecting such values is the consumer's lint), space tag
+  `identifier`, a `KINDS` entry, **registry 4.3** (a minor, as the
+  graph kind's 4.2 was: additive, no canonical name changes), the kind
+  node **outside the prelude** and declared by the consumer's seed (§13's
+  own rule for the graph kind, so no pack root moves). Role heads carry
+  the variants: `item → identifier-dimension`, `lot → item`, `sample →
+  item`, each with its own star and no cross-head comparison (§14).
+  Interim: the prefix kind with the consumer refusing non-full-length
+  values — forward-compatible, since the prefix kind's canonical form is
+  the validated string itself and a later re-declaration of the head
+  changes no stored name (the linear → calendar precedent, §4). Filed by
+  `loopmarket/docs/plans/items-and-ownership.md` and the cross-repository
+  plan `credentials-cover-and-options.md` (D5, D7), 2026-09-25.
+
 None of these are scheduled. The rule stands: kinds are added when a
 real workload arrives (the loopmarket precedent), never speculatively.
+The identifier kind is the first whose workload has arrived; the
+ordinal kind's tripwire (`EVOLUTION.md` §3) has a second vertical as of
+the same date, with cumulative naming as the consumers' interim.
 
 ## 14. Role heads: parameters that name nodes (issue #15, 2026-09-12)
 
