@@ -163,14 +163,18 @@ def run(url, shots):
         page.wait_for_selector(".sheet .row", timeout=5000)
         rows = page.query_selector_all(".sheet .row")
         greyed = page.query_selector_all(".sheet .row.off")
-        check.that(len(rows) == 26,
-                   f"the sheet lists every OntoDAG command ({len(rows)})")
-        check.that(len(greyed) == 13,
+        # the counts come from the server, not from here: the commands grow
+        menu = page.request.get(url.rstrip("/") + "/dag/commands").json()["commands"]
+        runnable = sum(1 for c in menu if c["available"])
+        check.that(len(rows) == len(menu),
+                   f"the sheet lists every OntoDAG command ({len(rows)} of {len(menu)})")
+        check.that(len(greyed) == len(menu) - runnable,
                    f"and marks the ones a browser cannot run ({len(greyed)})")
         check.that(all(r.text_content().strip()
                        for r in page.query_selector_all(".sheet .row.off .why")),
                    "each of those says why, rather than just being greyed")
-        check.that("13 of 26 run in the browser" in page.inner_text(".sheet header"),
+        check.that(f"{runnable} of {len(menu)} run in the browser"
+                   in page.inner_text(".sheet header"),
                    "the sheet header counts them without mangling the spacing")
 
         page.click(".sheet .row:has-text('move')")

@@ -106,8 +106,8 @@ docs/plans/WEB_UI.md §8a.">sandbox</span>
 
 /* Everything OntoDAG can do, in one place you can open and read.
  *
- * All 26 commands, not the 13 this surface runs: someone opening this is
- * asking what the system does, and answering with the sandbox's subset would
+ * Every command, not only the ones this surface runs: someone opening this
+ * is asking what the system does, and answering with the sandbox's subset would
  * misrepresent it. The ones a browser cannot run are shown greyed with the
  * reason beside them, which turns a limitation into an explanation.
  *
