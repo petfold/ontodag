@@ -14,6 +14,21 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Added
+
+- **The identifier kind, `identifier-dimension`** (registry **4.3**, a
+  minor; 2026-10-01): values compared by equality only — a value contains
+  only itself, a short one included, and the meet of two values is the
+  value or nothing. The home of terms that name one individual, first
+  loopmarket's `item(h)` (a car by its VIN's hash, a plot by its land
+  register number), where the prefix kind, its stopgap, read `item(ab)` as
+  every item whose hash starts `ab`. The prefix kind's grammar and
+  canonical form, so a head declared under the prefix kind re-declares
+  here with no stored name changing; the kind node is declared by the
+  consumer outside the prelude (`odag put identifier-dimension
+  dimension`), so no pack root moves; role heads (`lot → item`) keep their
+  own stars. `DIMENSIONS.md` §6 and §13, `tests/test_identifier_kind.py`.
+
 ### Filed
 
 - **Consumer asks from the credentials, cover and options plan**

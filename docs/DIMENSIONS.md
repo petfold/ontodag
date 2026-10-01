@@ -189,6 +189,7 @@ compatibility rule, affine temperatures, graph-declared units and packs.
 |-----------------------|--------------------------------------|-----------------------------------------|--------|
 | `linear-dimension`    | intervals over integers-with-unit or ISO-UTC timestamps; points degenerate; open ends | two comparisons each | weight, quantity-vs-capacity, prices, time windows |
 | `prefix-dimension`    | identifier subtrees                  | string prefix test                       | geohash cells; generated hierarchies |
+| `identifier-dimension` | the name of one individual (registry 4.3, §13) | equality: `contains` is `==`, the meet the value or nothing | `item(h)`: one car, one plot, one file |
 | `dominance-dimension` | boxes (componentwise intervals), components canonically sorted descending | componentwise | parcels/luggage ("fits in"), `size(390x230x190mm)` |
 | `calendar-dimension`  | the same interval denotations as linear over the time family, but every literal is a calendar period: `2026` the year, `2026-08` the month, `2026-08-15` the day, a timestamp the instant | identical to linear (shared code path) | dates on documents, "last summer", "everything from 2026" |
 | `count-dimension`     | whole numbers ≥ 1 of discrete things; ranges with floor 1 | interval containment | multiplicities (§ UNITS.md 11) |
@@ -600,7 +601,11 @@ until a consumer trips the wire:
   arithmetic. Recorded for completeness; no consumer is expected.
 
 - **Identifier (`identifier-dimension`)** — *filed 2026-09-25 with a
-  consumer, the first of this list to trip its wire*: values compared
+  consumer, the first of this list to trip its wire; **built 2026-10-01**
+  exactly as below (`tests/test_identifier_kind.py`: equality, the meet,
+  malformed values refused, the prefix kind's canonical form, a role head
+  `lot → item` with its own star, and a prefix-declared head re-declared
+  with no stored name changing)*: values compared
   by **equality only**, no order, no meet except equality. loopmarket's
   `item(h)` names a content-addressed genesis record for a unique item
   (a VIN's hash, a tagger's signed fingerprint) and a want must take
@@ -630,9 +635,9 @@ until a consumer trips the wire:
   `loopmarket/docs/plans/items-and-ownership.md` and the cross-repository
   plan `credentials-cover-and-options.md` (D5, D7), 2026-09-25.
 
-None of these are scheduled. The rule stands: kinds are added when a
+None of the others are scheduled. The rule stands: kinds are added when a
 real workload arrives (the loopmarket precedent), never speculatively.
-The identifier kind is the first whose workload has arrived; the
+The identifier kind is the first whose workload has arrived, and is built; the
 ordinal kind's tripwire (`EVOLUTION.md` §3) has a second vertical as of
 the same date, with cumulative naming as the consumers' interim.
 

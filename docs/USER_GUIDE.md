@@ -838,6 +838,18 @@ What to know:
   (`transport(bicycle small-item)`) is refused, so one set has one name;
   the kind is not in the prelude — declare it with `odag put
   graph-dimension dimension`, then `odag put transport graph-dimension`.
+- **Names of one individual are compared by equality.** A seventh kind,
+  **`identifier-dimension`** (registry 4.3), orders nothing: a value
+  contains only itself. It is for terms that name one thing rather than a
+  range of things — `item(3f3f…)` for one car by its VIN's hash, one plot
+  by its land register number, one file by its address — where the prefix
+  kind would read a short value as a whole subtree (`item(3f)` as every
+  item whose hash starts `3f`). Values take the prefix kind's spelling,
+  and equality is on the string, so a consumer derives one spelling per
+  individual (lower-case hex, say). Like the graph kind it is not in the
+  prelude: `odag put identifier-dimension dimension`, then `odag put item
+  identifier-dimension`; a role head under it (`odag put lot item`) names
+  its own individuals.
 - **Counts are whole and start at one.** `count(2dz)` is fine (that's 24);
   `count(2.5)` refuses — continuous stuff belongs under a dimensional head
   like `weight` or `volume`. `count(0)` also refuses, with a reason worth

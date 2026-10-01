@@ -54,7 +54,12 @@ from fractions import Fraction
 #      MAJOR because two canonical anchors change and bare C/F change
 #      meaning: a 3.x store carrying bare-C/F values must rewrite them to
 #      coulomb/farad spellings before an ontodag.migrate replay).
-REGISTRY_VERSION = "4.2"
+# 4.3 (2026-10-01: THE IDENTIFIER KIND — values compared by equality only,
+#      the home of `item(h)` (loopmarket I1, a 64-hex content hash) and of
+#      any term naming one individual: an ISBN, a GTIN, a file's address.
+#      A minor: purely additive, the kind node is declared by consumers
+#      outside the prelude, so no pack root moves).
+REGISTRY_VERSION = "4.3"
 
 
 def registry_compatible(version, other=None):
@@ -101,8 +106,25 @@ KIND_COUNT = "count-dimension"
 # reads the argument as what an operator ACCEPTS, so a wider argument is
 # the more useful one — that direction is the consumer's, not this kind's.
 KIND_GRAPH = "graph-dimension"
+# Identifier is the kind whose values are NAMES OF ONE INDIVIDUAL (registry
+# 4.3): `item(h)` names one car by its VIN's hash, one plot by its land
+# register number, one file by its address. Containment is equality and the
+# meet of two values is the value or nothing — no order, so a short value
+# means only itself. Why a kind and not the prefix kind, the nearest: under
+# `startswith` a shorter value means "every id with this prefix", so
+# `item(ab)` would cover every item whose hash starts `ab` — a want could be
+# served by an item nobody named. Why a kind and not a node per individual:
+# only a declared head lets `is_below` decide a same-head pair from the
+# names alone, and a node per item would churn every pinned root. The
+# grammar and the canonical form are the prefix kind's (the validated
+# string itself), so a head declared under the prefix kind can be
+# re-declared here without one stored name changing; equality is on that
+# string, and deriving one spelling per individual (lower-case hex, say) is
+# the consumer's. Declared outside the prelude, by the consumer's seed
+# (`identifier-dimension dimension`), so no pack root moves.
+KIND_IDENTIFIER = "identifier-dimension"
 KINDS = frozenset({KIND_LINEAR, KIND_PREFIX, KIND_DOMINANCE, KIND_CALENDAR,
-                   KIND_COUNT, KIND_GRAPH})
+                   KIND_COUNT, KIND_GRAPH, KIND_IDENTIFIER})
 _LINEARISH = frozenset({KIND_LINEAR, KIND_CALENDAR})
 _INTERVALISH = _LINEARISH | {KIND_COUNT}
 
@@ -608,6 +630,13 @@ def _parse_prefix(param):
     return param
 
 
+def _parse_identifier(param):
+    """The prefix kind's grammar, read as a name rather than a subtree."""
+    if ".." in param or not _PREFIX_RE.match(param):
+        raise ValueError(f"invalid identifier value {param!r}")
+    return param
+
+
 # ---- rendering (the canonical form; names are the identity) ----------------
 
 def _fraction_text(value):
@@ -669,6 +698,8 @@ def _denotation(param, kind, units=None):
         return _parse_dominance(param, units)
     if kind == KIND_PREFIX:
         return _parse_prefix(param)
+    if kind == KIND_IDENTIFIER:
+        return _parse_identifier(param)
     raise ValueError(f"unknown dimension kind {kind!r}")
 
 
@@ -683,7 +714,7 @@ def _render(denotation, kind):
         family, values = denotation
         suffix = _ANCHOR.get(family, family)
         return "x".join(_fraction_text(v) for v in values) + suffix
-    return denotation  # prefix: the validated string is canonical
+    return denotation  # prefix, identifier: the validated string is canonical
 
 
 def canonicalize(name, kind, units=None):
@@ -714,6 +745,8 @@ def space_of(name, kind, units=None):
         return f"dominance:{denotation[0]}:{len(denotation[1])}"
     if kind == KIND_GRAPH:
         return "graph"
+    if kind == KIND_IDENTIFIER:
+        return "identifier"
     return "prefix"
 
 
@@ -768,6 +801,8 @@ def contains(outer, inner, kind, units=None):
     if kind == KIND_PREFIX:
         return _parse_prefix(param_inner).startswith(
             _parse_prefix(param_outer))
+    if kind == KIND_IDENTIFIER:
+        return _parse_identifier(param_inner) == _parse_identifier(param_outer)
     if kind == KIND_GRAPH:
         raise ValueError(
             f"{outer!r} vs {inner!r}: a category term is ordered by the "
@@ -807,6 +842,9 @@ def intersect(a, b, kind, units=None):
         if value_b.startswith(value_a):
             return f"{head}({value_b})"
         return None
+    if kind == KIND_IDENTIFIER:
+        value_a = _parse_identifier(param_a)
+        return f"{head}({value_a})" if value_a == _parse_identifier(param_b) else None
     if kind == KIND_GRAPH:
         raise ValueError(
             f"{a!r} ∩ {b!r}: a category term is met by the graph — ask the "

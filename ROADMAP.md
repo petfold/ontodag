@@ -378,8 +378,10 @@ tripwire has to be rediscovered mid-build.
   (`SEMANTIC_CODES.md`'s triggers). Not a feature request: loopmarket will
   log solver query category-sets from day one and deliver the measured
   workload — the usage data the bitmap/cone-materialization gates wait for.
-- **Identifier kind (`identifier-dimension`)** — filed 2026-09-25 with a
-  consumer: loopmarket's `item(h)`, `lot(h)`, `sample(h)`, a
+- **Identifier kind (`identifier-dimension`)** — **built 2026-10-01** on
+  the branch `k1-identifier`, to be released with `swarm-sharing` (Peter;
+  registry 4.3, `tests/test_identifier_kind.py`, `DIMENSIONS.md` §6 and
+  §13); filed 2026-09-25 with a consumer: loopmarket's `item(h)`, `lot(h)`, `sample(h)`, a
   content-addressed identity for a unique item that a want must take by
   **equality only** (`loopmarket/docs/plans/items-and-ownership.md`; the
   cross-repository plan `credentials-cover-and-options.md` D5, D7). The

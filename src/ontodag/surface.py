@@ -157,7 +157,7 @@ def _friendly_dominance(denotation, units=None):
 
 
 def _friendly_param(param, kind, units=None):
-    if kind in (_dims.KIND_PREFIX, _dims.KIND_GRAPH):
+    if kind in (_dims.KIND_PREFIX, _dims.KIND_GRAPH, _dims.KIND_IDENTIFIER):
         return param  # already the friendliest admissible spelling
     if kind == _dims.KIND_COUNT:
         # Bare whole numbers are already the friendliest spelling — never
