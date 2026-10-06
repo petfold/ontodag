@@ -598,24 +598,47 @@ class _Intervals:
 
 class _Prefixes:
     """The values of one prefix head, sorted: a cell's finer cells are a
-    range, and its coarser ones are its own prefixes (`OntoDAG._hops`)."""
+    range, and its coarser ones are its own prefixes (`OntoDAG._hops`).
+    For a role head (`literal_role`), the literal parameters of its terms
+    (`from(u2e4)`), whatever else its star holds."""
 
-    def __init__(self, units):
+    def __init__(self, units, literal_role=None):
         self.units = units
+        self.literal_role = literal_role
         self.params = []
 
     def add(self, dag, name, units=None, kind=None):
         split = _dims.split_term(name)
         if split is None:
             return False
-        try:
-            _dims._parse_prefix(split[1])
-        except ValueError:
-            return False
+        if self.literal_role is not None:
+            if split[0] != self.literal_role:
+                return True
+            try:
+                if dag._param_node(split[0], split[1]) is not None:
+                    return True           # names a node, found by the walk
+                _dims._parse_prefix(split[1])
+            except ValueError:
+                return True
+        else:
+            try:
+                _dims._parse_prefix(split[1])
+            except ValueError:
+                return False
         at = bisect.bisect_left(self.params, split[1])
         if at == len(self.params) or self.params[at] != split[1]:
             self.params.insert(at, split[1])
         return True
+
+    def below(self, prefix, head):
+        """Names `head(q)` for the indexed q that extend `prefix`."""
+        out = []
+        for other in self.params[bisect.bisect_left(self.params, prefix):]:
+            if not other.startswith(prefix):
+                break
+            if other != prefix:
+                out.append(f"{head}({other})")
+        return out
 
     def hops(self, dag, canonical, head, kind, up):
         param = _dims.split_term(canonical)[1]
@@ -1480,7 +1503,7 @@ class OntoDAG(DAG):
             return None
         base = self._dimension_of(head)[1]
         if base != head:
-            return None                       # role terms: the base graph orders them
+            return self._role_hops(canonical, head, base, up)
         if kind in _dims._INTERVALISH or kind == _dims.KIND_PREFIX:
             index = self._value_index(head, kind)
             if index is None:
@@ -1559,6 +1582,67 @@ class OntoDAG(DAG):
                         return None
                     frontier.append(child)
         return out
+
+    def _role_hops(self, canonical, head, base, up):
+        """`_hops` for a role head (DIMENSIONS.md §14): `R(y) ⊑ R(x)` when y
+        is below x in the base dimension, a parameter naming either a node
+        (`from(my_home)`) or, spelled literally, a value of the base
+        (`from(u2e4)`, standing for `geo(u2e4)`). So the base dimension is
+        walked from the parameter and both spellings are looked up; literal
+        terms whose value is not a node are found through a sorted index of
+        the role's literal parameters, by prefix. Only a prefix base is
+        covered; any other falls back to the scan."""
+        if self._dimension_of(base)[0] != _dims.KIND_PREFIX:
+            return None
+        param = _dims.split_term(canonical)[1]
+        node = self._param_node(head, param)
+        start = node.name if node is not None else f"{base}({param})"
+        head_node = self.nodes.get(head)
+        budget = len(head_node.neighbors) if head_node is not None else 0
+        walked = self._ancestry(start) if up else self._below_names(start, budget)
+        if walked is None:
+            return None
+        literals = self._role_literals(head)
+        found = set()
+        for name in walked:
+            split = _dims.split_term(name)
+            if split is not None and split[0] == base:
+                found.add(f"{head}({split[1]})")
+                if up:
+                    found.update(f"{head}({split[1][:k]})"
+                                 for k in range(1, len(split[1])))
+                else:
+                    found.update(literals.below(split[1], head))
+            else:
+                found.add(f"{head}({name})")
+        if node is None:
+            # A literal parameter also relates to literal terms by prefix,
+            # whether or not their values are nodes.
+            if up:
+                found.update(f"{head}({param[:k]})" for k in range(1, len(param)))
+            else:
+                found.update(literals.below(param, head))
+        found.discard(canonical)
+        found = [t for t in found if t in self.nodes]
+        kind = self._dimension_of(head)[0]
+        if up:
+            return [t for t in found if self._contains(t, canonical, kind)]
+        return [t for t in found if self._contains(canonical, t, kind)]
+
+    def _role_literals(self, head):
+        """The role's literal parameters, sorted (a `_Prefixes` index kept
+        with the value indexes)."""
+        values = getattr(self, "_values", None)
+        if values is None:
+            values = self._values = {}
+        index = values.get(head)
+        if isinstance(index, _Prefixes):
+            return index
+        index = _Prefixes(None, literal_role=head)
+        for term, _ in self._star(head):
+            index.add(self, term.name)
+        values[head] = index
+        return index
 
     def _virtual_value_hops(self, name, up):
         """The present values directly above (`up`) or below a value term

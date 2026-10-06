@@ -120,6 +120,67 @@ class TestAgreesWithTheScan(unittest.TestCase):
                                      (seed, name, query[0]))
 
 
+def role_operations(seed, places=7, steps=40):
+    """Places in cells, regions above cells, and offers under `from(...)`
+    in both spellings: a place (`from(p3)`) and a literal cell
+    (`from(u2e4)`). `from` is a role of `geo` (DIMENSIONS.md §14)."""
+    rnd = random.Random(seed)
+    cells = ["u2", "u2e", "u2e4", "u2e4x", "u2e5", "u2e5y", "u3", "u3b"]
+    names = [f"p{i}" for i in range(places)] + ["r0", "r1"]
+    ops = []
+    for _ in range(steps):
+        shape = rnd.random()
+        if shape < 0.3:
+            ops.append((rnd.choice(names[:places]), f"geo({rnd.choice(cells)})"))
+        elif shape < 0.4:
+            ops.append((f"geo({rnd.choice(cells)})", rnd.choice(["r0", "r1"])))
+        elif shape < 0.5:
+            ops.append((rnd.choice(names[:places]), rnd.choice(names)))
+        elif shape < 0.8:
+            ops.append((f"offer{rnd.randint(0, 9)}", f"from({rnd.choice(names)})"))
+        else:
+            ops.append((f"offer{rnd.randint(0, 9)}", f"from({rnd.choice(cells)})"))
+    queries = [[f"from({rnd.choice(names + cells)})"] for _ in range(10)]
+    return names, ops, queries
+
+
+def play_roles(resident, names, ops):
+    dag = OntoDAG()
+    dag._resident = resident
+    prelude.apply(dag)
+    dag.put("from", ["geo"])
+    for name in names:
+        dag.put(name, [])
+    for child, parent in ops:
+        try:
+            dag.put(child, [parent])
+        except ValueError:
+            pass
+    return dag
+
+
+class TestRolesAgreeWithTheScan(unittest.TestCase):
+    def test_random_worlds(self):
+        for seed in range(30):
+            names, ops, queries = role_operations(seed)
+            by_name = play_roles(True, names, ops)
+            by_scan = play_roles(False, names, ops)
+            self.assertEqual(edge_set(by_name), edge_set(by_scan), seed)
+            for query in queries:
+                try:
+                    expected = {n.name for n in by_scan.get(query)}
+                except ValueError:
+                    continue
+                self.assertEqual({n.name for n in by_name.get(query)},
+                                 expected, (seed, query))
+            present = sorted(n for n in by_scan.nodes if n != "*")
+            rnd = random.Random(seed)
+            for _ in range(60):
+                a, b = rnd.choice(present), rnd.choice(present)
+                self.assertEqual(by_name.is_below(a, b), by_scan.is_below(a, b),
+                                 (seed, a, b))
+
+
 class TestFilingDoesNotScan(unittest.TestCase):
     """Filing an item touches what it is filed under, not every term of
     that term's head: the members a star yields during a put do not grow
