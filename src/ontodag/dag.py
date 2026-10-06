@@ -2601,11 +2601,18 @@ class OntoDAG(DAG):
                 transitive_term(a.name)
                 for a in self._walk_ancestors(parent, computed=self._lean))):
             return
+        split = _dims.split_term(parent_name)
         if _dims.split_term(child_name) is None and not child.neighbors \
-                and not any(f"{head}({child_name})" in self.nodes
-                            for head in heads):
-            # Nothing is below or inside `child`, so nothing the edge moves
-            # can end up inside itself: the common filing of a new place.
+                and not any(self._terms_naming(child_name, head)
+                            for head in heads) \
+                and (split is None or split[0] not in heads
+                     or child_name not in _dims.constraints(split[1])):
+            # Nothing is below `child` and no term names it, so nothing can
+            # be inside it, and the parent does not name it either: the
+            # edge cannot put anything inside itself. The common filing of
+            # a new place. (The parent may not exist yet; a parent naming
+            # the child, `x ⊑ in(x)`, must reach the check below, here,
+            # before put materializes it.)
             return
         # What the parent is inside, once per head; then each node the edge
         # puts under it is looked up there. (Asking is_below(parent, R(x))

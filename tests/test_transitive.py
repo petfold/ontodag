@@ -146,6 +146,17 @@ class TestStrictness(unittest.TestCase):
                 dag.put(name, supers)
             self.assertEqual(edge_set(dag), before, (name, supers))
 
+    def test_a_new_place_is_not_in_itself_either(self):
+        # Nothing is below `lone` and no term names it, which lets the guard
+        # skip its walk; `lone ⊑ in(lone)` must still be refused before
+        # `in(lone)` is created, or the refusal leaves the term behind.
+        dag = declare()
+        dag.put("lone", [])
+        before = (set(dag.nodes), edge_set(dag))
+        with self.assertRaisesRegex(ValueError, "inside itself"):
+            dag.put("lone", ["in(lone)"])
+        self.assertEqual((set(dag.nodes), edge_set(dag)), before)
+
     def test_a_merge_stays_total_and_keeps_the_data(self):
         # Each store is consistent; their union puts x and y inside each
         # other. A merge must not refuse, and must not orphan anything.
@@ -633,12 +644,16 @@ class TestAgainstTheOracle(unittest.TestCase):
                 candidate = asserted | {(child, parent)}
                 expect_refusal = escapes(child, parent) \
                     or Oracle(nodes, candidate).bad()
+                before = (set(dag.nodes), edge_set(dag))
                 try:
                     dag.put(child, [parent])
                     refused = False
                 except ValueError:
                     refused = True
                 self.assertEqual(refused, expect_refusal, (seed, child, parent))
+                if refused:     # a refusal leaves nothing behind, not even a term
+                    self.assertEqual((set(dag.nodes), edge_set(dag)), before,
+                                     (seed, child, parent))
                 if refused:
                     refusals += 1
                 else:
