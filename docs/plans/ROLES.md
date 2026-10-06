@@ -483,17 +483,21 @@ Settled later the same day, after step 3.3:
   explicit declaration. *Leaning:* offer, never rewrite silently.
 - ~~**The contract.**~~ Settled as item 11.
 - **The audience dimension's name:** `for` or `shared-with`.
-- **US spelling in names.** Core and the domain packs hold 17 names with
-  British spellings (`orange-colour`, `ash-grey`, `centre`, `storey`, …).
-  Six are paired with a US spelling of another sense, so the spelling is
-  what tells the two apart: `draught` (air) and `draft` (text),
-  `programme` (a show) and `program` (software), `centre` (a place) and
+- **US spelling in names.** Core and the domain packs hold 22 names with
+  British spellings (`orange-colour`, `ash-grey`, `centre`, `storey`, …;
+  the audit below counted them, where this draft had said 17), plus one
+  typo. Eight are paired with a US spelling of another sense, so the
+  spelling is what tells the two apart: `draught` (air) and `draft`
+  (text), `programme` (a show) and `program` (the printed program of an
+  event; software is `computer-program`), `centre` (a point) and
   `center` (a building), `mould` (a container) and `mold` (a fungus),
   `honour` (status) and `honor` (a quality), `labour` (a class) and
-  `labor` (work). Those need real names, not respellings. `storey` would
-  become `story`, which an everyday sense already owns. Renames don't
-  travel by merge (EVOLUTION.md), so they belong in the same core version
-  as the audit.
+  `labor` (work), `civilisation` and `civilization`, `judgement` (a
+  court's) and `judgment` (the act). Those need real names, not
+  respellings; the audit proposes one for each, checked against every
+  shipped name. `storey` would become `story`, which an everyday sense
+  already owns. Renames don't travel by merge (EVOLUTION.md), so they
+  belong in the same core version as the audit.
 
 ## 9. What changes, and in what order
 
@@ -513,9 +517,20 @@ sources, and is-a edges are right under this reading.
 - A narrow scan of the 7,734 pack edges (named suspects only, not an
   audit) found about a dozen part-of edges. Most are hand-asserted crypto
   terms in economics (`mempool ⊑ bitcoin`, `beacon-chain ⊑ ethereum`),
-  plus `air-mass ⊑ atmosphere`. They become `in(...)` or `about(...)`. A
-  real audit would use ontodag-core's evidence files, since Wikidata
-  keeps part-of separate from subclass-of.
+  plus `air-mass ⊑ atmosphere`. They become `in(...)` or `about(...)`.
+  **The real audit was done 2026-10-07** (ontodag-core
+  `docs/AUDIT_ROLES.md` and `align/audit-roles.tsv`, a draft for this
+  step): 45 of the 12,960 shipped edges fail the test (22 with high
+  confidence), 27 of them in economics, 10 in geography (Earth's own
+  structure), 5 in core (WordNet files some parts as kinds:
+  `egg-white ⊑ egg`), 2 in computing and 1 in mathematics. It also lists
+  the entities per pack (core holds two, `bible` and `internet`; the
+  packs about 400), which bears on how the surface layer knows a name is
+  an entity. Two questions it raises for Peter: most proposed `in(...)`
+  are parts of abstract systems (a node in a network, a feature of
+  Ethereum), the first large use of `in` for non-spatial parts, where
+  `about(...)` is the alternative; and `bitcoin` names both a currency and
+  the system its parts belong to.
 - CORE.md's reason for hooking the dimension kinds under `attribute`
   says "a value is an attribute" and "a geo value is a place". Under §2 a
   value is a quality of the items under it, and the edge stays; only the
@@ -567,7 +582,9 @@ instance.
    6. the surface layer: offer `about(...)`, `in(...)` and `for(...)` for
       entity names, and render them;
    7. the prelude's new dimensions, the pack audit and the spelling
-      renames, so golden roots move once; packs republished to Swarm;
+      renames, so golden roots move once; packs republished to Swarm.
+      The audit and the spelling list are drafted (ontodag-core
+      `docs/AUDIT_ROLES.md`, 2026-10-07); applying them is Peter's call;
    8. the guide's examples; release.
 4. **swarm-sharing:** rebase onto main once `for` lands (step 3.4), then
    do the keyplan consolidation with principals as people and shares
