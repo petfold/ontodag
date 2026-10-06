@@ -4,8 +4,10 @@ What must hold: the grantee entry is Bee's ACT entry bit for bit (vectors
 generated from Bee v2.8.1's Go packages); a reader decrypts exactly what
 a directed token path reaches (oracle: brute-force reachability over
 random two-sided graphs); document categories carry topic not audience
-(the §2.2 trap does not bite); tokens do not leak (no two-time pad);
-revocation is forward-only and rotates categories not documents; equal
+(the §2.2 trap does not bite); tokens do not leak (no two-time pad,
+across children or across a rotation, and every token opens only with
+the right key); revocation is forward-only and rotates categories not
+documents; a format-1 key graph is refused with a reason; equal
 keys publish equal stores (canonical root); the audience key is
 order-free; and the encstore seam encrypts for the audience only.
 
@@ -128,6 +130,21 @@ class TestBeeCompatibility(unittest.TestCase):
                          graph.key("alice"))
 
 
+def _xor(a, b):
+    return bytes(x ^ y for x, y in zip(a, b))
+
+
+def _body(token):
+    """The 32 bytes that encrypt the child key (the token's tail)."""
+    return token[-32:]
+
+
+def _tokens(snapshot):
+    from ontodag import act
+    return {k: bytes.fromhex(snapshot.get(k)["token"])
+            for k in snapshot.keys(act.TOKEN_PREFIX)}
+
+
 def _org(seed=1):
     """The DESIGN.md §2.2 picture."""
     from ontodag import act
@@ -212,8 +229,7 @@ class TestReachabilityIsAccess(unittest.TestCase):
         k_u, k_v1, k_v2 = _seeded_rng(5)(32), _seeded_rng(6)(32), _seeded_rng(7)(32)
         t1 = act.wrap(k_u, act.node_id("v1"), k_v1)
         t2 = act.wrap(k_u, act.node_id("v2"), k_v2)
-        xor = bytes(a ^ b for a, b in zip(t1, t2))
-        self.assertNotEqual(xor, bytes(a ^ b for a, b in zip(k_v1, k_v2)))
+        self.assertNotEqual(_xor(_body(t1), _body(t2)), _xor(k_v1, k_v2))
 
 
 @unittest.skipUnless(HAVE_ACT, "needs the act extra (coincurve, pycryptodome)")
@@ -250,6 +266,90 @@ class TestRevocationAndEpochs(unittest.TestCase):
         self.assertEqual(act.Resolver(store, _priv(42)).reachable_ids(), set())
         graph.grant("alice", act.public_key(_priv(42)))
         self.assertTrue(act.Resolver(store, _priv(42)).can_read("doc-42"))
+
+
+@unittest.skipUnless(HAVE_ACT, "needs the act extra (coincurve, pycryptodome)")
+class TestARotationCannotBeUndone(unittest.TestCase):
+    """Found 2026-10-05: a token was K_v XOR KS(K_u, v). When v rotated
+    under a parent that did not, the re-minted token reused the keystream,
+    so the old and new tokens XORed to K_v_old XOR K_v_new, and anyone who
+    kept K_v_old read K_v_new off the public store. Revocation was undone
+    whenever a rotated category had any other, unrotated parent."""
+
+    def test_alice_cannot_recover_a_rotated_key_from_bobs_token(self):
+        # alice and bob both reach `company`; revoking alice rotates it, and
+        # bob's unrotated sales-dept re-mints its token into it
+        from ontodag import act
+        store, graph = _org()
+        graph.commit()
+        old = RecordStore.at(store.root, store.blobs)
+        alice_old = act.Resolver(old, _priv(42))._walk()
+        graph.revoke("alice", act.public_key(_priv(42)))
+        graph.link("company-docs", "q4-plan")          # new, after she left
+        graph.commit()
+        now = RecordStore.at(store.root, store.blobs)
+        edge = act._token_record_key(act.node_id("sales-dept"), act.node_id("company"))
+        t_old, t_new = _tokens(old)[edge], _tokens(now)[edge]
+        self.assertNotEqual(t_old, t_new)               # it was re-minted
+        guess = _xor(_xor(_body(t_old), _body(t_new)), alice_old[act.node_id("company")])
+        self.assertNotEqual(guess, graph.key("company"))
+        # and bob, who was never revoked, still reads the new document
+        self.assertTrue(act.Resolver(store, _priv(43)).can_read("q4-plan"))
+        self.assertFalse(act.Resolver(store, _priv(42)).can_read("q4-plan"))
+
+    def test_no_keystream_is_reused_across_rotations_on_random_graphs(self):
+        # Wherever a token changed because its child got a new key, the
+        # change must not be the change in the key.
+        from ontodag import act
+        for seed in range(12):
+            r = random.Random(seed)
+            store = _store()
+            graph = act.KeyGraph(store, org_private_key=_priv(7), rng=_seeded_rng(seed))
+            names = [f"n{i}" for i in range(14)]
+            for _ in range(22):
+                graph.link(*r.sample(names, 2))
+            people = r.sample(names, 3)
+            for i, p in enumerate(people):
+                graph.grant(p, act.public_key(_priv(100 + i)))
+            graph.commit()
+            old = RecordStore.at(store.root, store.blobs)
+            before = graph.export_keys()
+            graph.revoke(people[0], act.public_key(_priv(100)))
+            for name in r.sample(names, 2):
+                graph.rotate(name)
+            graph.commit()
+            now = RecordStore.at(store.root, store.blobs)
+            by_id = {act.node_id(n): n for n in graph.export_keys()}
+            t_old, t_new = _tokens(old), _tokens(now)
+            changed = 0
+            for key in set(t_old) & set(t_new):
+                v = by_id[key.rsplit("/", 1)[1]]
+                if before[v] == graph.key(v):
+                    continue
+                changed += 1
+                self.assertNotEqual(_xor(_body(t_old[key]), _body(t_new[key])),
+                                    _xor(before[v], graph.key(v)), (seed, key))
+            self.assertGreater(changed, 0, seed)
+
+    def test_a_token_opens_only_with_its_parents_key(self):
+        from ontodag import act
+        k_u, k_v, wrong = _seeded_rng(5)(32), _seeded_rng(6)(32), _seeded_rng(8)(32)
+        token = act.wrap(k_u, act.node_id("v"), k_v)
+        self.assertEqual(act.unwrap(k_u, act.node_id("v"), token), k_v)
+        with self.assertRaises(ValueError):
+            act.unwrap(wrong, act.node_id("v"), token)
+        with self.assertRaises(ValueError):                 # filed under another child
+            act.unwrap(k_u, act.node_id("w"), token)
+
+    def test_a_format_1_key_graph_is_refused_with_a_reason(self):
+        from ontodag import act
+        store = _store()
+        store.put(act.META_KEY, {"v": 1, "org_pub": act.public_key(_priv(7)).hex()})
+        store.commit()
+        with self.assertRaisesRegex(ValueError, "format 1"):
+            act.Resolver(store, _priv(42)).reachable_ids()
+        with self.assertRaisesRegex(ValueError, "format 1"):
+            act.KeyGraph(store, org_private_key=_priv(7))
 
 
 @unittest.skipUnless(HAVE_ACT, "needs the act extra (coincurve, pycryptodome)")

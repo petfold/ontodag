@@ -2847,13 +2847,29 @@ it**: if you filed `eng-documents` *under* `company-docs`, every company
 reader would derive the engineering key, exactly as the arrows say —
 audience lives only in where bridges start. **Whoever holds the
 `KeyGraph` can read everything**, as with any publisher-centric scheme.
-And **revocation is forward-only**: `org.revoke("alice", ...)` deletes her
-entry and rotates every category she could reach, so nothing published
-from now on is hers to read, but what she already fetched stays fetched —
-on Swarm, forever. Old epochs remain resolvable from old roots
-(`RecordStore.at(root, store.blobs)`). What is not here yet: category manifests and feeds
-for the documents themselves, a Bee node that accepts a resolved key, and
-the on-Swarm format that would let other clients interoperate
+And **revocation is forward-only**: `org.revoke("alice", ...)` deletes
+Alice's entry and rotates the categories Alice could reach, so tokens
+minted under them from now on are useless to her, while whatever she
+already fetched stays fetched — on Swarm, forever. Old epochs remain
+resolvable from old roots (`RecordStore.at(root, store.blobs)`).
+
+**One gap in `revoke`.** It doesn't rotate the documents at the bottom
+(`design-specs` and `handbook` here), because their content is encrypted
+under their keys. But any node can gain a child: file something under
+`design-specs` after the revocation, and its key is wrapped under a key
+Alice kept, so she can derive it. Before filing anything under a
+document Alice could read, rotate it (`org.rotate("design-specs")`) and
+re-encrypt its content under the new key. A key graph that keeps a
+rotating key apart from content keys is planned, and closes the gap.
+
+Key graphs published by ontodag 0.28 and earlier are in an older format
+that couldn't revoke at all: a revoked reader could recover a rotated key
+from the public tokens. This version refuses them with a reason;
+publish them again into a new store.
+
+What is not here yet: category manifests and feeds for the documents
+themselves, a Bee node that accepts a resolved key, and the on-Swarm
+format that would let other clients interoperate
 (`docs/plans/act-categories/DESIGN.md`, Phases 1.4–3).
 
 ## 10. Rules OntoDAG enforces (and why you'll be glad)

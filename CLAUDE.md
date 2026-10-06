@@ -892,6 +892,23 @@ the encstore seam, the align shapes. NOT done: item 4 (category manifests
 questions in DESIGN.md §9 were answered by default (flat KVS token set,
 per-node epochs, aligned twin) and say so in its Phase 1 status note.
 
+**Format 2 (2026-10-06, unreleased): revocation was broken and is fixed.**
+Found in the swarm-sharing review: a token was `K_v XOR KS(K_u, id(v))`,
+so when v rotated under a parent that kept its key, the re-minted token
+reused the keystream and the old and new tokens XORed to the keys' XOR.
+A revoked reader recovered the new key from the public store, under
+lazy and eager rotation alike. The tests had only modeled an attacker
+who unwraps. Format 2: a token is `check(K_v)` (32 bytes, a domain-
+separated Keccak of the key) followed by K_v under a keystream bound to
+the edge AND the check; `unwrap` verifies the check. Chosen over binding
+the *epoch*, because `KeyGraph(keys=...)` resets epochs to 0, so an
+epoch-bound keystream would repeat after a rebuild from exported keys.
+Format-1 graphs are refused with a reason. `TestARotationCannotBeUndone`
+(4 tests) fails on format 1. Still open, documented: `revoke` leaves
+document leaves unrotated, so a child linked under one later is
+derivable (rotate the leaf and re-encrypt first). The full plan, with
+keyplan replacing KeyGraph, is docs/plans/ROLES.md §9.
+
 ## Single-audience encryption (2026-08-20, after 0.18.0) — PACKS §14 item 3 closed
 
 `ontodag.encstore` (stdlib-only at module level; pycryptodome behind the new

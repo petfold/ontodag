@@ -246,7 +246,10 @@ revokes forward-only, aligns with an OntoDAG's people/document cones;
 spike are pinned in `tests/test_act.py`; `store_key_for` is the encstore
 seam; `act` extra). Decisions taken by default and open to revision:
 tokens are per-edge-keyed stream-cipher wraps (one keystream per edge —
-never the same keystream for two children); node ids are sha256 of the
+never the same keystream for two children; and since format 2,
+2026-10-06, also bound to a check value of the child's key, so never for
+two keys of one child either: format 1 reused it across a rotation, and
+a revoked reader could recover the new key); node ids are sha256 of the
 name (opaque in the store, computable by anyone who knows the name);
 token-set storage is one flat record per edge under `act/t/<u>/<v>`
 (the flat-KVS option of §9); epochs are per node, bumped by `rotate`,

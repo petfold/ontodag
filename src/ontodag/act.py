@@ -25,12 +25,22 @@ a person holds one secp256k1 key, the same kind `bee_signer` is, and the
 org publishes one 32-byte entry per person — never touching a document.
 
 What is ours: the **tokens**. Bee has no notion of category-to-category
-rekeying. A token is the same stream cipher under a per-edge key
-`Keccak(K_u || domain || id(v))` — per edge, because the cipher is a
-keystream XOR and one keystream over two children's keys would leak
-their XOR (a two-time pad); the derivation is deterministic so two key
-managers holding the same keys publish identical tokens, which is what
-lets the token store have a canonical root like everything else.
+rekeying. A token is a public check value of the child's key,
+`check(K_v) = Keccak(domain || K_v)`, followed by the same stream cipher
+over K_v under the key `Keccak(K_u || domain || id(v) || check(K_v))`.
+The cipher is a keystream XOR, so no keystream may ever encrypt two
+different keys, or their XOR leaks (a two-time pad). Binding the
+keystream to `id(v)` keeps two children apart; binding it to the check
+keeps two keys of one child apart. That second binding is what format 1
+(ontodag 0.19–0.28) lacked: when v was rotated under a parent that kept
+its key, the re-minted token reused the keystream, and the old and new
+tokens XORed to the old and new keys' XOR, so anyone who kept the old
+key read the new one off the public store, and revocation could be
+undone (found 2026-10-05). `unwrap` verifies the check, so a wrong key
+fails instead of yielding garbage. The derivation is deterministic, so
+two key managers holding the same keys publish identical tokens, which
+is what lets the token store have a canonical root like everything
+else.
 
 **Trust model (§6):** whoever mints the keys — the key manager holding a
 `KeyGraph` — can read everything. That is ACT's publisher-centric model
@@ -61,11 +71,12 @@ import os
 
 from ontodag._extras import require
 
-ACT_VERSION = 1
+ACT_VERSION = 2
 KEY_LEN = 32
 
 _ID_DOMAIN = b"ontodag-act-node-v1\0"
-_TOKEN_DOMAIN = b"|ontodag-act-token-v1|"
+_TOKEN_DOMAIN = b"|ontodag-act-token-v2|"
+_CHECK_DOMAIN = b"ontodag-act-key-check-v2|"
 _AUDIENCE_DOMAIN = b"ontodag-act-audience-v1|"
 _STORE_KEY_DOMAIN = b"ontodag-act-store-key-v1"
 
@@ -230,17 +241,39 @@ def node_id(name: str) -> str:
     return hashlib.sha256(_ID_DOMAIN + name.encode("utf-8")).hexdigest()[:32]
 
 
-def token_key(k_u: bytes, v_id: str) -> bytes:
-    return keccak256(k_u + _TOKEN_DOMAIN + v_id.encode("ascii"))
+def key_check(k: bytes) -> bytes:
+    """A public check value for a node key: what a token's keystream is
+    bound to, and what `unwrap` verifies against (see module doc)."""
+    return keccak256(_CHECK_DOMAIN + k)
+
+
+def token_key(k_u: bytes, v_id: str, check: bytes) -> bytes:
+    return keccak256(k_u + _TOKEN_DOMAIN + v_id.encode("ascii") + check)
 
 
 def wrap(k_u: bytes, v_id: str, k_v: bytes) -> bytes:
-    """T(u -> v) = Enc(K_u, K_v), under a per-edge key (see module doc)."""
-    return stream_transform(token_key(k_u, v_id), k_v)
+    """T(u -> v): the check of K_v (32 bytes), then K_v under a keystream
+    bound to the edge and to that check (32 bytes)."""
+    check = key_check(k_v)
+    return check + stream_transform(token_key(k_u, v_id, check), k_v)
 
 
 def unwrap(k_u: bytes, v_id: str, token: bytes) -> bytes:
-    return stream_transform(token_key(k_u, v_id), token)
+    """K_v from T(u -> v). `ValueError` unless K_u is u's key and the token
+    was minted for v."""
+    check, body = token[:KEY_LEN], token[KEY_LEN:]
+    k_v = stream_transform(token_key(k_u, v_id, check), body)
+    if len(k_v) != KEY_LEN or key_check(k_v) != check:
+        raise ValueError("this token does not open with that key")
+    return k_v
+
+
+def _old_format(version) -> str:
+    return (f"this key graph is in format {version}, and this ontodag reads and "
+            f"writes format {ACT_VERSION}. Format 1 (ontodag 0.19-0.28) could not "
+            "revoke: a revoked reader could recover rotated keys from the public "
+            "tokens. Its key manager should publish it again into a new store "
+            "(link and grant again) with this version.")
 
 
 def audience_key(keys_by_name: dict) -> bytes:
@@ -285,6 +318,12 @@ class KeyGraph:
         self._org_priv = org_private_key or self._rng(KEY_LEN)
         self._keys = dict(keys or {})          # name -> K_v (32 bytes)
         self._epoch = {name: 0 for name in self._keys}   # name -> int
+        try:
+            meta = self._store.get(META_KEY)
+        except KeyError:
+            meta = None
+        if meta is not None and meta.get("v") != ACT_VERSION:
+            raise ValueError(_old_format(meta.get("v")))
         self._store.put(META_KEY, {"v": ACT_VERSION,
                                    "org_pub": public_key(self._org_priv).hex()})
 
@@ -345,7 +384,16 @@ class KeyGraph:
         it would lock out the remaining readers without hiding anything
         (forward-only revocation, module doc / DESIGN.md §6). Returns the
         rotated names, so the caller can re-`grant` anyone whose entry sat
-        on a rotated leaf."""
+        on a rotated leaf.
+
+        **Known gap.** A document leaf keeps the key the revoked person
+        holds, and in OntoDAG any node can gain a child. Anything linked
+        under such a leaf afterwards is wrapped under a key the person
+        kept, so they can derive it. Before linking anything under a leaf
+        a revoked person could read, `rotate` it and re-encrypt its
+        content under the new key. A key graph that keeps a rotating key
+        apart from content keys removes the gap; it is planned
+        (docs/plans/ROLES.md §9)."""
         lookup, _ = act_keys(self._org_priv, person_public_key)
         self._store.delete(GRANT_PREFIX + lookup.hex())
         has_out = {u_id for u_id, _v in self.links()}
@@ -450,6 +498,8 @@ class Resolver:
         if self._keys is not None:
             return self._keys
         meta = self._store.get(META_KEY)
+        if meta.get("v") != ACT_VERSION:
+            raise ValueError(_old_format(meta.get("v")))
         org_pub = bytes.fromhex(meta["org_pub"])
         lookup, wrap_key = act_keys(self._priv, org_pub)
         try:

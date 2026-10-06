@@ -14,6 +14,39 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Security
+
+- **`ontodag.act` revocation could be undone from public data** (format
+  1, in 0.19.0–0.28.0). A token was the child's key XORed with a
+  keystream made from the parent's key and the child's id. When a
+  category was rotated, by `revoke` for instance, every token into it
+  from a parent that kept its key was re-minted with the same keystream.
+  So the old and new tokens XORed to the old and new keys' XOR, and
+  anyone who kept the old key, which is exactly the person just revoked,
+  could compute the new one from the public store and read everything
+  filed under it afterwards. The ordinary case was enough: two people in
+  one category, one of them revoked.
+  - Format 2 puts a public check value of the child's key at the front
+    of each token and binds the keystream to it, so two keys never share
+    a keystream. Tokens are 64 bytes instead of 32.
+  - `unwrap` now verifies the check and raises `ValueError` on a wrong
+    key, where it used to return garbage.
+  - `Resolver` and `KeyGraph` refuse a format-1 key graph with a reason:
+    publish it again into a new store.
+  - No sister project uses `ontodag.act`. Found in the review of the
+    `swarm-sharing` branch, whose tests had modeled only an attacker who
+    unwraps. The new tests (`TestARotationCannotBeUndone` in
+    `tests/test_act.py`) fail on format 1.
+
+### Known issue
+
+- **`KeyGraph.revoke` leaves document leaves unrotated**, by design,
+  since their content is encrypted under their keys. Anything linked
+  under such a leaf afterwards can be derived by the revoked person. The
+  docstring and guide §9.3 say what to do: rotate the leaf and
+  re-encrypt its content first. A key graph that keeps a rotating key
+  apart from content keys is planned (docs/plans/ROLES.md §9).
+
 ### Added
 
 - **`ontodag.act` runs without coincurve.** Where coincurve can't
@@ -511,7 +544,9 @@ Design record: `docs/DIMENSIONS.md` §8 and §14.
   grant (docs/plans/act-categories/DESIGN.md §2). Grantee entries are Bee
   ACT entries bit for bit (the v2.8.1 Go vectors from the August spike are
   now pinned in `tests/test_act.py`); tokens are ours, per-edge-keyed so
-  no keystream is ever reused. `KeyGraph` (mint, link, grant, rotate,
+  no keystream is ever reused. *(Corrected 2026-10-06: a token re-minted
+  after its child was rotated did reuse its keystream, so revocation could
+  be undone. Fixed in format 2; see the Security entry after 0.28.0.)* `KeyGraph` (mint, link, grant, rotate,
   forward-only revoke, `align` with an OntoDAG's cones), `Resolver` (walk
   from a private key; works over a `RecordStore.at(old_root, …)` snapshot for old epochs),
   `audience_key` (AND audiences, sorted so two writers agree),
