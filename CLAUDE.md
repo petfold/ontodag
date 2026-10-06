@@ -1314,8 +1314,10 @@ docs/plans/SHARING.md steps 1–2. Both were driven by categor.io
 (github.com/petfold/categorio), a website over OntoDAG, which now depends
 on `ontodag>=0.28`. **Open:** SHARING.md Q1 (how a store marks its
 principals), now reframed by docs/plans/ROLES.md §7 (principals as
-people, shares under `for(...)`). The work order is ROLES.md §9, and its
-step 3, the semantics, is next. The table and paragraphs below are older
+people, shares under `for(...)`). The work order is ROLES.md §9: steps
+3.1–3.4 and 4a are on main (unreleased), step 5 is on the branch
+`narrower-relations` awaiting Peter's decision on its form, and steps
+6–8 wait on his decisions too (the roles section above). The table and paragraphs below are older
 history, not updated since 0.23.0/0.25.0.
 
 **All three repos released 2026-08-06**, each by tag through its publish
