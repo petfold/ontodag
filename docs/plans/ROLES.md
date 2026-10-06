@@ -13,7 +13,10 @@ crossing it. Examples marked *today* were executed against 0.28.0;
 everything else is proposed. **Built since (2026-10-06, unreleased):**
 steps 3.1–3.3 of §9 — the one meaning in HOW_IT_WORKS.md, the
 transitive kind that `in` is declared under (DIMENSIONS.md §16), and the
-relation kind for `about`, `from`, `to` (§17).
+enclosing kind for `about`, `from`, `to` (§17). Peter then settled three
+more points: `in` covers places and parts but not membership, `geo` stays
+apart from `in` for now, and the second kind is called
+`enclosing-dimension` (§8, items 8–10).
 
 ## 0. In short
 
@@ -31,10 +34,12 @@ relation kind for `about`, `from`, `to` (§17).
   head's kind says how terms are ordered. Users declare dimensions
   freely today; only kinds are in code.
 - **One word: dimension**, for both (§8). Nothing stored is renamed.
-- **What's new:** two kinds, a way to declare a narrower relation, and one
-  guard.
-- **Not changed:** BINDING.md's limit. Flat roles are sound for one
-  filler per role per item; a two-leg journey still needs bundles.
+- **What's new:** three kinds (transitive, enclosing and reversed), a way
+  to declare a narrower relation, and one guard.
+- **Not changed:** BINDING.md's limit. Flat terms are sound as long as
+  each one is a claim on its own: Zermatt in Switzerland and in the Alps
+  is two true claims. A two-leg journey, whose `from` and `to` must stay
+  paired, still needs bundles.
 
 ## 1. The problem
 
@@ -157,9 +162,8 @@ false
 and it is not a planet.
 
 Entities relate to each other through heads too: `tokyo ⊑ city` and
-`tokyo ⊑ in(japan)`, never `tokyo ⊑ japan`. People likewise:
-`alice ⊑ sales-employee ⊑ employee` by kinds, or `alice ⊑ in(sales)` and
-`sales ⊑ in(acme)` by membership.
+`tokyo ⊑ in(japan)`, never `tokyo ⊑ japan`. People are ordered by kinds,
+`alice ⊑ sales-employee ⊑ employee`, not by `in` (§5).
 
 **A quality needs no head.** `old-atlas ⊑ blue` already says it. A
 `color(...)` head would give blue things a second name, `color(blue)`,
@@ -210,15 +214,17 @@ Dimensions over nodes follow the same split:
 |---|---|---|---|
 | follows the order | `R(x) ⊑ R(y)` iff `x ⊑* y` | `about(mars) ⊑ about(planet)` | works (graph kind) |
 | follows the order and `in` | `R(x) ⊑ R(y)` iff `x ⊑* y` or `x ⊑* in(y)` | `in(tokyo) ⊑ in(japan)`; `departure(gate-b12) ⊑ departure(lhr)` | missing |
-| reversed | `R(y) ⊑ R(x)` iff `x ⊑* y` or `x ⊑* in(y)` | `for(employee) ⊑ for(alice)` | missing |
+| reversed | `R(y) ⊑ R(x)` iff `x ⊑* y` | `for(employee) ⊑ for(alice)` | missing |
 
 "Missing" was checked. A photo under `in(tokyo)` is not below `in(japan)`
 today, whether `in` takes `geo`'s values or is a graph-kind head.
 
 Proposed assignment:
 - `in`, `about`, `from` and `to` follow the order and `in`. For `in`
-  itself, that is transitivity.
-- `for` is reversed (§6).
+  itself, that is transitivity. Built as two kinds: `in` under the
+  transitive kind (DIMENSIONS.md §16), and the heads that follow `in`
+  without chaining under the enclosing kind (§17).
+- `for` is reversed (§6), and follows kinds only, not `in` (§7).
 - Heads whose argument is a kind rather than an entity, such as
   loopmarket's `transport(...)`, only follow the order.
 - Dimensions over time (`posted`, `received`) stay what they are: they
@@ -254,13 +260,27 @@ relation; types and limits go in the argument.*
 a query for `from(lhr)` finds both. The few broad relations are where
 stores meet when they merge.
 
-## 5. `in`, the one structural relation
+## 5. `in`, for places and parts
 
-One relation covers places, parts and membership, because all three
-chain the same way: Tokyo in Japan in Asia, an engine in a car in a
-garage, Alice in sales in Acme. Separate `part-of` and `member-of`
-relations would chain identically, and would give users three names to
-choose between.
+One relation covers places and parts, because they chain together: Tokyo
+in Japan in Asia, an engine in a car in a garage (so the engine is in
+the garage). A separate `part-of` relation would chain identically, and
+would give users two names to choose between.
+
+**Membership is not `in`** (settled, §8). The first draft had a third
+case, Alice in sales in Acme, but membership chains wrongly with the
+other two. If the sales department is in the Ljubljana office and Alice
+is "in" sales, then `in` puts Alice in the Ljubljana office, though she
+may work from home (checked on the 3.3 code: `alice ⊑ in(sales)` and
+`sales ⊑ in(ljubljana-office)` give `alice ⊑ in(ljubljana-office)`).
+Membership is said by kinds instead: `alice ⊑ sales-employee ⊑ employee`.
+That passes §2's test, since whatever is true of every sales employee is
+true of Alice. It also separates two things that membership by `in` ran
+together: the department, an entity with a location
+(`sales-department ⊑ in(ljubljana-office)`), and its staff, a kind with
+members (`sales-employee`). The code can't enforce this, since it can't
+tell a person from a place, so it is a modeling rule for the docs and
+the surface layer to teach.
 
 **Regions are the exception that proves it.** If `tokyo` and `japan` name
 regions (sets of places on the map), then `tokyo ⊑ japan` is plain
@@ -291,9 +311,10 @@ The other direction would need everything in Japan to be inside
 *something else* that is in Japan, and transitivity doesn't say that.
 "Less than" on whole numbers shows the gap: anything less than something
 less than 5 is less than 5, but 4 is less than 5 without being less than
-anything that is less than 5. In a store: if Bob works for Acme
-directly, in no department, then Bob is in Acme but in nothing that is
-in Acme, so `in(in(acme))` (people in some part of Acme) is the smaller
+anything that is less than 5. In a store: if the Louvre's pyramid is
+filed directly in the Louvre, in no wing, then it is in the Louvre but in
+nothing that is in the Louvre, so `in(in(louvre))` (things in some part
+of the Louvre, such as the Mona Lisa in the Denon wing) is the smaller
 class.
 
 On a continuous map the two would coincide, since anything inside Japan
@@ -320,10 +341,10 @@ under its broader one.
 
 Access runs against membership: what is for the whole group is for each
 member. So `for` reverses the order it follows. `alice ⊑ employee` gives
-`for(employee) ⊑ for(alice)`, and `alice ⊑ in(sales)` gives
-`for(sales) ⊑ for(alice)`. SHARING.md Q1 rejected a `shared-with(alice)`
-role term because role heads were covariant; a reversed dimension removes
-that objection.
+`for(employee) ⊑ for(alice)`, and `alice ⊑ sales-employee` gives
+`for(sales-employee) ⊑ for(alice)`. SHARING.md Q1 rejected a
+`shared-with(alice)` role term because role heads were covariant; a
+reversed dimension removes that objection.
 
 The words come from category theory. A map between two orders is
 **covariant** if it keeps their direction, and **contravariant** if it
@@ -346,11 +367,18 @@ can't coexist with membership, because `employees ⊑ ada` and
 
 With `for`:
 
-- people and groups are ordered by kinds or by membership
-  (`alice ⊑ in(sales)`, `sales ⊑ in(acme)`);
-- items are filed under `for(...)`, for example `q3-plan ⊑ for(sales)`;
+- people and groups are ordered by kinds
+  (`alice ⊑ sales-employee ⊑ acme-employee`);
+- items are filed under `for(...)`, for example
+  `q3-plan ⊑ for(sales-employee)`;
 - **what Alice may see is everything below `for(alice)`.** It is still
-  one cone, because `for(acme) ⊑ for(sales) ⊑ for(alice)` is computed.
+  one cone, because
+  `for(acme-employee) ⊑ for(sales-employee) ⊑ for(alice)` is computed.
+
+`for` follows kinds only, not `in`. Following `in` would turn a location
+fact into an access grant: whoever filed Alice as living in Tokyo would
+thereby give her whatever is `for(japan)`. Access should change only when
+someone files a person under a group.
 
 Consequences:
 
@@ -359,9 +387,9 @@ Consequences:
 - Public content goes under `for(everyone)` or `for(person)`, whichever
   node every person is under.
 - The key plan needs no new mechanism, since it already follows computed
-  edges. Its walk becomes `for(alice)`, then `for(sales)`, then
-  `for(acme)`, then down to the items. A principal is a person, and their
-  grantee entry opens `for(alice)`.
+  edges. Its walk becomes `for(alice)`, then `for(sales-employee)`, then
+  `for(acme-employee)`, then down to the items. A principal is a person,
+  and their grantee entry opens `for(alice)`.
 - Q1's leaning, a declared `principal` node, may give way to its option
   (c): whatever is below a `for(...)` term is shared, and the term says
   so.
@@ -370,7 +398,8 @@ Consequences:
 
 **Settled 2026-10-06** (Peter accepted the leanings):
 
-1. One structural relation, `in`, for places, parts and membership (§5).
+1. One structural relation, `in`, for places and parts (§5). The first
+   version included membership; item 9 took it out.
 2. `about` follows `in` (§5).
 3. Terms render readably: `in(tokyo)` as "in Tokyo".
 4. US spelling in the syntax: `color`, not `colour`.
@@ -382,6 +411,26 @@ Consequences:
 7. Qualities read as adjectives (§2), so a quality needs no head and the
    blue book needs no `color(...)`.
 
+Settled later the same day, after step 3.3:
+
+8. The kind for `about`, `from` and `to` is called **`enclosing-dimension`**
+   (DIMENSIONS.md §17), for what it follows: whatever encloses the
+   argument. It was `relation-dimension` while unreleased, but every
+   head names a relation, so that name didn't say which.
+9. **Membership is said by kinds, not by `in`** (§5):
+   `alice ⊑ sales-employee ⊑ employee`. Membership by `in` chained into
+   location.
+10. **`geo` and `in`: (a) now, (b) as the target.** They stay apart, and
+    meet by assertion: filing a cell under a named place,
+    `geo(u2e4) ⊑ in(ljubljana)`, puts whatever is located in the cell, at
+    any precision, `in(ljubljana)`, while Ljubljana stays a city
+    (checked). The reverse is not derived. The bridge (b) comes when a
+    consumer needs named places and cells in one query. It became sound
+    only with item 9, because a member of a department is nowhere on the
+    map. `in` stays the wider of the two: it also takes places with no
+    coordinates, such as Middle-earth, and places whose coordinates
+    don't help, such as an aisle in a supermarket.
+
 **Open:**
 
 - **Where the standard dimensions live.** The code would refer to `in` by
@@ -391,23 +440,12 @@ Consequences:
   root and, through core, the root of every pack and every published
   pack store (DIMENSIONS.md §15). *Leaning:* do it once, together with
   the pack audit.
-- **`geo` and `in`.** `geo(u2e4)` already means "located in the cell",
-  so `geo` is `in` over grid cells. loopmarket's model (DIMENSIONS.md
-  §14) is consistent with the one meaning as it stands, read as location
-  classes: a place under a cell is located there, and a region above
-  cells (`geo(u2e4) ⊑ ljubljana`) is the class of things located in the
-  region, as long as the region is never also filed as an entity
-  (`ljubljana ⊑ city`). Three ways forward:
-  (a) *leave them apart*: `in(...)` for named entities, `geo(...)` for
-  cells, each answering its own queries; nothing changes for loopmarket.
-  (b) *bridge them*: let `in(x)` follow x's cell, so that once Tokyo is
-  filed under its cell, things in Tokyo are in that cell too. That is a
-  cross-head rule, so more machinery.
-  (c) *migrate* loopmarket's `from`/`to` from roles of `geo` to the
-  relation kind over named places. That renames stored values, so it is
-  a coordinated release of both repos.
-  *Leaning:* (a) now, (b) when a consumer needs named places and cells in
-  one query. Decision is Peter's, with loopmarket.
+- ~~**`geo` and `in`.**~~ Settled as item 10. The options were (a)
+  *leave them apart*, each answering its own queries, nothing changing
+  for loopmarket; (b) *bridge them*, letting `in(x)` follow x's cell, a
+  cross-head rule; (c) *migrate* loopmarket's `from`/`to` from roles of
+  `geo` to the enclosing kind over named places, which renames stored
+  values and so needs a coordinated release of both repos.
 - **How to declare a narrower relation** (§4), as distinct from "uses
   that space".
 - ~~**Transitive dimensions besides `in`.**~~ Answered by step 3.2: the
@@ -486,10 +524,9 @@ instance.
       general transitive kind (DIMENSIONS.md §16, registry 4.3,
       `tests/test_transitive.py`);
    3. ~~`about`, `from` and `to` following `in`~~ — done 2026-10-06 as
-      the relation kind (DIMENSIONS.md §17): `about`, `from`, `to` are
-      heads a store declares under it. `geo` is unchanged, with a
-      proposal in §8;
-   4. reversed `for`;
+      the enclosing kind (DIMENSIONS.md §17): `about`, `from`, `to` are
+      heads a store declares under it. `geo` stays apart (§8 item 10);
+   4. reversed `for`, following kinds only (§7);
    5. narrower relations;
    6. the surface layer: offer `about(...)`, `in(...)` and `for(...)` for
       entity names, and render them;

@@ -217,7 +217,7 @@ future session recognizes the moment instead of pre-building:
   mass-reification pressure will first show.
   **Update 2026-10-06:** [ROLES.md](ROLES.md) proposes a strip in front
   of this wall: relations to entities as dimensions (`in(japan)`,
-  `about(mars)`, `for(sales)`), ordered by a few kinds fixed in code, with
+  `about(mars)`, `for(sales-employee)`), ordered by a few kinds fixed in code, with
   no user axioms. "Alice authored Doc1" then fits in front of the wall,
   as `doc1 ⊑ by(alice)`. The wall itself stands: several relations of one
   item that must stay grouped (BINDING.md's two-leg journey), relations

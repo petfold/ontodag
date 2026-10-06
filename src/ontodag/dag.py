@@ -983,9 +983,9 @@ class OntoDAG(DAG):
             # some x is itself related to an `outer` thing, so is whatever
             # is related to x. Tokyo in Japan puts in(tokyo) inside in(japan).
             return any(self._below_guarded(x, outer) for x in ins)
-        if kind == _dims.KIND_RELATION and self._dimension_kind(
+        if kind == _dims.KIND_ENCLOSING and self._dimension_kind(
                 _dims.CONTAINMENT_HEAD) == _dims.KIND_TRANSITIVE:
-            # A relation follows containment (DIMENSIONS.md §17): when some
+            # An enclosing relation follows containment (§17): when some
             # x is itself located in an `outer` thing, whatever is related
             # to x is related to that thing. A photo about Tokyo is about
             # Japan once Tokyo is in Japan.
@@ -1248,9 +1248,10 @@ class OntoDAG(DAG):
             raise ValueError(f"cannot compare across heads: {a!r} vs {b!r}")
         head, kind = parsed_a[0], parsed_a[1]
         if kind in _dims.MULTI_VALUED:
-            # An item can be related to several things at once (in Tokyo and
-            # in Paris), so R(A) ∩ R(B) has no single name unless one term
-            # contains the other; and with no disjointness it is never empty.
+            # An item can be related to several things at once (Zermatt is
+            # in Switzerland and in the Alps), so R(A) ∩ R(B) has no single
+            # name unless one term contains the other; and with no
+            # disjointness it is never empty.
             if self._contains(a, b, kind):
                 return b
             if self._contains(b, a, kind):
@@ -1846,7 +1847,7 @@ class OntoDAG(DAG):
                 if term is not None:
                     affected.append(term)
         if multi:
-            # A transitive or relation term moves when any constraint moves.
+            # A transitive or enclosing term moves when any constraint moves.
             # Whatever is below a moved term moves with it, and so does a
             # term naming any of those: with n3 ⊑ in(n4), filing n4 under
             # n1 moves in(n4) inside in(n1), so n3 is in n1 and about(n3)
@@ -1913,7 +1914,7 @@ class OntoDAG(DAG):
 
     def _multi_valued_heads(self):
         """Every declared head an item can hold several values of at once:
-        the transitive and relation kinds (§16, §17)."""
+        the transitive and enclosing kinds (§16, §17)."""
         return [head for head, (kind, _base) in self._heads().items()
                 if kind in _dims.MULTI_VALUED]
 
@@ -2043,11 +2044,11 @@ class OntoDAG(DAG):
         once the meet's edge exists. Role terms naming nodes have no
         nameable meet and stay as they are (the graph orders them); a
         provably empty meet is the disjoint-parents refusal. Terms of a
-        transitive or relation head have no meet either — a photo can be
-        in Tokyo and in Paris, about Mars and about Earth — so they stay as
-        they are too, and reduction keeps the finer of two that are
-        ordered (DIMENSIONS.md §16, §17). Returns the
-        super names to file under."""
+        transitive or enclosing head have no meet either — Zermatt is in
+        Switzerland and in the Alps, a photo about Mars and about Earth — so
+        they stay as they are too, and reduction keeps the finer of two
+        that are ordered (DIMENSIONS.md §16, §17). Returns the super names
+        to file under."""
         by_head = {}
         for name in [*super_names, *live]:
             parsed = self._parse_parametric(name)

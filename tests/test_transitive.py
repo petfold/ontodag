@@ -1,7 +1,7 @@
-"""The transitive kind, `in`, and the relation kind, `about`
+"""The transitive kind, `in`, and the enclosing kind, `about`
 (docs/DIMENSIONS.md §16 and §17, docs/plans/ROLES.md).
 
-A relation-kind head follows containment instead of chaining: a photo
+An enclosing-kind head follows containment instead of chaining: a photo
 about Tokyo is about Japan once Tokyo is in Japan. It too keeps several
 terms of one head separate, and needs no guard of its own.
 
@@ -9,7 +9,7 @@ A head declared under `transitive-dimension` names a relation that chains:
 `in(tokyo) ⊑ in(japan)` once `tokyo ⊑ in(japan)`, because whatever is in
 Tokyo is in Japan. Its parameters are graph constraints, as for the graph
 kind. Unlike the graph kind, two terms of one head on one item stay
-separate (a photo can be in Tokyo and in Paris), and the relation is
+separate (Zermatt is in Switzerland and in the Alps), and the relation is
 strict: nothing is in itself, so an edge that would put a thing inside
 itself is refused.
 
@@ -50,8 +50,8 @@ def declare(dag=None, about=False):
     dag.put("transitive-dimension", ["dimension"])
     dag.put("in", ["transitive-dimension"])
     if about:
-        dag.put("relation-dimension", ["dimension"])
-        dag.put("about", ["relation-dimension"])
+        dag.put("enclosing-dimension", ["dimension"])
+        dag.put("about", ["enclosing-dimension"])
     return dag
 
 
@@ -60,13 +60,18 @@ GEOGRAPHY = (("place", []), ("city", ["place"]), ("asia", ["place"]),
              ("kanto", ["place", "in(japan)"]),
              ("tokyo", ["city", "in(kanto)"]),
              ("photo", ["in(tokyo)"]),
-             ("acme", []), ("sales", ["in(acme)"]),
-             ("alice", ["in(sales)"]), ("bob", ["in(acme)"]))
+             ("louvre", ["place"]), ("denon-wing", ["in(louvre)"]),
+             ("mona-lisa", ["in(denon-wing)"]),
+             ("louvre-pyramid", ["in(louvre)"]),
+             ("switzerland", ["place"]), ("alps", ["place"]),
+             ("zermatt", ["place", "in(switzerland)", "in(alps)"]))
 
 
 def geography(dag=None):
-    """Tokyo in Kanto in Japan in Asia, a photo in Tokyo; Alice in sales
-    in Acme, Bob directly in Acme."""
+    """Tokyo in Kanto in Japan in Asia, a photo in Tokyo; the Mona Lisa in
+    the Louvre's Denon wing, the Louvre's pyramid in it directly, in no
+    wing; Zermatt in Switzerland and in the Alps. Places and parts only:
+    membership goes under kinds (ROLES.md §5)."""
     dag = declare(dag)
     for name, supers in GEOGRAPHY:
         dag.put(name, supers)
@@ -87,15 +92,15 @@ class TestTheOrder(unittest.TestCase):
         self.assertFalse(below("photo", "japan"))
 
     def test_in_in_is_the_smaller_class(self):
-        # transitivity gives in(in(Z)) ⊑ in(Z) only: Bob works for Acme
-        # directly, in no department, so he is in Acme but in nothing
-        # that is in Acme
+        # transitivity gives in(in(Z)) ⊑ in(Z) only: the pyramid stands in
+        # the Louvre directly, in no wing, so it is in the Louvre but in
+        # nothing that is in the Louvre
         below = self.dag.is_below
-        self.assertTrue(below("in(in(acme))", "in(acme)"))
-        self.assertFalse(below("in(acme)", "in(in(acme))"))
-        self.assertTrue(below("alice", "in(in(acme))"))
-        self.assertFalse(below("bob", "in(in(acme))"))
-        self.assertTrue(below("bob", "in(acme)"))
+        self.assertTrue(below("in(in(louvre))", "in(louvre)"))
+        self.assertFalse(below("in(louvre)", "in(in(louvre))"))
+        self.assertTrue(below("mona-lisa", "in(in(louvre))"))
+        self.assertFalse(below("louvre-pyramid", "in(in(louvre))"))
+        self.assertTrue(below("louvre-pyramid", "in(louvre)"))
         self.assertTrue(below("tokyo", "in(in(japan))"))      # through Kanto
         self.assertFalse(below("kanto", "in(in(japan))"))     # directly in Japan
 
@@ -115,8 +120,8 @@ class TestTheOrder(unittest.TestCase):
         # leaves the things (nothing is filed directly under a place here)
         self.assertEqual(names(get(["in(japan)"], items_only=True)),
                          {"photo", "tokyo", "kanto"})
-        self.assertEqual(names(get(["in(acme)", "in(in(acme))"],
-                                   items_only=True)), {"alice"})
+        self.assertEqual(names(get(["in(louvre)", "in(in(louvre))"],
+                                   items_only=True)), {"mona-lisa"})
 
 
 class TestStrictness(unittest.TestCase):
@@ -157,8 +162,8 @@ class TestPlacement(unittest.TestCase):
         self.dag = geography()
 
     def test_separate_places_stay_separate(self):
-        self.dag.put("flight", ["in(tokyo)", "in(acme)"])
-        self.assertEqual(parents(self.dag, "flight"), {"in(tokyo)", "in(acme)"})
+        self.assertEqual(parents(self.dag, "zermatt"),
+                         {"place", "in(switzerland)", "in(alps)"})
 
     def test_the_finer_place_wins(self):
         self.dag.put("trip", ["in(tokyo)", "in(japan)"])
@@ -181,9 +186,11 @@ class TestPlacement(unittest.TestCase):
 
     def test_meet_and_overlap(self):
         self.assertEqual(self.dag.meet("in(tokyo)", "in(japan)"), "in(tokyo)")
+        # Zermatt is in both, and neither contains the other: no single
+        # term names what is in Switzerland and in the Alps
         with self.assertRaisesRegex(ValueError, "no single term"):
-            self.dag.meet("in(tokyo)", "in(acme)")
-        self.assertTrue(self.dag.overlaps("in(tokyo)", "in(acme)"))
+            self.dag.meet("in(switzerland)", "in(alps)")
+        self.assertTrue(self.dag.overlaps("in(switzerland)", "in(alps)"))
 
 
 class TestMemo(unittest.TestCase):
@@ -202,8 +209,8 @@ class TestMemo(unittest.TestCase):
 def subjects(dag=None):
     """The geography, plus `about` and a few things to be about."""
     dag = geography(dag)
-    dag.put("relation-dimension", ["dimension"])
-    dag.put("about", ["relation-dimension"])
+    dag.put("enclosing-dimension", ["dimension"])
+    dag.put("about", ["enclosing-dimension"])
     for name, supers in (("celestial-body", []), ("planet", ["celestial-body"]),
                          ("mars", ["planet"]), ("earth", ["planet"]),
                          ("photograph", []),
@@ -215,7 +222,7 @@ def subjects(dag=None):
 
 
 class TestRelations(unittest.TestCase):
-    """The relation kind: `about` follows `in` (DIMENSIONS.md §17)."""
+    """The enclosing kind: `about` follows `in` (DIMENSIONS.md §17)."""
 
     def setUp(self):
         self.dag = subjects()
@@ -260,8 +267,8 @@ class TestRelations(unittest.TestCase):
     def test_without_in_it_follows_the_order_only(self):
         dag = OntoDAG()
         prelude.apply(dag)
-        dag.put("relation-dimension", ["dimension"])
-        dag.put("about", ["relation-dimension"])
+        dag.put("enclosing-dimension", ["dimension"])
+        dag.put("about", ["enclosing-dimension"])
         for name, supers in (("planet", []), ("mars", ["planet"]),
                              ("note", ["about(mars)"])):
             dag.put(name, supers)
@@ -436,8 +443,9 @@ class TestStoresAndReaders(unittest.TestCase):
         root = eager.commit()
         reader = LazyOntoDAG(RecordStore.at(root, blobs))
         for sub, sup in (("photo", "in(asia)"), ("in(tokyo)", "in(japan)"),
-                         ("bob", "in(in(acme))"), ("alice", "in(in(acme))"),
-                         ("photo", "japan")):
+                         ("louvre-pyramid", "in(in(louvre))"),
+                         ("mona-lisa", "in(in(louvre))"),
+                         ("zermatt", "in(alps)"), ("photo", "japan")):
             self.assertEqual(reader.is_below(sub, sup), eager.is_below(sub, sup),
                              (sub, sup))
         self.assertEqual(names(reader.get(["city", "in(japan)"])), {"tokyo"})
@@ -449,8 +457,8 @@ class TestStoresAndReaders(unittest.TestCase):
         root = eager.commit()
         for sub, sup, expected in (("photo", "in(asia)", True),
                                    ("in(tokyo)", "in(japan)", True),
-                                   ("alice", "in(in(acme))", True),
-                                   ("bob", "in(in(acme))", False),
+                                   ("mona-lisa", "in(in(louvre))", True),
+                                   ("louvre-pyramid", "in(in(louvre))", False),
                                    ("photo", "japan", False)):
             cert = prove_below(eager, sub, sup)
             self.assertEqual(verify_below(cert, root), expected, (sub, sup))

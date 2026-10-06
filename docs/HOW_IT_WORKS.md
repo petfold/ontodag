@@ -47,7 +47,10 @@ in three kinds, and the rule treats them alike:
   everything else goes under a *relation* to it. `in(japan)` is the
   things located in Japan, and with `in` declared as a transitive relation
   (DIMENSIONS.md §16), `tokyo` filed under `in(japan)` puts everything in
-  Tokyo into Japan too: `get city in(japan)` lists Japan's cities.
+  Tokyo into Japan too: `get city in(japan)` lists Japan's cities. `in`
+  is for places and parts only. People go under kinds (Alice under
+  `sales-employee`, not under `in(sales)`), because membership chained
+  with location would put each member wherever the department is.
   Relations such as `about` follow containment without chaining
   (DIMENSIONS.md §17): a photo about Tokyo is about Japan.
 

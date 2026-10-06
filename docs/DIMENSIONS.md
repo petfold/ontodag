@@ -861,6 +861,18 @@ between terms must chain: once Tokyo is in Japan, whatever is in Tokyo
 is in Japan. The graph kind orders `in(tokyo) ⊑ in(japan)` only when
 `tokyo ⊑ japan`, which is the very edge the one meaning forbids.
 
+**Scope: places and parts.** These chain together soundly: an engine in
+a car in a garage is in the garage. Membership is not `in` (decided
+2026-10-06, ROLES.md §5), because chained with location it gives wrong
+answers: with Alice `in(sales)` and the sales department
+`in(ljubljana-office)`, Alice is located in the Ljubljana office, though
+she may work from home. People go under kinds instead,
+`alice ⊑ sales-employee ⊑ employee`, and the department (an entity, with
+a location) is a different name from its staff (a kind, with members).
+The code cannot enforce this, since it cannot tell a person from a
+place; it is a modeling rule, for the docs and the surface layer to
+teach.
+
 **Declaration.** A head under the kind node `transitive-dimension`:
 `odag put transitive-dimension dimension`, then `odag put in
 transitive-dimension`. Like the graph kind's, the kind node is not in
@@ -877,8 +889,9 @@ second disjunct is transitivity: `tokyo ⊑ in(japan)` gives
 `in(tokyo) ⊑ in(japan)`. It gives `R(R(Z)) ⊑ R(Z)`, never the converse,
 which would need everything in Z to be inside something else in Z. On
 whole numbers, 4 is less than 5 without being less than anything that
-is less than 5; in a store, Bob works for Acme directly, in no
-department, so he is in `in(acme)` but not in `in(in(acme))`.
+is less than 5; in a store, the Louvre's pyramid filed directly in the
+Louvre, in no wing, is in `in(louvre)` but not in `in(in(louvre))`,
+while the Mona Lisa in the Denon wing is in both.
 
 **Strict, with a guard.** Nothing is R of itself. A reflexive R would
 make `in(in(japan))` and `in(japan)` name one class, and the core gives
@@ -902,12 +915,12 @@ every witness path there could run through the edge it would prune;
 before that check, such a merge orphaned a node.
 
 **No folding, no meets.** An item can stand in R to several things at
-once: a photo in Tokyo and in Paris, Alice in sales and in engineering.
-So canonical placement (§9) never folds a transitive head's terms into
-one combined term, `meet` names an intersection only when one term
-contains the other (and raises otherwise), and `is_below` has no meet
-fallback for these heads. The internal intersection still returns the
-union of constraints, but only as a witness below both terms, for
+once: Zermatt is in Switzerland and in the Alps, and neither contains
+the other. So canonical placement (§9) never folds a transitive head's
+terms into one combined term, `meet` names an intersection only when one
+term contains the other (and raises otherwise), and `is_below` has no
+meet fallback for these heads. The internal intersection still returns
+the union of constraints, but only as a witness below both terms, for
 overlap; with no disjointness, overlap is always possible.
 
 **Re-reduction.** A transitive term moves when any of its constraints
@@ -950,17 +963,20 @@ ROLES.md §9 step 3.3 gives `about` the transitive kind's treatment
 instead; whether the graph kind should keep folding is loopmarket's
 question.
 
-## 17. The relation kind: relations that follow `in` (2026-10-06)
+## 17. The enclosing kind: relations that follow `in` (2026-10-06)
 
 **The case.** `about`, `from` and `to` relate an item to an entity, but
 unlike `in` they do not chain: a note about a note about Mars is not
 thereby about Mars. What they do is carry the entity's containment up. A
 photo about Tokyo is about Japan once Tokyo is in Japan, and a flight
-from Tokyo is a flight from Japan.
+from Tokyo is a flight from Japan. The kind is named for what it
+follows: whatever encloses the argument. (It was `relation-dimension`
+before release; every head names a relation, so that name did not say
+which.)
 
-**Declaration.** A head under the kind node `relation-dimension`: `odag
-put relation-dimension dimension`, then `odag put about
-relation-dimension` (and `from`, `to` the same way). Not in the prelude
+**Declaration.** A head under the kind node `enclosing-dimension`: `odag
+put enclosing-dimension dimension`, then `odag put about
+enclosing-dimension` (and `from`, `to` the same way). Not in the prelude
 yet (ROLES.md §9 step 3.7).
 
 **Order.** `R(X…) ⊑ R(A…)` iff every A is above (or is) some X — the
@@ -971,12 +987,12 @@ about Alice is not about her ancestors, however `descended-from` is
 declared. Without `in` declared, the order is the graph kind's (without
 its folding).
 
-**No guard needed.** Two relation terms could only contain each other if
+**No guard needed.** Two enclosing terms could only contain each other if
 something were inside itself: with x below `in(y)` and y below `in(x)`,
 x is below `in(x)`. `in`'s own guard (§16) refuses that.
 
 **No folding, no meets.** A photo can be about Mars and about Earth, so
-relation terms are multi-valued exactly like transitive ones (§16).
+enclosing terms are multi-valued exactly like transitive ones (§16).
 
 **What adding this kind found in the shared machinery** — all three
 found by the oracle in `tests/test_transitive.py`, and the first two
@@ -990,7 +1006,7 @@ affected the transitive kind of §16 too:
   sat above n1, so it was already in the starting set and was never
   checked on its own, though its constraint had moved. Being touched by
   the edge and having a constraint move are now tracked separately.
-- *A provisional answer was memoized as final.* The relation rule asks
+- *A provisional answer was memoized as final.* The enclosing rule asks
   containment across heads, and deciding where a term sits can ask
   about the very node whose ancestors are being walked. The re-entrancy
   guard answers that inner question "no" to break the loop; the outer
@@ -1011,10 +1027,16 @@ affected the transitive kind of §16 too:
 random worlds. A one-off run of the oracle checks on 300 larger worlds
 found no disagreement in refusals, answers, stored form, order or merge.
 
-**`geo` is not changed here.** loopmarket's model (§14) is already
-consistent with the one meaning when read as location classes:
-`geo(u2e4)` is the things located in that cell, a place under a cell is
-located there, and a region above cells is the class of things located
-in the region. What it must not do is also file a region as an entity
-(`ljubljana ⊑ city`). How named entities with `in` and grid cells meet is
-ROLES.md §8's open item.
+**`geo` and `in` stay apart for now** (decided 2026-10-06, ROLES.md §8).
+loopmarket's model (§14) is consistent with the one meaning when read as
+location classes: `geo(u2e4)` is the things located in that cell, a
+place under a cell is located there, and a region above cells is the
+class of things located in the region. What it must not do is also file
+a region as an entity (`ljubljana ⊑ city`). The two meet by assertion:
+filing a cell under a named place, `geo(u2e4) ⊑ in(ljubljana)`, puts
+whatever is located in the cell, at any precision, `in(ljubljana)`, and
+Ljubljana stays a city. The reverse is not derived: something
+`in(ljubljana)` is not thereby in any cell. The target, once a consumer
+needs named places and cells in one query, is a rule that lets `in`
+follow cells. That rule became sound only when membership left `in`
+(§16): a member of a department is nowhere on the map.

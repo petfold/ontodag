@@ -42,6 +42,11 @@ worked example in USER_GUIDE §5.12 (2026-09-02, executed transcript):
 > **Flat roles are sound for one filler per role per item.** Beyond
 > that, composition is a query-layer join, not a bigger name.
 
+(Sharpened 2026-10-06 by ROLES.md: what matters is pairing, not the count.
+Several fillers of one relation are sound when each is a claim on its own,
+as with Zermatt `in(switzerland)` and `in(alps)`, or a photo `about(mars)`
+and `about(earth)`. What breaks is fillers that must stay paired, §2.)
+
 ## 2. Where it breaks: the grouping problem
 
 The two-leg journey — transport from A to B, then walk from B to C — is

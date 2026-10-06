@@ -23,21 +23,24 @@ the version numbers appear in commit history and docs.
   `odag put in transitive-dimension`.
   - `tokyo ⊑ in(japan)` puts whatever is `in(tokyo)` inside `in(japan)`,
     so `get city in(japan)` lists Japan's cities.
-  - `in(in(acme))` is the smaller class: people in some part of Acme,
-    which leaves out someone who is in Acme directly.
+  - `in(in(louvre))` is the smaller class: things in some part of the
+    Louvre, which leaves out something filed in the Louvre directly.
+  - `in` is for places and parts. Membership goes under kinds
+    (`alice ⊑ sales-employee ⊑ employee`), because membership chained
+    with location would put each member wherever the department is.
   - Parameters are graph constraints, as for the graph kind.
   - Strict: `put`, `reclassify` and `add_edge` refuse anything that would
     put a thing inside itself (`japan ⊑ in(japan)`, or round a chain),
     and refuse before creating anything.
-  - Several terms of one head on one item stay separate (a photo can be
-    `in(tokyo)` and `in(paris)`), and `meet` names an intersection only
+  - Several terms of one head on one item stay separate (Zermatt can be
+    `in(switzerland)` and `in(alps)`), and `meet` names an intersection only
     when one term contains the other.
   - A merge that unions contradictory facts (x in y in one store, y in x
     in the other) stays total and keeps both as data: reduction no
     longer prunes on a cycle, which had orphaned a node.
   - Tested against an independent oracle on random worlds
     (`tests/test_transitive.py`).
-- **The relation kind** (`relation-dimension`, registry 4.3;
+- **The enclosing kind** (`enclosing-dimension`, registry 4.3;
   DIMENSIONS.md §17; step 3.3). A head declared under it, such as
   `about`, `from` or `to`, follows containment without chaining: once
   Tokyo is in Japan, `about(tokyo)` is inside `about(japan)`, so a photo

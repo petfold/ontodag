@@ -106,31 +106,33 @@ KIND_GRAPH = "graph-dimension"
 # it adds one rule — `R(X) ⊑ R(Y)` also when some x in X is itself below
 # R(Y): if Tokyo is in Japan, whatever is in Tokyo is in Japan. It differs
 # from the graph kind in two more ways, both because an item can stand in
-# the relation to several things at once (a photo in Tokyo and in Paris,
-# Alice in sales and in engineering): same-head parents are never folded
-# into one combined term, and two terms are never pre-intersected as a
-# meet. The relation is STRICT — nothing is in itself — and the DAG
-# refuses an edge that would put a thing inside itself (DIMENSIONS.md §16).
+# the relation to several things at once (Zermatt is in Switzerland and in
+# the Alps): same-head parents are never folded into one combined term,
+# and two terms are never pre-intersected as a meet. The relation is
+# STRICT — nothing is in itself — and the DAG refuses an edge that would
+# put a thing inside itself (DIMENSIONS.md §16). `in` covers places and
+# parts, not membership: people go under kinds (ROLES.md §5).
 KIND_TRANSITIVE = "transitive-dimension"
-# Relation is the kind for a relation to an entity that carries up the
-# entity's containment: `about`, `from`, `to` (docs/plans/ROLES.md §4).
-# `R(X) ⊑ R(Y)` by the graph kind's rule, or when some x in X is itself
-# located `in(Y)`: a photo about Tokyo is about Japan once Tokyo is in
-# Japan. It follows the reserved transitive head `in` (CONTAINMENT_HEAD),
-# when a store declares it, and only that one: a note about Alice is not
-# thereby about her ancestors. Like the transitive kind it never folds or
-# meets, since a photo can be about Mars and about Earth (DIMENSIONS.md
-# §17). The relation itself does not chain, so it needs no guard.
-KIND_RELATION = "relation-dimension"
+# Enclosing is the kind for a relation to an entity that carries up
+# whatever encloses the entity: `about`, `from`, `to` (docs/plans/ROLES.md
+# §4). `R(X) ⊑ R(Y)` by the graph kind's rule, or when some x in X is
+# itself located `in(Y)`: a photo about Tokyo is about Japan once Tokyo is
+# in Japan. It follows the reserved transitive head `in`
+# (CONTAINMENT_HEAD), when a store declares it, and only that one: a note
+# about Alice is not thereby about her ancestors. Like the transitive kind
+# it never folds or meets, since a photo can be about Mars and about Earth
+# (DIMENSIONS.md §17). The relation itself does not chain, so it needs no
+# guard.
+KIND_ENCLOSING = "enclosing-dimension"
 KINDS = frozenset({KIND_LINEAR, KIND_PREFIX, KIND_DOMINANCE, KIND_CALENDAR,
-                   KIND_COUNT, KIND_GRAPH, KIND_TRANSITIVE, KIND_RELATION})
+                   KIND_COUNT, KIND_GRAPH, KIND_TRANSITIVE, KIND_ENCLOSING})
 # Kinds whose parameters are constraints on the graph, ordered by the DAG
 # rather than by arithmetic on the name.
-GRAPH_ORDERED = frozenset({KIND_GRAPH, KIND_TRANSITIVE, KIND_RELATION})
+GRAPH_ORDERED = frozenset({KIND_GRAPH, KIND_TRANSITIVE, KIND_ENCLOSING})
 # Kinds an item can hold several values of at once: their terms are never
 # folded into one combined term, and two of them meet only by containment.
-MULTI_VALUED = frozenset({KIND_TRANSITIVE, KIND_RELATION})
-# The transitive head a relation-kind head follows (ROLES.md §5).
+MULTI_VALUED = frozenset({KIND_TRANSITIVE, KIND_ENCLOSING})
+# The transitive head an enclosing-kind head follows (ROLES.md §5).
 CONTAINMENT_HEAD = "in"
 _LINEARISH = frozenset({KIND_LINEAR, KIND_CALENDAR})
 _INTERVALISH = _LINEARISH | {KIND_COUNT}

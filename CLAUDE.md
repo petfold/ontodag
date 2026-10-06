@@ -767,14 +767,14 @@ stored form depends on filing order, and `about(mars)` with `about(earth)`
 becomes `about(earth mars)`. Reported to Peter, recorded in DIMENSIONS.md
 §16; it is why `about` (step 3.3) is not a graph-kind head.
 
-**3.3, the relation kind** (`relation-dimension`, DIMENSIONS.md §17):
+**3.3, the enclosing kind** (`enclosing-dimension`, DIMENSIONS.md §17;
+called `relation-dimension` until Peter chose the name later that day):
 the graph kind's rule plus "or some constraint is below `in(Y)`",
 following only the reserved transitive head `in`
 (`dimensions.CONTAINMENT_HEAD`). `about`, `from` and `to` are heads a store
-declares under it; `geo` is unchanged, with options (a) leave apart,
-(b) bridge, (c) migrate in ROLES.md §8, leaning (a), and the decision is
-Peter's with loopmarket. Adding it, the oracle found three bugs in the
-shared machinery, two of them also in the 3.2 code already pushed:
+declares under it; `geo` is unchanged (see the decisions below). Adding
+it, the oracle found three bugs in the shared machinery, two of them also
+in the 3.2 code already pushed:
 re-reduction missed terms below a moved term, and skipped terms the new
 edge itself touched (being touched is not having a constraint move); and
 the memo cached provisional answers. A re-entrancy guard says "no" to
@@ -784,8 +784,23 @@ the speed that cost was won back by a lean `is_below` (`_lean`,
 `_escapes`): term bounds are tested by containment directly, and computed
 links are walked only for dimensions whose terms are filed under
 something besides their head. A one-off 300-world oracle stress found no
-disagreement. `tests/test_transitive.py` now holds 27 tests. Next: 3.4,
-reversed `for`.
+disagreement. `tests/test_transitive.py` now holds 27 tests.
+
+**Peter's three decisions after 3.3** (same day, ROLES.md §8 items 8–10):
+(1) `in` is for places and parts only; membership goes under kinds
+(`alice ⊑ sales-employee ⊑ employee`), because membership by `in` chained
+into location (checked: Alice `in(sales)` and sales
+`in(ljubljana-office)` made Alice located in the office). The code can't
+enforce it; it is a modeling rule. The test fixture's Acme staff became
+the Louvre (Mona Lisa in the Denon wing, the pyramid directly in the
+Louvre: the `in(in(Z))` case) and Zermatt (in Switzerland and in the
+Alps: the multi-valued case). (2) `geo` and `in`: (a) now, apart and
+linked by assertion (`geo(u2e4) ⊑ in(ljubljana)` puts everything in the
+cell `in(ljubljana)`, checked; the reverse isn't derived), (b) the bridge
+rule as the target, sound only now that `in` is spatial. (3) The kind's
+name, `enclosing-dimension`. Consequence for 3.4: `for` is the plain
+order reversed and follows kinds only, since following `in` would turn a
+location fact into an access grant. Next: 3.4, reversed `for`.
 
 ## Role heads (2026-09-12) — issue #15 closed, DIMENSIONS.md §14
 
