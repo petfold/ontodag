@@ -779,6 +779,92 @@ class OntoDAG(DAG):
         self._heads_cache = heads
         return heads
 
+    def _relation_kind(self, name):
+        """The kind of `name` when it is a head of a relation kind (§16–§18),
+        else None. Quiet about an ambiguous head: while an edge declaring
+        one head under another is being placed, the head belongs to two
+        dimensions until pruning drops its old kind edge."""
+        if name in _dims.KINDS or _dims.split_term(name) is not None:
+            return None
+        try:
+            kind = self._dimension_kind(name)
+        except ValueError:
+            return None
+        return kind if kind in _dims.RELATION_KINDS else None
+
+    def _related_heads(self, a, b):
+        """Is one of two heads a narrower relation of the other (or the
+        same head)? Then their terms compare (§20)."""
+        return a == b or a in self._narrower(b) or b in self._narrower(a)
+
+    def _relation_cache(self):
+        """Per-shape cache for `_broader`/`_narrower`, living exactly as long
+        as the `_dimension_of` cache, which every edge that can change a
+        head's place drops."""
+        dims_cache = getattr(self, "_dim_cache", None)
+        if dims_cache is None:
+            dims_cache = self._dim_cache = {}
+        cached = getattr(self, "_rel_cache", None)
+        if cached is None or cached[0] is not dims_cache:
+            cached = self._rel_cache = (dims_cache, {})
+        return cached[1]
+
+    def _broader(self, head):
+        """`head` and the relations it is narrower than (ROLES.md §4,
+        DIMENSIONS.md §20): the heads of its kind it is declared under.
+
+        A head of a relation kind filed under another head of the same kind
+        names a NARROWER relation: `departure ⊑ from` makes every
+        `departure(x)` a `from(x)`. Elsewhere a head under a head is a role
+        that takes its base's values (§14), or for the graph kind a head of
+        its own; a relation's argument is any node, so for these kinds only
+        the narrower reading says anything. One upward walk from the head."""
+        kind = self._relation_kind(head)
+        if kind is None:
+            return frozenset((head,))
+        cache = self._relation_cache()
+        hit = cache.get(("up", head))
+        if hit is not None:
+            return hit
+        out, stack = {head}, [self.nodes.get(head)]
+        while stack:
+            node = stack.pop()
+            if node is None:
+                continue
+            for parent in self._kind_walk_parents(node):
+                if parent.name not in out \
+                        and self._relation_kind(parent.name) == kind:
+                    out.add(parent.name)
+                    stack.append(parent)
+        cache[("up", head)] = found = frozenset(out)
+        return found
+
+    def _narrower(self, head):
+        """`head` and the relations narrower than it: the heads of its kind
+        declared under it. One downward walk through the head's plain
+        children (its terms are skipped by name, so a lazy reader fetches
+        the head and the narrower heads, never the terms)."""
+        kind = self._relation_kind(head)
+        if kind is None:
+            return frozenset((head,))
+        cache = self._relation_cache()
+        hit = cache.get(("down", head))
+        if hit is not None:
+            return hit
+        out, stack = {head}, [head]
+        while stack:
+            node = self.nodes.get(stack.pop())
+            if node is None:
+                continue
+            for child in list(node.neighbors):
+                if child.name not in out \
+                        and _dims.split_term(child.name) is None \
+                        and self._relation_kind(child.name) == kind:
+                    out.add(child.name)
+                    stack.append(child.name)
+        cache[("down", head)] = found = frozenset(out)
+        return found
+
     def _role_heads(self):
         """role head -> base head, for every role declared in the graph."""
         return {name: base for name, (_kind, base) in self._heads().items()
@@ -806,6 +892,9 @@ class OntoDAG(DAG):
         self._maybe_invalidate_heads(from_node, to_node)
         super().remove_edge(from_node, to_node)
         self._note_escape(from_node, to_node, added=False)
+        log = getattr(self, "_edge_log", None)
+        if log is not None:
+            log.append((from_node, to_node))
 
     # ---- role parameters that name nodes (DIMENSIONS.md §14) --------------
 
@@ -1062,6 +1151,13 @@ class OntoDAG(DAG):
         def meets(low, up, lows):
             for head, values in low.items():
                 kind = self._dimension_of(head)[0]
+                if kind in _dims.GRAPH_ORDERED:
+                    # No disjointness: any term of this head, or of one
+                    # narrower than it, on the other side overlaps (§20).
+                    narrower = self._narrower(head)
+                    if any(h in narrower for h in [*up, *lows]):
+                        return True
+                    continue
                 others = set(lows.get(head, ()))
                 if head in up:
                     others.add(up[head])
@@ -1075,6 +1171,10 @@ class OntoDAG(DAG):
     def _overlap_terms(self, a, b, kind):
         """`_overlap` for two same-head terms — arithmetic when both
         parameters are values, the general rule otherwise."""
+        if kind in _dims.GRAPH_ORDERED:
+            # Categories carry no disjointness, so two terms of one head,
+            # or of a relation and a narrower one (§20), always overlap.
+            return True
         head, param_a, param_b = _dims._same_head(a, b)
         if self._param_node(head, param_a) is None \
                 and self._param_node(head, param_b) is None:
@@ -1114,7 +1214,17 @@ class OntoDAG(DAG):
         head_o, param_o = _dims.split_term(outer)
         head_i, param_i = _dims.split_term(inner)
         if head_o != head_i:
-            raise ValueError(f"cannot compare across heads: {outer!r} vs {inner!r}")
+            if head_o in self._narrower(head_i):
+                return False      # something from x need not depart from it
+            if head_i not in self._narrower(head_o):
+                raise ValueError(
+                    f"cannot compare across heads: {outer!r} vs {inner!r}")
+            # A narrower relation (§20): departure(x) ⊑ from(y) exactly when
+            # from(x) ⊑ from(y), since departure(x) ⊑ from(x) and nothing
+            # else relates the two heads. (A broader term is never inside a
+            # narrower one: something from x need not depart from it.)
+            inner = f"{head_o}({param_i})"
+            return self._graph_contains(outer, inner, kind)
         ins = _dims.constraints(param_i)
         outs = _dims.constraints(param_o)
         if kind == _dims.KIND_REVERSED:
@@ -1169,6 +1279,7 @@ class OntoDAG(DAG):
             return hit
         trips = self._trips()
         outs = _dims.constraints(_dims.split_term(outer)[1])
+        heads = self._narrower(head)     # x ⊑ inside(y) puts x in y (§20)
 
         def meets(term):
             zs = _dims.constraints(_dims.split_term(term)[1])
@@ -1195,7 +1306,7 @@ class OntoDAG(DAG):
                 continue
             for ancestor in [node, *self._walk_ancestors(node, computed=self._lean)]:
                 split = _dims.split_term(ancestor.name)
-                if split is None or split[0] != head \
+                if split is None or split[0] not in heads \
                         or self._parse_parametric(ancestor.name) is None:
                     continue
                 ok, zs = meets(ancestor.name)
@@ -1363,6 +1474,12 @@ class OntoDAG(DAG):
             if parsed is not None and parsed[0] == head_name:
                 yield child, parsed[1]
 
+    def _stars(self, heads):
+        """The present values of several heads (a relation and those
+        narrower or broader than it, §20), in a stable order."""
+        for head in sorted(heads):
+            yield from self._star(head)
+
     def _computed_children(self, node):
         """Present same-head terms contained in `node`'s denotation — the
         computed hops of the combined order. Distinct canonical names are
@@ -1379,7 +1496,7 @@ class OntoDAG(DAG):
         head, kind, canonical = parsed
         found = self._hops(canonical, head, kind, up=False)
         if found is None:
-            return [sibling for sibling, _ in self._star(head)
+            return [sibling for sibling, _ in self._stars(self._narrower(head))
                     if sibling is not node and self._contains(
                         canonical, sibling.name, kind)]
         return [self.nodes[name] for name in found if name in self.nodes]
@@ -1391,7 +1508,7 @@ class OntoDAG(DAG):
         head, kind, canonical = parsed
         found = self._hops(canonical, head, kind, up=True)
         if found is None:
-            return [sibling for sibling, _ in self._star(head)
+            return [sibling for sibling, _ in self._stars(self._broader(head))
                     if sibling is not node and self._contains(
                         sibling.name, canonical, kind)]
         return [self.nodes[name] for name in found if name in self.nodes]
@@ -1465,9 +1582,11 @@ class OntoDAG(DAG):
             values.pop(split[0], None)
 
     def _terms_naming(self, name, head):
-        """Present terms of `head` with `name` among their constraints."""
+        """Present terms of `head` with `name` among their constraints;
+        `head` may also be a set of heads."""
+        heads = {head} if isinstance(head, str) else head
         return [term for term in self._args_index().get(name, ())
-                if _dims.split_term(term)[0] == head and term in self.nodes]
+                if _dims.split_term(term)[0] in heads and term in self.nodes]
 
     def _graph_nested(self):
         """Does some present term name, among its constraints, a term of a
@@ -1510,6 +1629,10 @@ class OntoDAG(DAG):
         term); or None when the star must be scanned instead."""
         if not self._resident:
             return None
+        if kind in _dims.GRAPH_ORDERED:
+            # Also a head declared under another head: a narrower relation
+            # (§20), or, for the graph kind, a head of its own.
+            return self._graph_hops(canonical, head, kind, up)
         base = self._dimension_of(head)[1]
         if base != head:
             return self._role_hops(canonical, head, base, up)
@@ -1518,8 +1641,6 @@ class OntoDAG(DAG):
             if index is None:
                 return None
             return index.hops(self, canonical, head, kind, up)
-        if kind in _dims.GRAPH_ORDERED:
-            return self._graph_hops(canonical, head, kind, up)
         return None
 
     def _ancestry(self, name):
@@ -1688,27 +1809,55 @@ class OntoDAG(DAG):
             # its place is fixed by arithmetic, and the walks take value
             # hops.)
             return None
-        head_node = self.nodes.get(head)
-        budget = len(head_node.neighbors) if head_node is not None else 0
+        # The terms a hop can reach: those of narrower heads below, of
+        # broader heads above (a narrower relation, §20).
+        heads_reached = self._broader(head) if up else self._narrower(head)
+        budget = 0
+        for reached in heads_reached:
+            reached_node = self.nodes.get(reached)
+            budget += len(reached_node.neighbors) if reached_node is not None else 0
         found = set()
 
         def named(names):
             for name in names:
-                found.update(self._terms_naming(name, head))
+                found.update(self._terms_naming(name, heads_reached))
 
         covariant = kind != _dims.KIND_REVERSED
-        if covariant == up:
+        if covariant == up and up and kind == _dims.KIND_TRANSITIVE:
+            # Above a transitive term: the terms naming what each
+            # constraint is below, or is inside. Inside a term of the other
+            # head, as an ancestor, is a hop; inside a narrower relation's
+            # term (x ⊑ inside(z), §20) stands for the broader term of z,
+            # which may not exist, so the walk looks past it, to what z is
+            # below or inside. A worklist, never recursion (I6).
+            for reached in heads_reached:
+                narrower_reached = self._narrower(reached)
+                pending, looked = list(xs), set()
+                while pending:
+                    z = pending.pop()
+                    if z in looked:
+                        continue
+                    looked.add(z)
+                    ancestry = self._ancestry(z)
+                    found.update(term for name in ancestry
+                                 for term in self._terms_naming(name, reached))
+                    for a in ancestry:
+                        split = _dims.split_term(a)
+                        if split is None or split[0] not in narrower_reached:
+                            continue
+                        if split[0] == reached:
+                            found.add(a)
+                            continue
+                        term = f"{reached}({split[1]})"
+                        if term in self.nodes:
+                            found.add(term)
+                        else:
+                            pending.extend(_dims.constraints(split[1]))
+        elif covariant == up:
             # Above a covariant term, or below a reversed one: every
             # constraint of the other term is above, or is, one of ours.
             for x in xs:
                 named(self._ancestry(x))
-            if up and kind == _dims.KIND_TRANSITIVE:
-                # ... or one of ours is inside the other term: it is then
-                # among that constraint's ancestors.
-                for x in xs:
-                    found.update(a for a in self._ancestry(x)
-                                 if _dims.split_term(a) is not None
-                                 and _dims.split_term(a)[0] == head)
             if up and kind == _dims.KIND_ENCLOSING and self._dimension_kind(
                     _dims.CONTAINMENT_HEAD) == _dims.KIND_TRANSITIVE:
                 for x in xs:
@@ -1726,13 +1875,33 @@ class OntoDAG(DAG):
                 return None
             named(below)
             if not up and kind == _dims.KIND_TRANSITIVE:
-                # ... or inside this very term: what is filed in it
-                node = self.nodes.get(canonical)
-                if node is not None:
-                    inside = self._below_names(canonical, budget)
+                # ... or inside this very term: what is filed in it, or in
+                # a narrower relation's term of the same argument, and, to
+                # a fixpoint, in any narrower term found inside: x ⊑
+                # inside(z) with z inside y puts x in y (§20), through a
+                # term in(z) that may not exist, so a walk through present
+                # terms alone would never reach x.
+                # A narrower term whose term of this head exists is left to
+                # that term: the closure walks through it, and chasing it
+                # here too made every term on a chain re-walk the chain.
+                def beyond(t):
+                    split = _dims.split_term(t)
+                    return split[0] != head and f"{head}({split[1]})" not in self.nodes
+                chase = [canonical if reached == head else f"{reached}({param})"
+                         for reached in sorted(heads_reached)]
+                chase += [t for t in found if beyond(t)]
+                chased = set()
+                while chase:
+                    term = chase.pop()
+                    if term in chased or term not in self.nodes:
+                        continue
+                    chased.add(term)
+                    inside = self._below_names(term, budget)
                     if inside is None:
                         return None
+                    before = set(found)
                     named(inside)
+                    chase.extend(t for t in found - before if beyond(t))
             if not up and kind == _dims.KIND_ENCLOSING and self._dimension_kind(
                     _dims.CONTAINMENT_HEAD) == _dims.KIND_TRANSITIVE:
                 located = f"{_dims.CONTAINMENT_HEAD}({param})"
@@ -1753,11 +1922,12 @@ class OntoDAG(DAG):
         One upward walk, whatever is asked of the answer."""
         out, seen = [], {name}
         frontier = [(name, False)]
+        heads = self._narrower(head)
         while frontier:
             current, is_place = frontier.pop()
             for ancestor in self._ancestry(current):
                 split = _dims.split_term(ancestor)
-                if split is not None and split[0] == head:
+                if split is not None and split[0] in heads:
                     for place in _dims.constraints(split[1]):
                         if place not in seen:
                             seen.add(place)
@@ -1811,7 +1981,7 @@ class OntoDAG(DAG):
                 " — get_overlapping needs a computed denotation")
         head, kind, canonical = parsed
         result = set()
-        for value, _ in self._star(head):
+        for value, _ in self._stars(self._narrower(head)):
             if self._overlap_terms(canonical, value.name, kind):
                 result.add(value)
                 # ASSERTED descendants only: what hangs below a finer value
@@ -1849,7 +2019,7 @@ class OntoDAG(DAG):
                 (parsed_b is None and b not in self.nodes):
             return False                     # unknown vocabulary fails closed
         if parsed_a is not None and parsed_b is not None:
-            if parsed_a[0] != parsed_b[0]:
+            if not self._related_heads(parsed_a[0], parsed_b[0]):
                 raise ValueError(
                     f"cannot compare across heads: {a!r} vs {b!r}")
             return self._overlap_terms(a, b, parsed_a[1])
@@ -1872,7 +2042,7 @@ class OntoDAG(DAG):
             raise ValueError(
                 f"meet needs two parametric terms of one declared "
                 f"dimension: {a!r}, {b!r}")
-        if parsed_a[0] != parsed_b[0]:
+        if not self._related_heads(parsed_a[0], parsed_b[0]):
             raise ValueError(f"cannot compare across heads: {a!r} vs {b!r}")
         head, kind = parsed_a[0], parsed_a[1]
         if kind in _dims.MULTI_VALUED:
@@ -1922,7 +2092,7 @@ class OntoDAG(DAG):
         walk from these reaches the rest)."""
         found = self._hops(canonical, head, kind, up=False)
         if found is None:
-            return [value for value, _ in self._star(head)
+            return [value for value, _ in self._stars(self._narrower(head))
                     if self._contains(canonical, value.name, kind)]
         values = [self.nodes[name] for name in found if name in self.nodes]
         node = self.nodes.get(canonical)
@@ -1980,6 +2150,7 @@ class OntoDAG(DAG):
         # and every one of them hangs under the same head. So it costs only
         # its count deltas, however many values the head already has.
         fresh_anchor = anchor and not self._live_parents(to_node)
+        declaration = not anchor and self._declares_narrower(from_node, to_node)
         if not anchor and parsed_to is not None \
                 and parsed_to[1] in _dims.GRAPH_ORDERED \
                 and not getattr(self, "_role_lenient", 0) \
@@ -2026,8 +2197,100 @@ class OntoDAG(DAG):
                 f"cycle through {looped.name}: the computed order would put "
                 f"it below itself, giving two names one class")
         self._apply_count_deltas(deltas)
-        self._remove_unneeded_edges(from_node, to_node)
+        if not declaration:
+            self._remove_unneeded_edges(from_node, to_node)
+            self._reduce_roles_touching(from_node, to_node)
+            return
+        # A head declared under another (§20). Until pruning drops its old
+        # kind edge the head belongs to two dimensions at once, so what the
+        # declaration does is checked after pruning, and a refusal puts
+        # back whatever pruning removed.
+        self._edge_log = pruned = []
+        try:
+            self._remove_unneeded_edges(from_node, to_node)
+        finally:
+            self._edge_log = None
+        inside_itself = self._declared_inside_itself(from_node, to_node)
+        if inside_itself is not None:
+            self.remove_edge(from_node, to_node)
+            for upper, lower in pruned:
+                self.add_edge(upper, lower)
+            name, head = inside_itself
+            raise ValueError(
+                f"{to_node.name} ⊑ {from_node.name} would make every "
+                f"{to_node.name}(...) a {from_node.name}(...), and so put "
+                f"{name} inside itself: {head} is strict (DIMENSIONS.md "
+                f"§16, §20)")
         self._reduce_roles_touching(from_node, to_node)
+        self._reduce_narrower_declared(from_node, to_node)
+
+    def _declares_narrower(self, from_node, to_node):
+        """Is `from ⊑ to`, about to be added, a head of a relation kind
+        declared under another head of the same kind (§20)? Asked before
+        the edge exists, while both are still unambiguous heads. A head
+        filed for the first time has no terms, so nothing to check."""
+        if _dims.split_term(to_node.name) is not None \
+                or from_node.name in _dims.KINDS:
+            return False
+        heads = self._heads()
+        kind = heads.get(from_node.name, (None,))[0]
+        return kind in _dims.RELATION_KINDS \
+            and heads.get(to_node.name, (None,))[0] == kind
+
+    def _newly_narrower(self, from_node, to_node):
+        """The heads that the edge `from ⊑ to` just made narrower than
+        some relation (§20): `to` and the heads below it, when both ends
+        are heads of one relation kind. Empty otherwise."""
+        if _dims.split_term(to_node.name) is not None \
+                or from_node.name in _dims.KINDS:
+            return ()
+        heads = self._heads()
+        kind = heads.get(to_node.name, (None,))[0]
+        if kind not in _dims.RELATION_KINDS \
+                or heads.get(from_node.name, (None,))[0] != kind:
+            return ()
+        return sorted(self._narrower(to_node.name))
+
+    def _declared_inside_itself(self, from_node, to_node):
+        """(name, head) when declaring `to` narrower than `from` has put
+        `name` inside itself, or None. A transitive relation is strict
+        (§16); `put` guards each edge it adds, but a declaration moves
+        every term of the narrower head at once (x ⊑ inside(y) becomes x ⊑
+        in(y)). Any loop it closes passes through one of those terms, so
+        their arguments are what is checked. Replays stay total."""
+        if getattr(self, "_role_lenient", 0):
+            return None
+        narrower = self._newly_narrower(from_node, to_node)
+        if not narrower or self._dimension_kind(to_node.name) \
+                != _dims.KIND_TRANSITIVE:
+            return None
+        broader = sorted(self._broader(from_node.name))
+        for head in narrower:
+            for term, _ in list(self._star(head)):
+                for x in _dims.constraints(_dims.split_term(term.name)[1]):
+                    if x not in self.nodes:
+                        continue
+                    for outer in broader:
+                        if self.is_below(x, f"{outer}({x})"):
+                            return x, outer
+        return None
+
+    def _reduce_narrower_declared(self, from_node, to_node):
+        """Keep stored form canonical when a relation is declared narrower
+        than another after terms of it were filed (§20). Filing `departure`
+        under `from` makes every `departure(x)` a `from(x)`, so an item
+        filed under both `departure(lhr)` and `from(lhr)` now carries a
+        redundant edge, which filing in the other order would never have
+        stored. Each term of a head that just became narrower re-reduces
+        its computed parents. Costs the terms of those heads, once, on a
+        declaration edge; nothing on any other edge."""
+        for head in self._newly_narrower(from_node, to_node):
+            for term, _ in list(self._star(head)):
+                if term.name not in self.nodes:
+                    continue
+                for parent in list(self._computed_parents(term)):
+                    if parent.name in self.nodes and term.name in self.nodes:
+                        self._prune_rectangle(parent, term)
 
     def _below(self, lower, upper):
         """Is `lower` strictly below `upper` in the combined order, for two
@@ -2356,7 +2619,7 @@ class OntoDAG(DAG):
         # order is real whether or not the nodes exist) — and for a pair
         # with a virtual side it is also complete, short of cross edges.
         if sub_parsed is not None and sup_parsed is not None \
-                and sub_parsed[0] == sup_parsed[0] \
+                and sub_parsed[0] in self._narrower(sup_parsed[0]) \
                 and self._contains(sup, sub, sup_parsed[1]):
             return True
         if sub_node is None:
@@ -2368,7 +2631,7 @@ class OntoDAG(DAG):
                 return any(
                     self._contains(value.name, sub, kind)
                     and self.is_below(value, sup)
-                    for value, _kind in self._star(head))
+                    for value, _kind in self._stars(self._broader(head)))
             return any(self.is_below(name, sup) for name in above)
         if sup_parsed is not None:
             # A bound that is a term, present or virtual, is met by an
@@ -2383,10 +2646,11 @@ class OntoDAG(DAG):
             # answers in one hop (on a lazy reader, a couple of fetches
             # instead of all of them).
             head, kind, _ = sup_parsed
+            narrower = self._narrower(head)
             same = []
             for ancestor in self._walk_ancestors(sub_node, computed=self._lean):
                 parsed = self._parse_parametric(ancestor.name)
-                if parsed is not None and parsed[0] == head:
+                if parsed is not None and parsed[0] in narrower:
                     if self._contains(sup, ancestor.name, kind):
                         return True
                     same.append(ancestor.name)
@@ -2397,7 +2661,8 @@ class OntoDAG(DAG):
             # meet, which may be inside the bound though no single value is.
             if len(same) < 2:
                 return False     # one value, or none: the walk was the answer
-            if self._dimension_of(head)[1] != head:
+            if kind not in _dims.GRAPH_ORDERED \
+                    and self._dimension_of(head)[1] != head:
                 upper = self._bounds(sub)[0].get(head)   # a role: base bounds
             else:
                 # The meet of the values the walk just met: what
@@ -2592,9 +2857,10 @@ class OntoDAG(DAG):
                 head = _dims.split_term(t)[0]
                 if head in flipped:
                     upper = self.nodes[t]
+                    narrower = self._narrower(head)
                     for lower in upper_terms:
                         if lower is not upper and _dims.split_term(
-                                lower.name)[0] == head and self._contains(
+                                lower.name)[0] in narrower and self._contains(
                                     upper.name, lower.name, _dims.KIND_REVERSED):
                             pairs.append((upper, lower))
                             take(lower)
