@@ -1383,18 +1383,34 @@ class OntoDAG(DAG):
 
     def add_node(self, node):
         super().add_node(node)
-        args = getattr(self, "_args", None)
         split = _dims.split_term(node.name)
         if split is None:
             return
-        if args is not None:
-            for constraint in _dims.constraints(split[1]):
-                args.setdefault(constraint, set()).add(node.name)
+        if getattr(self, "_args", None) is not None:
+            self._index_args(node.name, split)
         values = getattr(self, "_values", None)
         if values is not None and split[0] in values:
             index = values[split[0]]
             if index is None or not index.add(self, node.name):
                 del values[split[0]]
+
+    def _index_args(self, name, split):
+        for constraint in _dims.constraints(split[1]):
+            named = self._args.setdefault(constraint, set())
+            named.add(name)
+            if len(named) == 1 and _dims.split_term(constraint) is not None:
+                self._nested_keys.add(constraint)
+                self._nested_version = getattr(self, "_nested_version", 0) + 1
+
+    def _args_index(self):
+        """constraint -> the present terms naming it, built on first use."""
+        if getattr(self, "_args", None) is None:
+            self._args, self._nested_keys = {}, set()
+            for present in list(self.nodes):
+                split = _dims.split_term(present)
+                if split is not None:
+                    self._index_args(present, split)
+        return self._args
 
     def _unindex(self, name):
         split = _dims.split_term(name)
@@ -1408,22 +1424,33 @@ class OntoDAG(DAG):
                     named.discard(name)
                     if not named:
                         del args[constraint]
+                        if constraint in self._nested_keys:
+                            self._nested_keys.discard(constraint)
+                            self._nested_version = getattr(
+                                self, "_nested_version", 0) + 1
         values = getattr(self, "_values", None)
         if values is not None:
             values.pop(split[0], None)
 
     def _terms_naming(self, name, head):
         """Present terms of `head` with `name` among their constraints."""
-        args = getattr(self, "_args", None)
-        if args is None:
-            args = self._args = {}
-            for present in list(self.nodes):
-                split = _dims.split_term(present)
-                if split is not None:
-                    for constraint in _dims.constraints(split[1]):
-                        args.setdefault(constraint, set()).add(present)
-        return [term for term in args.get(name, ())
+        return [term for term in self._args_index().get(name, ())
                 if _dims.split_term(term)[0] == head and term in self.nodes]
+
+    def _graph_nested(self):
+        """Does some present term name, among its constraints, a term of a
+        kind the graph orders (`for(in(japan))`)? Such a constraint moves
+        through the graph's own hops, so re-reduction then walks them."""
+        self._args_index()
+        heads = self._heads()
+        version = getattr(self, "_nested_version", 0)
+        cached = getattr(self, "_nested_cache", None)
+        if cached is not None and cached[0] is heads and cached[1] == version:
+            return cached[2]
+        answer = any(heads.get(_dims.split_term(key)[0], (None,))[0]
+                     in _dims.GRAPH_ORDERED for key in self._nested_keys)
+        self._nested_cache = (heads, version, answer)
+        return answer
 
     def _value_index(self, head, kind):
         """The index of `head`'s values, built on first use from its star;
@@ -1507,7 +1534,7 @@ class OntoDAG(DAG):
                 if child.name not in seen:
                     seen.add(child.name)
                     out.append(child.name)
-                    if len(out) > budget:
+                    if budget is not None and len(out) > budget:
                         return None
                     frontier.append(child)
         return out
@@ -2318,69 +2345,108 @@ class OntoDAG(DAG):
                     self.remove_edge(parent, descendant)
 
     def _reduce_roles_touching(self, from_node, to_node):
-        """Keep stored form canonical when a NODE PARAMETER moves.
+        """Keep stored form canonical when an edge moves a term's arguments.
 
-        `from(my_home) ⊑ from(u2e4x)` is a computed hop that exists only
-        while `my_home` sits under `geo(u2e4x)` — so filing the place can
-        make an asserted edge redundant that no rectangle around the new
-        edge sees (the hop is a wormhole between the role's star and the
-        base dimension). Every node whose position the new edge changed —
-        `to` and what is below it gained ancestors, `from` and what is
-        above it gained descendants — is checked for role terms naming it,
-        and each such term's computed hops are re-reduced. Without this the
+        A computed hop such as `from(my_home) ⊑ from(u2e4x)` or
+        `in(tokyo) ⊑ in(japan)` holds only while the nodes the terms name
+        stand where they do, so filing one of those nodes can make an
+        asserted edge redundant that no rectangle around the new edge sees
+        (the hop is a wormhole between a head's terms and the graph).
+        `_moved_terms` finds the terms that gained a parent, from what the
+        edge put under something new, and their computed parents are
+        re-reduced. A reversed head works the other way round: a term
+        naming a node above the edge gains, as a parent, a term naming a
+        node below it, and those pairs are re-reduced. Without this the
         stored form would depend on whether places were filed before or
         after the offers naming them (I3, and therefore I7)."""
         roles = self._role_heads()
         multi = self._multi_valued_heads()
         if not roles and not multi:
             return
-        affected = self._terms_moved_by(from_node, to_node, roles, multi)
-        for term in affected:
+        moved, pairs = self._moved_terms(from_node, to_node, roles, multi)
+        for term in moved:
             for parent in list(self._computed_parents(term)):
                 self._prune_rectangle(parent, term)
-            for child in list(self._computed_children(term)):
-                self._prune_rectangle(term, child)
+        for upper, lower in pairs:
+            if upper.name in self.nodes and lower.name in self.nodes:
+                self._prune_rectangle(upper, lower)
+
+    def _moved_terms(self, from_node, to_node, roles, heads):
+        """The terms the edge `from ⊑ to` gave a new parent, as
+        (covariant terms, [(upper, lower) pairs of a reversed head]).
+
+        Only terms can move: a term's place depends on the nodes it names,
+        and the edge put `to` and everything below it under something new.
+        Each of those names is looked up in the argument index (and, for a
+        role, under the spelling the role gives it), and a term found there
+        takes its own cone along, which is looked up in turn, to a
+        fixpoint. A term of a reversed head naming one of those nodes is
+        the upper end of a new hop whose lower end is a reversed term
+        naming a node above `from`. With no nested constraint the walks
+        follow asserted edges and the hops of values only, since nothing
+        else they could reach is named by any term."""
+        nested = self._graph_nested()
+        flipped = {h for h in heads
+                   if self._dimension_kind(h) == _dims.KIND_REVERSED}
+        straight = set(heads) - flipped
+        if nested:
+            start = [to_node.name] + [d.name for d in self.get_descendants(to_node)]
+        else:
+            start = self._below_names(to_node.name, None)
+        upper_terms = []
+        if flipped:
+            above = ([from_node.name] + [a.name for a in self.get_ancestors(from_node)]
+                     if nested else self._ancestry(from_node.name))
+            upper_terms = [self.nodes[t] for name in above
+                           for t in self._args_index().get(name, ())
+                           if t in self.nodes and _dims.split_term(t)[0] in flipped]
+        base_of = {role: self._dimension_of(role)[1] for role in roles}
+        seen, queue = set(start), list(start)
+        moved, moved_names, pairs = [], set(), []
+
+        def take(term):
+            for node in [term, *self.get_descendants(term)]:
+                if node.name not in seen:
+                    seen.add(node.name)
+                    queue.append(node.name)
+
+        while queue:
+            name = queue.pop()
+            found = [t for t in self._args_index().get(name, ())
+                     if t in self.nodes]
+            for role in roles:
+                spellings = [f"{role}({name})"]
+                split = _dims.split_term(name)
+                if split is not None and split[0] == base_of[role]:
+                    spellings.append(f"{role}({split[1]})")
+                found.extend(t for t in spellings if t in self.nodes)
+            for t in found:
+                head = _dims.split_term(t)[0]
+                if head in flipped:
+                    upper = self.nodes[t]
+                    for lower in upper_terms:
+                        if lower is not upper and _dims.split_term(
+                                lower.name)[0] == head and self._contains(
+                                    upper.name, lower.name, _dims.KIND_REVERSED):
+                            pairs.append((upper, lower))
+                            take(lower)
+                elif (head in straight or head in base_of) \
+                        and t not in moved_names:
+                    moved_names.add(t)
+                    moved.append(self.nodes[t])
+                    take(self.nodes[t])
+        return moved, pairs
 
     def _terms_moved_by(self, from_node, to_node, roles, heads):
-        """Present terms whose computed hops the edge `from ⊑ to` can move:
-        role terms naming a node whose position changed, and terms of the
-        graph-ordered `heads` with a constraint that moved. Every node the
-        edge repositions — `to` and what is below it gained ancestors,
-        `from` and what is above it gained descendants — counts as moved."""
-        touched = ({to_node, from_node} | self.get_descendants(to_node)
-                   | self.get_ancestors(from_node))
-        affected = []
-        for node in touched:
-            for role in roles:
-                term = self.nodes.get(f"{role}({node.name})")
-                if term is not None:
-                    affected.append(term)
-        if heads:
-            # A graph-ordered term moves when any constraint moves.
-            # Whatever is below a moved term moves with it, and so does a
-            # term naming any of those: with n3 ⊑ in(n4), filing n4 under
-            # n1 moves in(n4) inside in(n1), so n3 is in n1 and about(n3)
-            # moves inside about(n1). The scan runs to a fixpoint.
-            # A term the new edge itself touched (about(n3) above n1 when n4
-            # is filed under n1) still needs its OWN check: being touched is
-            # not the same as having a constraint move.
-            moved = {node.name for node in touched}
-            terms = [term for head in heads for term, _ in self._star(head)]
-            done = set()
-            pending = True
-            while pending:
-                pending = False
-                for term in terms:
-                    if term.name in done:
-                        continue
-                    if any(c in moved for c in _dims.constraints(
-                            _dims.split_term(term.name)[1])):
-                        done.add(term.name)
-                        moved.add(term.name)
-                        moved.update(d.name for d in self.get_descendants(term))
-                        affected.append(term)
-                        pending = True
-        return affected
+        """Present terms whose computed hops the edge `from ⊑ to` can move
+        (for `_term_on_new_cycle`): both ends of every hop it creates."""
+        moved, pairs = self._moved_terms(from_node, to_node, roles, heads)
+        out, seen = [], set()
+        for term in [*moved, *(t for pair in pairs for t in pair)]:
+            if term.name not in seen:
+                seen.add(term.name)
+                out.append(term)
+        return out
 
     def _term_on_new_cycle(self, from_node, to_node):
         """A present term the edge just added has put below itself, or None.
