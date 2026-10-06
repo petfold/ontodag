@@ -1,4 +1,9 @@
-"""The transitive kind: `in` (docs/DIMENSIONS.md §16, docs/plans/ROLES.md).
+"""The transitive kind, `in`, and the relation kind, `about`
+(docs/DIMENSIONS.md §16 and §17, docs/plans/ROLES.md).
+
+A relation-kind head follows containment instead of chaining: a photo
+about Tokyo is about Japan once Tokyo is in Japan. It too keeps several
+terms of one head separate, and needs no guard of its own.
 
 A head declared under `transitive-dimension` names a relation that chains:
 `in(tokyo) ⊑ in(japan)` once `tokyo ⊑ in(japan)`, because whatever is in
@@ -9,9 +14,10 @@ strict: nothing is in itself, so an edge that would put a thing inside
 itself is refused.
 
 `Oracle` recomputes the combined order from the asserted edges alone, as
-the least fixpoint of four rules: reflexive, transitive, the asserted
-edges, and `R(x) ⊑ R(y)` when `x ⊑ y` or `x ⊑ R(y)`. It shares nothing
-with the traversals, containment code and memo under test.
+the least fixpoint of five rules: reflexive, transitive, the asserted
+edges, `in(x) ⊑ in(y)` when `x ⊑ y` or `x ⊑ in(y)`, and `about(x) ⊑
+about(y)` when `x ⊑ y` or `x ⊑ in(y)`. It shares nothing with the
+traversals, containment code and memo under test.
 """
 
 import random
@@ -38,11 +44,14 @@ def parents(dag, name):
     return {parent.name for parent in dag.nodes[name].parents}
 
 
-def declare(dag=None):
+def declare(dag=None, about=False):
     dag = dag if dag is not None else OntoDAG()
     prelude.apply(dag)
     dag.put("transitive-dimension", ["dimension"])
     dag.put("in", ["transitive-dimension"])
+    if about:
+        dag.put("relation-dimension", ["dimension"])
+        dag.put("about", ["relation-dimension"])
     return dag
 
 
@@ -190,6 +199,88 @@ class TestMemo(unittest.TestCase):
         self.assertFalse(dag.is_below("photo", "in(asia)"))
 
 
+def subjects(dag=None):
+    """The geography, plus `about` and a few things to be about."""
+    dag = geography(dag)
+    dag.put("relation-dimension", ["dimension"])
+    dag.put("about", ["relation-dimension"])
+    for name, supers in (("celestial-body", []), ("planet", ["celestial-body"]),
+                         ("mars", ["planet"]), ("earth", ["planet"]),
+                         ("photograph", []),
+                         ("shibuya-photo", ["photograph", "about(tokyo)"]),
+                         ("earthrise", ["photograph", "about(mars)",
+                                        "about(earth)"])):
+        dag.put(name, supers)
+    return dag
+
+
+class TestRelations(unittest.TestCase):
+    """The relation kind: `about` follows `in` (DIMENSIONS.md §17)."""
+
+    def setUp(self):
+        self.dag = subjects()
+
+    def test_aboutness_follows_containment(self):
+        below = self.dag.is_below
+        self.assertTrue(below("shibuya-photo", "about(japan)"))
+        self.assertTrue(below("shibuya-photo", "about(asia)"))
+        self.assertTrue(below("about(tokyo)", "about(japan)"))
+        self.assertFalse(below("about(japan)", "about(tokyo)"))
+
+    def test_the_kinds_carry_over(self):
+        self.assertTrue(self.dag.is_below("shibuya-photo", "about(city)"))
+        self.assertTrue(self.dag.is_below("earthrise", "about(planet)"))
+
+    def test_about_is_neither_in_nor_the_thing(self):
+        below = self.dag.is_below
+        self.assertFalse(below("shibuya-photo", "in(japan)"))
+        self.assertFalse(below("shibuya-photo", "japan"))
+        self.assertFalse(below("earthrise", "planet"))
+
+    def test_several_subjects_stay_separate(self):
+        self.assertEqual(parents(self.dag, "earthrise"),
+                         {"photograph", "about(mars)", "about(earth)"})
+
+    def test_the_finer_subject_wins(self):
+        self.dag.put("guidebook", ["about(tokyo)", "about(japan)"])
+        self.assertEqual(parents(self.dag, "guidebook"), {"about(tokyo)"})
+
+    def test_queries(self):
+        self.assertEqual(names(self.dag.get(["photograph", "about(planet)"])),
+                         {"earthrise"})
+        self.assertEqual(names(self.dag.get(["photograph", "about(japan)"])),
+                         {"shibuya-photo"})
+
+    def test_meet(self):
+        self.assertEqual(self.dag.meet("about(tokyo)", "about(japan)"),
+                         "about(tokyo)")
+        with self.assertRaisesRegex(ValueError, "no single term"):
+            self.dag.meet("about(mars)", "about(earth)")
+
+    def test_without_in_it_follows_the_order_only(self):
+        dag = OntoDAG()
+        prelude.apply(dag)
+        dag.put("relation-dimension", ["dimension"])
+        dag.put("about", ["relation-dimension"])
+        for name, supers in (("planet", []), ("mars", ["planet"]),
+                             ("note", ["about(mars)"])):
+            dag.put(name, supers)
+        self.assertTrue(dag.is_below("note", "about(planet)"))
+
+    def test_stores_readers_and_certificates(self):
+        from ontodag.certificates import prove_below, verify_below
+        blobs = MemoryBytesStore()
+        eager = subjects(EagerOntoDAG(RecordStore(blobs)))
+        root = eager.commit()
+        reader = LazyOntoDAG(RecordStore.at(root, blobs))
+        for sub, sup, expected in (("shibuya-photo", "about(asia)", True),
+                                   ("earthrise", "about(planet)", True),
+                                   ("shibuya-photo", "in(japan)", False)):
+            self.assertEqual(reader.is_below(sub, sup), expected, (sub, sup))
+            cert = prove_below(eager, sub, sup)
+            self.assertEqual(verify_below(cert, root), expected, (sub, sup))
+
+
 # ---- the oracle -----------------------------------------------------------
 
 class Oracle:
@@ -198,7 +289,7 @@ class Oracle:
 
     def __init__(self, nodes, edges):
         self.nodes = list(nodes)
-        terms = [f"in({n})" for n in self.nodes]
+        terms = [f"{r}({n})" for r in ("in", "about") for n in self.nodes]
         universe = set(self.nodes) | set(terms) | {p for _c, p in edges}
         below = {(a, a) for a in universe} | set(edges)
         while True:
@@ -209,10 +300,11 @@ class Oracle:
                    for c in up.get(b, ()) if (a, c) not in below}
             for x in self.nodes:
                 for y in self.nodes:
-                    pair = (f"in({x})", f"in({y})")
-                    if pair not in below and ((x, y) in below
-                                              or (x, f"in({y})") in below):
-                        new.add(pair)
+                    lifts = (x, y) in below or (x, f"in({y})") in below
+                    for r in ("in", "about"):
+                        pair = (f"{r}({x})", f"{r}({y})")
+                        if lifts and pair not in below:
+                            new.add(pair)
             if not new:
                 break
             below |= new
@@ -237,12 +329,14 @@ def random_world(seed, size=8, attempts=16):
     tries = []
     for _ in range(attempts):
         child, parent = rnd.choice(nodes), rnd.choice(nodes)
-        tries.append((child, f"in({parent})" if rnd.random() < 0.6 else parent))
+        shape = rnd.random()
+        tries.append((child, f"in({parent})" if shape < 0.45
+                      else f"about({parent})" if shape < 0.65 else parent))
     return nodes, tries
 
 
 def build(nodes, edges, dag=None):
-    dag = declare(dag)
+    dag = declare(dag, about=True)
     for n in nodes:
         dag.put(n, [])
     for child, parent in edges:

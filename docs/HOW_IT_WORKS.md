@@ -48,6 +48,8 @@ in three kinds, and the rule treats them alike:
   things located in Japan, and with `in` declared as a transitive relation
   (DIMENSIONS.md §16), `tokyo` filed under `in(japan)` puts everything in
   Tokyo into Japan too: `get city in(japan)` lists Japan's cities.
+  Relations such as `about` follow containment without chaining
+  (DIMENSIONS.md §17): a photo about Tokyo is about Japan.
 
 The test for any arrow: whatever is true of everything above must be true
 of what is below. Medieval Japan under Japan passes (Japan is a country,

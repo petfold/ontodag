@@ -949,3 +949,72 @@ single-valued, the fold changes the meaning: `about(mars)` and
 ROLES.md §9 step 3.3 gives `about` the transitive kind's treatment
 instead; whether the graph kind should keep folding is loopmarket's
 question.
+
+## 17. The relation kind: relations that follow `in` (2026-10-06)
+
+**The case.** `about`, `from` and `to` relate an item to an entity, but
+unlike `in` they do not chain: a note about a note about Mars is not
+thereby about Mars. What they do is carry the entity's containment up. A
+photo about Tokyo is about Japan once Tokyo is in Japan, and a flight
+from Tokyo is a flight from Japan.
+
+**Declaration.** A head under the kind node `relation-dimension`: `odag
+put relation-dimension dimension`, then `odag put about
+relation-dimension` (and `from`, `to` the same way). Not in the prelude
+yet (ROLES.md §9 step 3.7).
+
+**Order.** `R(X…) ⊑ R(A…)` iff every A is above (or is) some X — the
+graph kind's rule — **or some x in X is itself below `in(A…)`**. The
+second disjunct follows the reserved transitive head `in`
+(`CONTAINMENT_HEAD`) when a store declares it, and only that head: a note
+about Alice is not about her ancestors, however `descended-from` is
+declared. Without `in` declared, the order is the graph kind's (without
+its folding).
+
+**No guard needed.** Two relation terms could only contain each other if
+something were inside itself: with x below `in(y)` and y below `in(x)`,
+x is below `in(x)`. `in`'s own guard (§16) refuses that.
+
+**No folding, no meets.** A photo can be about Mars and about Earth, so
+relation terms are multi-valued exactly like transitive ones (§16).
+
+**What adding this kind found in the shared machinery** — all three
+found by the oracle in `tests/test_transitive.py`, and the first two
+affected the transitive kind of §16 too:
+
+- *Re-reduction missed terms below a moved term.* With n3 under
+  `in(n4)`, filing n4 under n1 moves `in(n4)` inside `in(n1)`, so n3 is
+  in n1 and `about(n3)` moves inside `about(n1)`. The fixpoint now adds
+  the descendants of each moved term to the moved set.
+- *Re-reduction skipped terms the new edge itself touched.* `about(n3)`
+  sat above n1, so it was already in the starting set and was never
+  checked on its own, though its constraint had moved. Being touched by
+  the edge and having a constraint move are now tracked separately.
+- *A provisional answer was memoized as final.* The relation rule asks
+  containment across heads, and deciding where a term sits can ask
+  about the very node whose ancestors are being walked. The re-entrancy
+  guard answers that inner question "no" to break the loop; the outer
+  question still finds its answer through other branches, but the inner
+  "no" was being cached, and a later query read it (a wrong `is_below`
+  answer that depended on what had been asked before). Answers computed
+  while a guard tripped are no longer memoized (`_trip`,
+  `_memo_put_unless_tripped`). That alone made queries slow again, so
+  `is_below` now searches only paths that can matter: a bound that is a
+  term is tested by containment against the subject's same-head
+  ancestors directly (containment is transitive), and a term's computed
+  hops are walked only if some term of its head is filed under
+  something other than the head (`_escapes`, `_lean`); otherwise those
+  hops lead only to more terms of that head, then the head, the kind,
+  `dimension` and the root.
+
+**Tests.** `TestRelations` (nine), and `about` facts in the oracle's
+random worlds. A one-off run of the oracle checks on 300 larger worlds
+found no disagreement in refusals, answers, stored form, order or merge.
+
+**`geo` is not changed here.** loopmarket's model (§14) is already
+consistent with the one meaning when read as location classes:
+`geo(u2e4)` is the things located in that cell, a place under a cell is
+located there, and a region above cells is the class of things located
+in the region. What it must not do is also file a region as an entity
+(`ljubljana ⊑ city`). How named entities with `in` and grid cells meet is
+ROLES.md §8's open item.

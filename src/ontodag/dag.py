@@ -111,6 +111,25 @@ class DAG:
     # long-lived reader cannot grow it without limit.
     _MEMO_LIMIT = 200_000
 
+    def _trip(self):
+        """A re-entrancy guard answered provisionally (False, a literal,
+        nothing) to break a loop in the REASONING — the graph itself may be
+        acyclic: deciding where a term sits can ask about the very node
+        whose ancestors are being walked. The enclosing answer is still
+        right, since the search goes on through other branches, but answers
+        computed under the provisional one may not be, so they must not be
+        memoized (`_memo_put_unless_tripped`)."""
+        self._guard_trips = getattr(self, "_guard_trips", 0) + 1
+
+    def _trips(self):
+        return getattr(self, "_guard_trips", 0)
+
+    def _memo_put_unless_tripped(self, key, value, trips_before):
+        """Memoize `value` only if no guard tripped while computing it."""
+        if self._trips() == trips_before:
+            self._memo_put(key, value)
+        return value
+
     def _memo_get(self, key):
         memo = getattr(self, "_memo", None)
         if memo is None or self._memo_version != getattr(self, "_version", 0):
@@ -363,6 +382,12 @@ class DAG:
                     frontier.append(neighbor)
         return descendants
 
+    @staticmethod
+    def _expands(computed, node):
+        """`computed` is a flag, or a test deciding per node whether its
+        computed parents are walked (`OntoDAG._lean`)."""
+        return computed(node) if callable(computed) else computed
+
     def _has_ancestors(self, node, targets, computed=True):
         """True if every Item in `targets` is a strict ancestor of `node`.
 
@@ -382,7 +407,7 @@ class DAG:
             predecessors = [p for p in current.parents
                             # Only follow parents that belong to this DAG.
                             if self.nodes.get(p.name) is p]
-            if computed:
+            if self._expands(computed, current):
                 predecessors.extend(self._computed_parents(current))
             for parent in predecessors:
                 missing.discard(parent)
@@ -404,7 +429,7 @@ class DAG:
             predecessors = [p for p in current.parents
                             # Only follow parents that belong to this DAG.
                             if self.nodes.get(p.name) is p]
-            if computed:
+            if self._expands(computed, current):
                 predecessors.extend(self._computed_parents(current))
             for parent in predecessors:
                 if parent not in seen:
@@ -425,7 +450,7 @@ class DAG:
             predecessors = [p for p in current.parents
                             # Only follow parents that belong to this DAG.
                             if self.nodes.get(p.name) is p]
-            if computed:
+            if self._expands(computed, current):
                 predecessors.extend(self._computed_parents(current))
             for parent in predecessors:
                 if parent in ancestors or parent in ignore:
@@ -684,6 +709,7 @@ class OntoDAG(DAG):
         if active is None:
             active = self._param_active = set()
         if (head, param) in active:
+            self._trip()
             return None
         active.add((head, param))
         try:
@@ -768,6 +794,7 @@ class OntoDAG(DAG):
             guard = self._role_guard = set()
         key = (sub, sup)
         if key in guard:
+            self._trip()
             return False
         guard.add(key)
         try:
@@ -784,8 +811,7 @@ class OntoDAG(DAG):
         covers, and two floors of one building are siblings even though
         they share a cell."""
         if kind in _dims.GRAPH_ORDERED:
-            return self._graph_contains(
-                outer, inner, transitive=kind == _dims.KIND_TRANSITIVE)
+            return self._graph_contains(outer, inner, kind)
         head, param_outer, param_inner = _dims._same_head(outer, inner)
         node_outer = self._param_node(head, param_outer)
         node_inner = self._param_node(head, param_inner)
@@ -818,6 +844,7 @@ class OntoDAG(DAG):
         if active is None:
             active = self._bounds_active = set()
         if name in active:
+            self._trip()
             return {}, {}
         active.add(name)
         try:
@@ -925,15 +952,16 @@ class OntoDAG(DAG):
 
     # ---- the graph kind: constraints on the graph itself (#19) ---------
 
-    def _graph_contains(self, outer, inner, transitive=False):
-        key = ("contains", outer, inner, transitive)
+    def _graph_contains(self, outer, inner, kind=_dims.KIND_GRAPH):
+        key = ("contains", outer, inner, kind)
         hit = self._memo_get(key)
         if hit is not _MISSING:
             return hit
-        return self._memo_put(
-            key, self._graph_contains_uncached(outer, inner, transitive))
+        trips = self._trips()
+        return self._memo_put_unless_tripped(
+            key, self._graph_contains_uncached(outer, inner, kind), trips)
 
-    def _graph_contains_uncached(self, outer, inner, transitive):
+    def _graph_contains_uncached(self, outer, inner, kind):
         """denotation(inner) ⊆ denotation(outer) for two same-head category
         terms: every constraint of `outer` is above (or is) some constraint
         of `inner` — a thing meeting all of `inner`'s constraints meets all
@@ -950,10 +978,20 @@ class OntoDAG(DAG):
         if all(any(x == a or self._below_guarded(x, a) for x in ins)
                for a in _dims.constraints(param_o)):
             return True
-        # A transitive relation also chains (DIMENSIONS.md §16): when some
-        # x is itself related to an `outer` thing, so is whatever is related
-        # to x. Tokyo in Japan puts in(tokyo) inside in(japan).
-        return transitive and any(self._below_guarded(x, outer) for x in ins)
+        if kind == _dims.KIND_TRANSITIVE:
+            # A transitive relation also chains (DIMENSIONS.md §16): when
+            # some x is itself related to an `outer` thing, so is whatever
+            # is related to x. Tokyo in Japan puts in(tokyo) inside in(japan).
+            return any(self._below_guarded(x, outer) for x in ins)
+        if kind == _dims.KIND_RELATION and self._dimension_kind(
+                _dims.CONTAINMENT_HEAD) == _dims.KIND_TRANSITIVE:
+            # A relation follows containment (DIMENSIONS.md §17): when some
+            # x is itself located in an `outer` thing, whatever is related
+            # to x is related to that thing. A photo about Tokyo is about
+            # Japan once Tokyo is in Japan.
+            located = f"{_dims.CONTAINMENT_HEAD}({param_o})"
+            return any(self._below_guarded(x, located) for x in ins)
+        return False
 
     def _graph_intersect(self, a, b):
         """The meet of two same-head category terms: a thing under both
@@ -988,6 +1026,7 @@ class OntoDAG(DAG):
         run lenient, like role parameters naming not-yet-placed nodes."""
         lenient = getattr(self, "_role_lenient", 0)
         key = ("graph-term", name)
+        trips = self._trips()
         if not lenient:
             hit = self._memo_get(key)
             if hit is not _MISSING:
@@ -1014,7 +1053,8 @@ class OntoDAG(DAG):
                             f"{name}: {b!r} is redundant beside {a!r} "
                             f"({a} ⊑ {b}) — write {head}"
                             f"({' '.join(x for x in canonical if x != b)})")
-            return self._memo_put(key, f"{head}({' '.join(canonical)})")
+            return self._memo_put_unless_tripped(
+                key, f"{head}({' '.join(canonical)})", trips)
         return f"{head}({' '.join(canonical)})"
 
     def _declared_units(self):
@@ -1207,7 +1247,7 @@ class OntoDAG(DAG):
         if parsed_a[0] != parsed_b[0]:
             raise ValueError(f"cannot compare across heads: {a!r} vs {b!r}")
         head, kind = parsed_a[0], parsed_a[1]
-        if kind == _dims.KIND_TRANSITIVE:
+        if kind in _dims.MULTI_VALUED:
             # An item can be related to several things at once (in Tokyo and
             # in Paris), so R(A) ∩ R(B) has no single name unless one term
             # contains the other; and with no disjointness it is never empty.
@@ -1216,9 +1256,9 @@ class OntoDAG(DAG):
             if self._contains(b, a, kind):
                 return a
             raise ValueError(
-                f"no single term names the meet of {a!r} and {b!r}: {head} "
-                f"is transitive, and something can be {head} both at once — "
-                f"query with both terms instead")
+                f"no single term names the meet of {a!r} and {b!r}: "
+                f"something can be {head} both at once — query with both "
+                f"terms instead")
         if self._param_node(head, _dims.split_term(a)[1]) is None and \
                 self._param_node(head, _dims.split_term(b)[1]) is None:
             return self._intersect(a, b, kind)
@@ -1629,7 +1669,9 @@ class OntoDAG(DAG):
         hit = self._memo_get(key)
         if hit is not _MISSING:
             return hit
-        return self._memo_put(key, self._is_below_names(sub, sup))
+        trips = self._trips()
+        return self._memo_put_unless_tripped(
+            key, self._is_below_names(sub, sup), trips)
 
     def _is_below_names(self, sub, sup):
         """`is_below` on canonical names, unmemoized."""
@@ -1657,30 +1699,33 @@ class OntoDAG(DAG):
                 self._contains(value.name, sub, kind)
                 and self.is_below(value, sup)
                 for value, _kind in self._star(head))
-        if sup_node is None:
-            # A virtual bound is met by any ancestor (or the subject
-            # itself, handled by the arithmetic above) whose denotation
-            # it contains. Streaming: each ancestor is tested AS the climb
-            # reaches it, so the common case — the containing value is a
-            # direct parent — answers in one hop instead of after
-            # materializing the whole up-cone (which, on a lazy reader,
-            # is the difference between a couple of fetches and all of
-            # them).
+        if sup_parsed is not None:
+            # A bound that is a term, present or virtual, is met by an
+            # ancestor of its head whose denotation it contains (or the
+            # subject itself, handled by the arithmetic above). Containment
+            # is transitive, so the walk needs no computed hops between
+            # same-head terms, and other heads' hops only where their terms
+            # escape their star (`_lean`) — which keeps the walk from asking
+            # where every term it passes sits, the questions that looped.
+            # Streaming: each ancestor is tested AS the climb reaches it, so
+            # the common case — the containing value is a direct parent —
+            # answers in one hop (on a lazy reader, a couple of fetches
+            # instead of all of them).
             head, kind, _ = sup_parsed
-            for ancestor in self._walk_ancestors(sub_node):
+            for ancestor in self._walk_ancestors(sub_node, computed=self._lean):
                 parsed = self._parse_parametric(ancestor.name)
                 if parsed is not None and parsed[0] == head \
                         and self._contains(sup, ancestor.name, kind):
                     return True
+            if sup_node is not None or kind in _dims.MULTI_VALUED:
+                return False     # no meet for these: the walk is complete
             # A subject under several same-head values (a legacy or merged
             # store; `put` files under the meet since 0.26.2) sits in their
             # meet, which may be inside the bound though no single value is.
-            if kind == _dims.KIND_TRANSITIVE:
-                return False     # no meet: the per-ancestor walk is complete
             upper = self._bounds(sub)[0].get(head)
             return upper is not None and upper != sub \
                 and self._contains(sup, upper, kind)
-        return self._has_ancestors(sub_node, (sup_node,))
+        return self._has_ancestors(sub_node, (sup_node,), computed=self._lean)
 
     def get_by_dag(self, query_dag):
         """
@@ -1789,8 +1834,8 @@ class OntoDAG(DAG):
         stored form would depend on whether places were filed before or
         after the offers naming them (I3, and therefore I7)."""
         roles = self._role_heads()
-        transitive = self._transitive_heads()
-        if not roles and not transitive:
+        multi = self._multi_valued_heads()
+        if not roles and not multi:
             return
         touched = ({to_node, from_node} | self.get_descendants(to_node)
                    | self.get_ancestors(from_node))
@@ -1800,21 +1845,29 @@ class OntoDAG(DAG):
                 term = self.nodes.get(f"{role}({node.name})")
                 if term is not None:
                     affected.append(term)
-        if transitive:
-            # A transitive term moves when any constraint moves — and a term
-            # naming a moved term moves with it (in(in(japan)) follows
-            # in(japan)), so the scan runs to a fixpoint.
+        if multi:
+            # A transitive or relation term moves when any constraint moves.
+            # Whatever is below a moved term moves with it, and so does a
+            # term naming any of those: with n3 ⊑ in(n4), filing n4 under
+            # n1 moves in(n4) inside in(n1), so n3 is in n1 and about(n3)
+            # moves inside about(n1). The scan runs to a fixpoint.
+            # A term the new edge itself touched (about(n3) above n1 when n4
+            # is filed under n1) still needs its OWN check: being touched is
+            # not the same as having a constraint move.
             moved = {node.name for node in touched}
-            terms = [term for head in transitive for term, _ in self._star(head)]
+            terms = [term for head in multi for term, _ in self._star(head)]
+            done = set()
             pending = True
             while pending:
                 pending = False
                 for term in terms:
-                    if term.name in moved:
+                    if term.name in done:
                         continue
                     if any(c in moved for c in _dims.constraints(
                             _dims.split_term(term.name)[1])):
+                        done.add(term.name)
                         moved.add(term.name)
+                        moved.update(d.name for d in self.get_descendants(term))
                         affected.append(term)
                         pending = True
         for term in affected:
@@ -1823,10 +1876,46 @@ class OntoDAG(DAG):
             for child in list(self._computed_children(term)):
                 self._prune_rectangle(term, child)
 
+    def _escapes(self, head):
+        """Does some term of `head` hang under something other than its
+        head? Only then can a walk through those terms' computed hops reach
+        anything their own anchor edge does not: otherwise the hops lead to
+        more terms of the same head, and from them only to the head, the
+        kind, `dimension` and the root. Memoized against the graph's shape."""
+        key = ("escapes", head)
+        hit = self._memo_get(key)
+        if hit is not _MISSING:
+            return hit
+        head_node = self.nodes.get(head)
+        escapes = False
+        for term, _ in self._star(head):
+            term = self.nodes.get(term.name)            # expands on lazy
+            if term is not None and any(
+                    parent is not head_node and self.nodes.get(parent.name) is parent
+                    for parent in term.parents):
+                escapes = True
+                break
+        return self._memo_put(key, escapes)
+
+    def _lean(self, node):
+        """The walk test `is_below` uses: a node's computed parents are
+        walked only when it is a term whose head escapes (`_escapes`). A
+        bound that is itself a term is decided by containment against the
+        same-head ancestors directly, which is transitive, so it never needs
+        those ancestors' own computed parents."""
+        parsed = self._parse_parametric(node.name)
+        return parsed is not None and self._escapes(parsed[0])
+
     def _transitive_heads(self):
         """Every declared head of the transitive kind (DIMENSIONS.md §16)."""
         return [head for head, (kind, _base) in self._heads().items()
                 if kind == _dims.KIND_TRANSITIVE]
+
+    def _multi_valued_heads(self):
+        """Every declared head an item can hold several values of at once:
+        the transitive and relation kinds (§16, §17)."""
+        return [head for head, (kind, _base) in self._heads().items()
+                if kind in _dims.MULTI_VALUED]
 
     def _refuse_self_containment(self, parent_name, child_name):
         """A transitive relation here is STRICT: nothing is in itself
@@ -1954,14 +2043,15 @@ class OntoDAG(DAG):
         once the meet's edge exists. Role terms naming nodes have no
         nameable meet and stay as they are (the graph orders them); a
         provably empty meet is the disjoint-parents refusal. Terms of a
-        transitive head have no meet either — a photo can be in Tokyo and
-        in Paris — so they stay as they are too, and reduction keeps the
-        finer of two that are ordered (DIMENSIONS.md §16). Returns the
+        transitive or relation head have no meet either — a photo can be
+        in Tokyo and in Paris, about Mars and about Earth — so they stay as
+        they are too, and reduction keeps the finer of two that are
+        ordered (DIMENSIONS.md §16, §17). Returns the
         super names to file under."""
         by_head = {}
         for name in [*super_names, *live]:
             parsed = self._parse_parametric(name)
-            if parsed is None or parsed[1] == _dims.KIND_TRANSITIVE \
+            if parsed is None or parsed[1] in _dims.MULTI_VALUED \
                     or self._param_node(
                         parsed[0], _dims.split_term(name)[1]) is not None:
                 continue

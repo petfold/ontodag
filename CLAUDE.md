@@ -765,10 +765,27 @@ of x-in-y with y-in-x orphaned a node. It now prunes nothing on a cycle.
 Found and NOT changed: the graph kind folds same-head terms, so its
 stored form depends on filing order, and `about(mars)` with `about(earth)`
 becomes `about(earth mars)`. Reported to Peter, recorded in DIMENSIONS.md
-§16; it is why `about` (step 3.3) must not be a graph-kind head.
-`tests/test_transitive.py` (18 tests, oracle-checked). Next: 3.3
-(`about`, `from`, `to` following `in`; `geo` reconciled with
-loopmarket).
+§16; it is why `about` (step 3.3) is not a graph-kind head.
+
+**3.3, the relation kind** (`relation-dimension`, DIMENSIONS.md §17):
+the graph kind's rule plus "or some constraint is below `in(Y)`",
+following only the reserved transitive head `in`
+(`dimensions.CONTAINMENT_HEAD`). `about`, `from` and `to` are heads a store
+declares under it; `geo` is unchanged, with options (a) leave apart,
+(b) bridge, (c) migrate in ROLES.md §8, leaning (a), and the decision is
+Peter's with loopmarket. Adding it, the oracle found three bugs in the
+shared machinery, two of them also in the 3.2 code already pushed:
+re-reduction missed terms below a moved term, and skipped terms the new
+edge itself touched (being touched is not having a constraint move); and
+the memo cached provisional answers. A re-entrancy guard says "no" to
+break a loop in the reasoning, and that "no" was stored as final. Fixed
+by never memoizing an answer computed while a guard tripped (`_trip`);
+the speed that cost was won back by a lean `is_below` (`_lean`,
+`_escapes`): term bounds are tested by containment directly, and computed
+links are walked only for dimensions whose terms are filed under
+something besides their head. A one-off 300-world oracle stress found no
+disagreement. `tests/test_transitive.py` now holds 27 tests. Next: 3.4,
+reversed `for`.
 
 ## Role heads (2026-09-12) — issue #15 closed, DIMENSIONS.md §14
 

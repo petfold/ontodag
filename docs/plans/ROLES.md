@@ -11,8 +11,9 @@ gains no further expressiveness (CONTRACT.md §5), and it stays in front
 of the arbitrary-relations wall (DATABASE_DIRECTION.md) rather than
 crossing it. Examples marked *today* were executed against 0.28.0;
 everything else is proposed. **Built since (2026-10-06, unreleased):**
-steps 3.1 and 3.2 of §9 — the one meaning in HOW_IT_WORKS.md, and the
-transitive kind that `in` is declared under (DIMENSIONS.md §16).
+steps 3.1–3.3 of §9 — the one meaning in HOW_IT_WORKS.md, the
+transitive kind that `in` is declared under (DIMENSIONS.md §16), and the
+relation kind for `about`, `from`, `to` (§17).
 
 ## 0. In short
 
@@ -390,11 +391,23 @@ Consequences:
   root and, through core, the root of every pack and every published
   pack store (DIMENSIONS.md §15). *Leaning:* do it once, together with
   the pack audit.
-- **`geo` and `in`.** `geo(u2e4)` already means "located in the cell", so
-  `geo` is `in` over grid cells. Whether they become one head, and how
-  regions filed above cells (`geo(u2e4) ⊑ ljubljana`, DIMENSIONS.md §14)
-  become `geo(u2e4) ⊑ in(ljubljana)`, is open. loopmarket uses these
-  dimensions, so this change is coordinated with it.
+- **`geo` and `in`.** `geo(u2e4)` already means "located in the cell",
+  so `geo` is `in` over grid cells. loopmarket's model (DIMENSIONS.md
+  §14) is consistent with the one meaning as it stands, read as location
+  classes: a place under a cell is located there, and a region above
+  cells (`geo(u2e4) ⊑ ljubljana`) is the class of things located in the
+  region, as long as the region is never also filed as an entity
+  (`ljubljana ⊑ city`). Three ways forward:
+  (a) *leave them apart*: `in(...)` for named entities, `geo(...)` for
+  cells, each answering its own queries; nothing changes for loopmarket.
+  (b) *bridge them*: let `in(x)` follow x's cell, so that once Tokyo is
+  filed under its cell, things in Tokyo are in that cell too. That is a
+  cross-head rule, so more machinery.
+  (c) *migrate* loopmarket's `from`/`to` from roles of `geo` to the
+  relation kind over named places. That renames stored values, so it is
+  a coordinated release of both repos.
+  *Leaning:* (a) now, (b) when a consumer needs named places and cells in
+  one query. Decision is Peter's, with loopmarket.
 - **How to declare a narrower relation** (§4), as distinct from "uses
   that space".
 - ~~**Transitive dimensions besides `in`.**~~ Answered by step 3.2: the
@@ -472,10 +485,10 @@ instance.
       reduction and merge, as role heads had~~ — done 2026-10-06 as the
       general transitive kind (DIMENSIONS.md §16, registry 4.3,
       `tests/test_transitive.py`);
-   3. `about`, `from` and `to` following `in`; `geo` reconciled, with
-      loopmarket. `about` must not be a graph-kind head: that kind folds
-      `about(mars)` and `about(earth)` into `about(earth mars)`, about one
-      thing that is both (DIMENSIONS.md §16, last paragraph);
+   3. ~~`about`, `from` and `to` following `in`~~ — done 2026-10-06 as
+      the relation kind (DIMENSIONS.md §17): `about`, `from`, `to` are
+      heads a store declares under it. `geo` is unchanged, with a
+      proposal in §8;
    4. reversed `for`;
    5. narrower relations;
    6. the surface layer: offer `about(...)`, `in(...)` and `for(...)` for

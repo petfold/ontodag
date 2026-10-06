@@ -37,6 +37,14 @@ the version numbers appear in commit history and docs.
     longer prunes on a cycle, which had orphaned a node.
   - Tested against an independent oracle on random worlds
     (`tests/test_transitive.py`).
+- **The relation kind** (`relation-dimension`, registry 4.3;
+  DIMENSIONS.md §17; step 3.3). A head declared under it, such as
+  `about`, `from` or `to`, follows containment without chaining: once
+  Tokyo is in Japan, `about(tokyo)` is inside `about(japan)`, so a photo
+  about Tokyo is about Japan. It follows the transitive head `in` when a
+  store declares it, and only that one. Like the transitive kind,
+  several terms of one head on one item stay separate (a photo about
+  Mars and about Earth keeps both).
 - **HOW_IT_WORKS.md §1, "What an arrow means"**: every name is a class
   of items, and an arrow is inclusion; kinds, qualities and entities;
   relations to entities as terms (step 3.1 of ROLES.md §9).
@@ -45,9 +53,17 @@ the version numbers appear in commit history and docs.
 
 - **`is_below`, graph-ordered containment and the canonical spelling of
   graph-ordered terms are memoized** against the graph's shape, using a
-  version counter that every node and edge change bumps. The transitive
-  rule needed it (without it, a query over fifteen nodes took seconds),
-  and every query benefits.
+  version counter that every node and edge change bumps. An answer
+  computed while a re-entrancy guard tripped is never memoized, since
+  it may be provisional. The transitive rule needed the memo: without
+  it, a query over fifteen nodes took seconds.
+- **`is_below` searches only paths that can matter.** A bound that is a
+  term is tested by containment against the subject's same-dimension
+  ancestors directly. A term's computed links are walked only when some
+  term of its dimension is filed under something besides the
+  dimension's head. Answers are unchanged (the full suite and the
+  oracle agree); the search no longer asks where every term it passes
+  sits.
 
 ### Known issue
 

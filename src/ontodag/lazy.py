@@ -297,7 +297,7 @@ class LazyOntoDAG(OntoDAG):
             current = self._expand(stack.pop())
             predecessors = [p for p in current.parents
                             if dict.get(self.nodes, p.name) is p]
-            if computed:
+            if self._expands(computed, current):
                 predecessors.extend(self._computed_parents(current))
             for parent in predecessors:
                 missing.discard(parent)
@@ -317,7 +317,7 @@ class LazyOntoDAG(OntoDAG):
             current = self._expand(frontier.pop())
             predecessors = [p for p in current.parents
                             if dict.get(self.nodes, p.name) is p]
-            if computed:
+            if self._expands(computed, current):
                 predecessors.extend(self._computed_parents(current))
             for parent in predecessors:
                 if parent not in seen:
@@ -337,7 +337,7 @@ class LazyOntoDAG(OntoDAG):
             current = self._expand(frontier.pop())
             predecessors = [p for p in current.parents
                             if dict.get(self.nodes, p.name) is p]
-            if computed:
+            if self._expands(computed, current):
                 predecessors.extend(self._computed_parents(current))
             for parent in predecessors:
                 if parent in ancestors or parent in ignore:
