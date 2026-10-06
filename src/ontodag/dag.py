@@ -1604,18 +1604,19 @@ class OntoDAG(DAG):
             return [t for t in found if self._contains(t, canonical, kind)]
         return [t for t in found if self._contains(canonical, t, kind)]
 
-    def _containers(self, name):
-        """Everything `name` is located in, by the transitive `in`: the
-        places named by every `in(...)` above it, everything above those
-        places (in(n6) ⊑ in(n1) once n6 ⊑ n1, by the graph rule), and, the
-        same way, whatever those are located in."""
+    def _containers(self, name, head=_dims.CONTAINMENT_HEAD):
+        """Everything `name` is inside by the transitive `head` (`in` by
+        default): the places named by every `head(...)` above it,
+        everything above those places (in(n6) ⊑ in(n1) once n6 ⊑ n1, by
+        the graph rule), and, the same way, whatever those are inside.
+        One upward walk, whatever is asked of the answer."""
         out, seen = [], {name}
         frontier = [(name, False)]
         while frontier:
             current, is_place = frontier.pop()
             for ancestor in self._ancestry(current):
                 split = _dims.split_term(ancestor)
-                if split is not None and split[0] == _dims.CONTAINMENT_HEAD:
+                if split is not None and split[0] == head:
                     for place in _dims.constraints(split[1]):
                         if place not in seen:
                             seen.add(place)
@@ -2311,10 +2312,16 @@ class OntoDAG(DAG):
         new asserted edge in `_remove_unneeded_edges`, or a COMPUTED hop
         that has just appeared (`_reduce_roles_touching`). The pair
         itself is never touched: as an asserted edge it is the one being
-        added, as a computed hop it is not an edge at all."""
+        added, as a computed hop it is not an edge at all.
+
+        Every test here is an `is_below` question about one candidate
+        edge, so the cost is the parents of `lower` and of what lies below
+        it, never the whole ancestry of `upper` (a term's containing terms
+        can be a long chain, or every member of a group)."""
         from_node, to_node = upper, lower
-        ancestors = self.get_ancestors(from_node)  # combined order
-        if to_node in ancestors or from_node in ancestors:
+        if self._below(from_node, to_node) or (
+                getattr(self, "_role_lenient", 0)
+                and from_node in self.get_ancestors(from_node)):
             # The pair lies on a cycle. Only a merge of contradictory
             # knowledge makes one (x in y in one store, y in x in another:
             # a transitive head's terms then contain each other), since
@@ -2323,10 +2330,11 @@ class OntoDAG(DAG):
             # nothing is pruned: the asserted edges stay as data, and no
             # node is left without a parent.
             return
-        for ancestor in ancestors:
-            if to_node in ancestor.neighbors \
-                    and not self._is_anchor(ancestor, to_node):
-                self.remove_edge(ancestor, to_node)
+        for parent in list(self._live_parents(to_node)):
+            if parent is not from_node \
+                    and not self._is_anchor(parent, to_node) \
+                    and self._below(from_node, parent):
+                self.remove_edge(parent, to_node)
         # Downward twin. A fresh ordinary leaf has nothing below it — the
         # overwhelmingly common put(item, supers) case costs nothing. A
         # parametric to_node can reach siblings through computed hops even
@@ -2334,13 +2342,12 @@ class OntoDAG(DAG):
         if not to_node.neighbors \
                 and self._parse_parametric(to_node.name) is None:
             return
-        uppers = ancestors | {from_node}
         for descendant in self.get_descendants(to_node):  # combined order
             # Snapshot: remove_edge mutates the parent set mid-iteration.
             # _live_parents is the seam the partially-resident writer
             # overrides, so this walk stays fetch-on-touch there.
             for parent in list(self._live_parents(descendant)):
-                if parent in uppers \
+                if (parent is from_node or self._below(from_node, parent)) \
                         and not self._is_anchor(parent, descendant):
                     self.remove_edge(parent, descendant)
 
@@ -2594,15 +2601,25 @@ class OntoDAG(DAG):
                 transitive_term(a.name)
                 for a in self._walk_ancestors(parent, computed=self._lean))):
             return
+        if _dims.split_term(child_name) is None and not child.neighbors \
+                and not any(f"{head}({child_name})" in self.nodes
+                            for head in heads):
+            # Nothing is below or inside `child`, so nothing the edge moves
+            # can end up inside itself: the common filing of a new place.
+            return
+        # What the parent is inside, once per head; then each node the edge
+        # puts under it is looked up there. (Asking is_below(parent, R(x))
+        # node by node walked the parent's containers again for each: a
+        # chain filed one place at a time cost quadratic time.)
+        inside = {head: set(self._containers(parent_name, head))
+                  for head in heads}
         for node in [child, *self.get_descendants(child)]:
             name = node.name
             if name == self.root.name or name in _dims.KINDS \
                     or _dims.constraints(name) != (name,):
                 continue          # cannot be an argument, so never inside itself
             for head in heads:
-                term = f"{head}({name})"
-                if parent_name == term \
-                        or self._below_guarded(parent_name, term):
+                if name in inside[head]:
                     raise ValueError(
                         f"{child_name} ⊑ {parent_name} would put {name} "
                         f"inside itself: {head} is strict, so nothing is "
