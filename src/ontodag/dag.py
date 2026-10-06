@@ -1497,8 +1497,19 @@ class OntoDAG(DAG):
         reached as itself, which is all `_graph_hops` asks of it."""
         node = self.nodes.get(name)
         if node is None:
-            return [name]
-        out, seen, frontier = [name], {name}, [node]
+            # A virtual value (`weight(..10kg)` named only in a query) is
+            # above whatever is above the present values containing it.
+            start = self._virtual_value_hops(name, up=True)
+            if not start:
+                return [name]
+            out, seen, frontier = [name], {name}, []
+            for found in start:
+                if found.name not in seen:
+                    seen.add(found.name)
+                    out.append(found.name)
+                    frontier.append(found)
+        else:
+            out, seen, frontier = [name], {name}, [node]
         while frontier:
             current = frontier.pop()
             parents = [p for p in current.parents if self.nodes.get(p.name) is p]
@@ -1520,8 +1531,18 @@ class OntoDAG(DAG):
         met, which tells the caller a scan of the star is cheaper."""
         node = self.nodes.get(name)
         if node is None:
-            return [name]
-        out, seen, frontier = [name], {name}, [node]
+            # A virtual value is above the present values it contains.
+            start = self._virtual_value_hops(name, up=False)
+            if not start:
+                return [name]
+            out, seen, frontier = [name], {name}, []
+            for found in start:
+                if found.name not in seen:
+                    seen.add(found.name)
+                    out.append(found.name)
+                    frontier.append(found)
+        else:
+            out, seen, frontier = [name], {name}, [node]
         while frontier:
             current = frontier.pop()
             children = list(current.neighbors)
@@ -1539,6 +1560,21 @@ class OntoDAG(DAG):
                     frontier.append(child)
         return out
 
+    def _virtual_value_hops(self, name, up):
+        """The present values directly above (`up`) or below a value term
+        that is not present itself, or [] when `name` is no such term."""
+        parsed = self._parse_parametric(name)
+        if parsed is None or (parsed[1] not in _dims._INTERVALISH
+                              and parsed[1] != _dims.KIND_PREFIX):
+            return []
+        found = self._hops(parsed[2], parsed[0], parsed[1], up)
+        if found is None:
+            star = [value for value, _ in self._star(parsed[0])]
+            return [value for value in star if (
+                self._contains(value.name, parsed[2], parsed[1]) if up
+                else self._contains(parsed[2], value.name, parsed[1]))]
+        return [self.nodes[n] for n in found if n in self.nodes]
+
     def _graph_hops(self, canonical, head, kind, up):
         """`_hops` for the kinds the graph orders. Candidates come from
         walking near the term's constraints, and each is then checked with
@@ -1547,10 +1583,18 @@ class OntoDAG(DAG):
         reaches every term the order puts above or below this one."""
         param = _dims.split_term(canonical)[1]
         xs = _dims.constraints(param)
-        if any(_dims.split_term(x) is not None for x in xs) or any(
-                self._escapes(h) for h, (k, _b) in self._heads().items()
+        heads = self._heads()
+        if any(_dims.split_term(x) is not None and heads.get(
+                _dims.split_term(x)[0], (None,))[0] in _dims.GRAPH_ORDERED
+               for x in xs) or any(
+                self._escapes(h) for h, (k, _b) in heads.items()
                 if k in _dims.GRAPH_ORDERED):
-            return None              # nested constraints, or a term filed outside its head
+            # A constraint that is itself a term the graph orders moves by
+            # the graph's own hops, which these walks do not follow; so does
+            # a term filed outside its head. (A value constraint is fine:
+            # its place is fixed by arithmetic, and the walks take value
+            # hops.)
+            return None
         head_node = self.nodes.get(head)
         budget = len(head_node.neighbors) if head_node is not None else 0
         found = set()
@@ -1579,7 +1623,11 @@ class OntoDAG(DAG):
         else:
             # Below a covariant term, or above a reversed one: some
             # constraint of the other term is below, or is, one of ours.
-            pick = min(xs, key=lambda x: getattr(self.nodes.get(x), "descendant_count", 0))
+            # Walk below the constraint with the smallest known cone; a
+            # constraint that is not a node (a virtual value) last.
+            pick = min(xs, key=lambda x: (
+                0, self.nodes[x].descendant_count) if x in self.nodes
+                else (1, 0))
             below = self._below_names(pick, budget)
             if below is None:
                 return None
@@ -2237,17 +2285,32 @@ class OntoDAG(DAG):
             # answers in one hop (on a lazy reader, a couple of fetches
             # instead of all of them).
             head, kind, _ = sup_parsed
+            same = []
             for ancestor in self._walk_ancestors(sub_node, computed=self._lean):
                 parsed = self._parse_parametric(ancestor.name)
-                if parsed is not None and parsed[0] == head \
-                        and self._contains(sup, ancestor.name, kind):
-                    return True
+                if parsed is not None and parsed[0] == head:
+                    if self._contains(sup, ancestor.name, kind):
+                        return True
+                    same.append(ancestor.name)
             if sup_node is not None or kind in _dims.MULTI_VALUED:
                 return False     # no meet for these: the walk is complete
             # A subject under several same-head values (a legacy or merged
             # store; `put` files under the meet since 0.26.2) sits in their
             # meet, which may be inside the bound though no single value is.
-            upper = self._bounds(sub)[0].get(head)
+            if len(same) < 2:
+                return False     # one value, or none: the walk was the answer
+            if self._dimension_of(head)[1] != head:
+                upper = self._bounds(sub)[0].get(head)   # a role: base bounds
+            else:
+                # The meet of the values the walk just met: what
+                # `_bounds` would compute, without walking every head's
+                # ancestors again (which recursed through this very
+                # fallback, and went exponential).
+                upper = same[0]
+                for other in same[1:]:
+                    upper = self._intersect(upper, other, kind)
+                    if upper is None:
+                        return False
             return upper is not None and upper != sub \
                 and self._contains(sup, upper, kind)
         return self._has_ancestors(sub_node, (sup_node,), computed=self._lean)
