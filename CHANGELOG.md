@@ -12,7 +12,11 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
-## [Unreleased]
+## [0.29.0] — 2026-10-06
+
+A security fix for `ontodag.act`. Its token format changes, and key graphs
+in the old format are refused, which is why this is a minor release rather
+than a patch.
 
 ### Security
 
@@ -546,7 +550,8 @@ Design record: `docs/DIMENSIONS.md` §8 and §14.
   now pinned in `tests/test_act.py`); tokens are ours, per-edge-keyed so
   no keystream is ever reused. *(Corrected 2026-10-06: a token re-minted
   after its child was rotated did reuse its keystream, so revocation could
-  be undone. Fixed in format 2; see the Security entry after 0.28.0.)* `KeyGraph` (mint, link, grant, rotate,
+  be undone. Fixed in format 2, in 0.29.0.)* `KeyGraph` (mint, link,
+  grant, rotate,
   forward-only revoke, `align` with an OntoDAG's cones), `Resolver` (walk
   from a private key; works over a `RecordStore.at(old_root, …)` snapshot for old epochs),
   `audience_key` (AND audiences, sorted so two writers agree),
