@@ -200,9 +200,18 @@ $ odag put rose 'smell(sweet)'
 odag: unknown super-category: 'smell(sweet)' (create with `odag put NAME` first)
 ```
 
-That refusal is right, but its message isn't. It suggests creating
-`smell(sweet)` as a plain name, which would make an opaque atom; it
-should say that `my-kind` is not a kind and list the ones that are.
+That refusal is right, but its message wasn't: it suggested creating
+`smell(sweet)` as a plain name, which would make an opaque atom. Fixed
+2026-10-07; it now says why:
+
+```
+odag: 'smell(sweet)' is not a term: 'smell' is under 'my-kind', which is
+not a kind. Kinds are built in, each with its own ordering rule:
+calendar-dimension, count-dimension, dominance-dimension,
+enclosing-dimension, graph-dimension, linear-dimension, prefix-dimension,
+reversed-dimension, transitive-dimension. File 'smell' under one of them
+instead.
+```
 
 Dimensions over nodes follow the same split:
 

@@ -115,6 +115,14 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **`odag put` explains a term-shaped parent that is no term.** With
+  `smell` filed under a node of the store's own (`my-kind ⊑ dimension`),
+  `odag put rose 'smell(sweet)'` said to create `smell(sweet)` first,
+  which would have made a plain name that looks like a term. It now says
+  that `my-kind` is not a kind, lists the kinds, and names the node to
+  file under one (for a role, the dimension it takes its values from). A
+  plain head gets both routes, and a head that doesn't exist keeps the
+  usual message, since a plain name may contain parentheses.
 - **`is_below`'s meet fallback no longer recurses.** For a subject
   under several values of one head, it computed the subject's full
   bounds, walking every combined ancestor of every head and recursing

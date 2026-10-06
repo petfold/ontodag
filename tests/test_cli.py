@@ -3256,6 +3256,58 @@ class TestPutTeachingError(unittest.TestCase):
             self.assertNotIn("odag pack", err)
 
 
+class TestNotATerm(unittest.TestCase):
+    """A term-shaped parent whose head exists but is no dimension is
+    explained, not offered as a plain name to create (ROLES.md §4): that
+    advice would make an opaque atom that looks like a term."""
+
+    def run_put(self, *setup, parent):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "s.od"))
+            self.assertEqual(_run(["prelude"], session)[0], 0)
+            for argv in setup:
+                self.assertEqual(_run(argv, session)[0], 0, argv)
+            code, _out, err = _run3(["put", "rose", parent], session)
+            self.assertEqual(code, 1)
+            self.assertNotIn("rose", session.dag.nodes)
+            self.assertNotIn(parent, session.dag.nodes)
+            return err
+
+    def test_a_head_under_a_node_of_the_users_own(self):
+        err = self.run_put(["put", "my-kind", "dimension"],
+                           ["put", "smell", "my-kind"], parent="smell(sweet)")
+        self.assertIn("'my-kind', which is not a kind", err)
+        self.assertIn("linear-dimension", err)
+        self.assertIn("File 'smell' under one of them", err)
+        self.assertNotIn("odag put NAME", err)
+
+    def test_a_role_names_the_dimension_to_refile(self):
+        err = self.run_put(["put", "my-kind", "dimension"],
+                           ["put", "smell", "my-kind"],
+                           ["put", "sniff", "smell"], parent="sniff(x)")
+        self.assertIn("File 'smell' under one of them", err)
+
+    def test_a_head_directly_under_dimension(self):
+        err = self.run_put(["put", "bare", "dimension"], parent="bare(1)")
+        self.assertIn("under 'dimension' but under no kind", err)
+
+    def test_a_kind_is_not_a_head(self):
+        err = self.run_put(parent="linear-dimension(3kg)")
+        self.assertIn("is a kind", err)
+        self.assertIn("odag put NAME linear-dimension", err)
+
+    def test_a_plain_head_offers_both_routes(self):
+        err = self.run_put(["put", "java-lang"], parent="java-lang(island)")
+        self.assertIn("'java-lang' is not a dimension", err)
+        self.assertIn("odag put java-lang KIND", err)
+        self.assertIn("odag put 'java-lang(island)'", err)
+
+    def test_an_absent_head_keeps_the_usual_message(self):
+        err = self.run_put(parent="nokind(sweet)")
+        self.assertIn("unknown super-category: 'nokind(sweet)'", err)
+        self.assertNotIn("not a term", err)
+
+
 @unittest.skipUnless(HAVE_CRYPTO, 'needs the crypto extra: pip install "ontodag[crypto]"')
 class TestEncryptedStore(unittest.TestCase):
     """The single-audience encrypted rs: store (PACKS.md §14 item 3):

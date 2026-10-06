@@ -1096,16 +1096,63 @@ def cmd_put(args, session, out):
                and session.dag._parse_parametric(p) is None]
     if missing:
         from ontodag.packs import packs_declaring_node
-        lines = [f"unknown super-categor"
-                 f"{'y' if len(missing) == 1 else 'ies'}: "
-                 f"{', '.join(repr(m) for m in missing)} "
-                 f"(create with `odag put NAME` first)"]
-        for name in missing:
+        why = {name: _not_a_term(session.dag, name) for name in missing}
+        plain = [name for name in missing if why[name] is None]
+        lines = []
+        if plain:
+            lines.append(f"unknown super-categor"
+                         f"{'y' if len(plain) == 1 else 'ies'}: "
+                         f"{', '.join(repr(m) for m in plain)} "
+                         f"(create with `odag put NAME` first)")
+        for name in plain:
             for pack in packs_declaring_node(name):
                 lines.append(f"  {name!r} arrives with:  odag pack {pack}")
+        lines.extend(f"{name!r} is not a term: {why[name]}"
+                     for name in missing if why[name] is not None)
         raise ValueError("\n".join(lines))
     session.dag.put(args.item, args.parents, optimized=args.optimized)
     session.save()
+
+
+def _not_a_term(dag, name):
+    """Why a term-shaped name whose head exists is not a term, or None.
+
+    `smell(sweet)` is a term only if `smell` is a dimension: a head under
+    one of the kinds, which are built in. A store can file `smell` under a
+    node of its own (`my-kind ⊑ dimension`), and then `smell(sweet)` is no
+    term, while "create it first" would make it a plain name that looks
+    like one (ROLES.md §4). When the head is absent the usual message
+    stands: a plain name may contain parentheses."""
+    from ontodag import dimensions as dims
+    split = dims.split_term(name)
+    if split is None or split[0] not in dag.nodes:
+        return None
+    head = split[0]
+    kinds = ", ".join(sorted(dims.KINDS))
+    if head in dims.KINDS:
+        return (f"{head!r} is a kind, which orders the terms of the heads "
+                f"under it; declare a head (`odag put NAME {head}`) and "
+                f"use NAME(...)")
+    if "dimension" in dag.nodes and dag.is_below(head, "dimension"):
+        lineage = [dag.nodes[head]] + list(dag.get_ancestors(dag.nodes[head]))
+        would_be = {node.name for node in lineage
+                    if node.name != head and node.name not in dims.KINDS
+                    and any(p.name == "dimension" for p in node.parents)}
+        if not would_be:
+            return (f"{head!r} is under 'dimension' but under no kind; file "
+                    f"it under one of: {kinds}.")
+        # The node to refile is the one under the would-be kind: for a
+        # role (`sniff ⊑ smell ⊑ my-kind`) that is the dimension, `smell`.
+        refile = sorted(node.name for node in lineage
+                        if any(p.name in would_be for p in node.parents))
+        return (f"{head!r} is under {', '.join(map(repr, sorted(would_be)))}"
+                f", which {'is' if len(would_be) == 1 else 'are'} not a "
+                f"kind. Kinds are built in, each with its own ordering rule: "
+                f"{kinds}. File {', '.join(map(repr, refile))} under one of "
+                f"them instead.")
+    return (f"{head!r} is not a dimension. To make it one: "
+            f"`odag put {head} KIND`, with KIND one of {kinds}; "
+            f"for a plain name: `odag put {shlex.quote(name)}`.")
 
 
 def _disjuncts(categories):
