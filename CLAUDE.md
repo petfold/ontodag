@@ -866,9 +866,37 @@ measured:** per-put cost is linear in the terms per head for every
 dimension kind (star scans): weight 31/73/156 ms at 200/400/800 values,
 same as 0.28.0; in 28/64/132; for 8/18/39; plain 0.1 flat. Declaring
 in/for doubles it on value-heavy stores (re-reduction's full cones).
-Proposed as ROLES.md §9 step 4a, output-sensitive hops, before 3.5 —
-awaiting Peter. Benchmark: scratchpad `bench_scale.py SHAPE SIZES`
-(session-local; re-create from the shapes above).
+Proposed as ROLES.md §9 step 4a, output-sensitive hops, before 3.5.
+
+**4a, done overnight 2026-10-07** (Peter: "push and continue with 4a ...
+continue as far on this plan as you can", away, no questions possible;
+design record DIMENSIONS.md §19). Hops found from the term itself on
+resident graphs (`OntoDAG._hops`; `_resident = False` on LazyOntoDAG,
+which keeps the scan): `_Intervals`/`_Prefixes` per-head indexes for
+values, an argument index (`_args`, kept by `add_node`/`_unindex`) plus
+walks near the constraints for graph-ordered terms (`_graph_hops`,
+`_ancestry`, `_below_names`, `_containers`, `_located_in`, candidates
+verified with `_contains`, scan when the walk would exceed the star),
+role terms through the base dimension and a literal-parameter index
+(`_role_hops`). Writes: fresh anchors skip pruning/re-reduction/loop
+check; `add_edge` checks are `is_below` (`_below`); `_prune_rectangle`
+iterates the lower end's parents; the strictness guard walks the
+parent's containers once (fast path for a new place); re-reduction is
+`_moved_terms` (index lookups, fixpoint over moved cones, reversed
+pairs). Also fixed: `is_below`'s meet fallback recursed through
+`_bounds` (now the meet of the values its walk met); a refused `x ⊑
+in(x)` left `in(x)` behind (my fast-path bug, pushed in 03b6566, caught
+by the stress run, fixed in d94f639; the oracle now asserts refusals
+leave nothing). Numbers: per put at 3,200 terms weight 0.9 ms, in 0.6,
+for 0.3; loopmarket shape 1.8 flat; queries proportional to answers.
+Tests: `tests/test_hops.py` (differential vs scan over every kind and
+roles; filing never walks a star). Live Bee tests 2/2 on bee 2.8.2;
+loopmarket 297 passed against the tree; **ontodag-fs: 312 passed + its
+contract pin test fails by design** (it pins CONTRACT_VERSION == "0.1";
+0.2 changed none of G1–G6 — accept "0.2" there before releasing 0.30,
+or the publish workflow's downstream gate fails; not changed tonight,
+since ontodag-fs's own CI still runs against 0.29.0). Lesson recorded:
+never commit in the same command that reads a validation result.
 
 ## Role heads (2026-09-12) — issue #15 closed, DIMENSIONS.md §14
 

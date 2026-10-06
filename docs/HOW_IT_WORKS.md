@@ -357,8 +357,10 @@ Each dimension keeps its used values on one visible shelf: every value hangs
 by a single fixed edge under its dimension's node (that August day under
 `time`). That star is the whole storage cost — adding a value touches two
 records, never its neighbors — and it is also the index a query walks: asking
-for a summer's worth of documents needs no such node to exist, it just filters
-the shelf and takes everything below the matching values. (The weaker question
+for a summer's worth of documents needs no such node to exist, it just takes
+the matching values off the shelf and everything below them. In memory the
+shelf is kept sorted, so a summer is a range to read rather than a pass over
+every date, and filing a new date costs the same however many there are. (The weaker question
 — whose value merely *overlaps* mine, the "does this flexible ticket maybe
 cover my date" of a marketplace — is deliberately a separate operation,
 `get_overlapping`: overlap is not transitive, so it can never be an edge or a

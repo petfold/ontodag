@@ -547,17 +547,13 @@ instance.
       refuse it (§8 item 12); and an edge could close a loop through a
       computed link it creates, in the graph kind and role heads too, now
       refused;
-   4a. *proposed 2026-10-07, after Peter's "we expect very large
-      graphs":* output-sensitive hops, before anything else lands. Every
-      computed hop is found today by scanning the head's whole star, so
-      filing costs grow with the number of terms per head and bulk loads
-      are quadratic, for released kinds too (DIMENSIONS.md §18 has the
-      numbers). For kinds the graph orders, the terms containing or
-      contained in `R(x)` can be found by walking from x and looking terms
-      up by name; for value kinds, a sorted index per dimension
-      (DIMENSIONS.md §12 step 6, parked until profiling asked); and
-      re-reduction can start only from terms that name a moved node,
-      found through an index by argument;
+   4a. ~~output-sensitive hops~~ — done 2026-10-07 (DIMENSIONS.md §19),
+      after Peter's "we expect very large graphs". Filing is flat in the
+      number of terms per head for every kind (0.3–0.9 ms per put at
+      3,200 terms), queries cost in proportion to their answers, deep
+      chains file at 0.22 ms per place. Two more exponential paths found
+      and removed on the way (the meet fallback, the graph kind's parse
+      re-checks);
    5. narrower relations;
    6. the surface layer: offer `about(...)`, `in(...)` and `for(...)` for
       entity names, and render them;

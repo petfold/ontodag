@@ -66,6 +66,21 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+- **Filing and querying no longer slow down as dimensions grow**
+  (DIMENSIONS.md §19; ROLES.md §9 step 4a). A computed hop was found by
+  scanning its head's whole star, so every put touching a term cost time
+  in proportion to the terms of that head, and bulk loads were
+  quadratic, in every kind. Hops are now found from the term itself:
+  interval and prefix values through sorted per-head indexes, the kinds
+  the graph orders and role terms by walking near their arguments and
+  looking terms up by name. Writes ask `is_below` questions instead of
+  enumerating ancestries. Per put with 200, 800 and 3,200 terms:
+  `weight` 0.8, 0.8 and 0.9 ms (0.28.0: 31 ms at 200, 156 ms at 800);
+  `in` 0.6 ms and `for` 0.3 ms throughout; loopmarket-shaped offers
+  1.8 ms from 300 to 2,400. Queries cost in proportion to their answers:
+  `get from(ljubljana)` takes 115 ms for 1,200 results where it took 100
+  s. Lazy readers keep scanning (a name lookup costs them a fetch), as
+  does the dominance kind.
 - **A term of any kind the graph orders goes only under its head**
   (graph, transitive, enclosing, reversed). Filing `in(japan)` under
   `japanese` would state a rule (whatever is in Japan is Japanese), which
@@ -100,6 +115,15 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **`is_below`'s meet fallback no longer recurses.** For a subject
+  under several values of one head, it computed the subject's full
+  bounds, walking every combined ancestor of every head and recursing
+  through the same fallback: a nine-node graph-kind store with
+  self-referential conjunctions took 30 s to fill. It now takes the meet
+  of the values its own walk met: 0.02 s.
+- **A chain of places 200 deep raised `RecursionError`**, and filing one
+  place at a time was quadratic; both fixed (a chain of 3,000 answers in
+  0.15 s; filing costs 0.22 ms per place at any depth).
 - **A stored graph-kind term no longer breaks queries once its
   constraints become related** (since 0.26.0). Every parse re-checked a
   stored term for redundant constraints, so after
@@ -132,14 +156,11 @@ the version numbers appear in commit history and docs.
   ways, against G1. The fix is the re-reduction the relation kinds
   already use (DIMENSIONS.md §16); it changes graph-kind stored form, so
   it waits for loopmarket, with the folding above.
-- **Filing costs time proportional to the number of terms of each head
-  an edge touches**, in every dimension kind (released ones too): each
-  computed hop is found by scanning the head's whole star, so bulk loads
-  are quadratic. Per put with 200, 400 and 800 distinct `weight` values:
-  31, 73 and 156 ms, the same as in 0.28.0; a plain DAG stays at 0.1 ms.
-  Declaring `in` or `for` doubles that on stores with many values
-  (DIMENSIONS.md §18). The proposed fix is output-sensitive hops
-  (ROLES.md §9).
+- **An edge that moves a whole region or group pays for what it
+  moves** (moving Japan into Asia moves everything in Japan): in
+  proportion to the region, not to the store. Lazy readers and the
+  sparse writer still find hops by scanning a head's star, which costs
+  them the fetches they would make anyway (DIMENSIONS.md §19).
 
 ## [0.29.0] — 2026-10-06
 

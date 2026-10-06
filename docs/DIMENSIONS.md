@@ -5,7 +5,7 @@ Status: design agreed 2026-07-30 (three-session discussion, Peter + Claude);
 `src/ontodag/dimensions.py`, the `dag.py` integration, the `LazyOntoDAG`
 path, `get_overlapping`, the web REST pass-through, user docs; CLI validated
 end-to-end on the native store. Step 6 (per-dimension sorted derived index)
-stays parked until profiling asks. This document is the design record;
+was built on 2026-10-07, when profiling asked (§19). This document is the design record;
 implementation sequencing is at the end. Read `DATABASE_DIRECTION.md` first
 for where this sits in the wall/tripwire discipline — this design is the
 fired escape hatch of the "exact arithmetic" wall, recorded there.
@@ -495,9 +495,10 @@ tooling, not model.
    follow computed hops; cones cached only in the combined order; a
    courier query reads <20 records while a 40-leaf unrelated subtree
    stays untouched.
-6. Per-dimension sorted derived index (only if profiling asks) — OPEN,
-   deliberately: the tripwire is a measured hot dimension, not this
-   sequencing.
+6. ~~Per-dimension sorted derived index (only if profiling asks)~~ **DONE
+   2026-10-07** (§19): profiling asked, and the answer was quadratic bulk
+   loads in every kind. In memory, per head, built from the star on first
+   use and kept by `add_node` and `_forget`; never stored or merged.
 7. ~~`get_overlapping` (first follow-up, after v1 ships)~~ **DONE**
    (`ff9b72a`) — the possibly-satisfies query op of §8, virtual terms
    welcome, inherited unchanged by Eager and Lazy. The web REST layer
@@ -779,8 +780,8 @@ and therefore no name — is not built: it is a grammar change to the
 prefix kind (canonical form = sorted minimal set), and region nodes
 answer the named case today. It fires if anonymity of regions becomes
 the tripwire. Performance: a role star's containment checks are graph
-walks rather than string arithmetic, so the parked per-dimension index
-(§12 step 6) has a second reason to exist when a role star grows large.
+walks rather than string arithmetic, which made a large role star slow to
+query until its hops were found by name (§19, 2026-10-07).
 
 ## 15. The graph kind: constraints on the graph itself (issue #19, 2026-09-13)
 
@@ -1149,10 +1150,10 @@ filed under an ordinary node, as loopmarket files `transport` under
 stored conjunction that became redundant contains its reduced twin both
 ways, above) for a loop, and refuse ordinary facts.
 
-**Cost, measured and not fixed here.** Filing cost grows with the
-number of terms of each head an edge touches, for every dimension kind,
-released ones included, because every computed hop is found by scanning
-the head's star. Per put, with 200, 400 and 800 terms: `weight` values
+**Cost, measured here and fixed the next day (§19).** Filing cost grew
+with the number of terms of each head an edge touches, for every
+dimension kind, released ones included, because every computed hop was
+found by scanning the head's star. Per put, with 200, 400 and 800 terms: `weight` values
 31, 73 and 156 ms (the same in 0.28.0), `in` places 28, 64 and 132, and
 `for` people 8, 18 and 39, while a plain DAG stays at 0.1 ms. Bulk loads
 are therefore quadratic. Declaring a relation kind doubles the cost on a
@@ -1173,3 +1174,104 @@ merge. The loop: `TestNoLoopThroughAComputedLink` (graph kind) and
 
 Registry still **4.3**: this cycle's kinds land together, and this one is
 additive. Prelude unchanged (v3).
+
+## 19. Computed hops without scans (2026-10-07)
+
+**The case.** A computed hop, one term of a head inside another, used to
+be found by scanning the head's whole star and testing containment
+against each term. Walks pass through terms on every put (redundancy,
+cycles, pruning, re-reduction), so filing cost grew with the number of
+terms per head and bulk loads were quadratic in every kind, released ones
+included: with 800 distinct `weight` values, 156 ms per put in 0.28.0.
+Peter's requirement (2026-10-06): "We expect very large graphs, so
+exponential is out of the question." This is ROLES.md §9 step 4a, and it
+closes §12 step 6.
+
+**Hops from the term's own parameter.** On a resident graph (`OntoDAG`,
+`EagerOntoDAG`):
+
+- **Interval values** (linear, calendar, count) go through a per-head
+  index sorted by lower bound. The values a value contains are a range;
+  the values containing it are found among the wide ones alone, since a
+  point contains only itself.
+- **Prefix values**: the containing ones are the value's own prefixes,
+  looked up by name, and the contained ones are a range of a sorted
+  index.
+- **Graph-ordered terms**: candidates come from walking near the term's
+  constraints (their ancestors for the terms above a covariant term,
+  their descendants for those below, the other way round for `for`; what
+  is filed in a transitive term; the containers of an enclosing term's
+  argument). They are looked up in an argument index (constraint → the
+  terms naming it) that `add_node` and `_forget` keep. Each candidate is
+  then checked with `_contains`, so a candidate too many costs a check,
+  never a wrong hop. When the walk would be larger than the star, the
+  star is scanned instead.
+- **Role terms**: the base dimension is walked from the parameter and
+  both spellings are looked up (`from(my_home)`, `from(u2e4)`), the
+  literal ones also by prefix, through a sorted index of the role's
+  literal parameters.
+
+Hops are complete under closure rather than at every step: a walk that
+follows them reaches every term above or below, which is all any caller
+does.
+
+**Writes ask questions instead of enumerating.**
+
+- Anchoring a freshly used term under its head makes nothing redundant,
+  moves nothing and closes no loop (any path through it existed already,
+  containment being transitive), so it costs only its count deltas.
+- `add_edge`'s redundancy and cycle checks are `is_below` questions.
+- Pruning iterates the lower end's parents with `is_below` tests rather
+  than enumerating the upper end's whole ancestry.
+- The strictness guard walks the parent's containers once, and not at
+  all for a new place.
+- Re-reduction looks up, in the argument index, the terms naming what
+  the edge put under something new, and follows the terms it finds to a
+  fixpoint (`_moved_terms`).
+
+**Found and fixed on the way.** `is_below`'s meet fallback (a subject
+under several values of one head) computed the subject's full bounds,
+walking every combined ancestor of every head and recursing through the
+same fallback. A nine-node graph-kind world with self-referential
+conjunctions took 4 s (30 s before this work); it now takes the meet of
+the values its own walk met, in 0.02 s. And the first version of the
+strictness guard's fast path let `x ⊑ in(x)` past the check that runs
+before anything is materialized, so a refusal left `in(x)` behind. The
+stress run caught it, after the commit had been pushed, and the oracle
+now asserts that a refusal leaves nodes and edges untouched.
+
+**Measured.**
+
+| shape | 200 terms | 800 terms | 3,200 terms |
+|---|---|---|---|
+| `weight` values, per put (0.28.0: 31, 156 ms, …) | 0.8 ms | 0.8 ms | 0.9 ms |
+| `in` places, per put | 0.6 ms | 0.6 ms | 0.6 ms |
+| `for` people, per put | 0.3 ms | 0.3 ms | 0.3 ms |
+
+loopmarket-shaped offers (graph-kind terms with value constraints, a
+role over geo, dates) file in 1.8 ms from 300 to 2,400 offers. A chain of
+places filed top-down costs 0.22 ms per put at depths 100 to 1,600 (the
+day before, 136 ms at 1,600; before that, a RecursionError). Queries
+whose answers stay small cost the same at 400 and 6,400 items, and
+`get from(ljubljana)` grows with its answer: 8, 34 and 115 ms for 75, 300
+and 1,200 (before, 100 s at 6,400). Merging two stores costs 0.28 ms per
+merged node at every size.
+
+**What still scans, deliberately.**
+
+- A lazy reader and the sparse writer, which pay a fetch for every name
+  they look up, and whose stars are what they would fetch anyway.
+- The dominance kind.
+- An edge that moves a whole region or group, which pays for what it
+  moves: moving Japan into Asia moves everything in Japan. That cost is
+  proportional to the region, not to the store.
+
+**Tests.** `tests/test_hops.py` runs the name-directed hops against the
+scan they replace on random worlds over every kind (conjunctions, value
+constraints, virtual query terms; roles with places, regions and both
+spellings), requiring the same stored form and the same answers, and it
+pins that filing never walks a star, whatever the store's size. One-off
+runs of 200 larger worlds of each found no disagreement. The 300-world
+oracle of `tests/test_transitive.py` found none either. The live Bee
+tests passed on bee 2.8.2, and loopmarket's suite passes against this
+tree (297 passed).
