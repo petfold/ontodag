@@ -742,7 +742,7 @@ Next candidates after the current task — **this list is complete (all three la
 
 Optional, pull-forward-anytime (agreed 2026-07-20): **in-memory cone bitmaps behind `get()`** — step (1) of `docs/plans/SEMANTIC_CODES.md` §8's sequencing, exempted from that note's parking because it is bounded, in-memory-only, dependency-free (Python ints), schema-invisible, and oracle-tested by I5 (`popcount == descendant_count`). Do it if/when queries are measurably hot (web UI); it neither advances nor blocks items 1–3. The **`get()` query planner** — **DONE (2026-07-21), including the adaptive walk-vs-probe step**: `OntoDAG.get` resolves/dedups terms by name, drops query terms that are ancestors of other terms (upward `_has_ancestors` walk from the smaller-count term, so planning scales with the query, never the graph; `descendant_count` as the cheap necessary condition), orders cones smallest-count-first, then executes adaptively — before each remaining term it picks walk (traverse the cone, intersect) or probe (upward walk per surviving candidate settling all remaining terms at once) from the now-known running-result size, with early exit on empty. All steps are result-preserving; `_PROBE_COST_ESTIMATE` only steers operator choice (time, never correctness). Tests: `tests/testdag.py::TestQueryPlanner` — brute-force oracle over all 1/2/3-term fixture queries, forced-probe/forced-walk modes, a 60-node seeded-random DAG under all modes, and the meet-substitution guard (a node named "AB" under A and B is NOT the meet of A and B — `put(X, [A, B])` creates a *sibling* of AB — so do not "optimize" `get` through such nodes; see `SEMANTIC_CODES.md` §10).
 
-## Roles as dimensions: ROLES.md §9 step 3 (from 2026-10-06, unreleased)
+## Roles as dimensions: ROLES.md §9 steps 3–8 (from 2026-10-06, unreleased)
 
 Peter settled the semantics on 2026-10-06 (docs/plans/ROLES.md §8): a
 node is a class of items and below is inclusion; kinds and qualities take
@@ -891,12 +891,56 @@ leave nothing). Numbers: per put at 3,200 terms weight 0.9 ms, in 0.6,
 for 0.3; loopmarket shape 1.8 flat; queries proportional to answers.
 Tests: `tests/test_hops.py` (differential vs scan over every kind and
 roles; filing never walks a star). Live Bee tests 2/2 on bee 2.8.2;
-loopmarket 297 passed against the tree; **ontodag-fs: 312 passed + its
-contract pin test fails by design** (it pins CONTRACT_VERSION == "0.1";
-0.2 changed none of G1–G6 — accept "0.2" there before releasing 0.30,
-or the publish workflow's downstream gate fails; not changed tonight,
-since ontodag-fs's own CI still runs against 0.29.0). Lesson recorded:
-never commit in the same command that reads a validation result.
+loopmarket 297 passed against the tree; ontodag-fs's contract pin was
+moved later the same night (below). Lesson recorded: never commit in the
+same command that reads a validation result.
+
+**The rest of that night (2026-10-07), after 4a.** Steps 5–8 each wait
+on a decision of Peter's, so the night did what needed none and prepared
+the rest:
+- **ontodag-fs accepts contract 0.2** (`CONTRACT_VERSIONS = ("0.1",
+  "0.2")` in its `tests/test_upstream_contract.py`, after a review of
+  what it relies on; pushed to its main, no release). The 0.30 downstream
+  gate runs that suite from main, so nothing is owed there any more.
+- **Main:** `odag put` explains a term-shaped parent that is no term
+  (ROLES.md §4's complaint: `smell` under the store's own `my-kind`);
+  a graph-ordered head declared under another head (`courier ⊑
+  transport`, `departure ⊑ from`) no longer guards the nodes its terms
+  name — the §14 role guards had refused removing or moving them since
+  0.26.0; a virtual query term's cone is one walk with a shared visited
+  set (`_walk_cone`, `_virtual_cone`; LazyOntoDAG honours a shared set
+  and never caches such a walk): 754 → 30 ms for 100 nested ranges.
+  Still superlinear: the interval index lists every value inside a range
+  as its hops, so 1,600 ranges each inside the last take 2.9 s; random
+  real-shaped time windows stay modest (4,000 in 0.56 s). USER_GUIDE
+  §4.9 (in/about/for, executed). ROADMAP.md gained the roles section and
+  lost "no relations". Suite 1,167 (README).
+- **Step 5, narrower relations, built on the branch
+  `narrower-relations`** (pushed, no PR) in a proposed form: a head of a
+  relation kind filed under another head of the same kind is a narrower
+  relation (`departure ⊑ from` gives `departure(x) ⊑ from(y)` iff
+  `from(x) ⊑ from(y)`); value roles and the graph kind keep their
+  meaning. Design record DIMENSIONS.md §20; the 0.3 clause drafted in
+  CONTRACT.md §5.1 and marked not agreed (`CONTRACT_VERSION` stays 0.2
+  on the branch; on agreement it becomes 0.3 and ontodag-fs's pin needs
+  it too). Two hard parts, both found by tests: hops must look past
+  narrower terms whose broader term was never filed (`x ⊑ inside(z)`,
+  `z ⊑ inside(y)` puts x in y through a missing `in(z)`), done by
+  worklists in `_graph_hops`; and a late declaration must re-reduce and
+  may put something inside itself, checked after pruning (the head is
+  ambiguous until its old kind edge is pruned) with rollback via an
+  edge log. `tests/test_narrower.py` (19 tests, a seven-head fixpoint
+  oracle); one-off 500 oracle + 150 scan-differential worlds, 0
+  disagreements; filing flat. Branch suite 1,186. **Merge only when Peter
+  agrees to the form.**
+- **Step 7's audit, drafted** by a background agent and committed in
+  ontodag-core (`docs/AUDIT_ROLES.md`, `align/audit-roles.tsv`): 45 of
+  12,960 shipped edges fail the one-meaning test (22 high confidence; 27
+  in economics' hand-asserted crypto terms, 10 in geography, 5 in core),
+  the entities per pack (core holds two), and 22 British spellings, eight
+  of them sense pairs, with checked replacement names. ROLES.md §8/§9
+  updated. Two questions in it for Peter: `in` for parts of abstract
+  systems (or `about`), and what `bitcoin` names.
 
 ## Role heads (2026-09-12) — issue #15 closed, DIMENSIONS.md §14
 
