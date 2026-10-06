@@ -90,6 +90,31 @@ class TestBeeCompatibility(unittest.TestCase):
             act.keccak256(act.stream_transform(self.ACCESS_KEY, bytes(4096))),
             self.UPSTREAM_DIGEST)
 
+    def test_the_pure_python_curve_meets_bees_vectors_too(self):
+        # Where coincurve can't install (Pyodide), act falls back to a
+        # pure-Python secp256k1; it must give the same bytes, the 31-byte
+        # x-coordinate included
+        from unittest import mock
+        from ontodag import act
+        with mock.patch.object(act, "_secp256k1", lambda: None):
+            self.test_vectors_from_bee_v2_8_1()
+        rnd = random.Random(5)
+        for _ in range(50):
+            a = rnd.getrandbits(255).to_bytes(32, "big")
+            b = rnd.getrandbits(255).to_bytes(32, "big")
+            self.assertEqual(act._py_public_key(a), act.public_key(a))
+            self.assertEqual(act._py_shared_x(a, act.public_key(b)),
+                             act.shared_x(a, act.public_key(b)))
+
+    def test_the_pure_python_curve_refuses_what_coincurve_refuses(self):
+        from ontodag import act
+        with self.assertRaises(ValueError):
+            act._py_public_key(bytes(32))                       # zero secret
+        with self.assertRaises(ValueError):
+            act._py_shared_x(_priv(1), b"\x02" + bytes(32))     # x = 0: off the curve
+        with self.assertRaises(ValueError):
+            act._py_shared_x(_priv(1), b"\x05" + bytes(32))     # not a key encoding
+
     def test_a_grantee_entry_is_an_act_entry(self):
         # What KeyGraph.grant publishes is exactly lookup -> Enc(wrap, K_leaf)
         from ontodag import act

@@ -349,6 +349,8 @@ setup — pick the route that matches what you actually want:
 | `owl` | OWL and Manchester import/export (§4.6) | `pip install "ontodag[owl]"` |
 | `swarm` | keeping a store on Ethereum Swarm (§5.1, §8) | `pip install "ontodag[swarm]"` |
 | `web` | the browser interface and REST API (§6) | `pip install "ontodag[web]"` |
+| `crypto` | encrypted `rs:` stores — the `store_key` setting (§5.7) | `pip install "ontodag[crypto]"` |
+| `act` | keys for categories: who may read what (§9.3) | `pip install "ontodag[act]"` |
 | `all` | every extra in this table — Swarm and web included | `pip install "ontodag[all]"` |
 
 Combine them in one spec: `pip install "ontodag[viz,owl]"`.
@@ -2797,7 +2799,10 @@ node, the fewer hold it), document keys flow downward (a grant on
 people node to a document category is the grant. A reader can decrypt a
 document exactly when a token path leads from their own key to it — which
 is `is_below`, spelled in keys. It needs the `act` extra
-(`pip install "ontodag[act]"`).
+(`pip install "ontodag[act]"`). Where coincurve won't install, as under
+Pyodide, `pip install ontodag pycryptodome` is enough: a secp256k1 written
+in plain Python stands in. It is slower and not constant-time, which is
+why coincurve is used wherever it is installed.
 
 ```python
 from recordstore import MemoryBytesStore, RecordStore

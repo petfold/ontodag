@@ -14,6 +14,24 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Added
+
+- **`ontodag.act` runs without coincurve.** Where coincurve can't
+  install (Pyodide has no wheel for it), a secp256k1 written in plain
+  Python stands in for `public_key` and `shared_x`. It gives the same
+  bytes as coincurve and as Bee's own vectors, the 31-byte x-coordinate
+  included, and refuses the same invalid keys. It is slower and not
+  constant-time, so coincurve is used wherever it is installed;
+  elsewhere `pip install ontodag pycryptodome` is enough. Ported from
+  the unmerged `swarm-sharing` branch.
+
+### Fixed
+
+- **Stale command counts.** The User Guide (§1.1) and the web app's
+  comments said the browser console runs 13 of 27 commands; it runs 16
+  of the CLI's 31. `browser_check.py` now reads the counts from
+  `/dag/commands` instead of hard-coding them.
+
 ### Filed
 
 - **Consumer asks from the credentials, cover and options plan**
