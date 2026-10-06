@@ -1240,6 +1240,35 @@ for(employee)
 handbook
 ```
 
+**A narrower relation is filed under the broader one** (proposed;
+[DIMENSIONS.md](DIMENSIONS.md) §20). A departure is a kind of "from", so
+`get from(lhr)` should find a flight departing from Heathrow. Declare the
+narrower head under the broader one, and it does:
+
+```console
+$ odag put enclosing-dimension dimension
+$ odag put from enclosing-dimension
+$ odag put departure from
+$ odag put place
+$ odag put lhr place
+$ odag put flight-ba117 'departure(lhr)'
+$ odag put coach-x90 'from(lhr)'
+$ odag get 'from(lhr)'
+coach-x90
+departure(lhr)
+flight-ba117
+$ odag get 'departure(lhr)'
+flight-ba117
+$ odag below flight-ba117 'from(lhr)'
+true
+```
+
+The coach was filed only under `from(lhr)`, so it stays out of
+`departure(lhr)`: a broader term is never inside a narrower one. This
+works for heads of these three
+kinds only; a head under `weight` or `time` is a role that takes their
+values ([DIMENSIONS.md](DIMENSIONS.md) §14).
+
 Two rules, each refused with the reason:
 
 ```console
