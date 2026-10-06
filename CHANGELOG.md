@@ -115,6 +115,16 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **A query over a virtual value no longer re-walks nested values.**
+  `get weight(..10000kg)`, where the values it contains nest (a range
+  inside a range), walked each contained value's cone separately, so
+  every value inside was walked again by each value around it: 754 ms
+  for 100 nested ranges. The planner and `_virtual_cone` now make one
+  walk with a shared visited set (30 ms), and the lazy reader honours
+  that set without caching the partial walk as a cone. What remains
+  superlinear for deep nesting is the interval index listing every value
+  inside a range as its hops (2.9 s for 1,600 ranges each inside the
+  last); points, the usual shape, are not affected.
 - **A head the graph orders, declared under another head, no longer
   guards the nodes its terms name** (since 0.26.0). With `courier`
   declared under the graph-kind head `transport`, `courier(bicycle)` was

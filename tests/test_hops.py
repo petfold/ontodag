@@ -225,5 +225,28 @@ class TestFilingDoesNotScan(unittest.TestCase):
         self.assertLess(large, 100)
 
 
+class TestAVirtualConeIsOneWalk(unittest.TestCase):
+    """A virtual query term's cone is walked once, whatever its values'
+    nesting: each node in it is expanded once. A walk per contained value
+    re-walked every value nested inside it (quadratic in the nesting)."""
+
+    def test_each_node_is_expanded_once(self):
+        dag = OntoDAG()
+        prelude.apply(dag)
+        n = 60
+        for k in range(n):           # nested ranges, each with a crate
+            dag.put(f"crate{k}", [f"weight({k + 1}kg..{2 * n - k}kg)"])
+        counter = {"calls": 0}
+        original = dag._computed_children
+
+        def counting(node):
+            counter["calls"] += 1
+            return original(node)
+        dag._computed_children = counting
+        found = dag.get(["weight(..10000kg)"])
+        self.assertEqual(len(found), 2 * n)
+        self.assertLessEqual(counter["calls"], 2 * n)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -269,8 +269,16 @@ class LazyOntoDAG(OntoDAG):
                 self._cache_cone(name, descendants)
                 return descendants
 
+        # A caller walking several cones at once shares `visited` (see
+        # `OntoDAG._walk_cone`); such a walk stops where an earlier one
+        # went, so its result is not this node's cone and is never cached
+        # as one.
+        shared = visited is not None
+        seen = visited if shared else set()
+        if start in seen:
+            return set()
+        seen.add(start)
         descendants = set()
-        seen = {start}
         frontier = [start]
         while frontier:
             current = self._expand(frontier.pop())
@@ -282,7 +290,7 @@ class LazyOntoDAG(OntoDAG):
                 if child not in seen:
                     seen.add(child)
                     frontier.append(child)
-        if computed:
+        if computed and not shared:
             self._cache_cone(name, descendants)
         return descendants
 

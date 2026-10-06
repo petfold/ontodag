@@ -1909,10 +1909,11 @@ class OntoDAG(DAG):
         this is why "all integers" can never be an answer, and why a
         read-only client can ask any threshold without writing
         (DIMENSIONS.md §8)."""
-        cone = set()
+        # One walk with a shared visited set, as in `_walk_cone`.
+        cone, visited = set(), set()
         for value in self._contained_values(canonical, head, kind):
             cone.add(value)
-            cone |= self.get_descendants(value)
+            cone |= self.get_descendants(value, visited)
         return cone
 
     def _contained_values(self, canonical, head, kind):
@@ -2229,10 +2230,14 @@ class OntoDAG(DAG):
     def _walk_cone(self, cone):
         if cone.kind == "node":
             return self.get_descendants(cone.payload)
-        found = set()
-        for value in cone.payload:                          # virtual
+        # Virtual: one walk over every contained value, sharing what it
+        # has visited. The values can nest (an interval inside an
+        # interval), and a walk per value re-walked every value inside:
+        # quadratic in the nesting.
+        found, visited = set(), set()
+        for value in cone.payload:
             found.add(value)
-            found |= self.get_descendants(value)            # combined order
+            found |= self.get_descendants(value, visited)   # combined order
         return found
 
     def _probe_cones(self, candidate, cones):
