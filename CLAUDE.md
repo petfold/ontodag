@@ -991,7 +991,10 @@ was added after 0.10.1.
 
 1. **Docs before publish** (Peter's rule): README, User Guide with
    *executed* snippets, HOW_IT_WORKS, help text, CHANGELOG entry, and a
-   stale-claim grep. Never as a follow-up.
+   stale-claim grep. Never as a follow-up. That includes the README's
+   test count, whose guard runs only when `CI` is set: **run the full
+   suite with `CI=1` before tagging.** 0.29.0's first tag was stopped by
+   exactly that, after six new tests.
 2. **Version bump** in `pyproject.toml`, and re-execute anything in the
    docs that prints it (the guide's interactive-prompt banner).
 3. **`python3 scripts/release_smoke.py`** — build the wheel, install it
@@ -1084,7 +1087,24 @@ default earns its place; one that adds weight for a file format does not.*
 
 ## Release state
 
-**Current (2026-09-24): ontodag 0.28.0**, published by tag, all four
+**Current (2026-10-06): ontodag 0.29.0**, published by tag, all four
+workflow jobs green, and verified from PyPI (`release_smoke.py --pypi
+0.29.0`, 27/27). It is the `ontodag.act` revocation fix: token format
+2, where a check value of the child key heads each token and is bound
+into its keystream. Format 1 (0.19–0.28) let a revoked reader recover
+rotated keys from the public tokens. Also in it: the pure-Python
+secp256k1 fallback, the command-count fixes, and the guide's extras
+rows (CHANGELOG [0.29.0]). It is step 2 of docs/plans/ROLES.md §9's
+order. The first `v0.29.0` tag was stopped by the CI-only README
+test-count guard; nothing was published, the count was fixed, and the
+tag moved to `75a832d`. Checked before tagging: the suite, the smoke
+test on the wheel (27/27), the gated live Bee tests (2/2, bee 2.8.2,
+batch c931c8a5… with 22.6 days left and its fullest bucket at 23/32),
+and ontodag-fs's suite on the wheel. **ontodag-fs 0.6.3** (same day)
+raised its ceiling to `<0.30.0`, the ceiling owed since 0.27.0;
+verified from PyPI (it resolves ontodag 0.29.0).
+
+Before that: 0.28.0 (2026-09-24), published by tag with all four
 workflow jobs green (the `downstream` job ran ontodag-fs's suite against
 the candidate). 0.27.0 (same day) is the embedder API: `ontodag.native`,
 `OntoDAG.is_term`, `packs.pack_members`/`pack_top`, `COMMAND_EFFECTS` /
@@ -1092,11 +1112,10 @@ the candidate). 0.27.0 (same day) is the embedder API: `ontodag.native`,
 (`reach`/`landing`/`losses`) and `odag shared-with` / `get --as` —
 docs/plans/SHARING.md steps 1–2. Both were driven by categor.io
 (github.com/petfold/categorio), a website over OntoDAG, which now depends
-on `ontodag>=0.28`. **Owed:** ontodag-fs 0.6.2 still pins
-`ontodag<0.27.0`; its suite passes against 0.28.0 (313 passed), so a
-ceiling-only release is due. **Open:** SHARING.md Q1 (how a store marks
-its principals) awaits Peter's decision; it gates the `--dry-run` losses
-and principal declaration. The table and paragraphs below are older
+on `ontodag>=0.28`. **Open:** SHARING.md Q1 (how a store marks its
+principals), now reframed by docs/plans/ROLES.md §7 (principals as
+people, shares under `for(...)`). The work order is ROLES.md §9, and its
+step 3, the semantics, is next. The table and paragraphs below are older
 history, not updated since 0.23.0/0.25.0.
 
 **All three repos released 2026-08-06**, each by tag through its publish
