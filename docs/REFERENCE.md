@@ -6,7 +6,7 @@ the normative guarantees in [CONTRACT.md](CONTRACT.md). Tables here are
 pinned against the code by `tests/test_reference.py` — if a name in this
 file and the code disagree, the suite fails.
 
-Versions this file describes: contract `0.1` · registry `4.2` ·
+Versions this file describes: contract `0.1` · registry `4.3` ·
 prelude `3` · surface `0.1` · core `9`.
 
 ## 1. Vocabulary
@@ -233,7 +233,7 @@ domain packs in `ontodag.domain`; the unit packs `crypto-core`,
 
 A head is declared by one edge to a kind node; values are parametric
 names; the order *within* a dimension is computed from names, never
-stored as edges. Registry `4.2`; same major = same arithmetic.
+stored as edges. Registry `4.3`; same major = same arithmetic.
 
 | kind node | values | order | example |
 |---|---|---|---|
@@ -243,8 +243,9 @@ stored as edges. Registry `4.2`; same major = same arithmetic.
 | `prefix-dimension` | path strings | prefix | `geo(u2)` contains `geo(u2ed)` |
 | `dominance-dimension` | sorted tuples `AxBxC` + unit | componentwise ≥ | `size(20x30x40cm)` contains `size(19x23x39cm)` |
 | `graph-dimension` | a conjunction of constraints on the graph — category names and terms of other dimensions, sorted, each present or parseable, none redundant (issue #19) | by the graph: every outer constraint above some inner one | `transport(small-item weight(..8kg))` contains `transport(bicycle weight(5kg))` when `bicycle ⊑ small-item` |
+| `transitive-dimension` | constraints on the graph, as for `graph-dimension` (DIMENSIONS.md §16) | by the graph, and chaining: `R(X) ⊑ R(Y)` also when some `x` in `X` is itself below `R(Y)`; strict — nothing is `R` of itself | `in(tokyo)` is inside `in(japan)` when `tokyo ⊑ in(japan)` |
 
-Several values of one head on one item fold to their meet (`put(x, ["weight(1kg..3kg)", "weight(2kg..5kg)"])` files `x` under `weight(2kg..3kg)`; DIMENSIONS.md §9). Rules that refuse, with teaching errors: cycles; a point filed under two
+Several values of one head on one item fold to their meet (`put(x, ["weight(1kg..3kg)", "weight(2kg..5kg)"])` files `x` under `weight(2kg..3kg)`; DIMENSIONS.md §9), except a transitive head's terms, which stay separate (a photo can be `in(tokyo)` and `in(paris)`). Rules that refuse, with teaching errors: cycles; anything that would put a thing inside itself under a transitive head (`japan ⊑ in(japan)`); a point filed under two
 provably disjoint values of one head; `count(0)` (an absence claim);
 fractional counts; negatives (except affine `C`/`F` spellings); values
 below absolute zero; unknown units (the error names the pack or
@@ -266,7 +267,7 @@ spelled; ordered by the graph (`from(x) ⊑ from(y)` iff `x ⊑ y` under
 refused. A node named by a role term cannot be removed or moved out of
 its dimension while the term stands.
 
-Prelude v3 declares: five of the six kind nodes (not `graph-dimension`, which a store declares itself when it needs it — `odag put graph-dimension dimension`; the prelude's root, and every pack's, stay put) and heads `weight`, `length`,
+Prelude v3 declares: five of the seven kind nodes (not `graph-dimension` or `transitive-dimension`, which a store declares itself when it needs it — `odag put graph-dimension dimension`; the prelude's root, and every pack's, stay put) and heads `weight`, `length`,
 `duration`, `area`, `volume`, `speed`, `pressure`, `temperature`,
 `energy`, `count`, `time`, `geo`, `size`.
 

@@ -54,7 +54,7 @@ from fractions import Fraction
 #      MAJOR because two canonical anchors change and bare C/F change
 #      meaning: a 3.x store carrying bare-C/F values must rewrite them to
 #      coulomb/farad spellings before an ontodag.migrate replay).
-REGISTRY_VERSION = "4.2"
+REGISTRY_VERSION = "4.3"
 
 
 def registry_compatible(version, other=None):
@@ -101,8 +101,22 @@ KIND_COUNT = "count-dimension"
 # reads the argument as what an operator ACCEPTS, so a wider argument is
 # the more useful one — that direction is the consumer's, not this kind's.
 KIND_GRAPH = "graph-dimension"
+# Transitive is the graph kind for a relation that chains: `in` (registry
+# 4.3, docs/plans/ROLES.md). Its parameters are graph constraints too, and
+# it adds one rule — `R(X) ⊑ R(Y)` also when some x in X is itself below
+# R(Y): if Tokyo is in Japan, whatever is in Tokyo is in Japan. It differs
+# from the graph kind in two more ways, both because an item can stand in
+# the relation to several things at once (a photo in Tokyo and in Paris,
+# Alice in sales and in engineering): same-head parents are never folded
+# into one combined term, and two terms are never pre-intersected as a
+# meet. The relation is STRICT — nothing is in itself — and the DAG
+# refuses an edge that would put a thing inside itself (DIMENSIONS.md §16).
+KIND_TRANSITIVE = "transitive-dimension"
 KINDS = frozenset({KIND_LINEAR, KIND_PREFIX, KIND_DOMINANCE, KIND_CALENDAR,
-                   KIND_COUNT, KIND_GRAPH})
+                   KIND_COUNT, KIND_GRAPH, KIND_TRANSITIVE})
+# Kinds whose parameters are constraints on the graph, ordered by the DAG
+# rather than by arithmetic on the name.
+GRAPH_ORDERED = frozenset({KIND_GRAPH, KIND_TRANSITIVE})
 _LINEARISH = frozenset({KIND_LINEAR, KIND_CALENDAR})
 _INTERVALISH = _LINEARISH | {KIND_COUNT}
 
@@ -654,7 +668,7 @@ def _render_count(family, lo, hi):
 
 
 def _denotation(param, kind, units=None):
-    if kind == KIND_GRAPH:
+    if kind in GRAPH_ORDERED:
         items = constraints(param)
         if not items:
             raise ValueError(f"{param!r}: a category term needs at least one constraint")
@@ -673,7 +687,7 @@ def _denotation(param, kind, units=None):
 
 
 def _render(denotation, kind):
-    if kind == KIND_GRAPH:
+    if kind in GRAPH_ORDERED:
         return " ".join(denotation)
     if kind in _LINEARISH:
         return _render_linear(*denotation)
@@ -712,7 +726,7 @@ def space_of(name, kind, units=None):
         return f"linear:{denotation[0]}"
     if kind == KIND_DOMINANCE:
         return f"dominance:{denotation[0]}:{len(denotation[1])}"
-    if kind == KIND_GRAPH:
+    if kind in GRAPH_ORDERED:
         return "graph"
     return "prefix"
 
@@ -768,7 +782,7 @@ def contains(outer, inner, kind, units=None):
     if kind == KIND_PREFIX:
         return _parse_prefix(param_inner).startswith(
             _parse_prefix(param_outer))
-    if kind == KIND_GRAPH:
+    if kind in GRAPH_ORDERED:
         raise ValueError(
             f"{outer!r} vs {inner!r}: a category term is ordered by the "
             f"graph — ask the DAG (`is_below`), not the name arithmetic")
@@ -807,7 +821,7 @@ def intersect(a, b, kind, units=None):
         if value_b.startswith(value_a):
             return f"{head}({value_b})"
         return None
-    if kind == KIND_GRAPH:
+    if kind in GRAPH_ORDERED:
         raise ValueError(
             f"{a!r} ∩ {b!r}: a category term is met by the graph — ask the "
             f"DAG, not the name arithmetic")

@@ -12,6 +12,51 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Added
+
+- **The transitive kind** (`transitive-dimension`, registry 4.3;
+  DIMENSIONS.md §16; step 3.2 of docs/plans/ROLES.md §9). A head declared
+  under it names a relation that chains. `in` is the first; a store
+  declares it with `odag put transitive-dimension dimension` and
+  `odag put in transitive-dimension`.
+  - `tokyo ⊑ in(japan)` puts whatever is `in(tokyo)` inside `in(japan)`,
+    so `get city in(japan)` lists Japan's cities.
+  - `in(in(acme))` is the smaller class: people in some part of Acme,
+    which leaves out someone who is in Acme directly.
+  - Parameters are graph constraints, as for the graph kind.
+  - Strict: `put`, `reclassify` and `add_edge` refuse anything that would
+    put a thing inside itself (`japan ⊑ in(japan)`, or round a chain),
+    and refuse before creating anything.
+  - Several terms of one head on one item stay separate (a photo can be
+    `in(tokyo)` and `in(paris)`), and `meet` names an intersection only
+    when one term contains the other.
+  - A merge that unions contradictory facts (x in y in one store, y in x
+    in the other) stays total and keeps both as data: reduction no
+    longer prunes on a cycle, which had orphaned a node.
+  - Tested against an independent oracle on random worlds
+    (`tests/test_transitive.py`).
+- **HOW_IT_WORKS.md §1, "What an arrow means"**: every name is a class
+  of items, and an arrow is inclusion; kinds, qualities and entities;
+  relations to entities as terms (step 3.1 of ROLES.md §9).
+
+### Changed
+
+- **`is_below`, graph-ordered containment and the canonical spelling of
+  graph-ordered terms are memoized** against the graph's shape, using a
+  version counter that every node and edge change bumps. The transitive
+  rule needed it (without it, a query over fifteen nodes took seconds),
+  and every query benefits.
+
+### Known issue
+
+- **The graph kind's folding** (since 0.26.0) makes stored form depend on
+  filing order when constraints become related later, and changes the
+  meaning of relations that aren't single-valued: `about(mars)` and
+  `about(earth)` fold into `about(earth mars)`. Recorded in
+  DIMENSIONS.md §16; not changed here.
+
 ## [0.29.0] — 2026-10-06
 
 A security fix for `ontodag.act`. Its token format changes, and key graphs

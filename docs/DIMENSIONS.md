@@ -617,8 +617,9 @@ until a consumer trips the wire:
   for: no kind has per-head declaration parameters, and under equality
   a short or malformed value matches only itself, so fail-closed comes
   free and rejecting such values is the consumer's lint), space tag
-  `identifier`, a `KINDS` entry, **registry 4.3** (a minor, as the
-  graph kind's 4.2 was: additive, no canonical name changes), the kind
+  `identifier`, a `KINDS` entry, **registry 4.4** (a minor, as the
+  graph kind's 4.2 was: additive, no canonical name changes; 4.3 went to
+  the transitive kind, §16), the kind
   node **outside the prelude** and declared by the consumer's seed (§13's
   own rule for the graph kind, so no pack root moves). Role heads carry
   the variants: `item → identifier-dimension`, `lot → item`, `sample →
@@ -849,3 +850,102 @@ computation: a constraint is checked one dimension at a time.
 Registry **4.2** (additive: a kind, no canonical name of an existing kind
 changes); prelude unchanged (v3); `dimensions.constraints(param)` splits
 a parameter for consumers; `split_term` accepts balanced nesting.
+
+## 16. The transitive kind: relations that chain (2026-10-06)
+
+**The case.** "Below" means one thing, inclusion between classes of
+items (docs/plans/ROLES.md), so a relation to an entity is filed as a
+term rather than as an edge to the entity: `tokyo ⊑ in(japan)`, never
+`tokyo ⊑ japan` (Tokyo is a city; Japan is not one). For `in` the order
+between terms must chain: once Tokyo is in Japan, whatever is in Tokyo
+is in Japan. The graph kind orders `in(tokyo) ⊑ in(japan)` only when
+`tokyo ⊑ japan`, which is the very edge the one meaning forbids.
+
+**Declaration.** A head under the kind node `transitive-dimension`:
+`odag put transitive-dimension dimension`, then `odag put in
+transitive-dimension`. Like the graph kind's, the kind node is not in
+the prelude yet; ROLES.md §9 step 3.7 moves the standard heads in once,
+together with the pack audit, so golden roots move once.
+
+**Grammar.** The graph kind's: a conjunction of constraints (present
+categories or terms of declared dimensions), canonical when sorted,
+deduplicated and with none redundant.
+
+**Order.** `R(X…) ⊑ R(A…)` iff every A is above (or is) some X — the
+graph kind's rule — **or some x in X is itself below `R(A…)`**. The
+second disjunct is transitivity: `tokyo ⊑ in(japan)` gives
+`in(tokyo) ⊑ in(japan)`. It gives `R(R(Z)) ⊑ R(Z)`, never the converse,
+which would need everything in Z to be inside something else in Z. On
+whole numbers, 4 is less than 5 without being less than anything that
+is less than 5; in a store, Bob works for Acme directly, in no
+department, so he is in `in(acme)` but not in `in(in(acme))`.
+
+**Strict, with a guard.** Nothing is R of itself. A reflexive R would
+make `in(in(japan))` and `in(japan)` name one class, and the core gives
+each class one name (I1). With x in y and y in x, `in(x)` and `in(y)`
+would contain each other, the same violation. `put`, `reclassify` and
+`add_edge` refuse any edge after which some x is below R(x). The check
+covers the child and everything below it, asking whether the parent is
+already below R(that thing); the rest of such a path needs no new edge,
+or the cycle check would have refused it. Every way two terms of one
+head could contain each other passes through such an x (for a
+conjunction, x below R(X) with x in X puts x below R(x), since
+R(X) ⊑ R(x)), so one check covers them all. It is asked before anything
+is materialized, so a refusal leaves no new vocabulary behind.
+
+**Merges stay total.** Replays (merge, sync) skip the guard, as they
+skip role-parameter refusals, because a merge must not refuse: two
+stores that are each consistent can union to x in y in x. The merged
+store keeps both asserted edges as data. Reduction never prunes on a
+cycle (`_prune_rectangle` returns when the pair lies on one), because
+every witness path there could run through the edge it would prune;
+before that check, such a merge orphaned a node.
+
+**No folding, no meets.** An item can stand in R to several things at
+once: a photo in Tokyo and in Paris, Alice in sales and in engineering.
+So canonical placement (§9) never folds a transitive head's terms into
+one combined term, `meet` names an intersection only when one term
+contains the other (and raises otherwise), and `is_below` has no meet
+fallback for these heads. The internal intersection still returns the
+union of constraints, but only as a witness below both terms, for
+overlap; with no disjointness, overlap is always possible.
+
+**Re-reduction.** A transitive term moves when any of its constraints
+moves, and a term naming a moved term moves with it (`in(in(japan))`
+follows `in(japan)`). So `_reduce_roles_touching` re-reduces those
+terms' computed hops after every edge: §14's mechanism, extended. A
+photo filed under `in(tokyo)` and `in(japan)` before Tokyo was placed in
+Japan ends up under `in(tokyo)` alone, as if the fact had come first.
+
+**Memo.** The transitive rule asks `is_below` from inside containment,
+which scans a head's terms and asks containment again; without memory
+the cost grew exponentially (seconds on fifteen nodes). Answers that are
+pure functions of the graph's shape (`is_below`, graph-ordered
+containment, the canonical spelling of graph-ordered terms) are now
+memoized against a version counter that `add_node`, `add_edge`,
+`remove_edge` and `_forget` bump. Lazy expansion does not bump it: it
+reveals an immutable snapshot, so a memoized answer stays true.
+
+**Tests.** `tests/test_transitive.py`. An oracle recomputes the order
+from the asserted edges alone, as the least fixpoint of four rules
+(reflexive, transitive, asserted, the lift), and checks on 40 random
+worlds every `is_below` answer between names and `in(name)` terms,
+every refusal, and the reduced stored form. Order independence and
+merge commutativity run on 25 more; the contradictory merge, Eager roots
+across orders, the lazy reader, the sparse writer and certificates have
+tests of their own.
+
+Registry **4.3** (additive: a kind; no canonical name of an existing
+kind changes). Prelude unchanged (v3).
+
+**A limitation of the graph kind, found while building this and not
+changed here.** Its folding (§9) makes stored form depend on filing
+order when constraints become related later: `courier` filed under
+`transport(bicycle)` and `transport(small-item)` stores
+`transport(bicycle small-item)` if filed before `bicycle ⊑ small-item`,
+and `transport(bicycle)` if after. And for a relation that is not
+single-valued, the fold changes the meaning: `about(mars)` and
+`about(earth)` store `about(earth mars)`, about one thing that is both.
+ROLES.md §9 step 3.3 gives `about` the transitive kind's treatment
+instead; whether the graph kind should keep folding is loopmarket's
+question.

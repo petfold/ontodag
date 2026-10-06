@@ -10,7 +10,9 @@ scoped amendment** to the contract's standing decision that the core
 gains no further expressiveness (CONTRACT.md §5), and it stays in front
 of the arbitrary-relations wall (DATABASE_DIRECTION.md) rather than
 crossing it. Examples marked *today* were executed against 0.28.0;
-everything else is proposed.
+everything else is proposed. **Built since (2026-10-06, unreleased):**
+steps 3.1 and 3.2 of §9 — the one meaning in HOW_IT_WORKS.md, and the
+transitive kind that `in` is declared under (DIMENSIONS.md §16).
 
 ## 0. In short
 
@@ -375,13 +377,9 @@ Consequences:
    *Facet* was rejected: it means faceted classification, which is a
    different thing. *Role* would have meant renaming the six node names
    the prelude stores; keeping *dimension* renames nothing.
-
-**Recommended here, not yet seen by Peter:**
-
-- `in` is strict, with the guard of §5. The question was open when Peter
-  agreed; this is the answer this draft gives.
-- Qualities read as adjectives (§2), so a quality needs no head and the
-  blue book needs no `color(...)`. This came out of the revision.
+6. `in` is strict, with the guard of §5.
+7. Qualities read as adjectives (§2), so a quality needs no head and the
+   blue book needs no `color(...)`.
 
 **Open:**
 
@@ -399,14 +397,10 @@ Consequences:
   dimensions, so this change is coordinated with it.
 - **How to declare a narrower relation** (§4), as distinct from "uses
   that space".
-- **Transitive dimensions besides `in`.** As drafted, only `in` is
-  transitive, so a user's `descended-from` or `upstream-of` couldn't be.
-  *Leaning:* make the kind "transitive" in general (`R(x) ⊑ R(y)` iff
-  `x ⊑* y` or `x ⊑* R(y)`), with `in` as the prelude's standard instance,
-  and each transitive dimension getting its own guard (nothing
-  R-related to itself). The code is the same rule with R in place of
-  `in`, and users then needn't bend `in` to relations that aren't
-  containment.
+- ~~**Transitive dimensions besides `in`.**~~ Answered by step 3.2: the
+  kind is general (`transitive-dimension`), so `in` is one head under it
+  and a user's `descended-from` or `upstream-of` is another, each with
+  the guard (DIMENSIONS.md §16).
 - **How the surface knows a name is an entity**, so that it can offer a
   dimension, such as `about(...)` or `in(...)`, when someone files under
   it. Candidates: any node with a kind above it in a pack, or an
@@ -472,12 +466,16 @@ instance.
    it can be released on its own.
 3. **main, step by step.** Each step is additive with the suite green,
    and nothing is released until the last:
-   1. the one meaning and the three kinds of name, stated (HOW_IT_WORKS.md;
-      CONTRACT.md if agreed);
-   2. `in`: strict, transitive, the guard; property tests for reduction
-      and merge, as role heads had;
+   1. ~~the one meaning and the three kinds of name, stated~~ — done
+      2026-10-06 in HOW_IT_WORKS.md §1. CONTRACT.md is still open (§8);
+   2. ~~`in`: strict, transitive, the guard; property tests for
+      reduction and merge, as role heads had~~ — done 2026-10-06 as the
+      general transitive kind (DIMENSIONS.md §16, registry 4.3,
+      `tests/test_transitive.py`);
    3. `about`, `from` and `to` following `in`; `geo` reconciled, with
-      loopmarket;
+      loopmarket. `about` must not be a graph-kind head: that kind folds
+      `about(mars)` and `about(earth)` into `about(earth mars)`, about one
+      thing that is both (DIMENSIONS.md §16, last paragraph);
    4. reversed `for`;
    5. narrower relations;
    6. the surface layer: offer `about(...)`, `in(...)` and `for(...)` for

@@ -742,6 +742,34 @@ Next candidates after the current task — **this list is complete (all three la
 
 Optional, pull-forward-anytime (agreed 2026-07-20): **in-memory cone bitmaps behind `get()`** — step (1) of `docs/plans/SEMANTIC_CODES.md` §8's sequencing, exempted from that note's parking because it is bounded, in-memory-only, dependency-free (Python ints), schema-invisible, and oracle-tested by I5 (`popcount == descendant_count`). Do it if/when queries are measurably hot (web UI); it neither advances nor blocks items 1–3. The **`get()` query planner** — **DONE (2026-07-21), including the adaptive walk-vs-probe step**: `OntoDAG.get` resolves/dedups terms by name, drops query terms that are ancestors of other terms (upward `_has_ancestors` walk from the smaller-count term, so planning scales with the query, never the graph; `descendant_count` as the cheap necessary condition), orders cones smallest-count-first, then executes adaptively — before each remaining term it picks walk (traverse the cone, intersect) or probe (upward walk per surviving candidate settling all remaining terms at once) from the now-known running-result size, with early exit on empty. All steps are result-preserving; `_PROBE_COST_ESTIMATE` only steers operator choice (time, never correctness). Tests: `tests/testdag.py::TestQueryPlanner` — brute-force oracle over all 1/2/3-term fixture queries, forced-probe/forced-walk modes, a 60-node seeded-random DAG under all modes, and the meet-substitution guard (a node named "AB" under A and B is NOT the meet of A and B — `put(X, [A, B])` creates a *sibling* of AB — so do not "optimize" `get` through such nodes; see `SEMANTIC_CODES.md` §10).
 
+## Roles as dimensions: ROLES.md §9 step 3 (from 2026-10-06, unreleased)
+
+Peter settled the semantics on 2026-10-06 (docs/plans/ROLES.md §8): a
+node is a class of items and below is inclusion; kinds and qualities take
+items directly, entities only through a dimension over nodes (`in`,
+`about`, `for`); "dimension" is the one word; `in` is strict. Built on
+main so far: **3.1** (HOW_IT_WORKS.md §1, "What an arrow means") and
+**3.2**, the general **transitive kind** (`transitive-dimension`,
+registry 4.3, DIMENSIONS.md §16): the graph kind's rule plus "or some
+constraint is itself below R(Y)"; strict with a guard (`_refuse_self_
+containment`, asked on names in `_check_parametric_placement` before put
+or reclassify materializes anything, and in `add_edge`); no folding, no
+meets; re-reduction of terms whose constraints moved, to a fixpoint for
+nested terms; and a memo of `is_below`, graph-ordered containment and
+graph-term spellings against `DAG._version`, without which the rule was
+exponential. Two things found and fixed on the way: `constraints()`
+returns a tuple (a `!= [name]` comparison silently disabled the guard,
+and the unguarded self-containment then sent queries into runaway
+recursion); and `_prune_rectangle` assumed no cycles, so a lenient merge
+of x-in-y with y-in-x orphaned a node. It now prunes nothing on a cycle.
+Found and NOT changed: the graph kind folds same-head terms, so its
+stored form depends on filing order, and `about(mars)` with `about(earth)`
+becomes `about(earth mars)`. Reported to Peter, recorded in DIMENSIONS.md
+§16; it is why `about` (step 3.3) must not be a graph-kind head.
+`tests/test_transitive.py` (18 tests, oracle-checked). Next: 3.3
+(`about`, `from`, `to` following `in`; `geo` reconciled with
+loopmarket).
+
 ## Role heads (2026-09-12) — issue #15 closed, DIMENSIONS.md §14
 
 Peter's order for the session: #15, then #16, then #14 (loopmarket's three
