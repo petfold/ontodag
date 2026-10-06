@@ -150,10 +150,11 @@ The empty cells are decisions, not oversights, and each has a reason:
   root and a canonical echo, not files.
 - **The web app has no version history, as-of, certificates or store tiers** —
   its DAG is *server memory per session* (§6). There is no store and no root
-  there, so those aren't withheld; they don't exist. Its console runs 13 of
-  the CLI's 27 commands for the same kind of reason: the rest read or write
+  there, so those aren't withheld; they don't exist. Its console runs 16 of
+  the CLI's 31 commands for the same kind of reason: the rest read or write
   filesystem paths on the server, or need a store that keeps versions. The
-  `Commands` button lists all 27 anyway, saying which is which.
+  `Commands` button lists the others too (all but `web` itself), saying
+  why each one doesn't run there.
 - **The web app has no overlay views** — the `overlays` setting is read from
   the *server's* environment, and composing the operator's layers into an
   anonymous visitor's sandbox would serve strangers another user's data.
