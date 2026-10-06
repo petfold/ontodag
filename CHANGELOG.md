@@ -63,12 +63,14 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
-- **A transitive, enclosing or reversed term goes only under its head.**
-  Filing `in(japan)` under `japanese` would state a rule (whatever is in
-  Japan is Japanese), which contract 0.2 keeps out; `put`, `reclassify`
-  and `add_edge` refuse it with a teaching error before creating
-  anything. These kinds are new in this release, so no stored data is
-  affected.
+- **A term of any kind the graph orders goes only under its head**
+  (graph, transitive, enclosing, reversed). Filing `in(japan)` under
+  `japanese` would state a rule (whatever is in Japan is Japanese), which
+  contract 0.2 keeps out, and random worlds with such edges went
+  exponential. `put`, `reclassify` and `add_edge` refuse it with a
+  teaching error before creating anything; merges stay total. For the
+  graph kind this withdraws something 0.26.0 accepted (loopmarket never
+  used it; its suite passes unchanged); the other three kinds are new.
 - **Contract 0.2** (docs/CONTRACT.md, amended 2026-10-06). It states what
   an arrow means: every name is a class of items, and `x ⊑ y` says every
   item in x is in y (§2). It admits relations to entities as dimension
@@ -95,15 +97,22 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **A stored graph-kind term no longer breaks queries once its
+  constraints become related** (since 0.26.0). Every parse re-checked a
+  stored term for redundant constraints, so after
+  `courier ⊑ transport(bicycle fragile)` and then `bicycle ⊑ fragile`,
+  every query touching it raised. Those checks also ran inside walks and
+  recursed, making some graph-kind worlds exponential with no unusual
+  edge at all. A present name now parses as it was stored.
 - **An edge that would close a loop through a computed link is refused.**
   The cycle check ran before the edge existed, so it could not see a
   computed link the edge itself creates: with `transport(vehicle)` filed
   under a name below `transport(bicycle)`, filing `bicycle` under
   `vehicle` made three names one class. Possible for graph-kind terms
-  since 0.26.0 and role terms since 0.25.0, whenever a term was filed
-  outside its head. `add_edge` now checks after placing the edge, and on
-  a loop removes it and refuses, so nothing moves. Free when no term is
-  filed outside its head.
+  since 0.26.0 (now refused outright, above) and role terms since 0.25.0,
+  whenever a term was filed outside its head. `add_edge` now checks after
+  placing the edge, and on a loop removes it and refuses, so nothing
+  moves. Free when no term is filed outside its head.
 
 ### Known issue
 

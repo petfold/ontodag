@@ -438,7 +438,9 @@ Settled later the same day, after step 3.3:
     expressiveness" (§5.1), and the writer's obligation O6. A new kind is
     a clause change; a new head never is.
 12. **A relation term goes only under its head** (applied by Claude in
-    step 3.4 as a consequence of item 11, for Peter to confirm). Filing
+    step 3.4 as a consequence of item 11; confirmed by Peter the same
+    day: "We expect very large graphs, so exponential is out of the
+    question"). Filing
     `for(board)` under `secret` says that everything for the board is
     secret: a rule, which §5.1 keeps out. Random worlds showed the cost of
     allowing it: the evaluation went exponential. What it would have said

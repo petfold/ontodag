@@ -1090,35 +1090,53 @@ containment (`meet(for(acme-employee), for(sales-employee))` is
 parameters do, which takes a cycle the ordinary check refuses, or a
 redundant constraint the spelling refuses.
 
-**Relation terms go only under their head** (all three kinds over nodes:
-transitive, enclosing, reversed). Filing `for(board)` under `secret`
+**Terms of every kind the graph orders go only under their head**
+(graph, transitive, enclosing, reversed). Filing `for(board)` under `secret`
 would say that everything for the board is secret: a rule, not a fact
 about an item. The contract keeps rules out (CONTRACT.md §5.1), and the
 random worlds showed why. With such edges the containment of terms
 depends on rules anywhere in the store, and the recursive evaluation went
 exponential: with them, 19 of 60 worlds using `in` and `about` hit a put
-slower than three seconds, and 43 of 60 using `for`; without them the
-slowest put took 12 ms. `put`, `reclassify` and `add_edge` refuse such a
-term under anything but its head, before anything is materialized;
-merges and syncs stay lenient. These kinds are unreleased, so no stored
-name is affected. Values of the arithmetic kinds still go under plain
-names (a region above cells, §14), and so do graph-kind terms (released
-in 0.26.0).
+slower than three seconds, 43 of 60 using `for`, and 38 of 60 using the
+graph kind (§15, released in 0.26.0); without them the slowest put took
+12 ms. `put`, `reclassify` and `add_edge` refuse such a term under
+anything but its head, before anything is materialized; merges and syncs
+stay lenient. Peter's ruling the same day: "We expect very large graphs,
+so exponential is out of the question." The relation kinds are
+unreleased, so for them no stored name is affected; for the graph kind
+this withdraws something 0.26.0 accepted, which loopmarket never used
+(its suite passes unchanged). Values of the arithmetic kinds still go
+under plain names (a region above cells, §14), and so do role terms,
+whose random worlds stayed fast either way.
 
-**A loop no pre-check can see, now refused for every kind the graph
-orders.** The cycle check in `add_edge` runs before the edge exists, so
-it sees only the computed hops already there, and an edge can create a
-new one. With `transport(vehicle)` under a plain `rush` that is below
-`transport(bicycle)`, filing `bicycle` under `vehicle` adds
-`transport(bicycle) ⊑ transport(vehicle)`, and three names denote one
-class (I1). That was possible for the graph kind since 0.26.0 and for
-role terms since 0.25.0, whenever a term is filed outside its head.
-`add_edge` now checks, after placing the edge, whether a term whose
-constraints it moved lies on a loop; if one does, it removes the edge
-and refuses, and nothing moves. The check runs only for heads whose
-terms are filed outside their head (`_escapes`, now a per-DAG cache that
-edges keep current, instead of a scan after every change), so otherwise
-it costs nothing measurable.
+**A stored term parses as itself.** Every parse of a graph-ordered term
+used to re-check its constraints for redundancy, including a stored
+term's. Two harms followed. Once a folded term's constraints became
+related (`transport(bicycle fragile)`, then `bicycle ⊑ fragile`), every
+query touching it raised, since 0.26.0. And walks parse each node they
+pass, so the checks ran inside walks and recursed into more walks: this,
+not the order itself, made 2 of 60 random graph-kind worlds without any
+escape exponential too. A present name is now taken as it was stored,
+as `_canonical_graph_term` had always promised.
+
+**A loop no pre-check can see.** The cycle check in `add_edge` runs
+before the edge exists, so it sees only the computed hops already there,
+and an edge can create a new one. With `transport(vehicle)` under a plain
+`rush` that is below `transport(bicycle)`, filing `bicycle` under
+`vehicle` adds `transport(bicycle) ⊑ transport(vehicle)`, and three
+names denote one class (I1). That was possible for the graph kind since
+0.26.0 and for role terms since 0.25.0, whenever a term is filed outside
+its head. For the graph kind that filing is now refused (above). Role
+terms may still be filed so, so `add_edge` checks, after placing the
+edge, whether a term whose constraints it moved lies on a loop; if one
+does, it removes the edge and refuses, and nothing moves. The check runs
+only for heads with a term filed outside the head (`_escapes`: role
+heads, and data that arrived by merge), kept as a per-DAG cache that
+edges update. It deliberately does not run for a head that is merely
+filed under an ordinary node, as loopmarket files `transport` under
+`operator`. There it would mistake the graph kind's folding issue (a
+stored conjunction that became redundant contains its reduced twin both
+ways, above) for a loop, and refuse ordinary facts.
 
 **Cost, measured and not fixed here.** Filing under graph-ordered terms
 takes time proportional to the number of terms of each head the edge

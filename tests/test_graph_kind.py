@@ -128,26 +128,39 @@ class TestOrder(unittest.TestCase):
                          {"c"})
 
 
-class TestNoLoopThroughAComputedLink(unittest.TestCase):
-    """The cycle check in `add_edge` runs before the edge exists, so it
-    cannot see a computed link the edge itself creates. With
-    `transport(vehicle)` filed under a plain name that is below
-    `transport(bicycle)`, filing `bicycle` under `vehicle` adds
-    `transport(bicycle) ⊑ transport(vehicle)`, and all three would be one
-    class under two names (found 2026-10-06, DIMENSIONS.md §18)."""
+class TestATermGoesOnlyUnderItsHead(unittest.TestCase):
+    """A graph-kind term filed under anything but its head states a rule
+    (`transport(vehicle)` under `rush`: everything transported as a
+    vehicle is a rush job), which CONTRACT.md §5.1 keeps out. Random
+    worlds with such edges went exponential (38 of 60 hit a put slower
+    than three seconds), and with them an edge could close a loop through
+    a computed link it creates (DIMENSIONS.md §18). Refused since
+    2026-10-06; before, it was accepted."""
 
-    def test_the_edge_is_refused_and_nothing_moves(self):
+    def test_the_rule_is_refused_and_leaves_nothing(self):
         dag = city()
         dag.put("vehicle", ["goods"])
         dag.put("rush", [])
-        dag.put("transport(vehicle)", ["rush"])
-        dag.put("rush", ["transport(bicycle)"])
         before = {(p.name, c.name) for p in dag.nodes.values() for c in p.neighbors}
-        with self.assertRaisesRegex(ValueError, "cycle through"):
-            dag.put("bicycle", ["vehicle"])
+        with self.assertRaisesRegex(ValueError, "would state a rule"):
+            dag.put("transport(vehicle)", ["rush"])
         after = {(p.name, c.name) for p in dag.nodes.values() for c in p.neighbors}
         self.assertEqual(before, after)
-        self.assertFalse(dag.is_below("transport(bicycle)", "transport(vehicle)"))
+        self.assertNotIn("transport(vehicle)", dag.nodes)
+
+    def test_a_folded_term_stays_usable_when_its_constraints_meet(self):
+        # Since 0.26.0 a stored term was re-read against the redundancy
+        # rule at every parse, so once bicycle ⊑ small-item every query
+        # touching transport(bicycle small-item) raised.
+        dag = city()
+        dag.put("fragile", ["goods"])
+        dag.put("courier", ["transport(bicycle)", "transport(fragile)"])
+        self.assertEqual({p.name for p in dag.nodes["courier"].parents},
+                         {"transport(bicycle fragile)"})
+        dag.put("bicycle", ["fragile"])          # now fragile is redundant
+        self.assertTrue(dag.is_below("courier", "transport(goods)"))
+        self.assertIn("courier", {n.name for n in dag.get(["transport(goods)"])})
+        self.assertFalse(dag.is_below("courier", "goods"))
 
 
 class TestPersistence(unittest.TestCase):

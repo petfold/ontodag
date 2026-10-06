@@ -139,14 +139,15 @@ KINDS = frozenset({KIND_LINEAR, KIND_PREFIX, KIND_DOMINANCE, KIND_CALENDAR,
                    KIND_COUNT, KIND_GRAPH, KIND_TRANSITIVE, KIND_ENCLOSING,
                    KIND_REVERSED})
 # Kinds whose parameters are constraints on the graph, ordered by the DAG
-# rather than by arithmetic on the name.
+# rather than by arithmetic on the name. Their terms go only under their
+# own head: filed under anything else, a term states a rule ("whatever is
+# in Japan is Japanese", CONTRACT.md §5.1), and with such rules deciding
+# whether one term contains another stops being a walk from the names and
+# went exponential (DIMENSIONS.md §18).
 GRAPH_ORDERED = frozenset({KIND_GRAPH, KIND_TRANSITIVE, KIND_ENCLOSING,
                            KIND_REVERSED})
 # The kinds over nodes that contract 0.2 admitted (CONTRACT.md §5.1):
-# relations from an item to an entity. Their terms go only under their own
-# head. Filing one under anything else states a rule ("whatever is in
-# Japan is Japanese") rather than a fact about an item, and rules are not
-# stored: they would make the order a computation over the whole store.
+# relations from an item to an entity.
 RELATION_KINDS = frozenset({KIND_TRANSITIVE, KIND_ENCLOSING, KIND_REVERSED})
 # Kinds an item can hold several values of at once: their terms are never
 # folded into one combined term, and two of them meet only by containment.

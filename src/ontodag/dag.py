@@ -1096,6 +1096,15 @@ class OntoDAG(DAG):
         if kind is None:
             return None
         if kind in _dims.GRAPH_ORDERED:
+            if name in self.nodes:
+                # A stored term was canonical when it was made, and is never
+                # re-read against the redundancy rule (see
+                # `_canonical_graph_term`). Re-reading it here did two kinds
+                # of harm. Once its constraints became related, every query
+                # that touched it raised. And walks parse every node they
+                # pass, so the redundancy checks ran inside walks, recursed
+                # into further walks, and went exponential.
+                return split[0], kind, name
             return split[0], kind, self._canonical_graph_term(name)
         if "(" in split[1]:
             return None       # the flat kinds: a nested parameter stays opaque, as before
@@ -1343,7 +1352,7 @@ class OntoDAG(DAG):
                 f"refusing asserted edge {from_node.name} -> {to_node.name}")
         anchor = parsed_to is not None and parsed_to[0] == from_node.name
         if not anchor and parsed_to is not None \
-                and parsed_to[1] in _dims.RELATION_KINDS \
+                and parsed_to[1] in _dims.GRAPH_ORDERED \
                 and not getattr(self, "_role_lenient", 0) \
                 and not self._has_ancestors(to_node, (from_node,)):
             self._refuse_rule(to_node.name, parsed_to[0], from_node.name)
@@ -1920,30 +1929,27 @@ class OntoDAG(DAG):
         ones, and a new hop can close a loop: with `transport(vehicle) ⊑
         rush ⊑ transport(bicycle)`, filing `bicycle` under `vehicle` adds
         `transport(bicycle) ⊑ transport(vehicle)` (DIMENSIONS.md §18). The
-        same holds for role terms; relation terms cannot escape their head
-        at all (`_refuse_rule`), merged data aside. Such a loop
-        must leave the terms of some head, and from a term the way out is
-        an asserted parent other than its head (`_escapes`), or the head
-        itself sitting somewhere other than under a kind or a head; with
-        neither, nothing is checked. A transitive term inside itself needs
-        no loop at all, which is what `_refuse_self_containment` is for.
-        Replays (merge, sync) stay total and are never checked."""
+        same holds for role terms. Such a loop must leave the terms of some
+        head through an asserted parent other than the head (`_escapes`),
+        so only heads with such a term are checked: role heads, and merged
+        data, since `put` refuses it for every graph-ordered kind
+        (`_refuse_rule`). A transitive term inside itself needs no loop at
+        all, which is what `_refuse_self_containment` is for. Replays
+        (merge, sync) stay total and are never checked."""
         if getattr(self, "_role_lenient", 0):
             return None
         heads = self._heads()
         if not heads:
             return None
-        def leaves(head):
-            node = self.nodes.get(head)
-            return self._escapes(head) or (node is not None and any(
-                parent.name not in _dims.KINDS and parent.name not in heads
-                for parent in node.parents))
         # Only heads whose terms the graph orders can gain a hop from an
-        # edge; a value's place is fixed by its name.
+        # edge; a value's place is fixed by its name. (A head filed under
+        # an ordinary node, as loopmarket files `transport` under
+        # `operator`, opens no way out: checking it anyway would refuse
+        # plain facts whenever a folded graph-kind term became redundant.)
         roles = [head for head, (_kind, base) in heads.items()
-                 if base != head and leaves(head)]
+                 if base != head and self._escapes(head)]
         graph = [head for head, (kind, _base) in heads.items()
-                 if kind in _dims.GRAPH_ORDERED and leaves(head)]
+                 if kind in _dims.GRAPH_ORDERED and self._escapes(head)]
         if not roles and not graph:
             return None
         for term in self._terms_moved_by(from_node, to_node, roles, graph):
@@ -2016,17 +2022,17 @@ class OntoDAG(DAG):
                 if kind in _dims.MULTI_VALUED]
 
     def _refuse_rule(self, term, head, parent):
-        """A relation term filed under anything but its head states a rule
-        about every item it relates, not a fact about one item: `in(japan)`
-        under `japanese` says that whatever is in Japan is Japanese. Rules
-        are not stored (CONTRACT.md §5.1): with them, whether one term
-        contains another stops being a walk from the names involved and
-        becomes a computation over every rule in the store, and two stores
-        that know the same thing could hold different roots."""
-        param = _dims.split_term(term)[1]
+        """A graph-ordered term filed under anything but its head states a
+        rule about every item under it, not a fact about one item:
+        `in(japan)` under `japanese` says that whatever is in Japan is
+        Japanese. Rules are not stored (CONTRACT.md §5.1): with them,
+        whether one term contains another stops being a walk from the names
+        involved and becomes a computation over every rule in the store
+        (it went exponential, DIMENSIONS.md §18), and two stores that know
+        the same thing could hold different roots."""
         raise ValueError(
             f"{term} goes only under {head!r}: filing it under {parent} "
-            f"would state a rule, that whatever is {head} {param} is "
+            f"would state a rule, that everything under {term} is under "
             f"{parent}, and rules are not stored (CONTRACT.md §5.1). File "
             f"each item under both, or apply the rule outside the store")
 
@@ -2205,10 +2211,10 @@ class OntoDAG(DAG):
         the item ends up with, not about one edge.
         """
         sub_parsed = self._parse_parametric(sub_name)
-        # A relation term goes only under its head (CONTRACT.md §5.1): asked
-        # before anything is materialized. One already below the parent is
-        # a no-op, as add_edge makes it.
-        if sub_parsed is not None and sub_parsed[1] in _dims.RELATION_KINDS \
+        # A graph-ordered term goes only under its head (CONTRACT.md §5.1):
+        # asked before anything is materialized. One already below the
+        # parent is a no-op, as add_edge makes it.
+        if sub_parsed is not None and sub_parsed[1] in _dims.GRAPH_ORDERED \
                 and not getattr(self, "_role_lenient", 0):
             for name in super_names:
                 if name != sub_parsed[0] and not (
