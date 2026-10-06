@@ -215,6 +215,13 @@ future session recognizes the moment instead of pre-building:
   is what "research-grade" concretely means here. Tripwire unchanged, but
   now observable: agent traffic through the MCP surface is where
   mass-reification pressure will first show.
+  **Update 2026-10-06:** [ROLES.md](ROLES.md) proposes a strip in front
+  of this wall: relations to entities as dimensions (`in(japan)`,
+  `about(mars)`, `for(sales)`), ordered by a few kinds fixed in code, with
+  no user axioms. "Alice authored Doc1" then fits in front of the wall,
+  as `doc1 ⊑ by(alice)`. The wall itself stands: several relations of one
+  item that must stay grouped (BINDING.md's two-leg journey), relations
+  of more than two places, and axioms beyond the fixed kinds.
 - **Negation.** "Under A but not under B" requires a closed-world
   decision and prices the complement of a cone. Tripwire: repeated user
   need for exclusion queries that pre-filtering can't express.

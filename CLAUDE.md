@@ -1611,7 +1611,11 @@ owed pieces; retention classes for local-first vs. link vs. live data),
 SEMA (2026-08-17: relation to Henrik Westerberg's SEMA — per-definition
 hash identity there vs. whole-state canonical convergence here; lessons to
 take, the collaboration pitch, email draft; pack-shaped options behind the
-PACKS.md freeze), SURFACE_LAYER,
+PACKS.md freeze), ROLES (2026-10-06: what "below" means — a node is a
+class of items, below is inclusion; relations to entities become
+dimensions such as `in`, `about`, `for`; kinds vs. qualities vs.
+entities; the work order for it and for the swarm-sharing branch),
+SURFACE_LAYER,
 DATABASE_DIRECTION, SEMANTIC_CODES, BROWSER, MERKLE_NOTES,
 PHILOSOPHICAL_LANGUAGES, SWARM_DESIGN_update — nothing there is shipped;
 new discussion drafts go there. (Paths throughout this file were updated in

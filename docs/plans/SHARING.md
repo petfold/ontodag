@@ -215,6 +215,9 @@ would mean "from Alice" in one store and "for Alice" in another. Options:
   rejected: role heads order covariantly (DIMENSIONS §14,
   `R(x) ⊑ R(y)` iff `x ⊑ y`), which is the wrong direction for groups —
   what sales may see must *contain* what employees may see.
+  *(2026-10-06: [ROLES.md](ROLES.md) §6–§7 proposes a reversed
+  dimension, `for(...)`, which removes this objection and files people
+  by membership instead of above their groups.)*
 
 *Leaning:* (b) for stores that travel, with (a) as the library's actual
 parameter, so a host can still say "these, and only these".
