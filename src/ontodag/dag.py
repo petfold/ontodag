@@ -1,4 +1,5 @@
 from collections import namedtuple
+import bisect
 from contextlib import contextmanager
 from itertools import combinations
 
@@ -521,6 +522,113 @@ class DAG:
                     path.pop()
         # Nodes in topological order, with the root first
         return stack[::-1]
+
+
+_NEG, _POS = float("-inf"), float("inf")
+
+
+class _Intervals:
+    """The values of one interval head (linear, calendar, count), sorted
+    by lower bound, so a value's hops are a range rather than a scan
+    (`OntoDAG._hops`). Points can contain only themselves, so the values
+    containing a given one are looked for among the wide ones alone."""
+
+    def __init__(self, units):
+        self.units = units
+        self.family = None
+        self.entries, self.los = [], []
+        self.wide, self.wide_los = [], []
+
+    def _bounds(self, dag, name, kind, units):
+        split = _dims.split_term(name)
+        if split is None:
+            return None
+        if kind is None:
+            kind = dag._dimension_kind(split[0])
+        try:
+            family, lo, hi = _dims._denotation(
+                split[1], kind, dag._declared_units() if units is None else units)
+        except ValueError:
+            return None
+        return family, (_NEG if lo is None else lo), (_POS if hi is None else hi)
+
+    def add(self, dag, name, units=None, kind=None):
+        bounds = self._bounds(dag, name, kind, units)
+        if bounds is None:
+            return False
+        family, lo, hi = bounds
+        if self.family is None:
+            self.family = family
+        elif family != self.family:
+            return False
+        entry = (lo, hi, name)
+        at = bisect.bisect_left(self.entries, entry)
+        if at < len(self.entries) and self.entries[at] == entry:
+            return True
+        self.entries.insert(at, entry)
+        self.los.insert(at, lo)
+        if lo != hi:
+            at = bisect.bisect_left(self.wide, entry)
+            self.wide.insert(at, entry)
+            self.wide_los.insert(at, lo)
+        return True
+
+    def hops(self, dag, canonical, head, kind, up):
+        bounds = self._bounds(dag, canonical, kind, None)
+        if bounds is None or (self.family is not None
+                              and bounds[0] != self.family):
+            return None          # let the scan raise the teaching error
+        _family, lo, hi = bounds
+        out = []
+        if up:
+            for wlo, whi, name in self.wide:
+                if wlo > lo:
+                    break
+                if whi >= hi and name != canonical:
+                    out.append(name)
+            return out
+        for at in range(bisect.bisect_left(self.los, lo), len(self.entries)):
+            elo, ehi, name = self.entries[at]
+            if elo > hi:
+                break
+            if ehi <= hi and name != canonical:
+                out.append(name)
+        return out
+
+
+class _Prefixes:
+    """The values of one prefix head, sorted: a cell's finer cells are a
+    range, and its coarser ones are its own prefixes (`OntoDAG._hops`)."""
+
+    def __init__(self, units):
+        self.units = units
+        self.params = []
+
+    def add(self, dag, name, units=None, kind=None):
+        split = _dims.split_term(name)
+        if split is None:
+            return False
+        try:
+            _dims._parse_prefix(split[1])
+        except ValueError:
+            return False
+        at = bisect.bisect_left(self.params, split[1])
+        if at == len(self.params) or self.params[at] != split[1]:
+            self.params.insert(at, split[1])
+        return True
+
+    def hops(self, dag, canonical, head, kind, up):
+        param = _dims.split_term(canonical)[1]
+        if up:
+            names = (f"{head}({param[:k]})" for k in range(1, len(param)))
+            return [name for name in names if name in dag.nodes]
+        out = []
+        for other in self.params[bisect.bisect_left(self.params, param):]:
+            if not other.startswith(param):
+                break
+            if other != param:
+                out.append(f"{head}({other})")
+        return out
 
 
 class OntoDAG(DAG):
@@ -1227,25 +1335,283 @@ class OntoDAG(DAG):
         """Present same-head terms contained in `node`'s denotation — the
         computed hops of the combined order. Distinct canonical names are
         never mutually contained (equal denotation ⇒ equal name), so this
-        relation is a strict partial order on present nodes (I1)."""
+        relation is a strict partial order on present nodes (I1).
+
+        Complete under closure, not necessarily at each step: a walk that
+        follows these hops reaches every term below `node`, but a term may
+        be reached through another rather than listed directly (see
+        `_hops`). Every caller walks."""
         parsed = self._parse_parametric(node.name)
         if parsed is None:
-            return
+            return ()
         head, kind, canonical = parsed
-        for sibling, _ in self._star(head):
-            if sibling is not node and self._contains(
-                    canonical, sibling.name, kind):
-                yield sibling
+        found = self._hops(canonical, head, kind, up=False)
+        if found is None:
+            return [sibling for sibling, _ in self._star(head)
+                    if sibling is not node and self._contains(
+                        canonical, sibling.name, kind)]
+        return [self.nodes[name] for name in found if name in self.nodes]
 
     def _computed_parents(self, node):
         parsed = self._parse_parametric(node.name)
         if parsed is None:
-            return
+            return ()
         head, kind, canonical = parsed
-        for sibling, _ in self._star(head):
-            if sibling is not node and self._contains(
-                    sibling.name, canonical, kind):
-                yield sibling
+        found = self._hops(canonical, head, kind, up=True)
+        if found is None:
+            return [sibling for sibling, _ in self._star(head)
+                    if sibling is not node and self._contains(
+                        sibling.name, canonical, kind)]
+        return [self.nodes[name] for name in found if name in self.nodes]
+
+    # ---- finding computed hops without scanning (ROLES.md §9 step 4a) -------
+    #
+    # A computed hop used to be found by scanning the head's whole star, so
+    # every walk through a term, and so every put, cost time in proportion
+    # to how many terms its head had, and bulk loads were quadratic
+    # (DIMENSIONS.md §18). On a resident graph a hop is now found from the
+    # term's own parameter: interval values through a per-head index sorted
+    # by lower bound, prefix values by their prefixes, and terms the graph
+    # orders by walking from their constraints and looking up, in an index
+    # that `add_node` and `_forget` keep, the terms naming what the walk
+    # meets. A lazy reader keeps the scan, since it pays a fetch for every
+    # name it looks up and a star is what it has to fetch anyway; so does
+    # anything the indexes do not cover (role heads, the dominance kind,
+    # nested constraints, and any head the graph orders whose terms escape).
+
+    _resident = True
+
+    def add_node(self, node):
+        super().add_node(node)
+        args = getattr(self, "_args", None)
+        split = _dims.split_term(node.name)
+        if split is None:
+            return
+        if args is not None:
+            for constraint in _dims.constraints(split[1]):
+                args.setdefault(constraint, set()).add(node.name)
+        values = getattr(self, "_values", None)
+        if values is not None and split[0] in values:
+            index = values[split[0]]
+            if index is None or not index.add(self, node.name):
+                del values[split[0]]
+
+    def _unindex(self, name):
+        split = _dims.split_term(name)
+        if split is None:
+            return
+        args = getattr(self, "_args", None)
+        if args is not None:
+            for constraint in _dims.constraints(split[1]):
+                named = args.get(constraint)
+                if named is not None:
+                    named.discard(name)
+                    if not named:
+                        del args[constraint]
+        values = getattr(self, "_values", None)
+        if values is not None:
+            values.pop(split[0], None)
+
+    def _terms_naming(self, name, head):
+        """Present terms of `head` with `name` among their constraints."""
+        args = getattr(self, "_args", None)
+        if args is None:
+            args = self._args = {}
+            for present in list(self.nodes):
+                split = _dims.split_term(present)
+                if split is not None:
+                    for constraint in _dims.constraints(split[1]):
+                        args.setdefault(constraint, set()).add(present)
+        return [term for term in args.get(name, ())
+                if _dims.split_term(term)[0] == head and term in self.nodes]
+
+    def _value_index(self, head, kind):
+        """The index of `head`'s values, built on first use from its star;
+        None when the head's values cannot be indexed."""
+        values = getattr(self, "_values", None)
+        if values is None:
+            values = self._values = {}
+        units = self._declared_units()
+        index = values.get(head)
+        if index is not None and index.units is getattr(
+                self, "_unit_cache", (None,))[0]:
+            return index
+        cls = _Prefixes if kind == _dims.KIND_PREFIX else _Intervals
+        index = cls(getattr(self, "_unit_cache", (None,))[0])
+        for value, _ in self._star(head):
+            if not index.add(self, value.name, units=units, kind=kind):
+                values.pop(head, None)
+                return None
+        values[head] = index
+        return index
+
+    def _hops(self, canonical, head, kind, up):
+        """Names of present terms of `head` directly above (`up`) or below
+        `canonical`, which need not be present itself (a virtual query
+        term); or None when the star must be scanned instead."""
+        if not self._resident:
+            return None
+        base = self._dimension_of(head)[1]
+        if base != head:
+            return None                       # role terms: the base graph orders them
+        if kind in _dims._INTERVALISH or kind == _dims.KIND_PREFIX:
+            index = self._value_index(head, kind)
+            if index is None:
+                return None
+            return index.hops(self, canonical, head, kind, up)
+        if kind in _dims.GRAPH_ORDERED:
+            return self._graph_hops(canonical, head, kind, up)
+        return None
+
+    def _ancestry(self, name):
+        """`name` and everything above it reachable without walking the
+        graph-ordered kinds' own hops: asserted edges, and the computed
+        hops of values, which never recurse. A term the graph orders is
+        reached as itself, which is all `_graph_hops` asks of it."""
+        node = self.nodes.get(name)
+        if node is None:
+            return [name]
+        out, seen, frontier = [name], {name}, [node]
+        while frontier:
+            current = frontier.pop()
+            parents = [p for p in current.parents if self.nodes.get(p.name) is p]
+            parsed = _dims.split_term(current.name)
+            if parsed is not None:
+                kind = self._dimension_kind(parsed[0])
+                if kind in _dims._INTERVALISH or kind == _dims.KIND_PREFIX:
+                    parents.extend(self._computed_parents(current))
+            for parent in parents:
+                if parent.name not in seen:
+                    seen.add(parent.name)
+                    out.append(parent.name)
+                    frontier.append(parent)
+        return out
+
+    def _below_names(self, name, budget):
+        """`name` and everything below it, by asserted edges and the
+        computed hops of values; None once more than `budget` nodes are
+        met, which tells the caller a scan of the star is cheaper."""
+        node = self.nodes.get(name)
+        if node is None:
+            return [name]
+        out, seen, frontier = [name], {name}, [node]
+        while frontier:
+            current = frontier.pop()
+            children = list(current.neighbors)
+            parsed = _dims.split_term(current.name)
+            if parsed is not None:
+                kind = self._dimension_kind(parsed[0])
+                if kind in _dims._INTERVALISH or kind == _dims.KIND_PREFIX:
+                    children.extend(self._computed_children(current))
+            for child in children:
+                if child.name not in seen:
+                    seen.add(child.name)
+                    out.append(child.name)
+                    if len(out) > budget:
+                        return None
+                    frontier.append(child)
+        return out
+
+    def _graph_hops(self, canonical, head, kind, up):
+        """`_hops` for the kinds the graph orders. Candidates come from
+        walking near the term's constraints, and each is then checked with
+        `_contains`, so a candidate too many costs a check, never a wrong
+        hop. What the walks guarantee is that a walk following the hops
+        reaches every term the order puts above or below this one."""
+        param = _dims.split_term(canonical)[1]
+        xs = _dims.constraints(param)
+        if any(_dims.split_term(x) is not None for x in xs) or any(
+                self._escapes(h) for h, (k, _b) in self._heads().items()
+                if k in _dims.GRAPH_ORDERED):
+            return None              # nested constraints, or a term filed outside its head
+        head_node = self.nodes.get(head)
+        budget = len(head_node.neighbors) if head_node is not None else 0
+        found = set()
+
+        def named(names):
+            for name in names:
+                found.update(self._terms_naming(name, head))
+
+        covariant = kind != _dims.KIND_REVERSED
+        if covariant == up:
+            # Above a covariant term, or below a reversed one: every
+            # constraint of the other term is above, or is, one of ours.
+            for x in xs:
+                named(self._ancestry(x))
+            if up and kind == _dims.KIND_TRANSITIVE:
+                # ... or one of ours is inside the other term: it is then
+                # among that constraint's ancestors.
+                for x in xs:
+                    found.update(a for a in self._ancestry(x)
+                                 if _dims.split_term(a) is not None
+                                 and _dims.split_term(a)[0] == head)
+            if up and kind == _dims.KIND_ENCLOSING and self._dimension_kind(
+                    _dims.CONTAINMENT_HEAD) == _dims.KIND_TRANSITIVE:
+                for x in xs:
+                    named(self._containers(x))
+        else:
+            # Below a covariant term, or above a reversed one: some
+            # constraint of the other term is below, or is, one of ours.
+            pick = min(xs, key=lambda x: getattr(self.nodes.get(x), "descendant_count", 0))
+            below = self._below_names(pick, budget)
+            if below is None:
+                return None
+            named(below)
+            if not up and kind == _dims.KIND_TRANSITIVE:
+                # ... or inside this very term: what is filed in it
+                node = self.nodes.get(canonical)
+                if node is not None:
+                    inside = self._below_names(canonical, budget)
+                    if inside is None:
+                        return None
+                    named(inside)
+            if not up and kind == _dims.KIND_ENCLOSING and self._dimension_kind(
+                    _dims.CONTAINMENT_HEAD) == _dims.KIND_TRANSITIVE:
+                located = f"{_dims.CONTAINMENT_HEAD}({param})"
+                inside = self._located_in(located, budget)
+                if inside is None:
+                    return None
+                named(inside)
+        found.discard(canonical)
+        if up:
+            return [t for t in found if self._contains(t, canonical, kind)]
+        return [t for t in found if self._contains(canonical, t, kind)]
+
+    def _containers(self, name):
+        """Everything `name` is located in, by the transitive `in`: the
+        places named by every `in(...)` above it, everything above those
+        places (in(n6) ⊑ in(n1) once n6 ⊑ n1, by the graph rule), and, the
+        same way, whatever those are located in."""
+        out, seen = [], {name}
+        frontier = [(name, False)]
+        while frontier:
+            current, is_place = frontier.pop()
+            for ancestor in self._ancestry(current):
+                split = _dims.split_term(ancestor)
+                if split is not None and split[0] == _dims.CONTAINMENT_HEAD:
+                    for place in _dims.constraints(split[1]):
+                        if place not in seen:
+                            seen.add(place)
+                            out.append(place)
+                            frontier.append((place, True))
+                elif is_place and ancestor not in seen:
+                    seen.add(ancestor)
+                    out.append(ancestor)
+        return out
+
+    def _located_in(self, located, budget):
+        """Everything below `in(X…)`, present or virtual, within `budget`."""
+        node = self.nodes.get(located)
+        if node is not None:
+            cone = self.get_descendants(node)
+        else:
+            parsed = self._parse_parametric(located)
+            if parsed is None:
+                return []
+            cone = self._virtual_cone(parsed[0], parsed[1], parsed[2])
+        if len(cone) > budget:
+            return None
+        return [n.name for n in cone]
 
     def get_overlapping(self, term):
         """Present nodes that POSSIBLY satisfy `term`: the values of its
@@ -1375,11 +1741,24 @@ class OntoDAG(DAG):
         read-only client can ask any threshold without writing
         (DIMENSIONS.md §8)."""
         cone = set()
-        for value, _ in self._star(head):
-            if self._contains(canonical, value.name, kind):
-                cone.add(value)
-                cone |= self.get_descendants(value)
+        for value in self._contained_values(canonical, head, kind):
+            cone.add(value)
+            cone |= self.get_descendants(value)
         return cone
+
+    def _contained_values(self, canonical, head, kind):
+        """Present terms of `head` inside `canonical`, which need not be
+        present: the term itself if it is, and what its hops lead to (a
+        walk from these reaches the rest)."""
+        found = self._hops(canonical, head, kind, up=False)
+        if found is None:
+            return [value for value, _ in self._star(head)
+                    if self._contains(canonical, value.name, kind)]
+        values = [self.nodes[name] for name in found if name in self.nodes]
+        node = self.nodes.get(canonical)
+        if node is not None:
+            values.append(node)
+        return values
 
     def _ensure_parametric_node(self, canonical, head, kind):
         """Materialize a used value: one node, one anchor edge under its
@@ -1424,24 +1803,30 @@ class OntoDAG(DAG):
                 f"within dimension {parsed_from[0]!r} the order is computed: "
                 f"refusing asserted edge {from_node.name} -> {to_node.name}")
         anchor = parsed_to is not None and parsed_to[0] == from_node.name
+        # A value or term anchored under its head as it is first used
+        # (`_ensure_parametric_node`) makes no edge redundant, moves no term
+        # and closes no loop: any path through it already existed without
+        # it, because containment between its head's terms is transitive
+        # and every one of them hangs under the same head. So it costs only
+        # its count deltas, however many values the head already has.
+        fresh_anchor = anchor and not self._live_parents(to_node)
         if not anchor and parsed_to is not None \
                 and parsed_to[1] in _dims.GRAPH_ORDERED \
                 and not getattr(self, "_role_lenient", 0) \
-                and not self._has_ancestors(to_node, (from_node,)):
+                and not self._below(to_node, from_node):
             self._refuse_rule(to_node.name, parsed_to[0], from_node.name)
-        # Skip the edge entirely if to_node is already reachable in the
-        # combined (asserted + computed) order — adding it would violate
+        # Skip the edge entirely if to_node is already below from_node in
+        # the combined (asserted + computed) order — adding it would violate
         # transitive reduction (and made results depend on the order of
         # super-categories in put). Anchor edges are schema and always kept.
-        # Both this and the cycle check below are asked UPWARD (is X among
-        # Y's ancestors?): ancestor cones are shallow where descendant cones
-        # can be most of the graph — the same direction rule the query
-        # planner follows, and what keeps writes local for the
-        # partially-resident writer.
-        if not anchor and self._has_ancestors(to_node, (from_node,)):
+        # Both this and the cycle check below are `is_below` questions,
+        # asked UPWARD: it walks computed hops only where they can lead
+        # out of a head's terms and decides a term bound by containment, so
+        # neither check enumerates the terms that contain a term.
+        if not anchor and self._below(to_node, from_node):
             return
         # Reject cycles — through computed hops too — before anything mutates.
-        if self._has_ancestors(from_node, (to_node,)):
+        if not fresh_anchor and self._below(from_node, to_node):
             raise ValueError(
                 f"Edge {from_node.name} -> {to_node.name} would create a cycle."
             )
@@ -1457,6 +1842,9 @@ class OntoDAG(DAG):
         self._maybe_invalidate_heads(from_node, to_node)
         with self._counts_unchanged():
             super().add_edge(from_node, to_node)              # structure only
+        if fresh_anchor:
+            self._apply_count_deltas(deltas)
+            return
         self._note_escape(from_node, to_node, added=True)
         looped = self._term_on_new_cycle(from_node, to_node)
         if looped is not None:
@@ -1470,6 +1858,12 @@ class OntoDAG(DAG):
         self._apply_count_deltas(deltas)
         self._remove_unneeded_edges(from_node, to_node)
         self._reduce_roles_touching(from_node, to_node)
+
+    def _below(self, lower, upper):
+        """Is `lower` strictly below `upper` in the combined order, for two
+        present nodes? The `is_below` question (`lower` and `upper` differ
+        wherever this is asked), so it shares its memo and its walk."""
+        return lower is not upper and self.is_below(lower.name, upper.name)
 
     # Stand-in for the typical ancestor-cone size, which is not maintained
     # per node. Used only to choose between two *exact* operators in get(),
@@ -1629,8 +2023,7 @@ class OntoDAG(DAG):
         cones = [_Cone("node", node.descendant_count, node.name, node)
                  for node in minimal]
         for name, (head, kind) in virtual.items():
-            values = [value for value, _ in self._star(head)
-                      if self._contains(name, value.name, kind)]
+            values = self._contained_values(name, head, kind)
             cones.append(_Cone("virtual", self._cone_size(values), name,
                                values))
         cones.sort(key=lambda cone: (cone.size, cone.name))
@@ -1678,19 +2071,11 @@ class OntoDAG(DAG):
         it: present terms are strict ancestors (one combined climb, all at
         once); a virtual containment term is met when the candidate or a
         combined ancestor is one of its contained values."""
-        nodes = [cone.payload for cone in cones if cone.kind == "node"]
-        if nodes and not self._has_ancestors(candidate, nodes):
-            return False
-        pending = [set(cone.payload) for cone in cones
-                   if cone.kind == "virtual" and candidate not in cone.payload]
-        if not pending:
-            return True
-        for ancestor in self._walk_ancestors(candidate):
-            pending = [members for members in pending
-                       if ancestor not in members]
-            if not pending:
-                return True
-        return False
+        # Each is an `is_below` question: it climbs from the candidate with
+        # computed hops only where they can lead out of a head's terms, and
+        # meets a term bound by containment, so a probe never enumerates
+        # the terms that contain the candidate's own.
+        return all(self.is_below(candidate.name, cone.name) for cone in cones)
 
     def _items_only(self, found):
         """The answer minus what only carries the order: parametric values
@@ -1804,10 +2189,13 @@ class OntoDAG(DAG):
             # A virtual subject relates upward only through the present
             # values that contain it.
             head, kind, _ = sub_parsed
-            return any(
-                self._contains(value.name, sub, kind)
-                and self.is_below(value, sup)
-                for value, _kind in self._star(head))
+            above = self._hops(sub, head, kind, up=True)
+            if above is None:
+                return any(
+                    self._contains(value.name, sub, kind)
+                    and self.is_below(value, sup)
+                    for value, _kind in self._star(head))
+            return any(self.is_below(name, sup) for name in above)
         if sup_parsed is not None:
             # A bound that is a term, present or virtual, is met by an
             # ancestor of its head whose denotation it contains (or the
@@ -2137,7 +2525,8 @@ class OntoDAG(DAG):
             return parsed is not None and parsed[1] == _dims.KIND_TRANSITIVE
         parent = self.nodes.get(parent_name)
         if not transitive_term(parent_name) and (parent is None or not any(
-                transitive_term(a.name) for a in self.get_ancestors(parent))):
+                transitive_term(a.name)
+                for a in self._walk_ancestors(parent, computed=self._lean))):
             return
         for node in [child, *self.get_descendants(child)]:
             name = node.name
@@ -2162,6 +2551,7 @@ class OntoDAG(DAG):
         that still contained the deleted records."""
         del self.nodes[name]
         self._changed()
+        self._unindex(name)
         self._heads_cache = None
         self._dim_cache = None
         self._escape_cache = None

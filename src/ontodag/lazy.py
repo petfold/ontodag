@@ -141,6 +141,11 @@ class LazyOntoDAG(OntoDAG):
     store to change underneath it.
     """
 
+    # A lazy reader finds computed hops by scanning a star, as it always
+    # has: it pays a fetch for every name it looks up, and a star is what
+    # it has to fetch anyway (`OntoDAG._hops`).
+    _resident = False
+
     def __init__(self, record_store, cache_cones=True, max_cached_cones=64,
                  cone_index=None):
         super().__init__()
