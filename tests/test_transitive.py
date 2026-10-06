@@ -33,7 +33,7 @@ import unittest
 from recordstore import MemoryBytesStore, RecordStore
 
 from ontodag import prelude
-from ontodag.dag import OntoDAG
+from ontodag.dag import DAG, Item, OntoDAG
 from ontodag.eager import EagerOntoDAG
 from ontodag.lazy import LazyOntoDAG, SparseOntoDAG
 
@@ -443,6 +443,63 @@ class TestAudience(unittest.TestCase):
             eager.put(name, supers)
             sparse.put(name, supers)
         self.assertEqual(eager.commit(), sparse.commit())
+
+
+class TestDeepChains(unittest.TestCase):
+    """Containment must not cost a stack frame per level (I6). Asking
+    whether a photo in p0 is in p3000 walks 3,000 containers; when the
+    transitive rule recursed through is_below, 200 levels ran out of stack.
+    Everything is built directly, edge by edge, so the test measures the
+    question and not the cost of filing (which still grows with the
+    number of terms per head: DIMENSIONS.md §18)."""
+
+    @staticmethod
+    def chain(dag, depth, head, name):
+        # p0 ⊑ head(p1) ⊑ … : each term anchored under its head, each place
+        # under the next place's term — already reduced, so no put needed
+        head_node = dag.nodes[head]
+        top = Item(f"{name}{depth}")
+        dag.add_node(top)
+        DAG.add_edge(dag, dag.root, top)
+        for i in range(depth - 1, -1, -1):
+            place, term = Item(f"{name}{i}"), Item(f"{head}({name}{i + 1})")
+            dag.add_node(place)
+            dag.add_node(term)
+            DAG.add_edge(dag, head_node, term)
+            DAG.add_edge(dag, term, place)
+
+    @staticmethod
+    def hang(dag, name, term):
+        """`name` filed under `term`, the term anchored under its head."""
+        item, node = Item(name), dag.nodes.get(term) or Item(term)
+        if term not in dag.nodes:
+            dag.add_node(node)
+            DAG.add_edge(dag, dag.nodes[term.split("(")[0]], node)
+        dag.add_node(item)
+        DAG.add_edge(dag, node, item)
+
+    def test_three_thousand_levels(self):
+        dag = declare(about=True, audience=True)
+        self.chain(dag, 3000, "in", "p")
+        self.hang(dag, "photo", "in(p0)")
+        self.hang(dag, "note", "about(p0)")
+        self.assertTrue(dag.is_below("photo", "in(p3000)"))
+        self.assertTrue(dag.is_below("note", "about(p3000)"))
+        self.assertFalse(dag.is_below("photo", "about(p3000)"))
+        # nested groups, each under the next: what is for the top group is
+        # for the bottom one (500 deep: the reversed rule walks plain
+        # ancestors and never recursed; deeper only costs setup time, each
+        # edge raising every ancestor's count)
+        top = Item("g500")
+        dag.add_node(top)
+        DAG.add_edge(dag, dag.root, top)
+        for i in range(499, -1, -1):
+            group = Item(f"g{i}")
+            dag.add_node(group)
+            DAG.add_edge(dag, dag.nodes[f"g{i + 1}"], group)
+        self.hang(dag, "doc", "for(g500)")
+        self.assertTrue(dag.is_below("doc", "for(g0)"))
+        self.assertFalse(dag.is_below("doc", "for(p0)"))
 
 
 class TestCertificatesAcrossProcesses(unittest.TestCase):

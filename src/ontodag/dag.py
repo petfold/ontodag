@@ -993,7 +993,7 @@ class OntoDAG(DAG):
             # A transitive relation also chains (DIMENSIONS.md §16): when
             # some x is itself related to an `outer` thing, so is whatever
             # is related to x. Tokyo in Japan puts in(tokyo) inside in(japan).
-            return any(self._below_guarded(x, outer) for x in ins)
+            return any(self._within(x, outer, head_o) for x in ins)
         if kind == _dims.KIND_ENCLOSING and self._dimension_kind(
                 _dims.CONTAINMENT_HEAD) == _dims.KIND_TRANSITIVE:
             # An enclosing relation follows containment (§17): when some
@@ -1001,8 +1001,81 @@ class OntoDAG(DAG):
             # to x is related to that thing. A photo about Tokyo is about
             # Japan once Tokyo is in Japan.
             located = f"{_dims.CONTAINMENT_HEAD}({param_o})"
-            return any(self._below_guarded(x, located) for x in ins)
+            return any(self._within(x, located, _dims.CONTAINMENT_HEAD)
+                       for x in ins)
         return False
+
+    def _within(self, name, outer, head):
+        """Is `name` below `outer`, a term of the transitive `head`? Asked
+        by the transitive and enclosing rules, and answered by a worklist
+        rather than by `is_below`, which would recurse once per level of
+        containment: a chain of two hundred places ran out of stack (I6).
+
+        `name` is below `outer` when one of its ancestors is a term
+        `head(Z…)` inside `outer`: by the graph rule (every constraint of
+        `outer` above some z), or because some z is itself below `outer`,
+        which is the same question one container further out. So each z
+        joins the worklist, and the containers are walked outward until
+        the rule is met or they run out. The graph rule's own questions
+        are about plain constraints, answered by an upward walk.
+
+        Every container the search settles is memoized, which is what keeps
+        a scan over a head's terms linear: on a miss, everything explored
+        misses too (each container's search lies inside the one just
+        exhausted), and on a hit, so does every container on the path."""
+        key = ("within", name, outer)
+        hit = self._memo_get(key)
+        if hit is not _MISSING:
+            return hit
+        trips = self._trips()
+        outs = _dims.constraints(_dims.split_term(outer)[1])
+
+        def meets(term):
+            zs = _dims.constraints(_dims.split_term(term)[1])
+            return all(any(z == a or self._below_guarded(z, a) for z in zs)
+                       for a in outs), zs
+
+        hit_at = None
+        came_from = {name: None}
+        frontier = [name]
+        while frontier and hit_at is None:
+            current = frontier.pop()
+            known = self._memo_get(("within", current, outer))
+            if known is True:
+                hit_at = current
+                break
+            if known is False:
+                continue
+            node = self.nodes.get(current)
+            if node is None:
+                # A virtual term as a constraint (in(in(japan)) names
+                # in(japan)): rare, and only as deep as names nest.
+                if self._below_guarded(current, outer):
+                    hit_at = current
+                continue
+            for ancestor in [node, *self._walk_ancestors(node, computed=self._lean)]:
+                split = _dims.split_term(ancestor.name)
+                if split is None or split[0] != head \
+                        or self._parse_parametric(ancestor.name) is None:
+                    continue
+                ok, zs = meets(ancestor.name)
+                if ok:
+                    hit_at = current
+                    break
+                for z in zs:
+                    if z not in came_from:
+                        came_from[z] = current
+                        frontier.append(z)
+        if self._trips() != trips:
+            return hit_at is not None
+        if hit_at is None:
+            for z in came_from:
+                self._memo_put(("within", z, outer), False)
+            return False
+        while hit_at is not None:
+            self._memo_put(("within", hit_at, outer), True)
+            hit_at = came_from[hit_at]
+        return True
 
     def _graph_intersect(self, a, b):
         """The meet of two same-head category terms: a thing under both

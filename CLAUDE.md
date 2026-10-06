@@ -844,9 +844,31 @@ larger worlds, 0 disagreements. **Found and NOT changed** (CHANGELOG
 "Known issue"): graph-kind terms are not re-reduced when a constraint
 moves (stored form depends on filing order, a G1 break since 0.26.0; fix
 = add graph heads to the re-reduction, waits for loopmarket with the
-folding question); and filing cost grows with terms per head (~50 ms/put
-among 600 terms; `for` per person needs an index before release). Next:
-3.5, narrower relations.
+folding question); and filing cost grows with terms per head.
+
+**Peter's ruling on item 12 (2026-10-06/07): "We expect very large
+graphs, so exponential is out of the question."** (Memory:
+`very-large-graphs`.) The audit that followed: (1) the released graph
+kind was exponential with escapes too (38/60 worlds) — escapes refused
+for every GRAPH_ORDERED kind (`_refuse_rule`); loopmarket's suite passes
+against the tree (297 passed); (2) every parse re-checked a STORED
+graph-ordered term for redundancy — after `courier ⊑ transport(bicycle
+fragile)` then `bicycle ⊑ fragile`, every query touching it raised
+(since 0.26.0), and the checks ran inside walks and recursed (2/60
+graph-kind worlds exponential without escapes) — a present name now
+parses as stored; (3) the loop check had also run for heads filed under
+an ordinary node (loopmarket's `transport ⊑ operator`), where it would
+mistake the folding issue for a loop and refuse plain facts — now gated
+on `_escapes` only; (4) an `in` chain 200 deep raised RecursionError —
+`_within` is a worklist over containers that memoizes everything it
+settles; 3,000 levels answer in 0.15 s (`TestDeepChains`). **Open and
+measured:** per-put cost is linear in the terms per head for every
+dimension kind (star scans): weight 31/73/156 ms at 200/400/800 values,
+same as 0.28.0; in 28/64/132; for 8/18/39; plain 0.1 flat. Declaring
+in/for doubles it on value-heavy stores (re-reduction's full cones).
+Proposed as ROLES.md §9 step 4a, output-sensitive hops, before 3.5 —
+awaiting Peter. Benchmark: scratchpad `bench_scale.py SHAPE SIZES`
+(session-local; re-create from the shapes above).
 
 ## Role heads (2026-09-12) — issue #15 closed, DIMENSIONS.md §14
 

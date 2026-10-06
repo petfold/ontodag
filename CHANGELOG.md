@@ -38,6 +38,9 @@ the version numbers appear in commit history and docs.
   - A merge that unions contradictory facts (x in y in one store, y in x
     in the other) stays total and keeps both as data: reduction no
     longer prunes on a cycle, which had orphaned a node.
+  - Containment is walked iteratively, so a chain of 3,000 places
+    answers in 0.15 s; the first version recursed once per level and ran
+    out of stack at about 200.
   - Tested against an independent oracle on random worlds
     (`tests/test_transitive.py`).
 - **The enclosing kind** (`enclosing-dimension`, registry 4.3;
@@ -129,10 +132,14 @@ the version numbers appear in commit history and docs.
   ways, against G1. The fix is the re-reduction the relation kinds
   already use (DIMENSIONS.md §16); it changes graph-kind stored form, so
   it waits for loopmarket, with the folding above.
-- **Filing under graph-ordered terms costs time proportional to the
-  number of terms of each head the edge touches**: about 50 ms per put
-  among 600 terms. A `for` term per person needs an index before large
-  organizations use it (DIMENSIONS.md §18).
+- **Filing costs time proportional to the number of terms of each head
+  an edge touches**, in every dimension kind (released ones too): each
+  computed hop is found by scanning the head's whole star, so bulk loads
+  are quadratic. Per put with 200, 400 and 800 distinct `weight` values:
+  31, 73 and 156 ms, the same as in 0.28.0; a plain DAG stays at 0.1 ms.
+  Declaring `in` or `for` doubles that on stores with many values
+  (DIMENSIONS.md §18). The proposed fix is output-sensitive hops
+  (ROLES.md §9).
 
 ## [0.29.0] — 2026-10-06
 

@@ -939,6 +939,17 @@ memoized against a version counter that `add_node`, `add_edge`,
 `remove_edge` and `_forget` bump. Lazy expansion does not bump it: it
 reveals an immutable snapshot, so a memoized answer stays true.
 
+**Iterative containment** (2026-10-07). The transitive rule asked
+`is_below(x, R(A…))` of each constraint x, which walks x's ancestors and
+asks the rule again of each container: a stack frame per level of
+containment, so a chain of two hundred places ran out of stack (I6).
+`_within` answers the same question with a worklist over containers, and
+memoizes every container it settles: a miss settles everything explored,
+since each container's search lies inside the one just exhausted, and a
+hit settles the path to it. A scan over a head's terms therefore stays
+linear. The enclosing rule uses it too. A chain of 3,000 places answers
+in 0.15 s (`TestDeepChains`).
+
 **Tests.** `tests/test_transitive.py`. An oracle recomputes the order
 from the asserted edges alone, as the least fixpoint of four rules
 (§17 and §18 later added one each, for `about` and `for`)
@@ -1138,13 +1149,17 @@ filed under an ordinary node, as loopmarket files `transport` under
 stored conjunction that became redundant contains its reduced twin both
 ways, above) for a loop, and refuse ordinary facts.
 
-**Cost, measured and not fixed here.** Filing under graph-ordered terms
-takes time proportional to the number of terms of each head the edge
-touches. 300 documents, each under its own `for(person)` and
-`transport(kind)` among 600 terms, took about 50 ms per put: pruning
-about 45% of it and the re-reduction of §16 about 20%. A `for` term per
-person is the natural use, so a large organization needs an index before
-this is released (ROLES.md §9).
+**Cost, measured and not fixed here.** Filing cost grows with the
+number of terms of each head an edge touches, for every dimension kind,
+released ones included, because every computed hop is found by scanning
+the head's star. Per put, with 200, 400 and 800 terms: `weight` values
+31, 73 and 156 ms (the same in 0.28.0), `in` places 28, 64 and 132, and
+`for` people 8, 18 and 39, while a plain DAG stays at 0.1 ms. Bulk loads
+are therefore quadratic. Declaring a relation kind doubles the cost on a
+store with many values, since re-reduction computes a full cone on every
+edge, and that will matter once the prelude declares `in` and `for`
+(ROLES.md §9 step 3.7). The fix, output-sensitive hops, is proposed as
+its own step before the release (ROLES.md §9).
 
 **Tests.** In `tests/test_transitive.py`: `TestAudience` (nine), and
 `TestCertificatesAcrossProcesses`, which verifies certificates for `in`,
