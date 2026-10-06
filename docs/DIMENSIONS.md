@@ -941,6 +941,7 @@ reveals an immutable snapshot, so a memoized answer stays true.
 
 **Tests.** `tests/test_transitive.py`. An oracle recomputes the order
 from the asserted edges alone, as the least fixpoint of four rules
+(§17 and §18 later added one each, for `about` and `for`)
 (reflexive, transitive, asserted, the lift), and checks on 40 random
 worlds every `is_below` answer between names and `in(name)` terms,
 every refusal, and the reduced stored form. Order independence and
@@ -961,7 +962,13 @@ single-valued, the fold changes the meaning: `about(mars)` and
 `about(earth)` store `about(earth mars)`, about one thing that is both.
 ROLES.md §9 step 3.3 gives `about` the transitive kind's treatment
 instead; whether the graph kind should keep folding is loopmarket's
-question.
+question. A second gap, found while building §18: graph-kind terms are
+not re-reduced when a constraint moves. `courier-x` under
+`transport(small-item)` and under `bike-courier ⊑ transport(bicycle)`
+keeps both edges if `bicycle ⊑ small-item` comes afterwards, and only the
+second if it came first. Adding the graph kind's heads to the
+re-reduction below would fix it; that changes graph-kind stored form, so
+it waits for the same decision.
 
 ## 17. The enclosing kind: relations that follow `in` (2026-10-06)
 
@@ -1040,3 +1047,96 @@ Ljubljana stays a city. The reverse is not derived: something
 needs named places and cells in one query, is a rule that lets `in`
 follow cells. That rule became sound only when membership left `in`
 (§16): a member of a department is nowhere on the map.
+
+## 18. The reversed kind: audiences (2026-10-06)
+
+**The case.** `for` relates an item to the people it is meant for, and
+access runs against membership: what is for a group is for each member.
+So the order of `for` terms runs against the graph. Once Alice is a sales
+employee, `for(sales-employee) ⊑ for(alice)`, and whatever Alice may see
+is the one cone below `for(alice)` (ROLES.md §6–§7). Every earlier kind
+orders its terms the way their arguments are ordered; this one reverses
+it.
+
+**Declaration.** A head under the kind node `reversed-dimension`: `odag
+put reversed-dimension dimension`, then `odag put for
+reversed-dimension`. Not in the prelude yet (ROLES.md §9 step 3.7). The
+head's name is the store's (`for` here; ROLES.md §8 still lists
+`shared-with` as the alternative); no code refers to it.
+
+**Order.** `R(X…) ⊑ R(A…)` iff every X is above (or is) some A: the graph
+kind's rule with the two sides swapped. A parameter names a class of
+people as a conjunction, so `for(manager sales-employee)` is for the
+people who are both, and `for(sales-employee) ⊑ for(manager
+sales-employee)`: what is for every sales employee is for the sales
+managers. A redundant constraint is refused, as for the graph kind,
+since it is the parameter's class that counts, whichever way the order
+runs.
+
+**Kinds only, never `in`.** Membership is said by kinds (§16, "Scope"),
+and the reversed rule follows the plain order alone. Following `in` would
+turn a location fact into an access grant: whoever filed Alice as living
+in Tokyo would give her whatever is `for(japan)`.
+
+**No folding, no meets.** A budget can be for sales and for finance, and
+the union of two audiences has no single name; the conjunction
+`for(finance-employee sales-employee)` names the people in both, which is
+a wider class of items, not the meet. So reversed terms are multi-valued
+like transitive and enclosing ones: never folded, and met only by
+containment (`meet(for(acme-employee), for(sales-employee))` is
+`for(acme-employee)`).
+
+**No guard of its own.** Two `for` terms contain each other only if their
+parameters do, which takes a cycle the ordinary check refuses, or a
+redundant constraint the spelling refuses.
+
+**Relation terms go only under their head** (all three kinds over nodes:
+transitive, enclosing, reversed). Filing `for(board)` under `secret`
+would say that everything for the board is secret: a rule, not a fact
+about an item. The contract keeps rules out (CONTRACT.md §5.1), and the
+random worlds showed why. With such edges the containment of terms
+depends on rules anywhere in the store, and the recursive evaluation went
+exponential: with them, 19 of 60 worlds using `in` and `about` hit a put
+slower than three seconds, and 43 of 60 using `for`; without them the
+slowest put took 12 ms. `put`, `reclassify` and `add_edge` refuse such a
+term under anything but its head, before anything is materialized;
+merges and syncs stay lenient. These kinds are unreleased, so no stored
+name is affected. Values of the arithmetic kinds still go under plain
+names (a region above cells, §14), and so do graph-kind terms (released
+in 0.26.0).
+
+**A loop no pre-check can see, now refused for every kind the graph
+orders.** The cycle check in `add_edge` runs before the edge exists, so
+it sees only the computed hops already there, and an edge can create a
+new one. With `transport(vehicle)` under a plain `rush` that is below
+`transport(bicycle)`, filing `bicycle` under `vehicle` adds
+`transport(bicycle) ⊑ transport(vehicle)`, and three names denote one
+class (I1). That was possible for the graph kind since 0.26.0 and for
+role terms since 0.25.0, whenever a term is filed outside its head.
+`add_edge` now checks, after placing the edge, whether a term whose
+constraints it moved lies on a loop; if one does, it removes the edge
+and refuses, and nothing moves. The check runs only for heads whose
+terms are filed outside their head (`_escapes`, now a per-DAG cache that
+edges keep current, instead of a scan after every change), so otherwise
+it costs nothing measurable.
+
+**Cost, measured and not fixed here.** Filing under graph-ordered terms
+takes time proportional to the number of terms of each head the edge
+touches. 300 documents, each under its own `for(person)` and
+`transport(kind)` among 600 terms, took about 50 ms per put: pruning
+about 45% of it and the re-reduction of §16 about 20%. A `for` term per
+person is the natural use, so a large organization needs an index before
+this is released (ROLES.md §9).
+
+**Tests.** In `tests/test_transitive.py`: `TestAudience` (nine), and
+`TestCertificatesAcrossProcesses`, which verifies certificates for `in`,
+`about` and `for` under three hash seeds, since the reversed rule walks
+up from the bound's argument as no earlier kind does. The oracle there
+gained the reversed rule, `for` facts, and terms filed under plain names
+(expected refused) in its random worlds; a one-off run on 300 larger
+worlds found no disagreement in refusals, answers, stored form, order or
+merge. The loop: `TestNoLoopThroughAComputedLink` (graph kind) and
+`TestNoLoopThroughARoleLink` (role heads).
+
+Registry still **4.3**: this cycle's kinds land together, and this one is
+additive. Prelude unchanged (v3).

@@ -124,14 +124,34 @@ KIND_TRANSITIVE = "transitive-dimension"
 # (DIMENSIONS.md §17). The relation itself does not chain, so it needs no
 # guard.
 KIND_ENCLOSING = "enclosing-dimension"
+# Reversed is the kind for an audience: `for` (docs/plans/ROLES.md §6–§7).
+# Its parameters are graph constraints that name a class of people, and
+# the order runs against the graph: `R(X) ⊑ R(Y)` when the Y's are among
+# the X's (every constraint of X is above, or is, some constraint of Y).
+# What is for a group is for each member, so once Alice is a sales
+# employee, `for(sales-employee) ⊑ for(alice)`, and whatever she may see
+# is the one cone below `for(alice)`. It follows kinds only, never `in`:
+# a location fact must not grant access. Like the transitive kind it never
+# folds or meets, since a plan can be for sales and for finance, and the
+# union of two audiences has no single name (DIMENSIONS.md §18).
+KIND_REVERSED = "reversed-dimension"
 KINDS = frozenset({KIND_LINEAR, KIND_PREFIX, KIND_DOMINANCE, KIND_CALENDAR,
-                   KIND_COUNT, KIND_GRAPH, KIND_TRANSITIVE, KIND_ENCLOSING})
+                   KIND_COUNT, KIND_GRAPH, KIND_TRANSITIVE, KIND_ENCLOSING,
+                   KIND_REVERSED})
 # Kinds whose parameters are constraints on the graph, ordered by the DAG
 # rather than by arithmetic on the name.
-GRAPH_ORDERED = frozenset({KIND_GRAPH, KIND_TRANSITIVE, KIND_ENCLOSING})
+GRAPH_ORDERED = frozenset({KIND_GRAPH, KIND_TRANSITIVE, KIND_ENCLOSING,
+                           KIND_REVERSED})
+# The kinds over nodes that contract 0.2 admitted (CONTRACT.md §5.1):
+# relations from an item to an entity. Their terms go only under their own
+# head. Filing one under anything else states a rule ("whatever is in
+# Japan is Japanese") rather than a fact about an item, and rules are not
+# stored: they would make the order a computation over the whole store.
+RELATION_KINDS = frozenset({KIND_TRANSITIVE, KIND_ENCLOSING, KIND_REVERSED})
 # Kinds an item can hold several values of at once: their terms are never
 # folded into one combined term, and two of them meet only by containment.
-MULTI_VALUED = frozenset({KIND_TRANSITIVE, KIND_ENCLOSING})
+# Today these are exactly the relation kinds.
+MULTI_VALUED = RELATION_KINDS
 # The transitive head an enclosing-kind head follows (ROLES.md §5).
 CONTAINMENT_HEAD = "in"
 _LINEARISH = frozenset({KIND_LINEAR, KIND_CALENDAR})

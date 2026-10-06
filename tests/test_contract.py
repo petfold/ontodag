@@ -209,27 +209,32 @@ class TestG6GetOverlapping(unittest.TestCase):
 
 
 def declare_relations(dag):
-    """`in` as a transitive dimension and `about` as an enclosing one
-    (§5.1); their kind nodes are not in the prelude yet."""
+    """`in` as a transitive dimension, `about` as an enclosing one and
+    `for` as a reversed one (§5.1); their kind nodes are not in the
+    prelude yet."""
     dag.put("dimension", [])
     dag.put("transitive-dimension", ["dimension"])
     dag.put("in", ["transitive-dimension"])
     dag.put("enclosing-dimension", ["dimension"])
     dag.put("about", ["enclosing-dimension"])
+    dag.put("reversed-dimension", ["dimension"])
+    dag.put("for", ["reversed-dimension"])
     return dag
 
 
-PLACES = ("asia", "japan", "tokyo", "osaka", "photo", "guidebook")
+PLACES = ("asia", "japan", "tokyo", "osaka", "photo", "guidebook",
+          "staff", "alice", "memo")
 FACTS = (("japan", "in(asia)"), ("tokyo", "in(japan)"),
          ("photo", "in(tokyo)"), ("photo", "in(japan)"),   # redundant
-         ("guidebook", "about(tokyo)"))
+         ("guidebook", "about(tokyo)"),
+         ("alice", "staff"), ("memo", "for(staff)"))
 
 
 class TestDimensionsOverNodes(unittest.TestCase):
     """§5.1 (contract 0.2): relations to entities as dimension terms keep
     G1, G2 and G4, and the strictness guard never makes a merge refuse."""
 
-    TERMS = [f"{head}({place})" for head in ("in", "about")
+    TERMS = [f"{head}({place})" for head in ("in", "about", "for")
              for place in PLACES]
 
     def build(self, facts, dag=None):
@@ -253,6 +258,9 @@ class TestDimensionsOverNodes(unittest.TestCase):
         # Tokyo, not in it
         self.assertFalse(dag.is_below("photo", "japan"))
         self.assertFalse(dag.is_below("guidebook", "in(tokyo)"))
+        # what is for the staff is for Alice; the memo is not Alice
+        self.assertTrue(dag.is_below("memo", "for(alice)"))
+        self.assertFalse(dag.is_below("memo", "alice"))
 
     def test_g2_truths_survive_merge(self):
         ours = self.build(FACTS)

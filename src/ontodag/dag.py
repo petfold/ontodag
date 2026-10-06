@@ -674,6 +674,7 @@ class OntoDAG(DAG):
     def remove_edge(self, from_node, to_node):
         self._maybe_invalidate_heads(from_node, to_node)
         super().remove_edge(from_node, to_node)
+        self._note_escape(from_node, to_node, added=False)
 
     # ---- role parameters that name nodes (DIMENSIONS.md §14) --------------
 
@@ -975,8 +976,18 @@ class OntoDAG(DAG):
         if head_o != head_i:
             raise ValueError(f"cannot compare across heads: {outer!r} vs {inner!r}")
         ins = _dims.constraints(param_i)
+        outs = _dims.constraints(param_o)
+        if kind == _dims.KIND_REVERSED:
+            # The order runs against the graph (DIMENSIONS.md §18): what is
+            # for the whole of `inner`'s audience is for every part of it,
+            # so `inner ⊑ outer` when `outer`'s audience lies inside
+            # `inner`'s — every constraint of `inner` is above (or is) some
+            # constraint of `outer`. Alice a sales employee puts
+            # for(sales-employee) inside for(alice). Kinds only: no `in`.
+            return all(any(a == x or self._below_guarded(a, x) for a in outs)
+                       for x in ins)
         if all(any(x == a or self._below_guarded(x, a) for x in ins)
-               for a in _dims.constraints(param_o)):
+               for a in outs):
             return True
         if kind == _dims.KIND_TRANSITIVE:
             # A transitive relation also chains (DIMENSIONS.md §16): when
@@ -1331,6 +1342,11 @@ class OntoDAG(DAG):
                 f"within dimension {parsed_from[0]!r} the order is computed: "
                 f"refusing asserted edge {from_node.name} -> {to_node.name}")
         anchor = parsed_to is not None and parsed_to[0] == from_node.name
+        if not anchor and parsed_to is not None \
+                and parsed_to[1] in _dims.RELATION_KINDS \
+                and not getattr(self, "_role_lenient", 0) \
+                and not self._has_ancestors(to_node, (from_node,)):
+            self._refuse_rule(to_node.name, parsed_to[0], from_node.name)
         # Skip the edge entirely if to_node is already reachable in the
         # combined (asserted + computed) order — adding it would violate
         # transitive reduction (and made results depend on the order of
@@ -1359,6 +1375,16 @@ class OntoDAG(DAG):
         self._maybe_invalidate_heads(from_node, to_node)
         with self._counts_unchanged():
             super().add_edge(from_node, to_node)              # structure only
+        self._note_escape(from_node, to_node, added=True)
+        looped = self._term_on_new_cycle(from_node, to_node)
+        if looped is not None:
+            with self._counts_unchanged():
+                super().remove_edge(from_node, to_node)       # nothing else moved
+            self._note_escape(from_node, to_node, added=False)
+            raise ValueError(
+                f"Edge {from_node.name} -> {to_node.name} would create a "
+                f"cycle through {looped.name}: the computed order would put "
+                f"it below itself, giving two names one class")
         self._apply_count_deltas(deltas)
         self._remove_unneeded_edges(from_node, to_node)
         self._reduce_roles_touching(from_node, to_node)
@@ -1838,6 +1864,19 @@ class OntoDAG(DAG):
         multi = self._multi_valued_heads()
         if not roles and not multi:
             return
+        affected = self._terms_moved_by(from_node, to_node, roles, multi)
+        for term in affected:
+            for parent in list(self._computed_parents(term)):
+                self._prune_rectangle(parent, term)
+            for child in list(self._computed_children(term)):
+                self._prune_rectangle(term, child)
+
+    def _terms_moved_by(self, from_node, to_node, roles, heads):
+        """Present terms whose computed hops the edge `from ⊑ to` can move:
+        role terms naming a node whose position changed, and terms of the
+        graph-ordered `heads` with a constraint that moved. Every node the
+        edge repositions — `to` and what is below it gained ancestors,
+        `from` and what is above it gained descendants — counts as moved."""
         touched = ({to_node, from_node} | self.get_descendants(to_node)
                    | self.get_ancestors(from_node))
         affected = []
@@ -1846,8 +1885,8 @@ class OntoDAG(DAG):
                 term = self.nodes.get(f"{role}({node.name})")
                 if term is not None:
                     affected.append(term)
-        if multi:
-            # A transitive or enclosing term moves when any constraint moves.
+        if heads:
+            # A graph-ordered term moves when any constraint moves.
             # Whatever is below a moved term moves with it, and so does a
             # term naming any of those: with n3 ⊑ in(n4), filing n4 under
             # n1 moves in(n4) inside in(n1), so n3 is in n1 and about(n3)
@@ -1856,7 +1895,7 @@ class OntoDAG(DAG):
             # is filed under n1) still needs its OWN check: being touched is
             # not the same as having a constraint move.
             moved = {node.name for node in touched}
-            terms = [term for head in multi for term, _ in self._star(head)]
+            terms = [term for head in heads for term, _ in self._star(head)]
             done = set()
             pending = True
             while pending:
@@ -1871,32 +1910,90 @@ class OntoDAG(DAG):
                         moved.update(d.name for d in self.get_descendants(term))
                         affected.append(term)
                         pending = True
-        for term in affected:
-            for parent in list(self._computed_parents(term)):
-                self._prune_rectangle(parent, term)
-            for child in list(self._computed_children(term)):
-                self._prune_rectangle(term, child)
+        return affected
+
+    def _term_on_new_cycle(self, from_node, to_node):
+        """A present term the edge just added has put below itself, or None.
+
+        The cycle check in `add_edge` runs before the edge exists, so it
+        sees only the computed hops already there. The edge can create new
+        ones, and a new hop can close a loop: with `transport(vehicle) ⊑
+        rush ⊑ transport(bicycle)`, filing `bicycle` under `vehicle` adds
+        `transport(bicycle) ⊑ transport(vehicle)` (DIMENSIONS.md §18). The
+        same holds for role terms; relation terms cannot escape their head
+        at all (`_refuse_rule`), merged data aside. Such a loop
+        must leave the terms of some head, and from a term the way out is
+        an asserted parent other than its head (`_escapes`), or the head
+        itself sitting somewhere other than under a kind or a head; with
+        neither, nothing is checked. A transitive term inside itself needs
+        no loop at all, which is what `_refuse_self_containment` is for.
+        Replays (merge, sync) stay total and are never checked."""
+        if getattr(self, "_role_lenient", 0):
+            return None
+        heads = self._heads()
+        if not heads:
+            return None
+        def leaves(head):
+            node = self.nodes.get(head)
+            return self._escapes(head) or (node is not None and any(
+                parent.name not in _dims.KINDS and parent.name not in heads
+                for parent in node.parents))
+        # Only heads whose terms the graph orders can gain a hop from an
+        # edge; a value's place is fixed by its name.
+        roles = [head for head, (_kind, base) in heads.items()
+                 if base != head and leaves(head)]
+        graph = [head for head, (kind, _base) in heads.items()
+                 if kind in _dims.GRAPH_ORDERED and leaves(head)]
+        if not roles and not graph:
+            return None
+        for term in self._terms_moved_by(from_node, to_node, roles, graph):
+            if term in self.get_ancestors(term):
+                return term
+        return None
 
     def _escapes(self, head):
         """Does some term of `head` hang under something other than its
         head? Only then can a walk through those terms' computed hops reach
         anything their own anchor edge does not: otherwise the hops lead to
         more terms of the same head, and from them only to the head, the
-        kind, `dimension` and the root. Memoized against the graph's shape."""
-        key = ("escapes", head)
-        hit = self._memo_get(key)
-        if hit is not _MISSING:
+        kind, `dimension` and the root.
+
+        Cached per DAG rather than per shape, because `add_edge` asks it on
+        every edge: an edge into a term from anything but its head sets
+        the head's entry, removing one drops it (`_note_escape`), and
+        `_forget` drops them all. A hydrated graph, or a lazy reader that
+        expands the star as it scans, computes an entry on first use."""
+        cache = getattr(self, "_escape_cache", None)
+        if cache is None:
+            cache = self._escape_cache = {}
+        hit = cache.get(head)
+        if hit is not None:
             return hit
         head_node = self.nodes.get(head)
         escapes = False
-        for term, _ in self._star(head):
-            term = self.nodes.get(term.name)            # expands on lazy
+        for child in list(head_node.neighbors) if head_node is not None else ():
+            split = _dims.split_term(child.name)
+            if split is None or split[0] != head:
+                continue
+            term = self.nodes.get(child.name)           # expands on lazy
             if term is not None and any(
                     parent is not head_node and self.nodes.get(parent.name) is parent
                     for parent in term.parents):
                 escapes = True
                 break
-        return self._memo_put(key, escapes)
+        cache[head] = escapes
+        return escapes
+
+    def _note_escape(self, from_node, to_node, added):
+        """Keep `_escapes` current across one edge into a term."""
+        cache = getattr(self, "_escape_cache", None)
+        split = _dims.split_term(to_node.name)
+        if cache is None or split is None or split[0] == from_node.name:
+            return
+        if added:
+            cache[split[0]] = True
+        else:
+            cache.pop(split[0], None)
 
     def _lean(self, node):
         """The walk test `is_below` uses: a node's computed parents are
@@ -1914,9 +2011,24 @@ class OntoDAG(DAG):
 
     def _multi_valued_heads(self):
         """Every declared head an item can hold several values of at once:
-        the transitive and enclosing kinds (§16, §17)."""
+        the transitive, enclosing and reversed kinds (§16–§18)."""
         return [head for head, (kind, _base) in self._heads().items()
                 if kind in _dims.MULTI_VALUED]
+
+    def _refuse_rule(self, term, head, parent):
+        """A relation term filed under anything but its head states a rule
+        about every item it relates, not a fact about one item: `in(japan)`
+        under `japanese` says that whatever is in Japan is Japanese. Rules
+        are not stored (CONTRACT.md §5.1): with them, whether one term
+        contains another stops being a walk from the names involved and
+        becomes a computation over every rule in the store, and two stores
+        that know the same thing could hold different roots."""
+        param = _dims.split_term(term)[1]
+        raise ValueError(
+            f"{term} goes only under {head!r}: filing it under {parent} "
+            f"would state a rule, that whatever is {head} {param} is "
+            f"{parent}, and rules are not stored (CONTRACT.md §5.1). File "
+            f"each item under both, or apply the rule outside the store")
 
     def _refuse_self_containment(self, parent_name, child_name):
         """A transitive relation here is STRICT: nothing is in itself
@@ -1973,6 +2085,7 @@ class OntoDAG(DAG):
         self._changed()
         self._heads_cache = None
         self._dim_cache = None
+        self._escape_cache = None
 
     def _refuse_if_role_named(self, name, gone=()):
         """A node named by a role term (`from(my_home)` names `my_home`) may
@@ -2091,11 +2204,20 @@ class OntoDAG(DAG):
         retraction for `reclassify` — since the guard is about the parent set
         the item ends up with, not about one edge.
         """
+        sub_parsed = self._parse_parametric(sub_name)
+        # A relation term goes only under its head (CONTRACT.md §5.1): asked
+        # before anything is materialized. One already below the parent is
+        # a no-op, as add_edge makes it.
+        if sub_parsed is not None and sub_parsed[1] in _dims.RELATION_KINDS \
+                and not getattr(self, "_role_lenient", 0):
+            for name in super_names:
+                if name != sub_parsed[0] and not (
+                        sub_name in self.nodes and self.is_below(sub_name, name)):
+                    self._refuse_rule(sub_name, sub_parsed[0], name)
         # Nothing may end up inside itself under a transitive head (§16);
         # asked here, before put or reclassify materializes anything.
         for name in super_names:
             self._refuse_self_containment(name, sub_name)
-        sub_parsed = self._parse_parametric(sub_name)
         parametric_supers = {}  # head -> [(canonical name, kind), ...]
         for name in super_names:
             parsed = self._parse_parametric(name)

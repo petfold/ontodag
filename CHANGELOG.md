@@ -48,12 +48,27 @@ the version numbers appear in commit history and docs.
   store declares it, and only that one. Like the transitive kind,
   several terms of one head on one item stay separate (a photo about
   Mars and about Earth keeps both).
+- **The reversed kind** (`reversed-dimension`, registry 4.3;
+  DIMENSIONS.md §18; step 3.4). A head declared under it, such as `for`,
+  orders its terms against the graph: what is for a group is for each
+  member, so once Alice is a sales employee,
+  `for(sales-employee) ⊑ for(alice)`, and whatever Alice may see is the
+  one cone `get for(alice)`. It follows kinds only, never `in`, so a
+  location fact never grants access. A parameter may be a conjunction
+  (`for(manager sales-employee)` is for the people who are both). Several
+  audiences on one item stay separate.
 - **HOW_IT_WORKS.md §1, "What an arrow means"**: every name is a class
   of items, and an arrow is inclusion; kinds, qualities and entities;
   relations to entities as terms (step 3.1 of ROLES.md §9).
 
 ### Changed
 
+- **A transitive, enclosing or reversed term goes only under its head.**
+  Filing `in(japan)` under `japanese` would state a rule (whatever is in
+  Japan is Japanese), which contract 0.2 keeps out; `put`, `reclassify`
+  and `add_edge` refuse it with a teaching error before creating
+  anything. These kinds are new in this release, so no stored data is
+  affected.
 - **Contract 0.2** (docs/CONTRACT.md, amended 2026-10-06). It states what
   an arrow means: every name is a class of items, and `x ⊑ y` says every
   item in x is in y (§2). It admits relations to entities as dimension
@@ -78,6 +93,18 @@ the version numbers appear in commit history and docs.
   oracle agree); the search no longer asks where every term it passes
   sits.
 
+### Fixed
+
+- **An edge that would close a loop through a computed link is refused.**
+  The cycle check ran before the edge existed, so it could not see a
+  computed link the edge itself creates: with `transport(vehicle)` filed
+  under a name below `transport(bicycle)`, filing `bicycle` under
+  `vehicle` made three names one class. Possible for graph-kind terms
+  since 0.26.0 and role terms since 0.25.0, whenever a term was filed
+  outside its head. `add_edge` now checks after placing the edge, and on
+  a loop removes it and refuses, so nothing moves. Free when no term is
+  filed outside its head.
+
 ### Known issue
 
 - **The graph kind's folding** (since 0.26.0) makes stored form depend on
@@ -85,6 +112,18 @@ the version numbers appear in commit history and docs.
   meaning of relations that aren't single-valued: `about(mars)` and
   `about(earth)` fold into `about(earth mars)`. Recorded in
   DIMENSIONS.md §16; not changed here.
+- **The graph kind is not re-reduced when a constraint moves** (since
+  0.26.0, found 2026-10-06). `courier-x` filed under
+  `transport(small-item)` and under `bike-courier ⊑ transport(bicycle)`
+  keeps both edges if `bicycle ⊑ small-item` is filed afterwards, and
+  only the second if it was filed first: the same knowledge stored two
+  ways, against G1. The fix is the re-reduction the relation kinds
+  already use (DIMENSIONS.md §16); it changes graph-kind stored form, so
+  it waits for loopmarket, with the folding above.
+- **Filing under graph-ordered terms costs time proportional to the
+  number of terms of each head the edge touches**: about 50 ms per put
+  among 600 terms. A `for` term per person needs an index before large
+  organizations use it (DIMENSIONS.md §18).
 
 ## [0.29.0] — 2026-10-06
 

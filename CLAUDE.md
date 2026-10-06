@@ -800,7 +800,7 @@ cell `in(ljubljana)`, checked; the reverse isn't derived), (b) the bridge
 rule as the target, sound only now that `in` is spatial. (3) The kind's
 name, `enclosing-dimension`. Consequence for 3.4: `for` is the plain
 order reversed and follows kinds only, since following `in` would turn a
-location fact into an access grant. Next: 3.4, reversed `for`.
+location fact into an access grant.
 
 **Contract 0.2 (2026-10-06, Peter: "amend to allow it").** CONTRACT.md
 now states what an arrow means (§2: every name is a class of items, below
@@ -814,6 +814,39 @@ concepts stay behind the wall), and adds O6 (file by the one meaning;
 change; a new head never is. `CONTRACT_VERSION = "0.2"` (MCP answers
 carry it; loopmarket compares majors only, `_major_skew`, so no skew).
 `tests/test_contract.py` gained `TestDimensionsOverNodes` (4).
+
+**3.4, the reversed kind** (`reversed-dimension`, `KIND_REVERSED`,
+DIMENSIONS.md §18, same day): `R(X) ⊑ R(Y)` iff every X constraint is
+above some Y constraint (the graph rule with sides swapped), so
+`for(sales-employee) ⊑ for(alice)` once `alice ⊑ sales-employee`; kinds
+only, never `in`; multi-valued (no fold, meet by containment only). Two
+findings while building it, both fixed: (1) **a relation term filed under
+anything but its head** (`for(board) ⊑ secret`, an "escape") is a rule
+(∃for.Board ⊑ Secret, an EL GCI with the existential on the left) and
+made evaluation exponential: with escapes 19/60 random worlds of
+`in`+`about` (pushed 3.3 code) and 43/60 of `for` hit >3 s puts; without,
+worst 12 ms. Now refused for all three relation kinds
+(`dimensions.RELATION_KINDS`, `_refuse_rule`, in
+`_check_parametric_placement` before materializing and in `add_edge`;
+lenient on merge). Recorded as ROLES.md §8 item 12 **for Peter to
+confirm**. (2) **An edge could close a loop through a computed link it
+creates** (cycle check runs pre-edge): `transport(vehicle) ⊑ rush ⊑
+transport(bicycle)` then `bicycle ⊑ vehicle` — released bug in the graph
+kind (0.26.0) and role heads (0.25.0). `add_edge` now runs
+`_term_on_new_cycle` after the structural add (moved terms of heads whose
+terms escape; rollback + refuse). `_escapes` became a per-DAG cache kept
+current by `_note_escape` (it was a star scan per version: 29% of filing
+time). Tests: `TestAudience` (9), `TestCertificatesAcrossProcesses` (3
+hash seeds; the reversed rule walks the bound's argument upward), oracle
+with `for` + refused escapes, `TestNoLoopThroughAComputedLink`
+(test_graph_kind.py), `TestNoLoopThroughARoleLink` (test_roles.py); 300
+larger worlds, 0 disagreements. **Found and NOT changed** (CHANGELOG
+"Known issue"): graph-kind terms are not re-reduced when a constraint
+moves (stored form depends on filing order, a G1 break since 0.26.0; fix
+= add graph heads to the re-reduction, waits for loopmarket with the
+folding question); and filing cost grows with terms per head (~50 ms/put
+among 600 terms; `for` per person needs an index before release). Next:
+3.5, narrower relations.
 
 ## Role heads (2026-09-12) — issue #15 closed, DIMENSIONS.md §14
 

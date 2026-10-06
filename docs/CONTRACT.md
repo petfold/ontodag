@@ -216,10 +216,12 @@ conditions keep both axes:
    `tokyo ⊑ in(japan)`, `in(tokyo) ⊑ in(japan)`; strict, with a guard
    against anything being inside itself); *enclosing* (follows `in`
    without chaining: a photo about Tokyo is about Japan); and *reversed*
-   (`for(group) ⊑ for(member)`: what is for a group is for each member) —
-   **committed**, ROLES.md §9 step 3.4; the others **hold today**. A new
-   kind is a clause change: it bumps this contract and `REGISTRY_VERSION`.
-   A new head never does.
+   (`for(group) ⊑ for(member)`: what is for a group is for each member).
+   All four **hold today**. A new kind is a clause change: it bumps this
+   contract and `REGISTRY_VERSION`. A new head never does. Filing a term
+   of the last three under anything but its head would state a rule
+   (`in(japan) ⊑ japanese`: whatever is in Japan is Japanese), so `put`
+   refuses it.
 2. **The order stays a local computation.** Whether `R(x) ⊑ R(y)` holds is
    decided by walking the ancestors of x or y in the store: the kind of
    question `is_below` always answered, never inference over rules gathered
@@ -442,9 +444,11 @@ means), and accepted the same day:
    below the person it is shared with. Each now goes through a dimension
    over the entity.
 2. **Dimensions over nodes** → §5.1. The transitive and enclosing kinds
-   were built in steps 3.2–3.3 of ROLES.md §9 (registry 4.3); the reversed
-   kind is step 3.4. The conformance suite gained
-   `TestDimensionsOverNodes`.
+   were built in steps 3.2–3.3 of ROLES.md §9, and the reversed kind in
+   step 3.4 (all registry 4.3). Step 3.4 also made the rule explicit that
+   a relation term goes only under its head, after random worlds showed
+   that such edges make the order a computation over the whole store. The
+   conformance suite gained `TestDimensionsOverNodes`.
 3. **Why the arbitrary-relations wall still stands** → the "Still outside"
    paragraph of §5.1, and `DATABASE_DIRECTION.md`. The exception admits
    fixed rules over declared names, not rules that users write.

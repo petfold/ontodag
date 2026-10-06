@@ -245,8 +245,9 @@ stored as edges. Registry `4.3`; same major = same arithmetic.
 | `graph-dimension` | a conjunction of constraints on the graph — category names and terms of other dimensions, sorted, each present or parseable, none redundant (issue #19) | by the graph: every outer constraint above some inner one | `transport(small-item weight(..8kg))` contains `transport(bicycle weight(5kg))` when `bicycle ⊑ small-item` |
 | `transitive-dimension` | constraints on the graph, as for `graph-dimension` (DIMENSIONS.md §16) | by the graph, and chaining: `R(X) ⊑ R(Y)` also when some `x` in `X` is itself below `R(Y)`; strict — nothing is `R` of itself | `in(tokyo)` is inside `in(japan)` when `tokyo ⊑ in(japan)` |
 | `enclosing-dimension` | constraints on the graph, as for `graph-dimension` (DIMENSIONS.md §17) | by the graph, and following `in`: `R(X) ⊑ R(Y)` also when some `x` in `X` is itself below `in(Y)` (once a store declares `in` transitive) | `about(tokyo)` is inside `about(japan)` when `tokyo ⊑ in(japan)` |
+| `reversed-dimension` | constraints on the graph, as for `graph-dimension` (DIMENSIONS.md §18) | against the graph: `R(X) ⊑ R(Y)` when every constraint of `X` is above, or is, some constraint of `Y`; kinds only, never `in` | `for(sales-employee)` is inside `for(alice)` when `alice ⊑ sales-employee` |
 
-Several values of one head on one item fold to their meet (`put(x, ["weight(1kg..3kg)", "weight(2kg..5kg)"])` files `x` under `weight(2kg..3kg)`; DIMENSIONS.md §9), except a transitive or enclosing head's terms, which stay separate (Zermatt can be `in(switzerland)` and `in(alps)`, a photo `about(mars)` and `about(earth)`). Rules that refuse, with teaching errors: cycles; anything that would put a thing inside itself under a transitive head (`japan ⊑ in(japan)`); a point filed under two
+Several values of one head on one item fold to their meet (`put(x, ["weight(1kg..3kg)", "weight(2kg..5kg)"])` files `x` under `weight(2kg..3kg)`; DIMENSIONS.md §9), except a transitive, enclosing or reversed head's terms, which stay separate (Zermatt can be `in(switzerland)` and `in(alps)`, a photo `about(mars)` and `about(earth)`, a budget `for(sales-employee)` and `for(finance-employee)`). Rules that refuse, with teaching errors: cycles, including one that only a computed link the new edge creates would close; a transitive, enclosing or reversed term under anything but its head (`in(japan) ⊑ japanese` would state a rule, CONTRACT.md §5.1); anything that would put a thing inside itself under a transitive head (`japan ⊑ in(japan)`); a point filed under two
 provably disjoint values of one head; `count(0)` (an absence claim);
 fractional counts; negatives (except affine `C`/`F` spellings); values
 below absolute zero; unknown units (the error names the pack or
@@ -268,7 +269,7 @@ spelled; ordered by the graph (`from(x) ⊑ from(y)` iff `x ⊑ y` under
 refused. A node named by a role term cannot be removed or moved out of
 its dimension while the term stands.
 
-Prelude v3 declares: five of the eight kind nodes (not `graph-dimension`, `transitive-dimension` or `enclosing-dimension`, which a store declares itself when it needs it — `odag put graph-dimension dimension`; the prelude's root, and every pack's, stay put) and heads `weight`, `length`,
+Prelude v3 declares: five of the nine kind nodes (not `graph-dimension`, `transitive-dimension`, `enclosing-dimension` or `reversed-dimension`, which a store declares itself when it needs it — `odag put graph-dimension dimension`; the prelude's root, and every pack's, stay put) and heads `weight`, `length`,
 `duration`, `area`, `volume`, `speed`, `pressure`, `temperature`,
 `energy`, `count`, `time`, `geo`, `size`.
 

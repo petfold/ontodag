@@ -433,6 +433,25 @@ class TestTheDimensionItselfIsNoParameter(unittest.TestCase):
                          {"at_home", "in_cell", "from(my_home)", "from(u2e4)"})
 
 
+class TestNoLoopThroughARoleLink(unittest.TestCase):
+    """The role-head version of the loop the graph kind could close
+    (test_graph_kind.TestNoLoopThroughAComputedLink): `from(office)` filed
+    under a name below `from(castle)`, then `castle` filed under `office`,
+    which adds `from(castle) ⊑ from(office)`."""
+
+    def test_the_edge_is_refused_and_nothing_moves(self):
+        dag = make_dag()
+        dag.put("castle", ["geo(u2e4y)"])
+        dag.put("office", ["geo(u2e4z)"])
+        dag.put("rush", [])
+        dag.put("from(office)", ["rush"])
+        dag.put("rush", ["from(castle)"])
+        before = edge_set(dag)
+        with self.assertRaisesRegex(ValueError, "cycle through"):
+            dag.put("castle", ["office"])
+        self.assertEqual(edge_set(dag), before)
+
+
 class TestRoleGuards(unittest.TestCase):
     def test_remove_refuses_while_a_role_term_names_the_node(self):
         d = with_offers(make_dag())

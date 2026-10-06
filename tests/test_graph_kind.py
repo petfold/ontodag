@@ -128,6 +128,28 @@ class TestOrder(unittest.TestCase):
                          {"c"})
 
 
+class TestNoLoopThroughAComputedLink(unittest.TestCase):
+    """The cycle check in `add_edge` runs before the edge exists, so it
+    cannot see a computed link the edge itself creates. With
+    `transport(vehicle)` filed under a plain name that is below
+    `transport(bicycle)`, filing `bicycle` under `vehicle` adds
+    `transport(bicycle) ⊑ transport(vehicle)`, and all three would be one
+    class under two names (found 2026-10-06, DIMENSIONS.md §18)."""
+
+    def test_the_edge_is_refused_and_nothing_moves(self):
+        dag = city()
+        dag.put("vehicle", ["goods"])
+        dag.put("rush", [])
+        dag.put("transport(vehicle)", ["rush"])
+        dag.put("rush", ["transport(bicycle)"])
+        before = {(p.name, c.name) for p in dag.nodes.values() for c in p.neighbors}
+        with self.assertRaisesRegex(ValueError, "cycle through"):
+            dag.put("bicycle", ["vehicle"])
+        after = {(p.name, c.name) for p in dag.nodes.values() for c in p.neighbors}
+        self.assertEqual(before, after)
+        self.assertFalse(dag.is_below("transport(bicycle)", "transport(vehicle)"))
+
+
 class TestPersistence(unittest.TestCase):
     def test_terms_with_spaces_round_trip_through_a_store_and_a_merge(self):
         store = RecordStore(MemoryBytesStore())

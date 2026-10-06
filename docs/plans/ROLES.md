@@ -12,12 +12,12 @@ expressiveness, staying in front of the arbitrary-relations wall
 amendment as **contract 0.2** on 2026-10-06 (CONTRACT.md §2, §5.1 and
 O6). Examples marked *today* were executed against 0.28.0; everything
 else is proposed. **Built since (2026-10-06, unreleased):** steps
-3.1–3.3 of §9 — the one meaning in HOW_IT_WORKS.md, the transitive kind
-that `in` is declared under (DIMENSIONS.md §16), and the enclosing kind
-for `about`, `from`, `to` (§17). Peter then settled three more points:
-`in` covers places and parts but not membership, `geo` stays apart from
-`in` for now, and the second kind is called `enclosing-dimension` (§8,
-items 8–10).
+3.1–3.4 of §9 — the one meaning in HOW_IT_WORKS.md, the transitive kind
+that `in` is declared under (DIMENSIONS.md §16), the enclosing kind for
+`about`, `from`, `to` (§17), and the reversed kind for `for` (§18).
+Peter then settled three more points: `in` covers places and parts but
+not membership, `geo` stays apart from `in` for now, and the second kind
+is called `enclosing-dimension` (§8, items 8–10).
 
 ## 0. In short
 
@@ -218,7 +218,9 @@ Dimensions over nodes follow the same split:
 | reversed | `R(y) ⊑ R(x)` iff `x ⊑* y` | `for(employee) ⊑ for(alice)` | missing |
 
 "Missing" was checked. A photo under `in(tokyo)` is not below `in(japan)`
-today, whether `in` takes `geo`'s values or is a graph-kind head.
+today, whether `in` takes `geo`'s values or is a graph-kind head. Built
+since: the second row as the transitive and enclosing kinds (steps
+3.2–3.3), the third as the reversed kind (step 3.4).
 
 Proposed assignment:
 - `in`, `about`, `from` and `to` follow the order and `in`. For `in`
@@ -435,6 +437,13 @@ Settled later the same day, after step 3.3:
     (§2), dimensions over nodes as a scoped exception to "no further
     expressiveness" (§5.1), and the writer's obligation O6. A new kind is
     a clause change; a new head never is.
+12. **A relation term goes only under its head** (applied by Claude in
+    step 3.4 as a consequence of item 11, for Peter to confirm). Filing
+    `for(board)` under `secret` says that everything for the board is
+    secret: a rule, which §5.1 keeps out. Random worlds showed the cost of
+    allowing it: the evaluation went exponential. What it would have said
+    can be said per item (file the minutes under both), or by a layer
+    above the store.
 
 **Open:**
 
@@ -529,7 +538,13 @@ instance.
    3. ~~`about`, `from` and `to` following `in`~~ — done 2026-10-06 as
       the enclosing kind (DIMENSIONS.md §17): `about`, `from`, `to` are
       heads a store declares under it. `geo` stays apart (§8 item 10);
-   4. reversed `for`, following kinds only (§7);
+   4. ~~reversed `for`, following kinds only (§7)~~ — done 2026-10-06
+      as the reversed kind (DIMENSIONS.md §18). Building it found two
+      things: a term filed under anything but its head states a rule and
+      made the evaluation exponential, so all three relation kinds now
+      refuse it (§8 item 12); and an edge could close a loop through a
+      computed link it creates, in the graph kind and role heads too, now
+      refused;
    5. narrower relations;
    6. the surface layer: offer `about(...)`, `in(...)` and `for(...)` for
       entity names, and render them;
