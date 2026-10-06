@@ -1155,6 +1155,107 @@ wanter accepting any stablecoin meet by the graph. Every one of them has had two
 readings (§9 there records the second: about 3% of the single-source
 edges were wrong each time, and what kinds).
 
+### 4.9 In, about, for: relating items to places, subjects and people
+
+Every name stands for a class of items, and an arrow says that every item
+below is in the class above ([HOW_IT_WORKS.md](HOW_IT_WORKS.md) §1). Items
+go directly under the **kinds** they are (`city`, `photo`) and the
+**qualities** they have (`blue`, `weight(3kg)`). A name for one particular
+thing (Japan, Mars, Alice) is an **entity**, and only its own instances
+and phases go directly under it. Anything else related to it goes under a
+*relation* of it: `in(japan)`, `about(mars)`, `for(alice)`. File a photo
+of Mars directly under `mars`, and once a pack says `mars ⊑ planet`, the
+photo is a planet.
+
+The three relations are dimensions whose values are nodes rather than
+numbers. They aren't in the prelude yet, so a store declares them:
+
+```console
+$ odag prelude
+$ odag put transitive-dimension dimension
+$ odag put in transitive-dimension
+$ odag put enclosing-dimension dimension
+$ odag put about enclosing-dimension
+$ odag put reversed-dimension dimension
+$ odag put for reversed-dimension
+```
+
+**`in` is for places and parts, and it chains.** Tokyo is in Japan, so
+whatever is in Tokyo is in Japan:
+
+```console
+$ odag put place
+$ odag put city place
+$ odag put country place
+$ odag put photo
+$ odag put japan country
+$ odag put tokyo city 'in(japan)'
+$ odag put shibuya-crossing.jpg photo 'in(tokyo)'
+$ odag get city 'in(japan)'
+tokyo
+$ odag get photo 'in(japan)'
+shibuya-crossing.jpg
+$ odag below shibuya-crossing.jpg country
+false
+$ odag get --items-only 'in(japan)'
+shibuya-crossing.jpg
+tokyo
+```
+
+Without `--items-only`, the answer also lists the terms on the way
+(`in(tokyo)`), which are categories too. Membership is not `in`: say
+`alice ⊑ sales-employee ⊑ employee`, never Alice in sales. `in` chains,
+so membership by `in` would put every member wherever the department is.
+
+**`about` follows `in`.** A photo about Tokyo is about Japan, and the
+photo of Mars is not a planet:
+
+```console
+$ odag put planet
+$ odag put mars planet
+$ odag put mars-rover-photo.jpg photo 'about(mars)'
+$ odag get planet photo
+$ odag get photo 'about(planet)'
+mars-rover-photo.jpg
+$ odag below mars-rover-photo.jpg planet
+false
+```
+
+**`for` runs the other way.** What is for a group is for each of its
+members, so what Alice may see is one cone, `get for(alice)`. It follows
+kinds only, never `in`: a location fact must not grant access.
+
+```console
+$ odag put employee
+$ odag put sales-employee employee
+$ odag put alice sales-employee
+$ odag put bob employee
+$ odag put q3-plan 'for(sales-employee)'
+$ odag put handbook 'for(employee)'
+$ odag get --items-only 'for(alice)'
+handbook
+q3-plan
+$ odag get 'for(bob)'
+for(employee)
+handbook
+```
+
+Two rules, each refused with the reason:
+
+```console
+$ odag put japanese
+$ odag put 'in(japan)' japanese
+odag: in(japan) goes only under 'in': filing it under japanese would state a rule, that everything under in(japan) is under japanese, and rules are not stored (CONTRACT.md §5.1). File each item under both, or apply the rule outside the store
+$ odag put japan 'in(tokyo)'
+odag: japan ⊑ in(tokyo) would put japan inside itself: in is strict, so nothing is in itself (DIMENSIONS.md §16)
+```
+
+Several terms of one relation on one item stay separate: Zermatt can be
+`in(switzerland)` and `in(alps)`. The names `in`, `about` and `for` are
+the store's own; any head under one of these kinds behaves the same
+way. The design is [DIMENSIONS.md](DIMENSIONS.md) §16–§18, and the
+reasoning [plans/ROLES.md](plans/ROLES.md).
+
 ## 5. The command line
 
 Everything in §4 can be done without writing any Python. The command is `odag`, and

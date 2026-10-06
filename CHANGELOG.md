@@ -60,6 +60,8 @@ the version numbers appear in commit history and docs.
   location fact never grants access. A parameter may be a conjunction
   (`for(manager sales-employee)` is for the people who are both). Several
   audiences on one item stay separate.
+- **USER_GUIDE §4.9, "In, about, for"**: filing by the one meaning, with
+  executed examples of the three relation kinds and the two refusals.
 - **HOW_IT_WORKS.md §1, "What an arrow means"**: every name is a class
   of items, and an arrow is inclusion; kinds, qualities and entities;
   relations to entities as terms (step 3.1 of ROLES.md §9).
