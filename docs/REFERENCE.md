@@ -269,6 +269,17 @@ spelled; ordered by the graph (`from(x) ⊑ from(y)` iff `x ⊑ y` under
 refused. A node named by a role term cannot be removed or moved out of
 its dimension while the term stands.
 
+Narrower relations (DIMENSIONS.md §20, proposed): a head of a
+transitive, enclosing or reversed kind declared under another head of
+the same kind — `departure` under `from`, `inside` under `in`, `editor`
+under `for` — names a narrower relation: `departure(x) ⊑ from(y)`
+exactly when `from(x) ⊑ from(y)`, and never the other way round. Its
+terms answer the broader head's queries (`get from(lhr)` finds what
+departs from Heathrow); a declaration made after terms were filed
+re-reduces them, and one that would put something inside itself under
+a strict relation is refused. Value roles (above) and the graph kind
+keep their meaning.
+
 Prelude v3 declares: five of the nine kind nodes (not `graph-dimension`, `transitive-dimension`, `enclosing-dimension` or `reversed-dimension`, which a store declares itself when it needs it — `odag put graph-dimension dimension`; the prelude's root, and every pack's, stay put) and heads `weight`, `length`,
 `duration`, `area`, `volume`, `speed`, `pressure`, `temperature`,
 `energy`, `count`, `time`, `geo`, `size`.

@@ -1281,3 +1281,99 @@ runs of 200 larger worlds of each found no disagreement. The 300-world
 oracle of `tests/test_transitive.py` found none either. The live Bee
 tests passed on bee 2.8.2, and loopmarket's suite passes against this
 tree (297 passed).
+
+## 20. Narrower relations (2026-10-07, proposed)
+
+**Status.** Built on the branch `narrower-relations` as ROLES.md §9 step
+5, in the form below, which is a proposal: the declaration form was an
+open question (ROLES.md §8), and the contract admits narrower relations
+only by a clause change of their own (CONTRACT.md §5.1). Nothing here is
+on main until Peter decides.
+
+**The case.** A departure is a narrower kind of "from": a flight
+departing from Heathrow is from Heathrow, so `get from(lhr)` should find
+it. Without a declaration, `departure` and `from` are two unrelated
+relations, and stores that name the same thing at different precision
+never meet. Narrower relations make free naming safe: one person's
+`departure` and another's `departs`, both declared narrower than `from`,
+meet at `from(lhr)` (ROLES.md §4).
+
+**Declaration (proposed): a head of a relation kind filed under another
+head of the same kind.** `odag put departure from`, with `from` under
+`enclosing-dimension`. For the kinds over nodes this is the only reading
+the edge can have. A role takes its base's values (§14), but a relation's
+argument is any node already, so "uses that space" adds nothing. And
+`departure(lhr) ⊑ departure ⊑ from` already reads correctly at the head
+level: whatever has a departure has a from. Value roles (`max-load`
+under `weight`, `posted` under `time`) keep the role reading. So does
+the graph kind, whose conjunctions fold (§15): `R(x)` with `S(y)` and
+`R(x)` with `S(x y)` would denote one class and be stored two ways, so
+a narrower graph-kind head waits for the folding question (§16, "Known
+issue"). The alternatives considered were a declaration node (`narrower(
+departure from)` under a registry node, the unit-declaration pattern)
+and a marker kind node beside the edge. Both say the same thing as the
+edge, and both leave the head-level reading to be computed.
+
+**Order.** For heads R under S (directly or through a chain of heads),
+`R(x) ⊑ S(y)` exactly when `S(x) ⊑ S(y)`, since `R(x) ⊑ S(x)` and
+nothing else relates the two heads. A broader term is never inside a
+narrower one: something from Heathrow need not depart from it. Each head
+keeps its kind's rule. A transitive narrower relation chains through its
+own terms and those narrower than it. `x ⊑ inside(y)` puts x `in(y)`;
+`x ⊑ in(y)` does not put it `inside(y)`. And since the enclosing kind
+follows `in`, it follows `in`'s narrower relations too.
+
+**Terms that were never filed.** In one head, the terms a chain passes
+through always exist, since something is filed under each. With a
+narrower relation they need not. From `x ⊑ inside(z)` and `z ⊑
+inside(y)`, x is in y through `in(z)`, which nobody filed. `is_below`
+was right from the start, because its containment walk goes through
+places, not terms (`_within`). The hops were not: they are complete
+under closure only if the intermediate terms exist. Upward, a missing
+broader term is looked past, to what its argument is below or inside.
+Downward, what is filed in each narrower term found is chased to a
+fixpoint, except where the broader term exists and its own hops cover
+it. Both are worklists, so deep chains stay iterative (I6). The
+scan-differential test (`TestAgreesWithTheScan`) found this; the oracle
+had not, at its smaller world size.
+
+**Declaring late.** Filing `departure` under `from` after terms of both
+were filed changes the order of terms already stored. An item under
+`departure(lhr)` and `from(lhr)` now carries a redundant edge that
+filing in the other order would never have stored. So the declaration
+re-reduces the terms of the heads it makes narrower, at a cost
+proportional to them: 390 µs per item, linear from 400 to 6,400 items.
+For a transitive relation, the declaration can also put something inside
+itself. `x ⊑ inside(y)` and `y ⊑ in(x)` were consistent while `inside`
+was a relation of its own, and give `x ⊑ in(x)` once it is narrower than
+`in`. `put`'s guard looks only at the parent's containers, so it cannot
+see this. Any such loop passes through a term of the newly narrower
+head, so their arguments are checked after the edge is placed. On a
+refusal the edge is removed and whatever pruning dropped is put back
+(the old kind edge, typically). The check runs after pruning because
+until then the head belongs to two dimensions at once. Merges and syncs
+stay lenient.
+
+**Candidates and meets.** Categories carry no disjointness, so a term
+and a narrower one always overlap. `get_overlapping(about(lhr))` lists
+what is under a narrower term, as G6 requires (it is complete for
+possibility). `meet` names the finer term when one contains the other,
+and raises otherwise, as for one head.
+
+**Measured.** Filing stays flat: `inside`, `editor` and `topic` terms
+cost 0.3–0.4 ms per put at 200, 800 and 3,200 terms, as `in` and `for`
+do. A chain of 3,200 places, each filed only `inside` the last (so no
+`in` term exists), answers `get in(p0)` with 6,400 results in about a
+second. Building that found a quadratic in the planner's walk of a
+virtual term, now fixed on main as well (CHANGELOG, "A query over a
+virtual value no longer re-walks nested values").
+
+**Tests.** `tests/test_narrower.py`. An independent fixpoint oracle over
+seven heads in three kinds, with `subtopic ⊑ topic ⊑ about` as a chain:
+answers, refusals (refused puts leave nothing behind), stored form, and
+`get` for every term. Also filing order, merge, declaring late versus
+early, the refusal of a declaration that puts something inside itself,
+the scan differential, the lazy reader, the sparse writer, and
+certificates verified under three hash seeds. One-off runs of 500 larger
+oracle worlds and 150 scan-differential worlds found no disagreement
+after the two fixes above.

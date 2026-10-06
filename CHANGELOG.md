@@ -60,6 +60,15 @@ the version numbers appear in commit history and docs.
   location fact never grants access. A parameter may be a conjunction
   (`for(manager sales-employee)` is for the people who are both). Several
   audiences on one item stay separate.
+- **Narrower relations** (proposed; DIMENSIONS.md §20; step 3.5). A
+  head of a relation kind filed under another head of the same kind
+  names a narrower relation: with `departure` under `from`, every
+  `departure(x)` is a `from(x)`, so `get from(lhr)` finds what departs
+  from Heathrow, and `editor` under `for` gives whatever is
+  `editor(employee)` to every employee. A broader term is never inside a
+  narrower one. A late declaration re-reduces what it moves and is
+  refused when it would put something inside itself. Value roles and the
+  graph kind keep their meaning. Needs contract 0.3 (CONTRACT.md §5.1).
 - **USER_GUIDE §4.9, "In, about, for"**: filing by the one meaning, with
   executed examples of the three relation kinds and the two refusals.
 - **HOW_IT_WORKS.md §1, "What an arrow means"**: every name is a class

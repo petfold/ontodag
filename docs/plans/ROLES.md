@@ -17,7 +17,10 @@ that `in` is declared under (DIMENSIONS.md §16), the enclosing kind for
 `about`, `from`, `to` (§17), and the reversed kind for `for` (§18).
 Peter then settled three more points: `in` covers places and parts but
 not membership, `geo` stays apart from `in` for now, and the second kind
-is called `enclosing-dimension` (§8, items 8–10).
+is called `enclosing-dimension` (§8, items 8–10). Step 4a (computed hops
+without scans) followed on main on 2026-10-07, and step 5, narrower
+relations, was built the same night on the branch `narrower-relations`
+in a proposed form that awaits Peter's decision (§8, DIMENSIONS.md §20).
 
 ## 0. In short
 
@@ -254,6 +257,13 @@ below the bare head `weight`, though, which reads "has a weight": a small
 wrong answer that the same separation fixes. So "uses that space" and "is
 a narrower relation" are two declarations (§8).
 
+*Proposed 2026-10-07* (built on the branch `narrower-relations`,
+DIMENSIONS.md §20): for the kinds over nodes, the edge `departure ⊑ from`
+*is* the declaration, since a relation's argument is any node and "uses
+that space" says nothing there; for value kinds the edge keeps meaning a
+role. `max-load`'s small wrong answer stays: separating it needs a
+second declaration form for value roles, which nothing has asked for.
+
 This is the same split as units (any unit may be declared, but only by
 reduction to a built-in anchor), and as core and the packs. **Anything
 is allowed as a name; a new kind needs code** and a correctness
@@ -472,7 +482,12 @@ Settled later the same day, after step 3.3:
   `geo` to the enclosing kind over named places, which renames stored
   values and so needs a coordinated release of both repos.
 - **How to declare a narrower relation** (§4), as distinct from "uses
-  that space".
+  that space". *Proposed 2026-10-07 and built on the branch
+  `narrower-relations`:* for the transitive, enclosing and reversed
+  kinds, a head filed under another head of the same kind is a narrower
+  relation; value roles and the graph kind keep their meaning
+  (DIMENSIONS.md §20). The draft clause for contract 0.3 is in
+  CONTRACT.md §5.1. Decision: Peter's.
 - ~~**Transitive dimensions besides `in`.**~~ Answered by step 3.2: the
   kind is general (`transitive-dimension`), so `in` is one head under it
   and a user's `descended-from` or `upstream-of` is another, each with
@@ -587,7 +602,10 @@ instance.
       chains file at 0.22 ms per place. Two more exponential paths found
       and removed on the way (the meet fallback, the graph kind's parse
       re-checks);
-   5. narrower relations;
+   5. narrower relations — built 2026-10-07 on the branch
+      `narrower-relations` in a proposed form (a relation head filed
+      under another head of its kind), with the contract 0.3 clause
+      drafted; merged when Peter agrees to the form (DIMENSIONS.md §20);
    6. the surface layer: offer `about(...)`, `in(...)` and `for(...)` for
       entity names, and render them;
    7. the prelude's new dimensions, the pack audit and the spelling

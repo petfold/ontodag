@@ -240,6 +240,22 @@ terms: a declaration that one head is a narrower relation than another
 between two heads with no composition. Its form is not designed yet and
 will land as its own clause change.
 
+> **Proposed clause for 0.3** (branch `narrower-relations`, 2026-10-07,
+> not agreed). *A head of a transitive, enclosing or reversed kind filed
+> under another head of the same kind names a narrower relation:
+> `R(x) ⊑ S(y)` exactly when `S(x) ⊑ S(y)`, and a broader term is never
+> inside a narrower one. The declaration is an ordinary edge between two
+> heads; users still declare no rules, since what the edge means is fixed
+> here, for these kinds only. A head under a head of a value kind stays
+> a role (DIMENSIONS.md §14), and the graph kind is left out while its
+> conjunctions fold (§15). Monotone: the declaration only adds pairs.
+> Local: deciding `R(x) ⊑ S(y)` walks the heads above R and the ancestors
+> of x, as before. A declaration that would put something inside itself
+> under a strict relation is refused at `put`; merges stay total (O5).*
+> On agreement, `CONTRACT_VERSION` becomes `"0.3"`, and ontodag-fs's
+> upstream pin must accept it before the release (its gate runs from
+> main). Design record: DIMENSIONS.md §20.
+
 **Still outside**, behind the arbitrary-relations wall: rules a user writes
 (relation chains such as "member of, then located in, gives located in",
 which is false, and is the reason membership is not `in`; see O6); several
