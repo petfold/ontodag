@@ -54,6 +54,16 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+- **Contract 0.2** (docs/CONTRACT.md, amended 2026-10-06). It states what
+  an arrow means: every name is a class of items, and `x ⊑ y` says every
+  item in x is in y (§2). It admits relations to entities as dimension
+  terms over nodes, ordered by a fixed set of kinds in code, as the one
+  scoped exception to "no further expressiveness" (§5.1). And it adds the
+  writer's obligation that goes with them, O6: file by that meaning, with
+  `in` for places and parts and membership under kinds.
+  `ontodag.CONTRACT_VERSION` is `"0.2"`, and MCP answers carry it; a
+  consumer that compares major versions, as loopmarket does, sees no
+  change. The conformance suite gained `TestDimensionsOverNodes`.
 - **`is_below`, graph-ordered containment and the canonical spelling of
   graph-ordered terms are memoized** against the graph's shape, using a
   version counter that every node and edge change bumps. An answer

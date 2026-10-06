@@ -215,8 +215,9 @@ future session recognizes the moment instead of pre-building:
   is what "research-grade" concretely means here. Tripwire unchanged, but
   now observable: agent traffic through the MCP surface is where
   mass-reification pressure will first show.
-  **Update 2026-10-06:** [ROLES.md](ROLES.md) proposes a strip in front
-  of this wall: relations to entities as dimensions (`in(japan)`,
+  **Update 2026-10-06:** [ROLES.md](ROLES.md) proposed a strip in front
+  of this wall, admitted the same day as contract 0.2
+  (`CONTRACT.md` §5.1): relations to entities as dimensions (`in(japan)`,
   `about(mars)`, `for(sales-employee)`), ordered by a few kinds fixed in code, with
   no user axioms. "Alice authored Doc1" then fits in front of the wall,
   as `doc1 ⊑ by(alice)`. The wall itself stands: several relations of one

@@ -4,13 +4,18 @@ Status: drafted 2026-08-01 out of the strategy discussion (Peter + Claude),
 the same discussion recorded in `SURFACE_LAYER.md` Part II — this document is
 the one its §13 predicted. The **direction** it records is agreed (2026-08-01):
 agents are the priority consumer, the core gains no further expressiveness,
-and verification is a first-class offering. The individual clauses are marked
-**holds today** (a restatement of a tested guarantee) or **committed** (agreed
-direction, not yet built).
+and verification is a first-class offering. The second has one scoped
+exception, agreed 2026-10-06: relations to entities as dimension terms,
+ordered by a fixed set of kinds in code (§5.1). The individual clauses are
+marked **holds today** (a restatement of a tested guarantee) or **committed**
+(agreed direction, not yet built).
 
-**Contract version: 0.1 — reviewed and agreed 2026-08-01.** All open
-questions from the draft were resolved in the same-day review (the record is
-§8) and folded into the clauses. The version is exposed as
+**Contract version: 0.2 — amended 2026-10-06** (0.1 was reviewed and agreed
+2026-08-01). 0.2 states what an arrow means (§2), admits dimensions over
+nodes as the scoped exception (§5.1), and adds the writer's obligation that
+goes with them (O6); the record of both versions is §8. All open questions
+from the 0.1 draft were resolved in the same-day review and folded into the
+clauses. The version is exposed as
 `ontodag.CONTRACT_VERSION`, will be carried by the discoverability record
 once the agent surface lands, and is bumped on any clause change.
 
@@ -57,6 +62,17 @@ A higher layer may use exactly this, and nothing else:
 Explicitly *not* part of the contract: the record schema, traversal orders,
 planner behavior, residency (eager/lazy/sparse), and any module internals.
 Those change; the list above does not, except by revising this document.
+
+### What an arrow means (0.2)
+
+Every name stands for a class of items, and `x ⊑ y` says that every item in
+x is in y. The operations are defined against that reading: `get`
+intersects classes, `is_below` decides inclusion, and a dimension term is a
+class too — `weight(3kg)` is the things that weigh 3 kg, `in(japan)` the
+things located in Japan. Typed values always worked this way; 0.2 makes it
+the reading for every name. The core cannot check that writers keep to it
+(it cannot tell a person from a place), so keeping to it is the writer's
+obligation, O6.
 
 ### Capabilities, not tools
 
@@ -182,6 +198,53 @@ exists. The criterion tells you what is admissible; tripwires decide what is
 warranted. The feature-by-feature sort lives in `DATABASE_DIRECTION.md`'s
 walls (updated 2026-08-01 to name the axis each wall protects).
 
+### 5.1 The scoped exception: dimensions over nodes (0.2)
+
+Relations to entities are admitted as **dimension terms over nodes**: a
+head applied to a node, `in(japan)`, `about(mars)`, `for(alice)`, ordered
+like any dimension by its head's kind. The consumer is the one meaning
+itself (§2): without these terms, "located in Japan" or "about Mars" can
+only be said by filing under the entity, which says something false. Three
+conditions keep both axes:
+
+1. **Users declare heads, never rules.** A head is a name filed under a
+   kind node. How its terms are ordered is the kind's rule, fixed in code,
+   each with its own correctness argument and an independent oracle
+   (`tests/test_transitive.py`). The kinds over nodes are: *graph*
+   (follows the order: `transport(bicycle) ⊑ transport(small-item)` from
+   `bicycle ⊑ small-item`; registry 4.2); *transitive* (chains: once
+   `tokyo ⊑ in(japan)`, `in(tokyo) ⊑ in(japan)`; strict, with a guard
+   against anything being inside itself); *enclosing* (follows `in`
+   without chaining: a photo about Tokyo is about Japan); and *reversed*
+   (`for(group) ⊑ for(member)`: what is for a group is for each member) —
+   **committed**, ROLES.md §9 step 3.4; the others **hold today**. A new
+   kind is a clause change: it bumps this contract and `REGISTRY_VERSION`.
+   A new head never does.
+2. **The order stays a local computation.** Whether `R(x) ⊑ R(y)` holds is
+   decided by walking the ancestors of x or y in the store: the kind of
+   question `is_below` always answered, never inference over rules gathered
+   from the whole store. That is what keeps axis 2: the rules are a fixed,
+   finite set, terms are names, and their computed order takes part in the
+   transitive reduction, so equal knowledge still reaches an equal root
+   (G1). The oracle checks this on random worlds, for filing order and for
+   merge; that is evidence, not a proof.
+3. **Monotone.** Each kind's rule only adds pairs as edges are added
+   (axis 1). The strictness guard refuses at `put`; merge never refuses,
+   and a contradiction that arrives by merge is kept as data (O5).
+
+**Narrower relations** (ROLES.md §4, step 3.5) are admissible on the same
+terms: a declaration that one head is a narrower relation than another
+(`departure ⊑ from`, giving `departure(x) ⊑ from(x)`) is an inclusion
+between two heads with no composition. Its form is not designed yet and
+will land as its own clause change.
+
+**Still outside**, behind the arbitrary-relations wall: rules a user writes
+(relation chains such as "member of, then located in, gives located in",
+which is false, and is the reason membership is not `in`; see O6); several
+relations of one item that must stay paired (BINDING.md's two-leg
+journey); relations among three or more things ("Alice gave Bob a book");
+and defined concepts (O4).
+
 ## 6. Obligations of the higher layer
 
 What the layer above must do *instead of* asking the core for more:
@@ -209,6 +272,17 @@ What the layer above must do *instead of* asking the core for more:
   a violation is per-reader policy, never a merge precondition. Merge stays
   total; an inconsistency arriving via merge is visible, queryable structure
   — `get(Flight, Hotel)` being non-empty *is* the consistency check.
+- **O6 — File by the one meaning (0.2).** Kinds (`city`, `planet`) and
+  qualities (`blue`, `weight(3kg)`) take items directly. An entity
+  (`japan`, `mars`, `alice`) takes only its own instances and phases
+  (`medieval-japan ⊑ japan`); whatever else is related to it goes under a
+  dimension over it (`in(japan)`, `about(mars)`, `for(alice)`). `in` is for
+  places and parts; membership is said by kinds
+  (`alice ⊑ sales-employee ⊑ employee`), because membership chained with
+  location puts every member wherever the department is. Breaking O6
+  breaks no guarantee, since G1–G6 hold for any graph; the answers just
+  stop meaning what a reader assumes. After `mars ⊑ planet`, a photo filed
+  under `mars` is a planet.
 
 ## 7. Verifiability
 
@@ -356,3 +430,21 @@ their homes stay findable:
    semantics belong to each namespace's own contract (factbond's, for
    guarantee status), only the slot's existence and ignorability are
    promised here.
+
+### Amendment 0.2 (2026-10-06)
+
+Discussed with Peter over `docs/plans/ROLES.md` (the review of the
+swarm-sharing branch, which turned from keys to what a sharing edge
+means), and accepted the same day:
+
+1. **What an arrow means** → §2 and O6. "Below" had been used for several
+   relations at once: Tokyo below Japan, a photo below Mars, a document
+   below the person it is shared with. Each now goes through a dimension
+   over the entity.
+2. **Dimensions over nodes** → §5.1. The transitive and enclosing kinds
+   were built in steps 3.2–3.3 of ROLES.md §9 (registry 4.3); the reversed
+   kind is step 3.4. The conformance suite gained
+   `TestDimensionsOverNodes`.
+3. **Why the arbitrary-relations wall still stands** → the "Still outside"
+   paragraph of §5.1, and `DATABASE_DIRECTION.md`. The exception admits
+   fixed rules over declared names, not rules that users write.

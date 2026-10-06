@@ -1,7 +1,7 @@
-"""Conformance suite for docs/CONTRACT.md (contract version 0.1).
+"""Conformance suite for docs/CONTRACT.md (contract version 0.2).
 
-One named test class per guarantee G1-G6, plus the §4 as-of clause and the
-version constant. Every test goes through the PUBLIC API only: the `ontodag`
+One named test class per guarantee G1-G6, plus the §4 as-of clause, the
+§5.1 dimensions over nodes, and the version constant. Every test goes through the PUBLIC API only: the `ontodag`
 package surface (plus recordstore's public surface where a guarantee is
 about roots) — never submodule paths, never internals. This file is the
 executable half of the contract: if a change breaks a test here, either the
@@ -32,7 +32,7 @@ def declare_weight(dag):
 
 class TestContractVersion(unittest.TestCase):
     def test_version_constant_matches_document(self):
-        self.assertEqual(ontodag.CONTRACT_VERSION, "0.1")
+        self.assertEqual(ontodag.CONTRACT_VERSION, "0.2")
 
 
 class TestG1CanonicalRoot(unittest.TestCase):
@@ -206,6 +206,76 @@ class TestG6GetOverlapping(unittest.TestCase):
         after = names(self.dag.get_overlapping(need))
         self.assertLessEqual(before, after)
         self.assertIn("crate", after)
+
+
+def declare_relations(dag):
+    """`in` as a transitive dimension and `about` as an enclosing one
+    (§5.1); their kind nodes are not in the prelude yet."""
+    dag.put("dimension", [])
+    dag.put("transitive-dimension", ["dimension"])
+    dag.put("in", ["transitive-dimension"])
+    dag.put("enclosing-dimension", ["dimension"])
+    dag.put("about", ["enclosing-dimension"])
+    return dag
+
+
+PLACES = ("asia", "japan", "tokyo", "osaka", "photo", "guidebook")
+FACTS = (("japan", "in(asia)"), ("tokyo", "in(japan)"),
+         ("photo", "in(tokyo)"), ("photo", "in(japan)"),   # redundant
+         ("guidebook", "about(tokyo)"))
+
+
+class TestDimensionsOverNodes(unittest.TestCase):
+    """§5.1 (contract 0.2): relations to entities as dimension terms keep
+    G1, G2 and G4, and the strictness guard never makes a merge refuse."""
+
+    TERMS = [f"{head}({place})" for head in ("in", "about")
+             for place in PLACES]
+
+    def build(self, facts, dag=None):
+        dag = declare_relations(dag if dag is not None else ontodag.OntoDAG())
+        for name in PLACES:
+            dag.put(name, [])
+        for child, parent in facts:
+            dag.put(child, [parent])
+        return dag
+
+    def test_g1_filing_order_does_not_affect_the_root(self):
+        roots = {self.build(order, eager(MemoryBytesStore())).commit()
+                 for order in (FACTS, FACTS[::-1])}
+        self.assertEqual(len(roots), 1)
+
+    def test_g4_located_in_is_not_being(self):
+        dag = self.build(FACTS)
+        self.assertTrue(dag.is_below("photo", "in(asia)"))
+        self.assertTrue(dag.is_below("guidebook", "about(japan)"))
+        # the photo is in Japan, not a Japan; the guidebook is about
+        # Tokyo, not in it
+        self.assertFalse(dag.is_below("photo", "japan"))
+        self.assertFalse(dag.is_below("guidebook", "in(tokyo)"))
+
+    def test_g2_truths_survive_merge(self):
+        ours = self.build(FACTS)
+        theirs = self.build([("osaka", "in(japan)")])
+        before = {(n, t) for n in PLACES for t in self.TERMS
+                  if ours.is_below(n, t)}
+        ours.merge(theirs)
+        after = {(n, t) for n in PLACES for t in self.TERMS
+                 if ours.is_below(n, t)}
+        self.assertLess(before, after)
+        self.assertIn(("osaka", "in(asia)"), after)
+
+    def test_the_guard_refuses_put_but_never_merge(self):
+        dag = self.build(FACTS)
+        with self.assertRaises(ValueError):
+            dag.put("asia", ["in(tokyo)"])     # Asia inside its own part
+        # each store is consistent, their union is not: the merge keeps
+        # both facts as data (O5)
+        a = self.build([("tokyo", "in(japan)")])
+        b = self.build([("japan", "in(tokyo)")])
+        a.merge(b)
+        self.assertTrue(a.is_below("tokyo", "in(japan)"))
+        self.assertTrue(a.is_below("japan", "in(tokyo)"))
 
 
 class TestAsOfClause(unittest.TestCase):

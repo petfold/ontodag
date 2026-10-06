@@ -2,8 +2,9 @@ from ontodag.dag import DAG, OntoDAG, Item
 
 # Version of the higher-layer contract this package implements
 # (docs/CONTRACT.md — what agents and inference layers may assume).
-# Bumped on any clause change; agreed at 0.1 on 2026-08-01.
-CONTRACT_VERSION = "0.1"
+# Bumped on any clause change; agreed at 0.1 on 2026-08-01, amended to
+# 0.2 on 2026-10-06 (what an arrow means; dimensions over nodes).
+CONTRACT_VERSION = "0.2"
 
 
 def __getattr__(name):

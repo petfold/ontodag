@@ -10,7 +10,9 @@ everything in §4–§6 is a *proposed scoped amendment*, brought to the
 contract table — not grammar work to be started. It is also the evidence
 file for the parked "EL/relations canonicalization" research item in
 `DATABASE_DIRECTION.md`: two genuine consumers have now shown up (§2,
-§5), which is what that item's tripwire was waiting for.
+§5), which is what that item's tripwire was waiting for. (Update
+2026-10-06: contract 0.2 admitted one scoped exception, ROLES.md's
+dimensions over nodes, CONTRACT.md §5.1. Bundles are not part of it.)
 
 ## 1. The scope rule for flat roles (what already works, and why)
 

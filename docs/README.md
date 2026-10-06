@@ -17,7 +17,7 @@ to add a section somewhere, check it isn't another document's job.
 
 | document | job |
 |---|---|
-| [CONTRACT.md](CONTRACT.md) | Normative guarantees G1–G6, as-of semantics, what a higher layer may assume. Agreed at 0.1; amendments are deliberate. |
+| [CONTRACT.md](CONTRACT.md) | Normative guarantees G1–G6, as-of semantics, what a higher layer may assume. Agreed at 0.1, amended to 0.2 (what an arrow means; dimensions over nodes); amendments are deliberate. |
 | [PROVENANCE.md](PROVENANCE.md) | Attribution: signed claim-grain records in a parallel store. Agreed. |
 | [AGENT_SURFACE.md](AGENT_SURFACE.md) | The MCP surface: tools, envelope, write gating, review. |
 | [DIMENSIONS.md](DIMENSIONS.md) | Parametric values: computed order, kinds, anchors. |

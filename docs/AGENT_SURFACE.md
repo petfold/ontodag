@@ -21,7 +21,7 @@ Every successful answer is one JSON object:
 ```json
 {
   "root": "<the root this answer is true of>",
-  "contract": "0.1",
+  "contract": "0.2",
   "...tool-specific fields...",
   "annotations": {}
 }

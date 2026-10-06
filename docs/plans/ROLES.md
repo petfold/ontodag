@@ -4,19 +4,20 @@ Status: **discussion draft, 2026-10-06** (the review of the
 `swarm-sharing` branch with Peter, which turned from keys to what a
 sharing edge means; revised the same day after his questions on roles
 and dimensions, spelling, and Tokyo and Japan, and his decision to call
-them all dimensions). §8 records what Peter
-settled; everything else is open. Like BINDING.md, this is a **proposed
-scoped amendment** to the contract's standing decision that the core
-gains no further expressiveness (CONTRACT.md §5), and it stays in front
-of the arbitrary-relations wall (DATABASE_DIRECTION.md) rather than
-crossing it. Examples marked *today* were executed against 0.28.0;
-everything else is proposed. **Built since (2026-10-06, unreleased):**
-steps 3.1–3.3 of §9 — the one meaning in HOW_IT_WORKS.md, the
-transitive kind that `in` is declared under (DIMENSIONS.md §16), and the
-enclosing kind for `about`, `from`, `to` (§17). Peter then settled three
-more points: `in` covers places and parts but not membership, `geo` stays
-apart from `in` for now, and the second kind is called
-`enclosing-dimension` (§8, items 8–10).
+them all dimensions). §8 records what Peter settled; everything else is
+open. It was proposed, like BINDING.md, as a scoped amendment to the
+contract's standing decision that the core gains no further
+expressiveness, staying in front of the arbitrary-relations wall
+(DATABASE_DIRECTION.md) rather than crossing it. Peter accepted the
+amendment as **contract 0.2** on 2026-10-06 (CONTRACT.md §2, §5.1 and
+O6). Examples marked *today* were executed against 0.28.0; everything
+else is proposed. **Built since (2026-10-06, unreleased):** steps
+3.1–3.3 of §9 — the one meaning in HOW_IT_WORKS.md, the transitive kind
+that `in` is declared under (DIMENSIONS.md §16), and the enclosing kind
+for `about`, `from`, `to` (§17). Peter then settled three more points:
+`in` covers places and parts but not membership, `geo` stays apart from
+`in` for now, and the second kind is called `enclosing-dimension` (§8,
+items 8–10).
 
 ## 0. In short
 
@@ -430,6 +431,10 @@ Settled later the same day, after step 3.3:
     map. `in` stays the wider of the two: it also takes places with no
     coordinates, such as Middle-earth, and places whose coordinates
     don't help, such as an aisle in a supermarket.
+11. **The contract is amended to 0.2** (CONTRACT.md): what an arrow means
+    (§2), dimensions over nodes as a scoped exception to "no further
+    expressiveness" (§5.1), and the writer's obligation O6. A new kind is
+    a clause change; a new head never is.
 
 **Open:**
 
@@ -456,9 +461,7 @@ Settled later the same day, after step 3.3:
   dimension, such as `about(...)` or `in(...)`, when someone files under
   it. Candidates: any node with a kind above it in a pack, or an
   explicit declaration. *Leaning:* offer, never rewrite silently.
-- **The contract.** "A node is a class of items; below is inclusion"
-  belongs in CONTRACT.md, which is agreed at 0.1. Amending it is Peter's
-  call.
+- ~~**The contract.**~~ Settled as item 11.
 - **The audience dimension's name:** `for` or `shared-with`.
 - **US spelling in names.** Core and the domain packs hold 17 names with
   British spellings (`orange-colour`, `ash-grey`, `centre`, `storey`, …).
@@ -518,7 +521,7 @@ instance.
 3. **main, step by step.** Each step is additive with the suite green,
    and nothing is released until the last:
    1. ~~the one meaning and the three kinds of name, stated~~ — done
-      2026-10-06 in HOW_IT_WORKS.md §1. CONTRACT.md is still open (§8);
+      2026-10-06 in HOW_IT_WORKS.md §1, and in CONTRACT.md as 0.2;
    2. ~~`in`: strict, transitive, the guard; property tests for
       reduction and merge, as role heads had~~ — done 2026-10-06 as the
       general transitive kind (DIMENSIONS.md §16, registry 4.3,
@@ -540,7 +543,7 @@ instance.
 **Where this draft goes as it lands.** It stays in `plans/` while it is
 discussed, since `docs/` describes only what is shipped. As each step is
 built, its part moves into a design record: the one meaning and the
-three kinds of name into HOW_IT_WORKS.md (and CONTRACT.md, if agreed);
+three kinds of name into HOW_IT_WORKS.md and CONTRACT.md (done, 0.2);
 the new kinds and narrower dimensions into DIMENSIONS.md, as sections
 after §15, the way §14 and §15 were added when they shipped; and §7 into
 SHARING.md. This file then shrinks to a pointer.

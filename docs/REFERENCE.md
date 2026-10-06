@@ -6,7 +6,7 @@ the normative guarantees in [CONTRACT.md](CONTRACT.md). Tables here are
 pinned against the code by `tests/test_reference.py` — if a name in this
 file and the code disagree, the suite fails.
 
-Versions this file describes: contract `0.1` · registry `4.3` ·
+Versions this file describes: contract `0.2` · registry `4.3` ·
 prelude `3` · surface `0.1` · core `9`.
 
 ## 1. Vocabulary
@@ -343,7 +343,7 @@ throughout, `display` beside them.
 |---|---|
 | [USER_GUIDE.md](USER_GUIDE.md) | tutorial and how-to, with executed snippets |
 | [HOW_IT_WORKS.md](HOW_IT_WORKS.md) | explanation — the ideas and why |
-| [CONTRACT.md](CONTRACT.md) | normative guarantees G1–G6, as-of semantics |
+| [CONTRACT.md](CONTRACT.md) | normative guarantees G1–G6, as-of semantics, what an arrow means, dimensions over nodes |
 | [PROVENANCE.md](PROVENANCE.md) | the attribution design (agreed) |
 | [AGENT_SURFACE.md](AGENT_SURFACE.md) | MCP surface design record |
 | [DIMENSIONS.md](DIMENSIONS.md), [UNITS.md](UNITS.md) | dimension and unit design records |
