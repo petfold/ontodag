@@ -29,6 +29,35 @@ filed under the trip, and every scan you later filed under any of those. The
 keeps the system small enough to be exact — and exactness, it turns out, is where
 all the magic comes from.
 
+### What an arrow means
+
+One thing, always: **every name stands for a class of items, and an arrow
+says that everything in the lower class is also in the upper one.** Dogs
+are mammals; a scan filed under `Flight` is a flight document. Names come
+in three kinds, and the rule treats them alike:
+
+- **Kinds** — `dog`, `city`, `book` — take what something *is*. A single
+  thing is a kind with one member, so "Mars is a planet" is an arrow too.
+- **Qualities** — `blue`, `heavy`, and every typed value such as
+  `weight(3kg)` — take what something *has*. Read `blue` as "blue things",
+  and `blue` under `color` says blue things are colored things.
+- **Entities** — `japan`, `mars`, `john` — have kinds of their own (Tokyo
+  is a city), which the things related to them don't share. So nothing
+  goes directly under an entity except its own phases and instances;
+  everything else goes under a *relation* to it. `in(japan)` is the
+  things located in Japan, and with `in` declared as a transitive relation
+  (DIMENSIONS.md §16), `tokyo` filed under `in(japan)` puts everything in
+  Tokyo into Japan too: `get city in(japan)` lists Japan's cities.
+
+The test for any arrow: whatever is true of everything above must be true
+of what is below. Medieval Japan under Japan passes (Japan is a country,
+and so was medieval Japan); Tokyo under Japan fails (Japan is a country,
+Tokyo a city). The trip in this document's examples is named `Japan`,
+which is fine as long as `Japan` only ever means the trip: a store that
+also filed `Japan` under `country` would make every boarding pass a
+country. The relations, and the plan for the rest of them, are in
+[plans/ROLES.md](plans/ROLES.md).
+
 ## 2. The golden rule: keep no link you can infer
 
 Here is the one design decision from which everything else follows.
