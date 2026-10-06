@@ -11,8 +11,9 @@ including which conventional database features are deliberately *not* being buil
 yet and what would signal that they are needed, are in `DATABASE_DIRECTION.md`;
 the engineering rationale is in `SWARM_DESIGN.md` and `SEMANTIC_CODES.md`.
 
-Last updated 2026-08-07 (loopmarket consumer needs filed — see the dated
-section below).
+Last updated 2026-10-07 (roles as dimensions: contract 0.2 and the
+kinds over nodes, built on main and not yet released; see the section of
+that name below).
 
 ## Status at a glance
 
@@ -24,6 +25,10 @@ section below).
 - [ ] **Item 12** — OntoDAG in a browser, on Swarm: queued, not built.
 - [ ] **Then: more capability, still no model change** — open.
 - [ ] **Filed consumer needs (loopmarket, 2026-08-07)** — open.
+- [ ] **Roles as dimensions (contract 0.2, 2026-10-06)** — the meaning of
+      an arrow and the three kinds over nodes are built on main; narrower
+      relations, the surface, the prelude and pack audit, and the release
+      are open.
 - [ ] **Under discussion / Parked / Research horizon** — no decisions yet, by
       design; nothing to tick.
 
@@ -42,11 +47,22 @@ interface (the surface layer's readable rendering serves both audiences; its
 canonical echo is the same mechanism as the agent-facing one).
 
 The companion decision: the **core gains no further expressiveness** — no
-relations, no negation, no rules, no weights. Richer reasoning belongs to a
-higher layer that compiles down to cone intersections under the contract, and
-non-monotone questions (negation, aggregation, closed-world) are asked
-honestly by pinning them to a root — a snapshot question with an immutable,
-replayable answer, which the existing snapshot machinery already supports.
+negation, no rules, no weights, and no arbitrary relations. Richer reasoning
+belongs to a higher layer that compiles down to cone intersections under the
+contract, and non-monotone questions (negation, aggregation, closed-world) are
+asked honestly by pinning them to a root — a snapshot question with an
+immutable, replayable answer, which the existing snapshot machinery already
+supports.
+
+*Amended 2026-10-06 (contract 0.2):* one scoped exception. Relations from an
+item to an entity, such as *in Japan*, *about Mars* or *for the sales team*,
+are written as dimension terms over nodes (`in(japan)`, `about(mars)`,
+`for(sales-employee)`), ordered by a small fixed set of kinds in code. Users
+declare the names of relations freely; they never declare rules. Everything
+stays monotone and computable from names plus the graph, so canonical form
+and merge are untouched. The reasoning is in
+[docs/plans/ROLES.md](docs/plans/ROLES.md), the clauses in
+[CONTRACT.md](docs/CONTRACT.md) §2 and §5.1.
 
 ## Delivered
 
@@ -88,6 +104,10 @@ replayable answer, which the existing snapshot machinery already supports.
   `get --as` — a reader sees what is filed below their name in *this*
   store, never in a merge; the design and its open questions in
   [docs/plans/SHARING.md](docs/plans/SHARING.md).
+- [x] **Revocation that holds** (0.29.0, 2026-10-06): `ontodag.act`'s
+  token format 2. In format 1 a reader who had been revoked could recover
+  the rotated keys from the public tokens; each token now carries a check
+  value of the key it wraps, bound into its keystream.
 
 ## Next up (concrete, queued)
 
@@ -392,8 +412,8 @@ tripwire has to be rediscovered mid-build.
   same-head pair from the names alone with no node present, and a node per
   item would churn every pinned root. Shape: `contains` = `==`,
   `intersect` = `a if a == b else None`, the prefix kind's grammar, space
-  tag `identifier`; **registry 4.3** (a minor, the graph kind's 4.2
-  precedent) with the kind node **outside the prelude**, declared by
+  tag `identifier`; **registry 4.4** (a minor, the graph kind's 4.2
+  precedent; 4.3 went to the kinds over nodes, below) with the kind node **outside the prelude**, declared by
   loopmarket's seed so no pack root moves; role heads `lot → item`,
   `sample → item`. No alphabet or length declaration: under equality a
   short value matches only itself, and refusing malformed values is a
@@ -411,6 +431,47 @@ tripwire has to be rediscovered mid-build.
 - **The graph kind's silent-want rule stands.** A want silent on a role
   head (`peril`) is not within a give that names it; loopmarket's cover
   terms accept it as is and name their perils. No ask.
+
+## Roles as dimensions (contract 0.2, 2026-10-06)
+
+Started as the review of the `swarm-sharing` branch and turned into the
+question of what an arrow means. Design and work order:
+[docs/plans/ROLES.md](docs/plans/ROLES.md) §9. In short: every name is a
+class of items and an arrow is inclusion; things go directly under the
+kinds they are and the qualities they have, and under a relation of an
+entity (`in(japan)`, `about(mars)`, `for(alice)`) rather than under the
+entity itself, which had let a photo of Mars come back as a planet.
+
+Built on main, not yet released:
+
+- [x] The meaning, stated in HOW_IT_WORKS.md §1 and CONTRACT.md 0.2.
+- [x] Three kinds over nodes (`DIMENSIONS.md` §16–§18, registry 4.3):
+  **transitive** for `in` (strict: nothing is inside itself), **enclosing**
+  for heads that follow `in` without chaining (`about`, `from`, `to`), and
+  **reversed** for `for`, where what is for a group is for each member, so
+  what Alice may see is one cone, `get for(alice)`.
+- [x] Terms of any kind the graph orders go only under their head: filed
+  elsewhere they would state rules, and random worlds showed the cost
+  going exponential.
+- [x] **Output-sensitive hops** (`DIMENSIONS.md` §19): filing no longer
+  slows down as a dimension grows (0.3–0.9 ms per put at 3,200 terms of
+  one head, where 0.28.0 took 156 ms at 800), and queries cost in
+  proportion to their answers. Peter's requirement: "We expect very large
+  graphs, so exponential is out of the question."
+
+Open, in order:
+
+- [ ] **Narrower relations** (`departure(lhr) ⊑ from(lhr)`): needs a
+  declaration form distinct from "uses that dimension's values", and a
+  contract clause.
+- [ ] **The surface**: render terms readably, and offer `about(...)`,
+  `in(...)` or `for(...)` when someone files under an entity.
+- [ ] **The prelude and the packs, once**: the standard relations in the
+  prelude, an audit of the packs for part-of edges filed as is-a, and the
+  spelling renames (US spelling in names), so every golden root moves in
+  one release; the packs republished to Swarm.
+- [ ] The guide's examples, then the release. `swarm-sharing` then
+  rebases onto it, with principals as people and shares under `for(...)`.
 
 ## Under discussion (no decision yet)
 
