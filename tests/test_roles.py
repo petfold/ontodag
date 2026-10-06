@@ -482,3 +482,34 @@ class TestRoleGuards(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestHeadsTheGraphOrdersAreNoRoles(unittest.TestCase):
+    """A head the graph orders, declared under another head, is not a role
+    of a value dimension (§14): its terms name nodes by constraint, so they
+    put no condition on the nodes they name. Until 2026-10-07 the removal
+    and move guards took them for roles and refused both."""
+
+    def build(self, kind, base, head):
+        dag = OntoDAG()
+        prelude.apply(dag)
+        dag.put(kind, ["dimension"])
+        dag.put(base, [kind])
+        dag.put(head, [base])
+        dag.put("bicycle", [])
+        dag.put("vehicle", [])
+        dag.put("job", [f"{head}(bicycle)"])
+        return dag
+
+    def test_removing_or_moving_a_named_node_is_free(self):
+        for kind, base, head in (("graph-dimension", "transport", "courier"),
+                                 ("enclosing-dimension", "from", "departure")):
+            with self.subTest(kind=kind):
+                dag = self.build(kind, base, head)
+                dag.reclassify(["bicycle"], to=["vehicle"])
+                self.assertTrue(dag.is_below("bicycle", "vehicle"))
+                dag.remove("bicycle")
+                self.assertNotIn("bicycle", dag.nodes)
+                # As under the base head itself: the term stays, as stored.
+                self.assertIn(f"{head}(bicycle)", dag.nodes)
+

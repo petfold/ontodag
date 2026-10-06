@@ -913,9 +913,18 @@ class OntoDAG(DAG):
 
     def _role_terms_naming(self, name):
         """Present role terms whose parameter names `name` (`from(my_home)`
-        for `my_home`) — the terms that would change meaning if it moved."""
+        for `my_home`) — the terms that would change meaning if it moved.
+
+        Only roles of a value dimension take a node as a value of their
+        base (§14). A head the graph orders, declared under another head
+        (`courier ⊑ transport`), names any node by constraint, as its base
+        does, so its terms guard nothing: removing or moving `bicycle`
+        under `courier(bicycle)` is as free as under `transport(bicycle)`.
+        Until 2026-10-07 such terms were taken for roles here, and both
+        were refused with a message about the base's dimension."""
         return [self.nodes[term] for term in
-                (f"{role}({name})" for role in sorted(self._role_heads()))
+                (f"{role}({name})" for role in sorted(self._role_heads())
+                 if self._dimension_kind(role) not in _dims.GRAPH_ORDERED)
                 if term in self.nodes]
 
     def _below_guarded(self, sub, sup):

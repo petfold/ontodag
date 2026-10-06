@@ -749,6 +749,12 @@ without the graph cycling (deciding whether `offer` is in the dimension
 walks through the role star that contains `from(offer)`), so the lookup
 is re-entrancy-guarded and reads a re-entered parameter as a literal.
 
+The guards apply to roles of a value dimension only. A head that the
+graph orders (§15–§18), declared under another head (`courier ⊑
+transport`), names nodes by constraint, as its base does, so removing or
+moving a node one of its terms names is as free as under the base. Until
+2026-10-07 the guards took such terms for roles and refused both.
+
 **The dimension itself is not a parameter (issue #17, 2026-09-12).** The
 base head is a node of its own dimension, so #15's rule would let a role
 name it — `from(geo)`, `when(time)` — and read it as the whole space.

@@ -115,6 +115,13 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **A head the graph orders, declared under another head, no longer
+  guards the nodes its terms name** (since 0.26.0). With `courier`
+  declared under the graph-kind head `transport`, `courier(bicycle)` was
+  taken for a role term (DIMENSIONS.md §14), so `remove bicycle` and
+  moving `bicycle` were refused with a message about the `transport`
+  dimension. They now behave as under `transport(bicycle)`. The same
+  applied to the new kinds over nodes (`departure` under `from`).
 - **`odag put` explains a term-shaped parent that is no term.** With
   `smell` filed under a node of the store's own (`my-kind ⊑ dimension`),
   `odag put rose 'smell(sweet)'` said to create `smell(sweet)` first,
