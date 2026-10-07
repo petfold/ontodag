@@ -128,6 +128,13 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **Moving an item up to an ancestor of its parent no longer unfiles
+  it** (since 0.16.0). `odag move x --from b --to a`, with `b` under `a`,
+  asserted `a → x` first; that edge was redundant beside `x ⊑ b ⊑ a` and
+  was skipped, and retracting `b` then left `x` under nothing but the
+  root, with everything below it. `reclassify` now asserts again any
+  destination the item is no longer below after the retraction. Found
+  while rewriting the sharing tests (moving a person out of a group).
 - **A query over a virtual value no longer re-walks nested values.**
   `get weight(..10000kg)`, where the values it contains nest (a range
   inside a range), walked each contained value's cone separately, so

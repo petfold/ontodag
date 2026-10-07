@@ -556,6 +556,27 @@ class TestReclassify(unittest.TestCase):
     anything, or produce a placement `put` itself would refuse.
     """
 
+
+    def test_moving_up_to_an_ancestor_keeps_the_item_there(self):
+        """Moving x from b to a, with b below a: the new edge is redundant
+        when asserted, and must survive the retraction of b."""
+        dag = OntoDAG()
+        dag.put("a", [])
+        dag.put("b", ["a"])
+        dag.put("x", ["b"])
+        dag.put("y", ["x"])
+        dag.reclassify(["x"], to=["a"], from_=["b"])
+        self.assertEqual({p.name for p in dag.nodes["x"].parents}, {"a"})
+        self.assertTrue(dag.is_below("y", "a"))
+        fresh = OntoDAG()
+        fresh.put("a", [])
+        fresh.put("b", ["a"])
+        fresh.put("x", ["a"])
+        fresh.put("y", ["x"])
+        self.assertEqual(edge_set(dag), edge_set(fresh))
+        # and the replace-everything form
+        dag.reclassify(["x"], to=["a"])
+        self.assertEqual({p.name for p in dag.nodes["x"].parents}, {"a"})
     def _projects(self):
         return build([
             ("active", []), ("archive", []),

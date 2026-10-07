@@ -3524,6 +3524,15 @@ class OntoDAG(DAG):
                     self.remove_edge(self.nodes[old], self.nodes[item])
                     retracted.add((old, item))
 
+        # A destination above an old parent was skipped as redundant when it
+        # was asserted (`x ⊑ b ⊑ a`, moving x from b to a), and the
+        # retraction just took away the path that implied it. Assert it again,
+        # or the item would end up under nothing it was moved to.
+        for item in items:
+            for destination in targets[item]:
+                if not self.is_below(item, destination):
+                    self.add_edge(self.nodes[destination], self.nodes[item])
+
         for item in items:
             if not self._live_parent_names(item):
                 self.add_edge(self.root, self.nodes[item])
