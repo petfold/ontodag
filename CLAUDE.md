@@ -998,6 +998,38 @@ the rest:
   then release 0.30, then migrate categor.io's shares to
   `shared-with(address)`. Step 7 still owes a design for how a prelude
   head declares its unit family.
+- **Step 7 — DONE on main (2026-10-07, evening), release 0.30.0 prepared,
+  not tagged.** Decisions taken one by one with Peter (ROLES.md §8 items
+  21–23): a head states its unit family in its kind (`mass ⊑
+  linear-dimension(mass)`, DIMENSIONS.md §21; `_head_family`,
+  `_refuse_pin_over_values`, `_ensure_family_node`, `dimensions.kind_node`);
+  the prelude says `mass`, never `weight` ("let the surface layer worry
+  about the wrong word"); core's lump-of-matter `mass` → `body-of-matter`;
+  core declares the heads for the quantity names it owns (`force`,
+  `current`, `frequency`; `force` = the physics quantity); ship core v11
+  as part of **core v12** (v11 + step 7). Fixed on the way: merge crashed
+  on two unit families under one head (I7, released bug). Prelude v4:
+  nine kinds, nine pinned heads (family nodes listed explicitly), `in`,
+  `about`, `shared-with`; root `ad8b1a09…`. ontodag-core gained
+  `tools/step7.py` (the last stage of `build.sh`; idempotent, chained
+  renames included; core may lean on no pack, so `leaf-blade ⊑ in(leaf)
+  natural-object` deviates from the table's `plant-part` — flagged to
+  Peter) and `align/core-heads.tsv`; ontodag-core `d157031`. Domain packs
+  regenerated, each +1; `pack_dag` carries the prelude when a pack's
+  parents include family pins or `in(...)`/`about(...)` terms. Every
+  golden root re-pinned with the new `scripts/repin_golden_roots.py
+  [--swarm] [--union]` (union `f7c44636…`, 11,892 categories; ~20 min
+  with both flags). Docs swept (weight → mass; executed snippets re-run;
+  CORE.md v12 entry; EVOLUTION.md §8 item 13: vectors, matrices, tensors,
+  Peter's aside). Validated: `CI=1` 1,210 passed + 3 skipped (README
+  1,213), slow union test, release smoke 27/27 on the 0.30.0 wheel, live
+  Bee 2/2, ontodag-fs 313 passed against the tree. **loopmarket** needs
+  `mass(...)`: done on its branch `ontodag-0.30` (floor
+  `ontodag>=0.30.0`), merge after 0.30 is on PyPI; **ontodag-fs**'s
+  ceiling `<0.30.0` needs raising after the release. **Still owed:**
+  tagging v0.30.0 (Peter confirms), republishing core + the ten domain
+  packs to Swarm (batch `c931c8a5…` is at 23/32 with 21.5 days left; a
+  dilution to 22 + top-up is Peter's call), then categor.io's migration.
 - **Validated at the end of the night, against main as pushed:** the
   live Bee tests 2/2 (bee 2.8.2, batch `c931c8a5…` usable, 22.1 days
   left, fullest bucket 23/32, throwaway signer), loopmarket 297 passed +
