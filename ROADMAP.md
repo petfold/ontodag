@@ -461,11 +461,9 @@ Built on main, not yet released:
 
 Open, in order:
 
-- [ ] **Narrower relations** (`departure(lhr) ⊑ from(lhr)`): needs a
-  declaration form distinct from "uses that dimension's values", and a
-  contract clause. *Built 2026-10-07 on the branch `narrower-relations`
-  in a proposed form (a relation head filed under another head of its
-  kind), with the clause drafted; it merges once the form is agreed.*
+- [x] **Narrower relations** (`departure(lhr) ⊑ from(lhr)`), contract
+  0.3 (2026-10-07): a relation head filed under another head of its kind
+  answers the broader head's queries (`DIMENSIONS.md` §20).
 - [ ] **The surface**: render terms readably, and offer `about(...)`,
   `in(...)` or `for(...)` when someone files under an entity.
 - [ ] **The prelude and the packs, once**: the standard relations in the

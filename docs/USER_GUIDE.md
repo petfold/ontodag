@@ -1240,8 +1240,8 @@ for(employee)
 handbook
 ```
 
-**A narrower relation is filed under the broader one** (proposed;
-[DIMENSIONS.md](DIMENSIONS.md) §20). A departure is a kind of "from", so
+**A narrower relation is filed under the broader one**
+([DIMENSIONS.md](DIMENSIONS.md) §20). A departure is a kind of "from", so
 `get from(lhr)` should find a flight departing from Heathrow. Declare the
 narrower head under the broader one, and it does:
 

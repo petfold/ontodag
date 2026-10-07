@@ -19,8 +19,9 @@ Peter then settled three more points: `in` covers places and parts but
 not membership, `geo` stays apart from `in` for now, and the second kind
 is called `enclosing-dimension` (§8, items 8–10). Step 4a (computed hops
 without scans) followed on main on 2026-10-07, and step 5, narrower
-relations, was built the same night on the branch `narrower-relations`
-in a proposed form that awaits Peter's decision (§8, DIMENSIONS.md §20).
+relations, was built the same night on a branch in a proposed form,
+which Peter accepted the next morning as contract 0.3 (§8 item 13,
+DIMENSIONS.md §20).
 
 ## 0. In short
 
@@ -257,8 +258,8 @@ below the bare head `weight`, though, which reads "has a weight": a small
 wrong answer that the same separation fixes. So "uses that space" and "is
 a narrower relation" are two declarations (§8).
 
-*Proposed 2026-10-07* (built on the branch `narrower-relations`,
-DIMENSIONS.md §20): for the kinds over nodes, the edge `departure ⊑ from`
+*Settled 2026-10-07* (§8 item 13, DIMENSIONS.md §20): for the kinds over
+nodes, the edge `departure ⊑ from`
 *is* the declaration, since a relation's argument is any node and "uses
 that space" says nothing there; for value kinds the edge keeps meaning a
 role. `max-load`'s small wrong answer stays: separating it needs a
@@ -466,6 +467,15 @@ Settled later the same day, after step 3.3:
     can be said per item (file the minutes under both), or by a layer
     above the store.
 
+Settled 2026-10-07:
+
+13. **A narrower relation is declared by the edge between two heads**
+    of one relation kind (transitive, enclosing or reversed):
+    `departure ⊑ from` makes `departure(x) ⊑ from(y)` exactly when
+    `from(x) ⊑ from(y)`. Value roles keep their meaning, and the graph
+    kind waits for its folding question. Chosen over a declaration node
+    and over deferring; contract 0.3 (DIMENSIONS.md §20).
+
 **Open:**
 
 - **Where the standard dimensions live.** The code would refer to `in` by
@@ -481,13 +491,7 @@ Settled later the same day, after step 3.3:
   cross-head rule; (c) *migrate* loopmarket's `from`/`to` from roles of
   `geo` to the enclosing kind over named places, which renames stored
   values and so needs a coordinated release of both repos.
-- **How to declare a narrower relation** (§4), as distinct from "uses
-  that space". *Proposed 2026-10-07 and built on the branch
-  `narrower-relations`:* for the transitive, enclosing and reversed
-  kinds, a head filed under another head of the same kind is a narrower
-  relation; value roles and the graph kind keep their meaning
-  (DIMENSIONS.md §20). The draft clause for contract 0.3 is in
-  CONTRACT.md §5.1. Decision: Peter's.
+- ~~**How to declare a narrower relation**~~ Settled as item 13.
 - ~~**Transitive dimensions besides `in`.**~~ Answered by step 3.2: the
   kind is general (`transitive-dimension`), so `in` is one head under it
   and a user's `descended-from` or `upstream-of` is another, each with
@@ -602,10 +606,9 @@ instance.
       chains file at 0.22 ms per place. Two more exponential paths found
       and removed on the way (the meet fallback, the graph kind's parse
       re-checks);
-   5. narrower relations — built 2026-10-07 on the branch
-      `narrower-relations` in a proposed form (a relation head filed
-      under another head of its kind), with the contract 0.3 clause
-      drafted; merged when Peter agrees to the form (DIMENSIONS.md §20);
+   5. ~~narrower relations~~ — done 2026-10-07 (DIMENSIONS.md §20,
+      contract 0.3): a relation head filed under another head of its
+      kind;
    6. the surface layer: offer `about(...)`, `in(...)` and `for(...)` for
       entity names, and render them;
    7. the prelude's new dimensions, the pack audit and the spelling

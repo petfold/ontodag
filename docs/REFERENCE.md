@@ -6,7 +6,7 @@ the normative guarantees in [CONTRACT.md](CONTRACT.md). Tables here are
 pinned against the code by `tests/test_reference.py` — if a name in this
 file and the code disagree, the suite fails.
 
-Versions this file describes: contract `0.2` · registry `4.3` ·
+Versions this file describes: contract `0.3` · registry `4.3` ·
 prelude `3` · surface `0.1` · core `9`.
 
 ## 1. Vocabulary
@@ -269,7 +269,7 @@ spelled; ordered by the graph (`from(x) ⊑ from(y)` iff `x ⊑ y` under
 refused. A node named by a role term cannot be removed or moved out of
 its dimension while the term stands.
 
-Narrower relations (DIMENSIONS.md §20, proposed): a head of a
+Narrower relations (DIMENSIONS.md §20, contract 0.3): a head of a
 transitive, enclosing or reversed kind declared under another head of
 the same kind — `departure` under `from`, `inside` under `in`, `editor`
 under `for` — names a narrower relation: `departure(x) ⊑ from(y)`

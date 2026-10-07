@@ -32,7 +32,7 @@ def declare_weight(dag):
 
 class TestContractVersion(unittest.TestCase):
     def test_version_constant_matches_document(self):
-        self.assertEqual(ontodag.CONTRACT_VERSION, "0.2")
+        self.assertEqual(ontodag.CONTRACT_VERSION, "0.3")
 
 
 class TestG1CanonicalRoot(unittest.TestCase):
@@ -228,6 +228,39 @@ FACTS = (("japan", "in(asia)"), ("tokyo", "in(japan)"),
          ("photo", "in(tokyo)"), ("photo", "in(japan)"),   # redundant
          ("guidebook", "about(tokyo)"),
          ("alice", "staff"), ("memo", "for(staff)"))
+
+
+class TestNarrowerRelations(unittest.TestCase):
+    """§5.1 (contract 0.3): a relation head filed under another head of its
+    kind is a narrower relation; G1 holds whenever it is declared."""
+
+    def build(self, facts, narrower_first=True, dag=None):
+        dag = declare_relations(dag if dag is not None else ontodag.OntoDAG())
+        if narrower_first:
+            dag.put("topic", ["about"])
+        else:
+            dag.put("topic", ["enclosing-dimension"])
+        for name in PLACES:
+            dag.put(name, [])
+        for child, parent in facts:
+            dag.put(child, [parent])
+        if not narrower_first:
+            dag.put("topic", ["about"])
+        return dag
+
+    FACTS = (("japan", "in(asia)"), ("tokyo", "in(japan)"),
+             ("guidebook", "topic(tokyo)"), ("guidebook", "about(japan)"))
+
+    def test_the_narrower_term_answers_the_broader_query(self):
+        dag = self.build(self.FACTS)
+        self.assertTrue(dag.is_below("topic(tokyo)", "about(asia)"))
+        self.assertFalse(dag.is_below("about(tokyo)", "topic(tokyo)"))
+        self.assertIn("guidebook", {n.name for n in dag.get(["about(asia)"])})
+
+    def test_g1_declaring_late_reaches_the_same_root(self):
+        roots = {self.build(self.FACTS, first, eager(MemoryBytesStore())).commit()
+                 for first in (True, False)}
+        self.assertEqual(len(roots), 1)
 
 
 class TestDimensionsOverNodes(unittest.TestCase):

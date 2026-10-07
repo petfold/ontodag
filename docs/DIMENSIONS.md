@@ -1282,13 +1282,12 @@ oracle of `tests/test_transitive.py` found none either. The live Bee
 tests passed on bee 2.8.2, and loopmarket's suite passes against this
 tree (297 passed).
 
-## 20. Narrower relations (2026-10-07, proposed)
+## 20. Narrower relations (2026-10-07)
 
-**Status.** Built on the branch `narrower-relations` as ROLES.md §9 step
-5, in the form below, which is a proposal: the declaration form was an
-open question (ROLES.md §8), and the contract admits narrower relations
-only by a clause change of their own (CONTRACT.md §5.1). Nothing here is
-on main until Peter decides.
+**Status.** ROLES.md §9 step 5. Built overnight on a branch in the form
+below, which was a proposal, since the declaration form was an open
+question (ROLES.md §8). Peter chose it the next morning, and it landed
+with contract 0.3 (CONTRACT.md §5.1).
 
 **The case.** A departure is a narrower kind of "from": a flight
 departing from Heathrow is from Heathrow, so `get from(lhr)` should find
@@ -1298,8 +1297,8 @@ never meet. Narrower relations make free naming safe: one person's
 `departure` and another's `departs`, both declared narrower than `from`,
 meet at `from(lhr)` (ROLES.md §4).
 
-**Declaration (proposed): a head of a relation kind filed under another
-head of the same kind.** `odag put departure from`, with `from` under
+**Declaration: a head of a relation kind filed under another head of
+the same kind.** `odag put departure from`, with `from` under
 `enclosing-dimension`. For the kinds over nodes this is the only reading
 the edge can have. A role takes its base's values (§14), but a relation's
 argument is any node already, so "uses that space" adds nothing. And

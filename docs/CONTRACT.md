@@ -6,14 +6,16 @@ the one its §13 predicted. The **direction** it records is agreed (2026-08-01):
 agents are the priority consumer, the core gains no further expressiveness,
 and verification is a first-class offering. The second has one scoped
 exception, agreed 2026-10-06: relations to entities as dimension terms,
-ordered by a fixed set of kinds in code (§5.1). The individual clauses are
+ordered by a fixed set of kinds in code (§5.1), extended on 2026-10-07 to
+narrower relations between their heads. The individual clauses are
 marked **holds today** (a restatement of a tested guarantee) or **committed**
 (agreed direction, not yet built).
 
-**Contract version: 0.2 — amended 2026-10-06** (0.1 was reviewed and agreed
-2026-08-01). 0.2 states what an arrow means (§2), admits dimensions over
-nodes as the scoped exception (§5.1), and adds the writer's obligation that
-goes with them (O6); the record of both versions is §8. All open questions
+**Contract version: 0.3 — amended 2026-10-07** (0.1 was reviewed and agreed
+2026-08-01, 0.2 on 2026-10-06). 0.2 states what an arrow means (§2), admits
+dimensions over nodes as the scoped exception (§5.1), and adds the writer's
+obligation that goes with them (O6); 0.3 admits narrower relations between
+their heads (§5.1). The record of every version is §8. All open questions
 from the 0.1 draft were resolved in the same-day review and folded into the
 clauses. The version is exposed as
 `ontodag.CONTRACT_VERSION`, will be carried by the discoverability record
@@ -234,27 +236,27 @@ conditions keep both axes:
    (axis 1). The strictness guard refuses at `put`; merge never refuses,
    and a contradiction that arrives by merge is kept as data (O5).
 
-**Narrower relations** (ROLES.md §4, step 3.5) are admissible on the same
-terms: a declaration that one head is a narrower relation than another
-(`departure ⊑ from`, giving `departure(x) ⊑ from(x)`) is an inclusion
-between two heads with no composition. Its form is not designed yet and
-will land as its own clause change.
+**Narrower relations (0.3)** — **holds today.** A head of a transitive,
+enclosing or reversed kind filed under another head of the same kind
+names a narrower relation: with `departure` under `from`,
+`departure(x) ⊑ from(y)` exactly when `from(x) ⊑ from(y)`, and a broader
+term is never inside a narrower one. It is an inclusion between two
+heads with no composition, admitted on the terms above:
 
-> **Proposed clause for 0.3** (branch `narrower-relations`, 2026-10-07,
-> not agreed). *A head of a transitive, enclosing or reversed kind filed
-> under another head of the same kind names a narrower relation:
-> `R(x) ⊑ S(y)` exactly when `S(x) ⊑ S(y)`, and a broader term is never
-> inside a narrower one. The declaration is an ordinary edge between two
-> heads; users still declare no rules, since what the edge means is fixed
-> here, for these kinds only. A head under a head of a value kind stays
-> a role (DIMENSIONS.md §14), and the graph kind is left out while its
-> conjunctions fold (§15). Monotone: the declaration only adds pairs.
-> Local: deciding `R(x) ⊑ S(y)` walks the heads above R and the ancestors
-> of x, as before. A declaration that would put something inside itself
-> under a strict relation is refused at `put`; merges stay total (O5).*
-> On agreement, `CONTRACT_VERSION` becomes `"0.3"`, and ontodag-fs's
-> upstream pin must accept it before the release (its gate runs from
-> main). Design record: DIMENSIONS.md §20.
+- *Users still declare no rules.* The declaration is an ordinary edge
+  between two heads, and what it means is fixed here, for these three
+  kinds only. A head under a head of a value kind stays a role that
+  takes its base's values (DIMENSIONS.md §14). The graph kind is left out
+  while its conjunctions fold (§15), since a narrower graph-kind head
+  would make stored form depend on filing order.
+- *Local.* Deciding `R(x) ⊑ S(y)` walks the heads above R and the
+  ancestors of x, as before.
+- *Monotone.* A declaration only adds pairs. One made after terms were
+  filed re-reduces them, so stored form does not depend on when it came
+  (G1). One that would put something inside itself under a strict
+  relation is refused at `put`; merges stay total (O5).
+
+Design record: DIMENSIONS.md §20.
 
 **Still outside**, behind the arbitrary-relations wall: rules a user writes
 (relation chains such as "member of, then located in, gives located in",
@@ -470,3 +472,19 @@ means), and accepted the same day:
 3. **Why the arbitrary-relations wall still stands** → the "Still outside"
    paragraph of §5.1, and `DATABASE_DIRECTION.md`. The exception admits
    fixed rules over declared names, not rules that users write.
+
+### Amendment 0.3 (2026-10-07)
+
+Built overnight as ROLES.md §9 step 5 on a branch, in a form proposed
+because the declaration was an open question (ROLES.md §8). Peter chose
+it the next morning over a separate declaration node and over deferring:
+
+1. **Narrower relations** → §5.1. The declaration is the edge between two
+   heads of one relation kind (`departure ⊑ from`), the only reading that
+   edge can have for kinds whose argument is any node. Value roles keep
+   their meaning, and the graph kind waits for its folding question. The
+   conformance suite gained `TestNarrowerRelations`; the oracle is
+   `tests/test_narrower.py`.
+2. **What stays:** a truck under `max-load(3000kg)` is still below the bare
+   head `weight` ("has a weight"). Separating that needs a second
+   declaration form for value roles, which nothing has asked for.
