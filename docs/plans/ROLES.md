@@ -480,7 +480,16 @@ Settled later the same day, after step 3.3:
 - **How the surface knows a name is an entity**, so that it can offer a
   dimension, such as `about(...)` or `in(...)`, when someone files under
   it. Candidates: any node with a kind above it in a pack, or an
-  explicit declaration. *Leaning:* offer, never rewrite silently.
+  explicit declaration. *Leaning:* offer, never rewrite silently. *The
+  audit (2026-10-07) rules out the first:* `dog` has a kind above it
+  too, so "a kind above it" doesn't mark an entity. Nor can the sources
+  supply one: WordNet's instance links mark only 7 shipped names (the
+  build drops them), and Wikidata's "instance of, no subclass of" is
+  noisy (in core, 33 of 34 capitalized hits are misalignments). Core
+  holds two entities, `bible` and `internet`; the packs hold about 400,
+  listed by hand in ontodag-core `docs/AUDIT_ROLES.md`. So the packs
+  would have to declare their entities explicitly, if the surface is to
+  offer anything.
 - ~~**The contract.**~~ Settled as item 11.
 - **The audience dimension's name:** `for` or `shared-with`.
 - **US spelling in names.** Core and the domain packs hold 22 names with
