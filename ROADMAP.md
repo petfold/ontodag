@@ -463,13 +463,17 @@ Open, in order:
 
 - [ ] **Narrower relations** (`departure(lhr) ⊑ from(lhr)`): needs a
   declaration form distinct from "uses that dimension's values", and a
-  contract clause.
+  contract clause. *Built 2026-10-07 on the branch `narrower-relations`
+  in a proposed form (a relation head filed under another head of its
+  kind), with the clause drafted; it merges once the form is agreed.*
 - [ ] **The surface**: render terms readably, and offer `about(...)`,
   `in(...)` or `for(...)` when someone files under an entity.
 - [ ] **The prelude and the packs, once**: the standard relations in the
   prelude, an audit of the packs for part-of edges filed as is-a, and the
   spelling renames (US spelling in names), so every golden root moves in
-  one release; the packs republished to Swarm.
+  one release; the packs republished to Swarm. *The audit is drafted
+  (ontodag-core `docs/AUDIT_ROLES.md`, 2026-10-07): 45 of 12,960 shipped
+  edges, and 22 British spellings with proposed names.*
 - [ ] The guide's examples, then the release. `swarm-sharing` then
   rebases onto it, with principals as people and shares under `for(...)`.
 
