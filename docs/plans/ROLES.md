@@ -512,6 +512,15 @@ Settled 2026-10-07:
     sense is a narrower relation (`editable-by ⊑ shared-with`). Renamed
     the same day in the code's comments, the tests and the docs that
     describe the system; this draft's §6–§7 keep the old name.
+19. **US spelling, decided name by name** (ontodag-core
+    `align/renames-step7.tsv`, applied in step 7): 13 respellings and the
+    `hard-disc` → `hard-disk` merge; the pairs get real names
+    (`center-point`, `air-current`, `broadcast-program`, `casting-mold`,
+    `honored-status`, `working-class`, `court-judgment`). Two names change
+    sense: `civilization` is the historical society (taking over
+    `civilisation`; the advanced-state sense leaves), and `floor` is a
+    level of a building (taking over `storey`; the walking surface becomes
+    `floor-surface`). `story` stays a tale.
 
 **Open:**
 
@@ -548,7 +557,7 @@ Settled 2026-10-07:
   offer anything.
 - ~~**The contract.**~~ Settled as item 11.
 - ~~**The audience dimension's name:**~~ Settled as item 18: `shared-with`.
-- **US spelling in names.** Core and the domain packs hold 22 names with
+- ~~**US spelling in names.**~~ Settled as item 19. Core and the domain packs hold 22 names with
   British spellings (`orange-colour`, `ash-grey`, `centre`, `storey`, …;
   the audit below counted them, where this draft had said 17), plus one
   typo. Eight are paired with a US spelling of another sense, so the
