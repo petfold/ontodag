@@ -1085,8 +1085,21 @@ the rest:
   sudo categorio-update` is Peter's (needs his sudo). Found on the way, for
   Peter: core has `group ⊑ agent` (since its first consensus build), which
   puts 187 concepts under `agent` (species, sequence, matrix, system, row,
-  pair); v11's `gene ⊑ sequence` made a gene an agent. A core content fix,
-  not done.
+  pair); v11's `gene ⊑ sequence` made a gene an agent. **Fixed the same
+  evening as core v13** (Peter: "a group is not an agent"; ontodag-core
+  `align/rulings-v13.tsv`, applied by `tools/step7.py`'s new move/parent+/add
+  actions): `group` the eleventh top branch, organization/legislature/
+  executive/jury/movement keep `agent`, democracy/monarchy/republic under
+  `system`, engagement under `meeting`, gene also `natural-object`; plus
+  **vaccine** (missing everywhere): `vaccine ⊑ medication` (core's sense
+  "treats or prevents") and `vaccination ⊑ medical-care` in core, the
+  medicine pack's vaccines under the hinge with five kinds (medicine v7).
+  **Released as 0.30.2** (a patch, as 0.19.1/0.22.1 were, so ontodag-fs's
+  `<0.31.0` ceiling holds; all four jobs green; PyPI smoke 27/27). Union
+  `edd681de…`, 11,899 categories. **Swarm republication of core + the ten
+  domain packs is owed**: the Bee node was down at release time (nothing on
+  :1633); rerun the scratchpad `publish_packs.py` into a FRESH home (old
+  pack stores hold v12, and a retraction never propagates by merge).
 - **Validated at the end of the night, against main as pushed:** the
   live Bee tests 2/2 (bee 2.8.2, batch `c931c8a5…` usable, 22.1 days
   left, fullest bucket 23/32, throwaway signer), loopmarket 297 passed +
