@@ -484,7 +484,24 @@ Settled 2026-10-07:
     `bitcoin-network` the system, as `ether` and `ethereum`; words, not
     case, keep them apart (names are case-sensitive, but every shipped
     name is lowercase). The edge-by-edge list is ontodag-core
-    `align/roles-rewrites.tsv`, applied in step 7.
+    `align/roles-rewrites.tsv`, applied in step 7. The four borderline
+    rows were decided the same day; a coin is not `in` its network.
+15. **Prelude v4 carries the standard relations** (option A): the four
+    kind nodes it lacked (graph, transitive, enclosing, reversed) and the
+    heads `in`, `about` and the audience head, so stores don't declare
+    them differently and collide on merge. Applied in step 7, with the
+    audit rewrites and the spelling renames, so every root moves once.
+16. **`from` and `to` stay out of the prelude** (option A). loopmarket
+    declares them as roles of `geo`; an enclosing declaration in the
+    prelude would put them under two kinds in every loopmarket store, and
+    would decide item 10 ahead of the bridge. Revisit with the bridge.
+17. **Prelude heads are pinned to their unit families** in v4, so a store
+    cannot quietly give `weight` a different family (today `weight(10N)`
+    parses, and a store whose first value is in newtons would hold force
+    under that head). `weight` keeps its name and holds mass. Peter:
+    "Mass is the correct term in physics but weight is more used on the
+    surface of Earth." How a head states its family (a declaration that
+    travels with the store) is designed when step 7 is built.
 
 **Open:**
 
