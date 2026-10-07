@@ -520,7 +520,17 @@ Settled 2026-10-07:
     sense: `civilization` is the historical society (taking over
     `civilisation`; the advanced-state sense leaves), and `floor` is a
     level of a building (taking over `storey`; the walking surface becomes
-    `floor-surface`). `story` stays a tale.
+    `floor-surface`). `story` stays a tale. `dialogue` is dropped:
+    `dialog` covers it.
+20. **One sharing model: `shared-with(...)`** (option B). From 0.30,
+    `ontodag.sharing` (`reach`, `landing`, `losses`), `odag shared-with`
+    and `get --as` read what a person may see as the cone of
+    `shared-with(person)`, not the cone of the person's name, and keyplan
+    follows the same terms. Breaking categor.io is accepted: the site is a
+    demo for now, and its shares move under `shared-with(address)` (a
+    mechanical reclassify of each address's landing set). Order: the
+    keyplan consolidation on `swarm-sharing-rebased`, merge, step 7,
+    release 0.30, then categor.io.
 
 **Open:**
 
