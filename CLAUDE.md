@@ -1067,6 +1067,26 @@ the rest:
   one shared pin-check shape kept LegVerifier under EIP-170 — a second
   shape cost ~480 bytes), NOT main: the deployed BeatClearing `0xC475…11d4`
   demands exact versions, so merging needs a redeploy (Peter's call).
+  **Then, on Peter's "go ahead": all released and deployed (2026-10-07,
+  afternoon).** ontodag **0.30.1** (index fix + contract 0.4; all four jobs
+  green, PyPI smoke 27/27); ontodag-fs **0.6.4** (ceiling `<0.31.0`, contract
+  0.4; resolves 0.30.1 from PyPI); loopmarket's clearing contracts
+  **redeployed on Gnosis** (BeatClearing `0x4A35ee6e86C266de94134BaD5523A8D7C8fA5cF4`,
+  LegVerifier `0x9E5A…FD2b`, StatementVerifier `0xAF36…51b2`, SealedBeat
+  `0xfC55…B5cE`; `0xC475…11d4` retired to it; `~/.loopmarket/config`
+  updated, backup `config.bak-2026-10-07`), checked live by `eth_call` (the
+  mixed 4.2/4.3 loop verifies on the new contract, refused by the retired
+  one), `major-pins` merged, loopmarket **0.14.0** published and verified
+  from PyPI. **categor.io migrated in code** (its main, `15a55e3`): Share
+  files under `shared-with(address)`, stores move across once at startup
+  (`stores.migrate_shares`, one history entry each), pre-0.30 imports
+  moved too, `names.is_audience`/`is_meta`, floor `ontodag>=0.30.1`, 35
+  tests; **the live site is not updated yet** — `ssh -t peter@categor.io
+  sudo categorio-update` is Peter's (needs his sudo). Found on the way, for
+  Peter: core has `group ⊑ agent` (since its first consensus build), which
+  puts 187 concepts under `agent` (species, sequence, matrix, system, row,
+  pair); v11's `gene ⊑ sequence` made a gene an agent. A core content fix,
+  not done.
 - **Validated at the end of the night, against main as pushed:** the
   live Bee tests 2/2 (bee 2.8.2, batch `c931c8a5…` usable, 22.1 days
   left, fullest bucket 23/32, throwaway signer), loopmarket 297 passed +
