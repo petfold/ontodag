@@ -948,6 +948,11 @@ the rest:
   `tests/test_keyplan.py`'s `_derivable` skips keys that format 2's
   checked `unwrap` refuses. Suite 1,188 there. The keyplan consolidation
   (principals as people, shares under `for(...)`) is Peter's to start.
+- **Validated at the end of the night, against main as pushed:** the
+  live Bee tests 2/2 (bee 2.8.2, batch `c931c8a5…` usable, 22.1 days
+  left, fullest bucket 23/32, throwaway signer), loopmarket 297 passed +
+  4 skipped, ontodag-fs 313 passed + 2 skipped, and `CI=1` suites green
+  on main (1,167) and on both branches (1,186; 1,188).
 
 ## Role heads (2026-09-12) — issue #15 closed, DIMENSIONS.md §14
 
