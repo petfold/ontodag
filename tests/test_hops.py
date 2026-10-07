@@ -32,7 +32,7 @@ def declare(resident):
     prelude.apply(dag)
     for kind, head in (("transitive-dimension", "in"),
                        ("enclosing-dimension", "about"),
-                       ("reversed-dimension", "for"),
+                       ("reversed-dimension", "shared-with"),
                        ("graph-dimension", "transport")):
         dag.put(kind, ["dimension"])
         dag.put(head, [kind])
@@ -60,7 +60,7 @@ def random_operations(seed, size=9, steps=40):
         if shape < 0.35:
             return f"about({a})"
         if shape < 0.5:
-            return f"for({a})"
+            return f"shared-with({a})"
         if shape < 0.65:
             return f"transport({a})"
         if shape < 0.8:
@@ -210,7 +210,7 @@ class TestFilingDoesNotScan(unittest.TestCase):
                 dag.put(f"person{i}", ["staff"])
             dag.put(f"item{i}", [f"in(city{i - i % 2})", f"weight({i + 1}g)",
                                  f"transport(small-item weight(..{1 + i % 9}kg))"])
-            dag.put(f"doc{i}", [f"for(person{i - i % 2})", f"about(city{i - i % 2})"])
+            dag.put(f"doc{i}", [f"shared-with(person{i - i % 2})", f"about(city{i - i % 2})"])
         for i in range(n):
             step(i)
         counter = self.count_star(dag)

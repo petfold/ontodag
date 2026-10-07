@@ -30,7 +30,7 @@ HEADS = {
     "in": ("transitive", None), "inside": ("transitive", "in"),
     "about": ("enclosing", None), "topic": ("enclosing", "about"),
     "subtopic": ("enclosing", "topic"),
-    "for": ("reversed", None), "editor": ("reversed", "for"),
+    "shared-with": ("reversed", None), "editor": ("reversed", "shared-with"),
 }
 KIND_NODE = {"transitive": "transitive-dimension",
              "enclosing": "enclosing-dimension",
@@ -164,8 +164,8 @@ class TestTheOrder(unittest.TestCase):
         self.assertFalse(dag.is_below("about(gate-b12)", "topic(gate-b12)"))
         self.assertTrue(dag.is_below("inside(car)", "in(car)"))
         self.assertFalse(dag.is_below("in(car)", "inside(car)"))
-        self.assertTrue(dag.is_below("editor(employee)", "for(alice)"))
-        self.assertFalse(dag.is_below("for(employee)", "editor(alice)"))
+        self.assertTrue(dag.is_below("editor(employee)", "shared-with(alice)"))
+        self.assertFalse(dag.is_below("shared-with(employee)", "editor(alice)"))
 
     def test_queries_find_the_narrower_terms(self):
         dag = self.dag
@@ -173,7 +173,7 @@ class TestTheOrder(unittest.TestCase):
         self.assertIn("flight-ba1", get("about(lhr)"))
         self.assertNotIn("brochure", get("topic(lhr)"))
         self.assertIn("engine", get("in(car)"))
-        self.assertIn("minutes", get("for(alice)"))
+        self.assertIn("minutes", get("shared-with(alice)"))
         self.assertIn("minutes", get("editor(alice)"))
         # A virtual broader term, never filed, finds them too.
         self.assertIn("flight-ba1", get("about(place)") | get("about(lhr)"))
@@ -440,9 +440,9 @@ class TestCertificatesAcrossProcesses(unittest.TestCase):
                  ("topic(gate-b12)", "about(place)", True),
                  ("engine", "in(garage)", True),
                  ("engine", "inside(garage)", True),
-                 ("minutes", "for(alice)", True),
+                 ("minutes", "shared-with(alice)", True),
                  ("minutes", "editor(alice)", True),
-                 ("for(employee)", "editor(alice)", False)]
+                 ("shared-with(employee)", "editor(alice)", False)]
         jobs = [{"cert": prove_below(dag, sub, sup), "expected": expected}
                 for sub, sup, expected in cases]
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:

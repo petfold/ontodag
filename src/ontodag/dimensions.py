@@ -129,8 +129,8 @@ KIND_ENCLOSING = "enclosing-dimension"
 # the order runs against the graph: `R(X) ⊑ R(Y)` when the Y's are among
 # the X's (every constraint of X is above, or is, some constraint of Y).
 # What is for a group is for each member, so once Alice is a sales
-# employee, `for(sales-employee) ⊑ for(alice)`, and whatever she may see
-# is the one cone below `for(alice)`. It follows kinds only, never `in`:
+# employee, `shared-with(sales-employee) ⊑ shared-with(alice)`, and whatever she may see
+# is the one cone below `shared-with(alice)`. It follows kinds only, never `in`:
 # a location fact must not grant access. Like the transitive kind it never
 # folds or meets, since a plan can be for sales and for finance, and the
 # union of two audiences has no single name (DIMENSIONS.md §18).

@@ -52,19 +52,19 @@ the version numbers appear in commit history and docs.
   several terms of one head on one item stay separate (a photo about
   Mars and about Earth keeps both).
 - **The reversed kind** (`reversed-dimension`, registry 4.3;
-  DIMENSIONS.md §18; step 3.4). A head declared under it, such as `for`,
-  orders its terms against the graph: what is for a group is for each
+  DIMENSIONS.md §18; step 3.4). A head declared under it, such as `shared-with`,
+  orders its terms against the graph: what is shared with a group is shared with each
   member, so once Alice is a sales employee,
-  `for(sales-employee) ⊑ for(alice)`, and whatever Alice may see is the
-  one cone `get for(alice)`. It follows kinds only, never `in`, so a
+  `shared-with(sales-employee) ⊑ shared-with(alice)`, and whatever Alice may see is the
+  one cone `get shared-with(alice)`. It follows kinds only, never `in`, so a
   location fact never grants access. A parameter may be a conjunction
-  (`for(manager sales-employee)` is for the people who are both). Several
+  (`shared-with(manager sales-employee)` is for the people who are both). Several
   audiences on one item stay separate.
 - **Narrower relations** (contract 0.3; DIMENSIONS.md §20; step 3.5). A
   head of a relation kind filed under another head of the same kind
   names a narrower relation: with `departure` under `from`, every
   `departure(x)` is a `from(x)`, so `get from(lhr)` finds what departs
-  from Heathrow, and `editor` under `for` gives whatever is
+  from Heathrow, and `editor` under `shared-with` gives whatever is
   `editor(employee)` to every employee. A broader term is never inside a
   narrower one. A late declaration re-reduces what it moves and is
   refused when it would put something inside itself. Value roles and the
@@ -89,7 +89,7 @@ the version numbers appear in commit history and docs.
   looking terms up by name. Writes ask `is_below` questions instead of
   enumerating ancestries. Per put with 200, 800 and 3,200 terms:
   `weight` 0.8, 0.8 and 0.9 ms (0.28.0: 31 ms at 200, 156 ms at 800);
-  `in` 0.6 ms and `for` 0.3 ms throughout; loopmarket-shaped offers
+  `in` 0.6 ms and `shared-with` 0.3 ms throughout; loopmarket-shaped offers
   1.8 ms from 300 to 2,400. Queries cost in proportion to their answers:
   `get from(ljubljana)` takes 115 ms for 1,200 results where it took 100
   s. Lazy readers keep scanning (a name lookup costs them a fetch), as

@@ -959,7 +959,7 @@ in 0.15 s (`TestDeepChains`).
 
 **Tests.** `tests/test_transitive.py`. An oracle recomputes the order
 from the asserted edges alone, as the least fixpoint of four rules
-(§17 and §18 later added one each, for `about` and `for`)
+(§17 and §18 later added one each, for `about` and `shared-with`)
 (reflexive, transitive, asserted, the lift), and checks on 40 random
 worlds every `is_below` answer between names and `in(name)` terms,
 every refusal, and the reduced stored form. Order independence and
@@ -1068,24 +1068,24 @@ follow cells. That rule became sound only when membership left `in`
 
 ## 18. The reversed kind: audiences (2026-10-06)
 
-**The case.** `for` relates an item to the people it is meant for, and
-access runs against membership: what is for a group is for each member.
-So the order of `for` terms runs against the graph. Once Alice is a sales
-employee, `for(sales-employee) ⊑ for(alice)`, and whatever Alice may see
-is the one cone below `for(alice)` (ROLES.md §6–§7). Every earlier kind
+**The case.** `shared-with` relates an item to the people it is meant for, and
+access runs against membership: what is shared with a group is shared with each member.
+So the order of `shared-with` terms runs against the graph. Once Alice is a sales
+employee, `shared-with(sales-employee) ⊑ shared-with(alice)`, and whatever Alice may see
+is the one cone below `shared-with(alice)` (ROLES.md §6–§7). Every earlier kind
 orders its terms the way their arguments are ordered; this one reverses
 it.
 
 **Declaration.** A head under the kind node `reversed-dimension`: `odag
-put reversed-dimension dimension`, then `odag put for
-reversed-dimension`. Not in the prelude yet (ROLES.md §9 step 3.7). The
-head's name is the store's (`for` here; ROLES.md §8 still lists
-`shared-with` as the alternative); no code refers to it.
+put reversed-dimension dimension`, then `odag put shared-with
+reversed-dimension`. Prelude v4 will declare it (ROLES.md §8 item 15).
+The name is `shared-with` (ROLES.md §8 item 18; it was `for` while
+unreleased, a word too often used for purpose); no code refers to it.
 
 **Order.** `R(X…) ⊑ R(A…)` iff every X is above (or is) some A: the graph
 kind's rule with the two sides swapped. A parameter names a class of
-people as a conjunction, so `for(manager sales-employee)` is for the
-people who are both, and `for(sales-employee) ⊑ for(manager
+people as a conjunction, so `shared-with(manager sales-employee)` is for the
+people who are both, and `shared-with(sales-employee) ⊑ shared-with(manager
 sales-employee)`: what is for every sales employee is for the sales
 managers. A redundant constraint is refused, as for the graph kind,
 since it is the parameter's class that counts, whichever way the order
@@ -1094,28 +1094,28 @@ runs.
 **Kinds only, never `in`.** Membership is said by kinds (§16, "Scope"),
 and the reversed rule follows the plain order alone. Following `in` would
 turn a location fact into an access grant: whoever filed Alice as living
-in Tokyo would give her whatever is `for(japan)`.
+in Tokyo would give her whatever is `shared-with(japan)`.
 
 **No folding, no meets.** A budget can be for sales and for finance, and
 the union of two audiences has no single name; the conjunction
-`for(finance-employee sales-employee)` names the people in both, which is
+`shared-with(finance-employee sales-employee)` names the people in both, which is
 a wider class of items, not the meet. So reversed terms are multi-valued
 like transitive and enclosing ones: never folded, and met only by
-containment (`meet(for(acme-employee), for(sales-employee))` is
-`for(acme-employee)`).
+containment (`meet(shared-with(acme-employee), shared-with(sales-employee))` is
+`shared-with(acme-employee)`).
 
-**No guard of its own.** Two `for` terms contain each other only if their
+**No guard of its own.** Two `shared-with` terms contain each other only if their
 parameters do, which takes a cycle the ordinary check refuses, or a
 redundant constraint the spelling refuses.
 
 **Terms of every kind the graph orders go only under their head**
-(graph, transitive, enclosing, reversed). Filing `for(board)` under `secret`
+(graph, transitive, enclosing, reversed). Filing `shared-with(board)` under `secret`
 would say that everything for the board is secret: a rule, not a fact
 about an item. The contract keeps rules out (CONTRACT.md §5.1), and the
 random worlds showed why. With such edges the containment of terms
 depends on rules anywhere in the store, and the recursive evaluation went
 exponential: with them, 19 of 60 worlds using `in` and `about` hit a put
-slower than three seconds, 43 of 60 using `for`, and 38 of 60 using the
+slower than three seconds, 43 of 60 using `shared-with`, and 38 of 60 using the
 graph kind (§15, released in 0.26.0); without them the slowest put took
 12 ms. `put`, `reclassify` and `add_edge` refuse such a term under
 anything but its head, before anything is materialized; merges and syncs
@@ -1161,18 +1161,18 @@ with the number of terms of each head an edge touches, for every
 dimension kind, released ones included, because every computed hop was
 found by scanning the head's star. Per put, with 200, 400 and 800 terms: `weight` values
 31, 73 and 156 ms (the same in 0.28.0), `in` places 28, 64 and 132, and
-`for` people 8, 18 and 39, while a plain DAG stays at 0.1 ms. Bulk loads
+`shared-with` people 8, 18 and 39, while a plain DAG stays at 0.1 ms. Bulk loads
 are therefore quadratic. Declaring a relation kind doubles the cost on a
 store with many values, since re-reduction computes a full cone on every
-edge, and that will matter once the prelude declares `in` and `for`
+edge, and that will matter once the prelude declares `in` and `shared-with`
 (ROLES.md §9 step 3.7). The fix, output-sensitive hops, is proposed as
 its own step before the release (ROLES.md §9).
 
 **Tests.** In `tests/test_transitive.py`: `TestAudience` (nine), and
 `TestCertificatesAcrossProcesses`, which verifies certificates for `in`,
-`about` and `for` under three hash seeds, since the reversed rule walks
+`about` and `shared-with` under three hash seeds, since the reversed rule walks
 up from the bound's argument as no earlier kind does. The oracle there
-gained the reversed rule, `for` facts, and terms filed under plain names
+gained the reversed rule, `shared-with` facts, and terms filed under plain names
 (expected refused) in its random worlds; a one-off run on 300 larger
 worlds found no disagreement in refusals, answers, stored form, order or
 merge. The loop: `TestNoLoopThroughAComputedLink` (graph kind) and
@@ -1205,7 +1205,7 @@ closes §12 step 6.
   index.
 - **Graph-ordered terms**: candidates come from walking near the term's
   constraints (their ancestors for the terms above a covariant term,
-  their descendants for those below, the other way round for `for`; what
+  their descendants for those below, the other way round for `shared-with`; what
   is filed in a transitive term; the containers of an enclosing term's
   argument). They are looked up in an argument index (constraint → the
   terms naming it) that `add_node` and `_forget` keep. Each candidate is
@@ -1252,7 +1252,7 @@ now asserts that a refusal leaves nodes and edges untouched.
 |---|---|---|---|
 | `weight` values, per put (0.28.0: 31, 156 ms, …) | 0.8 ms | 0.8 ms | 0.9 ms |
 | `in` places, per put | 0.6 ms | 0.6 ms | 0.6 ms |
-| `for` people, per put | 0.3 ms | 0.3 ms | 0.3 ms |
+| `shared-with` people, per put | 0.3 ms | 0.3 ms | 0.3 ms |
 
 loopmarket-shaped offers (graph-kind terms with value constraints, a
 role over geo, dates) file in 1.8 ms from 300 to 2,400 offers. A chain of
@@ -1360,7 +1360,7 @@ possibility). `meet` names the finer term when one contains the other,
 and raises otherwise, as for one head.
 
 **Measured.** Filing stays flat: `inside`, `editor` and `topic` terms
-cost 0.3–0.4 ms per put at 200, 800 and 3,200 terms, as `in` and `for`
+cost 0.3–0.4 ms per put at 200, 800 and 3,200 terms, as `in` and `shared-with`
 do. A chain of 3,200 places, each filed only `inside` the last (so no
 `in` term exists), answers `get in(p0)` with 6,400 results in about a
 second. Building that found a quadratic in the planner's walk of a

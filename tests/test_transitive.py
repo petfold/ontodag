@@ -14,13 +14,13 @@ strict: nothing is in itself, so an edge that would put a thing inside
 itself is refused.
 
 A reversed-kind head orders its terms against the graph: what is for a
-group is for each member, so `for(group) ⊑ for(member)`. It follows
+group is for each member, so `shared-with(group) ⊑ shared-with(member)`. It follows
 kinds only, never `in`.
 
 `Oracle` recomputes the combined order from the asserted edges alone, as
 the least fixpoint of six rules: reflexive, transitive, the asserted
 edges, `in(x) ⊑ in(y)` when `x ⊑ y` or `x ⊑ in(y)`, `about(x) ⊑
-about(y)` when `x ⊑ y` or `x ⊑ in(y)`, and `for(y) ⊑ for(x)` when
+about(y)` when `x ⊑ y` or `x ⊑ in(y)`, and `shared-with(y) ⊑ shared-with(x)` when
 `x ⊑ y`. It shares nothing with the traversals, containment code and memo
 under test. Its random worlds also file terms under plain names (a term
 "escaping" its head), the one shape in which an edge can close a loop
@@ -61,7 +61,7 @@ def declare(dag=None, about=False, audience=False):
         dag.put("about", ["enclosing-dimension"])
     if audience:
         dag.put("reversed-dimension", ["dimension"])
-        dag.put("for", ["reversed-dimension"])
+        dag.put("shared-with", ["reversed-dimension"])
     return dag
 
 
@@ -315,11 +315,11 @@ ORG = (("person", []), ("employee", ["person"]),
        ("finance-employee", ["acme-employee"]), ("manager", ["person"]),
        ("alice", ["sales-employee"]), ("bob", ["finance-employee"]),
        ("dave", ["sales-employee", "manager"]),
-       ("q3-plan", ["for(sales-employee)"]),
-       ("handbook", ["for(acme-employee)"]),
-       ("payslip", ["for(alice)"]),
-       ("budget", ["for(sales-employee)", "for(finance-employee)"]),
-       ("targets", ["for(manager sales-employee)"]))
+       ("q3-plan", ["shared-with(sales-employee)"]),
+       ("handbook", ["shared-with(acme-employee)"]),
+       ("payslip", ["shared-with(alice)"]),
+       ("budget", ["shared-with(sales-employee)", "shared-with(finance-employee)"]),
+       ("targets", ["shared-with(manager sales-employee)"]))
 
 
 def org(dag=None):
@@ -339,17 +339,17 @@ class TestAudience(unittest.TestCase):
 
     def test_what_is_for_a_group_is_for_each_member(self):
         below = self.dag.is_below
-        self.assertTrue(below("for(sales-employee)", "for(alice)"))
-        self.assertTrue(below("for(acme-employee)", "for(sales-employee)"))
-        self.assertFalse(below("for(alice)", "for(sales-employee)"))
-        self.assertTrue(below("handbook", "for(bob)"))
-        self.assertFalse(below("q3-plan", "for(bob)"))
+        self.assertTrue(below("shared-with(sales-employee)", "shared-with(alice)"))
+        self.assertTrue(below("shared-with(acme-employee)", "shared-with(sales-employee)"))
+        self.assertFalse(below("shared-with(alice)", "shared-with(sales-employee)"))
+        self.assertTrue(below("handbook", "shared-with(bob)"))
+        self.assertFalse(below("q3-plan", "shared-with(bob)"))
         # the plan is for Alice; it is not Alice
         self.assertFalse(below("q3-plan", "alice"))
 
     def test_what_someone_may_see_is_one_cone(self):
         def sees(who):
-            return names(self.dag.get([f"for({who})"], items_only=True))
+            return names(self.dag.get([f"shared-with({who})"], items_only=True))
         self.assertEqual(sees("alice"), {"q3-plan", "handbook", "payslip", "budget"})
         self.assertEqual(sees("bob"), {"handbook", "budget"})
         self.assertEqual(sees("dave"), {"q3-plan", "handbook", "budget", "targets"})
@@ -357,31 +357,31 @@ class TestAudience(unittest.TestCase):
     def test_kinds_only_never_in(self):
         dag = declare(audience=True)
         for name, supers in (("japan", []), ("tokyo", ["in(japan)"]),
-                             ("alice", ["in(tokyo)"]), ("notice", ["for(japan)"])):
+                             ("alice", ["in(tokyo)"]), ("notice", ["shared-with(japan)"])):
             dag.put(name, supers)
         # Alice lives in Tokyo, in Japan: a notice for Japan is not for her,
         # or filing where she lives would grant her access
-        self.assertFalse(dag.is_below("for(japan)", "for(alice)"))
-        self.assertFalse(dag.is_below("notice", "for(alice)"))
+        self.assertFalse(dag.is_below("shared-with(japan)", "shared-with(alice)"))
+        self.assertFalse(dag.is_below("notice", "shared-with(alice)"))
 
     def test_a_conjunction_is_the_people_in_both(self):
         below = self.dag.is_below
-        self.assertTrue(below("targets", "for(dave)"))
-        self.assertFalse(below("targets", "for(alice)"))
+        self.assertTrue(below("targets", "shared-with(dave)"))
+        self.assertFalse(below("targets", "shared-with(alice)"))
         # what is for every sales employee is for the sales managers
-        self.assertTrue(below("for(sales-employee)", "for(manager sales-employee)"))
+        self.assertTrue(below("shared-with(sales-employee)", "shared-with(manager sales-employee)"))
 
     def test_several_audiences_stay_separate(self):
         self.assertEqual(parents(self.dag, "budget"),
-                         {"for(finance-employee)", "for(sales-employee)"})
-        self.assertEqual(self.dag.meet("for(acme-employee)", "for(sales-employee)"),
-                         "for(acme-employee)")
+                         {"shared-with(finance-employee)", "shared-with(sales-employee)"})
+        self.assertEqual(self.dag.meet("shared-with(acme-employee)", "shared-with(sales-employee)"),
+                         "shared-with(acme-employee)")
         with self.assertRaisesRegex(ValueError, "no single term"):
-            self.dag.meet("for(sales-employee)", "for(finance-employee)")
+            self.dag.meet("shared-with(sales-employee)", "shared-with(finance-employee)")
 
     def test_the_wider_audience_wins(self):
-        self.dag.put("memo", ["for(acme-employee)", "for(sales-employee)"])
-        self.assertEqual(parents(self.dag, "memo"), {"for(acme-employee)"})
+        self.dag.put("memo", ["shared-with(acme-employee)", "shared-with(sales-employee)"])
+        self.assertEqual(parents(self.dag, "memo"), {"shared-with(acme-employee)"})
 
     def test_a_late_membership_reduces_what_was_filed_before_it(self):
         def build_(late):
@@ -390,28 +390,28 @@ class TestAudience(unittest.TestCase):
                 dag.put(name, [])
             if not late:
                 dag.put("carol", ["finance-employee"])
-            dag.put("note", ["for(carol)", "for(finance-employee)"])
+            dag.put("note", ["shared-with(carol)", "shared-with(finance-employee)"])
             if late:
                 dag.put("carol", ["finance-employee"])
             return dag
         early, late = build_(False), build_(True)
-        self.assertEqual(parents(late, "note"), {"for(finance-employee)"})
+        self.assertEqual(parents(late, "note"), {"shared-with(finance-employee)"})
         self.assertEqual(edge_set(early), edge_set(late))
 
     def test_a_rule_is_refused_and_leaves_nothing(self):
         dag = declare(about=True, audience=True)
         for name in ("board", "secret", "japan", "japanese"):
             dag.put(name, [])
-        for term, parent in (("for(board)", "secret"), ("in(japan)", "japanese"),
+        for term, parent in (("shared-with(board)", "secret"), ("in(japan)", "japanese"),
                              ("about(japan)", "japanese")):
             before = edge_set(dag)
             with self.assertRaisesRegex(ValueError, "would state a rule"):
                 dag.put(term, [parent])
             self.assertEqual(edge_set(dag), before)
             self.assertNotIn(term, dag.nodes)
-        dag.put("minutes", ["for(board)"])          # the term itself is fine
+        dag.put("minutes", ["shared-with(board)"])          # the term itself is fine
         with self.assertRaisesRegex(ValueError, "would state a rule"):
-            dag.put("for(board)", ["secret"])
+            dag.put("shared-with(board)", ["secret"])
 
     def test_stores_readers_certificates_and_the_sparse_writer(self):
         from ontodag.certificates import prove_below, verify_below
@@ -436,14 +436,14 @@ class TestAudience(unittest.TestCase):
         stored = eager.commit()
         self.assertIn(stored, roots)
         reader = LazyOntoDAG(RecordStore.at(stored, blobs))
-        for sub, sup, expected in (("q3-plan", "for(alice)", True),
-                                   ("q3-plan", "for(bob)", False),
-                                   ("targets", "for(dave)", True),
-                                   ("for(acme-employee)", "for(alice)", True)):
+        for sub, sup, expected in (("q3-plan", "shared-with(alice)", True),
+                                   ("q3-plan", "shared-with(bob)", False),
+                                   ("targets", "shared-with(dave)", True),
+                                   ("shared-with(acme-employee)", "shared-with(alice)", True)):
             self.assertEqual(reader.is_below(sub, sup), expected, (sub, sup))
             cert = prove_below(eager, sub, sup)
             self.assertEqual(verify_below(cert, stored), expected, (sub, sup))
-        self.assertEqual(names(reader.get(["for(alice)"], items_only=True)),
+        self.assertEqual(names(reader.get(["shared-with(alice)"], items_only=True)),
                          {"q3-plan", "handbook", "payslip", "budget"})
 
         blobs = MemoryBytesStore()
@@ -508,16 +508,16 @@ class TestDeepChains(unittest.TestCase):
             group = Item(f"g{i}")
             dag.add_node(group)
             DAG.add_edge(dag, dag.nodes[f"g{i + 1}"], group)
-        self.hang(dag, "doc", "for(g500)")
-        self.assertTrue(dag.is_below("doc", "for(g0)"))
-        self.assertFalse(dag.is_below("doc", "for(p0)"))
+        self.hang(dag, "doc", "shared-with(g500)")
+        self.assertTrue(dag.is_below("doc", "shared-with(g0)"))
+        self.assertFalse(dag.is_below("doc", "shared-with(p0)"))
 
 
 class TestCertificatesAcrossProcesses(unittest.TestCase):
     """A verifier in another process iterates sets in another order, so its
     walk may take another path; the certificate must cover every path. The
     reversed rule walks up from the BOUND's argument (`alice` in
-    `for(alice)`), which no earlier kind does."""
+    `shared-with(alice)`), which no earlier kind does."""
 
     def test_verifies_under_other_hash_seeds(self):
         import json, os, subprocess, sys, tempfile
@@ -528,9 +528,9 @@ class TestCertificatesAcrossProcesses(unittest.TestCase):
         cases = [("shibuya-photo", "about(asia)", True),
                  ("mona-lisa", "in(in(louvre))", True),
                  ("louvre-pyramid", "in(in(louvre))", False),
-                 ("q3-plan", "for(alice)", True),
-                 ("q3-plan", "for(bob)", False),
-                 ("targets", "for(dave)", True)]
+                 ("q3-plan", "shared-with(alice)", True),
+                 ("q3-plan", "shared-with(bob)", False),
+                 ("targets", "shared-with(dave)", True)]
         jobs = [{"cert": prove_below(dag, sub, sup), "expected": expected}
                 for sub, sup, expected in cases]
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
@@ -559,7 +559,7 @@ class Oracle:
 
     def __init__(self, nodes, edges):
         self.nodes = list(nodes)
-        terms = [f"{r}({n})" for r in ("in", "about", "for") for n in self.nodes]
+        terms = [f"{r}({n})" for r in ("in", "about", "shared-with") for n in self.nodes]
         universe = set(self.nodes) | set(terms) | {p for _c, p in edges} \
             | {c for c, _p in edges}
         below = {(a, a) for a in universe} | set(edges)
@@ -577,7 +577,7 @@ class Oracle:
                         if lifts and pair not in below:
                             new.add(pair)
                     # reversed: what is for all of y is for x, a part of it
-                    pair = (f"for({y})", f"for({x})")
+                    pair = (f"shared-with({y})", f"shared-with({x})")
                     if (x, y) in below and pair not in below:
                         new.add(pair)
             if not new:
@@ -613,12 +613,12 @@ def random_world(seed, size=8, attempts=16):
         shape = rnd.random()
         if shape < 0.12:
             # a term filed under a plain name: "whatever is for n1 is n2"
-            head = rnd.choice(("in", "about", "for"))
+            head = rnd.choice(("in", "about", "shared-with"))
             tries.append((f"{head}({child})", parent))
             continue
         tries.append((child, f"in({parent})" if shape < 0.45
                       else f"about({parent})" if shape < 0.6
-                      else f"for({parent})" if shape < 0.75 else parent))
+                      else f"shared-with({parent})" if shape < 0.75 else parent))
     return nodes, tries
 
 

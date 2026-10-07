@@ -956,6 +956,19 @@ the rest:
   accepts 0.3 (pushed first). Suite 1,188. The remaining open questions
   (the audit's two, step 7's prelude/spelling/`for` choices, the keyplan
   consolidation) are being taken one by one.
+- **The same morning, the open questions one by one** (ROLES.md §8
+  items 14–18): parts of systems go under `in(...)` (components) or
+  `about(...)` (mechanisms), a generic part naming the kind of whole;
+  `bitcoin` is the coin, `bitcoin-network` the system (words, not case:
+  names are case-sensitive but all shipped names are lowercase); the
+  audit's rewrites are decided edge by edge in ontodag-core
+  `align/roles-rewrites.tsv` (43 rewrites, 2 keeps); prelude v4 will
+  carry the four missing kind nodes and `in`, `about`, `shared-with`,
+  but NOT `from`/`to` (loopmarket's geo roles would get two kinds);
+  prelude heads get pinned to their unit families (`weight` keeps its
+  name, holds mass); and the audience head is **`shared-with`**, renamed
+  from `for` in comments, tests and docs (no code names it). All of it
+  lands in step 7, so every root moves once.
 - **Validated at the end of the night, against main as pushed:** the
   live Bee tests 2/2 (bee 2.8.2, batch `c931c8a5…` usable, 22.1 days
   left, fullest bucket 23/32, throwaway signer), loopmarket 297 passed +

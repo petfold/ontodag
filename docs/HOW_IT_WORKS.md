@@ -52,9 +52,9 @@ in three kinds, and the rule treats them alike:
   `sales-employee`, not under `in(sales)`), because membership chained
   with location would put each member wherever the department is.
   Relations such as `about` follow containment without chaining
-  (DIMENSIONS.md §17): a photo about Tokyo is about Japan. `for` runs the
-  other way (§18): what is for a group is for each member, so whatever
-  Alice may see is the one cone below `for(alice)`.
+  (DIMENSIONS.md §17): a photo about Tokyo is about Japan. `shared-with` runs the
+  other way (§18): what is shared with a group is shared with each member, so whatever
+  Alice may see is the one cone below `shared-with(alice)`.
 
 The test for any arrow: whatever is true of everything above must be true
 of what is below. Medieval Japan under Japan passes (Japan is a country,

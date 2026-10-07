@@ -57,7 +57,7 @@ supports.
 *Amended 2026-10-06 (contract 0.2):* one scoped exception. Relations from an
 item to an entity, such as *in Japan*, *about Mars* or *for the sales team*,
 are written as dimension terms over nodes (`in(japan)`, `about(mars)`,
-`for(sales-employee)`), ordered by a small fixed set of kinds in code. Users
+`shared-with(sales-employee)`), ordered by a small fixed set of kinds in code. Users
 declare the names of relations freely; they never declare rules. Everything
 stays monotone and computable from names plus the graph, so canonical form
 and merge are untouched. The reasoning is in
@@ -439,7 +439,7 @@ question of what an arrow means. Design and work order:
 [docs/plans/ROLES.md](docs/plans/ROLES.md) §9. In short: every name is a
 class of items and an arrow is inclusion; things go directly under the
 kinds they are and the qualities they have, and under a relation of an
-entity (`in(japan)`, `about(mars)`, `for(alice)`) rather than under the
+entity (`in(japan)`, `about(mars)`, `shared-with(alice)`) rather than under the
 entity itself, which had let a photo of Mars come back as a planet.
 
 Built on main, not yet released:
@@ -448,8 +448,8 @@ Built on main, not yet released:
 - [x] Three kinds over nodes (`DIMENSIONS.md` §16–§18, registry 4.3):
   **transitive** for `in` (strict: nothing is inside itself), **enclosing**
   for heads that follow `in` without chaining (`about`, `from`, `to`), and
-  **reversed** for `for`, where what is for a group is for each member, so
-  what Alice may see is one cone, `get for(alice)`.
+  **reversed** for `shared-with`, where what is shared with a group is shared with each member, so
+  what Alice may see is one cone, `get shared-with(alice)`.
 - [x] Terms of any kind the graph orders go only under their head: filed
   elsewhere they would state rules, and random worlds showed the cost
   going exponential.
@@ -465,7 +465,7 @@ Open, in order:
   0.3 (2026-10-07): a relation head filed under another head of its kind
   answers the broader head's queries (`DIMENSIONS.md` §20).
 - [ ] **The surface**: render terms readably, and offer `about(...)`,
-  `in(...)` or `for(...)` when someone files under an entity.
+  `in(...)` or `shared-with(...)` when someone files under an entity.
 - [ ] **The prelude and the packs, once**: the standard relations in the
   prelude, an audit of the packs for part-of edges filed as is-a, and the
   spelling renames (US spelling in names), so every golden root moves in
@@ -473,7 +473,7 @@ Open, in order:
   (ontodag-core `docs/AUDIT_ROLES.md`, 2026-10-07): 45 of 12,960 shipped
   edges, and 22 British spellings with proposed names.*
 - [ ] The guide's examples, then the release. `swarm-sharing` then
-  rebases onto it, with principals as people and shares under `for(...)`.
+  rebases onto it, with principals as people and shares under `shared-with(...)`.
 
 ## Under discussion (no decision yet)
 

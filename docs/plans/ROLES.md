@@ -362,6 +362,9 @@ under its broader one.
 
 ## 6. Reversed dimensions, and the word "contravariant"
 
+*Since item 18 (2026-10-07) the head is named `shared-with`; read every
+`for(...)` in §6–§7 as `shared-with(...)`.*
+
 Access runs against membership: what is for the whole group is for each
 member. So `for` reverses the order it follows. `alice ⊑ employee` gives
 `for(employee) ⊑ for(alice)`, and `alice ⊑ sales-employee` gives
@@ -502,6 +505,13 @@ Settled 2026-10-07:
     "Mass is the correct term in physics but weight is more used on the
     surface of Earth." How a head states its family (a declaration that
     travels with the store) is designed when step 7 is built.
+18. **The audience head is `shared-with`**, not `for`. Its terms grant
+    access once keys follow them, and "for" is too often used for other
+    things (purpose: `knife ⊑ for(cutting)`); `shared-with` says what it
+    does and matches the released command `odag shared-with`. A narrower
+    sense is a narrower relation (`editable-by ⊑ shared-with`). Renamed
+    the same day in the code's comments, the tests and the docs that
+    describe the system; this draft's §6–§7 keep the old name.
 
 **Open:**
 
@@ -537,7 +547,7 @@ Settled 2026-10-07:
   would have to declare their entities explicitly, if the surface is to
   offer anything.
 - ~~**The contract.**~~ Settled as item 11.
-- **The audience dimension's name:** `for` or `shared-with`.
+- ~~**The audience dimension's name:**~~ Settled as item 18: `shared-with`.
 - **US spelling in names.** Core and the domain packs hold 22 names with
   British spellings (`orange-colour`, `ash-grey`, `centre`, `storey`, …;
   the audit below counted them, where this draft had said 17), plus one

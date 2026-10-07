@@ -218,7 +218,7 @@ def declare_relations(dag):
     dag.put("enclosing-dimension", ["dimension"])
     dag.put("about", ["enclosing-dimension"])
     dag.put("reversed-dimension", ["dimension"])
-    dag.put("for", ["reversed-dimension"])
+    dag.put("shared-with", ["reversed-dimension"])
     return dag
 
 
@@ -227,7 +227,7 @@ PLACES = ("asia", "japan", "tokyo", "osaka", "photo", "guidebook",
 FACTS = (("japan", "in(asia)"), ("tokyo", "in(japan)"),
          ("photo", "in(tokyo)"), ("photo", "in(japan)"),   # redundant
          ("guidebook", "about(tokyo)"),
-         ("alice", "staff"), ("memo", "for(staff)"))
+         ("alice", "staff"), ("memo", "shared-with(staff)"))
 
 
 class TestNarrowerRelations(unittest.TestCase):
@@ -267,7 +267,7 @@ class TestDimensionsOverNodes(unittest.TestCase):
     """§5.1 (contract 0.2): relations to entities as dimension terms keep
     G1, G2 and G4, and the strictness guard never makes a merge refuse."""
 
-    TERMS = [f"{head}({place})" for head in ("in", "about", "for")
+    TERMS = [f"{head}({place})" for head in ("in", "about", "shared-with")
              for place in PLACES]
 
     def build(self, facts, dag=None):
@@ -292,7 +292,7 @@ class TestDimensionsOverNodes(unittest.TestCase):
         self.assertFalse(dag.is_below("photo", "japan"))
         self.assertFalse(dag.is_below("guidebook", "in(tokyo)"))
         # what is for the staff is for Alice; the memo is not Alice
-        self.assertTrue(dag.is_below("memo", "for(alice)"))
+        self.assertTrue(dag.is_below("memo", "shared-with(alice)"))
         self.assertFalse(dag.is_below("memo", "alice"))
 
     def test_g2_truths_survive_merge(self):

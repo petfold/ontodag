@@ -1233,7 +1233,7 @@ class OntoDAG(DAG):
             # so `inner ⊑ outer` when `outer`'s audience lies inside
             # `inner`'s — every constraint of `inner` is above (or is) some
             # constraint of `outer`. Alice a sales employee puts
-            # for(sales-employee) inside for(alice). Kinds only: no `in`.
+            # shared-with(sales-employee) inside shared-with(alice). Kinds only: no `in`.
             return all(any(a == x or self._below_guarded(a, x) for a in outs)
                        for x in ins)
         if all(any(x == a or self._below_guarded(x, a) for x in ins)
@@ -1590,7 +1590,7 @@ class OntoDAG(DAG):
 
     def _graph_nested(self):
         """Does some present term name, among its constraints, a term of a
-        kind the graph orders (`for(in(japan))`)? Such a constraint moves
+        kind the graph orders (`shared-with(in(japan))`)? Such a constraint moves
         through the graph's own hops, so re-reduction then walks them."""
         self._args_index()
         heads = self._heads()

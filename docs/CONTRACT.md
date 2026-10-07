@@ -203,7 +203,7 @@ walls (updated 2026-08-01 to name the axis each wall protects).
 ### 5.1 The scoped exception: dimensions over nodes (0.2)
 
 Relations to entities are admitted as **dimension terms over nodes**: a
-head applied to a node, `in(japan)`, `about(mars)`, `for(alice)`, ordered
+head applied to a node, `in(japan)`, `about(mars)`, `shared-with(alice)`, ordered
 like any dimension by its head's kind. The consumer is the one meaning
 itself (§2): without these terms, "located in Japan" or "about Mars" can
 only be said by filing under the entity, which says something false. Three
@@ -218,7 +218,7 @@ conditions keep both axes:
    `tokyo ⊑ in(japan)`, `in(tokyo) ⊑ in(japan)`; strict, with a guard
    against anything being inside itself); *enclosing* (follows `in`
    without chaining: a photo about Tokyo is about Japan); and *reversed*
-   (`for(group) ⊑ for(member)`: what is for a group is for each member).
+   (`shared-with(group) ⊑ shared-with(member)`: what is shared with a group is shared with each member).
    All four **hold today**. A new kind is a clause change: it bumps this
    contract and `REGISTRY_VERSION`. A new head never does. Filing a term
    of any of the four under anything but its head would state a rule
@@ -296,7 +296,7 @@ What the layer above must do *instead of* asking the core for more:
   qualities (`blue`, `weight(3kg)`) take items directly. An entity
   (`japan`, `mars`, `alice`) takes only its own instances and phases
   (`medieval-japan ⊑ japan`); whatever else is related to it goes under a
-  dimension over it (`in(japan)`, `about(mars)`, `for(alice)`). `in` is for
+  dimension over it (`in(japan)`, `about(mars)`, `shared-with(alice)`). `in` is for
   places and parts; membership is said by kinds
   (`alice ⊑ sales-employee ⊑ employee`), because membership chained with
   location puts every member wherever the department is. Breaking O6

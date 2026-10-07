@@ -1163,7 +1163,7 @@ go directly under the **kinds** they are (`city`, `photo`) and the
 **qualities** they have (`blue`, `weight(3kg)`). A name for one particular
 thing (Japan, Mars, Alice) is an **entity**, and only its own instances
 and phases go directly under it. Anything else related to it goes under a
-*relation* of it: `in(japan)`, `about(mars)`, `for(alice)`. File a photo
+*relation* of it: `in(japan)`, `about(mars)`, `shared-with(alice)`. File a photo
 of Mars directly under `mars`, and once a pack says `mars ⊑ planet`, the
 photo is a planet.
 
@@ -1177,7 +1177,7 @@ $ odag put in transitive-dimension
 $ odag put enclosing-dimension dimension
 $ odag put about enclosing-dimension
 $ odag put reversed-dimension dimension
-$ odag put for reversed-dimension
+$ odag put shared-with reversed-dimension
 ```
 
 **`in` is for places and parts, and it chains.** Tokyo is in Japan, so
@@ -1221,23 +1221,24 @@ $ odag below mars-rover-photo.jpg planet
 false
 ```
 
-**`for` runs the other way.** What is for a group is for each of its
-members, so what Alice may see is one cone, `get for(alice)`. It follows
-kinds only, never `in`: a location fact must not grant access.
+**`shared-with` runs the other way.** What is shared with a group is
+shared with each of its members, so what Alice may see is one cone,
+`get shared-with(alice)`. It follows kinds only, never `in`: a location
+fact must not grant access.
 
 ```console
 $ odag put employee
 $ odag put sales-employee employee
 $ odag put alice sales-employee
 $ odag put bob employee
-$ odag put q3-plan 'for(sales-employee)'
-$ odag put handbook 'for(employee)'
-$ odag get --items-only 'for(alice)'
+$ odag put q3-plan 'shared-with(sales-employee)'
+$ odag put handbook 'shared-with(employee)'
+$ odag get --items-only 'shared-with(alice)'
 handbook
 q3-plan
-$ odag get 'for(bob)'
-for(employee)
+$ odag get 'shared-with(bob)'
 handbook
+shared-with(employee)
 ```
 
 **A narrower relation is filed under the broader one**
@@ -1280,7 +1281,7 @@ odag: japan ⊑ in(tokyo) would put japan inside itself: in is strict, so nothin
 ```
 
 Several terms of one relation on one item stay separate: Zermatt can be
-`in(switzerland)` and `in(alps)`. The names `in`, `about` and `for` are
+`in(switzerland)` and `in(alps)`. The names `in`, `about` and `shared-with` are
 the store's own; any head under one of these kinds behaves the same
 way. The design is [DIMENSIONS.md](DIMENSIONS.md) §16–§18, and the
 reasoning [plans/ROLES.md](plans/ROLES.md).

@@ -39,7 +39,7 @@ order), PROJECTIONS (sources of truth vs. regenerable
 machine layers, the ingest contract with holdings/ucomm, retention
 classes), ROLES (what "below" means: one meaning, inclusion between
 classes of items; relations to entities as dimensions such as `in`,
-`about` and `for`; kinds, qualities and entities), SHARING (what one
+`about` and `shared-with`; kinds, qualities and entities), SHARING (what one
 store shows another: reach as the cone of a reader's principals in the
 sharer's store, evaluated per store — ACT's rule drawn in one direction,
 filtered overlays, a proposed G7),
