@@ -588,7 +588,11 @@ instance.
    8. the guide's examples; release.
 4. **swarm-sharing:** rebase onto main once `for` lands (step 3.4), then
    do the keyplan consolidation with principals as people and shares
-   under `for(...)`; merge when it's done.
+   under `for(...)`; merge when it's done. *The rebase is done
+   (2026-10-07), as the new branch `swarm-sharing-rebased`; `swarm-sharing`
+   itself is untouched. It takes main's format-2 `act.py`, and keyplan's
+   attacker test now skips a key that doesn't open a token. Suite green.
+   The consolidation waits for Peter.*
 
 **Where this draft goes as it lands.** It stays in `plans/` while it is
 discussed, since `docs/` describes only what is shipped. As each step is

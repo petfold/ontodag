@@ -941,6 +941,13 @@ the rest:
   of them sense pairs, with checked replacement names. ROLES.md §8/§9
   updated. Two questions in it for Peter: `in` for parts of abstract
   systems (or `about`), and what `bitcoin` names.
+- **Step 4's rebase** (swarm-sharing onto main, now that `for` exists):
+  pushed as the new branch `swarm-sharing-rebased`, leaving
+  `swarm-sharing` untouched. Conflicts resolved toward main (`act.py`
+  format 2; merged texts for `KeyGraph.revoke`'s gap and guide §9.3);
+  `tests/test_keyplan.py`'s `_derivable` skips keys that format 2's
+  checked `unwrap` refuses. Suite 1,188 there. The keyplan consolidation
+  (principals as people, shares under `for(...)`) is Peter's to start.
 
 ## Role heads (2026-09-12) — issue #15 closed, DIMENSIONS.md §14
 
