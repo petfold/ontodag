@@ -335,6 +335,20 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     ≈ 9 xBZZ, more than the wallet held, hence 13.7 days. The wallet now
     needs xBZZ before the next top-up.
 
+12. **Real node, 2026-10-07 — 0.30's packs published.** Bee 2.8.2, batch
+    `c931c8a5…` diluted 21 → 22 on Peter's word (tx `0xecd34f…`, free;
+    TTL 21.5 → 10.8 days, fullest bucket 23/32 → 23/64; no top-up — the
+    price had risen to 149,269 PLUR/chunk/block, so 20 days at depth 22
+    would be ≈ 21.6 xBZZ; wallet 57.3 xBZZ). Core v12 and the ten domain
+    packs pushed keyless (`odag -f swarm:pack-NAME pack NAME`, driver in the
+    session scratchpad `publish_packs.py`): **all eleven roots byte-equal
+    to the re-pinned `SWARM_GOLDEN_ROOTS` and `isRetrievable: true`**, no
+    re-upload needed this time (fullest bucket 24/64 after). Two lessons:
+    in keyless mode a local-first store's `sync()` waits for a
+    confirmation that never arrives, so the reliable test is `GET
+    /stewardship/<root>`, not the sync barrier; and `pkill -f NAME` kills
+    the shell running it when NAME is in its own command line — kill by PID.
+
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
 
 ### `LazyOntoDAG` on-demand reader (`src/ontodag/lazy.py`) — DONE (2026-07-25)
@@ -1026,10 +1040,17 @@ the rest:
   Bee 2/2, ontodag-fs 313 passed against the tree. **loopmarket** needs
   `mass(...)`: done on its branch `ontodag-0.30` (floor
   `ontodag>=0.30.0`), merge after 0.30 is on PyPI; **ontodag-fs**'s
-  ceiling `<0.30.0` needs raising after the release. **Still owed:**
-  tagging v0.30.0 (Peter confirms), republishing core + the ten domain
-  packs to Swarm (batch `c931c8a5…` is at 23/32 with 21.5 days left; a
-  dilution to 22 + top-up is Peter's call), then categor.io's migration.
+  ceiling `<0.30.0` needs raising after the release. **Then, same day:
+  0.30.0 PUBLISHED by tag** (all four jobs green; `release_smoke.py --pypi
+  0.30.0` 27/27); the packs republished to Swarm (Bee run 12); loopmarket's
+  branch merged to its main with the follow-through a survey found
+  (prelude-v4 example catalogues, pinned heads as their own base,
+  `Ontology.load` with typed parents, unknown-prelude-term hints; 300
+  passed, CI green, NOT released); ontodag-fs's ceiling raised to
+  `<0.31.0` on its main (NOT released). Still owed: those two releases
+  (Peter confirms each tag), categor.io's migration, and the survey's open
+  questions for Peter (loopmarket's verifier compares pins exactly while
+  matching compares majors; the graph kind's folding/re-reduction answer).
 - **Validated at the end of the night, against main as pushed:** the
   live Bee tests 2/2 (bee 2.8.2, batch `c931c8a5…` usable, 22.1 days
   left, fullest bucket 23/32, throwaway signer), loopmarket 297 passed +
@@ -1384,7 +1405,7 @@ default earns its place; one that adds weight for a file format does not.*
 
 ## Release state
 
-**Current (2026-10-06): ontodag 0.29.0**, published by tag, all four
+**Current (2026-10-07): ontodag 0.30.0** (step 7: prelude v4, core v12, family pins, the keyplan consolidation; see the roles section). Before it, **0.29.0**, published by tag, all four
 workflow jobs green, and verified from PyPI (`release_smoke.py --pypi
 0.29.0`, 27/27). It is the `ontodag.act` revocation fix: token format
 2, where a check value of the child key heads each token and is bound
