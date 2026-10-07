@@ -1219,9 +1219,11 @@ def cmd_get(args, session, out):
 
 
 def cmd_shared_with(args, session, out):
-    """What this store shares with PRINCIPAL: everything below it, in this
-    store alone (docs/plans/SHARING.md) — the question to ask before
-    publishing a store others can read. `get --as` asks it of one query."""
+    """What this store shares with PRINCIPAL: everything below
+    `shared-with(PRINCIPAL)`, in this store alone (docs/plans/SHARING.md;
+    ROLES.md §8 item 20), including what is shared with a group the
+    principal belongs to — the question to ask before publishing a store
+    others can read. `get --as` asks it of one query."""
     from ontodag.sharing import reach
     _print_names(sorted(reach(session.dag, args.principals)), args, session, out)
 
@@ -2384,9 +2386,11 @@ Commands:
                         below 'weight(3kg)' 'weight(..5kg)' -> true
   shared-with PRINCIPAL...
                         what this store shares with PRINCIPAL: everything
-                        filed below it, in this store alone. `get --as
-                        PRINCIPAL` (and `count --as`) answers any query as
-                        they would see it. See docs/plans/SHARING.md
+                        below shared-with(PRINCIPAL), including what is
+                        shared with a group they belong to, in this store
+                        alone. `get --as PRINCIPAL` (and `count --as`)
+                        answers any query as they would see it. See
+                        docs/plans/SHARING.md
   move ITEM... --to CAT [--from CAT]
                         reclassify: file the items under --to and retract
                         their old categories. --from picks which one to
@@ -2723,7 +2727,8 @@ def build_parser():
     p.set_defaults(func=cmd_below, stream_output=True)
 
     p = sub.add_parser("shared-with", add_help=True,
-                       help="what this store shares with PRINCIPAL")
+                       help="what this store shares with PRINCIPAL: "
+                            "everything below shared-with(PRINCIPAL)")
     p.add_argument("principals", nargs="+", metavar="PRINCIPAL")
     p.add_argument("-o", "--output")
     _add_surface_flags(p)

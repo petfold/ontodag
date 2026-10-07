@@ -79,7 +79,7 @@ results one per line on stdout. No command = read commands from stdin
 | `get [CAT…]` | items below all CATs; `or` separates disjuncts; empty = everything; `--items-only` leaves out typed values and anything with children (a place or time term goes in CAT like any other) |
 | `count [CAT…]` | the same query, as one number; takes the same `--items-only` flag |
 | `below SUB SUP` | prints `true`/`false`, exits 0/1 (grep-style); alias `?` at the prompt |
-| `shared-with PRINCIPAL…` | what this store shares with PRINCIPAL: every name below it, in this store alone, never through overlays ([plans/SHARING.md](plans/SHARING.md)). `get`/`count --as PRINCIPAL` answer a query as they would see it |
+| `shared-with PRINCIPAL…` | what this store shares with PRINCIPAL: every name below `shared-with(PRINCIPAL)`, including what is shared with a group they belong to, in this store alone, never through overlays ([plans/SHARING.md](plans/SHARING.md)). `get`/`count --as PRINCIPAL` answer a query as they would see it |
 | `overlapping TERM` | items that *might* satisfy a typed term (G6): a candidate stating a value of the term's head passes iff it overlaps, one stating nothing under that head passes unconstrained — applied per candidate, never walked. A term of no declared dimension is an error, not an empty answer |
 | `overlaps A B` | could A and B share a point? `true`/`false`, exits 0/1; either side a typed term or a named place/region |
 | `meet A B` | the intersection of two same-head typed terms as one term; nothing and exit 1 when provably empty |
@@ -189,11 +189,9 @@ caller names the principals):
 
 | call | one line |
 |---|---|
-| `sharing.reach(dag, principals, exclude=())` | the names below any of `principals` in `dag` — the combined order, so `x` is in it iff `is_below(x, p)`; a down-set; never enters an excluded name (`exclude`: one collection, or principal → collection) |
-| `sharing.landing(dag, principals, exclude=())` | `{principal: names filed directly under it}` — where shares arrive |
+| `sharing.reach(dag, principals, exclude=())` | the names below `shared-with(p)` for any of `principals` in `dag` — the combined order, so `x` is in it iff `is_below(x, "shared-with(p)")`; a down-set, including the audience terms it passes through; never enters an excluded name (`exclude`: one collection, or principal → collection) |
+| `sharing.landing(dag, principals, exclude=())` | `{principal: names filed directly under shared-with(principal)}` — where shares arrive |
 | `sharing.losses(before, after, principals, exclude=())` | `{principal: names}` the first state shows and the second does not, per principal — the check before an edit |
-| `sharing.timeline(dag, principals, role="posted", exclude=())` | `(value, name)` for each name in reach filed under a point of `role`, oldest first — the author's wall as those readers see it (WALLS_AND_INBOXES §2); ranges and the values themselves are skipped |
-| `sharing.point_values(dag, name, role)` | the points of `role` that `name` is filed under directly |
 
 Comparing two stores (`from ontodag.compare import compare` — an opt-in
 consumer, imported by nothing in the core):

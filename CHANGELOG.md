@@ -25,13 +25,6 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
-- **`sharing.timeline(dag, principals, role="posted")`**: what those
-  readers see, in time order. It gives `(value, name)` for each name in
-  reach filed under a point of `role`, oldest first: an author's wall as
-  those readers see it (WALLS_AND_INBOXES.md §2 and build order item 1).
-  Ranges such as `posted(2026)`, and the values themselves, are skipped.
-  `sharing.point_values` gives one name's points.
-
 - **`ontodag.keyplan`: what a store shares, enforced by keys**
   (experimental; docs/plans/SHARING_ON_SWARM.md §4, Phase 1). It needs
   the `act` extra.
@@ -145,6 +138,17 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+- **What a store shares is the cone of `shared-with(person)`**
+  (ROLES.md §8 items 18 and 20; **breaking**). `sharing.reach`,
+  `landing` and `losses`, `odag shared-with` and `get`/`count --as` read
+  a person's reach as everything below `shared-with(person)`, a term of
+  the reversed kind, so what is shared with a group (`shared-with(sales-
+  employee)`) reaches every member through the computed order. Until now
+  it was the cone of the person's own name, with groups filed below their
+  members, which ran membership and sharing together (a group and a
+  member could not be filed both ways). A store using the old model shares
+  nothing under the new one; move each share from `person` to
+  `shared-with(person)`. categor.io is being migrated.
 - **Filing and querying no longer slow down as dimensions grow**
   (DIMENSIONS.md §19; ROLES.md §9 step 4a). A computed hop was found by
   scanning its head's whole star, so every put touching a term cost time

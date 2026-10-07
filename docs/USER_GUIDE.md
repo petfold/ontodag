@@ -2408,38 +2408,52 @@ in `docs/plans/BINDING.md`; it is a discussion draft, not a feature.)
 
 When other people can read your store — a `swarm:` store you publish, or a
 site built on OntoDAG such as categor.io — the question is what each of them
-sees. Since 0.28.0 OntoDAG answers it with one rule: **a person sees what is
-filed below their name in your store**, and nothing else. Their name is an
-ordinary category (here an address); filing something under it shares it,
-and everything below it goes along. A category filed under several people is
-a group:
+sees. OntoDAG answers it with one rule: **a person sees what is filed below
+`shared-with(person)` in your store**, and nothing else. `shared-with` is a
+dimension of the reversed kind (§4.9): what is shared with a group is shared
+with each of its members, so people go under the groups they belong to, as
+kinds, and a share goes under the audience term of a person or a group.
+Until 0.30 a share went directly under the person's name, with groups filed
+below their members; that ran membership and sharing together, and is gone.
+
+The audience head isn't in the prelude yet, so declare it first:
 
 ```console
-$ odag put ada@example.com
-$ odag put bob@example.com
-$ odag put book-club ada@example.com bob@example.com
-$ odag put reading-list book-club
+$ odag prelude
+$ odag put reversed-dimension dimension
+$ odag put shared-with reversed-dimension
+$ odag put person
+$ odag put book-club-member person
+$ odag put ada@example.com book-club-member
+$ odag put bob@example.com book-club-member
 $ odag put diary
-$ odag put reading-list diary
+$ odag put reading-list diary 'shared-with(book-club-member)'
 $ odag put dreams diary
+$ odag put note-to-ada 'shared-with(ada@example.com)'
+$ odag put house-rules 'shared-with(person)'
 $ odag shared-with ada@example.com
-book-club
+house-rules
+note-to-ada
 reading-list
+shared-with(book-club-member)
+shared-with(person)
 $ odag get diary
 dreams
 reading-list
 $ odag get diary --as bob@example.com
 reading-list
 $ odag count --as bob@example.com
-2
+4
 ```
 
-The reading list is in your private diary *and* in the book club, so Bob
-sees it; he does not see the diary it also sits in, or your dreams, because
-neither is below his name. `--as` answers any `get` or `count` the way that
-person would see it, from your store alone (overlays never share anything).
-The rule and its reasons are in [plans/SHARING.md](plans/SHARING.md); for
-now nothing in a store marks which names are people, so you name them.
+The reading list is in your private diary *and* shared with the book club,
+so Bob sees it; he does not see the diary it also sits in, or your dreams,
+or the note to Ada. The house rules are shared with every person, so both
+see them. The audience terms on the way are listed too: they are what a
+reader's keys follow (§9.4). `--as` answers any `get` or `count` the way
+that person would see it, from your store alone (overlays never share
+anything). The rule and its reasons are in [plans/SHARING.md](plans/SHARING.md)
+and [plans/ROLES.md](plans/ROLES.md) §7.
 
 The same from Python, with what an edit would take away — ask before
 making one:
@@ -2447,51 +2461,19 @@ making one:
 ```python
 >>> from ontodag import native, sharing
 >>> dag = native.load("me.od")
->>> sorted(sharing.reach(dag, ["ada@example.com"]))
-['book-club', 'reading-list']
->>> sharing.landing(dag, ["ada@example.com", "bob@example.com"])
-{'ada@example.com': ['book-club'], 'bob@example.com': ['book-club']}
->>> after = native.loads(native.dumps(dag)); after.remove("book-club")
+>>> sorted(sharing.reach(dag, ["bob@example.com"]))
+['house-rules', 'reading-list', 'shared-with(book-club-member)', 'shared-with(person)']
+>>> sharing.landing(dag, ["ada@example.com", "bob@example.com", "book-club-member"])
+{'ada@example.com': ['note-to-ada'], 'book-club-member': ['reading-list']}
+>>> after = native.loads(native.dumps(dag))
+>>> after.reclassify(["bob@example.com"], to=["person"], from_=["book-club-member"])
 >>> sharing.losses(dag, after, ["ada@example.com", "bob@example.com"])
-{'ada@example.com': ['book-club'], 'bob@example.com': ['book-club']}
+{'bob@example.com': ['reading-list', 'shared-with(book-club-member)']}
 ```
 
-Only the club itself is lost: `remove` contracts (§5.9), so the reading list
-moves up to Ada and Bob and stays shared. `remove --cone` would take it too.
-
-**In time order: walls** — newer than 0.28.0, so for now from a checkout
-(§2). Declare `posted` once as a role of `time` (§4.7), and file each post
-under its audience and the moment it was posted. `sharing.timeline` then
-lists what those readers see in the order it was posted — your wall, as
-they see it:
-
-```python
->>> from ontodag import OntoDAG, prelude, sharing
->>> dag = OntoDAG()
->>> prelude.apply(dag)
->>> dag.put("posted", ["time"])          # posted is a role of time
->>> for name in ("ada@example.com", "bob@example.com", "everyone"):
-...     dag.put(name, [])
->>> dag.put("book-club", ["ada@example.com", "bob@example.com"])
->>> dag.put("hello-world", ["everyone", "posted(2026-09-20T08:30:00Z)"])
->>> dag.put("reading-list", ["book-club", "posted(2026-09-24T10:00:00Z)"])
->>> dag.put("note-to-ada", ["ada@example.com", "posted(2026-09-24T12:15:00Z)"])
->>> for when, post in sharing.timeline(dag, ["bob@example.com", "everyone"]):
-...     print(when, post)
-posted(2026-09-20T08:30:00Z) hello-world
-posted(2026-09-24T10:00:00Z) reading-list
->>> [post for _, post in sharing.timeline(dag, ["ada@example.com", "everyone"])]
-['hello-world', 'reading-list', 'note-to-ada']
-```
-
-`everyone` is an ordinary name that you treat, by convention, as held by
-every reader: pass it along with a person's name and their view includes
-your public posts. Only single moments count as post times
-(`posted(2026-09)` is a range, not a post), and the time is your own claim:
-it orders the wall, and nothing checks it. From the command line,
-`odag get 'posted(2026-09)' --as bob@example.com --as everyone` lists what
-Bob can see that was posted in September 2026, sorted by name instead of by
-time.
+`landing` is where shares arrive: what was filed directly under each
+audience term. When Bob leaves the club he loses what was shared with the
+club, and keeps the house rules, since he is still a person.
 
 So far the rule is applied by whoever holds your store: `--as` on your
 machine, or a site on its server, for each request. §9.4 publishes it as
