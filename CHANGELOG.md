@@ -30,6 +30,13 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
+- **Family pins: a head states its unit family in its kind**
+  (DIMENSIONS.md §21; ROLES.md §8 item 21). `mass ⊑
+  linear-dimension(mass)` pins `mass` to the mass family: values and query
+  terms of another family are refused, and `get 'linear-dimension(mass)'`
+  lists the heads that hold mass. Filing under a family node creates it
+  under its kind. A head with no pin keeps the first-value rule.
+
 - **`ontodag.keyplan`: what a store shares, enforced by keys**
   (experimental; docs/plans/SHARING_ON_SWARM.md §4, Phase 1). It needs
   the `act` extra.
@@ -210,6 +217,11 @@ the version numbers appear in commit history and docs.
   sits.
 
 ### Fixed
+
+- **`merge` crashed when two stores' values of one head were in different
+  unit families** (a store whose `weight` held newtons merged into one
+  whose `weight` held kilograms). Merge now completes, the same in either
+  order, and comparing the two values afterwards is refused.
 
 - **Moving an item up to an ancestor of its parent no longer unfiles
   it** (since 0.16.0). `odag move x --from b --to a`, with `b` under `a`,

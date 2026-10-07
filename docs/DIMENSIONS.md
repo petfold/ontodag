@@ -1376,3 +1376,50 @@ the scan differential, the lazy reader, the sparse writer, and
 certificates verified under three hash seeds. One-off runs of 500 larger
 oracle worlds and 150 scan-differential worlds found no disagreement
 after the two fixes above.
+
+## 21. Family pins: a head states its unit family (2026-10-07)
+
+Until now a linear or count head took its unit family from its first value:
+a store whose first `weight` was `weight(10N)` held force under it and
+refused `weight(3kg)`. Nothing in the store said which family a head meant,
+so two stores could choose differently, and merging them crashed (below).
+
+**The rule** (ROLES.md §8 item 21). A head is *pinned* by filing it under a
+family-narrowed kind node:
+
+```
+mass ⊑ linear-dimension(mass) ⊑ linear-dimension
+```
+
+- A family node is recognized by its name alone, as the kind nodes are:
+  `KIND(FAMILY)` for the kinds whose values carry a family (linear, count).
+  Filing under one that is missing creates it under its kind, as a value
+  is created under its head.
+- A pinned head takes only values of its family. A new value or a query
+  term of another family is refused, naming both families; a stored value
+  parses as stored.
+- Pinning a head that already holds values of another family is refused.
+- A role inherits its base's pin.
+- The family must be one the store knows: built in, or declared with
+  `unit-family(NAME)`. Two pins on one head (after a merge) and a pin
+  naming no family are refused when the head is used, never by the merge.
+- An unpinned head keeps the first-value rule.
+
+**Why in the kind.** Stating a family is subsumption: a head that holds
+mass is a linear head of a narrower sort. So `get linear-dimension(mass)`
+lists the heads that hold mass, and a store adopts a pin by merge: in a
+store that said `mass ⊑ linear-dimension`, the new edge makes the old one
+redundant and reduction prunes it. A declaration node beside the head
+(`family(mass=mass)`, the unit-declaration pattern) was the alternative;
+it would have needed parsing to answer the same question.
+
+**Merge stays total across families.** Found while deciding this: merging a
+store whose unpinned head held newtons into one whose head held kilograms
+raised `unit families differ` inside `merge`, breaking I7 (released bug).
+During a merge, values of different families now count as not containing
+each other, which is true of their denotations, so the merge completes and
+is the same in either order. Comparing them afterwards is refused, so the
+disagreement is reported at first use, as conflicting kinds are.
+
+Tests: `TestFamilyPins` and `TestMergeStaysTotalAcrossFamilies` in
+`tests/test_dimensions_dag.py`.

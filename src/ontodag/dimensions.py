@@ -155,6 +155,49 @@ RELATION_KINDS = frozenset({KIND_TRANSITIVE, KIND_ENCLOSING, KIND_REVERSED})
 MULTI_VALUED = RELATION_KINDS
 # The transitive head an enclosing-kind head follows (ROLES.md §5).
 CONTAINMENT_HEAD = "in"
+# A head is pinned to one unit family by filing it under a family-narrowed
+# kind node: `mass ⊑ linear-dimension(mass) ⊑ linear-dimension` (ROLES.md
+# §8 item 21). Stating a family is subsumption, so "which heads hold mass"
+# is a query, and a store adopts a pin by merge. Like the kind nodes, a
+# family node is recognized by its name alone. Only the kinds whose values
+# carry a unit family take one.
+FAMILY_KINDS = frozenset({KIND_LINEAR, KIND_COUNT})
+_FAMILY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9-]*$")
+
+
+def kind_node(name):
+    """(kind, family) when `name` is a kind node: a registry kind (family
+    None) or a family-narrowed one, `linear-dimension(mass)`. None for any
+    other name."""
+    if name in KINDS:
+        return name, None
+    split = split_term(name)
+    if split is None:
+        return None
+    kind, family = split
+    if kind in FAMILY_KINDS and _FAMILY_RE.match(family):
+        return kind, family
+    return None
+
+
+def is_kind_node(name):
+    return kind_node(name) is not None
+
+
+def known_families(units=None):
+    """Every unit family a pin may name: the built-in table's, the affine
+    temperatures', and those a store declares (`unit-family(SOL)`)."""
+    families = {family for family, _ in _UNITS.values()}
+    families |= {family for family, *_ in _AFFINE.values()}
+    families |= {value[0] for value in (units or {}).values()}
+    return families
+
+
+def family_of(name, kind, units=None):
+    """The unit family of a canonical value of a pinnable kind."""
+    return _denotation(split_term(name)[1], kind, units)[0]
+
+
 _LINEARISH = frozenset({KIND_LINEAR, KIND_CALENDAR})
 _INTERVALISH = _LINEARISH | {KIND_COUNT}
 
@@ -777,6 +820,10 @@ def _same_head(a, b):
     return head_a, param_a, param_b
 
 
+class FamilyMismatch(ValueError):
+    """Two values of one head in different unit families."""
+
+
 def _family_mismatch(a, fam_a, b, fam_b):
     """The families-differ message, with the one hint worth giving.
 
@@ -806,7 +853,7 @@ def contains(outer, inner, kind, units=None):
         fam_o, lo_o, hi_o = _denotation(param_outer, kind, units)
         fam_i, lo_i, hi_i = _denotation(param_inner, kind, units)
         if fam_o != fam_i:
-            raise ValueError(_family_mismatch(outer, fam_o, inner, fam_i))
+            raise FamilyMismatch(_family_mismatch(outer, fam_o, inner, fam_i))
         lo_ok = lo_o is None or (lo_i is not None and lo_i >= lo_o)
         hi_ok = hi_o is None or (hi_i is not None and hi_i <= hi_o)
         return lo_ok and hi_ok
@@ -837,7 +884,7 @@ def intersect(a, b, kind, units=None):
         fam_a, lo_a, hi_a = _denotation(param_a, kind, units)
         fam_b, lo_b, hi_b = _denotation(param_b, kind, units)
         if fam_a != fam_b:
-            raise ValueError(_family_mismatch(a, fam_a, b, fam_b))
+            raise FamilyMismatch(_family_mismatch(a, fam_a, b, fam_b))
         lo = lo_a if lo_b is None else lo_b if lo_a is None else max(lo_a, lo_b)
         hi = hi_a if hi_b is None else hi_b if hi_a is None else min(hi_a, hi_b)
         if lo is not None and hi is not None and lo > hi:

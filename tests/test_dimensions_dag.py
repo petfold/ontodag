@@ -720,5 +720,122 @@ class TestCountDimensionInDAG(unittest.TestCase):
         self.assertIn("multiple kinds", str(ctx.exception))
 
 
+def pinned(**extra):
+    """A store with the kind nodes and `mass` pinned to the mass family."""
+    dag = OntoDAG()
+    for name, parents in [("dimension", []), ("linear-dimension", ["dimension"]),
+                          ("count-dimension", ["dimension"]),
+                          ("unit-declaration", [])]:
+        dag.put(name, parents)
+    dag.put("mass", ["linear-dimension(mass)"])
+    return dag
+
+
+class TestFamilyPins(unittest.TestCase):
+    """A head states its unit family in its kind: `mass ⊑
+    linear-dimension(mass)` (ROLES.md §8 item 21)."""
+
+    def test_a_pinned_head_takes_only_its_family(self):
+        dag = pinned()
+        dag.put("crate", ["mass(3kg)"])
+        self.assertTrue(dag.is_below("crate", "mass(..5kg)"))
+        before = edge_set(dag)
+        with self.assertRaisesRegex(ValueError, "holds mass values, and this one is force"):
+            dag.put("anvil", ["mass(10N)"])
+        self.assertEqual(edge_set(dag), before)
+        with self.assertRaisesRegex(ValueError, "holds mass values"):
+            dag.is_below("crate", "mass(..5N)")         # a query term too
+
+    def test_the_family_node_is_made_under_its_kind_and_is_a_query(self):
+        dag = pinned()
+        self.assertEqual(names(dag.nodes["linear-dimension(mass)"].parents),
+                         {"linear-dimension"})
+        dag.put("payload", ["linear-dimension(mass)"])
+        dag.put("crate", ["mass(3kg)"])
+        self.assertEqual({n for n in names(dag.get(["linear-dimension(mass)"]))
+                          if "(" not in n}, {"mass", "payload", "crate"})
+        self.assertEqual(dag._dimension_of("payload"), ("linear-dimension", "payload"))
+
+    def test_an_unpinned_head_keeps_the_first_value_rule(self):
+        dag = pinned()
+        dag.put("load", ["linear-dimension"])
+        dag.put("a", ["load(10N)"])
+        with self.assertRaisesRegex(ValueError, "holds linear:force"):
+            dag.put("b", ["load(3kg)"])
+
+    def test_pinning_over_values_of_another_family_is_refused(self):
+        dag = pinned()
+        dag.put("load", ["linear-dimension"])
+        dag.put("a", ["load(10N)"])
+        before = edge_set(dag)
+        with self.assertRaisesRegex(ValueError, "already holds load\\(10N\\), which is force"):
+            dag.put("load", ["linear-dimension(mass)"])
+        self.assertEqual(edge_set(dag), before)
+        dag.put("load", ["linear-dimension(force)"])       # its own family is fine
+        self.assertEqual(dag._head_family("load"), "force")
+
+    def test_a_role_inherits_its_bases_pin(self):
+        dag = pinned()
+        dag.put("max-load", ["mass"])
+        dag.put("crane", ["max-load(5kg)"])
+        with self.assertRaisesRegex(ValueError, "holds mass values"):
+            dag.put("winch", ["max-load(10N)"])
+
+    def test_a_store_adopts_a_pin_by_merge(self):
+        # prelude v3 said `mass ⊑ linear-dimension`; merging the pinned
+        # declaration prunes the old kind edge as redundant
+        old = OntoDAG()
+        old.put("dimension", []); old.put("linear-dimension", ["dimension"])
+        old.put("mass", ["linear-dimension"]); old.put("crate", ["mass(3kg)"])
+        old.merge(pinned())
+        self.assertEqual(names(old.nodes["mass"].parents), {"linear-dimension(mass)"})
+        self.assertTrue(old.is_below("crate", "mass(..5kg)"))
+        self.assertEqual(old._head_family("mass"), "mass")
+
+    def test_two_pins_after_a_merge_are_refused_at_use(self):
+        a, b = pinned(), pinned()
+        # b pins mass to force (moving it, so b itself has one pin)
+        b.reclassify(["mass"], to=["linear-dimension(force)"],
+                     from_=["linear-dimension(mass)"])
+        a.merge(b)                                    # total
+        self.assertEqual(names(a.nodes["mass"].parents),
+                         {"linear-dimension(mass)", "linear-dimension(force)"})
+        with self.assertRaisesRegex(ValueError, "pinned to several unit families: force, mass"):
+            a.put("crate", ["mass(3kg)"])
+
+    def test_a_pin_must_name_a_family(self):
+        dag = pinned()
+        dag.put("price", ["linear-dimension(SOL)"])
+        with self.assertRaisesRegex(ValueError, "no unit family"):
+            dag.put("ticket", ["price(3kg)"])
+        dag.put("unit-family(SOL)", ["unit-declaration"])   # a store's own family
+        dag.put("ticket", ["price(3SOL)"])
+        self.assertEqual(dag._head_family("price"), "SOL")
+
+    def test_count_heads_take_a_pin_too(self):
+        dag = pinned()
+        dag.put("eggs", ["count-dimension(count)"])
+        dag.put("box", ["eggs(1dz)"])
+        self.assertTrue(dag.is_below("box", "eggs(12)"))
+
+
+class TestMergeStaysTotalAcrossFamilies(unittest.TestCase):
+    """Released bug (found 2026-10-07): two stores whose unpinned head took
+    different families crashed inside `merge` (I7). Merge goes through, in
+    either order, and the disagreement is reported when values are compared."""
+
+    def one(self, item, value):
+        dag = OntoDAG()
+        dag.put("dimension", []); dag.put("linear-dimension", ["dimension"])
+        dag.put("load", ["linear-dimension"]); dag.put(item, [value])
+        return dag
+
+    def test_merge_is_total_and_commutative(self):
+        a = self.one("crate", "load(10N)"); a.merge(self.one("box", "load(3kg)"))
+        b = self.one("box", "load(3kg)"); b.merge(self.one("crate", "load(10N)"))
+        self.assertEqual(edge_set(a), edge_set(b))
+        with self.assertRaisesRegex(ValueError, "unit families differ"):
+            a.get(["load(..5kg)"])
+
 if __name__ == "__main__":
     unittest.main()

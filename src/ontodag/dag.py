@@ -676,8 +676,8 @@ class OntoDAG(DAG):
         """Syntactic anchor test — `head(param)` with a parent named `head`.
         No parse and no walk, so the declaration walk can afford it."""
         split = _dims.split_term(node.name)
-        if split is None:
-            return False
+        if split is None or _dims.is_kind_node(node.name):
+            return False      # `linear-dimension(mass)` is a kind node, not a value
         return any(parent.name == split[0] for parent in node.parents)
 
     def _kind_walk_parents(self, node):
@@ -712,22 +712,25 @@ class OntoDAG(DAG):
         cached (they may appear), and an ambiguous declaration raises
         uncached, so the error stays loud at every use."""
         node = self.nodes.get(head_name)
-        if node is None or head_name in _dims.KINDS:
+        if node is None or _dims.is_kind_node(head_name):
             return None, None
         cache = getattr(self, "_dim_cache", None)
         if cache is None:
             cache = self._dim_cache = {}
         elif head_name in cache:
-            return cache[head_name]
-        kinds, bases = set(), set()
+            return cache[head_name][:2]
+        kinds, bases, families = set(), set(), set()
         seen = {node}
         stack = [node]
         while stack:
             current = stack.pop()
             for parent in self._kind_walk_parents(current):
-                if parent.name in _dims.KINDS:
-                    kinds.add(parent.name)
+                found = _dims.kind_node(parent.name)
+                if found is not None:
+                    kinds.add(found[0])
                     bases.add(current.name)
+                    if found[1] is not None:
+                        families.add(found[1])
                 elif parent not in seen:
                     seen.add(parent)
                     stack.append(parent)
@@ -736,15 +739,77 @@ class OntoDAG(DAG):
                 f"dimension {head_name!r} inherits multiple kinds: "
                 f"{', '.join(sorted(kinds))} — declare exactly one")
         if not kinds:
-            cache[head_name] = (None, None)
+            cache[head_name] = (None, None, frozenset())
             return None, None
         if len(bases) > 1:
             raise ValueError(
                 f"dimension head {head_name!r} belongs to several "
                 f"dimensions: {', '.join(sorted(bases))} — a role has "
                 f"exactly one base")
-        cache[head_name] = (next(iter(kinds)), next(iter(bases)))
-        return cache[head_name]
+        cache[head_name] = (next(iter(kinds)), next(iter(bases)),
+                            frozenset(families))
+        return cache[head_name][:2]
+
+    def _refuse_pin_over_values(self, parent_name, head_name):
+        """Pinning a head (`mass ⊑ linear-dimension(mass)`) that already
+        holds values of another family would leave them unreadable: refuse
+        it, naming one. Its roles' values are checked too, since a role
+        inherits its base's pin. Merges skip this (they stay total) and
+        the disagreement surfaces when values are compared."""
+        found = _dims.kind_node(parent_name)
+        if found is None or found[1] is None \
+                or found[0] not in _dims.FAMILY_KINDS:
+            return
+        kind, family = found
+        heads = [head_name] + sorted(
+            h for h, (_, base) in self._heads().items()
+            if base == head_name and h != head_name)
+        units = self._declared_units()
+        for head in heads:
+            for value, _ in self._star(head):
+                param = _dims.split_term(value.name)[1]
+                if self._param_node(head, param) is not None:
+                    continue
+                other = _dims.family_of(value.name, kind, units=units)
+                if other != family:
+                    raise ValueError(
+                        f"cannot pin {head_name!r} to {family}: it already "
+                        f"holds {value.name}, which is {other}")
+
+    def _ensure_family_node(self, name):
+        """Materialize a family pin (`linear-dimension(mass)`) on first use,
+        under its kind node, as a value is materialized under its head."""
+        found = _dims.kind_node(name)
+        if found is None or found[1] is None or found[0] not in self.nodes:
+            return
+        node = Item(name)
+        self.add_node(node)
+        self.add_edge(self.nodes[found[0]], node)
+
+    def _head_family(self, head_name):
+        """The unit family a head is pinned to (`mass ⊑
+        linear-dimension(mass)`, ROLES.md §8 item 21), or None for an
+        unpinned head, whose first value decides. A role inherits its
+        base's pin. Two pins (two merged stores that disagree) and a pin
+        naming no known family are refused here, at use: merge itself
+        stays total."""
+        if self._dimension_of(head_name)[0] is None:
+            return None
+        families = self._dim_cache[head_name][2]
+        if not families:
+            return None
+        if len(families) > 1:
+            raise ValueError(
+                f"dimension {head_name!r} is pinned to several unit "
+                f"families: {', '.join(sorted(families))} — two merged "
+                f"stores disagree; keep one pin")
+        family = next(iter(families))
+        if family not in _dims.known_families(self._declared_units()):
+            raise ValueError(
+                f"dimension {head_name!r} is pinned to {family!r}, which is "
+                f"no unit family (declare it with "
+                f"put 'unit-family({family})' unit-declaration, or fix the pin)")
+        return family
 
     def _heads(self):
         """Every declared head -> (kind, base), walked DOWN from the kind
@@ -764,8 +829,12 @@ class OntoDAG(DAG):
             stack = list(kind_node.neighbors)
             while stack:
                 child = self.nodes.get(stack.pop().name)   # expands on lazy
+                if child is not None and _dims.kind_node(child.name) \
+                        not in (None, (child.name, None)):
+                    stack.extend(child.neighbors)          # a family pin
+                    continue
                 if child is None or child.name in heads \
-                        or child.name in _dims.KINDS \
+                        or _dims.is_kind_node(child.name) \
                         or _dims.split_term(child.name) is not None:
                     continue
                 try:
@@ -784,7 +853,7 @@ class OntoDAG(DAG):
         else None. Quiet about an ambiguous head: while an edge declaring
         one head under another is being placed, the head belongs to two
         dimensions until pruning drops its old kind edge."""
-        if name in _dims.KINDS or _dims.split_term(name) is not None:
+        if _dims.is_kind_node(name) or _dims.split_term(name) is not None:
             return None
         try:
             kind = self._dimension_kind(name)
@@ -878,13 +947,14 @@ class OntoDAG(DAG):
         populated; when it is not, the `_dimension_of` cache is dropped on
         every plain edge instead — conservative, and free of the upward
         walk a lazy writer could not afford on each put."""
-        if _dims.split_term(to_node.name) is not None:
+        if _dims.split_term(to_node.name) is not None \
+                and not _dims.is_kind_node(to_node.name):
             return
         cached = getattr(self, "_heads_cache", None)
         if cached is None:
             self._dim_cache = None
             return
-        if from_node.name in _dims.KINDS or from_node.name in cached:
+        if _dims.is_kind_node(from_node.name) or from_node.name in cached:
             self._heads_cache = None
             self._dim_cache = None
 
@@ -920,7 +990,7 @@ class OntoDAG(DAG):
                 f"value or a place in it — an item that is {head} anywhere "
                 f"states no {head}(...) at all")
         node = self.nodes.get(param)
-        if node is None or node.name in _dims.KINDS:
+        if node is None or _dims.is_kind_node(node.name):
             return None
         # Interpretation can loop without the graph cycling: deciding whether
         # `offer` is in the dimension walks below/above it, and a role term
@@ -1046,8 +1116,16 @@ class OntoDAG(DAG):
         node_outer = self._param_node(head, param_outer)
         node_inner = self._param_node(head, param_inner)
         if node_outer is None and node_inner is None:
-            return _dims.contains(outer, inner, kind,
-                                  units=self._declared_units())
+            try:
+                return _dims.contains(outer, inner, kind,
+                                      units=self._declared_units())
+            except _dims.FamilyMismatch:
+                if getattr(self, "_role_lenient", 0):
+                    # A merge brought values of two families under one head.
+                    # Different families never contain each other, so the
+                    # replay goes on; comparing them later is refused.
+                    return False
+                raise
         base = self._dimension_of(head)[1]
         sub = node_inner.name if node_inner is not None \
             else f"{base}({param_inner})"
@@ -1372,7 +1450,7 @@ class OntoDAG(DAG):
             parsed = self._parse_parametric(c)
             if parsed is not None:
                 canonical.append(parsed[2])
-            elif (c in self.nodes and c not in _dims.KINDS) or lenient:
+            elif (c in self.nodes and not _dims.is_kind_node(c)) or lenient:
                 canonical.append(c)
             else:
                 raise ValueError(
@@ -1437,8 +1515,20 @@ class OntoDAG(DAG):
             # parameter's identity (its position may move with the
             # catalogue, which is the point — DIMENSIONS.md §14).
             return split[0], kind, name
-        return split[0], kind, _dims.canonicalize(
-            name, kind, units=self._declared_units())
+        canonical = _dims.canonicalize(name, kind, units=self._declared_units())
+        if kind in _dims.FAMILY_KINDS and canonical not in self.nodes:
+            # A stored value parses as stored (a pin added later, or a
+            # merge, may have brought in one of another family: that is
+            # reported when values are compared). A new one must fit.
+            family = self._head_family(split[0])
+            if family is not None:
+                found = _dims.family_of(canonical, kind,
+                                        units=self._declared_units())
+                if found != family:
+                    raise ValueError(
+                        f"{name}: dimension {split[0]!r} holds {family} "
+                        f"values, and this one is {found}")
+        return split[0], kind, canonical
 
     def _canonical_name(self, name):
         parsed = self._parse_parametric(name)
@@ -2173,6 +2263,8 @@ class OntoDAG(DAG):
             )
         if not anchor:
             self._refuse_self_containment(from_node.name, to_node.name)
+            if not getattr(self, "_role_lenient", 0):
+                self._refuse_pin_over_values(from_node.name, to_node.name)
         # Plan the delta against the pre-operation graph, add the edge, then
         # prune. Pruning runs with live counts: an edge that is redundant via
         # asserted paths removes nothing from asserted reachability (its
@@ -2230,7 +2322,7 @@ class OntoDAG(DAG):
         the edge exists, while both are still unambiguous heads. A head
         filed for the first time has no terms, so nothing to check."""
         if _dims.split_term(to_node.name) is not None \
-                or from_node.name in _dims.KINDS:
+                or _dims.is_kind_node(from_node.name):
             return False
         heads = self._heads()
         kind = heads.get(from_node.name, (None,))[0]
@@ -2242,7 +2334,7 @@ class OntoDAG(DAG):
         some relation (§20): `to` and the heads below it, when both ends
         are heads of one relation kind. Empty otherwise."""
         if _dims.split_term(to_node.name) is not None \
-                or from_node.name in _dims.KINDS:
+                or _dims.is_kind_node(from_node.name):
             return ()
         heads = self._heads()
         kind = heads.get(to_node.name, (None,))[0]
@@ -3049,7 +3141,7 @@ class OntoDAG(DAG):
                   for head in heads}
         for node in [child, *self.get_descendants(child)]:
             name = node.name
-            if name == self.root.name or name in _dims.KINDS \
+            if name == self.root.name or _dims.is_kind_node(name) \
                     or _dims.constraints(name) != (name,):
                 continue          # cannot be an argument, so never inside itself
             for head in heads:
@@ -3275,6 +3367,8 @@ class OntoDAG(DAG):
                 parsed = self._parse_parametric(name)
                 if parsed is not None:
                     self._ensure_parametric_node(name, parsed[0], parsed[1])
+                else:
+                    self._ensure_family_node(name)
 
         if any(name not in self.nodes for name in super_names):
             raise ValueError("One or more super-categories do not exist.")
@@ -3467,8 +3561,13 @@ class OntoDAG(DAG):
                 # checking first.
                 parsed = self._parse_parametric(name)
                 if parsed is None:
-                    raise ValueError(f"Category {name} does not exist.")
-                pending.append((name, parsed[0], parsed[1]))
+                    found = _dims.kind_node(name)
+                    if found is None or found[1] is None \
+                            or found[0] not in self.nodes:
+                        raise ValueError(f"Category {name} does not exist.")
+                    pending.append((name, None, None))   # a family pin
+                else:
+                    pending.append((name, parsed[0], parsed[1]))
             destinations.append(name)
 
         # Everything is validated against the pre-move graph before a single
@@ -3507,7 +3606,10 @@ class OntoDAG(DAG):
             self._check_role_reference_stays(item, targets[item] + keeping)
 
         for name, head, kind in pending:
-            self._ensure_parametric_node(name, head, kind)
+            if head is None:
+                self._ensure_family_node(name)
+            else:
+                self._ensure_parametric_node(name, head, kind)
 
         for item in items:
             for destination in targets[item]:
