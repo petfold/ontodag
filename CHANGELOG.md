@@ -29,10 +29,14 @@ the version numbers appear in commit history and docs.
   (experimental; docs/plans/SHARING_ON_SWARM.md §4, Phase 1). It needs
   the `act` extra.
   - `Publisher(store, author_key).publish(dag, principals, content=)`
-    keeps a record store equal to the store's *key plan*:
-    - a Bee-ACT-shaped grantee entry per principal;
-    - a token per edge of the combined order below the principals
-      (`plan()`, the computed hops between typed values included);
+    keeps a record store equal to the store's *key plan*, following the
+    sharing model (`shared-with(person)`, above):
+    - a Bee-ACT-shaped grantee entry per principal, opening the key of
+      its audience term `shared-with(principal)`;
+    - a token per edge of the combined order below the audience terms
+      (`plan()`; the computed hops between audience terms, such as
+      `shared-with(employee)` below `shared-with(alice)`, and between
+      typed values included);
     - a sealed record per shared node, holding its name and a data key
       for its content.
   - `Reader(store, key, author_public_key).receive()` walks it with one
@@ -47,25 +51,29 @@ the version numbers appear in commit history and docs.
     record), then upward to a fixpoint. `eager=True` rotates everything
     stale at once.
   - Checked by tests/test_keyplan.py, including a random-store property
-    test: a reader that kept every key it ever held opens only record
-    versions it was once entitled to. Two deliberate mutations (no
-    fixpoint; record changes ignored) both fail it.
-  - Records name their node's typed-value parents, such as its
-    `posted(...)` time. These are the cut parents a host may show "by
-    another right" (SHARING §2.1), and a reader needs them to order a wall.
-    `Received.timeline()` gives the wall as the reader sees it, equal to
-    `sharing.timeline` over the author's store for that reader.
-    `keyplan.inbox({author: received})` merges the walls a reader follows.
+    test with membership moves and re-filed names: a reader that kept
+    every key it ever held opens only record versions it was once
+    entitled to. Deliberate mutations (no fixpoint; record changes
+    ignored; a re-filed name keeping its key; no rollback) each fail it.
+    An attacker XOR-ing one edge's tokens across two roots learns nothing.
+  - A share brings only what is below it, plus its content: records name
+    no parents, typed values included, and how a reader orders what it
+    receives is its own business.
+  - A name that leaves the store loses its key, so filed again it gets a
+    fresh one instead of the key a revoked reader kept.
+  - `publish` is all or nothing: a failed commit restores the private
+    state, so it never records a rotation or revocation the store did not
+    get. Publish again before changing anything else.
   - Over a `RecordStore`, `Reader` reads each level of the walk with
-    `workers` threads (16 by default), each on its own snapshot of the
-    committed root over one shared blob cache.
+    `workers` threads (16 by default, one under Pyodide, which has no
+    threads), each on its own snapshot of the committed root over one
+    shared blob cache.
   - Layout: a node's record is at `kp/n/<id>`, and its tokens are filed
     under it at `kp/n/<id>/t/<child>`. One prefix read returns both, and a
     cold read of 130 names needs 242 fetch calls, down from 369.
     `record_key`, `token_record_key` and `tokens(store)` name the places.
   - `Reader.receive(public=True)` adds what the author shares with
-    `everyone`, since a wall is reach(the reader's principals and
-    `everyone`).
+    `everyone` (filed under `shared-with(everyone)`).
   - `ontodag.act` falls back to a pure-Python secp256k1 where coincurve
     can't install, so the key plan runs under Pyodide
     (`demo/pyodide/keyplan.mjs`). The fallback isn't constant-time:

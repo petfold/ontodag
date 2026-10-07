@@ -1,19 +1,23 @@
 """The key plan: what a store shares, enforced by keys, with no server.
 
-docs/plans/SHARING_ON_SWARM.md §4. SHARING.md's rule, R sees x iff x is
-below one of R's principals in the author's store, becomes something a
-reader checks for itself. For each publication the author writes, into
-any record store (a `RecordStore`, local or on Swarm):
+docs/plans/SHARING_ON_SWARM.md §4. The sharing rule, R sees x iff x is
+below `shared-with(R)` in the author's store (`ontodag.sharing`; ROLES.md
+§8 item 20), becomes something a reader checks for itself. For each
+publication the author writes, into any record store (a `RecordStore`,
+local or on Swarm):
 
     kp/meta          {"v", "author"}: the author's public key
-    kp/g/<lookup>    a grantee entry per principal, Bee-ACT-shaped: the
-                     principal node's key, found and unwrapped by ECDH
-                     between author and reader (`act.act_keys`)
-    kp/n/<id>        a record per shared node: its name, its typed values,
-                     and its content's data key, sealed under the node's key
+    kp/g/<lookup>    a grantee entry per principal, Bee-ACT-shaped: the key
+                     of the principal's audience term, `shared-with(R)`,
+                     found and unwrapped by ECDH between author and reader
+                     (`act.act_keys`)
+    kp/n/<id>        a record per shared node: its name and its content's
+                     data key, sealed under the node's key
     kp/n/<u>/t/<v>   a token per edge of the combined order below the
-                     principals, asserted edges and computed hops alike:
-                     v's key wrapped under u's (`act.wrap`)
+                     audience terms, asserted edges and computed hops
+                     alike (`shared-with(alice)` to `shared-with(employee)`
+                     when Alice is an employee): v's key wrapped under u's
+                     (`act.wrap`)
     kp/c/<id>        content, sealed under its own data key
 
 A node's tokens are filed under its record, so a reader gets both from one
@@ -26,10 +30,9 @@ stores and edits). Records never name private parents or children: the
 edges are the tokens. So a reader sees exactly the edges between the nodes
 it reaches, the faithful piece of the store of SHARING §2.1.
 
-A record does name the node's typed-value parents, such as its
-`posted(...)` time: the cut parents a host may show "by another right"
-(SHARING §2.1). Without them a reader couldn't order a wall. `Received`
-has `timeline()`, and `inbox()` merges several authors' timelines.
+A share brings only what is below it, plus its content. Records name no
+parents at all, typed values included; how a reader orders what it
+receives (by arrival, by feed order) is the reader's business.
 
 **Two keys per node** (§4.2):
 - a random *derivation key*, which wraps the node's children's keys and its
@@ -63,6 +66,7 @@ import hashlib
 import hmac
 import json
 import os
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -70,7 +74,7 @@ from ontodag import sharing
 from ontodag._extras import require
 from ontodag.act import act_keys, public_key, stream_transform, unwrap, wrap
 
-KP_VERSION = 2
+KP_VERSION = 3
 KEY_LEN = 32
 
 META_KEY = "kp/meta"
@@ -163,26 +167,44 @@ def _canonical(obj) -> bytes:
 
 def children(dag, name):
     """A node's children in the combined order: asserted edges, and the
-    computed hops between present typed values (SHARING §2.2)."""
+    computed hops (between typed values, and between audience terms:
+    `shared-with(employee)` below `shared-with(alice)`)."""
     node = dag.nodes[name]
     out = {c.name for c in node.neighbors}
     out.update(c.name for c in dag._computed_children(node))
     return out
 
 
+def tops(dag, principals):
+    """{principal: (audience term, its children)} for the principals the
+    store knows. The term is `shared-with(principal)`; when nothing is
+    filed directly under it, it is virtual, and its children are the
+    present audience terms it contains."""
+    out = {}
+    for p in principals:
+        term, starts = sharing.tops(dag, p)
+        if not starts:
+            continue
+        if term in dag.nodes:
+            out[p] = (term, children(dag, term))
+        else:
+            out[p] = (term, {s.name for s in starts})
+    return out
+
+
 def plan(dag, principals, reach=None):
     """The token plan: every edge (u, c) of the combined order where u is a
-    principal, or in some principal's reach, and c is a child of u.
+    principal's audience term, or in some principal's reach, and c is a
+    child of u.
 
     It is a pure function of the store and the principals (SHARING Q4).
     The key values are not, since revocation needs fresh keys. `reach`
     may pass each principal's reach, already computed."""
     edges = set()
-    for p in principals:
-        if p not in dag.nodes:
-            continue
+    for p, (term, first) in tops(dag, principals).items():
+        edges.update((term, c) for c in first)
         cone = reach[p] if reach is not None else sharing.reach(dag, [p])
-        for u in {p} | set(cone):
+        for u in set(cone) - {term}:
             for c in children(dag, u):
                 edges.add((u, c))
     return frozenset(edges)
@@ -219,7 +241,9 @@ class Publisher:
         self.store = store
         self._author_key = author_key
         self._rng = rng or os.urandom
-        st = state or {}
+        self._load(state or {})
+
+    def _load(self, st):
         if st and st.get("v") != KP_VERSION:
             raise ValueError(f"key plan state version {st.get('v')!r}, "
                              f"this is {KP_VERSION}")
@@ -273,28 +297,51 @@ class Publisher:
         """Bring the store up to date with `dag`.
 
         `principals` maps each principal's name in `dag` to that reader's
-        33-byte public key; names absent from `dag` are ignored. `content`
-        maps names to bytes (a post's text, a file) and is sealed under a
-        data key per version. `eager=True` rotates every stale node now,
-        a "rotate now" for urgent removals. Returns a `Published`.
+        33-byte public key; a principal sees the cone of
+        `shared-with(principal)`, and names the store doesn't know are
+        ignored. `content` maps names to bytes (a post's text, a file) and
+        is sealed under a data key per version. `eager=True` rotates every
+        stale node now, a "rotate now" for urgent removals. Returns a
+        `Published`.
+
+        All or nothing: if anything fails, the commit included, the private
+        state is put back as it was, so a failed publish never records a
+        rotation or a revocation the store did not get.
         """
+        saved = self.state
+        try:
+            return self._publish(dag, principals, content, eager, message)
+        except BaseException:
+            self._load(saved)
+            raise
+
+    def _publish(self, dag, principals, content, eager, message):
         content = content or {}
-        present = {p: bytes(k) for p, k in principals.items() if p in dag.nodes}
-        reach = {p: set(sharing.reach(dag, [p])) for p in present}
+        top = tops(dag, principals)
+        present = {p: bytes(k) for p, k in principals.items() if p in top}
+        reach = {p: set(sharing.reach(dag, [p])) | {top[p][0]} for p in present}
 
         # what someone lost: whatever fell out of a reach, and everything a
         # removed or re-keyed principal reached, its own node included
         lost = set()
         for p, before in self._reach.items():
             if p not in present or present[p] != self._principals.get(p):
-                lost |= before | {p}
+                lost |= before
             else:
                 lost |= before - reach[p]
         self._stale |= lost
-        self._stale &= set(dag.nodes)
 
         new_plan = set(plan(dag, present, reach))
-        shared = set(present).union(*reach.values())
+        shared = set().union(*reach.values()) if reach else set()
+
+        # A name that left the store loses its key, so if it comes back it
+        # gets a fresh one: re-filed under the old key, a revoked reader
+        # who kept that key would read it again. The epoch keeps counting.
+        terms = {t for t, _ in top.values()}
+        for n in list(self._keys):
+            if n not in shared and n not in dag.nodes and n not in terms:
+                del self._keys[n]
+                self._stale.discard(n)
 
         # the records as they would be published now, and which changed
         data = {}
@@ -308,7 +355,7 @@ class Publisher:
                    else self._rng(KEY_LEN).hex())
             data[n] = {"digest": digest, "key": key, "size": len(blob),
                        "id": self._content_id(n, digest)}
-        records = {n: self._record(n, data.get(n), _values(dag, n)) for n in shared}
+        records = {n: self._record(n, data.get(n)) for n in shared}
         digests = {n: hashlib.sha256(_canonical(r)).hexdigest()
                    for n, r in records.items()}
         changed = {n for n in shared if digests[n] != self._records.get(n)}
@@ -331,7 +378,7 @@ class Publisher:
         for n in sorted(shared):
             if n not in self._keys:
                 self._keys[n] = self._rng(KEY_LEN)
-                self._epoch.setdefault(n, 0)
+                self._epoch[n] = self._epoch[n] + 1 if n in self._epoch else 0
                 fresh.add(n)
         renewed = due | fresh
 
@@ -385,14 +432,15 @@ class Publisher:
             st.delete(record_key(self.node_id(n)))
             deleted += 1
 
-        # grantee entries
+        # grantee entries: each opens the principal's audience term
         for p, pub in sorted(present.items()):
-            if self._principals.get(p) == pub and p not in renewed:
+            term = top[p][0]
+            if self._principals.get(p) == pub and term not in renewed:
                 continue
             lookup, wrap_key = act_keys(self._author_key, pub)
             st.put(GRANT_PREFIX + lookup.hex(), {
-                "v": KP_VERSION, "node": ids[p], "epoch": self._epoch[p],
-                "key": stream_transform(wrap_key, self._keys[p]).hex()})
+                "v": KP_VERSION, "node": ids[term], "epoch": self._epoch[term],
+                "key": stream_transform(wrap_key, self._keys[term]).hex()})
             written += 1
         for p, pub in sorted(self._principals.items()):
             if present.get(p) != pub:
@@ -409,21 +457,12 @@ class Publisher:
         return Published(root=root, rotated=sorted(due), stale=len(self._stale),
                          written=written, deleted=deleted, shared=len(shared))
 
-    def _record(self, name, data, values):
+    def _record(self, name, data):
         record = {"name": name}
-        if values:
-            record["values"] = values
         if data:
             record["content"] = {"id": data["id"], "key": data["key"],
                                  "size": data["size"]}
         return record
-
-
-def _values(dag, name):
-    """A node's typed-value parents: the ones a record names (SHARING §2.1's
-    cut parents, shown by another right)."""
-    return sorted(p.name for p in dag.nodes[name].parents
-                  if p.name != dag.root.name and dag.is_term(p.name))
 
 
 # --------------------------------------------------------------------------- #
@@ -432,16 +471,17 @@ def _values(dag, name):
 
 class Received:
     """What one author shares with one reader, as that reader derived it:
-    `principal` (the reader's own node in the author's store), `names`, and
-    `edges` as (parent, child) pairs, all inside the reader's reach."""
+    `principal` (the reader's name in the author's store, the argument of
+    its audience term), `names`, and `edges` as (parent, child) pairs, all
+    inside the reader's reach. The audience terms the keys came along
+    (`shared-with(employee)`) are among the names."""
 
-    def __init__(self, store, principal, names, edges, contents, values=None):
+    def __init__(self, store, principal, names, edges, contents):
         self._store = store
         self.principal = principal
         self.names = frozenset(names)
         self.edges = frozenset(edges)
         self._contents = contents          # name -> {"id", "key", "size"}
-        self._values = values or {}        # name -> its typed-value parents
 
     def __len__(self):
         return len(self.names)
@@ -455,31 +495,12 @@ class Received:
     def parents(self, name):
         return sorted(p for p, c in self.edges if c == name)
 
-    def values(self, name):
-        """The typed values `name` is filed under, visible or not otherwise:
-        its time of posting, what time it is about."""
-        return list(self._values.get(name, ()))
-
-    def timeline(self, role="posted"):
-        """`(value, name)` for each name filed under a point of `role`,
-        oldest first: this author's wall, as this reader sees it. Equal to
-        `sharing.timeline` over the author's store, for this reader."""
-        from ontodag.dimensions import split_term
-        out = []
-        for name in self.names:
-            for value in self._values.get(name, ()):
-                parts = split_term(value)
-                if parts and parts[0] == role and ".." not in parts[1]:
-                    out.append((value, name))
-        return sorted(out, key=lambda vn: (split_term(vn[0])[1], vn[1]))
-
     def merged(self, other):
         """This view and `other` (from the same author's store) as one: a
         reader's own shares together with what the author made public."""
         return Received(self._store, self.principal or other.principal,
                         self.names | other.names, self.edges | other.edges,
-                        {**other._contents, **self._contents},
-                        {**other._values, **self._values})
+                        {**other._contents, **self._contents})
 
     def content(self, name):
         """The content filed with `name`, or None if it has none."""
@@ -530,16 +551,20 @@ class Reader:
     known out of band (a contact card), not taken from the store.
 
     Over a `RecordStore` (anything with `root` and `blobs`), each level of
-    the walk is read concurrently by `workers` threads, each on its own
-    snapshot of the committed root over one shared blob cache, so a level
-    costs about one chain of round trips instead of one per node. Other
-    stores are read one key at a time.
+    the walk is read concurrently by `workers` threads (16 by default, one
+    under Pyodide, which has no threads), each on its own snapshot of the
+    committed root over one shared blob cache, so a level costs about one
+    chain of round trips instead of one per node. Other stores are read
+    one key at a time.
     """
 
-    def __init__(self, store, reader_key, author_public_key, workers=16):
+    def __init__(self, store, reader_key, author_public_key, workers=None):
         self.store = store
         self._key = reader_key
         self._author = author_public_key
+        if workers is None:
+            # Pyodide has no threads to start: read one key at a time there.
+            workers = 1 if sys.platform == "emscripten" else 16
         self._workers = workers
         self._local = threading.local()
         root = getattr(store, "root", None)
@@ -628,27 +653,22 @@ class Reader:
         top, keys, edges, records = self._walk()
         if top is None:
             return Received(self.store, None, (), (), {})
-        names, contents, values = {}, {}, {}
+        names, contents = {}, {}
         for i in sorted(keys):
             k, record = keys[i], records[i]
             plain = json.loads(unseal(k, f"{i}|{record['epoch']}", record["box"]))
             names[i] = plain["name"]
             if "content" in plain:
                 contents[plain["name"]] = plain["content"]
-            if "values" in plain:
-                values[plain["name"]] = plain["values"]
-        return Received(self._view(), names[top], names.values(),
-                        {(names[u], names[v]) for u, v in edges}, contents, values)
+        return Received(self._view(), _principal(names[top]), names.values(),
+                        {(names[u], names[v]) for u, v in edges}, contents)
 
 
-def inbox(received, role="posted"):
-    """Several authors' walls, merged: `(value, author, name)`, oldest
-    first. `received` maps an author (however the reader labels them: a
-    petname, a key) to what that author shares with the reader, usually
-    `receive(public=True)`. Which authors are in it is the reader's choice,
-    as following is (SHARING §5)."""
-    from ontodag.dimensions import split_term
-    out = [(value, author, name)
-           for author, got in received.items()
-           for value, name in got.timeline(role)]
-    return sorted(out, key=lambda van: (split_term(van[0])[1], van[1], van[2]))
+def _principal(term):
+    """The principal an audience term names: `alice` for
+    `shared-with(alice)`."""
+    head = sharing.HEAD + "("
+    if term.startswith(head) and term.endswith(")"):
+        return term[len(head):-1]
+    return term
+

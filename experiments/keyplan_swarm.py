@@ -1,4 +1,8 @@
-"""The key plan on Swarm: publish a store's shares, read them back as each
+"""
+*Predates 0.30's sharing model (ROLES.md §8 item 20): it files shares
+under people's names and orders walls by `posted`, both since removed. Kept
+as the record of the 2026-09-25 mainnet run beside its result file.*
+The key plan on Swarm: publish a store's shares, read them back as each
 reader, revoke, post again (docs/plans/SHARING_ON_SWARM.md, Phase 2).
 
 Ada's store is the author's: a group of two friends, a folder tree of
