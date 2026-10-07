@@ -948,6 +948,14 @@ the rest:
   `tests/test_keyplan.py`'s `_derivable` skips keys that format 2's
   checked `unwrap` refuses. Suite 1,188 there. The keyplan consolidation
   (principals as people, shares under `for(...)`) is Peter's to start.
+- **Next morning, Peter's decision on step 5: form A** (the edge between
+  two relation heads), over a declaration node or deferring. Merged into
+  main by fast-forward as **contract 0.3** (`CONTRACT_VERSION = "0.3"`,
+  CONTRACT.md §5.1 + amendment record §8, `TestNarrowerRelations` in
+  `tests/test_contract.py`, ROLES.md §8 item 13); ontodag-fs's pin
+  accepts 0.3 (pushed first). Suite 1,188. The remaining open questions
+  (the audit's two, step 7's prelude/spelling/`for` choices, the keyplan
+  consolidation) are being taken one by one.
 - **Validated at the end of the night, against main as pushed:** the
   live Bee tests 2/2 (bee 2.8.2, batch `c931c8a5…` usable, 22.1 days
   left, fullest bucket 23/32, throwaway signer), loopmarket 297 passed +
@@ -1328,8 +1336,8 @@ on `ontodag>=0.28`. **Open:** SHARING.md Q1 (how a store marks its
 principals), now reframed by docs/plans/ROLES.md §7 (principals as
 people, shares under `for(...)`). The work order is ROLES.md §9: steps
 3.1–3.4 and 4a are on main (unreleased), step 5 is on the branch
-`narrower-relations` awaiting Peter's decision on its form, and steps
-6–8 wait on his decisions too (the roles section above). The table and paragraphs below are older
+`narrower-relations` and merged as contract 0.3 on 2026-10-07, and steps
+6–8 wait on his decisions (the roles section above). The table and paragraphs below are older
 history, not updated since 0.23.0/0.25.0.
 
 **All three repos released 2026-08-06**, each by tag through its publish
