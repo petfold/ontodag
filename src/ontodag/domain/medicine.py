@@ -1,7 +1,7 @@
-"""The `medicine` pack, version 5: 1035 categories, adopted by merge.
+"""The `medicine` pack, version 6: 1035 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/medicine, commit 4830925) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/medicine, commit d157031) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack medicine` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 5
+VERSION = 6
 
 BORROWED = ()
 
@@ -180,7 +180,7 @@ PACK = (
     ('cephalosporin', ('antibacterial', 'antibiotic')),
     ('cephalothin', ('cephalosporin',)),
     ('cerebral-hemorrhage', ('bleeding', 'event')),
-    ('cervical-disc-syndrome', ('syndrome',)),
+    ('cervical-disk-syndrome', ('syndrome',)),
     ('chafing-sore', ('sore',)),
     ('chancre', ('sore',)),
     ('chelation', ('process',)),
@@ -385,7 +385,7 @@ PACK = (
     ('formulary', ('book',)),
     ('foundling-hospital', ('hospital',)),
     ('fowl-cholera', ('animal-disease', 'blood-poisoning')),
-    ('freudian-psychology', ('concept', 'field-of-study')),
+    ('freudian-psychology', ('concept', 'psychology')),
     ('frostbite', ('event', 'injury')),
     ('furuncle', ('staphylococcal-infection',)),
     ('gas-gangrene', ('condition',)),
@@ -440,7 +440,7 @@ PACK = (
     ('herbal-medicine', ('medication',)),
     ('hernia', ('disease', 'event', 'tissue-rupture')),
     ('hernia-truss', ('bandage',)),
-    ('herniated-disc', ('tissue-rupture',)),
+    ('herniated-disk', ('tissue-rupture',)),
     ('herpangia', ('viral-infection',)),
     ('hiatus-hernia', ('hernia',)),
     ('hiccup', ('process', 'symptom')),
@@ -486,7 +486,7 @@ PACK = (
     ('impacted-fracture', ('fracture',)),
     ('implosion-therapy', ('behavior-therapy',)),
     ('incomplete-fracture', ('fracture',)),
-    ('incubation-period', ('state',)),
+    ('incubation-period', ('state', 'time-period')),
     ('index-case', ('patient',)),
     ('indigestion', ('clinical-sign', 'symptom')),
     ('infantile-autism', ('autism',)),
@@ -517,7 +517,7 @@ PACK = (
     ('jaundice', ('clinical-sign', 'event', 'symptom')),
     ('jejunostomy', ('operation',)),
     ('joint-dislocation', ('injury',)),
-    ('jungian-psychology', ('concept', 'field-of-study')),
+    ('jungian-psychology', ('concept', 'psychology')),
     ('jungle-fever', ('malaria',)),
     ('kaliuresis', ('symptom',)),
     ('kanamycin', ('antibacterial', 'antibiotic', 'chemical')),
@@ -646,7 +646,7 @@ PACK = (
     ('nephrotic-syndrome', ('syndrome',)),
     ('neurectomy', ('ablation',)),
     ('neurologist', ('medical-specialist',)),
-    ('neurology', ('medical-specialty', 'science')),
+    ('neurology', ('medical-specialty',)),
     ('neuroplasty', ('plastic-surgery',)),
     ('neuropsychiatry', ('medical-specialty',)),
     ('neurosarcoma', ('sarcoma',)),
@@ -749,7 +749,7 @@ PACK = (
     ('phalloplasty', ('plastic-surgery',)),
     ('phantom-limb-syndrome', ('syndrome',)),
     ('pharmaceutical', ('medication',)),
-    ('pharmacist', ('adult', 'professional')),
+    ('pharmacist', ('professional',)),
     ('pharmacokinetics', ('pharmacology',)),
     ('pharmacologist', ('scientist',)),
     ('pharmacology', ('biology', 'medical-specialty')),
@@ -939,7 +939,7 @@ PACK = (
     ('superinfection', ('condition',)),
     ('suppository', ('medication',)),
     ('suprainfection', ('condition',)),
-    ('surgeon-general', ('adult', 'medical-officer')),
+    ('surgeon-general', ('medical-officer',)),
     ('surgical-contraception', ('surgical-sterilization',)),
     ('surgical-drain', ('equipment',)),
     ('surgical-implantation', ('operation',)),

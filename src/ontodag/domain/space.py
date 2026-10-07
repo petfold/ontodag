@@ -1,7 +1,7 @@
-"""The `space` pack, version 4: 351 categories, adopted by merge.
+"""The `space` pack, version 5: 349 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/space, commit 4830925) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/space, commit d157031) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack space` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 4
+VERSION = 5
 
 BORROWED = ('coordinate-system',)
 
@@ -38,7 +38,7 @@ PACK = (
     ('ascending-node', ('orbital-node',)),
     ('asterism', ('concept',)),
     ('asteroid', ('minor-planet',)),
-    ('asteroid-belt', ('circumstellar-disc',)),
+    ('asteroid-belt', ('circumstellar-disk',)),
     ('astrobiology', ('astronomy', 'biology')),
     ('astrometry', ('astronomy',)),
     ('astronaut', ('person',)),
@@ -48,7 +48,7 @@ PACK = (
     ('astronomical-nutation', ('natural-event',)),
     ('astronomical-opposition', ('natural-event',)),
     ('astronomical-photometry', ('activity',)),
-    ('astronomical-telescope', ('instrument', 'telescope')),
+    ('astronomical-telescope', ('telescope',)),
     ('astronomical-transit', ('natural-event',)),
     ('astronomy-satellite', ('device', 'satellite')),
     ('astrophotography', ('photography',)),
@@ -80,7 +80,7 @@ PACK = (
     ('charon', ('natural-satellite',)),
     ('chiron', ('asteroid',)),
     ('chromosphere', ('layer',)),
-    ('circumstellar-disc', ('celestial-body',)),
+    ('circumstellar-disk', ('celestial-body',)),
     ('cnsa', ('space-agency',)),
     ('collimator', ('instrument',)),
     ('communications-satellite', ('satellite', 'spacecraft')),
@@ -114,7 +114,7 @@ PACK = (
     ('equatorial-coordinate-system', ('celestial-coordinate-system',)),
     ('equatorial-telescope', ('instrument',)),
     ('equinoctial-point', ('place',)),
-    ('equinox', ('natural-event',)),
+    ('equinox', ('natural-event', 'time')),
     ('eris', ('dwarf-planet',)),
     ('escape-velocity', ('quantity',)),
     ('europa', ('galilean-satellite',)),
@@ -178,7 +178,7 @@ PACK = (
     ('jupiter', ('planet',)),
     ('keplers-laws', ('concept',)),
     ('kessler-syndrome', ('concept',)),
-    ('kuiper-belt', ('circumstellar-disc',)),
+    ('kuiper-belt', ('circumstellar-disk',)),
     ('kuiper-belt-object', ('minor-planet',)),
     ('lagrange-point', ('celestial-point',)),
     ('lambda-cdm-model', ('concept',)),
@@ -199,7 +199,6 @@ PACK = (
     ('magnetar', ('neutron-star',)),
     ('main-sequence', ('concept',)),
     ('maksutov-telescope', ('reflecting-telescope',)),
-    ('mars', ('planet',)),
     ('medium-earth-orbit', ('orbit',)),
     ('mercury-planet', ('planet',)),
     ('messier-object', ('celestial-body',)),
@@ -284,14 +283,14 @@ PACK = (
     ('sample-return-mission', ('space-mission',)),
     ('saturn', ('planet',)),
     ('saturn-v', ('launch-vehicle',)),
-    ('scattered-disc', ('circumstellar-disc',)),
+    ('scattered-disk', ('circumstellar-disk',)),
     ('schmidt-telescope', ('reflecting-telescope',)),
     ('selenology', ('astronomy',)),
     ('semi-major-axis', ('quantity',)),
     ('sidereal-day', ('quantity', 'sidereal-time')),
     ('sidereal-hour', ('quantity', 'sidereal-time')),
     ('sidereal-month', ('quantity', 'sidereal-time')),
-    ('sidereal-time', ('concept',)),
+    ('sidereal-time', ('concept', 'time')),
     ('sidereal-year', ('quantity', 'sidereal-time')),
     ('siderite', ('meteorite',)),
     ('small-magellanic-cloud', ('dwarf-galaxy', 'irregular-galaxy')),
@@ -303,10 +302,10 @@ PACK = (
     ('solar-physics', ('astronomy', 'physics')),
     ('solar-radiation', ('radiation',)),
     ('solar-system', ('planetary-system',)),
-    ('solar-telescope', ('instrument', 'telescope')),
+    ('solar-telescope', ('telescope',)),
     ('solar-wind', ('natural-event',)),
     ('solid-propellant-rocket', ('rocket',)),
-    ('solstice', ('natural-event',)),
+    ('solstice', ('natural-event', 'time')),
     ('soyuz-spacecraft', ('crewed-spacecraft', 'space-capsule')),
     ('space-agency', ('organization',)),
     ('space-capsule', ('spacecraft',)),
@@ -328,7 +327,7 @@ PACK = (
     ('spectroscopy', ('activity',)),
     ('spiral-galaxy', ('galaxy',)),
     ('sputnik-1', ('satellite',)),
-    ('star-catalogue', ('astronomical-catalog',)),
+    ('star-catalog', ('astronomical-catalog',)),
     ('star-chart', ('data-chart',)),
     ('star-cluster', ('celestial-body', 'collection')),
     ('star-system', ('celestial-body', 'collection')),
@@ -351,12 +350,11 @@ PACK = (
     ('titan', ('natural-satellite',)),
     ('total-eclipse', ('event',)),
     ('trans-neptunian-object', ('minor-planet',)),
-    ('transit-instrument', ('instrument', 'telescope')),
+    ('transit-instrument', ('telescope',)),
     ('trapezium-cluster', ('multiple-star',)),
     ('triton', ('natural-satellite',)),
     ('uranus', ('planet',)),
     ('variable-star', ('star',)),
-    ('venus', ('planet',)),
     ('vernal-equinoctial-point', ('equinoctial-point',)),
     ('vernal-equinox', ('equinox',)),
     ('virgo-supercluster', ('galaxy-supercluster',)),

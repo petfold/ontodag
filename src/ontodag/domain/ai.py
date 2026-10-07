@@ -1,7 +1,7 @@
-"""The `ai` pack, version 4: 675 categories, adopted by merge.
+"""The `ai` pack, version 5: 675 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/ai, commit 4830925) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/ai, commit d157031) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack ai` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 4
+VERSION = 5
 
 BORROWED = ('database',)
 
@@ -50,12 +50,12 @@ PACK = (
     ('argumentation-framework', ('concept',)),
     ('articulated-robot', ('automaton',)),
     ('artificial-chemistry', ('artificial-life',)),
-    ('artificial-consciousness', ('field-of-study',)),
+    ('artificial-consciousness', ('artificial-intelligence',)),
     ('artificial-empathy', ('artificial-intelligence',)),
     ('artificial-general-intelligence', ('artificial-intelligence',)),
     ('artificial-immune-system', ('computational-intelligence',)),
     ('artificial-intelligence', ('computer-science',)),
-    ('artificial-life', ('field-of-study',)),
+    ('artificial-life', ('artificial-intelligence',)),
     ('artificial-neural-network', ('ai-model',)),
     ('artificial-society', ('agent-based-model',)),
     ('association-rule-learning', ('data-mining',)),
@@ -148,7 +148,7 @@ PACK = (
     ('computational-intelligence', ('artificial-intelligence',)),
     ('computational-learning-theory', ('machine-learning',)),
     ('computational-linguistics', ('linguistics',)),
-    ('computational-neuroscience', ('science',)),
+    ('computational-neuroscience', ('artificial-intelligence',)),
     ('computational-ontology', ('knowledge-base',)),
     ('computational-theory-of-mind', ('concept',)),
     ('computer-chess', ('artificial-intelligence',)),
@@ -183,7 +183,7 @@ PACK = (
     ('data-poisoning', ('adversarial-machine-learning',)),
     ('dbscan', ('clustering-algorithm',)),
     ('decision-support-system', ('software',)),
-    ('decision-theory', ('field-of-study',)),
+    ('decision-theory', ('mathematics',)),
     ('decision-tree', ('concept',)),
     ('decision-tree-learning', ('machine-learning-algorithm',)),
     ('deep-belief-network', ('artificial-neural-network',)),
@@ -338,7 +338,7 @@ PACK = (
     ('information-bottleneck', ('concept',)),
     ('information-extraction', ('information-retrieval', 'natural-language-processing')),
     ('information-retrieval', ('computer-science',)),
-    ('information-science', ('science',)),
+    ('information-science', ('computer-science',)),
     ('informed-search-algorithm', ('search-algorithm',)),
     ('instance-based-learning', ('machine-learning',)),
     ('instance-segmentation', ('image-segmentation',)),
@@ -378,7 +378,7 @@ PACK = (
     ('latent-space', ('concept',)),
     ('latent-variable-model', ('statistical-model',)),
     ('lazy-learning', ('machine-learning',)),
-    ('learning-analytics', ('field-of-study',)),
+    ('learning-analytics', ('artificial-intelligence',)),
     ('learning-rate', ('concept',)),
     ('lemmatization', ('natural-language-processing',)),
     ('lidar', ('device',)),
@@ -454,7 +454,7 @@ PACK = (
     ('nearest-neighbor-classifier', ('classification-algorithm',)),
     ('neat-algorithm', ('neuroevolution',)),
     ('negative-feedback', ('feedback-loop',)),
-    ('network-science', ('field-of-study',)),
+    ('network-science', ('mathematics',)),
     ('neural-architecture-search', ('automated-machine-learning',)),
     ('neural-machine-translation', ('machine-translation',)),
     ('neural-network-layer', ('concept',)),
@@ -503,7 +503,7 @@ PACK = (
     ('policy-gradient-method', ('reinforcement-learning',)),
     ('positive-feedback', ('feedback-loop',)),
     ('precision-and-recall', ('model-evaluation-method',)),
-    ('predictive-modelling', ('machine-learning',)),
+    ('predictive-modeling', ('machine-learning',)),
     ('preference-elicitation', ('procedure',)),
     ('preference-learning', ('machine-learning',)),
     ('preferential-attachment', ('process',)),

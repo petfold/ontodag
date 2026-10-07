@@ -39,7 +39,7 @@ in three kinds, and the rule treats them alike:
 - **Kinds** — `dog`, `city`, `book` — take what something *is*. A single
   thing is a kind with one member, so "Mars is a planet" is an arrow too.
 - **Qualities** — `blue`, `heavy`, and every typed value such as
-  `weight(3kg)` — take what something *has*. Read `blue` as "blue things",
+  `mass(3kg)` — take what something *has*. Read `blue` as "blue things",
   and `blue` under `color` says blue things are colored things.
 - **Entities** — `japan`, `mars`, `john` — have kinds of their own (Tokyo
   is a city), which the things related to them don't share. So nothing
@@ -347,7 +347,7 @@ term stands for a set of values (`time(2026-06-01..2026-08-31)` = "that summer",
 and a bare date is itself the set of instants in that day), and one term sits
 below another exactly when its set is contained in the other's — the same
 everything-below-is-a-special-case meaning every ordinary edge already has. The
-values are exact rationals of the SI anchor unit (a weight of `500g` is stored
+values are exact rationals of the SI anchor unit (a mass of `500g` is stored
 as `1/2kg` — exactness with no rounding, ever), so every comparison is exact arithmetic
 and every replica computes the identical order: the canonical-form guarantee of
 §2 survives untouched, because the stored graph still contains only asserted

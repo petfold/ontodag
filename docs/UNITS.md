@@ -280,7 +280,7 @@ Which motivates the structural solution:
 
 **D9 — anchor canonical values as reduced rationals of the SI coherent
 unit, and abolish bases entirely.** Canonical spelling `n/d × unit`
-(denominator 1 rendered plain): `weight(3/1000kg)`, `pressure(
+(denominator 1 rendered plain): `mass(3/1000kg)`, `pressure(
 8896443230521/1290320000Pa)` for one psi, `length(10/33m)` for the shaku
 — any exact rational unit representable on day one, forever, with **no
 common-measure computation, no quantum bases, no safety margins, and no
@@ -416,7 +416,7 @@ that renders back as the bare integer) all work; three refusals teach:
   existential.
 - **fractions** (`count(1/2)`, `count(50pct)`) — counts are whole numbers
   of discrete things; continuous quantities have dimensional heads
-  (weight, volume). This is what makes `count` semantically distinct from
+  (mass, volume). This is what makes `count` semantically distinct from
   a plain linear head over bare numbers, and why it earns a kind: per-head
   constraints don't exist and the bare-number suffix is globally owned by
   one family, so the kind is the only place integrality can attach
@@ -497,4 +497,4 @@ Nothing in the code changes for this: intervals have parsed and ordered
 since registry v1, and the demonstration that state-at-temperature is a
 query (`get chemical-element 'boiling-point(..20C)'` → the gases) works
 today. What changes is the guidance to writers, and the first time it
-bites will be a weight filed as `3.2kg`.
+bites will be a mass filed as `3.2kg`.

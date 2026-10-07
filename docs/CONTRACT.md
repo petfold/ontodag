@@ -70,7 +70,7 @@ Those change; the list above does not, except by revising this document.
 Every name stands for a class of items, and `x ⊑ y` says that every item in
 x is in y. The operations are defined against that reading: `get`
 intersects classes, `is_below` decides inclusion, and a dimension term is a
-class too — `weight(3kg)` is the things that weigh 3 kg, `in(japan)` the
+class too — `mass(3kg)` is the things that weigh 3 kg, `in(japan)` the
 things located in Japan. Typed values always worked this way; 0.2 makes it
 the reading for every name. The core cannot check that writers keep to it
 (it cannot tell a person from a place), so keeping to it is the writer's
@@ -293,7 +293,7 @@ What the layer above must do *instead of* asking the core for more:
   total; an inconsistency arriving via merge is visible, queryable structure
   — `get(Flight, Hotel)` being non-empty *is* the consistency check.
 - **O6 — File by the one meaning (0.2).** Kinds (`city`, `planet`) and
-  qualities (`blue`, `weight(3kg)`) take items directly. An entity
+  qualities (`blue`, `mass(3kg)`) take items directly. An entity
   (`japan`, `mars`, `alice`) takes only its own instances and phases
   (`medieval-japan ⊑ japan`); whatever else is related to it goes under a
   dimension over it (`in(japan)`, `about(mars)`, `shared-with(alice)`). `in` is for
@@ -382,7 +382,7 @@ here.
 ### Tier 3 — walls (recorded in `DATABASE_DIRECTION.md`)
 
 - **ZK proofs over private ontologies** ("my catalog contains something under
-  `weight(..5kg) ∧ location(EU)` — proof, not disclosure"). Tripwire: a real
+  `mass(..5kg) ∧ location(EU)` — proof, not disclosure"). Tripwire: a real
   privacy-demanding counterparty, loopmarket-shaped. Positioning note worth
   keeping: deterministic canonical encoding, one query primitive, and no
   floats anywhere (values are exact rationals — pairs of integers) make OntoDAG
@@ -486,5 +486,5 @@ it the next morning over a separate declaration node and over deferring:
    conformance suite gained `TestNarrowerRelations`; the oracle is
    `tests/test_narrower.py`.
 2. **What stays:** a truck under `max-load(3000kg)` is still below the bare
-   head `weight` ("has a weight"). Separating that needs a second
+   head `mass` ("has a mass"). Separating that needs a second
    declaration form for value roles, which nothing has asked for.

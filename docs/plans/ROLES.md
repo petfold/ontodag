@@ -550,6 +550,30 @@ Settled 2026-10-07:
     (released bug, I7); merge must accept it and report the conflict at
     first use. Fixed in step 7.
 
+22. **Core's lump-of-matter `mass` becomes `body-of-matter`** (option A,
+    2026-10-07): WordNet's "a body of matter without definite shape; a
+    huge ice mass", with `drift` under it. Under prelude v4's `mass` head,
+    `drift` would have become a role of the mass dimension. The
+    measurement sense keeps the plain word, as before.
+23. **Core declares the unit heads for the quantity names it owns, and
+    `force` is the physics quantity** (2026-10-07). Core v11 took
+    `force`, `current` and `frequency`, which the physics pack declared
+    as heads in 0.29; a pack never carries entries for core names, so
+    the build had silently dropped those declarations. Whoever owns a
+    name declares its head: core files `force ⊑ linear-dimension(force)`
+    and likewise for `current` and `frequency` (ontodag-core
+    `align/core-heads.tsv`). `force`'s "physical energy or intensity"
+    sense is folded into the physics quantity (`impetus` and
+    `coriolis-force` fit it), and its parent `degree` goes. Shipped with
+    core v11's review passes as **core v12** in 0.30, so every root moves
+    once (ontodag-core `tools/step7.py`, the last stage of its build).
+    One row deviates from the rewrite table as decided:
+    `leaf-blade ⊑ in(leaf) plant-part` names biology's `plant-part`, and
+    core may lean on no pack, so it is `leaf-blade ⊑ in(leaf)
+    natural-object`, the kind of its whole (`leaf ⊑ natural-object`).
+    Peter's aside, recorded as EVOLUTION.md §8 item 13: force is a
+    vector — how would vectors, matrices and tensors fit?
+
 **Open:**
 
 - **Where the standard dimensions live.** The code would refer to `in` by

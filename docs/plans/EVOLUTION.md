@@ -380,3 +380,37 @@ provenance design's stance, earning its keep.
     trust stack. Should the provenance `ext` map get a *blessed*
     confidence field shape (which factbond would price), or does
     blessing anything invite confidence-in-the-graph creep?
+13. **Vectors, matrices and tensors** (Peter, 2026-10-07, prompted by
+    `force ⊑ linear-dimension(force)`: force is a vector). Nothing to
+    build; items to think about.
+    - *What `force(10N)` means today*: a magnitude. Every linear value
+      denotes a set of scalars, so a vector quantity can only be filed
+      by a scalar about it: its magnitude, or one component. The guide
+      and UNITS.md should say so, so that nobody reads `force(10N)` as
+      "10 N in some direction".
+    - *A direction needs a frame, and a frame is not canonical.* A
+      vector's components change under rotation, so a canonical name for
+      a vector value must name its frame (east-north-up at a place, a
+      body's own axes). The frame is either part of the head
+      (`force-east`, `force-north` as heads, one scalar each) or part of
+      the value's grammar. The first needs nothing new: several
+      coordinates as several supercategories already form the product
+      lattice (guide §5.12, the London–Rome example).
+    - *Boxes work, balls do not.* A constraint that is a box (each
+      component in an interval) is the dominance kind's shape with signed
+      components, and box meets are boxes, so it would enter the
+      canonical order. A magnitude-and-direction constraint ("within 10°
+      of north, under 5 N") is a cone or a ball, and two of those meet in
+      something that is neither: no single-term meet, the same reason geo
+      discs stayed application-side (DIMENSIONS.md; DATABASE_DIRECTION.md's
+      exact-arithmetic wall).
+    - *Matrices and tensors* are mostly data, not constraints: what one
+      files under is a scalar invariant (principal stress, a von Mises
+      stress, a determinant, a norm), which is an ordinary pinned head. A
+      kind of matrix (symmetric, positive-definite) is a plain category,
+      which belongs in the mathematics pack, not in a dimension.
+    - *The question to settle first*: does any consumer ever need to file
+      by direction? Until one does, the answer is the first bullet plus
+      component heads, and the grammar stays as it is. The FCA paper's
+      reading (interval pattern structures, products as componentwise
+      meets) is where a vector kind would start if one is ever needed.

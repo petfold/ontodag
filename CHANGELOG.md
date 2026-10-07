@@ -158,6 +158,33 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+- **Prelude v4** (breaking; ROLES.md §8 items 15, 17, 21). The prelude's
+  mass head is **`mass`**, and there is no `weight` head: weight is a
+  force, and a surface layer may map the everyday word. Every unit-bearing
+  head is pinned to its unit family (`mass ⊑ linear-dimension(mass)`, and
+  likewise `length`, `duration`, `area`, `volume`, `speed`, `pressure`,
+  `temperature`, `energy`). The prelude now carries all nine kind nodes
+  and the relations `in` (transitive), `about` (enclosing) and
+  `shared-with` (reversed); `from` and `to` stay out. Golden root
+  `ad8b1a09…`. A store on prelude v3 keeps its `weight` head as its own,
+  unpinned. To move it to `mass`, rename the word in a native export and
+  import it: `odag export old.od`, then `sed 's/\bweight\b/mass/g'
+  old.od > new.od`, then `odag -f new.od prelude` (the pin makes the old
+  kind edge redundant).
+- **Core v12** (breaking; docs/CORE.md). Core v10 and v11 from
+  ontodag-core (the digital layer; the review pass, 4,984 categories) and
+  step 7's decisions: US spelling (`mollusk`, `analog`), the British
+  sense pairs given names (`center-point`, `air-current`,
+  `broadcast-program` …), `civilization` the historical society and
+  `floor` a level of a building, `dialogue` dropped, parts filed by
+  relation (`egg-white ⊑ in(egg)`), core's lump-of-matter `mass` renamed
+  `body-of-matter`, and core declaring the unit heads `force`, `current`
+  and `frequency` (pinned; `force` is the physics quantity). Every domain
+  pack's version goes up by one (economics' crypto terms filed by
+  relation: `beacon-chain ⊑ in(ethereum)`, `hash-rate ⊑
+  about(cryptocurrency-mining)`; the physics and chemistry heads pinned).
+  Every golden root moves, once.
+
 - **What a store shares is the cone of `shared-with(person)`**
   (ROLES.md §8 items 18 and 20; **breaking**). `sharing.reach`,
   `landing` and `losses`, `odag shared-with` and `get`/`count --as` read

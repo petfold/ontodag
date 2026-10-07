@@ -1,7 +1,7 @@
-"""The `mathematics` pack, version 2: 614 categories, adopted by merge.
+"""The `mathematics` pack, version 3: 606 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/mathematics, commit 4830925) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/mathematics, commit d157031) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack mathematics` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 2
+VERSION = 3
 
 BORROWED = ()
 
@@ -48,7 +48,7 @@ PACK = (
     ('arithmetic-mean', ('mean',)),
     ('arithmetic-operation', ('mathematical-operation',)),
     ('arithmetic-progression', ('concept',)),
-    ('arity', ('number',)),
+    ('arity', ('number', 'numeric-quantity')),
     ('asymmetry', ('attribute',)),
     ('attribute-exploration', ('algorithm',)),
     ('attribute-implication', ('implication',)),
@@ -71,7 +71,6 @@ PACK = (
     ('biquadratic', ('polynomial',)),
     ('biquadratic-equation', ('equation',)),
     ('biserial-correlation-coefficient', ('correlation-coefficient',)),
-    ('bit', ('concept',)),
     ('bit-string', ('data-structure',)),
     ('block-cipher', ('cipher',)),
     ('blockchain', ('hash-chain',)),
@@ -79,13 +78,13 @@ PACK = (
     ('boolean-algebra', ('heyting-algebra',)),
     ('boolean-function', ('function',)),
     ('boolean-satisfiability-problem', ('attribute', 'decision-problem')),
-    ('boundary-condition', ('mathematical-statement',)),
+    ('boundary-condition', ('mathematical-statement', 'precondition')),
     ('bounded-lattice', ('mathematical-lattice',)),
     ('brute-force-attack', ('cryptanalysis', 'procedure')),
     ('calculus', ('mathematical-analysis',)),
     ('calculus-of-variations', ('calculus',)),
     ('cardinal-number', ('number',)),
-    ('cardinality', ('invariant', 'number')),
+    ('cardinality', ('invariant', 'number', 'numeric-quantity')),
     ('catalan-number', ('natural-number',)),
     ('cipher', ('algorithm',)),
     ('ciphertext', ('information',)),
@@ -101,7 +100,7 @@ PACK = (
     ('commutative-ring', ('mathematical-ring',)),
     ('complete-graph', ('connected-graph',)),
     ('complete-lattice', ('mathematical-lattice',)),
-    ('complex-number', ('number',)),
+    ('complex-number', ('number', 'numeric-quantity')),
     ('complexity-class', ('mathematical-set',)),
     ('composite-number', ('natural-number',)),
     ('computability-theory', ('mathematical-logic',)),
@@ -169,7 +168,6 @@ PACK = (
     ('discrete-mathematics', ('mathematics',)),
     ('distributive-lattice', ('mathematical-lattice',)),
     ('divergent-series', ('mathematical-series',)),
-    ('division', ('arithmetic-operation',)),
     ('division-ring', ('mathematical-ring',)),
     ('dodecagon', ('polygon',)),
     ('drawn-box', ('rectangle',)),
@@ -221,9 +219,7 @@ PACK = (
     ('fourier-series', ('mathematical-series',)),
     ('fractal', ('shape',)),
     ('fractal-geometry', ('geometry',)),
-    ('fraction', ('complex-number',)),
     ('frequency-distribution', ('statistical-distribution',)),
-    ('function', ('binary-relation',)),
     ('function-domain', ('mathematical-set',)),
     ('fuzzy-logic', ('mathematical-logic',)),
     ('galois-connection', ('concept',)),
@@ -245,7 +241,7 @@ PACK = (
     ('godel-incompleteness-theorem', ('theorem',)),
     ('grab-sample', ('sample',)),
     ('graph-clique', ('complete-graph', 'induced-subgraph')),
-    ('graph-colouring', ('concept',)),
+    ('graph-coloring', ('concept',)),
     ('graph-cycle', ('subgraph',)),
     ('graph-homomorphism', ('homomorphism',)),
     ('graph-isomorphism', ('graph-homomorphism', 'isomorphism')),
@@ -275,7 +271,6 @@ PACK = (
     ('hypergraph', ('mathematical-structure',)),
     ('identity-element', ('concept',)),
     ('imaginary-number', ('complex-number',)),
-    ('implication', ('logical-relation',)),
     ('inclusion-exclusion-principle', ('theorem',)),
     ('independent-set', ('induced-subgraph',)),
     ('independent-variable', ('variable',)),
@@ -336,7 +331,7 @@ PACK = (
     ('logical-negation', ('logical-connective', 'proposition')),
     ('logical-operation', ('mathematical-operation',)),
     ('logical-predicate', ('information',)),
-    ('logical-relation', ('mathematical-relation',)),
+    ('logical-relation', ('mathematical-relation', 'relation')),
     ('logical-soundness', ('attribute',)),
     ('logical-subject', ('information',)),
     ('long-division', ('division',)),
@@ -368,7 +363,6 @@ PACK = (
     ('mathematical-structure', ('concept',)),
     ('mathematical-subgroup', ('mathematical-group',)),
     ('mathematician', ('scientist',)),
-    ('matrix', ('mathematical-structure',)),
     ('matrix-addition', ('matrix-operation',)),
     ('matrix-algebra', ('algebra',)),
     ('matrix-diagonal', ('subset',)),
@@ -438,7 +432,7 @@ PACK = (
     ('parallel-line', ('shape',)),
     ('parallelogram', ('quadrilateral',)),
     ('parametric-statistic', ('statistic',)),
-    ('parity', ('mathematical-relation',)),
+    ('parity', ('mathematical-relation', 'relation')),
     ('partial-correlation', ('statistical-correlation',)),
     ('partial-differential-equation', ('differential-equation',)),
     ('partial-order', ('antisymmetric-relation', 'preorder')),
@@ -467,7 +461,6 @@ PACK = (
     ('prime-factorization', ('mathematical-operation',)),
     ('prime-number', ('natural-number',)),
     ('private-key', ('cryptographic-key',)),
-    ('probability', ('statistic',)),
     ('probability-theory', ('mathematics',)),
     ('product-moment-correlation-coefficient', ('correlation-coefficient',)),
     ('projective-duality', ('attribute',)),
@@ -485,7 +478,7 @@ PACK = (
     ('quadrature', ('geometric-construction',)),
     ('quadrilateral', ('polygon',)),
     ('quantic', ('homogeneous-polynomial',)),
-    ('quantifier', ('logical-operation',)),
+    ('quantifier', ('logical-operation', 'word')),
     ('quartile', ('statistic',)),
     ('quasigroup', ('algebraic-magma',)),
     ('quaternion', ('number',)),
@@ -526,7 +519,7 @@ PACK = (
     ('schrodinger-equation', ('differential-equation',)),
     ('secant', ('trigonometric-function',)),
     ('second-moment', ('statistical-moment',)),
-    ('secp256k1', ('concept', 'elliptic-curve-cryptography')),
+    ('secp256k1', ('concept',)),
     ('secret-sharing', ('cryptographic-protocol',)),
     ('semigroup', ('algebraic-magma',)),
     ('semilattice', ('semigroup',)),
@@ -560,7 +553,7 @@ PACK = (
     ('statistical-population', ('collection',)),
     ('statistical-regression', ('statistical-method',)),
     ('statistical-sampling', ('act',)),
-    ('statistical-weight', ('number',)),
+    ('statistical-weight', ('number', 'numeric-quantity')),
     ('statistician', ('expert',)),
     ('stratified-sample', ('sample-distribution',)),
     ('stream-cipher', ('cipher',)),
@@ -573,7 +566,6 @@ PACK = (
     ('subspace', ('mathematical-space',)),
     ('subsumption', ('logical-relation',)),
     ('subtraction', ('arithmetic-operation',)),
-    ('summation', ('arithmetic-operation',)),
     ('supremum', ('concept', 'upper-bound')),
     ('surjective-function', ('function',)),
     ('syllogism', ('deductive-reasoning',)),
@@ -603,7 +595,7 @@ PACK = (
     ('trapezoid', ('quadrilateral',)),
     ('tree-graph', ('bipartite-graph', 'connected-graph', 'forest-graph')),
     ('trie', ('data-structure', 'tree-graph')),
-    ('trigonometric-function', ('function',)),
+    ('trigonometric-function', ('function', 'mathematical-relation')),
     ('trigonometry', ('geometry',)),
     ('truncation-error', ('event',)),
     ('truth-table', ('concept',)),

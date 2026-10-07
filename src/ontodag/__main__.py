@@ -1090,10 +1090,17 @@ def cmd_put(args, session, out):
     # Name the missing parents (the core's error does not), and say when a
     # shipped pack would supply one — the name-level twin of the pack-aware
     # unknown-unit errors. Parametric parents are exempt: put materializes
-    # a declared head's values itself.
+    # a declared head's values itself, and a family pin under its kind.
+    from ontodag import dimensions as dims
+
+    def made_by_put(name):
+        if session.dag._parse_parametric(name) is not None:
+            return True
+        pin = dims.kind_node(name)
+        return pin is not None and pin[1] is not None \
+            and pin[0] in session.dag.nodes
     missing = [p for p in args.parents
-               if p not in session.dag.nodes
-               and session.dag._parse_parametric(p) is None]
+               if p not in session.dag.nodes and not made_by_put(p)]
     if missing:
         from ontodag.packs import packs_declaring_node
         why = {name: _not_a_term(session.dag, name) for name in missing}
@@ -1233,7 +1240,7 @@ def cmd_overlapping(args, session, out):
 
     `get` answers guaranteed satisfaction (the item's value is inside the term);
     this answers *candidates*, whose value merely overlaps it — an offer of
-    `weight(0.8kg..1.5kg)` might weigh enough for `weight(1kg..)`, and only the
+    `mass(0.8kg..1.5kg)` might weigh enough for `mass(1kg..)`, and only the
     caller's exact check can settle it (DIMENSIONS.md §8, contract G6). Overlap
     is not transitive, so it is never a cone and never an edge: it is computed
     per dimension at query time. A term of no declared dimension is an error
@@ -2170,7 +2177,7 @@ def cmd_visualize(args, session, out):
     excerpt is a file that gets imported back, so it must not contain the
     constraint you searched with; a picture is drawn and discarded, so the
     query terms ARE drawn (as nodes, even when the store has no such node —
-    a virtual term like `weight(..5kg)` never does), because a picture of an
+    a virtual term like `mass(..5kg)` never does), because a picture of an
     answer that does not show what was asked is half a picture. Shaping lives
     in `ontodag.viz.query_picture`, shared with the web surface so the two
     cannot drift.
@@ -2376,14 +2383,14 @@ Commands:
                         things by the graph. The pairwise face of
                         `overlapping`.
   meet A B              the intersection of two same-head typed terms as one
-                        term (`meet 'weight(1kg..5kg)' 'weight(3kg..)'` ->
-                        weight(3kg..5kg)); prints nothing and exits 1 when
+                        term (`meet 'mass(1kg..5kg)' 'mass(3kg..)'` ->
+                        mass(3kg..5kg)); prints nothing and exits 1 when
                         it is provably empty
   below SUB SUP       does SUB fit within SUP? prints true/false and
                         exits 0/1 (grep-style), so `odag below A B && ...`
                         works; `?` is a synonym at the interactive prompt.
                         Works on typed values from the names alone:
-                        below 'weight(3kg)' 'weight(..5kg)' -> true
+                        below 'mass(3kg)' 'mass(..5kg)' -> true
   shared-with PRINCIPAL...
                         what this store shares with PRINCIPAL: everything
                         below shared-with(PRINCIPAL), including what is
@@ -2452,8 +2459,8 @@ Commands:
   canon [TERM]          print TERM's canonical form — what would actually be
                         stored (`canon 'time(2026)'` shows the timestamp
                         range); with no TERM, the surface/registry versions
-  prelude [--show]      adopt the standard dimension declarations (weight,
-                        time, geo, size, ...) in one idempotent merge;
+  prelude [--show]      adopt the standard dimension declarations (mass,
+                        time, geo, size, in, ...) in one idempotent merge;
                         --show prints them instead
   pack [NAME] [--show]  list unit packs, or adopt one (crypto-majors,
                         stablecoins, fiat-iso4217) — vocabulary as graph
@@ -2483,9 +2490,9 @@ prompt on a terminal. Files ending in .owl/.omn use OWL/Manchester syntax;
 any other path is the native line format.
 
 Typed values: run `odag prelude` once (or declare by hand: put dimension;
-put linear-dimension dimension; put weight linear-dimension), then use
-parametric terms anywhere a category goes — put parcel 'weight(3kg)',
-get 'weight(..5kg)' (quote the parentheses in a shell). Values are
+put linear-dimension dimension; put mass 'linear-dimension(mass)'), then
+use parametric terms anywhere a category goes — put parcel 'mass(3kg)',
+get 'mass(..5kg)' (quote the parentheses in a shell). Values are
 exact rationals of the SI anchor unit (500g is stored as 1/2kg; any
 exact unit works, psi to shaku — see docs/UNITS.md); ranges
 are lo..hi with either end open. For dates use calendar-dimension
@@ -2497,7 +2504,7 @@ at 1 (count(0) would claim an absence, which an open-world store
 cannot assert) and fractions refuse. See docs/DIMENSIONS.md.
 
 Output for people vs output for programs: on a terminal, names print in
-friendly spellings — weight(3kg), time(2026) — and long answers stop at 50
+friendly spellings — mass(3kg), time(2026) — and long answers stop at 50
 lines with a note on stderr saying how many were withheld. Pipes, files and
 -o get the complete answer in exact canonical bytes, so `odag get ... | odag`
 round-trips and `odag get ... | wc -l` counts right. Override with

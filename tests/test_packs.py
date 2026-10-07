@@ -21,8 +21,8 @@ from ontodag.dimensions import UNIT_DECLARATION
 from ontodag.packs import PACKS, apply, pack_dag
 
 GOLDEN_ROOTS = {  # pack fingerprints: everyone merging these converges (a domain pack's root is core + pack, so it moves when core does)
-    "core":  # v9, 2026-09-10 — the upper ontology (docs/CORE.md)
-        "892240935acb5173845c16b8c7af90d9f9264c9bc054ef5282972b0304208131",
+    "core":  # v12, 2026-10-07 — the upper ontology (docs/CORE.md): v11 + step 7, prelude v4
+        "d2c1e4dc2c1599c08004a24c9d36d4e278654f519cb6b9a1f06b130bc02a629c",
     "crypto-core":
         "4d501a439e109269252300d2777145be6ef736bbe5468b7812f016acb730d566",
     "crypto-majors":
@@ -31,26 +31,26 @@ GOLDEN_ROOTS = {  # pack fingerprints: everyone merging these converges (a domai
         "71aa064725388fc8a5b0fbefa8b5053a4afdda415d23f78ef7a677d280465ff5",
     "fiat-iso4217":
         "f1a2226ca3f4bbb90437d7331bbb5aa8758673a8f8350eec8c5b3d57c7b5ba7b",
-    "physics":  # v4, 2026-09-10 — a domain pack over core (ontodag-core packs/physics)
-        "2ff7a3b29c09308b5d6c71d620b1b099695dd1ed7a78bce6120d2f785322323e",
-    "mathematics":  # v2 over core v9, 2026-09-10 — a domain pack over core (ontodag-core packs/mathematics)
-        "da90a233a50cbac59e362e57eb68f329334b9486623390680c5fc66c07c7c4eb",
-    "chemistry":  # v2 over core v9, 2026-09-10 — a domain pack over core (ontodag-core packs/chemistry)
-        "a66c6d26b5f1bb02a27e962bd3a56746e788c861e5db37d9fb698b97ccd1136e",
-    "biology":  # v2 over core v9, 2026-09-10 — a domain pack over core (ontodag-core packs/biology)
-        "9d13b65d4c6f2424733397a3f2540a24315d80f6593bcc9fb9238ff3916258cd",
-    "medicine":  # v5, 2026-09-10 — a domain pack over core (ontodag-core packs/medicine)
-        "a92cce4232c2a81bc7a5b8a488f412cf587237665a956c4a34dcfc1d9f192f55",
-    "ai":  # v4, 2026-09-10 — a domain pack over core (ontodag-core packs/ai)
-        "f75f146ac74c1f09df88e225ff45bc190ad3664189d316707979d47a71058785",
-    "economics":  # v6, 2026-09-19 — v5 plus dai/xdai/usdc under stablecoin, bzz/xbzz under crypto-token (ontodag-core 845d789)
-        "4ca95aa397f14422b30de0335a4dcc9cef0bd9132733d020980572c6874c0c4c",
-    "computing":  # v4, 2026-09-10 — a domain pack over core (ontodag-core packs/computing)
-        "65de8fc360bc596e88bb94123d3662057118e2ee220043ff5b67259ecb37e291",
-    "geography":  # v5, 2026-09-10 — a domain pack over core (ontodag-core packs/geography)
-        "ea87836640b585e5bc2dc95cdafd28b3c3b7d5eca1b1eb1b032cd4cb9706f40c",
-    "space":  # v4, 2026-09-10 — a domain pack over core (ontodag-core packs/space)
-        "ee0c46f0ea8e22e3a7db83c484c157208974595613226549393249b35236184c",
+    "physics":  # v5 over core v12, 2026-10-07 (ontodag-core packs/physics)
+        "d115fcba248ed4f2c4d33e031592a311e40df057e984131df6d38ea01f7da1a7",
+    "mathematics":  # v3 over core v12, 2026-10-07 (ontodag-core packs/mathematics)
+        "9107ad9ffb7eb448bf72e0faf5d5c4e89ac204870cc541fa6363f3f65b044d8f",
+    "chemistry":  # v3 over core v12, 2026-10-07 (ontodag-core packs/chemistry)
+        "7f200c081d8a129130214ae0d3d7bb5fb4bed1d3a586020aa701658a65c1ef4c",
+    "biology":  # v3 over core v12, 2026-10-07 (ontodag-core packs/biology)
+        "4e56078d4886a8f9de7a15cce2f27c8dcafb20b6c01a8e8405b843639c5211ac",
+    "medicine":  # v6 over core v12, 2026-10-07 (ontodag-core packs/medicine)
+        "7d976607445071b1e9a5daaae9e1023149d15daf154914f020bc34133fedc336",
+    "ai":  # v5 over core v12, 2026-10-07 (ontodag-core packs/ai)
+        "05c93dd94af77d21b3e9afa1d821f05c5c187917f49196c8f6b63c9f75f523be",
+    "economics":  # v7 over core v12, 2026-10-07 (ontodag-core packs/economics)
+        "afd377e34e4483f94593c56d59e4cca0e370770247a54d338429e655b3f5a769",
+    "computing":  # v5 over core v12, 2026-10-07 (ontodag-core packs/computing)
+        "65cc7e83fb88ca46ac1e1e68612eed1ce2906d502d5391e9b58cb8d5686670d1",
+    "geography":  # v6 over core v12, 2026-10-07 (ontodag-core packs/geography)
+        "5d4b829e91e0410f06de9129ba72a1d1f3ae6735bce4660828c3db1a64ebb65f",
+    "space":  # v5 over core v12, 2026-10-07 (ontodag-core packs/space)
+        "40ea5e870860d6ecc2e8220b15d914baa77d3e85ef41db1019cec6804240b133",
 }
 
 
@@ -248,7 +248,7 @@ SWARM_GOLDEN_ROOTS = {  # the same packs under Swarm (BMT) addressing —
     # the fingerprints real Swarm publication must reproduce (PACKS.md §14
     # item 1). Computable offline: BMT is a hash, not a network.
     "core":
-        "8b6ce9a56886bb8fb7626574b8c9d2e61e5b9b512a0a789efd876778bc1ba565",
+        "354f90d5dfff14f1c1303d092c14499f411cda5de4cb4ad22f4836b49d7909d7",
     "crypto-core":
         "bbd0a930d7888aae3ea65c3ce794e793b5362f4e1837f816567889c75c22ea14",
     "crypto-majors":
@@ -258,30 +258,30 @@ SWARM_GOLDEN_ROOTS = {  # the same packs under Swarm (BMT) addressing —
     "fiat-iso4217":
         "36a9e1e2fdce1f87b273a50938f30cf931a0880b2bba8ab1a3dea1fe0309dd7b",
     "physics":
-        "93180ea9550f100504b99154b979b1febe28fbd10539f074ebb89a1ecc98a2a6",
+        "ab1cabad47546775b1e6d69a459ef848cca15f6d4d5116637f6e3879a1b87b41",
     "mathematics":
-        "fd4348c60ed64710bd73d9c7124348403c59153cecc3062760f98aea0eb4e06a",
+        "3b0653f2665359bc6134a6256e85f8af901cb9f41e259c02774c3b423700a9e5",
     "chemistry":
-        "ff9b1343803f4133732c5e4118217ffe2e5ed19bf9607e99e45b8a91a55a1397",
+        "3676074032a0887172192f9da26d4a821f357ace7dcdc91da79435fa3aa5a937",
     "biology":
-        "1c14499b402826f406a2d3c850a4d236881a048af48d7a51f2d452449208a007",
+        "3ec754baf539631d75b463c5f1a93e23fe3bad8ef719489487f327ac6bee1b1f",
     "medicine":
-        "d204d712416aec4d099d5634489b06daa9e9cf3dfd03855c2ada0143155ae009",
+        "a59c2f01cbc8d85fb1fd15e146f0488dbbf5ded712d1e473b013e87e9abdf5bf",
     "ai":
-        "7cf70ca7ec109c8c45a18c666e1c594f0a207054cb2e62303f48477f825ce21d",
+        "fbafc83f041ebea81a9ce59a16e21a7195614e6b7053e0475b99f4e5fec4f25d",
     "economics":  # v6, 2026-09-19
-        "4c6133706541cab8fc6a94a1d888e34ce53363d300c6315dc012d2baa115db8c",
+        "97b1a163c03f6494603fc912488b0159d96dd93df2987d15056679f89400a7f2",
     "computing":
-        "85b8f7a96dd7d266f94ac7918b2977a3a37df81c00b1469ed4c1463ff73144f8",
+        "0ec297ebd56ca910492ac5e09419072d48d464013ee05cd4644713b9b75ab246",
     "geography":
-        "fc2930d22b22779318da551ac9726f1d2696e0355560aad72a4baa33b3f8d1dd",
+        "33e7c5cf38f44ffa0d1db576cc4e1d2dd71d4017723caf0640e876c1719f11dd",
     "space":
-        "f28c6824a338551e2f4b172ecdfb0ef6ae9a64c42d89347ce1a858e1afb683a0",
+        "669b6c324d08ab9bf09ff42d32abad004067bf528f2bf85ab57c436d4ecccd65",
 }
 
 
 UNION_ROOT = (  # core + all ten domain packs, any order (ontodag-core tools/integrate.py, UPPER.md §8.1)
-    "871bdde8decc9f031dc24c709941a18691faef6aa3fd5a976c45c84a1262dd41")
+    "f7c446361367586530baf7e122a08121491ed71789f035699614ae5d098559b7")
 
 DOMAIN_PACKS = ["physics", "mathematics", "chemistry", "biology", "medicine", "ai",
                 "economics", "computing", "geography", "space"]
@@ -343,14 +343,14 @@ class TestDomainPacks(unittest.TestCase):
 
     def test_union_of_core_and_every_pack_has_one_root(self):
         if not os.environ.get("ONTODAG_SLOW_TESTS"):
-            self.skipTest("~6 min alone (measured 2026-09-12, core v9): ten merges into an 11,400-node store; ONTODAG_SLOW_TESTS=1 runs it "
+            self.skipTest("~6 min alone (measured 2026-09-12, core v9): ten merges into an 11,900-node store; ONTODAG_SLOW_TESTS=1 runs it "
                           "(ontodag-core's tools/integrate.py is the other witness to this root)")
         dag = ontodag.EagerOntoDAG(RecordStore(MemoryBytesStore()))
         apply(dag, "core")
         for name in DOMAIN_PACKS:
             apply(dag, name)
         self.assertEqual(dag.commit(), UNION_ROOT)
-        self.assertEqual(len(dag.nodes) - 1, 11410)   # core v9; integrate.py agrees
+        self.assertEqual(len(dag.nodes) - 1, 11892)   # core v12 (2026-10-07)
         # cross-pack claims resolve in the union
         self.assertTrue(dag.is_below("shapefile", "file-format"))          # geography -> computing
         self.assertTrue(dag.is_below("merkle-dag", "directed-acyclic-graph"))  # computing -> mathematics
@@ -367,7 +367,7 @@ class TestDomainPacks(unittest.TestCase):
         self.assertTrue(dag.is_below("shapefile", "file-format"))
         apply(dag, "computing")
         self.assertNotIn("file-format", {x.name for x in dag.nodes["*"].neighbors})  # filed under information
-        self.assertEqual(describe("geography"), "993 categories")             # borrowed names not counted
+        self.assertEqual(describe("geography"), "984 categories")             # borrowed names not counted
         self.assertEqual(packs_declaring_node("file-format"), ["computing"])   # and never hinted as geography's
         self.assertEqual(packs_declaring_node("mount-everest"), ["geography"])
 
@@ -385,10 +385,21 @@ class TestCorePack(unittest.TestCase):
 
     def test_closed_no_duplicates_and_small(self):
         self.assertEqual(len(self.names), len(set(self.names)), "duplicate")
-        parents = {p for _, ps in self.core for p in ps}
+        from ontodag import dimensions as dims
         from ontodag.prelude import prelude_dag
-        outside = parents - set(self.names)
-        self.assertFalse(outside - set(prelude_dag().nodes), "parent outside the pack and the prelude")
+        known = set(self.names) | set(prelude_dag().nodes)
+        parents = set()
+        for _, ps in self.core:
+            for p in ps:
+                pin = dims.kind_node(p)
+                split = dims.split_term(p)
+                if pin is not None:                       # a family pin: its kind
+                    parents.add(pin[0])
+                elif split is not None and split[0] in known:
+                    parents |= {split[0], *dims.constraints(split[1])}   # in(egg): in, egg
+                else:
+                    parents.add(p)
+        self.assertFalse(parents - known, "parent outside the pack and the prelude")
         # EVOLUTION.md §3: admission is a one-way door, so the top stays
         # small. Coverage is a domain pack's job.
         self.assertGreater(len(self.names), 2000)      # v2: consensus over the reference ontologies
@@ -432,7 +443,7 @@ class TestCorePack(unittest.TestCase):
         prelude(dag)
         self.assertEqual(dag.commit(), first)
         # and a typed value files under a core category with no conflict
-        dag.put("parcel", ["container", "weight(..5kg)"])
+        dag.put("parcel", ["container", "mass(..5kg)"])
         self.assertTrue(dag.is_below("parcel", "artifact"))
 
     def test_missing_parent_hint_names_the_pack(self):
@@ -463,5 +474,5 @@ class TestCorePack(unittest.TestCase):
             self.assertIn("human ⊑ mammal, person", out.getvalue())
             out = _io.StringIO()
             cli.dispatch(["pack"], session, out=out, err=_io.StringIO())
-            self.assertIn("core v9 (4614 categories)", out.getvalue())
+            self.assertIn("core v12 (4984 categories)", out.getvalue())
             self.assertIn("declarations)", out.getvalue())   # unit packs

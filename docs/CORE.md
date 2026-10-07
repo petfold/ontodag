@@ -1,8 +1,9 @@
 # The `core` pack: an upper ontology built by consensus
 
 Design record for `src/ontodag/core_ontology.py`, shipped as the pack
-`core` (v9, 2026-09-10; v6 shipped in 0.23.0 and is superseded, and
-v7 and v8 were built but never released — see Versioning). The list is **generated** in the sister repository
+`core` (v12, shipped in 0.30; v9 shipped in 0.24.0 and is superseded, and
+v7, v8, v10 and v11 were built but never released on their own — see
+Versioning). The list is **generated** in the sister repository
 [ontodag-core](https://github.com/petfold/ontodag-core); this page says
 what the pack is for, how it was built, how a node earns its place, and
 what it deliberately cannot do. `odag pack core --show` prints the list.
@@ -93,7 +94,7 @@ places; `map` is an image and a document.
 
 ## Quantities: the registry, not the pack
 
-Measured dimensions (weight, length, temperature, energy, ...) and every
+Measured dimensions (mass, length, temperature, energy, ...) and every
 unit spelling (mile, gallon, calorie) belong to the unit registry and the
 prelude; the pack ships none of them as categories, and neither the time
 nouns nor the quantity nouns. It asserts the connection once, at kind
@@ -252,6 +253,39 @@ repo's `docs/UPPER.md`, §11, §12 and §13.
   intervention against a published name, made now because a rename never
   propagates by merge.
 
+**v12 (0.30, 2026-10-07): v10 and v11 from ontodag-core, and step 7.**
+Two builds made in ontodag-core in September and never released on their
+own, plus the decisions of ontodag's ROLES.md §9 step 7, shipped together so
+that every root moves once.
+
+- **v10, the digital layer** (UPPER.md §14 there): `file` and `directory`
+  re-sensed to the computing senses, `folder` made, `mime` given back to the
+  performer, and the IANA Media Types registry run over the file-format layer
+  as witness and coverage check.
+- **v11, the review pass**: every disputed pair settled, and the unplaced
+  concepts cut from 362 to 3 by giving core the temporal, `relation` and
+  `amount` branches it never had; four edges contaminated across senses
+  found by comparing lexicographer files; hand names for the last thirty
+  automatic collision names.
+- **Step 7** (ontodag-core `tools/step7.py`, now the last stage of its
+  build): US spelling decided name by name (`mollusk`, `fiberboard`,
+  `analog`); the pairs British spelling had kept apart given real names
+  (`center-point`, `air-current`, `broadcast-program`, `casting-mold`,
+  `honored-status`, `working-class`, `court-judgment`); `civilization` is
+  the historical society and `floor` a level of a building
+  (`floor-surface` the walking surface; `story` stays a tale);
+  `dialogue` dropped for `dialog`; parts and mechanisms filed by relation
+  (`egg-white ⊑ in(egg)`, `colon ⊑ in(intestine)`, `leaf-blade ⊑ in(leaf)`;
+  ROLES.md §8 item 14). Three names change because of prelude v4:
+  `mass` is now the prelude's dimension head, so core's lump-of-matter
+  sense is `body-of-matter`; and core declares the unit heads for the
+  quantity names it owns, `force`, `current` and `frequency`, each pinned
+  to its family (`force` is the physics quantity; its "physical energy or
+  intensity" sense is folded in). ROLES.md §8 items 19, 21–23.
+
+**4,984 listed categories.** Renames and drops never propagate by merge,
+which is why they ride one version.
+
 **Open sense questions the goods layer exposed** (core-wordnet's first
 senses, each an intervention if changed, so listed rather than done):
 `table` is the laid table, not the furniture (`table-furniture` for now);
@@ -274,8 +308,8 @@ policy of §7 there: hinges in core, contents in packs, everyday words never
 taken by a pack. Since 0.21.0 they **ship in the wheel** (`odag pack geography`; each applies
 core first, `ontodag.domain`), the reversible half of the PACKS.md Part II
 decision — publishing them to Swarm later is the same stores. They fit: ontodag-core's
-`tools/integrate.py` merges core and all ten into one store — 11,410
-categories, the same root in every merge order, every cross-pack claim
+`tools/integrate.py` merges core and all ten into one store — 11,892
+categories with core v12, the same root in every merge order, every cross-pack claim
 resolving — with roots pinned in ontodag-core's UPPER.md §8.1.
 
 `CORE_VERSION` bumps whenever the list changes; the list itself is

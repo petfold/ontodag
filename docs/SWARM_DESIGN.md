@@ -254,8 +254,8 @@ fold, not a prerequisite for it.
 > below as *state-based reconcile*: hydrate the peer's published root,
 > fold it with `OntoDAG.merge` (the I7 semantics; with parametric
 > dimensions the re-reduction runs against the combined order, so e.g. a
-> coarse `parcel -> weight(..5kg)` assertion from one writer is pruned on
-> both replicas once another writer's `parcel -> weight(3kg)` arrives),
+> coarse `parcel -> mass(..5kg)` assertion from one writer is pruned on
+> both replicas once another writer's `parcel -> mass(3kg)` arrives),
 > and recommit; the canonical trie makes convergence a string comparison.
 > Tests: `tests/test_multiwriter.py` (two/three-writer convergence, union
 > semantics, remove-vs-readd, dimension renormalization, conflicting kind

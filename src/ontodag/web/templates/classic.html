@@ -39,7 +39,7 @@
         <button type="submit" title="Reclassify the items named above: file them under `to`, retract `out of`">Move Item</button>
       </form>
       <form id="declare-form">
-        <button type="button" id="prelude-button" title="Declare the standard dimensions (weight, time, size, ...) — typed values like weight(3kg) need this first">Declare dimensions</button>
+        <button type="button" id="prelude-button" title="Declare the standard dimensions (mass, time, size, ...) — typed values like mass(3kg) need this first">Declare dimensions</button>
         <select id="pack-select"><option value="">unit pack…</option></select>
         <button type="button" id="pack-button" title="Merge a unit vocabulary pack (currencies and the like) into this DAG">Adopt pack</button>
       </form>
@@ -264,7 +264,7 @@
         if (response.ok) {
           const result = await response.json();
           showNotice("Dimensions declared (prelude v" + result.version
-            + "): weight, time, size and friends are now usable.");
+            + "): mass, time, size and friends are now usable.");
         }
         await loadDAG();
         reloadDagImage();

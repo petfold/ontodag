@@ -10,6 +10,13 @@ implementation sequencing is at the end. Read `DATABASE_DIRECTION.md` first
 for where this sits in the wall/tripwire discipline — this design is the
 fired escape hatch of the "exact arithmetic" wall, recorded there.
 
+**Note on the examples (2026-10-07).** The sections below were written when
+the prelude's mass head was `weight` and a head took its unit family from its
+first value. Since prelude v4 (0.30) the head is `mass`, pinned with `mass ⊑
+linear-dimension(mass)`, and there is no `weight` head (weight is a force;
+§21). The examples keep `weight` as written; read it as a head a store
+declares itself, or as `mass`.
+
 ## 1. What and why
 
 OntoDAG's order has so far been entirely asserted: `JAL < Flight` exists

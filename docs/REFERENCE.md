@@ -7,7 +7,7 @@ pinned against the code by `tests/test_reference.py` — if a name in this
 file and the code disagree, the suite fails.
 
 Versions this file describes: contract `0.3` · registry `4.3` ·
-prelude `3` · surface `0.1` · core `9`.
+prelude `4` · surface `0.1` · core `12`.
 
 ## 1. Vocabulary
 
@@ -19,13 +19,13 @@ prelude `3` · surface `0.1` · core `9`.
 | `*` | The root; implicit ancestor of every top-level item. |
 | cone | A category's set of descendants (itself included) — a principal down-set. |
 | transitive reduction | The unique minimal edge set with the same reachability. Stores hold only this; it is what makes a DAG canonical, diffable, mergeable. |
-| canonical name | The one spelling of a parametric value that is stored (`weight(1/2kg)`, never `500g`). Two spellings of one denotation are one identity. |
+| canonical name | The one spelling of a parametric value that is stored (`mass(1/2kg)`, never `500g`). Two spellings of one denotation are one identity. |
 | denotation | The value set a parametric name stands for; containment of denotations is the computed order. |
-| head / kind / family | `weight(3kg)`: head `weight`, declared under a kind node (`linear-dimension`), value in a unit family (`mass`). |
+| head / kind / family | `mass(3kg)`: head `mass`, declared under a kind node (`linear-dimension`) and pinned to a unit family (`mass ⊑ linear-dimension(mass)`); an unpinned head takes the family of its first value. |
 | claim | `sub ⊑ sup` — the subject of provenance records; survives edge pruning. |
 | root (store) | Content hash of the whole store; equal content ⇒ equal root, whatever the history. |
 | prelude | The standard declarations, adopted by explicit idempotent merge (`odag prelude`). |
-| pack | A published ontology meant to be merged: `prelude` (pack zero — the dimension kinds and everyday heads; `odag prelude` is its alias), `core` (the upper ontology, 4,614 categories built by consensus, docs/CORE.md), the ten domain packs over it — `physics`, `mathematics`, `chemistry`, `biology`, `medicine`, `ai`, `economics`, `computing`, `geography`, `space` (about 6,900 categories together; each applies `core` first) — and the unit vocabularies. |
+| pack | A published ontology meant to be merged: `prelude` (pack zero — the dimension kinds and everyday heads; `odag prelude` is its alias), `core` (the upper ontology, 4,984 categories built by consensus, docs/CORE.md), the ten domain packs over it — `physics`, `mathematics`, `chemistry`, `biology`, `medicine`, `ai`, `economics`, `computing`, `geography`, `space` (about 7,000 categories together; each applies `core` first) — and the unit vocabularies. |
 
 ## 2. Install
 
@@ -243,17 +243,17 @@ stored as edges. Registry `4.3`; same major = same arithmetic.
 
 | kind node | values | order | example |
 |---|---|---|---|
-| `linear-dimension` | exact rationals of the family anchor; ranges `lo..hi`, either end open | interval containment | `weight(..5kg)` contains `weight(3kg)` |
+| `linear-dimension` | exact rationals of the family anchor; ranges `lo..hi`, either end open | interval containment | `mass(..5kg)` contains `mass(3kg)` |
 | `calendar-dimension` | `2026`, `2026-08`, `2026-08-15`, timestamps; ranges | period containment | `time(2026)` contains `time(2026-08)` |
 | `count-dimension` | whole numbers ≥ 1; ranges (floor 1) | interval containment | `count(2..)` contains `count(24)` |
 | `prefix-dimension` | path strings | prefix | `geo(u2)` contains `geo(u2ed)` |
 | `dominance-dimension` | sorted tuples `AxBxC` + unit | componentwise ≥ | `size(20x30x40cm)` contains `size(19x23x39cm)` |
-| `graph-dimension` | a conjunction of constraints on the graph — category names and terms of other dimensions, sorted, each present or parseable, none redundant (issue #19) | by the graph: every outer constraint above some inner one | `transport(small-item weight(..8kg))` contains `transport(bicycle weight(5kg))` when `bicycle ⊑ small-item` |
+| `graph-dimension` | a conjunction of constraints on the graph — category names and terms of other dimensions, sorted, each present or parseable, none redundant (issue #19) | by the graph: every outer constraint above some inner one | `transport(mass(..8kg) small-item)` contains `transport(bicycle mass(5kg))` when `bicycle ⊑ small-item` |
 | `transitive-dimension` | constraints on the graph, as for `graph-dimension` (DIMENSIONS.md §16) | by the graph, and chaining: `R(X) ⊑ R(Y)` also when some `x` in `X` is itself below `R(Y)`; strict — nothing is `R` of itself | `in(tokyo)` is inside `in(japan)` when `tokyo ⊑ in(japan)` |
 | `enclosing-dimension` | constraints on the graph, as for `graph-dimension` (DIMENSIONS.md §17) | by the graph, and following `in`: `R(X) ⊑ R(Y)` also when some `x` in `X` is itself below `in(Y)` (once a store declares `in` transitive) | `about(tokyo)` is inside `about(japan)` when `tokyo ⊑ in(japan)` |
 | `reversed-dimension` | constraints on the graph, as for `graph-dimension` (DIMENSIONS.md §18) | against the graph: `R(X) ⊑ R(Y)` when every constraint of `X` is above, or is, some constraint of `Y`; kinds only, never `in` | `shared-with(sales-employee)` is inside `shared-with(alice)` when `alice ⊑ sales-employee` |
 
-Several values of one head on one item fold to their meet (`put(x, ["weight(1kg..3kg)", "weight(2kg..5kg)"])` files `x` under `weight(2kg..3kg)`; DIMENSIONS.md §9), except a transitive, enclosing or reversed head's terms, which stay separate (Zermatt can be `in(switzerland)` and `in(alps)`, a photo `about(mars)` and `about(earth)`, a budget `shared-with(sales-employee)` and `shared-with(finance-employee)`). Rules that refuse, with teaching errors: cycles, including one that only a computed link the new edge creates would close; a term of a kind the graph orders (graph, transitive, enclosing, reversed) under anything but its head (`in(japan) ⊑ japanese` would state a rule, CONTRACT.md §5.1); anything that would put a thing inside itself under a transitive head (`japan ⊑ in(japan)`); a point filed under two
+Several values of one head on one item fold to their meet (`put(x, ["mass(1kg..3kg)", "mass(2kg..5kg)"])` files `x` under `mass(2kg..3kg)`; DIMENSIONS.md §9), except a transitive, enclosing or reversed head's terms, which stay separate (Zermatt can be `in(switzerland)` and `in(alps)`, a photo `about(mars)` and `about(earth)`, a budget `shared-with(sales-employee)` and `shared-with(finance-employee)`). Rules that refuse, with teaching errors: cycles, including one that only a computed link the new edge creates would close; a term of a kind the graph orders (graph, transitive, enclosing, reversed) under anything but its head (`in(japan) ⊑ japanese` would state a rule, CONTRACT.md §5.1); anything that would put a thing inside itself under a transitive head (`japan ⊑ in(japan)`); a point filed under two
 provably disjoint values of one head; `count(0)` (an absence claim);
 fractional counts; negatives (except affine `C`/`F` spellings); values
 below absolute zero; unknown units (the error names the pack or
@@ -286,9 +286,13 @@ re-reduces them, and one that would put something inside itself under
 a strict relation is refused. Value roles (above) and the graph kind
 keep their meaning.
 
-Prelude v3 declares: five of the nine kind nodes (not `graph-dimension`, `transitive-dimension`, `enclosing-dimension` or `reversed-dimension`, which a store declares itself when it needs it — `odag put graph-dimension dimension`; the prelude's root, and every pack's, stay put) and heads `weight`, `length`,
-`duration`, `area`, `volume`, `speed`, `pressure`, `temperature`,
-`energy`, `count`, `time`, `geo`, `size`.
+Prelude v4 declares: all nine kind nodes; the heads `mass`, `length`,
+`duration`, `area`, `volume`, `speed`, `pressure`, `temperature` and
+`energy`, each pinned to the unit family of its name
+(`mass ⊑ linear-dimension(mass)`; the nine family nodes are `linear-dimension(mass)`, `linear-dimension(length)`, `linear-dimension(duration)`, `linear-dimension(area)`, `linear-dimension(volume)`, `linear-dimension(speed)`, `linear-dimension(pressure)`, `linear-dimension(temperature)`, `linear-dimension(energy)`); `count`, `time`, `geo`, `size`; and the
+relations `in` (transitive), `about` (enclosing) and `shared-with`
+(reversed). There is no `weight` head: weight is a force. `from` and `to`
+are not in the prelude (loopmarket declares them as roles of `geo`).
 
 ## 7. REST API (`web/`, needs the `web` extra)
 

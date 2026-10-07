@@ -24,6 +24,7 @@ from ontodag.domain import (physics as _physics, mathematics as _mathematics, ch
                             computing as _computing, geography as _geography, space as _space)
 from ontodag.prelude import DECLARATIONS as _PRELUDE, PRELUDE_VERSION as _PRELUDE_VERSION
 from ontodag.dag import OntoDAG
+from ontodag import dimensions as _dims
 from ontodag.dimensions import UNIT_DECLARATION
 
 
@@ -171,9 +172,15 @@ def pack_top(name):
     entries = pack_entries(name)
     if is_unit_pack(name):
         entries = entries + [(UNIT_DECLARATION, ())]
-    elif name != "prelude" and not presumes_core(name) and presumes_prelude(name):
+    elif name != "prelude" and presumes_prelude(name):
         entries = entries + pack_entries("prelude")    # shipped as closure, as in pack_dag
-    mentioned = {node for node, _ in entries} | {p for _, parents in entries for p in parents}
+    # A family pin hangs under its kind node and a term under its head, so
+    # neither is top; a term's constraints must exist, so they may be.
+    mentioned = {node for node, _ in entries}
+    for _, parents in entries:
+        for parent in parents:
+            hung = _hung(parent)
+            mentioned |= {parent} if hung is None else set(hung)
     filed = {node for node, parents in entries if parents}
     return sorted(mentioned - filed)
 
@@ -221,10 +228,26 @@ def packs_declaring_node(name):
     return sorted(matches)
 
 
+def _hung(parent):
+    """What a parent needs before it can be filed under, when it is not a
+    plain name: a family pin (`linear-dimension(force)`) needs only its kind
+    node, which the prelude brings, so nothing of its own; a term of a
+    prelude head (`in(ethereum)`) needs its constraints. None for a plain
+    name, which is a stub like any other."""
+    if _dims.is_kind_node(parent):
+        return ()
+    split = _dims.split_term(parent)
+    if split is not None and split[0] in {n for n, _ in _PRELUDE}:
+        return tuple(_dims.constraints(split[1]))
+    return None
+
+
 def presumes_prelude(name) -> bool:
-    """Does pack `name` hang anything from a prelude node?"""
+    """Does pack `name` hang anything from a prelude node, a family pin or a
+    term of a prelude head?"""
     prelude_names = {n for n, _ in pack_entries("prelude")}
-    return any(n in prelude_names or any(p in prelude_names for p in parents)
+    return any(n in prelude_names
+               or any(p in prelude_names or _hung(p) is not None for p in parents)
                for n, parents in pack_entries(name))
 
 
@@ -244,10 +267,18 @@ def pack_dag(name) -> OntoDAG:
         # when it is missing, so `odag pack geography` alone still gets the
         # closure. Building core here instead made every adoption rebuild and
         # re-merge 2,929 nodes (the suite went from 52 s to 11 min).
+        if presumes_prelude(name):
+            # `in(...)`, `about(...)` and family pins parse only where their
+            # heads are declared; merged into a store that has core, the
+            # prelude is already there and this changes nothing.
+            for node, parents in pack_entries("prelude"):
+                dag.put(node, list(parents)) if node not in dag.nodes else None
         for node, parents in entries:
             for parent in parents:
-                if parent not in dag.nodes:
-                    dag.put(parent, [])
+                hung = _hung(parent)
+                for stub in ((parent,) if hung is None else hung):
+                    if stub not in dag.nodes:
+                        dag.put(stub, [])
     if is_unit_pack(name):
         dag.put(UNIT_DECLARATION, [])
     if name not in ("prelude",) and not presumes_core(name) and presumes_prelude(name):

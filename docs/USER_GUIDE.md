@@ -120,7 +120,7 @@ accidental — each surface exposes what makes sense for who is using it:
 | --- | --- | --- | --- | --- |
 | put / remove (contraction) | ✓ | ✓ | ✓ | ✓ (with `--write`) |
 | query, union (`or`), `below` | ✓ | ✓ | ✓ | ✓ |
-| typed values (`weight(3kg)`) | ✓ | ✓ | ✓ | ✓ |
+| typed values (`mass(3kg)`) | ✓ | ✓ | ✓ | ✓ |
 | **move** (reclassify) | ✓ `reclassify` | ✓ `move` | ✓ `PATCH /dag/node` | — |
 | **delete a cone** (item + contents) | ✓ `remove_cone` | ✓ `remove --cone` | ✓ `DELETE …?cone=1` | — |
 | **excerpt** (query-scoped export) | ✓ `excerpt` | ✓ `excerpt` | ✓ `/dag/query/export*` | — |
@@ -639,7 +639,7 @@ still belongs. Survivors are *detached*, never reattached upward — reattaching
 would file `JAL` under whatever was above `Japan`, which is a claim nobody made.
 
 The walk uses asserted edges only, so deleting the cone of a typed value like
-`weight(..5kg)` takes what was filed under that spelling, not every lighter
+`mass(..5kg)` takes what was filed under that spelling, not every lighter
 value in the store.
 
 ### 4.4 Combining two DAGs: `merge`
@@ -728,11 +728,12 @@ from the value, so a "last summer" query matches an August flight with no edge
 ever stored between them, at any date range you care to ask.
 
 The no-ceremony path: `odag prelude` (or `ontodag.prelude.apply(dag)` in
-Python) declares the everyday dimensions — `weight`, `length`, `duration`,
-`time`, `geo`, `size` — in one idempotent merge, and everything below just
+Python) declares the everyday dimensions — `mass`, `length`, `duration`,
+`time`, `geo`, `size` and more — and the relations `in`, `about` and
+`shared-with` (§4.9) in one idempotent merge, and everything below just
 works. What it does is nothing special: a dimension is declared by placing
-it under one of the four built-in kind categories, which you can always do
-by hand (create those like any other category):
+it under one of the built-in kind categories, which you can always do by
+hand (create those like any other category):
 
 ```python
 dag.put("dimension", [])
@@ -803,9 +804,9 @@ What to know:
   that way, the error message says so and names the fix; re-declaring the head
   under `calendar-dimension` changes no stored value.
 - **Other dimensions work the same way.** Values are stored as exact rationals
-  of the SI anchor unit — `weight(3000g)` is stored as `weight(3kg)`, `500g` as
-  `weight(1/2kg)` — so `3kg`, `3000g` and `3.0kg` are one identity, nothing is
-  ever rounded, and every exactly-defined unit works: `weight(1lb)`,
+  of the SI anchor unit — `mass(3000g)` is stored as `mass(3kg)`, `500g` as
+  `mass(1/2kg)` — so `3kg`, `3000g` and `3.0kg` are one identity, nothing is
+  ever rounded, and every exactly-defined unit works: `mass(1lb)`,
   `pressure(32psi)`, `storage(..2TB)` against tebibytes,
   `temperature(24C)` (Celsius and Fahrenheit ride the kelvin scale exactly —
   `-40C` and `-40F` are one stored name), even `length(10/33m)` (the shaku). Beyond the built-ins, **unit packs**
@@ -818,6 +819,28 @@ What to know:
   have to memorize any of this: typing `price(5USD)` before adopting a pack
   refuses with the exact command (`odag pack fiat-iso4217`). Run `odag prelude` for the everyday
   dimensions and see the generated docs/UNIT_TABLE.md for the full listing.
+- **A head holds one kind of quantity.** The prelude pins each of its
+  unit-bearing heads to a unit family by filing it under a narrower kind
+  node, `mass ⊑ linear-dimension(mass)`, so a value in another family is
+  refused, and asking which heads hold mass is an ordinary query. Pin your
+  own heads the same way (a head with no pin takes the family of its first
+  value). There is no `weight` head: weight is a force, and the prelude
+  uses the word physics uses.
+
+  ```console
+  $ odag prelude
+  $ odag put crate 'mass(3kg)'
+  $ odag put anvil 'mass(10N)'
+  odag: mass(10N): dimension 'mass' holds mass values, and this one is force
+  $ odag get 'linear-dimension(mass)'
+  crate
+  mass
+  mass(3kg)
+  $ odag put load 'linear-dimension(force)'
+  $ odag put push 'load(10N)'
+  $ odag put shove 'load(2kg)'
+  odag: load(2kg): dimension 'load' holds force values, and this one is mass
+  ```
 - **Three more kinds**: `prefix-dimension` for hierarchical codes
   (`geo(u2ed)` is inside `geo(u2)` — geohash cells, handy for "near Tokyo"),
   `dominance-dimension` for does-it-fit tuples
@@ -825,21 +848,21 @@ What to know:
   and `count-dimension` for whole numbers of discrete things
   (`count(3)` is below `count(2..)` — "at least two"; the prelude's `count`
   head uses it). `linear-dimension` is the fifth: numbers with units, which
-  is what `weight(3kg)` above uses.
+  is what `mass(3kg)` above uses.
 - **What a kind is, and the sixth one.** Everything in OntoDAG is a
   category, and every typed value narrows a query, so a kind is neither
   "a kind of node" nor "a kind of constraint". A kind says **how the
-  values in a head's parentheses are ordered**: `weight(3kg)` is inside
-  `weight(..5kg)` by interval arithmetic (linear), `geo(u2ed)` inside
+  values in a head's parentheses are ordered**: `mass(3kg)` is inside
+  `mass(..5kg)` by interval arithmetic (linear), `geo(u2ed)` inside
   `geo(u2)` by string prefix, `size(19x23x39cm)` inside `size(20x30x40cm)`
   componentwise, `time(2026-08)` inside `time(2026)` by calendar periods,
   `count(3)` inside `count(2..)` by whole numbers. Five orderings, five
   kinds, each computed from the two names alone. The sixth,
   **`graph-dimension`**, is the kind whose values are ordered **by the
   graph itself**: the parenthesised value is a list of categories and
-  terms — `transport(small-item weight(..8kg))` — and
-  `transport(bicycle weight(5kg))` is inside it because `bicycle` sits
-  under `small-item` in the graph and `weight(5kg)` inside `weight(..8kg)`
+  terms — `transport(mass(..8kg) small-item)`, sorted — and
+  `transport(bicycle mass(5kg))` is inside it because `bicycle` sits
+  under `small-item` in the graph and `mass(5kg)` inside `mass(..8kg)`
   by the linear rule. Nothing about the *names* decides it; the graph
   does, and the answer moves when the graph does (file `piano` under
   `small-item` and `transport(piano)` slides inside). That is the whole
@@ -856,31 +879,31 @@ What to know:
   graph-dimension dimension`, then `odag put transport graph-dimension`.
 - **Counts are whole and start at one.** `count(2dz)` is fine (that's 24);
   `count(2.5)` refuses — continuous stuff belongs under a dimensional head
-  like `weight` or `volume`. `count(0)` also refuses, with a reason worth
+  like `mass` or `volume`. `count(0)` also refuses, with a reason worth
   knowing: "zero of them" is an *absence* claim, and an open-world store
   cannot assert absence — omit the claim instead. A pleasant consequence:
   `count(1..)` ("at least one") is exactly the same constraint as saying
   nothing at all.
-- **A point is not a range.** `weight(3kg)` is *not* below `weight(5kg)` —
-  a 3 kg bag is not a special case of a 5 kg one. Use `weight(..5kg)`.
+- **A point is not a range.** `mass(3kg)` is *not* below `mass(5kg)` —
+  a 3 kg bag is not a special case of a 5 kg one. Use `mass(..5kg)`.
 - **A measurement is a range, not a point.** Your scale said 3.2 kg; that
   means *between 3.15 and 3.25*, and that is what to file:
-  `weight(3.15kg..3.25kg)`. A point value claims infinite precision, so when
-  someone reweighs the parcel and files `weight(3.21kg)` the store holds two
+  `mass(3.15kg..3.25kg)`. A point value claims infinite precision, so when
+  someone reweighs the parcel and files `mass(3.21kg)` the store holds two
   categories for one fact and neither contains the other. Filed as ranges,
   the more precise reading sits *below* the coarser one by ordinary
   containment — a refinement, not a conflict — and two readings that
   genuinely disagree show up as ranges that do not overlap:
 
   ```console
-  $ odag put parcel 'weight(3.15kg..3.25kg)'            # the scale said 3.2 kg
-  $ odag put parcel-reweighed 'weight(3.21kg..3.22kg)'  # a better scale
-  $ odag below parcel-reweighed 'weight(3.15kg..3.25kg)'
+  $ odag put parcel 'mass(3.15kg..3.25kg)'            # the scale said 3.2 kg
+  $ odag put parcel-reweighed 'mass(3.21kg..3.22kg)'  # a better scale
+  $ odag below parcel-reweighed 'mass(3.15kg..3.25kg)'
   true
-  $ odag get 'weight(3.15kg..3.25kg)'
+  $ odag get 'mass(3.15kg..3.25kg)'
+  mass(321/100kg..161/50kg)
   parcel
   parcel-reweighed
-  weight(321/100kg..161/50kg)
   ```
 
   Points are for numbers that are exact by definition — `0C`, `1in`, a
@@ -912,15 +935,15 @@ dag.get_overlapping("time(2026-08-15..2026-08-16)")  # both — possibly
 ```
 
 ```console
-$ odag overlapping 'weight(..5kg)'
+$ odag overlapping 'mass(..5kg)'
+mass(2kg..6kg)
+mass(3kg)
 parcel
-weight(2kg..6kg)
-weight(3kg)
 wide-parcel
 ```
 
 `parcel` weighs 3kg, so it is a guarantee `get` would also return;
-`wide-parcel` is filed as `weight(2kg..6kg)`, so it *might* be under five and
+`wide-parcel` is filed as `mass(2kg..6kg)`, so it *might* be under five and
 only your own check can settle it. Over REST it is
 `GET /dag/overlapping?term=…`, and an agent has the `overlapping` tool (whose
 answer names the modality out loud). A term of no declared dimension is an
@@ -1097,7 +1120,7 @@ mail-from-bob.eml
 Nobody filed anything under `human` or `document`; the paths were in the
 pack (`plane-ticket ⊑ transport-ticket ⊑ ticket ⊑ document`,
 `man ⊑ human ⊑ person`, and `human ⊑ mammal` too), and a query is the
-intersection of cones. It is 4,614 categories in ten branches — physical
+intersection of cones. It is 4,984 categories in ten branches — physical
 object, substance, agent, event, information, place, attribute,
 possession, cognition, field of study — and `odag pack core --show`
 prints every claim. Version 6 was not written by hand: it was built by
@@ -1154,6 +1177,11 @@ $ odag get file-format
 geographic-data-format
 geojson
 geotiff
+gps-exchange-format
+keyhole-markup-language
+readme.md
+shapefile
+well-known-text
 $ odag pack computing
 $ odag below readme.md information
 true
@@ -1173,7 +1201,7 @@ edges were wrong each time, and what kinds).
 Every name stands for a class of items, and an arrow says that every item
 below is in the class above ([HOW_IT_WORKS.md](HOW_IT_WORKS.md) §1). Items
 go directly under the **kinds** they are (`city`, `photo`) and the
-**qualities** they have (`blue`, `weight(3kg)`). A name for one particular
+**qualities** they have (`blue`, `mass(3kg)`). A name for one particular
 thing (Japan, Mars, Alice) is an **entity**, and only its own instances
 and phases go directly under it. Anything else related to it goes under a
 *relation* of it: `in(japan)`, `about(mars)`, `shared-with(alice)`. File a photo
@@ -1280,7 +1308,7 @@ true
 The coach was filed only under `from(lhr)`, so it stays out of
 `departure(lhr)`: a broader term is never inside a narrower one. This
 works for heads of these three
-kinds only; a head under `weight` or `time` is a role that takes their
+kinds only; a head under `mass` or `time` is a role that takes their
 values ([DIMENSIONS.md](DIMENSIONS.md) §14).
 
 Two rules, each refused with the reason:
@@ -1359,8 +1387,8 @@ odag <command> ...
   canon [TERM]          print TERM's canonical form — what would actually
                         be stored; with no TERM, the surface/registry
                         versions (see §5.5)
-  prelude [--show]      adopt the standard dimension declarations (weight,
-                        time, geo, size, ...) in one idempotent merge;
+  prelude [--show]      adopt the standard dimension declarations (mass,
+                        time, geo, size, in, ...) in one idempotent merge;
                         --show prints them without merging
   history [-n N]        the states this store has been in, newest first;
                         needs rs:PATH or swarm:NAME (see §5.11)
@@ -1774,7 +1802,7 @@ it shows the query terms too, as nodes above the answers each disjunct produced
 (so a union reads as the two branches it is). A picture is drawn and thrown away,
 so inventing a node to show what was asked costs nothing — and it is the only way
 to see a constraint that has no node in the store at all, such as
-`weight(..5kg)`. An excerpt gets imported back, so it stays silent about the
+`mass(..5kg)`. An excerpt gets imported back, so it stays silent about the
 question. Both are built from the same `get`, so the picture and the result list
 beside it always agree.
 
@@ -1795,8 +1823,8 @@ Useful habits:
 ### 5.5 Readable output: friendly on screen, exact in pipes
 
 Typed values are stored in an exact canonical form — `time(2026-08-15)` is
-really `time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)`, `weight(500g)` is
-`weight(1/2kg)` (a rational of the SI anchor unit) — which is what makes equal
+really `time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)`, `mass(500g)` is
+`mass(1/2kg)` (a rational of the SI anchor unit) — which is what makes equal
 knowledge produce equal fingerprints. You shouldn't have to *read* that, so `odag` renders friendly
 spellings **on a terminal** and prints the exact canonical bytes **whenever
 output goes to a pipe, a file, or `-o`** — so `odag get ... | odag` always
@@ -2017,7 +2045,7 @@ Ryokan
 
 `BA` did not travel — it hangs under `Flight`, but it was never an answer, so
 siblings do not leak. Typed values bring their declarations along for free (a
-head like `weight` is a real parent of its values, hence an ancestor), so the
+head like `mass` is a real parent of its values, hence an ancestor), so the
 receiving store can recompute the order rather than being told it.
 
 Then they edit their copy, send it back, and you ask what changed:
@@ -2538,7 +2566,7 @@ what your click meant.
   canonical form underneath, what it is under and what is under it (all
   clickable), and a picture of its neighbourhood. **The picture is clickable
   too** — click a shape to move there.
-- **Declarations are grouped apart.** `weight`, `time` and the other
+- **Declarations are grouped apart.** `mass`, `time` and the other
   dimension heads are real items in the graph — that is what lets vocabulary
   travel with a store — but they are shown behind a *show N vocabulary* link
   so your own things come first.
@@ -2571,7 +2599,7 @@ the categories the answers hang from (§5.8), and never the query terms, so
 re-importing one does not file your question as knowledge.
 
 Typed values work exactly as everywhere else: file something under
-`weight(3kg)` and `time(2026-08-15)`, then query `weight(..5kg)` and the
+`mass(3kg)` and `time(2026-08-15)`, then query `mass(..5kg)` and the
 virtual term resolves with no node existing for it. Union works with `|`
 between alternatives (`Flight,Japan|Hotel`), or `or` when typed as a command.
 
@@ -2937,13 +2965,13 @@ store, no trust in you or your server. Agents request it with
 >>> dag = ontodag.EagerOntoDAG(RecordStore(MemoryBytesStore()))
 >>> for name, parents in [("dimension", []),
 ...                       ("linear-dimension", ["dimension"]),
-...                       ("weight", ["linear-dimension"]),
-...                       ("parcel", ["weight(3kg)"])]:
+...                       ("mass", ["linear-dimension(mass)"]),
+...                       ("parcel", ["mass(3kg)"])]:
 ...     dag.put(name, parents)
 >>> root = dag.commit()
->>> cert = prove_below(dag, "parcel", "weight(..5kg)")
+>>> cert = prove_below(dag, "parcel", "mass(..5kg)")
 >>> cert["result"], len(cert["proofs"])
-(True, 8)
+(True, 9)
 >>> # elsewhere, holding only the certificate and the root:
 >>> verify_below(cert, root)
 True
@@ -3176,8 +3204,8 @@ These behaviors are guarantees, not accidents. You can rely on them:
    filing an item under provably disjoint values of one dimension is refused
    (see §4.7).
 8. **Typed values are exact.** No floats anywhere: rationals of SI anchors,
-   scaled exactly or refused. `weight(3kg)`, `weight(3000g)` and
-   `weight(3.0kg)` are byte-for-byte the same stored name.
+   scaled exactly or refused. `mass(3kg)`, `mass(3000g)` and
+   `mass(3.0kg)` are byte-for-byte the same stored name.
 
 (Each of these is enforced by a dedicated test suite — see the internals doc.)
 
