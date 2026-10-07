@@ -102,7 +102,10 @@ def _derivable(store, held):
         for u, ks in list(known.items()):
             for v, token in out.get(u, ()):
                 for key in list(ks):
-                    cand = act.unwrap(key, v, token)
+                    try:
+                        cand = act.unwrap(key, v, token)
+                    except ValueError:
+                        continue        # format 2: a wrong key fails closed
                     if cand not in known.setdefault(v, set()):
                         known[v].add(cand)
                         changed = True
