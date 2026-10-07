@@ -958,8 +958,25 @@ class OntoDAG(DAG):
             self._heads_cache = None
             self._dim_cache = None
 
+    def _note_star_child(self, head, child):
+        """Keep a head's cached value index equal to its star. A value joins
+        the star by its anchor edge, which is not always made when the node
+        is: a load creates every node first and files them afterwards, so
+        the index may have been built from a star the value was not yet in.
+        Adding is idempotent; a child that is no value (a role head under
+        `geo`) leaves the head unindexable, as building from the star would."""
+        values = getattr(self, "_values", None)
+        if values is None or head.name not in values:
+            return
+        index = values[head.name]
+        if index is None or not index.add(self, child.name):
+            del values[head.name]
+
     def remove_edge(self, from_node, to_node):
         self._maybe_invalidate_heads(from_node, to_node)
+        values = getattr(self, "_values", None)
+        if values is not None:
+            values.pop(from_node.name, None)        # rebuilt from the star on use
         super().remove_edge(from_node, to_node)
         self._note_escape(from_node, to_node, added=False)
         log = getattr(self, "_edge_log", None)
@@ -2276,6 +2293,7 @@ class OntoDAG(DAG):
         with self._counts_unchanged():
             super().add_edge(from_node, to_node)              # structure only
         if fresh_anchor:
+            self._note_star_child(from_node, to_node)
             self._apply_count_deltas(deltas)
             return
         self._note_escape(from_node, to_node, added=True)
@@ -2288,6 +2306,7 @@ class OntoDAG(DAG):
                 f"Edge {from_node.name} -> {to_node.name} would create a "
                 f"cycle through {looped.name}: the computed order would put "
                 f"it below itself, giving two names one class")
+        self._note_star_child(from_node, to_node)
         self._apply_count_deltas(deltas)
         if not declaration:
             self._remove_unneeded_edges(from_node, to_node)

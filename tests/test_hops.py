@@ -250,3 +250,27 @@ class TestAVirtualConeIsOneWalk(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+class TestALoadedStoreAnswersAsItDidLive(unittest.TestCase):
+    """Found by CONTRACT.md G7's fixture (2026-10-07): a value index was
+    kept up to date when a value node was created, not when its anchor
+    edge arrived, and a load creates every node before filing any. A head
+    whose index was built mid-load then missed its values: `get geo(u2e)`
+    answered nothing after a load, while `is_below` (which needs no index)
+    still answered true. The oracle is the scan, which uses no index."""
+
+    def test_the_g7_fixture_loaded_agrees_with_the_scan(self):
+        import os
+        from ontodag import native
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "fixtures", "g7.od")
+        indexed, scanned = native.load(path), native.load(path)
+        scanned._resident = False
+        for query in (["geo(u2e)"], ["geo(u2ed)"], ["from(u2e)"], ["time(2026)"],
+                      ["mass(..5kg)"], ["count(2..)"], ["size(25x35x45cm)"],
+                      ["in(japan)"], ["in(louvre)"], ["about(japan)"],
+                      ["shared-with(alice)"], ["transport(small-item)"]):
+            self.assertEqual({n.name for n in indexed.get(query)},
+                             {n.name for n in scanned.get(query)}, query)

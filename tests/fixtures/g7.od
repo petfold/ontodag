@@ -1,0 +1,76 @@
+# ontodag store v1
+about enclosing-dimension
+'about(japan)' about
+'about(tokyo)' about
+alice sales-employee
+area 'linear-dimension(area)'
+bicycle small-item
+bouquet 'count(5)'
+calendar-dimension dimension
+count count-dimension
+'count(5)' count
+count-dimension dimension
+courier 'transport(mass(..8kg) small-item)'
+crate 'mass(3kg)' 'size(2/5x3/10x1/5m)'
+delivery 'from(u2ed)'
+denon-wing 'in(louvre)' place
+dimension '*'
+document '*'
+dominance-dimension dimension
+duration 'linear-dimension(duration)'
+employee person
+enclosing-dimension dimension
+energy 'linear-dimension(energy)'
+from geo
+'from(u2ed)' from
+geo prefix-dimension
+'geo(u2ed4)' geo
+graph-dimension dimension
+handbook document 'shared-with(employee)'
+in transitive-dimension
+'in(denon-wing)' in
+'in(japan)' in
+'in(louvre)' in
+japan place
+length 'linear-dimension(length)'
+linear-dimension dimension
+'linear-dimension(area)' linear-dimension
+'linear-dimension(duration)' linear-dimension
+'linear-dimension(energy)' linear-dimension
+'linear-dimension(length)' linear-dimension
+'linear-dimension(mass)' linear-dimension
+'linear-dimension(pressure)' linear-dimension
+'linear-dimension(speed)' linear-dimension
+'linear-dimension(temperature)' linear-dimension
+'linear-dimension(volume)' linear-dimension
+located-at in
+'located-at(louvre)' located-at
+louvre place
+mass 'linear-dimension(mass)'
+'mass(3kg)' mass
+mona-lisa 'in(denon-wing)'
+person '*'
+photo.jpg 'about(japan)' 'geo(u2ed4)'
+place '*'
+plane-ticket ticket
+prefix-dimension dimension
+pressure 'linear-dimension(pressure)'
+reversed-dimension dimension
+sales-employee employee
+shared-with reversed-dimension
+'shared-with(employee)' shared-with
+size dominance-dimension
+'size(2/5x3/10x1/5m)' size
+small-item '*'
+speed 'linear-dimension(speed)'
+statue 'located-at(louvre)'
+temperature 'linear-dimension(temperature)'
+ticket document
+time calendar-dimension
+'time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)' time
+tokyo 'in(japan)' place
+transitive-dimension dimension
+transport graph-dimension
+'transport(mass(..8kg) small-item)' transport
+trip.pdf 'about(tokyo)' plane-ticket 'time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)'
+volume 'linear-dimension(volume)'

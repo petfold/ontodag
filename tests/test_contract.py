@@ -1,6 +1,6 @@
-"""Conformance suite for docs/CONTRACT.md (contract version 0.2).
+"""Conformance suite for docs/CONTRACT.md (contract version 0.4).
 
-One named test class per guarantee G1-G6, plus the §4 as-of clause, the
+One named test class per guarantee G1-G7, plus the §4 as-of clause, the
 §5.1 dimensions over nodes, and the version constant. Every test goes through the PUBLIC API only: the `ontodag`
 package surface (plus recordstore's public surface where a guarantee is
 about roots) — never submodule paths, never internals. This file is the
@@ -32,7 +32,7 @@ def declare_weight(dag):
 
 class TestContractVersion(unittest.TestCase):
     def test_version_constant_matches_document(self):
-        self.assertEqual(ontodag.CONTRACT_VERSION, "0.3")
+        self.assertEqual(ontodag.CONTRACT_VERSION, "0.4")
 
 
 class TestG1CanonicalRoot(unittest.TestCase):
@@ -317,6 +317,46 @@ class TestDimensionsOverNodes(unittest.TestCase):
         a.merge(b)
         self.assertTrue(a.is_below("tokyo", "in(japan)"))
         self.assertTrue(a.is_below("japan", "in(tokyo)"))
+
+
+class TestG7MonotoneVersions(unittest.TestCase):
+    """G7: within one major contract version and one major registry
+    version, a newer ontodag never takes away an answer about a fixed
+    store. `tests/fixtures/g7.od` is a fixed store over every kind, and
+    `g7-answers.json` what it answered when recorded (contract 0.3,
+    registry 4.3). Every recorded true `is_below` stays true and every
+    recorded `get` answer stays inside the new one; recorded falses may
+    become true, since gaining answers is allowed. A failure here means a
+    release removes an answer: that is a major bump, and only then is the
+    record regenerated (tests/fixtures/make_g7.py says how)."""
+
+    @classmethod
+    def setUpClass(cls):
+        import json
+        import os
+        from ontodag import native
+        here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+        cls.dag = native.load(os.path.join(here, "g7.od"))
+        with open(os.path.join(here, "g7-answers.json")) as f:
+            cls.record = json.load(f)
+
+    def test_the_record_belongs_to_these_majors(self):
+        from ontodag.dimensions import REGISTRY_VERSION   # published there (REFERENCE.md)
+        major = lambda v: v.split(".")[0]
+        self.assertEqual(major(self.record["contract"]), major(ontodag.CONTRACT_VERSION),
+                         "a new contract major: regenerate the record deliberately")
+        self.assertEqual(major(self.record["registry"]), major(REGISTRY_VERSION),
+                         "a new registry major: regenerate the record deliberately")
+
+    def test_every_recorded_true_below_stays_true(self):
+        lost = [(a, b) for a, b in self.record["below"] if not self.dag.is_below(a, b)]
+        self.assertEqual(lost, [], "answers taken away within one major")
+        self.assertGreater(len(self.record["below"]), 200)
+
+    def test_every_recorded_answer_stays_inside_the_new_one(self):
+        for case in self.record["get"]:
+            now = names(self.dag.get(case["terms"]))
+            self.assertLessEqual(set(case["answer"]), now, case["terms"])
 
 
 class TestAsOfClause(unittest.TestCase):

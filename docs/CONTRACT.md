@@ -11,11 +11,12 @@ narrower relations between their heads. The individual clauses are
 marked **holds today** (a restatement of a tested guarantee) or **committed**
 (agreed direction, not yet built).
 
-**Contract version: 0.3 — amended 2026-10-07** (0.1 was reviewed and agreed
-2026-08-01, 0.2 on 2026-10-06). 0.2 states what an arrow means (§2), admits
+**Contract version: 0.4 — amended 2026-10-07** (0.1 was reviewed and agreed
+2026-08-01, 0.2 on 2026-10-06, 0.3 the next morning). 0.2 states what an arrow means (§2), admits
 dimensions over nodes as the scoped exception (§5.1), and adds the writer's
 obligation that goes with them (O6); 0.3 admits narrower relations between
-their heads (§5.1). The record of every version is §8. All open questions
+their heads (§5.1); 0.4 promises that versions within a major only add
+answers (G7). The record of every version is §8. All open questions
 from the 0.1 draft were resolved in the same-day review and folded into the
 clauses. The version is exposed as
 `ontodag.CONTRACT_VERSION`, will be carried by the discoverability record
@@ -146,6 +147,23 @@ decided at the 2026-08-01 review:
   merge like `get`, same `remove` caveat as G2. **Holds today**
   (`get_overlapping`, 2026-07-31; loopmarket's candidate generation already
   relies on exactly this property).
+
+- **G7 — Monotone versions.** Within one major contract version and one
+  major `REGISTRY_VERSION`, a newer ontodag never takes away an answer about
+  a fixed store: every `is_below` that was true stays true, and every
+  `get`/`get_any` answer stays inside the new one. A newer version may add
+  answers (a registry minor that recognizes a new kind computes links the
+  older one could not see), never remove them. A change that would remove
+  an answer is a major bump, and before 1.0 that means the contract goes
+  to 1.0. This is what lets a consumer compare majors only: two offers
+  pinned to the same root and to versions within one major mean the same
+  thing, read by the newer interpreter (loopmarket's matcher and on-chain
+  verifier both rely on it). **Committed** (2026-10-07), and held to by
+  `TestG7MonotoneVersions`: a fixed store over every kind
+  (`tests/fixtures/g7.od`) with the answers it gave when recorded, which
+  must stay answers. The first run of that test found a released bug (a
+  value index missing values after a load, 0.30.0) — exactly the kind of
+  answer-taken-away it exists for.
 
 ## 4. The as-of clause (root-pinning)
 
@@ -472,6 +490,20 @@ means), and accepted the same day:
 3. **Why the arbitrary-relations wall still stands** → the "Still outside"
    paragraph of §5.1, and `DATABASE_DIRECTION.md`. The exception admits
    fixed rules over declared names, not rules that users write.
+
+### Amendment 0.4 (2026-10-07)
+
+Prompted by loopmarket, whose off-chain matcher admitted offers pinned to
+different minor versions while its on-chain verifier demanded the exact
+versions, so offers written either side of an upgrade matched and then
+reverted. Comparing majors is the right line only if ontodag promises that
+a minor version never takes an answer away, and semver does not promise
+that before 1.0. Peter agreed to write the promise down:
+
+1. **G7, monotone versions** → §3, with its conformance test and a fixed
+   fixture whose recorded answers may only grow.
+2. **What does not change:** the version line still bumps on any clause
+   change; a minor adds, a major may take away.
 
 ### Amendment 0.3 (2026-10-07)
 
