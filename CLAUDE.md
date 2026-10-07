@@ -344,13 +344,16 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     session scratchpad `publish_packs.py`): **all eleven roots byte-equal
     to the re-pinned `SWARM_GOLDEN_ROOTS` and `isRetrievable: true`**, no
     re-upload needed this time (fullest bucket 24/64 after). Two lessons:
-    the sync barrier timed out because swarmfs's confirmation pass waits
-    on blobs the network cannot serve yet, or ever, and (until the same
-    evening) never re-sent them — not because of keyless mode, as first
-    recorded here; and `pkill -f NAME` kills the shell running it when
+    the sync barrier timed out, not because of keyless mode as first
+    recorded here, and mainly not because of lost blobs as recorded next:
+    swarmfs's confirmation pass ran its stewardship checks one at a time,
+    ~1.2 s each, over a quarter of a pack's ~10,000 blobs — ~45 minutes
+    per store, so the 60 s barrier could never be met (measured
+    2026-10-07; the checks now run 32 at a time, see below). Lost blobs
+    were a second, separate problem; and `pkill -f NAME` kills the shell running it when
     NAME is in its own command line — kill by PID. **Corrected the same
     evening:** the repair lives in ONE place, swarmfs's `Syncer`
-    (main, unreleased, for 0.11.2): when a sampled blob of a root is not
+    (released in swarmfs 0.11.2, 2026-10-08): when a sampled blob of a root is not
     retrievable it checks every blob and re-pushes only the missing ones
     directly, and the sample is never below `MIN_CONFIRM_SAMPLE` = 16
     (a commit of four blobs used to check one). A second mechanism in
@@ -381,6 +384,29 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     concurrently, verifies, retries. Feeds stay compatible (topic hashing
     and identifiers checked identical; both write timestamp + root).
     ontodag's provenance signing still needs swarm-bee.
+    **Concurrency measured, then released (2026-10-07/08).** Peter asked
+    where the 16s came from (recordstore's `max_concurrent_reads=16`, a
+    v0.5.0 guess; my benchmark matched it) and to measure instead. Against
+    this Bee 2.8.2 light node (NAT, ~140 peers; client an i7-3612QM laptop),
+    two rounds in opposite orders, fresh blobs per level: reads of chunks
+    the node must fetch ~270 ms each, ~4/s per request in flight up to 32
+    (16: 58-60/s, 32: 85-108/s), noisy beyond (64: 95-153, 128: 103-122);
+    stewardship checks ~1.2 s each, linear to 16 (12/s), 32: 20/s, 64: 23/s,
+    128: 26-33/s. Neither stewardship nor HEAD /chunks is a cache oracle:
+    stewardship answers are not cached; HEAD says "not here" for chunks the
+    node serves in 3 ms. On chunks the node holds (~1 ms) the client's CPU
+    is the limit (requests ~1.7 ms/request under the GIL, aiohttp ~0.6 ms),
+    which is all the earlier "swarmfs is 3x faster" showed. Peter chose 32
+    (a 48 run was started and stopped on his word). Released: **swarmfs
+    0.11.2** (repair, `MIN_CONFIRM_SAMPLE` 16, checks `CHECK_CONCURRENCY` =
+    32 at a time, `scripts/concurrency_sweep.py`; its CI had been red since
+    3b3c81c on the README test count, and a 3.11 job hung in apt-get on
+    GitHub's side) and **recordstore 0.21.1** (`max_concurrent_reads` 32,
+    which also sizes `put_many` — writes unmeasured; `local-first-swarm`
+    needs swarmfs>=0.11.2). Both by tag, verified from fresh PyPI venvs.
+    Still one at a time in swarmfs: `LocalStore.get_many`/heals and the
+    sync worker's pushes (deferred uploads return after local work; direct
+    re-pushes wait for the network).
 
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
 
