@@ -475,6 +475,16 @@ Settled 2026-10-07:
     `from(x) ⊑ from(y)`. Value roles keep their meaning, and the graph
     kind waits for its folding question. Chosen over a declaration node
     and over deferring; contract 0.3 (DIMENSIONS.md §20).
+14. **Parts of systems (the audit's question): option B.** Components go
+    under `in(...)`, mechanisms, rules, measures and features under
+    `about(...)`; the hard cases are marked rather than forced (Peter:
+    "the distinction will not be easy"). A generic part names the kind of
+    whole, since `in(X)` reads "in some X": `mempool ⊑ in(blockchain)`,
+    not `in(bitcoin-network)`. `bitcoin` is the coin and
+    `bitcoin-network` the system, as `ether` and `ethereum`; words, not
+    case, keep them apart (names are case-sensitive, but every shipped
+    name is lowercase). The edge-by-edge list is ontodag-core
+    `align/roles-rewrites.tsv`, applied in step 7.
 
 **Open:**
 
