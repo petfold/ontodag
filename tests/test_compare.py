@@ -224,11 +224,11 @@ class TestHelpers(unittest.TestCase):
         from ontodag.prelude import apply as apply_prelude
         dag = OntoDAG()
         apply_prelude(dag)
-        dag.put("crate", ["weight(3kg)"])
-        dag.put("shelf", ["weight(..5kg)"])
-        claims = entailed_claims(dag, {"crate", "weight(3kg)", "weight(..5kg)"})
-        self.assertIn(("weight(3kg)", "weight(..5kg)"), claims)
-        self.assertIn(("crate", "weight(..5kg)"), claims)
+        dag.put("crate", ["mass(3kg)"])
+        dag.put("shelf", ["mass(..5kg)"])
+        claims = entailed_claims(dag, {"crate", "mass(3kg)", "mass(..5kg)"})
+        self.assertIn(("mass(3kg)", "mass(..5kg)"), claims)
+        self.assertIn(("crate", "mass(..5kg)"), claims)
 
 
 if __name__ == "__main__":

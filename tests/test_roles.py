@@ -357,14 +357,14 @@ class TestOverlapsAndMeet(unittest.TestCase):
         with self.assertRaises(ValueError):
             d.overlaps("from(u2e4)", "geo(u2e4)")          # different heads
         with self.assertRaises(ValueError):
-            d.overlaps("weight(3kg)", "weight(nonsense)")  # malformed
+            d.overlaps("mass(3kg)", "mass(nonsense)")  # malformed
         self.assertFalse(d.overlaps("nobody", "geo(u2e4)"))  # unknown: False
 
     def test_units_come_from_the_store(self):
         d = make_dag()
         d.put("unit-declaration", [])
         d.put("unit(stone=14lb)", ["unit-declaration"])
-        d.put("load", ["weight"])                     # a role over a linear head
+        d.put("load", ["mass"])                     # a role over a linear head
         self.assertTrue(d.overlaps("load(1stone..)", "load(..7kg)"))
         self.assertFalse(d.overlaps("load(1stone..)", "load(..6kg)"))
         self.assertEqual(d.meet("load(1stone..)", "load(..7kg)"),
@@ -383,8 +383,8 @@ class TestOverlapsAndMeet(unittest.TestCase):
             d.meet("from(u2e4)", "geo(u2e4)")
         with self.assertRaises(ValueError):
             d.meet("offer", "from(u2e4)")
-        self.assertEqual(d.meet("weight(1kg..5kg)", "weight(3kg..)"),
-                         "weight(3kg..5kg)")
+        self.assertEqual(d.meet("mass(1kg..5kg)", "mass(3kg..)"),
+                         "mass(3kg..5kg)")
 
 
 class TestTheDimensionItselfIsNoParameter(unittest.TestCase):

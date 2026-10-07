@@ -759,13 +759,13 @@ class TestBelow(unittest.TestCase):
             session = self._session(home)
             for argv in (["put", "dimension"],
                          ["put", "linear-dimension", "dimension"],
-                         ["put", "weight", "linear-dimension"]):
+                         ["put", "mass", "linear-dimension"]):
                 self.assertEqual(_run(argv, session)[0], 0)
             self.assertEqual(
-                _run(["below", "weight(3kg)", "weight(..5kg)"], session),
+                _run(["below", "mass(3kg)", "mass(..5kg)"], session),
                 (0, "true\n"))
             self.assertEqual(
-                _run(["below", "weight(9kg)", "weight(..5kg)"], session),
+                _run(["below", "mass(9kg)", "mass(..5kg)"], session),
                 (1, "false\n"))
 
 
@@ -1548,14 +1548,14 @@ class TestExcerpt(unittest.TestCase):
         # node; the virtual constraint itself is still not filed.
         with tempfile.TemporaryDirectory() as home:
             session = cli.Session(os.path.join(home, "boxes.od"))
-            for argv in (["prelude"], ["put", "box", "weight(3kg)"],
+            for argv in (["prelude"], ["put", "box", "mass(3kg)"],
                          ["put", "lid", "box"]):
                 self.assertEqual(_run(argv, session)[0], 0)
-            cut = self._excerpt(home, session, "weight(..5kg)")
+            cut = self._excerpt(home, session, "mass(..5kg)")
             names = set(cut.nodes) - {cut.root.name}
-            self.assertEqual(names, self._answer(session, "weight(..5kg)"))
+            self.assertEqual(names, self._answer(session, "mass(..5kg)"))
             self.assertIn("box", names)
-            self.assertNotIn("weight(..5kg)", names)
+            self.assertNotIn("mass(..5kg)", names)
 
     def test_the_empty_excerpt_is_byte_identical_to_export(self):
         # Pins the doc claim in §5.4, and with it the property that makes the
@@ -1627,7 +1627,7 @@ class TestVisualizeScoping(unittest.TestCase):
         with tempfile.TemporaryDirectory() as home:
             session = self._session(home)
             before = _run(["show"], session)
-            self._drawn(session, "weight(..5kg)")
+            self._drawn(session, "mass(..5kg)")
             self.assertEqual(_run(["show"], session), before)
 
     def test_a_union_draws_two_branches(self):
@@ -1644,12 +1644,12 @@ class TestVisualizeScoping(unittest.TestCase):
         # term has no node, so a name-based intersection dropped it.
         with tempfile.TemporaryDirectory() as home:
             session = cli.Session(os.path.join(home, "boxes.od"))
-            for argv in (["prelude"], ["put", "box", "weight(3kg)"]):
+            for argv in (["prelude"], ["put", "box", "mass(3kg)"]):
                 self.assertEqual(_run(argv, session)[0], 0)
-            picture = self._drawn(session, "weight(..5kg)")
-            self.assertIn("weight(..5kg)", picture.nodes)
+            picture = self._drawn(session, "mass(..5kg)")
+            self.assertIn("mass(..5kg)", picture.nodes)
             self.assertIn("box", picture.nodes)
-            self.assertNotIn("weight(..5kg)", session.dag.nodes)
+            self.assertNotIn("mass(..5kg)", session.dag.nodes)
 
     def test_a_dangling_or_is_still_an_error(self):
         with tempfile.TemporaryDirectory() as home:
@@ -1836,24 +1836,24 @@ class TestExcerptContext(unittest.TestCase):
                              (0, "JAL\nJAL-cheap\nRyokan\n"))
 
     def test_declarations_travel_with_a_typed_answer(self):
-        # A head like `weight` is a real asserted parent of its values, so the
+        # A head like `mass` is a real asserted parent of its values, so the
         # kind declaration is an ancestor and rides along — which is what lets
         # the receiving store recompute the order instead of storing it.
         with tempfile.TemporaryDirectory() as home:
             session = cli.Session(os.path.join(home, "boxes.od"))
-            for argv in (["prelude"], ["put", "crate", "weight(3kg)"]):
+            for argv in (["prelude"], ["put", "crate", "mass(3kg)"]):
                 self.assertEqual(_run(argv, session)[0], 0)
             path = os.path.join(home, "cut.od")
             self.assertEqual(
-                _run(["excerpt", path, "weight(..5kg)", "--context"],
+                _run(["excerpt", path, "mass(..5kg)", "--context"],
                      session)[0], 0)
             fresh = cli.Session(os.path.join(home, "fresh.od"))
             self.assertEqual(_run(["import", path], fresh)[0], 0)
             self.assertIn("linear-dimension", fresh.dag.nodes)
             # The computed order works in the fresh store, from names alone.
-            self.assertEqual(_run(["get", "weight(..4kg)"], fresh),
-                             (0, "crate\nweight(3kg)\n"))
-            self.assertEqual(_run(["below", "weight(3kg)", "weight(..5kg)"],
+            self.assertEqual(_run(["get", "mass(..4kg)"], fresh),
+                             (0, "crate\nmass(3kg)\n"))
+            self.assertEqual(_run(["below", "mass(3kg)", "mass(..5kg)"],
                                   fresh), (0, "true\n"))
 
     def test_both_cuts_are_absorbed_by_the_store_they_came_from(self):
@@ -2022,12 +2022,12 @@ class TestDiff(unittest.TestCase):
     def test_typed_values_compare_by_canonical_name(self):
         with tempfile.TemporaryDirectory() as home:
             session = cli.Session(os.path.join(home, "a.od"))
-            for argv in (["prelude"], ["put", "crate", "weight(3kg)"]):
+            for argv in (["prelude"], ["put", "crate", "mass(3kg)"]):
                 self.assertEqual(_run(argv, session)[0], 0)
             other = self._copy(home, session, "b.od",
-                               extra=["pallet weight(3000g)"])   # same value
+                               extra=["pallet mass(3000g)"])   # same value
             code, lines, _ = self._diff(session, other)
-            self.assertEqual((code, lines), (1, ["+ item pallet (weight(3kg))"]))
+            self.assertEqual((code, lines), (1, ["+ item pallet (mass(3kg))"]))
 
     def test_a_missing_file_is_refused(self):
         # Everywhere else a missing native store is an empty one; here that
@@ -2458,9 +2458,9 @@ class TestMove(unittest.TestCase):
                          ["put", "crate", "shelf"]):
                 self.assertEqual(_run(argv, session)[0], 0)
             self.assertEqual(
-                self._move(session, "crate", "--to", "weight(3kg)")[0], 0)
-            self.assertEqual(_run(["get", "weight(..5kg)"], session),
-                             (0, "crate\nweight(3kg)\n"))
+                self._move(session, "crate", "--to", "mass(3kg)")[0], 0)
+            self.assertEqual(_run(["get", "mass(..5kg)"], session),
+                             (0, "crate\nmass(3kg)\n"))
 
 
 class TestSwarmBootstrapDecision(unittest.TestCase):
@@ -2725,33 +2725,33 @@ class TestOverlapsAndMeetCommands(unittest.TestCase):
 
     def _session(self, home):
         session = cli.Session(os.path.join(home, "parcels.od"))
-        for argv in (["prelude"], ["put", "parcel", "weight(3kg)"],
-                     ["put", "wide", "weight(2kg..6kg)"]):
+        for argv in (["prelude"], ["put", "parcel", "mass(3kg)"],
+                     ["put", "wide", "mass(2kg..6kg)"]):
             self.assertEqual(_run(argv, session)[0], 0)
         return session
 
     def test_overlaps_is_grep_style(self):
         with tempfile.TemporaryDirectory() as home:
             session = self._session(home)
-            code, out = _run(["overlaps", "wide", "weight(5kg..)"], session)
+            code, out = _run(["overlaps", "wide", "mass(5kg..)"], session)
             self.assertEqual((code, out.strip()), (0, "true"))
-            code, out = _run(["overlaps", "parcel", "weight(5kg..)"], session)
+            code, out = _run(["overlaps", "parcel", "mass(5kg..)"], session)
             self.assertEqual((code, out.strip()), (1, "false"))
-            code, out = _run(["overlaps", "weight(1kg..4kg)", "weight(3.5kg..)"],
+            code, out = _run(["overlaps", "mass(1kg..4kg)", "mass(3.5kg..)"],
                              session)
             self.assertEqual((code, out.strip()), (0, "true"))
 
     def test_meet_prints_one_term_or_nothing(self):
         with tempfile.TemporaryDirectory() as home:
             session = self._session(home)
-            code, out = _run(["meet", "weight(1kg..5kg)", "weight(3kg..)"],
+            code, out = _run(["meet", "mass(1kg..5kg)", "mass(3kg..)"],
                              session)
-            self.assertEqual((code, out.strip()), (0, "weight(3kg..5kg)"))
-            code, out = _run(["meet", "weight(..1kg)", "weight(3kg..)"], session)
+            self.assertEqual((code, out.strip()), (0, "mass(3kg..5kg)"))
+            code, out = _run(["meet", "mass(..1kg)", "mass(3kg..)"], session)
             self.assertEqual((code, out), (1, ""))
             out, err = io.StringIO(), io.StringIO()
             with redirect_stdout(out), redirect_stderr(err):
-                code = cli.dispatch(["meet", "weight(1kg)", "parcel"], session)
+                code = cli.dispatch(["meet", "mass(1kg)", "parcel"], session)
             self.assertEqual(code, 1)
             self.assertIn("parametric", err.getvalue())
 
@@ -2765,16 +2765,16 @@ class TestOverlappingCommand(unittest.TestCase):
 
     def _session(self, home):
         session = cli.Session(os.path.join(home, "parcels.od"))
-        for argv in (["prelude"], ["put", "parcel", "weight(3kg)"],
-                     ["put", "wide", "weight(2kg..6kg)"]):
+        for argv in (["prelude"], ["put", "parcel", "mass(3kg)"],
+                     ["put", "wide", "mass(2kg..6kg)"]):
             self.assertEqual(_run(argv, session)[0], 0)
         return session
 
     def test_candidates_include_what_get_cannot(self):
         with tempfile.TemporaryDirectory() as home:
             session = self._session(home)
-            guaranteed = _run(["get", "weight(..5kg)"], session)[1].split()
-            candidates = _run(["overlapping", "weight(..5kg)"], session)[1].split()
+            guaranteed = _run(["get", "mass(..5kg)"], session)[1].split()
+            candidates = _run(["overlapping", "mass(..5kg)"], session)[1].split()
             self.assertIn("parcel", guaranteed)
             self.assertIn("parcel", candidates)
             # `wide` might be under 5kg: a candidate, never a guarantee
@@ -2951,7 +2951,7 @@ class TestOverlayView(unittest.TestCase):
         # prelude makes typed queries answerable, though the primary is bare.
         self.assertEqual(_run(["prelude"], cli.Session(self.overlay))[0], 0)
         session = cli.Session(self.primary)
-        code, out = _run(["below", "weight(3kg)", "weight(..5kg)"], session)
+        code, out = _run(["below", "mass(3kg)", "mass(..5kg)"], session)
         self.assertEqual((code, out.strip()), (0, "true"))
 
     def test_the_composed_view_cannot_commit(self):
@@ -3239,7 +3239,7 @@ class TestPutTeachingError(unittest.TestCase):
         with tempfile.TemporaryDirectory() as home:
             session = cli.Session(os.path.join(home, "s.od"))
             self.assertEqual(_run(["prelude"], session)[0], 0)
-            self.assertEqual(_run(["put", "crate", "weight(3kg)"],
+            self.assertEqual(_run(["put", "crate", "mass(3kg)"],
                                   session)[0], 0)
 
     def test_pack_hint_fires_only_when_the_pack_has_the_node(self):

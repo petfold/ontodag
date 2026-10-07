@@ -46,10 +46,10 @@ def random_operations(seed, size=9, steps=40):
     def value():
         shape = rnd.random()
         if shape < 0.4:
-            return f"weight({rnd.randint(1, 9)}kg)"
+            return f"mass({rnd.randint(1, 9)}kg)"
         if shape < 0.7:
             lo = rnd.randint(1, 6)
-            return f"weight({lo}kg..{lo + rnd.randint(1, 4)}kg)"
+            return f"mass({lo}kg..{lo + rnd.randint(1, 4)}kg)"
         return f"geo({rnd.choice(['u2', 'u2e', 'u2e4', 'u2e5', 'u3'])})"
 
     def term():
@@ -65,7 +65,7 @@ def random_operations(seed, size=9, steps=40):
             return f"transport({a})"
         if shape < 0.8:
             return f"transport({a} {b})"
-        return f"transport({a} weight(..{rnd.randint(2, 9)}kg))"
+        return f"transport({a} mass(..{rnd.randint(2, 9)}kg))"
 
     ops = []
     for _ in range(steps):
@@ -208,8 +208,8 @@ class TestFilingDoesNotScan(unittest.TestCase):
             if i % 2 == 0:
                 dag.put(f"city{i}", ["in(country)"])
                 dag.put(f"person{i}", ["staff"])
-            dag.put(f"item{i}", [f"in(city{i - i % 2})", f"weight({i + 1}g)",
-                                 f"transport(small-item weight(..{1 + i % 9}kg))"])
+            dag.put(f"item{i}", [f"in(city{i - i % 2})", f"mass({i + 1}g)",
+                                 f"transport(small-item mass(..{1 + i % 9}kg))"])
             dag.put(f"doc{i}", [f"shared-with(person{i - i % 2})", f"about(city{i - i % 2})"])
         for i in range(n):
             step(i)
@@ -235,7 +235,7 @@ class TestAVirtualConeIsOneWalk(unittest.TestCase):
         prelude.apply(dag)
         n = 60
         for k in range(n):           # nested ranges, each with a crate
-            dag.put(f"crate{k}", [f"weight({k + 1}kg..{2 * n - k}kg)"])
+            dag.put(f"crate{k}", [f"mass({k + 1}kg..{2 * n - k}kg)"])
         counter = {"calls": 0}
         original = dag._computed_children
 
@@ -243,7 +243,7 @@ class TestAVirtualConeIsOneWalk(unittest.TestCase):
             counter["calls"] += 1
             return original(node)
         dag._computed_children = counting
-        found = dag.get(["weight(..10000kg)"])
+        found = dag.get(["mass(..10000kg)"])
         self.assertEqual(len(found), 2 * n)
         self.assertLessEqual(counter["calls"], 2 * n)
 

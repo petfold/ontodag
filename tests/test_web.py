@@ -93,46 +93,46 @@ class TestDimensionsOverRest:
     def _declare(self, client):
         put(client, "dimension")
         put(client, "linear-dimension", ["dimension"])
-        put(client, "weight", ["linear-dimension"])
+        put(client, "mass", ["linear-dimension"])
 
     def test_courier_flow(self, client):
         self._declare(client)
-        put(client, "parcel", ["weight(3kg)"])
-        put(client, "heavy-parcel", ["weight(9kg)"])
-        result = query_names(client, "weight(..5kg)")  # a VIRTUAL term
+        put(client, "parcel", ["mass(3kg)"])
+        put(client, "heavy-parcel", ["mass(9kg)"])
+        result = query_names(client, "mass(..5kg)")  # a VIRTUAL term
         assert "parcel" in result
         assert "heavy-parcel" not in result
 
     def test_sugar_is_one_identity(self, client):
         self._declare(client)
-        put(client, "a", ["weight(3kg)"])
-        put(client, "b", ["weight(3000g)"])
-        assert {"a", "b"} <= query_names(client, "weight(3.0kg)")
+        put(client, "a", ["mass(3kg)"])
+        put(client, "b", ["mass(3000g)"])
+        assert {"a", "b"} <= query_names(client, "mass(3.0kg)")
 
     def test_malformed_parameter_is_client_error(self, client):
         self._declare(client)
         response = client.get("/dag/query",
-                              query_string={"cat": "weight(3zz)"})
+                              query_string={"cat": "mass(3zz)"})
         assert response.status_code == 400
 
     def test_disjoint_parents_are_client_error(self, client):
         self._declare(client)
         response = client.post("/dag/node", json={
             "subcategories": ["x"],
-            "super_categories": ["weight(..2kg)", "weight(3kg..)"],
+            "super_categories": ["mass(..2kg)", "mass(3kg..)"],
         })
         assert response.status_code == 400
         assert "disjoint" in response.get_json()["error"]
 
     def test_remove_accepts_sugar(self, client):
         self._declare(client)
-        put(client, "parcel", ["weight(3kg)"])
+        put(client, "parcel", ["mass(3kg)"])
         response = client.delete("/dag/node",
-                                 json={"subcategories": ["weight(3kg)"]})
+                                 json={"subcategories": ["mass(3kg)"]})
         assert response.status_code == 200
-        assert query_names(client, "weight(..5kg)") == set()
+        assert query_names(client, "mass(..5kg)") == set()
         # parcel contracted onto the head, still present in the graph
-        assert "parcel" in query_names(client, "weight")
+        assert "parcel" in query_names(client, "mass")
 
 
 @requires_dot
@@ -152,7 +152,7 @@ class TestPicturesAndExports:
         put(client, "calendar-dimension", ["dimension"])
         put(client, "linear-dimension", ["dimension"])
         put(client, "time", ["calendar-dimension"])
-        put(client, "weight", ["linear-dimension"])
+        put(client, "mass", ["linear-dimension"])
 
     def test_api_only_session_can_render(self, client):
         # This client never requested "/" — the REST API is a surface in its
@@ -164,7 +164,7 @@ class TestPicturesAndExports:
 
     def test_parametric_names_render(self, client):
         self._declare(client)
-        put(client, "doc", ["time(2026-08-15)", "weight(3kg)"])
+        put(client, "doc", ["time(2026-08-15)", "mass(3kg)"])
         for endpoint in ("/dag/image", "/dag/export/dot", "/dag/export/tex"):
             response = client.get(endpoint)
             assert response.status_code == 200, \
@@ -180,9 +180,9 @@ class TestPicturesAndExports:
 
     def test_query_image_of_a_virtual_term(self, client):
         self._declare(client)
-        put(client, "parcel", ["weight(3kg)"])
+        put(client, "parcel", ["mass(3kg)"])
         response = client.get("/dag/query/image",
-                              query_string={"cat": "weight(..5kg)"})
+                              query_string={"cat": "mass(..5kg)"})
         assert response.status_code == 200
         assert response.data[:4] == b"\x89PNG"
 
@@ -226,8 +226,8 @@ class TestQueryPictureAgreesWithTheAnswer:
     Found by clicking through the UI (2026-08-02): the old `get_by_dag`
     route matched query terms by NAME, so a *virtual* parametric term —
     one with no node of its own, which is the entire point of dimensions —
-    silently dropped out of the query. `weight(..5kg)` drew an empty graph,
-    and `Japan,weight(..5kg)` drew all of Japan: a picture that contradicted
+    silently dropped out of the query. `mass(..5kg)` drew an empty graph,
+    and `Japan,mass(..5kg)` drew all of Japan: a picture that contradicted
     the result list printed beside it. A picture that disagrees with the
     answer is worse than no picture, so these tests compare the two.
     """
@@ -237,12 +237,12 @@ class TestQueryPictureAgreesWithTheAnswer:
         put(client, "calendar-dimension", ["dimension"])
         put(client, "linear-dimension", ["dimension"])
         put(client, "time", ["calendar-dimension"])
-        put(client, "weight", ["linear-dimension"])
+        put(client, "mass", ["linear-dimension"])
         put(client, "Flight")
         put(client, "Hotel")
         put(client, "Japan")
         put(client, "jp-flight.pdf",
-            ["Flight", "Japan", "weight(3kg)", "time(2026-08-15)"])
+            ["Flight", "Japan", "mass(3kg)", "time(2026-08-15)"])
         put(client, "kyoto-hotel.pdf", ["Hotel", "Japan", "time(2026-08-16)"])
 
     def _pictured(self, client, cat):
@@ -256,17 +256,17 @@ class TestQueryPictureAgreesWithTheAnswer:
 
     def test_a_virtual_term_appears_with_its_matches(self, client):
         self._fixture(client)
-        drawn = self._pictured(client, "weight(..5kg)")
-        assert "weight(..5kg)" in drawn      # the term, though no node exists
+        drawn = self._pictured(client, "mass(..5kg)")
+        assert "mass(..5kg)" in drawn      # the term, though no node exists
         assert "jp-flight.pdf" in drawn
         assert "kyoto-hotel.pdf" not in drawn
 
     def test_a_parametric_constraint_is_not_silently_dropped(self, client):
         # The bad case: not an empty picture but a WRONG one — the old code
-        # drew every Japan item, weight constraint and all.
+        # drew every Japan item, mass constraint and all.
         self._fixture(client)
-        drawn = self._pictured(client, "Japan,weight(..5kg)")
-        answer = query_names(client, "Japan,weight(..5kg)")
+        drawn = self._pictured(client, "Japan,mass(..5kg)")
+        answer = query_names(client, "Japan,mass(..5kg)")
         assert answer == {"jp-flight.pdf"}
         assert "kyoto-hotel.pdf" not in drawn
         assert answer <= drawn
@@ -558,10 +558,10 @@ class TestConsole:
         # The console claims to be a terminal, so it inherits the CLI's
         # terminal behaviour: readable spellings rather than canonical bytes.
         client.post("/dag/prelude")
-        console(client, "put shipment 'weight(500g)'")
-        answer = console(client, "canon 'weight(500g)'")
-        assert answer["out"].strip() == "weight(1/2kg)"
-        assert "weight(500g)" in console(client, "get weight")["out"]
+        console(client, "put shipment 'mass(500g)'")
+        answer = console(client, "canon 'mass(500g)'")
+        assert answer["out"].strip() == "mass(1/2kg)"
+        assert "mass(500g)" in console(client, "get mass")["out"]
 
     def test_a_blank_line_does_nothing(self, client):
         answer = console(client, "   ")
@@ -674,7 +674,7 @@ class TestBrowse:
         client.post("/dag/prelude")
         self._shop(client)
         here = {h["name"]: h["vocab"] for h in self._browse(client)["here"]}
-        assert here["weight"] is True and here["dimension"] is True
+        assert here["mass"] is True and here["dimension"] is True
         assert here["JAL7"] is False and here["Travel"] is False
 
     def test_something_filed_at_a_typed_value_is_not_vocabulary(self, client):
@@ -894,10 +894,10 @@ class TestTheCommandMenu:
 class TestTheExample:
     def test_it_loads_with_the_declarations_its_values_need(self, client):
         # Typed values are refused without them, so a visitor who types
-        # weight(3kg) in the first minute would get an error for doing the
+        # mass(3kg) in the first minute would get an error for doing the
         # most interesting thing on offer.
         assert client.post("/dag/example").status_code == 201
-        assert console(client, "put parcel 'weight(3kg)'")["code"] == 0
+        assert console(client, "put parcel 'mass(3kg)'")["code"] == 0
 
     def test_it_is_idempotent(self, client):
         client.post("/dag/example")
@@ -967,14 +967,14 @@ class TestDeclaringDimensionsOverRest:
     """
 
     def test_a_typed_value_is_refused_before_any_declaration(self, client):
-        response = put(client, "parcel", ["weight(3kg)"])
+        response = put(client, "parcel", ["mass(3kg)"])
         assert response.status_code == 400
         assert "super-categories" in response.get_json()["error"]
 
     def test_the_prelude_makes_typed_values_work(self, client):
         assert client.post("/dag/prelude").status_code == 201
-        assert put(client, "parcel", ["weight(3kg)"]).status_code == 201
-        assert "parcel" in query_names(client, "weight(..5kg)")
+        assert put(client, "parcel", ["mass(3kg)"]).status_code == 201
+        assert "parcel" in query_names(client, "mass(..5kg)")
 
     def test_adopting_it_twice_changes_nothing(self, client):
         client.post("/dag/prelude")
@@ -985,9 +985,9 @@ class TestDeclaringDimensionsOverRest:
     def test_the_declarations_can_be_previewed(self, client):
         body = client.get("/dag/prelude").get_json()
         assert body["version"] >= 3
-        assert any("weight" in str(d) for d in body["declarations"])
+        assert any("mass" in str(d) for d in body["declarations"])
         # a preview declares nothing
-        assert put(client, "parcel", ["weight(3kg)"]).status_code == 400
+        assert put(client, "parcel", ["mass(3kg)"]).status_code == 400
 
     def test_packs_are_listed_and_adoptable(self, client):
         packs = {p["name"] for p in client.get("/dag/pack").get_json()["packs"]}
@@ -1040,32 +1040,32 @@ class TestOverlapsAndMeetOverRest:
 
     def _fixture(self, client):
         client.post("/dag/prelude")
-        put(client, "parcel", ["weight(3kg)"])
-        put(client, "wide", ["weight(2kg..6kg)"])
+        put(client, "parcel", ["mass(3kg)"])
+        put(client, "wide", ["mass(2kg..6kg)"])
 
     def test_overlaps(self, client):
         self._fixture(client)
         response = client.get("/dag/overlaps",
-                              query_string={"a": "wide", "b": "weight(5kg..)"})
+                              query_string={"a": "wide", "b": "mass(5kg..)"})
         assert response.status_code == 200
         assert response.get_json() == {"overlaps": True}
         response = client.get("/dag/overlaps",
-                              query_string={"a": "parcel", "b": "weight(5kg..)"})
+                              query_string={"a": "parcel", "b": "mass(5kg..)"})
         assert response.get_json() == {"overlaps": False}
         response = client.get("/dag/overlaps",
-                              query_string={"a": "weight(1kg)", "b": "geo(u2)"})
+                              query_string={"a": "mass(1kg)", "b": "geo(u2)"})
         assert response.status_code == 400
 
     def test_meet(self, client):
         self._fixture(client)
         response = client.get("/dag/meet", query_string={
-            "a": "weight(1kg..5kg)", "b": "weight(3kg..)"})
-        assert response.get_json() == {"meet": "weight(3kg..5kg)"}
+            "a": "mass(1kg..5kg)", "b": "mass(3kg..)"})
+        assert response.get_json() == {"meet": "mass(3kg..5kg)"}
         response = client.get("/dag/meet", query_string={
-            "a": "weight(..1kg)", "b": "weight(3kg..)"})
+            "a": "mass(..1kg)", "b": "mass(3kg..)"})
         assert response.get_json() == {"meet": None}
         response = client.get("/dag/meet", query_string={"a": "parcel",
-                                                         "b": "weight(1kg)"})
+                                                         "b": "mass(1kg)"})
         assert response.status_code == 400
 
 
@@ -1074,14 +1074,14 @@ class TestOverlappingOverRest:
 
     def _fixture(self, client):
         client.post("/dag/prelude")
-        put(client, "parcel", ["weight(3kg)"])
-        put(client, "wide", ["weight(2kg..6kg)"])
+        put(client, "parcel", ["mass(3kg)"])
+        put(client, "wide", ["mass(2kg..6kg)"])
 
     def test_it_returns_what_query_cannot(self, client):
         self._fixture(client)
-        guaranteed = query_names(client, "weight(..5kg)")
+        guaranteed = query_names(client, "mass(..5kg)")
         response = client.get("/dag/overlapping",
-                              query_string={"term": "weight(..5kg)"})
+                              query_string={"term": "mass(..5kg)"})
         assert response.status_code == 200
         candidates = {node["name"] for node in response.get_json()["nodes"]}
         assert "parcel" in guaranteed and "parcel" in candidates
@@ -1106,8 +1106,8 @@ class TestCanonOverRest:
     def test_a_spelling_resolves_to_what_is_stored(self, client):
         client.post("/dag/prelude")
         body = client.get("/dag/canon",
-                          query_string={"term": "weight(3000g)"}).get_json()
-        assert body["canonical"] == "weight(3kg)"
+                          query_string={"term": "mass(3000g)"}).get_json()
+        assert body["canonical"] == "mass(3kg)"
         assert body["display"]
 
     def test_bare_canon_reports_the_versions(self, client):
@@ -1116,6 +1116,6 @@ class TestCanonOverRest:
 
     def test_a_malformed_term_is_a_client_error(self, client):
         client.post("/dag/prelude")
-        response = client.get("/dag/canon", query_string={"term": "weight(zz)"})
+        response = client.get("/dag/canon", query_string={"term": "mass(zz)"})
         assert response.status_code == 400
         assert "error" in response.get_json()

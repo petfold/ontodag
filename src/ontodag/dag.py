@@ -663,7 +663,7 @@ class OntoDAG(DAG):
     # ---- parametric dimensions (docs/DIMENSIONS.md) -------------------------
     #
     # A dimension head is an ordinary node asserted under a registry kind node
-    # (weight -> linear-dimension); its used values are parametric nodes
+    # (mass -> linear-dimension(mass) -> linear-dimension); its used values are parametric nodes
     # (weight(3kg)) anchored under it by a schema edge — the "star".
     # The order *within* a dimension is computed from the names and never
     # materialized as edges (dense orders have no transitive reduction).

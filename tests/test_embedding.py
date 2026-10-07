@@ -75,7 +75,7 @@ def test_is_term():
     assert not dag.is_term("time(2026-08)")          # undeclared: an opaque atom
     prelude.apply(dag)
     assert dag.is_term("time(2026-08)")
-    assert dag.is_term("weight(3000g)")
+    assert dag.is_term("mass(3000g)")
     assert not dag.is_term("dog")
     assert not dag.is_term("foo(bar)")               # term-shaped, undeclared head
     with pytest.raises(ValueError, match="calendar value"):

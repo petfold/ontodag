@@ -22,7 +22,7 @@ from ontodag.packs import PACKS, apply, pack_dag
 
 GOLDEN_ROOTS = {  # pack fingerprints: everyone merging these converges (a domain pack's root is core + pack, so it moves when core does)
     "core":  # v9, 2026-09-10 — the upper ontology (docs/CORE.md)
-        "904aa2e937f36efa2617124554348d3f7654e3cfcab08ea50ee9427c3fff9fe3",
+        "892240935acb5173845c16b8c7af90d9f9264c9bc054ef5282972b0304208131",
     "crypto-core":
         "4d501a439e109269252300d2777145be6ef736bbe5468b7812f016acb730d566",
     "crypto-majors":
@@ -32,25 +32,25 @@ GOLDEN_ROOTS = {  # pack fingerprints: everyone merging these converges (a domai
     "fiat-iso4217":
         "f1a2226ca3f4bbb90437d7331bbb5aa8758673a8f8350eec8c5b3d57c7b5ba7b",
     "physics":  # v4, 2026-09-10 — a domain pack over core (ontodag-core packs/physics)
-        "b64210007819e92b008b2c6b37995731848bfd7db8d3043a02fabb76204a8ac6",
+        "2ff7a3b29c09308b5d6c71d620b1b099695dd1ed7a78bce6120d2f785322323e",
     "mathematics":  # v2 over core v9, 2026-09-10 — a domain pack over core (ontodag-core packs/mathematics)
-        "e17045e980eba81dba4c54a18d52d2b7e60da3608a788dd5daad5a1b51c1a4fb",
+        "da90a233a50cbac59e362e57eb68f329334b9486623390680c5fc66c07c7c4eb",
     "chemistry":  # v2 over core v9, 2026-09-10 — a domain pack over core (ontodag-core packs/chemistry)
-        "c705cef5bc9d578b351c3204f3d3140b81e1bb078d5e9889bdcf2cca7abd33d9",
+        "a66c6d26b5f1bb02a27e962bd3a56746e788c861e5db37d9fb698b97ccd1136e",
     "biology":  # v2 over core v9, 2026-09-10 — a domain pack over core (ontodag-core packs/biology)
-        "b9a4c73e5b00eeb049c95765ceb12aba110234027146e187bccd5c270becd32f",
+        "9d13b65d4c6f2424733397a3f2540a24315d80f6593bcc9fb9238ff3916258cd",
     "medicine":  # v5, 2026-09-10 — a domain pack over core (ontodag-core packs/medicine)
-        "5287190b0eb1a807e21b03a759806ab75c248b682541724d9ea6de9cdaf677a3",
+        "a92cce4232c2a81bc7a5b8a488f412cf587237665a956c4a34dcfc1d9f192f55",
     "ai":  # v4, 2026-09-10 — a domain pack over core (ontodag-core packs/ai)
-        "57d0f6e2e8f1878ffb0902940b9676a024b037c91b447394fbc7b643c3d788c6",
+        "f75f146ac74c1f09df88e225ff45bc190ad3664189d316707979d47a71058785",
     "economics":  # v6, 2026-09-19 — v5 plus dai/xdai/usdc under stablecoin, bzz/xbzz under crypto-token (ontodag-core 845d789)
-        "e3cf9cd178ff3fa29febdd6f72dfc8f37dee7db0252153388e1a42b2de5f3d27",
+        "4ca95aa397f14422b30de0335a4dcc9cef0bd9132733d020980572c6874c0c4c",
     "computing":  # v4, 2026-09-10 — a domain pack over core (ontodag-core packs/computing)
-        "9426e5f172d744e7e4998cc89b6b1c3973d6384c1e2e66c877a0081113752697",
+        "65de8fc360bc596e88bb94123d3662057118e2ee220043ff5b67259ecb37e291",
     "geography":  # v5, 2026-09-10 — a domain pack over core (ontodag-core packs/geography)
-        "9a8adea9f479004f0c6c86b98b4d60bfd2dc55da06225dcf4e1d9bf3bcfd2985",
+        "ea87836640b585e5bc2dc95cdafd28b3c3b7d5eca1b1eb1b032cd4cb9706f40c",
     "space":  # v4, 2026-09-10 — a domain pack over core (ontodag-core packs/space)
-        "10b74ce0182719b5735323ce2573468d8c3f3b1bae911168bf4e05279029a904",
+        "ee0c46f0ea8e22e3a7db83c484c157208974595613226549393249b35236184c",
 }
 
 
@@ -248,7 +248,7 @@ SWARM_GOLDEN_ROOTS = {  # the same packs under Swarm (BMT) addressing —
     # the fingerprints real Swarm publication must reproduce (PACKS.md §14
     # item 1). Computable offline: BMT is a hash, not a network.
     "core":
-        "19161e6bd1f83c9c0e4d829700035a072ab911bad35b357ef087dffc12218ee1",
+        "8b6ce9a56886bb8fb7626574b8c9d2e61e5b9b512a0a789efd876778bc1ba565",
     "crypto-core":
         "bbd0a930d7888aae3ea65c3ce794e793b5362f4e1837f816567889c75c22ea14",
     "crypto-majors":
@@ -258,25 +258,25 @@ SWARM_GOLDEN_ROOTS = {  # the same packs under Swarm (BMT) addressing —
     "fiat-iso4217":
         "36a9e1e2fdce1f87b273a50938f30cf931a0880b2bba8ab1a3dea1fe0309dd7b",
     "physics":
-        "33ec3897ab40f592d7d8a05e6aa1f2eff746ec1f8ad1378df5c2bc1b1ba01a61",
+        "93180ea9550f100504b99154b979b1febe28fbd10539f074ebb89a1ecc98a2a6",
     "mathematics":
-        "3339ed87626333b82691aac8ef437a763b91023b5ef918fd28f27e5293275262",
+        "fd4348c60ed64710bd73d9c7124348403c59153cecc3062760f98aea0eb4e06a",
     "chemistry":
-        "42afeb8f8cfd09d13127bd260ee8bcecb0a0f07f8173888fcaab5d97b638e29b",
+        "ff9b1343803f4133732c5e4118217ffe2e5ed19bf9607e99e45b8a91a55a1397",
     "biology":
-        "9c3b03121d6f03b6a4a112a306634351ebeba2dd6c081785871d96f78109773e",
+        "1c14499b402826f406a2d3c850a4d236881a048af48d7a51f2d452449208a007",
     "medicine":
-        "34b07722a84b1a0609fe4287d962d809abcb74fb9c00bb6e5a6ea9dbc945be7c",
+        "d204d712416aec4d099d5634489b06daa9e9cf3dfd03855c2ada0143155ae009",
     "ai":
-        "982fa3218a2b48fd6eb3127d8c94a9c9aa2f20475f58514dd6ec60bd15120a72",
+        "7cf70ca7ec109c8c45a18c666e1c594f0a207054cb2e62303f48477f825ce21d",
     "economics":  # v6, 2026-09-19
-        "ba0f2aeb58b9860ffcb52f23e41d99c54a428cbfad14d22e5651002f95085f01",
+        "4c6133706541cab8fc6a94a1d888e34ce53363d300c6315dc012d2baa115db8c",
     "computing":
-        "cf76d4e183ea07133b9f610a0706f2964cbc49994eff38c2d6c857a043713d2b",
+        "85b8f7a96dd7d266f94ac7918b2977a3a37df81c00b1469ed4c1463ff73144f8",
     "geography":
-        "f8de53919cf326f2090087ea633d540911654748fe0dad07a60c56a0eb2e4dfb",
+        "fc2930d22b22779318da551ac9726f1d2696e0355560aad72a4baa33b3f8d1dd",
     "space":
-        "5311b8c8bb46618e015c9c00a92a48269f785e555e07cfc06f09556f306e43f4",
+        "f28c6824a338551e2f4b172ecdfb0ef6ae9a64c42d89347ce1a858e1afb683a0",
 }
 
 

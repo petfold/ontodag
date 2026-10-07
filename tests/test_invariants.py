@@ -537,13 +537,13 @@ class TestConeRemoval(unittest.TestCase):
         from ontodag.prelude import apply as apply_prelude
         dag = OntoDAG()
         apply_prelude(dag)
-        dag.put("crate", ["weight(3kg)"])
-        dag.put("pallet", ["weight(..5kg)"])
-        cone, deleted = dag.cone_removal_plan(["weight(..5kg)"])
-        self.assertEqual(cone, {"weight(..5kg)", "pallet"})
+        dag.put("crate", ["mass(3kg)"])
+        dag.put("pallet", ["mass(..5kg)"])
+        cone, deleted = dag.cone_removal_plan(["mass(..5kg)"])
+        self.assertEqual(cone, {"mass(..5kg)", "pallet"})
         self.assertNotIn("crate", deleted)
-        self.assertNotIn("weight(3kg)", deleted)
-        dag.remove_cone(["weight(..5kg)"])
+        self.assertNotIn("mass(3kg)", deleted)
+        dag.remove_cone(["mass(..5kg)"])
         self.assertIn("crate", dag.nodes)
         assert_counts_consistent(self, dag)
 
@@ -657,15 +657,15 @@ class TestReclassify(unittest.TestCase):
         dag = OntoDAG()
         apply_prelude(dag)
         dag.put("shelf", [])
-        dag.put("crate", ["weight(3kg)", "shelf"])
+        dag.put("crate", ["mass(3kg)", "shelf"])
         with self.assertRaises(ValueError) as caught:
-            dag.reclassify(["crate"], to=["weight(10kg)"], from_=["shelf"])
+            dag.reclassify(["crate"], to=["mass(10kg)"], from_=["shelf"])
         self.assertIn("provably disjoint", str(caught.exception))
         # ...and the refusal left no new vocabulary behind
-        self.assertNotIn("weight(10kg)", dag.nodes)
+        self.assertNotIn("mass(10kg)", dag.nodes)
         # replacing the value instead is fine, and materializes it
-        dag.reclassify(["crate"], to=["weight(10kg)"])
-        self.assertEqual(self._parents(dag, "crate"), {"weight(10kg)"})
+        dag.reclassify(["crate"], to=["mass(10kg)"])
+        self.assertEqual(self._parents(dag, "crate"), {"mass(10kg)"})
         assert_counts_consistent(self, dag)
 
     def test_counts_and_reduction_survive_random_moves(self):

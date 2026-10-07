@@ -65,7 +65,7 @@ def registry_compatible(version, other=None):
 
 # Reserved node names the registry recognizes, the way the codebase already
 # recognizes "*". A dimension head is declared by asserting it under exactly
-# one kind node (directly or via ancestors): weight -> linear-dimension.
+# one kind node (directly or via ancestors): mass -> linear-dimension(mass) -> linear-dimension.
 DIMENSION_ROOT = "dimension"
 UNIT_DECLARATION = "unit-declaration"  # unit(...)/unit-family(...) parent
 KIND_LINEAR = "linear-dimension"

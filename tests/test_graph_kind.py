@@ -3,8 +3,8 @@
 the graph itself — category names and terms of other dimensions — and the
 graph orders such terms: `H(X ...) ⊑ H(A ...)` iff every A is above some X.
 
-loopmarket's consumer case: a courier's `transport(small-item weight(..8kg))`
-is what the courier accepts, and the wanter's `transport(bicycle weight(5kg))`
+loopmarket's consumer case: a courier's `transport(mass(..8kg) small-item)`
+is what the courier accepts, and the wanter's `transport(bicycle mass(5kg))`
 fits within it. Which side must be inside is the consumer's rule; ontodag
 only orders."""
 
@@ -33,14 +33,14 @@ def city():
 class TestGrammar(unittest.TestCase):
     def test_constraints_are_sorted_deduplicated_and_each_canonical(self):
         dag = city()
-        self.assertEqual(dag._canonical_name("transport(weight(..8000g) small-item)"),
-                         "transport(small-item weight(..8kg))")
+        self.assertEqual(dag._canonical_name("transport(mass(..8000g) small-item)"),
+                         "transport(mass(..8kg) small-item)")
         self.assertEqual(dag._canonical_name("transport(bicycle bicycle)"),
                          "transport(bicycle)")
-        self.assertEqual(elaborate("transport(weight(..8kg) small-item)", dag),
-                         "transport(small-item weight(..8kg))")
-        self.assertEqual(render("transport(small-item weight(..8kg))", dag),
-                         "transport(small-item weight(..8kg))")
+        self.assertEqual(elaborate("transport(small-item mass(..8kg))", dag),
+                         "transport(mass(..8kg) small-item)")
+        self.assertEqual(render("transport(mass(..8kg) small-item)", dag),
+                         "transport(mass(..8kg) small-item)")
 
     def test_unknown_and_redundant_constraints_are_refused(self):
         dag = city()
@@ -49,7 +49,7 @@ class TestGrammar(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "redundant"):
             dag.put("x", ["transport(bicycle small-item)"])
         with self.assertRaisesRegex(ValueError, "redundant"):
-            dag.is_below("transport(weight(5kg) weight(..8kg))", "transport(goods)")
+            dag.is_below("transport(mass(5kg) mass(..8kg))", "transport(goods)")
         # a kind node is not a constraint; an empty argument is not a term
         with self.assertRaises(ValueError):
             dag.is_below("transport(linear-dimension)", "transport(goods)")
@@ -57,9 +57,9 @@ class TestGrammar(unittest.TestCase):
 
     def test_the_flat_kinds_still_read_a_nested_parameter_as_opaque(self):
         dag = city()
-        dag.put("weight(x(y))", [])                  # an opaque atom, as before
-        self.assertIsNone(dag._parse_parametric("weight(x(y))"))
-        self.assertTrue(dag.is_below("weight(x(y))", "weight(x(y))"))
+        dag.put("mass(x(y))", [])                  # an opaque atom, as before
+        self.assertIsNone(dag._parse_parametric("mass(x(y))"))
+        self.assertTrue(dag.is_below("mass(x(y))", "mass(x(y))"))
 
 
 class TestOrder(unittest.TestCase):
@@ -71,14 +71,14 @@ class TestOrder(unittest.TestCase):
         self.assertFalse(below("transport(goods)", "transport(bicycle)"))
         self.assertFalse(below("transport(piano)", "transport(bicycle)"))
         # a nested term is ordered by its own dimension
-        self.assertTrue(below("transport(bicycle weight(5kg))",
-                              "transport(small-item weight(..8kg))"))
-        self.assertFalse(below("transport(bicycle weight(12kg))",
-                               "transport(small-item weight(..8kg))"))
+        self.assertTrue(below("transport(bicycle mass(5kg))",
+                              "transport(mass(..8kg) small-item)"))
+        self.assertFalse(below("transport(bicycle mass(12kg))",
+                               "transport(mass(..8kg) small-item)"))
         # a constraint the inner term does not answer is not met
-        self.assertFalse(below("transport(bicycle)", "transport(small-item weight(..8kg))"))
+        self.assertFalse(below("transport(bicycle)", "transport(mass(..8kg) small-item)"))
         # fewer constraints is the wider term
-        self.assertTrue(below("transport(small-item weight(..8kg))", "transport(small-item)"))
+        self.assertTrue(below("transport(mass(..8kg) small-item)", "transport(small-item)"))
         self.assertTrue(below("transport(bicycle)", "transport(bicycle)"))
         # roles keep their own star, as with every kind
         dag.put("bicycle-courier", ["transport"])
@@ -92,27 +92,27 @@ class TestOrder(unittest.TestCase):
         under the two separate terms is filed under their meet (canonical
         placement, DIMENSIONS.md §9)."""
         dag = city()
-        dag.put("courier-1", ["transport(small-item weight(..8kg))"])
+        dag.put("courier-1", ["transport(mass(..8kg) small-item)"])
         dag.put("courier-3", ["transport(piano)"])
         names = lambda items: {i.name for i in items}
-        for query in (["transport(small-item weight(..8kg))"],
-                      ["transport(small-item)", "transport(weight(..8kg))"],
-                      ["transport(goods weight(..10kg))"]):
+        for query in (["transport(mass(..8kg) small-item)"],
+                      ["transport(small-item)", "transport(mass(..8kg))"],
+                      ["transport(goods mass(..10kg))"]):
             self.assertEqual(names(dag.get(query, items_only=True)), {"courier-1"}, query)
         self.assertEqual(names(dag.get(["transport(goods)"], items_only=True)),
                          {"courier-1", "courier-3"})
         self.assertEqual(names(dag.get(["transport(bicycle)"], items_only=True)), set())
-        self.assertEqual(dag.meet("transport(small-item)", "transport(weight(..8kg))"),
-                         "transport(small-item weight(..8kg))")
+        self.assertEqual(dag.meet("transport(small-item)", "transport(mass(..8kg))"),
+                         "transport(mass(..8kg) small-item)")
         self.assertEqual(dag.meet("transport(bicycle)", "transport(small-item)"),
                          "transport(bicycle)")
         self.assertTrue(dag.overlaps("transport(bicycle)", "transport(piano)"))
         # two same-head parents fold to their meet, the union of the
         # constraints — so `H(A B)` ≡ `H(A) H(B)` as an ITEM too
-        dag.put("courier-2", ["transport(small-item)", "transport(weight(..8kg))"])
+        dag.put("courier-2", ["transport(small-item)", "transport(mass(..8kg))"])
         self.assertEqual({p.name for p in dag.nodes["courier-2"].parents},
-                         {"transport(small-item weight(..8kg))"})
-        self.assertEqual(names(dag.get(["transport(small-item weight(..8kg))"], items_only=True)),
+                         {"transport(mass(..8kg) small-item)"})
+        self.assertEqual(names(dag.get(["transport(mass(..8kg) small-item)"], items_only=True)),
                          {"courier-1", "courier-2"})
 
     def test_the_order_follows_the_graph(self):
@@ -171,12 +171,12 @@ class TestPersistence(unittest.TestCase):
         dag.put("graph-dimension", ["dimension"])
         dag.put("transport", ["graph-dimension"])
         dag.put("goods", []); dag.put("small-item", ["goods"]); dag.put("bicycle", ["small-item"])
-        dag.put("courier", ["transport(small-item weight(..8kg))"])
+        dag.put("courier", ["transport(mass(..8kg) small-item)"])
         root = dag.commit()
         again = EagerOntoDAG(RecordStore.at(root, store.blobs))
-        self.assertIn("transport(small-item weight(..8kg))", again.nodes)
-        self.assertTrue(again.is_below("transport(bicycle weight(5kg))",
-                                       "transport(small-item weight(..8kg))"))
+        self.assertIn("transport(mass(..8kg) small-item)", again.nodes)
+        self.assertTrue(again.is_below("transport(bicycle mass(5kg))",
+                                       "transport(mass(..8kg) small-item)"))
         self.assertTrue(again.is_below("courier", "transport(goods)"))
         # a fresh DAG merging it lands the same name, edges before nodes or after
         fresh = EagerOntoDAG(RecordStore(MemoryBytesStore()))

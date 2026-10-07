@@ -256,9 +256,9 @@ class TestDeclarations(unittest.TestCase):
     def test_value_roles_keep_their_meaning(self):
         dag = OntoDAG()
         prelude.apply(dag)
-        dag.put("max-load", ["weight"])
+        dag.put("max-load", ["mass"])
         dag.put("truck", ["max-load(3000kg)"])
-        self.assertFalse(dag.is_below("truck", "weight(3000kg)"))
+        self.assertFalse(dag.is_below("truck", "mass(3000kg)"))
         self.assertTrue(dag.is_below("truck", "max-load(..5000kg)"))
 
 

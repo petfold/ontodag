@@ -269,8 +269,9 @@ def _vocabulary(dag):
     exactly what lets vocabulary travel with a store — but someone browsing
     wants their *things* first, so the page groups them apart.
 
-    Structural, and only two hops deep, because that is what a declaration
-    is: `weight -> linear-dimension -> dimension`. The whole cone of
+    Structural, and only a few hops deep, because that is what a
+    declaration is: `mass -> linear-dimension(mass) -> linear-dimension ->
+    dimension`, the family pin being optional. The whole cone of
     `dimension` is the wrong set — a typed value hangs under its head, and
     everything filed at that value hangs under it, so `JAL7` would come back
     as vocabulary for having a departure date.
@@ -278,8 +279,12 @@ def _vocabulary(dag):
     top = dag.nodes.get("dimension")
     if top is None:
         return set()
+    from ontodag.dimensions import is_kind_node
     kinds = {kind for kind in top.neighbors}
-    heads = {head for kind in kinds for head in kind.neighbors}
+    kinds |= {pin for kind in kinds for pin in kind.neighbors
+              if is_kind_node(pin.name)}           # family pins
+    heads = {head for kind in kinds for head in kind.neighbors
+             if not is_kind_node(head.name)}
     return {"dimension"} | {node.name for node in kinds | heads}
 
 
