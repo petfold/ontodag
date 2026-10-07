@@ -969,6 +969,35 @@ the rest:
   name, holds mass); and the audience head is **`shared-with`**, renamed
   from `for` in comments, tests and docs (no code names it). All of it
   lands in step 7, so every root moves once.
+- **The keyplan consolidation — DONE and merged into main by fast-forward
+  (2026-10-07, commits 387f340, 7450306, 5632ade; unreleased, for 0.30).**
+  One sharing model (ROLES.md §8 item 20): `ontodag.sharing`, `odag
+  shared-with`, `get --as` and `keyplan` all read the cone of
+  `shared-with(person)`; a member reaches a group's shares through
+  `shared-with(group) ⊑ shared-with(member)`; a virtual term starts from
+  the audience terms it contains (`sharing.tops`). `sharing.timeline`,
+  `point_values`, `Received.timeline`, `keyplan.inbox` and record `values`
+  are gone (a share brings only what is below it plus its content;
+  `KP_VERSION = 3`). Review fixes: a name that leaves the store loses its
+  key (refiled = fresh key); `publish` snapshots state and restores it on
+  any exception (a retry overwrites staged writes); `Reader` uses one
+  worker under `sys.platform == "emscripten"`. `ontodag.act` keeps only
+  the primitives (Bee-ACT grantee entries, format-2 `wrap`/`unwrap`, the
+  curve + pure-Python fallback, `store_key_for`); `KeyGraph`, `Resolver`,
+  `align`, `audience_key`, `node_id`, `AccessDenied` are removed
+  (CHANGELOG "Removed"). Guide §9.3 = primitives, §9.4 re-executed on
+  §5.13's store (17 records). SHARING.md Q1 settled; SHARING_ON_SWARM is
+  now the record for act-categories' phases (status notes there, in
+  act-categories/DESIGN and WALLS_AND_INBOXES). Found on the way and fixed
+  on main first: `reclassify` moving an item up to an ancestor of its
+  parent unfiled it (2ab43b2). `CI=1` suite 1,200 passed + 3 skipped
+  (README 1,203); Pyodide demo green with the pure-Python curve.
+  `experiments/keyplan_spike.py` and `keyplan_swarm.py` predate the model
+  and say so (run them against 0.29). Next in the agreed order: step 7
+  (prelude v4, audit rewrites, renames, golden roots, packs republished),
+  then release 0.30, then migrate categor.io's shares to
+  `shared-with(address)`. Step 7 still owes a design for how a prelude
+  head declares its unit family.
 - **Validated at the end of the night, against main as pushed:** the
   live Bee tests 2/2 (bee 2.8.2, batch `c931c8a5…` usable, 22.1 days
   left, fullest bucket 23/32, throwaway signer), loopmarket 297 passed +
@@ -1100,6 +1129,9 @@ a view has no root to cite), and single-audience encryption (PACKS §14
 item 3's other half).
 
 ## act-categories Phase 1, items 1–3 (2026-09-02) — `ontodag.act`
+
+*(Retired 2026-10-07 for 0.30: `KeyGraph`/`Resolver`/`align` are removed;
+`ontodag.keyplan` derives the tokens from the store. Kept as history.)*
 
 Peter asked for PACKS §14 item 4 to start ahead of its multi-audience
 tripwire. Shipped client-side only, no Bee involved: `KeyGraph` (the key
