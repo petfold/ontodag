@@ -187,7 +187,7 @@ def smoke(env, expect_version):
         o("put", "Japan", "Travel")
         o("put", "Flight", "Travel")
         o("put", "boarding-pass.pdf", "Flight", "Japan",
-          "time(2026-08-15)", "weight(3kg)")
+          "time(2026-08-15)", "mass(3kg)")
         o("put", "hotel.pdf", "Japan")
         return "5 items, two of them typed"
 
@@ -354,10 +354,10 @@ def smoke(env, expect_version):
         path = os.path.join(env.work, "rsparity")
         spec = f"rs:{path}"
         o("-f", spec, "prelude")
-        o("-f", spec, "-m", "one parcel", "put", "parcel", "weight(3kg)")
-        o("-f", spec, "put", "wide", "weight(2kg..6kg)")
-        guaranteed = o("-f", spec, "get", "weight(..5kg)").split()
-        candidates = o("-f", spec, "overlapping", "weight(..5kg)").split()
+        o("-f", spec, "-m", "one parcel", "put", "parcel", "mass(3kg)")
+        o("-f", spec, "put", "wide", "mass(2kg..6kg)")
+        guaranteed = o("-f", spec, "get", "mass(..5kg)").split()
+        candidates = o("-f", spec, "overlapping", "mass(..5kg)").split()
         assert "wide" not in guaranteed and "wide" in candidates, \
             (guaranteed, candidates)
         first = o("-f", spec, "history").splitlines()[-1].lstrip("* ").split()[0]
