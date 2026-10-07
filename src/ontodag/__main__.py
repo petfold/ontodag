@@ -523,18 +523,32 @@ class SwarmBackend:
         only if this replica already *knows* the ref (`_blob_roots`), so a
         scorched-earth replica raises `KeyError` on the very first read. Lazy
         healing recovers evicted blobs; it cannot bootstrap. So a fresh replica
-        reads the published root through a plain Bee-backed store and replays
-        the records into its own — after which it owns its blobs and the local
-        store behaves normally.
+        reads the published root through its own local store in read-through
+        mode (swarmfs >= 0.12: blobs it never held are fetched from the node,
+        hash-verified, 32 at a time, and not kept) and replays the records into
+        itself — after which it owns its blobs and the local store behaves
+        normally. Until 2026-10-08 this read went through recordstore's
+        `BeeBytesStore`, a second HTTP client; now the client that pushes and
+        heals also does the reading.
 
         Canonical addressing makes this verifiable: replaying the same records
         must commit to the same root. A mismatch means the network served
         something other than what the pointer promised, which is worth saying
         out loud rather than adopting silently."""
-        from recordstore import BeeBytesStore, RecordStore
-        source = RecordStore.at(root, BeeBytesStore(api))
-        for key, record in source.items():
-            store.put(key, record)
+        from recordstore import RecordStore
+        local = store.local
+        if not hasattr(local, "read_through"):
+            raise ValueError(
+                f"reading the published {self.name} store needs swarmfs "
+                "0.12.0 or later (read-through); upgrade with:  "
+                "pip install -U \"ontodag[swarm]\"")
+        local.read_through = True
+        try:
+            source = RecordStore.at(root, local)
+            for key, record in source.items():
+                store.put(key, record)
+        finally:
+            local.read_through = False
         cloned = store.commit()
         if cloned != root:
             print(f"odag: warning: cloned {self.name} from {root[:12]}… but the "
@@ -590,7 +604,7 @@ class SwarmBackend:
                 f"installed ({missing!r}); install the swarm extra with:  "
                 f"pip install \"ontodag[swarm]\"   "
                 f"(that covers the local-first store machinery — swarmfs — "
-                f"plus `requests` and `swarm-bee` for feed publication)"
+                f"plus `swarm-bee` for feed publication)"
             ) from exc
         except OSError as exc:
             raise _swarm_open_error(self.name, api, exc) from exc

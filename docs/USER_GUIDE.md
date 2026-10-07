@@ -1488,10 +1488,12 @@ with no node and no network. Moving to `swarm:NAME` later is a backend swap.
 
 **Storing on Swarm.** A store can also live on [Ethereum Swarm](https://www.ethswarm.org/)
 instead of a local file. It needs a few extra dependencies — install them once with
-`pip install "ontodag[swarm]"`, which brings `requests` (talking to the Bee node),
-`swarmfs` (picking a postage batch when `bee_batch` is left at `auto`) and
-`swarm-bee` (signing feed updates). Miss them and you get a clear message saying
-which. Then set the store once and it sticks:
+`pip install "ontodag[swarm]"`, which brings `swarmfs` (the store directory and
+its background sync with the Bee node, including picking a postage batch when
+`bee_batch` is left at `auto`), `swarm-bee` (signing feed updates) and
+`requests` (for recordstore's `swarm_store`, should your own Python code put a
+store directly on Swarm). Miss them and you get a clear message saying which.
+Then set the store once and it sticks:
 
 ```console
 $ odag set store swarm:travel     # every later command now uses Swarm

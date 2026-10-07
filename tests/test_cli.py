@@ -2531,6 +2531,53 @@ class TestSwarmBootstrapDecision(unittest.TestCase):
         self.assertIsNone(backend._bootstrap_root(self.Pointer(None)))
 
 
+@unittest.skipUnless(importlib.util.find_spec("swarmfs"),
+                     "the local-first store machinery is the swarm extra")
+class TestCloneReadsThroughTheLocalStore(unittest.TestCase):
+    """A fresh replica reads the published root through its OWN local store
+    (swarmfs read-through), not through a second HTTP client. The network is
+    played by a MemoryBytesStore: what a Syncer attaches as the fetcher."""
+
+    def _published(self):
+        net = MemoryBytesStore()
+        source = RecordStore(net)
+        for i in range(60):
+            source.put(f"item-{i:02d}", {"up": ["*"], "n": i})
+        return net, source.commit()
+
+    def _fresh_store(self, d):
+        from recordstore import local_first_store
+        return local_first_store(os.path.join(d, "s"), None,
+                                 addressing="sha256")
+
+    def test_a_fresh_replica_clones_through_read_through(self):
+        net, root = self._published()
+        with tempfile.TemporaryDirectory() as d:
+            store = self._fresh_store(d)
+            reads = []
+            store.local.fetcher = lambda ref: (reads.append(ref), net.get(ref))[1]
+            cli.SwarmBackend("t")._clone_from_swarm(store, "unused", root)
+            self.assertEqual(store.root, root)  # canonical: same records, same root
+            self.assertGreater(len(reads), 60)  # every record and trie node
+            self.assertFalse(store.local.read_through)  # switched back off
+            # the replica owns its blobs now: reading needs no network
+            store.local.fetcher = None
+            self.assertEqual(RecordStore.at(root, store.local).get("item-07"),
+                             {"up": ["*"], "n": 7})
+            store.close()
+
+    def test_an_older_swarmfs_is_named_not_worked_around(self):
+        net, root = self._published()
+        with tempfile.TemporaryDirectory() as d:
+            store = self._fresh_store(d)
+            real = store.local
+            store.local = object()  # a LocalStore from before read-through
+            with self.assertRaisesRegex(ValueError, r"swarmfs 0\.12\.0"):
+                cli.SwarmBackend("t")._clone_from_swarm(store, "unused", root)
+            store.local = real
+            store.close()
+
+
 class TestHistoryAndUndo(unittest.TestCase):
     """`history`, `status`, `undo`, `redo` — over an `rs:` store, which is the
     cheapest tier that keeps history at all.

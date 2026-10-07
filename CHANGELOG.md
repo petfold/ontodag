@@ -12,6 +12,31 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Changed
+
+- **A fresh `swarm:` replica reads the published store through its own
+  local store**, in swarmfs 0.12's read-through mode, instead of through
+  recordstore's `BeeBytesStore`. One HTTP client, the one that already
+  pushes, confirms and heals, now also bootstraps: 32 blobs at a time, each
+  hash-verified, none kept except through the replay that makes them this
+  replica's own. Canonical addressing still verifies the clone (the replay
+  must commit to the published root). An older swarmfs is named with the
+  pip command rather than worked around. Live-checked: a store rebuilt from
+  an empty home through its signed feed on a Bee 2.8.2 node.
+- **The `swarm` extra needs recordstore 0.21.1 and swarmfs 0.12.0.**
+  swarmfs is named directly because ontodag now uses one of its features
+  itself. The two releases bring: blobs the network lost after accepting
+  them are uploaded again (Bee can count a chunk delivered when it was not:
+  36,589 of 372,313 pushes on 2026-10-07); confirmation checks run 32 at a
+  time instead of one at a time (each takes ~1.2 s on a light node, which is
+  why a large publish never met the 60 s sync wait); uploads and network
+  reads run 32 at a time. Every one of those numbers was measured, not
+  guessed (swarmfs `scripts/concurrency_sweep.py`).
+- The User Guide and the missing-dependency message say what each Swarm
+  dependency is for: ontodag itself no longer uses `requests`.
+
 ## [0.30.2] — 2026-10-07
 
 ### Changed

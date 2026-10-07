@@ -404,9 +404,36 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     GitHub's side) and **recordstore 0.21.1** (`max_concurrent_reads` 32,
     which also sizes `put_many` — writes unmeasured; `local-first-swarm`
     needs swarmfs>=0.11.2). Both by tag, verified from fresh PyPI venvs.
-    Still one at a time in swarmfs: `LocalStore.get_many`/heals and the
-    sync worker's pushes (deferred uploads return after local work; direct
-    re-pushes wait for the network).
+    Still one at a time in swarmfs at that point: `LocalStore.get_many`/
+    heals and the sync worker's pushes — closed the same night:
+    **swarmfs 0.12.0 + the read-through clone (2026-10-08, overnight; Peter
+    away: "continue, release, adopt in ontodag and loopmarket, commit, shut
+    down").** swarmfs 0.12.0 released by tag (CI green, verified from a
+    fresh PyPI venv): `LocalStore.get_many` fetches `FETCH_CONCURRENCY` = 32
+    at a time; `read_through=True` reads blobs the store never held
+    (fetched, hash-verified, NOT stored: an unlisted blob counts as pinned,
+    so keeping it would grow an unevictable pile); the sync worker's uploads
+    and repair re-pushes run `PUSH_CONCURRENCY` = 32 at a time. Upload
+    measurement (~3,500 test chunks, fullest bucket stayed 24/64): deferred
+    249/s one at a time, 609/s at 4, 869/s at 16, 914/s at 32, 896/s at 64
+    (the node's local work levels off); direct 2.6/s, 34/s at 16, 64/s at 32,
+    85/s at 64. ontodag (main, unreleased): `SwarmBackend._clone_from_swarm`
+    reads the published root through `store.local` in read-through mode, so
+    ontodag no longer uses `BeeBytesStore` or `requests` at all; an older
+    swarmfs is named with the pip command, not worked around; the `swarm`
+    extra is `recordstore[swarm-only,local-first-swarm]>=0.21.1` plus
+    `swarmfs>=0.12.0` named directly (ontodag uses a swarmfs feature
+    itself); `TestCloneReadsThroughTheLocalStore` (2, mutation-checked);
+    live 2/2 (39 s, the scorched-earth feed rehydration runs the new clone);
+    `CI=1` 1216 passed + 3 skipped (README 1219). loopmarket (main,
+    unreleased): `swarm` extra `recordstore[bee,feeds]>=0.21.1`; suite 301 +
+    4; live book test 1/1 (46 s). **Still open:** recordstore's trie walk
+    (depth-first, one batch per node with children: ~2,700 sequential rounds
+    for a pack store, now the bootstrap's bottleneck; a level-at-a-time
+    prefetch with bounded memory is the fix); recordstore's own direct route
+    (`BeeBytesStore`/`swarm_store`/`SwarmFeedPointer`) onto swarmfs, the rest
+    of the single route; the Bee issue draft (Peter files it); batch
+    `c931c8a5…` has ~10 days left.
 
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
 
