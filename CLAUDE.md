@@ -1097,9 +1097,13 @@ the rest:
   **Released as 0.30.2** (a patch, as 0.19.1/0.22.1 were, so ontodag-fs's
   `<0.31.0` ceiling holds; all four jobs green; PyPI smoke 27/27). Union
   `edd681de…`, 11,899 categories. **Swarm republication of core + the ten
-  domain packs is owed**: the Bee node was down at release time (nothing on
-  :1633); rerun the scratchpad `publish_packs.py` into a FRESH home (old
-  pack stores hold v12, and a retraction never propagates by merge).
+  domain packs was owed** (the node was down at release time) **and done the
+  same evening** once Peter restarted it: all eleven stores, from a fresh
+  home (old pack stores hold v12, and a retraction never propagates by
+  merge), every root byte-equal to its re-pinned `SWARM_GOLDEN_ROOTS` and
+  `isRetrievable: true`; chemistry, biology and medicine each needed one
+  `PUT /stewardship` re-upload first (the September lesson again: verify,
+  never trust the upload).
 - **Validated at the end of the night, against main as pushed:** the
   live Bee tests 2/2 (bee 2.8.2, batch `c931c8a5…` usable, 22.1 days
   left, fullest bucket 23/32, throwaway signer), loopmarket 297 passed +
