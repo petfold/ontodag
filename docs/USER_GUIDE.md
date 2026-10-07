@@ -363,7 +363,7 @@ setup — pick the route that matches what you actually want:
 | `swarm` | keeping a store on Ethereum Swarm (§5.1, §8) | `pip install "ontodag[swarm]"` |
 | `web` | the browser interface and REST API (§6) | `pip install "ontodag[web]"` |
 | `crypto` | encrypted `rs:` stores — the `store_key` setting (§5.7) | `pip install "ontodag[crypto]"` |
-| `act` | keys for categories: who may read what (§9.3, §9.4) | `pip install "ontodag[act]"` |
+| `act` | sharing enforced by keys (§9.4) and its primitives (§9.3) | `pip install "ontodag[act]"` |
 | `all` | every extra in this table — Swarm and web included | `pip install "ontodag[all]"` |
 
 Combine them in one spec: `pip install "ontodag[viz,owl]"`.
@@ -2956,97 +2956,31 @@ be validated. Both answers work — "parcel fits" and "parcel does not fit"
 are equally provable. The design details live in `docs/CONTRACT.md` (what
 any program may rely on) and `docs/AGENT_SURFACE.md` (the tool shapes).
 
-### 9.3 Experimental: who may read what, by category
+### 9.3 The key primitives (`ontodag.act`)
 
-`ontodag.act` makes subsumption *cryptographically* mean something. Every
-category gets a key; along every edge access should flow, a public
-**token** lets whoever holds the parent's key derive the child's. People
-keys flow upward (`alice → eng-dept → company`: the more specific the
-node, the fewer hold it), document keys flow downward (a grant on
-`eng-documents` opens everything under it), and a **bridge** from a
-people node to a document category is the grant. A reader can decrypt a
-document exactly when a token path leads from their own key to it — which
-is `is_below`, spelled in keys. It needs the `act` extra
-(`pip install "ontodag[act]"`). Where coincurve won't install, as under
-Pyodide, `pip install ontodag pycryptodome` is enough: a secp256k1 written
-in plain Python stands in. It is slower and not constant-time, which is
-why coincurve is used wherever it is installed.
+`ontodag.act` holds the cryptography §9.4 is built from, and nothing
+else: a person's way in is a Swarm ACT grantee entry bit for bit
+(`act.act_keys`, `act.stream_transform`: the same secp256k1 key
+`bee_signer` uses, the same derivation a Bee node performs); a **token**
+(`act.wrap`, `act.unwrap`) lets whoever holds one key derive another; and
+`act.store_key_for(key)` turns a key into the one an encrypted `rs:` store
+takes. It needs the `act` extra (`pip install "ontodag[act]"`). Where
+coincurve won't install, as under Pyodide, `pip install ontodag
+pycryptodome` is enough: a secp256k1 written in plain Python stands in. It
+is slower and not constant-time, which is why coincurve is used wherever
+it is installed.
 
-```python
-from recordstore import MemoryBytesStore, RecordStore
-from ontodag import act
-
-store = RecordStore(MemoryBytesStore())            # any rs:/swarm: store works
-org = act.KeyGraph(store, org_private_key=(7).to_bytes(32, "big"))
-org.link("alice", "eng-dept"); org.link("eng-dept", "company")   # people: upward
-org.link("bob", "sales-dept"); org.link("sales-dept", "company")
-org.link("eng-documents", "design-specs")                        # documents: downward
-org.link("company-docs", "handbook")
-org.link("eng-dept", "eng-documents")                            # a bridge = a grant
-org.link("company", "company-docs")
-alice_key, bob_key = (42).to_bytes(32, "big"), (43).to_bytes(32, "big")
-org.grant("alice", act.public_key(alice_key))
-org.grant("bob", act.public_key(bob_key))
-root = org.commit()
-
-alice = act.Resolver(store, alice_key)
-bob = act.Resolver(store, bob_key)
-print(alice.can_read("design-specs"), bob.can_read("design-specs"), bob.can_read("handbook"))
-```
-
-```
-True False True
-```
-
-Eleven small public records did that: one per token, one per person, one
-naming the organization's public key. Hiring someone is one record and
-touches no document; publishing a document into a category is one token
-and touches no reader. A person's record is a Swarm ACT grantee entry bit
-for bit (the same secp256k1 key `bee_signer` uses, the same derivation a
-Bee node performs), so this is Swarm's access control lifted from lists
-of people to categories of them. `alice.key_for("eng-documents")` hands
-you the key, and `act.store_key_for(...)` turns it into the key an
-encrypted `rs:` store takes — so a private overlay for the engineering
-department is an ordinary encrypted store whose key comes from the graph.
-
-Three things to hold in mind, because the design is honest about them.
-**Document categories say what a document is about, never who may read
-it**: if you filed `eng-documents` *under* `company-docs`, every company
-reader would derive the engineering key, exactly as the arrows say —
-audience lives only in where bridges start. **Whoever holds the
-`KeyGraph` can read everything**, as with any publisher-centric scheme.
-And **revocation is forward-only**: `org.revoke("alice", ...)` deletes
-Alice's entry and rotates the categories Alice could reach, so tokens
-minted under them from now on are useless to her, while whatever she
-already fetched stays fetched — on Swarm, forever. Old epochs remain
-resolvable from old roots (`RecordStore.at(root, store.blobs)`).
-
-**One gap in `revoke`.** It doesn't rotate the documents at the bottom
-(`design-specs` and `handbook` here), because their content is encrypted
-under their keys. But any node can gain a child: file something under
-`design-specs` after the revocation, and its key is wrapped under a key
-Alice kept, so she can derive it (on random stores this exposed new keys
-after 417 of 5,866 edits). Before filing anything under a document Alice
-could read, rotate it (`org.rotate("design-specs")`) and re-encrypt its
-content under the new key. The key plan (§9.4) doesn't have the gap: it
-keeps each name's rotating key apart from its content keys, so rotating
-any node is cheap, and it gives a lost name a new key before anything
-new goes under it.
-
-Key graphs published by ontodag 0.28 and earlier are in an older format
-that couldn't revoke at all: a revoked reader could recover a rotated key
-from the public tokens. This version refuses them with a reason;
-publish them again into a new store.
-
-What is not here yet: category manifests and feeds for the documents
-themselves, a Bee node that accepts a resolved key, and the on-Swarm
-format that would let other clients interoperate
-(`docs/plans/act-categories/DESIGN.md`, Phases 1.4–3).
+Until 0.30 this module also had a key graph you maintained by hand
+(`KeyGraph`, `Resolver`, `align`). It is gone: the key plan derives the
+same tokens from your store, so there is one way to say who may read what,
+and it is where you file things. Key graphs published by 0.28 and earlier
+could not revoke at all (a revoked reader could recover a rotated key from
+the public tokens); 0.29's tokens fixed that, and the key plan uses them.
 
 ### 9.4 Experimental: the same sharing, with no server
 
-§5.13's rule — a person sees what is filed below their name in your store
-— has to be applied by someone. `--as` applies it on your machine, and a
+§5.13's rule — a person sees what is filed below `shared-with(person)`
+in your store — has to be applied by someone. `--as` applies it on your machine, and a
 site such as categor.io applies it on its server, for every request.
 `ontodag.keyplan` applies it when you publish: it turns your shares into
 keys, and each reader works out what they may read from the published
@@ -3054,26 +2988,28 @@ records and their own key alone. There is no server to run or to trust,
 and the published records can live in any record store — memory, an `rs:`
 directory, or Swarm.
 
-It is newer than 0.28.0, so for now it runs from a checkout (§2), and it
-needs the `act` extra (`pip install "ontodag[act]"`). The design, and what
-is still open, is in [plans/SHARING_ON_SWARM.md](plans/SHARING_ON_SWARM.md).
+It needs the `act` extra (`pip install "ontodag[act]"`). The design, and
+what is still open, is in [plans/SHARING_ON_SWARM.md](plans/SHARING_ON_SWARM.md).
 
-Here is §5.13's store once more, with a public post and the reading list
-dated, published for Ada and Bob:
+Here is §5.13's store once more, with a public post, published for Ada and
+Bob:
 
 ```python
 from recordstore import MemoryBytesStore, RecordStore
 from ontodag import OntoDAG, act, keyplan, prelude
 
-dag = OntoDAG()                          # your store, much as in §5.13
+dag = OntoDAG()                          # §5.13's store, with a public post
 prelude.apply(dag)
-dag.put("posted", ["time"])
-for name in ("ada@example.com", "bob@example.com", "everyone", "diary"):
-    dag.put(name, [])
-dag.put("book-club", ["ada@example.com", "bob@example.com"])
-dag.put("reading-list", ["book-club", "diary", "posted(2026-09-24T10:00:00Z)"])
-dag.put("dreams", ["diary"])
-dag.put("hello-world", ["everyone", "posted(2026-09-20T08:30:00Z)"])
+dag.put("reversed-dimension", ["dimension"])
+dag.put("shared-with", ["reversed-dimension"])
+for name, parents in [("person", []), ("book-club-member", ["person"]),
+                      ("ada@example.com", ["book-club-member"]),
+                      ("bob@example.com", ["book-club-member"]),
+                      ("everyone", []), ("diary", []), ("dreams", ["diary"])]:
+    dag.put(name, parents)
+dag.put("reading-list", ["diary", "shared-with(book-club-member)"])
+dag.put("note-to-ada", ["shared-with(ada@example.com)"])
+dag.put("hello-world", ["shared-with(everyone)"])
 
 me = (7).to_bytes(32, "big")             # toy keys; real ones are 32 random bytes
 ada, bob = (42).to_bytes(32, "big"), (43).to_bytes(32, "big")
@@ -3094,21 +3030,23 @@ print(len(stranger.receive()))
 ```
 
 ```
-['bob@example.com', 'book-club', 'reading-list']
-['book-club'] b'Middlemarch, then Stoner.'
+['reading-list', 'shared-with(bob@example.com)', 'shared-with(book-club-member)']
+['shared-with(book-club-member)'] b'Middlemarch, then Stoner.'
 0
 ```
 
-Bob received the name `bob@example.com` plus exactly what
-`odag shared-with bob@example.com` lists — the book club and the reading
-list — and the edges among them: the reading list is under the club. It is
-in your diary too, but nothing Bob received says so, and nothing names Ada
-or your dreams. A stranger received nothing at all. Reading took only a
-personal key and your public key, which reaches a reader out of band (a
-contact card, a QR code), never from the store itself.
+Bob received his own audience term, the club's, and the reading list:
+exactly what `odag shared-with bob@example.com` lists, apart from the
+house rules this store doesn't have. He got the edges among them too: the
+reading list is shared with the club, and the club's term is below his
+(he is a member). It is in your diary as well, but nothing Bob received
+says so, and nothing names Ada, her note, or your dreams. A stranger
+received nothing at all. Reading took only a personal key and your public
+key, which reaches a reader out of band (a contact card, a QR code), never
+from the store itself.
 
-Fifteen public records did that: one naming your public key, a grantee
-entry per reader, a token per edge, a sealed record per shared name, and
+Seventeen public records did that: one naming your public key, a grantee
+entry per reader, a sealed record per shared name, a token per edge, and
 one for the content. None of them contains a name. Ids are keyed with a
 secret of yours, so nobody can test a guess such as "does this store share
 with ada@example.com?", and a grantee entry can be found only with its
@@ -3116,54 +3054,39 @@ reader's key, so readers can't list each other. What anyone can see is
 the shape: how many records (so roughly how many readers), how big, and
 when they change.
 
-**Walls work the same way.** `everyone` is in `readers` with a key
-everybody knows (`keyplan.everyone_key()`), so whatever you file under it
-is public. `receive(public=True)` adds that part to a reader's own share,
-and `timeline()` orders it by `posted` — your wall as Bob sees it, worked
-out by Bob:
-
-```python
-wall = keyplan.Reader(published, bob, act.public_key(me)).receive(public=True)
-for when, post in wall.timeline():
-    print(when, post)
-```
-
-```
-posted(2026-09-20T08:30:00Z) hello-world
-posted(2026-09-24T10:00:00Z) reading-list
-```
-
-That is what `sharing.timeline(dag, ["bob@example.com", "everyone"])`
-gives on your side (§5.13). A reader who follows several authors merges
-their walls with `keyplan.inbox({"you": wall, "dan": ...})`: one list,
-oldest first, each post labeled with its author.
+**Public posts work the same way.** `everyone` is in `readers` with a key
+everybody knows (`keyplan.everyone_key()`), so whatever you file under
+`shared-with(everyone)` is public. `receive(public=True)` adds that part to
+a reader's own share. How a reader orders what it receives (by date, by
+arrival, merged with other authors' posts) is the reader's business, not
+the key plan's.
 
 **Taking someone out.** You unshare by editing your store and publishing
-again. Here Ada leaves the club (the Python for
-`odag move book-club --from ada@example.com`, §5.10), and then you post in
-it:
+again. Here Ada leaves the club, staying a person (the Python for
+`odag move ada@example.com --from book-club-member --to person`, §5.10),
+and then you share something new with the club:
 
 ```python
-dag.reclassify(["book-club"], to=(), from_=["ada@example.com"])   # Ada leaves the club
+dag.reclassify(["ada@example.com"], to=["person"], from_=["book-club-member"])
 print(author.publish(dag, readers, content=content).rotated, sorted(author.stale))
-dag.put("next-book", ["book-club", "posted(2026-09-25T09:00:00Z)"])
+dag.put("next-book", ["shared-with(book-club-member)"])
 print(author.publish(dag, readers, content=content).rotated)
 for key in (bob, ada):
     print("next-book" in keyplan.Reader(published, key, act.public_key(me)).receive())
 ```
 
 ```
-[] ['book-club', 'reading-list']
-['book-club']
+[] ['reading-list', 'shared-with(book-club-member)']
+['shared-with(book-club-member)']
 True
 False
 ```
 
 Ada leaving rotated nothing: it deleted one record, the token from
-`ada@example.com` to the club. The club and the reading list, whose keys
-Ada had, were marked *stale* and left alone until something new was
-written under one of them. Posting in the club was such a write, so the
-club got a new key first: Bob reads `next-book`, and Ada doesn't. That
+Ada's audience term to the club's. The club's term and the reading list,
+whose keys Ada had, were marked *stale* and left alone until something new
+was written under one of them. Sharing `next-book` with the club was such a
+write, so the club's term got a new key first: Bob reads `next-book`, and Ada doesn't. That
 holds even against a reader who kept every key they ever had: they can
 open only what they were once entitled to, never anything written after
 they lost it (`tests/test_keyplan.py` checks this on random stores and
@@ -3179,8 +3102,9 @@ Two more choices are worth knowing. Every name has two kinds of key: a
 *derivation key*, which rotates, and a *data key* per version of its
 content, which never does — so a rotation re-wraps 32 bytes and never
 re-encrypts a file. And the tokens are derived from your store at every
-`publish`, typed values included: share `posted(2026)` with someone and
-every post dated in 2026 reaches them, with nothing extra to maintain.
+`publish`, typed values included: file `posted(2026)` under
+`shared-with(bob@example.com)` and every post dated in 2026 reaches Bob,
+with nothing extra to maintain.
 
 Three things to hold in mind:
 
@@ -3191,8 +3115,9 @@ Three things to hold in mind:
   every key in it. Keep it in your own encrypted store (§5.7), never beside
   the published one, and pass it back as
   `keyplan.Publisher(published, me, state=saved)` to carry on.
-- **Which names are people is yours to say**, as with `--as`: here it is
-  the `readers` dict, from name to public key.
+- **Which names have keys is yours to say**: the `readers` dict, from a
+  name in your store to that reader's public key. A name can be a person
+  or a group with a shared key, such as `everyone`.
 
 **On Swarm.** The published store can be a signed Swarm feed, which a
 reader opens cold by your address, holding nothing but their own key. That

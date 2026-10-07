@@ -1,6 +1,12 @@
 # Walls and Inboxes: Posting to an Audience, Reading What Arrives
 
-Status: discussion draft (2026-09-24). **Nothing here is implemented.** This
+Status: discussion draft (2026-09-24). **Nothing here is implemented.**
+*(2026-10-07: a first `sharing.timeline` and `keyplan.inbox` were built on
+the `swarm-sharing` branch and removed again before release. In 0.30 a
+share brings only what is below `shared-with(...)` plus its content, and
+how a reader orders posts is the reader's: a client's, or ucomm's. The
+words and the audience rule below still stand; "audience" is the
+`shared-with` term.)* This
 is the canonical statement of a design shared by three projects, each of
 which carries its own fold of it:
 

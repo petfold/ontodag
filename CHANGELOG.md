@@ -14,14 +14,19 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
-### Known issue
+### Removed
 
-- **`ontodag.act.KeyGraph.revoke` can expose new keys.** It rotates only
-  the categories a revoked person could reach, not document leaves. When
-  such a leaf later gains a child, the child's key is wrapped under the
-  leaf's old key, which the revoked person still holds. The spike measured
-  this after 417 of 5,866 random edits. The docstring says so.
-  `ontodag.keyplan` is the replacement (below).
+- **`ontodag.act`'s key graph: `KeyGraph`, `Resolver`, `align`,
+  `audience_key`, `node_id`, `AccessDenied`** (breaking; act-categories
+  Phase 1, 0.19–0.29). `ontodag.keyplan` (below) derives the same tokens
+  from the store, so there is one way to say who may read what: where
+  you file things. This also retires `KeyGraph.revoke`'s known gap (it
+  never rotated document leaves, so a child filed under one after a
+  revocation was derivable by the revoked reader: 417 of 5,866 random
+  edits in the spike). `ontodag.act` keeps the primitives: Bee-ACT grantee
+  entries (`act_keys`, `stream_transform`), format-2 tokens (`wrap`,
+  `unwrap`, `key_check`), the curve (`public_key`, `shared_x`, with the
+  pure-Python fallback) and `store_key_for`. User Guide §9.3.
 
 ### Added
 
@@ -79,9 +84,9 @@ the version numbers appear in commit history and docs.
     (`demo/pyodide/keyplan.mjs`). The fallback isn't constant-time:
     coincurve is preferred wherever it installs.
   - `experiments/keyplan_spike.py` compares four rotation rules on the
-    same random edits. It shows that `KeyGraph.revoke`'s rule (rotate
-    only nodes with outgoing tokens) exposes new keys once such a node
-    gains a child.
+    same random edits. It shows that the retired `KeyGraph.revoke`'s rule
+    (rotate only nodes with outgoing tokens) exposes new keys once such a
+    node gains a child. It runs against 0.29, where `KeyGraph` exists.
 
 - **The transitive kind** (`transitive-dimension`, registry 4.3;
   DIMENSIONS.md §16; step 3.2 of docs/plans/ROLES.md §9). A head declared

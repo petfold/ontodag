@@ -1,8 +1,11 @@
 # Sharing and Receiving on Swarm, Without Servers
 
 Status: plan and discussion draft (2026-09-25). Phase 1 and a first
-Phase 2 run are built, unreleased, on OntoDAG's `swarm-sharing` branch
-(§13). The rest is a plan. It asks how the sharing and receiving of
+Phase 2 run are built (§13), and in 0.30 the key plan becomes the one
+access-control API: `ontodag.act`'s hand-maintained key graph
+(`KeyGraph`, `Resolver`, `align`) is retired, so this document is also the
+record for what act-categories' phases became (§13's 0.30 note). The rest
+is a plan. It asks how the sharing and receiving of
 [SHARING.md](SHARING.md) and [WALLS_AND_INBOXES.md](WALLS_AND_INBOXES.md)
 can run on Swarm with no server at all:
 
@@ -701,6 +704,28 @@ What the spike doesn't check:
 ## 13. Built so far (2026-09-25)
 
 Everything here is on OntoDAG's `swarm-sharing` branch, unreleased.
+
+**Update for 0.30 (2026-10-07, branch `swarm-sharing-rebased`).** What
+changed since the list below, which is kept as it was:
+- **Principals are people; shares go under `shared-with(...)`** (ROLES.md
+  §8 item 20). A reader's grantee entry opens its audience term,
+  `shared-with(R)`; the tokens follow the combined order below it, so a
+  group's term is reached through `shared-with(group) ⊑
+  shared-with(member)`. A principal with nothing filed under its own term
+  gets the term minted anyway, so it always has one way in.
+- **A share brings only what is below it, plus its content.** Records no
+  longer name typed-value parents; `sharing.timeline`,
+  `Received.timeline()` and `keyplan.inbox()` are removed. Ordering what a
+  reader receives is the reader's business (WALLS_AND_INBOXES.md's note).
+- **`KeyGraph`, `Resolver` and `align` retire**; `ontodag.act` keeps the
+  primitives (grantee entries, `wrap`/`unwrap` in token format 2,
+  `store_key_for`). act-categories/DESIGN.md's Phases 1–2 are carried by
+  this plan, and the gap in `KeyGraph.revoke` (leaves never rotated)
+  leaves with it.
+- **Review fixes:** a name removed and filed again gets a fresh key, never
+  its old one; a publish that fails part-way leaves the publisher's state
+  as it was (the store's staged writes are overwritten by the retry);
+  `Reader` uses one worker under Pyodide, where threads can't start.
 
 **Phase 1: `ontodag.keyplan`.** `Publisher` and `Reader` as §4 describes,
 with these leanings taken:

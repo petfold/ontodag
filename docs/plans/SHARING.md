@@ -3,7 +3,8 @@
 Status: discussion draft (2026-09-24). **Built so far (released in
 0.28.0):** `ontodag.sharing` — `reach`, `landing`, `losses` — and the CLI's
 `shared-with` and `get`/`count --as` (§7, steps 1–2); principals are named
-by the caller until Q1 is settled. Everything else here is proposed. categor.io, a website over OntoDAG, implements a version of the
+by the caller until Q1 is settled. **Q1 is settled for 0.30** (§6: shares
+go under `shared-with(person)`). Everything else here is proposed. categor.io, a website over OntoDAG, implements a version of the
 rule server-side (its `docs/DESIGN.md` §4–§10); this record proposes which
 part of that belongs in OntoDAG, and how it meets the three mechanisms
 OntoDAG already has for more than one reader: overlays
@@ -221,6 +222,19 @@ would mean "from Alice" in one store and "for Alice" in another. Options:
 
 *Leaning:* (b) for stores that travel, with (a) as the library's actual
 parameter, so a host can still say "these, and only these".
+
+**Settled (2026-10-06/07, ROLES.md §8 item 20): (c), reversed.** A share
+is filed under `shared-with(person)`, a head of the reversed kind
+(DIMENSIONS §18), so `shared-with(group) ⊑ shared-with(member)` once the
+member is filed under the group as a kind. A store says what is a grant
+(being below a `shared-with` term), the collision below disappears (an
+address under `Alice` is a "from" facet; only the term is "for"), and
+people are ordered by membership, never above their groups. The caller
+still names which principals to ask about, as (a) had it. Built on the
+branch `swarm-sharing-rebased` for 0.30: `ontodag.sharing`, `odag
+shared-with`, `get --as` and the key plan all read the cone of
+`shared-with(person)`. That breaks categor.io, which files shares under
+the name; Peter accepted that (the site is a demo).
 
 The collision, concretely:
 

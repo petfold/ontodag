@@ -1,6 +1,14 @@
 # Category-Based Access Control on Swarm: OntoDAG as a Key Graph
 
-Status: discussion draft (August 2026). Nothing here is implemented. This
+Status: discussion draft (August 2026). **Superseded in implementation
+(2026-10-07, ontodag 0.30):** Phase 1 was built as `ontodag.act`'s
+`KeyGraph`/`Resolver`/`align` (0.19–0.29) and is retired; the key plan,
+`ontodag.keyplan`, derives the same tokens from the store instead of a
+hand-maintained twin, and [../SHARING_ON_SWARM.md](../SHARING_ON_SWARM.md)
+is the record for it. `ontodag.act` keeps the primitives (Bee-ACT grantee
+entries, format-2 tokens, `store_key_for`). The analysis below still
+stands; read "key graph" as "key plan" for anything built. Original
+status: nothing here is implemented. This
 document is written to become, in whole or in parts: (a) the design record for
 an OntoDAG feature, (b) a Bee feature-request issue, and (c) possibly a SWIP
 for the on-Swarm key-graph format. §8 recommends which part goes where.

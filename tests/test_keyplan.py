@@ -19,6 +19,7 @@ What must hold:
 Gated on the `act` extra (coincurve + pycryptodome); skips otherwise.
 """
 
+import hashlib
 import json
 import random
 import unittest
@@ -162,6 +163,16 @@ class TestWhatReadersSee(unittest.TestCase):
             self.assertEqual(got.principal, p)
             self.assertEqual(got.names, _allowed(self.dag, p))
 
+    def test_a_grantee_entry_is_an_act_entry(self):
+        # Bee's ACT entry bit for bit: lookup -> Enc(wrap, K) under the
+        # ECDH keys of author and reader, K opening the reader's term
+        for p, key in READERS.items():
+            lookup, wrap_key = act.act_keys(key, act.public_key(AUTHOR))
+            entry = self.pub.store.get(keyplan.GRANT_PREFIX + lookup.hex())
+            self.assertEqual(entry["node"], self.pub.node_id(sw(p)))
+            self.assertEqual(act.stream_transform(wrap_key, bytes.fromhex(entry["key"])),
+                             self.pub._keys[sw(p)])
+
     def test_a_group_share_reaches_every_member(self):
         for key in READERS.values():
             got = _view(self.pub, key)
@@ -221,7 +232,10 @@ class TestWhatReadersSee(unittest.TestCase):
         ids = {k[len(keyplan.NODE_PREFIX):]
                for k in self.pub.store.keys(keyplan.NODE_PREFIX) if "/t/" not in k}
         self.assertEqual(len(ids), self.pub.publish(self.dag, _principals()).shared)
-        self.assertNotIn(act.node_id(sw("bob@x")), ids)
+        # an unkeyed hash of the name, which anyone could compute from a guess
+        guessed = hashlib.sha256(sw("bob@x").encode()).hexdigest()
+        self.assertNotIn(guessed, ids)
+        self.assertNotIn(guessed[:32], ids)
         other = keyplan.Publisher(RecordStore(MemoryBytesStore()), AUTHOR, rng=_rng(2))
         self.assertNotEqual(other.node_id("bob@x"), self.pub.node_id("bob@x"))
 

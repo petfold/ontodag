@@ -225,11 +225,12 @@ domain packs in `ontodag.domain`; the unit packs `crypto-core`,
 `ontodag.cones` (published cone summaries), `ontodag.certificates`
 (`prove_below`/`verify_below` — self-contained proofs against a root),
 `ontodag.provenance` (signed claim records), `ontodag.act`
-(`KeyGraph`/`Resolver`: category keys, rekeying tokens, grantee entries,
-`store_key_for` into the encrypted store), `ontodag.keyplan`
-(`Publisher`/`Reader`, experimental: what a store shares, published as
-keys, with no server. The token plan is derived from `sharing.reach`,
-computed hops included. It has keyed node ids, two keys per node, and
+(the key primitives: Bee-ACT grantee entries `act_keys`/`stream_transform`,
+tokens `wrap`/`unwrap`, `store_key_for` into the encrypted store),
+`ontodag.keyplan` (`Publisher`/`Reader`, experimental: what a store shares,
+published as keys, with no server. The token plan is derived from
+`sharing.reach` below each reader's `shared-with(...)` term, computed hops
+included. It has keyed node ids, two keys per node, and
 lazy rotation with an upward fixpoint; docs/plans/SHARING_ON_SWARM.md),
 `ontodag.migrate`
 (replay a store across registry majors), `ontodag.OWLOntology` (OWL).

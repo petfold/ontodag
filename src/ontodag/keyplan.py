@@ -120,7 +120,7 @@ def everyone_key() -> bytes:
 
 def keyed_id(secret: bytes, name: str) -> str:
     """A node's id: HMAC-SHA256 of its name under the author's secret, so
-    ids can't be computed from guessed names (unlike `act.node_id`)."""
+    ids can't be computed from guessed names (unlike the unkeyed hash the retired `act.node_id` was)."""
     return hmac.new(secret, _ID_DOMAIN + name.encode("utf-8"),
                     hashlib.sha256).hexdigest()[:32]
 

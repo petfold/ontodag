@@ -1,5 +1,9 @@
 """Spike: derive ACT tokens from an OntoDAG store, and rotate keys on loss.
 
+*Uses `ontodag.act.KeyGraph`, retired in 0.30, and files shares under
+people's names, the pre-0.30 sharing model: run it against ontodag 0.29.
+Kept as the record behind SHARING_ON_SWARM.md §4.3 and §12.*
+
 For docs/plans/SHARING_ON_SWARM.md, which reports the results (§4.3, §12).
 
 Question 1 (correctness): if the author publishes a token for every edge of
