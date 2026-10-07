@@ -349,16 +349,38 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     evening) never re-sent them — not because of keyless mode, as first
     recorded here; and `pkill -f NAME` kills the shell running it when
     NAME is in its own command line — kill by PID. **Corrected the same
-    evening:** the repair now exists at the low level (swarmfs `Syncer`
-    re-pushes missing blobs; recordstore `BeeBytesStore.confirm()` and
-    `swarm_store(confirm=True)`; both on main, unreleased, recordstore
-    191 passed); Bee's default upload redundancy is MEDIUM (2 dispersed
-    replicas per root chunk), which did not prevent the loss; the second
+    evening:** the repair lives in ONE place, swarmfs's `Syncer`
+    (main, unreleased, for 0.11.2): when a sampled blob of a root is not
+    retrievable it checks every blob and re-pushes only the missing ones
+    directly, and the sample is never below `MIN_CONFIRM_SAMPLE` = 16
+    (a commit of four blobs used to check one). A second mechanism in
+    recordstore (`BeeBytesStore.confirm()`, `swarm_store(confirm=True)`,
+    fc6fe35) was built and **reverted the same night** (a544e5d, Peter:
+    "maybe too complicated"); recordstore 186 passed after the revert.
+    Bee's default upload redundancy is MEDIUM (2 dispersed replicas per
+    root chunk), which did not prevent the loss; the second
     shallow-receipt occurrence is in swarmfs
     `docs/bee-push-sync-findings.md`, and the Bee issue is drafted in
     `docs/bee-issue-draft.md` there, not filed. Note: the publish
     script's check covered each store's ROOT blob only; a store is
     thousands of blobs.
+    **Open, proposed to Peter (his idea): recordstore reaches Bee only
+    through swarmfs.** Today there are three clients: swarmfs (aiohttp;
+    local-first stores), recordstore's `BeeBytesStore` (requests; used by
+    `swarm_store()` — loopmarket's book — and by ontodag's bootstrap
+    clone), and `SwarmFeedPointer` (swarm-bee). Measured on the published
+    `space` store, 1,000 blobs: `BeeBytesStore` 16 threads 1.6 s, swarmfs
+    one at a time 1.8 s, swarmfs 16 at once 0.6 s — the direct route is
+    not faster; it exists because swarmfs's `LocalStore` fetches one blob
+    at a time and refuses refs it has not seen (no bootstrap). Reading the
+    whole store took 552 s, and that is recordstore's trie walk, not the
+    client: depth-first, one batch per trie node with children (2,679 for
+    this store, 7,181 trie nodes in 11 levels) plus record windows of 16
+    (337); a level-at-a-time walk would be 11 rounds. Split proposed:
+    recordstore decides what to fetch together, swarmfs fetches it
+    concurrently, verifies, retries. Feeds stay compatible (topic hashing
+    and identifiers checked identical; both write timestamp + root).
+    ontodag's provenance signing still needs swarm-bee.
 
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
 
