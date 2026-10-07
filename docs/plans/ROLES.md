@@ -503,8 +503,8 @@ Settled 2026-10-07:
     parses, and a store whose first value is in newtons would hold force
     under that head). `weight` keeps its name and holds mass. Peter:
     "Mass is the correct term in physics but weight is more used on the
-    surface of Earth." How a head states its family (a declaration that
-    travels with the store) is designed when step 7 is built.
+    surface of Earth." *(Superseded by item 21: the head is `mass`, and
+    the family is stated in its kind.)*
 18. **The audience head is `shared-with`**, not `for`. Its terms grant
     access once keys follow them, and "for" is too often used for other
     things (purpose: `knife ⊑ for(cutting)`); `shared-with` says what it
@@ -531,6 +531,24 @@ Settled 2026-10-07:
     mechanical reclassify of each address's landing set). Order: the
     keyplan consolidation on `swarm-sharing-rebased`, merge, step 7,
     release 0.30, then categor.io.
+
+21. **A head states its unit family in its kind, and the prelude says
+    `mass`, not `weight`** (option A, 2026-10-07). A head is pinned by
+    filing it under a family-narrowed kind node:
+    `mass ⊑ linear-dimension(mass) ⊑ linear-dimension`. Stating a family
+    is subsumption, so "which heads hold mass" is a query, a store on
+    prelude v3 adopts v4 by merge (the old kind edge is redundant and
+    pruned), and a store's own families work the same way
+    (`linear-dimension(SOL)`). A head under two family kinds after a merge
+    is a conflict reported at first use, like conflicting kinds; a head
+    with no family keeps the first-value rule. Peter: "Let's stop using
+    weight for mass. If people prefer to use the wrong word, let the
+    surface layer worry about that." So prelude v4 has `mass` and no
+    `weight` head; item 17's "`weight` keeps its name" is withdrawn.
+    Found while deciding: merging a store whose `weight` holds newtons
+    into one whose `weight` holds kilograms crashes inside `merge`
+    (released bug, I7); merge must accept it and report the conflict at
+    first use. Fixed in step 7.
 
 **Open:**
 
