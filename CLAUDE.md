@@ -344,10 +344,21 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     session scratchpad `publish_packs.py`): **all eleven roots byte-equal
     to the re-pinned `SWARM_GOLDEN_ROOTS` and `isRetrievable: true`**, no
     re-upload needed this time (fullest bucket 24/64 after). Two lessons:
-    in keyless mode a local-first store's `sync()` waits for a
-    confirmation that never arrives, so the reliable test is `GET
-    /stewardship/<root>`, not the sync barrier; and `pkill -f NAME` kills
-    the shell running it when NAME is in its own command line — kill by PID.
+    the sync barrier timed out because swarmfs's confirmation pass waits
+    on blobs the network cannot serve yet, or ever, and (until the same
+    evening) never re-sent them — not because of keyless mode, as first
+    recorded here; and `pkill -f NAME` kills the shell running it when
+    NAME is in its own command line — kill by PID. **Corrected the same
+    evening:** the repair now exists at the low level (swarmfs `Syncer`
+    re-pushes missing blobs; recordstore `BeeBytesStore.confirm()` and
+    `swarm_store(confirm=True)`; both on main, unreleased, recordstore
+    191 passed); Bee's default upload redundancy is MEDIUM (2 dispersed
+    replicas per root chunk), which did not prevent the loss; the second
+    shallow-receipt occurrence is in swarmfs
+    `docs/bee-push-sync-findings.md`, and the Bee issue is drafted in
+    `docs/bee-issue-draft.md` there, not filed. Note: the publish
+    script's check covered each store's ROOT blob only; a store is
+    thousands of blobs.
 
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
 
