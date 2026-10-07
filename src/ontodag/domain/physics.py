@@ -1,7 +1,7 @@
 """The `physics` pack, version 5: 215 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/physics, commit d157031) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/physics, commit 5dc7315) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack physics` applies first; core's names appear below only as parents.

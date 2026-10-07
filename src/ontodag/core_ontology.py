@@ -1,7 +1,7 @@
 """The `core` pack, version 9: an upper ontology built by consensus, adopted by merge.
 
 GENERATED — do not edit by hand. The list is produced in the sister repo
-github.com/petfold/ontodag-core (tools/build.sh, commit d157031) from WordNet 3.0, Wikidata,
+github.com/petfold/ontodag-core (tools/build.sh, commit 5dc7315) from WordNet 3.0, Wikidata,
 SUMO, OpenCyc, schema.org, YAGO 4, BFO and DOLCE: every edge below is entailed
 by at least two independent sources, or accepted by Peter's review; every
 name is a hand-checked plain English word (a sense that shares its word with
@@ -14,7 +14,7 @@ this top offers branches and never fences (the disjointness wall). What it
 gives is paths: a plane ticket is a transport ticket is a ticket is a
 document, and `get document` finds it without anyone building the path.
 
-**Ten branches**: `agent`, `attribute`, `cognition`, `event`, `field-of-study`, `information`, `physical-object`, `place`, `possession`, `substance`.
+**Eleven branches**: `agent`, `attribute`, `cognition`, `event`, `field-of-study`, `group`, `information`, `physical-object`, `place`, `possession`, `substance`.
 
 **It presumes the prelude.** Three edges connect the unit registry's kind
 nodes to `attribute` (a measured dimension is an attribute), so `pack core`
@@ -28,7 +28,7 @@ propagate by merge; a retraction or a rename does not. Versions are
 therefore monotone: v2 is a strict superset of v1.
 """
 
-CORE_VERSION = 12
+CORE_VERSION = 13
 
 # (name, parents) — sorted by name; a root has no parents. Parents outside
 # this tuple are the prelude's kind nodes.
@@ -1301,7 +1301,7 @@ CORE = (
     ('delivery', ('service', 'transport')),
     ('demand', ('request',)),
     ('demo', ('information',)),
-    ('democracy', ('group',)),
+    ('democracy', ('system',)),
     ('demonstration', ('protest',)),
     ('demonstrator', ('person',)),
     ('denial', ('assertion',)),
@@ -1570,7 +1570,7 @@ CORE = (
     ('ending', ('event',)),
     ('endurance', ('state',)),
     ('enemy', ('people',)),
-    ('engagement', ('group',)),
+    ('engagement', ('meeting',)),
     ('engine', ('motor',)),
     ('engineer', ('worker',)),
     ('engineering', ('field-of-study',)),
@@ -1626,7 +1626,7 @@ CORE = (
     ('excitement', ('condition',)),
     ('excuse', ('explanation',)),
     ('execution', ('punishment',)),
-    ('executive', ('group',)),
+    ('executive', ('agent', 'group')),
     ('exemplar', ('idea',)),
     ('exemption', ('release',)),
     ('exercise', ('labor',)),
@@ -1942,7 +1942,7 @@ CORE = (
     ('geiger-counter', ('instrument',)),
     ('gelatine', ('protein',)),
     ('gem', ('mineral',)),
-    ('gene', ('sequence',)),
+    ('gene', ('natural-object', 'sequence')),
     ('general', ('worker',)),
     ('generator', ('engine',)),
     ('genius', ('human',)),
@@ -2067,7 +2067,7 @@ CORE = (
     ('ground-stake', ('support-device',)),
     ('groundnut-oil', ('vegetable-oil',)),
     ('grounds', ('relation',)),
-    ('group', ('agent',)),
+    ('group', ()),
     ('grout', ('plaster',)),
     ('growth', ('process',)),
     ('grudge', ('emotion',)),
@@ -2440,7 +2440,7 @@ CORE = (
     ('junction', ('topographic-point',)),
     ('juniper-berry', ('botanical-fruit',)),
     ('jurisprudence', ('collection',)),
-    ('jury', ('group',)),
+    ('jury', ('agent', 'group')),
     ('justice', ('virtue',)),
     ('justification', ('circumstance', 'information')),
     ('jute', ('fiber',)),
@@ -2562,7 +2562,7 @@ CORE = (
     ('leggings', ('garment',)),
     ('legislation', ('act', 'information')),
     ('legislative-house', ('legislature',)),
-    ('legislature', ('group',)),
+    ('legislature', ('agent', 'group')),
     ('lego', ('plaything',)),
     ('leisure', ('act',)),
     ('lemon', ('citrus-fruit',)),
@@ -2878,7 +2878,7 @@ CORE = (
     ('molecule', ('substance',)),
     ('mollusk', ('invertebrate',)),
     ('momentum', ('attribute',)),
-    ('monarchy', ('group',)),
+    ('monarchy', ('system',)),
     ('monastery', ('house',)),
     ('monetary-wealth', ('belongings',)),
     ('money', ('currency',)),
@@ -2916,7 +2916,7 @@ CORE = (
     ('mouth', ('passage',)),
     ('mouthwash', ('chemical-solution',)),
     ('move', ('act',)),
-    ('movement', ('group',)),
+    ('movement', ('agent', 'group')),
     ('msg', ('seasoning',)),
     ('mud', ('soil',)),
     ('muffin', ('bread',)),
@@ -3095,7 +3095,7 @@ CORE = (
     ('ore', ('mineral',)),
     ('organ', ('body-part',)),
     ('organism', ('physical-object',)),
-    ('organization', ('group',)),
+    ('organization', ('agent', 'group')),
     ('organizer', ('device',)),
     ('orgy', ('celebration',)),
     ('orientation', ('spatial-direction',)),
@@ -3743,7 +3743,7 @@ CORE = (
     ('representative', ('person',)),
     ('representative-agent', ('representative',)),
     ('reptile', ('vertebrate',)),
-    ('republic', ('group',)),
+    ('republic', ('system',)),
     ('repugnance', ('feeling',)),
     ('reputation', ('status',)),
     ('request', ('information',)),
@@ -4774,6 +4774,8 @@ CORE = (
     ('utility', ('facility',)),
     ('utility-service', ('service',)),
     ('vacation', ('event', 'time-period')),
+    ('vaccination', ('medical-care',)),
+    ('vaccine', ('medication',)),
     ('vacuum', ('household-appliance',)),
     ('valley', ('landform', 'natural-depression')),
     ('value', ('quantity',)),

@@ -12,6 +12,26 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Changed
+
+- **Core v13: a group is not an agent** (Peter's ruling, docs/CORE.md).
+  Since its first consensus build core had `group ⊑ agent`: WordNet's
+  general `group` had been aligned to SUMO's `Group`, a group of agents,
+  so 187 concepts (`species`, `sequence`, `matrix`, `row` …) counted as
+  agents, and v11's `gene ⊑ sequence` made a gene one. `group` is now the
+  eleventh top branch; `organization`, `legislature`, `executive`, `jury`
+  and `movement` keep `agent` in their own right; `democracy`, `monarchy`
+  and `republic` move under `system`, `engagement` under `meeting`; `gene`
+  is also a `natural-object`. A retraction does not propagate by merge, so
+  this is a new core version, and every golden root moves.
+- **Vaccine** (core v13, medicine pack v7). It was missing everywhere:
+  `vaccine ⊑ medication` (core's medication treats *or prevents*) and
+  `vaccination ⊑ medical-care` enter core; the medicine pack's four
+  vaccines gain the hinge, beside `live-attenuated-vaccine`,
+  `inactivated-vaccine`, `subunit-vaccine`, `mrna-vaccine` and `toxoid`.
+
 ## [0.30.1] — 2026-10-07
 
 ### Added

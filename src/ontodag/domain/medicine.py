@@ -1,7 +1,7 @@
-"""The `medicine` pack, version 6: 1035 categories, adopted by merge.
+"""The `medicine` pack, version 6: 1040 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
-github.com/petfold/ontodag-core (packs/medicine, commit d157031) from WordNet 3.0
+github.com/petfold/ontodag-core (packs/medicine, commit 5dc7315) from WordNet 3.0
 and Wikidata with hand rulings; every name is a plain word that no everyday
 sense already owns (a pack never takes an everyday word). It presumes `core`,
 which `pack medicine` applies first; core's names appear below only as parents.
@@ -10,7 +10,7 @@ this pack adopts on its own, filed the moment the sibling is adopted
 (refinement by merge). ontodag-core's docs/UPPER.md §8 is the record.
 """
 
-VERSION = 6
+VERSION = 7
 
 BORROWED = ()
 
@@ -296,7 +296,7 @@ PACK = (
     ('douche', ('syringe',)),
     ('doxorubicin', ('antibiotic', 'cytotoxic-drug')),
     ('doxycycline', ('antibacterial',)),
-    ('dpt-vaccine', ('antigen',)),
+    ('dpt-vaccine', ('antigen', 'vaccine')),
     ('drip-feed', ('drug-administration',)),
     ('drixoral', ('medication',)),
     ('drug-administration', ('medicating',)),
@@ -485,6 +485,7 @@ PACK = (
     ('immunotherapy', ('therapy',)),
     ('impacted-fracture', ('fracture',)),
     ('implosion-therapy', ('behavior-therapy',)),
+    ('inactivated-vaccine', ('antigen', 'vaccine')),
     ('incomplete-fracture', ('fracture',)),
     ('incubation-period', ('state', 'time-period')),
     ('index-case', ('patient',)),
@@ -560,6 +561,7 @@ PACK = (
     ('liposarcoma', ('sarcoma',)),
     ('liposuction', ('lipectomy',)),
     ('lithotomy', ('ablation',)),
+    ('live-attenuated-vaccine', ('antigen', 'vaccine')),
     ('liver-cancer', ('carcinoma', 'liver-disease')),
     ('liver-disease', ('disease',)),
     ('lobectomy', ('ablation',)),
@@ -624,6 +626,7 @@ PACK = (
     ('monocytic-leukemia', ('leukemia',)),
     ('monocytosis', ('symptom',)),
     ('mosquito-bite', ('sting',)),
+    ('mrna-vaccine', ('antigen', 'vaccine')),
     ('mucocutaneous-leishmaniasis', ('leishmaniasis',)),
     ("munchausen's-syndrome", ('syndrome',)),
     ('musca-volitans', ('symptom',)),
@@ -771,10 +774,10 @@ PACK = (
     ('plastic-surgery', ('operation', 'surgery')),
     ('play-therapy', ('psychotherapy-treatment',)),
     ('pleomorphic-rhabdomyosarcoma', ('rhabdomyosarcoma',)),
-    ('pneumococcal-vaccine', ('antigen',)),
+    ('pneumococcal-vaccine', ('antigen', 'vaccine')),
     ('pneumonectomy', ('ablation',)),
     ('podiatry', ('medical-specialty',)),
-    ('poliovirus-vaccine', ('antigen',)),
+    ('poliovirus-vaccine', ('antigen', 'vaccine')),
     ('polygraph', ('detector', 'instrument')),
     ('polymyxin', ('antibacterial', 'antibiotic')),
     ('polypectomy', ('operation',)),
@@ -798,7 +801,7 @@ PACK = (
     ('prosthetics', ('medical-specialty',)),
     ('prosthodontics', ('dentistry',)),
     ('prosthodontist', ('dentist',)),
-    ('proteosome-vaccine', ('antigen',)),
+    ('proteosome-vaccine', ('antigen', 'vaccine')),
     ('protozoal-infection', ('condition',)),
     ('psychiatrist', ('medical-specialist',)),
     ('psychiatry', ('medical-specialty',)),
@@ -932,6 +935,7 @@ PACK = (
     ('stridor', ('clinical-sign', 'symptom')),
     ('sty', ('condition',)),
     ('subtilin', ('antibacterial', 'antibiotic')),
+    ('subunit-vaccine', ('antigen', 'vaccine')),
     ('sucralfate', ('medication',)),
     ('suction-curettage', ('abortion', 'curettage')),
     ('sudorific', ('substance',)),
@@ -989,6 +993,7 @@ PACK = (
     ('toxemia', ('blood-poisoning',)),
     ('toxic-shock', ('syndrome',)),
     ('toxicology', ('chemistry', 'pharmacology')),
+    ('toxoid', ('antigen', 'vaccine')),
     ('toxoplasmosis', ('condition',)),
     ('tracheostomy', ('operation',)),
     ('transorbital-lobotomy', ('lobotomy',)),

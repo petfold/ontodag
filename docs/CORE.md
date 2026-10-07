@@ -1,7 +1,7 @@
 # The `core` pack: an upper ontology built by consensus
 
 Design record for `src/ontodag/core_ontology.py`, shipped as the pack
-`core` (v12, shipped in 0.30; v9 shipped in 0.24.0 and is superseded, and
+`core` (v13, shipped in 0.31; v12 shipped in 0.30, v9 in 0.24.0, and
 v7, v8, v10 and v11 were built but never released on their own — see
 Versioning). The list is **generated** in the sister repository
 [ontodag-core](https://github.com/petfold/ontodag-core); this page says
@@ -73,20 +73,23 @@ it be useful?*, and versions are monotone.
   communication, not information, though it carries some.
 - **Roles and stages are out.** `pet`, `child`, `adult` are not kinds.
 
-## The ten branches
+## The eleven branches
 
-| branch | what goes under it | size |
+| branch | what goes under it | size (v13) |
 |---|---|---|
-| `physical-object` | artifacts, organisms, body parts, natural objects | ~1,100 |
-| `event` | acts, activities, processes, natural events, changes | ~530 |
-| `agent` | persons and groups: can act and be held responsible | ~440 |
-| `attribute` | qualities, states, feelings, colours, shapes | ~400 |
-| `information` | documents, messages, symbols, music, images, software | ~400 |
-| `place` | regions, buildings, rooms, bodies of water, roads | ~180 |
-| `substance` | food, materials, chemicals, drugs, fuels | ~170 |
-| `cognition` | beliefs, concepts, ideas, skills, methods, the senses | ~120 |
-| `possession` | money, debts, income, belongings | ~50 |
+| `physical-object` | artifacts, organisms, body parts, natural objects | ~2,500 |
+| `event` | acts, activities, processes, natural events, changes | ~660 |
+| `substance` | food, materials, chemicals, drugs, fuels | ~620 |
+| `information` | documents, messages, symbols, music, images, software | ~450 |
+| `agent` | persons, causes, and bodies that act as one (organizations, legislatures, juries) | ~430 |
+| `attribute` | qualities, states, feelings, colors, shapes | ~420 |
+| `cognition` | beliefs, concepts, ideas, skills, methods, the senses | ~340 |
+| `place` | regions, buildings, rooms, bodies of water, roads | ~210 |
+| `group` | any number of members considered as a unit: social groups, species and herds, sequences, rows and matrices | ~190 |
+| `possession` | money, debts, income, belongings | ~60 |
 | `field-of-study` | sciences, humanities, arts, engineering, medicine, law | ~50 |
+
+Sizes overlap: a node in several branches is counted in each.
 
 Multi-parent nodes are the point of the structure: `human` is a mammal and
 a person; `building`, `landform` and `body-of-water` are physical and also
@@ -286,6 +289,24 @@ that every root moves once.
 **4,984 listed categories.** Renames and drops never propagate by merge,
 which is why they ride one version.
 
+**v13 (0.31, 2026-10-07): a group is not an agent; vaccine.** Peter's
+rulings, applied by ontodag-core's `tools/step7.py` from
+`align/rulings-v13.tsv`. Since its first consensus build core had `group ⊑
+agent`: WordNet's general `group` ("any number of entities considered as a
+unit") had been aligned to SUMO's `Group`, which is a group of *agents*, and
+inherited `agent`, so 187 concepts counted as agents, `species`, `sequence`,
+`matrix` and `row` among them (found when v11's `gene ⊑ sequence` made a
+gene an agent). `group` is now the eleventh branch. The bodies that act as
+one keep `agent` in their own right (`organization`, `legislature`,
+`executive`, `jury`, `movement`); `democracy`, `monarchy` and `republic`
+move under `system`, `engagement` under `meeting`; `gene` is also a
+`natural-object`. **Vaccine** was missing everywhere: `vaccine ⊑ medication`
+(core's medication is WordNet's "treats or prevents or alleviates") and
+`vaccination ⊑ medical-care` enter core, and the medicine pack's four
+vaccines gain the hinge, beside five kinds of vaccine (each also under
+`antigen`, which is the medicine pack's: core may lean on no pack). **4,986
+listed categories.**
+
 **Open sense questions the goods layer exposed** (core-wordnet's first
 senses, each an intervention if changed, so listed rather than done):
 `table` is the laid table, not the furniture (`table-furniture` for now);
@@ -308,8 +329,8 @@ policy of §7 there: hinges in core, contents in packs, everyday words never
 taken by a pack. Since 0.21.0 they **ship in the wheel** (`odag pack geography`; each applies
 core first, `ontodag.domain`), the reversible half of the PACKS.md Part II
 decision — publishing them to Swarm later is the same stores. They fit: ontodag-core's
-`tools/integrate.py` merges core and all ten into one store — 11,892
-categories with core v12, the same root in every merge order, every cross-pack claim
+`tools/integrate.py` merges core and all ten into one store — 11,899
+categories with core v13, the same root in every merge order, every cross-pack claim
 resolving — with roots pinned in ontodag-core's UPPER.md §8.1.
 
 `CORE_VERSION` bumps whenever the list changes; the list itself is
