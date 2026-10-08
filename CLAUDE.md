@@ -428,7 +428,7 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     `CI=1` 1216 passed + 3 skipped (README 1219). loopmarket (released as
     0.14.1): `swarm` extra `recordstore[bee,feeds]>=0.21.1`; suite 301 +
     4; live book test 1/1 (46 s). **recordstore's trie walk fixed
-    (2026-10-08, main 1038825, unreleased, for 0.21.2):** still depth-first
+    (2026-10-08, released as recordstore 0.21.2 by tag, CI + publish green, verified from a fresh PyPI venv):** still depth-first
     (sorted streaming, bounded memory) but `_Trie._prefetch` loads ahead
     level by level from the walk's stack (`WALK_LOOKAHEAD` 4096, at most
     half the node cache, prefix-pruned); `items()` windows >= 256. Counted:
