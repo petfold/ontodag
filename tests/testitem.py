@@ -58,3 +58,15 @@ class TestItem(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestComparisonWithOtherThings(unittest.TestCase):
+    """An Item compares by name with anything carrying one, and is simply
+    unequal to anything else (until 2026-10-09 it raised AttributeError, so
+    `Item("a") == None` and `"a" in {Item("a")}` crashed)."""
+
+    def test_unequal_rather_than_an_error(self):
+        self.assertFalse(Item("a") == None)          # noqa: E711
+        self.assertTrue(Item("a") != "a")
+        self.assertNotIn("a", {Item("a")})
+        self.assertEqual(Item("a"), Item("a"))

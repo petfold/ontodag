@@ -14,6 +14,49 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+Found and fixed during the 2026-10-09 review (docs/plans/REVIEW_2026-10.md);
+not released.
+
+### Fixed
+
+- **The sparse writer committed a different root from the eager one** once
+  an earlier put had built its argument index: the terms it created later
+  (and stubs it registered later) were never indexed, so re-reduction and
+  re-spelling missed them. One seam, `_index_name`, now indexes every name
+  however it becomes known.
+- **`ontodag.migrate` dropped what nodes carry**: native `#:meta` lines and
+  a record's `meta` and `payload`. Both now travel with the replay.
+- **A sparse writer's first put fetched every value of every declared
+  head** (37 records with no values, 1,237 with 1,200): the walk that finds
+  the heads resolved each child before skipping values by name.
+- **`Item("a") == None` raised AttributeError** (and so did `"a" in
+  {Item("a")}`); an Item is now simply unequal to things without a name.
+- `merge_delta(other_root, bytes_store=...)` with an empty store silently
+  used its own (an empty `MemoryBytesStore` is falsy).
+
+### Changed
+
+- Filing an edge no longer walks the child's cone a second time: the
+  plain-DAG cycle check is skipped when `OntoDAG.add_edge` has already asked
+  the question upward (149 → 125 ms filing a 20,000-item category).
+- `prune_to_common_descendants` logs instead of printing, and drops an
+  unused variable; `odag history`'s loop variable no longer shadows
+  `importlib.metadata.version` (both found by pyflakes).
+
+### Tests
+
+- `tests/test_crosskind.py`: every kind at once (values, a role, graph-kind
+  compounds, the three relations with compounds, a narrower relation): one
+  root in every order and merge, a lazy reader answering like the eager
+  store, and the sparse writer committing the eager writer's root.
+- `odag`'s batch mode (commands on stdin) is tested for the first time;
+  re-spelling is tested in the direction a peer brings the fact;
+  migration keeps metadata and payloads; a sparse writer's fetch budget
+  with declared dimensions.
+- `experiments/review_2026_10_perf.py` re-runs the review's performance
+  probes (start-up, the eleven-pack union, persistence, filing, relation
+  and graph-kind terms).
+
 ## [0.30.7] — 2026-10-09
 
 ### Fixed

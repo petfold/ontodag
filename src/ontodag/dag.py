@@ -2,8 +2,11 @@ from collections import namedtuple
 import bisect
 from contextlib import contextmanager
 from itertools import combinations
+import logging
 
 from ontodag import dimensions as _dims
+
+_log = logging.getLogger(__name__)
 
 
 class _EdgeSet(set):
@@ -59,7 +62,10 @@ class Item:
         self.metadata = dict(metadata) if metadata else {}
 
     def __eq__(self, other):
-        return self.name == other.name
+        name = getattr(other, "name", None)
+        if not isinstance(name, str):
+            return NotImplemented     # `Item("a") == None` is False, not an error
+        return self.name == name
 
     def __hash__(self):
         return hash(self.name)
@@ -170,8 +176,11 @@ class DAG:
     def _canonical_name(self, name):
         return name
 
-    def add_edge(self, from_node, to_node):
-        """Add a directed edge between two nodes."""
+    def add_edge(self, from_node, to_node, _cycle_checked=False):
+        """Add a directed edge between two nodes. `_cycle_checked`: the caller
+        (OntoDAG.add_edge) already asked, upward and in the combined order,
+        whether the edge closes a cycle; the downward walk here would cost
+        the child's whole cone on every edge."""
         if from_node.name not in self.nodes or to_node.name not in self.nodes:
             raise ValueError("Both nodes must exist in the graph.")
 
@@ -179,7 +188,7 @@ class DAG:
             return
         if to_node in from_node.neighbors:
             return
-        if self._is_reachable(to_node, from_node):
+        if not _cycle_checked and self._is_reachable(to_node, from_node):
             raise ValueError(
                 f"Edge {from_node.name} -> {to_node.name} would create a cycle."
             )
@@ -828,9 +837,15 @@ class OntoDAG(DAG):
                 continue
             stack = list(kind_node.neighbors)
             while stack:
-                child = self.nodes.get(stack.pop().name)   # expands on lazy
-                if child is not None and _dims.kind_node(child.name) \
-                        not in (None, (child.name, None)):
+                name = stack.pop().name
+                pin = _dims.kind_node(name)
+                if pin is None and _dims.split_term(name) is not None:
+                    # A value: never a head, so skipped by its name. Fetching
+                    # it first made a lazy store's first walk fetch every
+                    # value of every head (1,237 fetches for 1,200 values).
+                    continue
+                child = self.nodes.get(name)               # expands on lazy
+                if child is not None and pin not in (None, (name, None)):
                     stack.extend(child.neighbors)          # a family pin
                     continue
                 if child is None or child.name in heads \
@@ -1665,15 +1680,24 @@ class OntoDAG(DAG):
 
     def add_node(self, node):
         super().add_node(node)
-        split = _dims.split_term(node.name)
+        self._index_name(node.name)
+
+    def _index_name(self, name):
+        """Keep the argument and value indexes current for a name that just
+        became known. The one seam: a subclass that registers nodes another
+        way (the lazy reader's stubs, the sparse writer's new nodes) calls
+        it too, or what it registers is invisible to re-reduction (until
+        2026-10-09 the sparse writer's own new terms were: its root then
+        differed from the eager writer's)."""
+        split = _dims.split_term(name)
         if split is None:
             return
         if getattr(self, "_args", None) is not None:
-            self._index_args(node.name, split)
+            self._index_args(name, split)
         values = getattr(self, "_values", None)
         if values is not None and split[0] in values:
             index = values[split[0]]
-            if index is None or not index.add(self, node.name):
+            if index is None or not index.add(self, name):
                 del values[split[0]]
 
     def _index_args(self, name, split):
@@ -2459,7 +2483,10 @@ class OntoDAG(DAG):
         deltas = None if self._counts_frozen else self._plan_add(from_node, to_node)
         self._maybe_invalidate_heads(from_node, to_node)
         with self._counts_unchanged():
-            super().add_edge(from_node, to_node)              # structure only
+            # structure only; the cycle question was asked above, except
+            # for a fresh anchor, whose own (cheap) check stays
+            super().add_edge(from_node, to_node,
+                             _cycle_checked=not fresh_anchor)
         if fresh_anchor:
             self._note_star_child(from_node, to_node)
             self._apply_count_deltas(deltas)
@@ -4205,7 +4232,6 @@ class OntoDAG(DAG):
 
         # Find the intersection of all descendant sets
         common_descendants = set.intersection(*sets_of_descendants)
-        only_common_descendants = common_descendants.copy()
 
         # Include the interesting nodes themselves
         for node in interesting_nodes:
@@ -4224,7 +4250,7 @@ class OntoDAG(DAG):
                 for ancestor in subcategory_ancestors:
                     if ancestor in n.neighbors and subcategory in n.neighbors:
                         self.remove_edge(n, subcategory)
-                        print(f'Removed edge {n.name} -> {subcategory.name}')
+                        _log.debug('removed edge %s -> %s', n.name, subcategory.name)
 
     def excerpt_names(self, queries, context=False):
         """The names an excerpt of `queries` covers.

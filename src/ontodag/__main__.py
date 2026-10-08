@@ -2130,11 +2130,11 @@ def cmd_history(args, session, out):
             print("odag: this store has no recorded history yet",
                   file=_err())
             return 0
-        for version in versions:
-            marker = "*" if version.current else " "
-            when = (version.at or "").replace("T", " ")[:19]
-            message = f"  {version.message}" if version.message else ""
-            print(f"{marker} {version.root[:12]}  {when}{message}", file=out)
+        for entry in versions:
+            marker = "*" if entry.current else " "
+            when = (entry.at or "").replace("T", " ")[:19]
+            message = f"  {entry.message}" if entry.message else ""
+            print(f"{marker} {entry.root[:12]}  {when}{message}", file=out)
     finally:
         close()
     return 0

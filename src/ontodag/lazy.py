@@ -185,6 +185,7 @@ class LazyOntoDAG(OntoDAG):
         if node is None:
             node = Item(name)
             dict.__setitem__(self.nodes, name, node)
+            self._index_name(name)
         return node
 
     def _expand(self, node):
@@ -480,6 +481,7 @@ class SparseOntoDAG(LazyOntoDAG):
 
     def add_node(self, node):
         DAG.add_node(self, node)
+        self._index_name(node.name)       # OntoDAG.add_node's indexing
         # A created node is fully known: nothing in the store to expand.
         self._records.setdefault(node.name, None)
         self._expanded.add(node.name)
@@ -591,7 +593,7 @@ class SparseOntoDAG(LazyOntoDAG):
         from ontodag._extras import require
         rs = require("recordstore", "store", "sync()")
 
-        blobs = bytes_store or self.store.blobs
+        blobs = bytes_store if bytes_store is not None else self.store.blobs
         snapshot = rs.RecordStore.at(self.base_root, blobs)
         diff = list(snapshot.diff(other_root))
         diff_keys = {key for key, _, _ in diff}

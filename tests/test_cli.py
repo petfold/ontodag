@@ -3474,3 +3474,37 @@ class TestEncryptedStore(unittest.TestCase):
                                     cli.Session(f"rs:{path}"))
         self.assertEqual(code, 1)
         self.assertIn("ontodag[crypto]", err)
+
+
+class TestBatchFromStdin(unittest.TestCase):
+    """`odag` with no command reads commands from a pipe: the batch mode the
+    guide documents (comments and blank lines skipped, `quit` ends it, an
+    error reported and the script going on). Nothing ran it until the
+    2026-10-09 review: it lives in `_run_stream`, reached only from `main`
+    in a real process."""
+
+    def run_script(self, script):
+        import subprocess
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        src = os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), "src")
+        env = dict(os.environ, PYTHONPATH=src, ONTODAG_HOME=tmp.name)
+        env.pop("ONTODAG_SURFACE", None)
+        store = os.path.join(tmp.name, "s.od")
+        proc = subprocess.run([sys.executable, "-m", "ontodag", "-f", store],
+                              input=script, capture_output=True, text=True,
+                              env=env, timeout=60)
+        return proc, store
+
+    def test_a_script_on_stdin(self):
+        proc, store = self.run_script(
+            "# a comment\nput pet\nput cat pet\n\nget pet\nbelow cat pet\n"
+            "put dog nowhere\nput dog pet\nget pet\nquit\nput never pet\n")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout.split(), ["cat", "true", "cat", "dog"])
+        self.assertIn("nowhere", proc.stderr)          # reported, script went on
+        with open(store) as handle:
+            stored = handle.read()
+        self.assertIn("dog pet", stored)
+        self.assertNotIn("never", stored)               # quit ended it

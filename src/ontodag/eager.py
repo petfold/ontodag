@@ -245,7 +245,7 @@ class EagerOntoDAG(OntoDAG):
         from ontodag._extras import require
         rs = require("recordstore", "store", "sync()")
 
-        blobs = bytes_store or self.store.blobs
+        blobs = bytes_store if bytes_store is not None else self.store.blobs
         snapshot = rs.RecordStore.at(self.base_root, blobs)
         diff = list(snapshot.diff(other_root))
         diff_keys = {key for key, _, _ in diff}

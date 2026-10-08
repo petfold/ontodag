@@ -833,6 +833,47 @@ class TestTheStoredSpellingStaysCurrent(unittest.TestCase):
         self.assertEqual(parents(b, "plan"), {"shared-with(sales-employee)"})
         self.assertNotIn("shared-with(employee sales-employee)", b.nodes)
 
+    def test_a_fact_from_a_peer_re_files_our_term_on_merge(self):
+        # The other direction: this store holds the compound, the peer
+        # brings the fact. The fact's edge is replayed while the merge is
+        # lenient, so the re-filing waits for the end of the merge.
+        ours, peer = self.org(), self.org()
+        ours.put("plan", ["shared-with(employee sales-employee)"])
+        peer.put("sales-employee", ["employee"])
+        ours.merge(peer)
+        self.assertEqual(parents(ours, "plan"), {"shared-with(sales-employee)"})
+        self.assertNotIn("shared-with(employee sales-employee)", ours.nodes)
+        known = self.org()
+        known.put("sales-employee", ["employee"])
+        known.put("plan", ["shared-with(sales-employee)"])
+        self.assertEqual(ours.commit(), known.commit())
+
+    def test_a_fact_from_a_peer_re_files_our_term_on_sync(self):
+        blobs = MemoryBytesStore()
+        a = declare(EagerOntoDAG(RecordStore(blobs)), audience=True)
+        for name, supers in (("person", []), ("employee", ["person"]),
+                             ("sales-employee", ["person"])):
+            a.put(name, supers)
+        base = a.commit()
+        b = EagerOntoDAG(RecordStore(blobs, root=base))
+        a.put("plan", ["shared-with(employee sales-employee)"])
+        a.commit()
+        b.put("sales-employee", ["employee"])
+        b_root = b.commit()
+        a.sync(b_root)
+        self.assertEqual(parents(a, "plan"), {"shared-with(sales-employee)"})
+        self.assertNotIn("shared-with(employee sales-employee)", a.nodes)
+
+    def test_a_term_naming_a_re_filed_one_follows_it(self):
+        dag = declare(about=True)
+        for name, supers in (("place", []), ("church", ["place"]),
+                             ("landmark", ["place"])):
+            dag.put(name, supers)
+        dag.put("map", ["in(in(church landmark))"])
+        dag.put("church", ["landmark"])
+        self.assertEqual(parents(dag, "map"), {"in(in(church))"})
+        self.assertNotIn("in(in(church landmark))", dag.nodes)
+
     def test_places_topics_and_nesting(self):
         dag = declare(about=True)
         for name, supers in (("place", []), ("church", ["place"]),

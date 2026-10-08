@@ -164,6 +164,28 @@ class TestLocality(unittest.TestCase):
         self.assertLess(sparse.fetches, 60,
                         f"a localized put fetched {sparse.fetches} records")
 
+    def test_write_fetch_budget_with_declared_dimensions(self):
+        # The store above declares no dimension. With the prelude adopted
+        # and a head holding many values, the first put used to fetch every
+        # value: the walk that finds the declared heads resolved each child
+        # before skipping values by name (37 fetches with no values, 1,237
+        # with 1,200, until 2026-10-09).
+        from ontodag import prelude
+        blobs = MemoryBytesStore()
+        eager = EagerOntoDAG(RecordStore(blobs))
+        prelude.apply(eager)
+        eager.put("box", [])
+        for k in range(400):
+            eager.put(f"parcel{k}", ["box", f"mass({k + 1}g)"])
+        root = eager.commit()
+        sparse = SparseOntoDAG(RecordStore(blobs, root=root))
+        sparse.put("new-box", ["box"])
+        self.assertLess(sparse.fetches, 80,
+                        f"a localized put fetched {sparse.fetches} records")
+        again = EagerOntoDAG(RecordStore(blobs, root=root))
+        again.put("new-box", ["box"])
+        self.assertEqual(sparse.commit(), again.commit())
+
     def test_commit_stages_only_the_diff(self):
         counting = CountingStore(RecordStore(self.blobs, root=self.base))
         sparse = SparseOntoDAG(counting)
