@@ -470,18 +470,27 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     `_prefetch_pairs`; `diff()` values in windows of 256; `merge()`
     conflicts read and written in one batch each): 200-key diff 1,731 -> 9
     rounds, live v12 -> v13 pack roots cold 305 rounds / 33.0 s -> 9 /
-    3.9 s, same blobs (recordstore 0.22.1, pushed `0917362`, CI green, NOT
-    released). loopmarket's signatures onto the shared signer: swarmfs
-    0.14.0 adds `sign_hash`/`recover_hash`/`recover_hash_key` (no prefix:
-    loopmarket signs raw ids, v 0/1), `checksum_address`, `compressed`
-    (pushed, CI green, NOT released); loopmarket 0.14.2 committed locally
-    as `cbdd8f1`, NOT pushed (its CI installs swarmfs>=0.14.0 from PyPI),
-    eth-keys outputs pinned byte for byte, suite 311 + 4, live 3/3.
-    Release order: swarmfs 0.14.0, then push + release loopmarket 0.14.2;
-    recordstore 0.22.1 independent. Batch `c931c8a5…` topped up on Peter's
+    3.9 s, same blobs (recordstore 0.22.1). loopmarket's signatures onto
+    the shared signer: swarmfs 0.14.0 adds `sign_hash`/`recover_hash`/
+    `recover_hash_key` (no prefix: loopmarket signs raw ids, v 0/1),
+    `checksum_address`, `compressed`; loopmarket 0.14.2 uses them, eth-keys
+    outputs pinned byte for byte, suite 311 + 4, live 3/3 (book,
+    federation, register). **All three released by tag on Peter's word
+    (swarmfs 0.14.0, recordstore 0.22.1, then loopmarket 0.14.2 once
+    swarmfs was on PyPI), workflows green, verified from fresh PyPI
+    venvs** (no eth-keys, swarm-bee or requests installed). ontodag needs
+    no change: its merge-on-save goes through `RecordStore.diff`. Batch `c931c8a5…` topped up on Peter's
     word to expire 2026-11-15 12:00 UTC (75,889,609,216 PLUR/chunk at
-    depth 22, 31.84 xBZZ, tx `0x87389f…`; wallet 25.47 xBZZ). **Still
-    open:** the Bee issue draft (Peter files it).
+    depth 22, 31.84 xBZZ, tx `0x87389f…`; wallet 25.47 xBZZ). **The Bee
+    issue is a duplicate** of ethersphere/bee#5400 (open since 2026-03,
+    confirmed on mainnet by a maintainer; fix proposed in PR #5390), found
+    by reading v2.8.2's source before filing. That reading also corrected
+    two claims: `to_push == synced` proves nothing (`total_synced`
+    increments on every attempt), and a depth-0 receipt means a copy was
+    stored at proximity 0, not that the chunk was never forwarded.
+    swarmfs's `docs/bee-issue-draft.md` is now a comment for #5400 (Peter
+    posts it). Lesson: search the tracker and read the source before
+    drafting an upstream issue.
 
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
 
