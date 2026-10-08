@@ -1258,7 +1258,7 @@ the rest:
   4 skipped, ontodag-fs 313 passed + 2 skipped, and `CI=1` suites green
   on main (1,167) and on both branches (1,186; 1,188).
 
-## The graph kind's canonical form (2026-10-08, 0.30.6 prepared)
+## The graph kind's canonical form (2026-10-08, released as 0.30.6)
 
 Peter's "fix 1 first", after he asked for the question with options and
 a better example (a removal job tagged "piano" and "heavy item"). The
@@ -1302,8 +1302,14 @@ at 400/1,600/6,400 offers (0.30.5: 0.9/62/554, with misses); filing flat
 root, answers = the one-thing reading, no I1 pair),
 `TestGraphKindAgreesWithTheScan` (test_hops); 15 of the new tests fail on
 the old code. Suite `CI=1` 1,233. loopmarket: one test asserted the old
-refusal (`transport(bicycle small-item)` unknown); its update waits for
-0.30.6 on PyPI. ontodag-fs 313 passed against the tree. Still open
+refusal (`transport(bicycle small-item)` unknown); updated and released
+as loopmarket 0.14.4 right after 0.30.6 (floor `ontodag>=0.30.6`). **Both
+released on Peter's "release both"**: ontodag 0.30.6 by tag (all four jobs
+green incl. downstream + verify; `release_smoke.py --pypi 0.30.6` 27/27
+after one index-lag retry; the piano example run from the PyPI package:
+one root in both orders), then loopmarket 0.14.4 (CI and publish green;
+from a fresh PyPI venv `transport(bicycle small-item)` is known, argument
+`("bicycle",)`, a racing bicycle fits). ontodag-fs 313 passed against the tree. Still open
 (recorded, not changed): the relation kinds' explicitly written compounds
 (`in(museum-district tokyo)`) can still become a second name later.
 
@@ -1655,7 +1661,7 @@ default earns its place; one that adds weight for a file format does not.*
 
 ## Release state
 
-**Current (2026-10-08, evening): ontodag 0.30.5**, by tag on Peter's word (all four jobs green incl. downstream and verify; `release_smoke.py --pypi 0.30.5` 27/27 after one index-lag retry) (the `swarm` extra's floor raised to recordstore 0.22.1 for the diff lookahead in merge-on-save; `CI=1` 1,217 passed + 3 skipped, live 2/2, smoke 27/27 on the wheel, `.[swarm]` resolves recordstore 0.22.1 + swarmfs 0.14.0 with no requests/swarm-bee/eth-keys). Sister releases the same day: swarmfs 0.14.0, recordstore 0.22.1, loopmarket 0.14.2. Before that: **ontodag 0.30.3 and loopmarket 0.14.1**, both by tag on Peter's "release both", all workflow jobs green (ontodag's four incl. downstream and verify), verified from fresh PyPI venvs (ontodag smoke 27/27; `ontodag[swarm]==0.30.3` resolves recordstore 0.21.1 + swarmfs 0.12.0; loopmarket[swarm] resolves recordstore 0.21.1). Patches, so ontodag-fs's `<0.31.0` ceiling still holds. Content: the read-through clone and the swarm floors (see Bee run 12). Before that: **ontodag 0.30.0** (step 7: prelude v4, core v12, family pins, the keyplan consolidation; see the roles section). Before it, **0.29.0**, published by tag, all four
+**Current (2026-10-08, night): ontodag 0.30.6 and loopmarket 0.14.4** (the graph kind's canonical form, see its section; both by tag, verified from PyPI). Before that, **ontodag 0.30.5**, by tag on Peter's word (all four jobs green incl. downstream and verify; `release_smoke.py --pypi 0.30.5` 27/27 after one index-lag retry) (the `swarm` extra's floor raised to recordstore 0.22.1 for the diff lookahead in merge-on-save; `CI=1` 1,217 passed + 3 skipped, live 2/2, smoke 27/27 on the wheel, `.[swarm]` resolves recordstore 0.22.1 + swarmfs 0.14.0 with no requests/swarm-bee/eth-keys). Sister releases the same day: swarmfs 0.14.0, recordstore 0.22.1, loopmarket 0.14.2. Before that: **ontodag 0.30.3 and loopmarket 0.14.1**, both by tag on Peter's "release both", all workflow jobs green (ontodag's four incl. downstream and verify), verified from fresh PyPI venvs (ontodag smoke 27/27; `ontodag[swarm]==0.30.3` resolves recordstore 0.21.1 + swarmfs 0.12.0; loopmarket[swarm] resolves recordstore 0.21.1). Patches, so ontodag-fs's `<0.31.0` ceiling still holds. Content: the read-through clone and the swarm floors (see Bee run 12). Before that: **ontodag 0.30.0** (step 7: prelude v4, core v12, family pins, the keyplan consolidation; see the roles section). Before it, **0.29.0**, published by tag, all four
 workflow jobs green, and verified from PyPI (`release_smoke.py --pypi
 0.29.0`, 27/27). It is the `ontodag.act` revocation fix: token format
 2, where a check value of the child key heads each token and is bound
