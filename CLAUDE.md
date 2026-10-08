@@ -426,7 +426,7 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     itself); `TestCloneReadsThroughTheLocalStore` (2, mutation-checked);
     live 2/2 (39 s, the scorched-earth feed rehydration runs the new clone);
     `CI=1` 1216 passed + 3 skipped (README 1219). loopmarket (released as
-    unreleased): `swarm` extra `recordstore[bee,feeds]>=0.21.1`; suite 301 +
+    0.14.1): `swarm` extra `recordstore[bee,feeds]>=0.21.1`; suite 301 +
     4; live book test 1/1 (46 s). **Still open:** recordstore's trie walk
     (depth-first, one batch per node with children: ~2,700 sequential rounds
     for a pack store, now the bootstrap's bottleneck; a level-at-a-time
