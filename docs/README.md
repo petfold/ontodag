@@ -61,4 +61,7 @@ PHILOSOPHICAL_LANGUAGES, SWARM_DESIGN_update (POT/beeson proposal),
 SEMANTIC_OS (an essay: the five sister repos read as the layers of an
 operating system for what you know, keep and attend to), WINDOWS_ROUND_3
 (the third Windows test round — a copy-pasteable PowerShell script for the
-tester, with expected outputs; round 2 is summarized in USER_GUIDE §2).
+tester, with expected outputs; round 2 is summarized in USER_GUIDE §2),
+REVIEW_2026-10 (a code, performance and design review of ontodag and
+loopmarket: the goals against the code, unnecessary complexity, how the two
+repos fit, measured performance and coverage, and recommendations).
