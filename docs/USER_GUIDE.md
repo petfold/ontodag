@@ -220,7 +220,7 @@ portably — `~` means your home directory on every platform, including
 | --- | --- |
 | Linux | Tested — the full suite runs here on every change. |
 | macOS | Tested (2026-08-04, `[all,test]` install, full core suite green on Python 3.13). Install Graphviz with `brew install graphviz`, and see "Which Python" below. |
-| Windows | Tested (2026-08-24, Windows 11, Python 3.13, `ontodag[test]` install): the core, the CLI, file stores and `rs:` record stores all work. See "On Windows" below for the three things that behave differently. The Swarm *signer* still needs the `bee` package, which builds a native secp256k1 extension — the least likely piece to install cleanly, and untested there. |
+| Windows | Tested (2026-08-24, Windows 11, Python 3.13, `ontodag[test]` install): the core, the CLI, file stores and `rs:` record stores all work. See "On Windows" below for the three things that behave differently. The Swarm *signer* needs `coincurve`, a compiled secp256k1 binding (wheels exist for Windows); untested there. |
 
 Nothing in the store itself is platform-specific: it is a canonical text file
 (§5.1), so the same store works on any of the three, and `$ONTODAG_HOME`
@@ -288,8 +288,8 @@ install — it is pure Python, so it installs on anything from 3.11 to the
 newest release the day that release lands.
 
 The heavy extras are a different question, because they are not ours. The
-Swarm signer (`ontodag[swarm]`, and therefore `[all]`) reaches `swarm-bee`,
-which needs **`coincurve`** — a compiled secp256k1 binding. A brand-new Python
+Swarm signer (`ontodag[swarm]`, and therefore `[all]`) needs **`coincurve`**
+— a compiled secp256k1 binding. A brand-new Python
 has no prebuilt `coincurve` wheel on PyPI for the first months of its life, so
 pip falls back to building it from source, and that build currently fails.
 Python **3.14** is in that window today; 3.13 has wheels for every dependency.
@@ -1490,9 +1490,9 @@ with no node and no network. Moving to `swarm:NAME` later is a backend swap.
 instead of a local file. It needs a few extra dependencies — install them once with
 `pip install "ontodag[swarm]"`, which brings `swarmfs` (the store directory and
 its background sync with the Bee node, including picking a postage batch when
-`bee_batch` is left at `auto`), `swarm-bee` (signing feed updates) and
-`requests` (for recordstore's `swarm_store`, should your own Python code put a
-store directly on Swarm). Miss them and you get a clear message saying which.
+`bee_batch` is left at `auto`), and `coincurve` (libsecp256k1, for signing
+feed updates and provenance records). Miss them and you get a clear message
+saying which.
 Then set the store once and it sticks:
 
 ```console
@@ -1726,7 +1726,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.30.3 - type help for help
+Ontodag 0.30.4 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png

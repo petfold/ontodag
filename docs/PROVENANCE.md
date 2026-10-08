@@ -6,8 +6,10 @@ The store layer is IMPLEMENTED** (same day, Phase 2 first movement):
 `src/ontodag/provenance.py` — claim-grain subjects, the four signed record
 types with `v` + namespaced `ext` from day one, `s/<subject-hash>/<record-
 hash>` content-addressed keys (set semantics; re-assertion is deliberately a
-new record), real secp256k1 signing via the same `bee` package the feed
-pointer uses (duck-typed seam, lazy import) with `verify_record`, and
+new record), real secp256k1 signing via `swarmfs.signer`, the signer the
+feed pointer uses (libsecp256k1 through coincurve; it was the `swarm-bee`
+package until 0.31, with byte-identical results; duck-typed seam, lazy
+import) with `verify_record`, which needs no compiled dependency, and
 conflict-free direction-independent `union` for the per-writer deployment
 shape. Tests: `tests/test_provenance.py`. **The write surface is implemented too**
 (same day): `odag-mcp --write` — propose → canonical echo → confirm with a

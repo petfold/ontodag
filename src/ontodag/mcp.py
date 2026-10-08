@@ -158,7 +158,7 @@ class AgentSurface:
 
     def _verify(self, record):
         """True/False per the signature, or None when no verifier is
-        available (the `bee` package absent and none injected)."""
+        available (swarmfs absent and none injected)."""
         if self._verifier is not None:
             return bool(self._verifier(record))
         try:

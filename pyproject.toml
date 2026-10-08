@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ontodag"
-version = "0.30.3"
+version = "0.30.4"
 description = "Associative memory and categories based on a directed acyclic graph data structure"
 readme = "README.md"
 license = { text = "BSD-3-Clause" }
@@ -68,14 +68,13 @@ crypto = ["pycryptodome"]
 # are bit-compatible with a Bee node's.
 act = ["coincurve", "pycryptodome"]
 web = ["ontodag[viz,owl]", "flask", "dot2tex"]
-# The `swarm:NAME` CLI backend talks to a Bee node via recordstore's
-# BeeBytesStore (needs `requests`, recordstore's [bee] extra); resolves the
-# postage batch with the default `bee_batch = auto` (needs `swarmfs`, the
-# [stamps] extra — without it every command on a swarm store fails at
-# store-open, since selection happens in BeeBytesStore's constructor); and —
-# when a signer is configured — publishes the latest root to a Swarm feed via
-# SwarmFeedPointer (needs `swarm-bee`, the [feeds] extra). Declare all three
-# through recordstore so the versions stay in step with it. (Historical note:
+# The `swarm:NAME` CLI backend reaches Bee through swarmfs alone (since
+# recordstore 0.22: requests and swarm-bee are gone): the local-first store
+# and its sync, postage batch selection with `bee_batch = auto`, and — when
+# a signer is configured — the latest root published to a Swarm feed via
+# SwarmFeedPointer, signed by swarmfs.signer (coincurve, i.e. libsecp256k1;
+# provenance records sign with it too). Declared through recordstore so the
+# versions stay in step with it. (Historical note:
 # the [stamps] extra is why the floor was once pinned at 0.14.0 — it does not
 # exist earlier, and pip only warns on unknown extras; the floor is 0.16.0
 # now because ontodag.certificates consumes prove/verify_proof.)
@@ -85,14 +84,15 @@ web = ["ontodag[viz,owl]", "flask", "dot2tex"]
 # swarmfs is named directly too since 2026-10-08, because ontodag uses one of
 # its features itself: a fresh replica reads the published root through its
 # own local store in read-through mode (swarmfs 0.12), so the one client that
-# pushes and heals also bootstraps. recordstore 0.21.1 is the floor that
-# brings swarmfs's repair of blobs the network lost.
-swarm = ["recordstore[swarm-only,local-first-swarm]>=0.21.1", "swarmfs>=0.12.0"]
+# pushes and heals also bootstraps; and since 0.31 provenance records sign
+# with swarmfs.signer (0.13). recordstore 0.22 is the floor that reaches Bee
+# only through swarmfs.
+swarm = ["recordstore[swarm-only,local-first-swarm]>=0.22.0", "swarmfs[feeds]>=0.13.0"]
 # Everything, and it means everything: `all` is a promise about coverage, not
 # a curated selection. Leaving `swarm` out made it a lie about the one feature
 # this project is most about, and left the reader to notice that `[all]` still
-# could not reach a Bee node. It is heavier than the rest (`swarm-bee` brings
-# compiled coincurve/pycryptodome) — which is an argument for the base install
+# could not reach a Bee node. It is heavier than the rest (coincurve is
+# compiled) — which is an argument for the base install
 # staying lean and for the narrow extras existing, not for `all` under-
 # delivering. Targets that cannot take a compiler (Pyodide, embedded) ask for
 # what they need; `test` deliberately stays without `swarm`, so CI keeps

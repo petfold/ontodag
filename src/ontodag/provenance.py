@@ -32,14 +32,18 @@ The shapes, exactly as agreed:
   never load-bearing; re-asserting the same claim later is deliberately a
   *new* record (audit information).
 * **Signing** is a duck-typed seam (``.address`` + ``.sign(bytes) → hex``):
-  `KeySigner` provides real secp256k1/keccak signing through the same
-  ``bee`` package the Swarm feed pointer uses (lazy import, optional —
-  the `swarm` extra's chain), and ``verify_record`` checks any record
-  against its ``author`` address. Tests may inject any signer; what the
-  network should trust is the real one.
+  `KeySigner` provides real secp256k1/keccak signing through
+  ``swarmfs.signer`` — the signer Swarm feed updates use, whose
+  cryptography is libsecp256k1's (coincurve; lazy import, optional — the
+  `swarm` extra's chain) — and ``verify_record`` checks any record against
+  its ``author`` address, with no compiled dependency (recovery falls back
+  to pure Python, which handles no secret). Until 0.31 both went through
+  the ``swarm-bee`` package; the signature and address strings are
+  byte-identical, so records signed then verify the same. Tests may
+  inject any signer; what the network should trust is the real one.
 
-Module-level imports stay core-only (B1; recordstore and bee load lazily
-inside functions — checked in tests/test_boundaries.py).
+Module-level imports stay core-only (B1; recordstore and swarmfs load
+lazily inside functions — checked in tests/test_boundaries.py).
 
 Deployment shape (agreed, §3): per-writer stores folded by explicit
 choice — publish your provenance root beside your knowledge root as a
@@ -121,26 +125,32 @@ class KeySigner:
     so the core stays dependency-free."""
 
     def __init__(self, private_key_hex: str):
-        from bee.swarm.keys import PrivateKey
-        self._key = PrivateKey.from_hex(private_key_hex)
-        self.address = str(self._key.public_key().address())
+        try:
+            from swarmfs.signer import Signer
+            self._key = Signer(private_key_hex)
+        except ImportError as e:
+            raise ImportError(
+                "signing provenance records needs swarmfs with coincurve: "
+                'pip install "ontodag[swarm]"') from e
+        self.address = self._key.address_hex
 
     def sign(self, data: bytes) -> str:
-        return str(self._key.sign(data).to_hex())
+        return self._key.sign(data).hex()
 
 
 def verify_record(record: dict) -> bool:
     """True iff the record's signature was made by ``record['author']``
     over the record's payload bytes. False for tampering or a wrong
     author; raises only on a malformed envelope."""
-    from bee.swarm.keys import EthAddress, Signature, verify_signature
+    from swarmfs.signer import verify
     try:
-        signature = Signature.from_hex(record["sig"])
-        author = EthAddress.from_hex(record["author"])
-    except Exception:
+        signature = bytes.fromhex(str(record["sig"]).removeprefix("0x"))
+        author = bytes.fromhex(str(record["author"]).lower().removeprefix("0x"))
+    except (KeyError, ValueError):
         return False
-    return bool(verify_signature(signature, record_payload_bytes(record),
-                                 author))
+    if len(author) != 20:
+        return False
+    return verify(signature, record_payload_bytes(record), author)
 
 
 # --------------------------------------------------------------------------- #

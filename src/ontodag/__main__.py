@@ -604,7 +604,7 @@ class SwarmBackend:
                 f"installed ({missing!r}); install the swarm extra with:  "
                 f"pip install \"ontodag[swarm]\"   "
                 f"(that covers the local-first store machinery — swarmfs — "
-                f"plus `swarm-bee` for feed publication)"
+                f"plus coincurve for signing feed updates)"
             ) from exc
         except OSError as exc:
             raise _swarm_open_error(self.name, api, exc) from exc
@@ -1345,14 +1345,14 @@ def _bee_get(api, path, timeout=4):
 def _swarm_checks(api):
     """Yield (ok, label, detail) in dependency order, stopping at the first
     failure — later checks say nothing useful once an earlier one fails."""
-    missing = [name for name in ("requests", "swarmfs", "bee")
+    missing = [name for name in ("swarmfs", "coincurve")
                if importlib.util.find_spec(name) is None]
     if missing:
         yield (False, "swarm extra installed",
                f"missing {', '.join(missing)}\n"
                '  pip install "ontodag[swarm]"')
         return
-    yield (True, "swarm extra installed", "requests, swarmfs, bee")
+    yield (True, "swarm extra installed", "swarmfs, coincurve")
 
     # Reachability is asked of /health, not of /: Bee serves the root as
     # `text/plain` ("Ethereum Swarm Bee"), so parsing it as JSON raised

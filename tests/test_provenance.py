@@ -21,9 +21,9 @@ from ontodag.provenance import (ProvenanceStore, below_subject,
 try:
     from ontodag.provenance import KeySigner
     KeySigner("aa" * 32)
-    HAVE_BEE = True
+    HAVE_SIGNER = True
 except ImportError:
-    HAVE_BEE = False
+    HAVE_SIGNER = False
 
 
 class FakeSigner:
@@ -43,6 +43,16 @@ def store(name="alice", blobs=None):
 
 
 CLAIM = below_subject("cat", "pet")
+
+# Signed with swarm-bee 1.1.0 (key "aa" * 32), before the signer moved to
+# swarmfs.signer: the format test for records already out there.
+_SWARM_BEE_RECORD = {
+    "author": "8fd379246834eac74b8419ffda202cf8051f7a03", "basis": "r1",
+    "ext": {}, "origin": "asserted",
+    "sig": "6d6855f1f0504bf091812c815641ac45093de4335fabd18d3415fb0f5f55b43b"
+           "0e15016bc9c4fa0b8fe3f70cff3065d96b87f0d491054e0f670c6e29b97449201c",
+    "subject": {"claim": "below", "sub": "cat", "sup": "pet"},
+    "time": "2026-10-08", "type": "assertion", "v": 1}
 
 
 class TestRecords(unittest.TestCase):
@@ -157,7 +167,7 @@ class TestUnion(unittest.TestCase):
         self.assertEqual(len(list(alice.records())), 1)
 
 
-@unittest.skipUnless(HAVE_BEE, "real signing needs the bee package")
+@unittest.skipUnless(HAVE_SIGNER, "real signing needs swarmfs with coincurve")
 class TestRealSigning(unittest.TestCase):
     def test_sign_and_verify_roundtrip(self):
         ps = ProvenanceStore(RecordStore(MemoryBytesStore()),
@@ -178,6 +188,13 @@ class TestRealSigning(unittest.TestCase):
     def test_fake_signatures_do_not_verify(self):
         record = store().assert_claim(CLAIM, basis="r1")
         self.assertFalse(verify_record(record))
+
+    def test_a_record_signed_by_swarm_bee_still_verifies(self):
+        # Records signed before 0.31 went through swarm-bee; the strings are
+        # byte-identical, so they verify unchanged. The record below was
+        # signed with swarm-bee 1.1.0 (key "aa"*32) on 2026-10-08.
+        self.assertTrue(verify_record(_SWARM_BEE_RECORD))
+        self.assertEqual(KeySigner("aa" * 32).address, _SWARM_BEE_RECORD["author"])
 
 
 if __name__ == "__main__":

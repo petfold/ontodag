@@ -39,7 +39,7 @@ Base install (`pip install ontodag`) is pure Python: the core plus
 | `store` | recordstore | alias of the base dependency |
 | `crypto` | pycryptodome | encrypted `rs:` stores (the `store_key` setting): AES-SIV, deterministic so same key + same knowledge = same root |
 | `act` | coincurve, pycryptodome | `ontodag.act`: category-based access control — a key graph whose tokens follow subsumption, Bee-ACT-compatible grantee entries (experimental, Phase 1: client side, no node) |
-| `swarm` | recordstore[swarm-only,local-first-swarm] ≥ 0.21.1, swarmfs ≥ 0.12.0 | `swarm:` stores — local-first: commits land in a store directory instantly (offline works) and sync to Swarm in the background; with a signer the head publishes to a feed after network confirmation |
+| `swarm` | recordstore[swarm-only,local-first-swarm] ≥ 0.22.0, swarmfs[feeds] ≥ 0.13.0 | `swarm:` stores — local-first: commits land in a store directory instantly (offline works) and sync to Swarm in the background; with a signer the head publishes to a feed after network confirmation |
 | `web` | flask, dot2tex, viz, owl | the web app and REST API (`odag web`) |
 | `all` | everything above | |
 | `test` | pytest + viz, owl, store, crypto | the suite (deliberately no swarm). Rendering tests additionally need Graphviz's `dot` binary from your OS, and skip without it |

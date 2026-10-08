@@ -14,6 +14,22 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.30.4] — 2026-10-08
+
+### Changed
+
+- **Nothing in the Swarm path uses swarm-bee any more.** Provenance
+  records sign through `swarmfs.signer` (libsecp256k1 through coincurve;
+  it was the `swarm-bee` package), and recordstore 0.22's feed pointer
+  does the same. The signature and address strings are byte-identical, so
+  records signed before verify unchanged (a frozen swarm-bee-signed record
+  is in the tests), and `verify_record` needs no compiled dependency
+  (recovery falls back to pure Python, which handles no secret).
+  swarm-bee's last release was 2026-05-20.
+- **The `swarm` extra needs recordstore 0.22 and swarmfs[feeds] 0.13**, and
+  no longer pulls `requests`, swarm-bee, eth-keys or pydantic. `odag swarm`
+  checks for swarmfs and coincurve.
+
 ## [0.30.3] — 2026-10-08
 
 ### Changed
