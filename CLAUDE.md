@@ -427,10 +427,18 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     live 2/2 (39 s, the scorched-earth feed rehydration runs the new clone);
     `CI=1` 1216 passed + 3 skipped (README 1219). loopmarket (released as
     0.14.1): `swarm` extra `recordstore[bee,feeds]>=0.21.1`; suite 301 +
-    4; live book test 1/1 (46 s). **Still open:** recordstore's trie walk
-    (depth-first, one batch per node with children: ~2,700 sequential rounds
-    for a pack store, now the bootstrap's bottleneck; a level-at-a-time
-    prefetch with bounded memory is the fix); recordstore's own direct route
+    4; live book test 1/1 (46 s). **recordstore's trie walk fixed
+    (2026-10-08, main 1038825, unreleased, for 0.21.2):** still depth-first
+    (sorted streaming, bounded memory) but `_Trie._prefetch` loads ahead
+    level by level from the walk's stack (`WALK_LOOKAHEAD` 4096, at most
+    half the node cache, prefix-pruned); `items()` windows >= 256. Counted:
+    space store 2,797 -> 393 rounds (the floor at 32 in flight). Live, two
+    same-size pack stores: 0.21.1 read `economics` in 3,260 calls / 324 s,
+    the new walk `computing` in 46 calls / 46 s (both partly cached on the
+    node); ontodag's clone of `medicine` through swarmfs read-through: 37
+    calls, 134 s incl. hashing + replay, cloned root == published.
+    `tests/test_walk.py` (4). `_diff` (merge/sync) still loads per node.
+    **Still open:** recordstore's own direct route
     (`BeeBytesStore`/`swarm_store`/`SwarmFeedPointer`) onto swarmfs, the rest
     of the single route; the Bee issue draft (Peter files it); batch
     `c931c8a5…` has ~10 days left.
