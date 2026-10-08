@@ -366,7 +366,9 @@ the parents the item keeps). One denotation, one stored form, and every
 query path — a two-term `get`, a `get` on the meet, `is_below` against a
 bound only the meet is inside — finds the item where it is. Every value
 named in the put is still materialized (a value once named stays), so
-stored form does not depend on the order of puts. Role terms naming nodes
+stored form does not depend on the order of puts. The graph kind is the
+exception since 2026-10-08: its meet is a compound term whose spelling
+follows the graph, so its terms are filed as their parts instead (§15). Role terms naming nodes
 have no nameable meet and keep their several parents; a provably empty
 meet is the disjoint-parents refusal below. A legacy or edge-built store
 may still hold an item under two values of one head; the planner
@@ -828,13 +830,15 @@ Canonical form: each constraint canonical (`weight(8000g)` →
 `weight(8kg)`), deduplicated, sorted; at least one constraint. A
 **redundant** constraint — one that another constraint of the same term
 already implies (`transport(bicycle small-item)` with `bicycle ⊑
-small-item`) — is **refused**, for the reason a whole-dimension parameter
-is refused (§14, #17): it would give one denotation two canonical names,
-and I1 (distinct canonical names are never mutually contained) is what
-keeps the computed order acyclic. Because the graph decides redundancy,
-the spelling a writer must use can change as the graph grows; a stored
-name is never re-read against the rule, and replays (merge, sync) run
-lenient like role parameters naming not-yet-placed nodes.
+small-item`) — is **dropped**: the term is spelled `transport(bicycle)`,
+since one denotation gets one canonical name (I1: distinct canonical
+names are never mutually contained, which keeps the computed order
+acyclic). Until 2026-10-08 it was refused instead, for the reason a
+whole-dimension parameter is refused (§14, #17); but the graph decides
+redundancy, so refusing made whether a write was accepted depend on the
+order facts arrived in. Since compound terms are no longer stored (below),
+a spelling that follows the graph harms nothing. Replays (merge, sync) run
+lenient, like role parameters naming not-yet-placed nodes.
 
 **Order.** `H(X…) ⊑ H(A…)` iff every constraint `A` is above (or is) some
 constraint `X` — a thing meeting all of `X…` meets all of `A…`. Fewer
@@ -845,8 +849,60 @@ same-head terms is the union of their constraints, reduced — never empty,
 since categories carry no disjointness (two same-head parents on one item
 are admitted and fold to their union; `overlaps` is always true).
 `H(A B)` ≡ `H(A) H(B)`: as a query, two cones with the same intersection;
-as an item, `put` under the two terms files it under the one (canonical
-placement, §9).
+as an item, either spelling files it under the parts (below).
+
+**Stored as parts (2026-10-08).** A graph-kind head relates an item to
+ONE thing: a job under `transport(piano)` and `transport(heavy-item)`
+moves one thing that is a piano and heavy, which is how loopmarket reads
+its terms. So a term with several constraints is never stored: filing
+under `transport(heavy-item piano)` files under `transport(heavy-item)` and
+`transport(piano)`, and a constraint that is itself a graph-kind term
+splits too (`H(G(a b))` is `H(G(a))` and `H(G(b))`). Every part a write
+names is materialized, whether or not the graph already relates the parts,
+and reduction keeps only the finer ones: at once, or when a later fact
+makes one part imply another (re-reduction, §16's mechanism, now covers
+the graph kind's heads). Queries answer a compound as the conjunction of
+its parts, in `get`, `is_below` and everything built on them.
+
+Why: a compound's canonical spelling follows the graph, while a stored
+name never changes. Until this date the parts were folded into one stored
+compound (canonical placement, §9), and the same knowledge got two stored
+forms. A removal job tagged "piano" and "heavy item" was stored under
+`transport(piano)` in a store that knew pianos are heavy, and under
+`transport(heavy-item piano)` in one that learned it a day later: roots
+`0b24367f…` and `55b70437…`, a third (`cd01999c…`) for their merge, and
+two names for one class in the second store. Now all three are
+`0b24367f…`. Peter chose this on 2026-10-08 over renaming stored
+compounds as the graph grows (names are identity across stores, merges,
+provenance and paths) and over reading two terms as two things (that is
+the relation kinds' reading, and not loopmarket's). Stores written before
+keep their compound nodes: they load verbatim and answer the same
+questions, and `ontodag.migrate` replays them into parts. The relation
+kinds keep compounds as written, since an item can relate to several
+things at once, so a compound there is not its parts; one written
+explicitly (`in(museum-district tokyo)`) still becomes a second name if its
+constraints are related later. That gap is recorded, not changed.
+`tests/test_graph_kind.py` (`TestStoredFormIsOrderFree`,
+`TestAgainstTheMeaning`: 25 random worlds, four orders each and a merge,
+one root, every answer checked against the one-thing reading).
+
+Answering a compound as its parts needed two planner changes, measured
+before they were made. A part is often broad (`transport(mass(..30kg))`
+beside `transport(c0)`), and its cone runs through every term inside its
+values, each range inside the next, so its asserted count is no guide to
+its size: a graph-kind part's planner size is now at least its narrowest
+category constraint's count, or the store's size when it names only
+values, and a part not yet stored is computed only if walked. So the
+narrow part is walked and the broad one probed per candidate. And the
+step that drops a query term below another now climbs asserted edges
+only; it had climbed the computed order through every containing range
+(same-head terms are compared by containment the step before, and a drop
+missed costs a cone, never an answer). Offers filed under one category
+and one mass range each: 1.8, 11 and 37 ms for `get transport(c0
+mass(..30kg))` at 400, 1,600 and 6,400 offers (0.9, 62 and 554 ms
+before, with answers missed in the shapes §19 records); filing stays flat
+at about 1.2 ms per put (0.8 ms before; an item now has an edge per
+constraint).
 
 **The name.** Every node is a category and every typed value narrows a
 query, so neither "category" nor "constraint" says what is special here.
@@ -977,23 +1033,22 @@ tests of their own.
 Registry **4.3** (additive: a kind; no canonical name of an existing
 kind changes). Prelude unchanged (v3).
 
-**A limitation of the graph kind, found while building this and not
-changed here.** Its folding (§9) makes stored form depend on filing
-order when constraints become related later: `courier` filed under
-`transport(bicycle)` and `transport(small-item)` stores
+**A limitation of the graph kind, found while building this, fixed on
+2026-10-08** (§15: compound terms are stored as their parts, and the
+graph kind's heads are re-reduced). Its folding (§9) made stored form
+depend on filing order when constraints became related later: `courier`
+filed under `transport(bicycle)` and `transport(small-item)` stored
 `transport(bicycle small-item)` if filed before `bicycle ⊑ small-item`,
 and `transport(bicycle)` if after. And for a relation that is not
-single-valued, the fold changes the meaning: `about(mars)` and
-`about(earth)` store `about(earth mars)`, about one thing that is both.
-ROLES.md §9 step 3.3 gives `about` the transitive kind's treatment
-instead; whether the graph kind should keep folding is loopmarket's
-question. A second gap, found while building §18: graph-kind terms are
-not re-reduced when a constraint moves. `courier-x` under
-`transport(small-item)` and under `bike-courier ⊑ transport(bicycle)`
-keeps both edges if `bicycle ⊑ small-item` comes afterwards, and only the
-second if it came first. Adding the graph kind's heads to the
-re-reduction below would fix it; that changes graph-kind stored form, so
-it waits for the same decision.
+single-valued, the fold changed the meaning: `about(mars)` and
+`about(earth)` stored `about(earth mars)`, about one thing that is both,
+which is why ROLES.md §9 step 3.3 gave `about` the transitive kind's
+treatment instead. A second gap, found while building §18: graph-kind
+terms were not re-reduced when a constraint moved. `courier-x` under
+`transport(small-item)` and under `bike-courier ⊑ transport(bicycle)` kept
+both edges if `bicycle ⊑ small-item` came afterwards, and only the second
+if it came first. Both waited for one decision, since fixing either
+changes graph-kind stored form.
 
 ## 17. The enclosing kind: relations that follow `in` (2026-10-06)
 
@@ -1269,6 +1324,21 @@ whose answers stay small cost the same at 400 and 6,400 items, and
 `get from(ljubljana)` grows with its answer: 8, 34 and 115 ms for 75, 300
 and 1,200 (before, 100 s at 6,400). Merging two stores costs 0.28 ms per
 merged node at every size.
+
+**Found and fixed later (2026-10-08).** Two shapes the name-directed
+hops missed, so on a resident graph `get` could answer less than
+`is_below` (and less than a lazy reader, which scans). A value named only
+inside a term is not a node, so no walk met it: with things filed under
+`transport(mass(..5kg))`, `get transport(mass(..8kg))` answered nothing. The
+values that present terms name as constraints now have an index per head,
+like a star's, consulted wherever a walk meets a value. And a graph-kind
+term nesting a graph-ordered term (`transport(option(b))` above
+`transport(piano)` when piano ⊑ option(a) ⊑ option(b)) is reached by no
+hop; a head with such a term scans, as does any head whose terms name a
+value no index covers. Re-reduction follows nested constraints that are
+not nodes too. Neither showed in the random worlds, which never made a
+value-only constraint or a nested graph-kind term;
+`TestGraphKindAgreesWithTheScan` now makes both.
 
 **What still scans, deliberately.**
 

@@ -120,12 +120,14 @@ class EagerOntoDAG(OntoDAG):
             payload=None, meta=None):
         super().put(subcategory, super_categories, optimized=optimized)
         # Plain strings accepted, like OntoDAG; parametric sugar stores
-        # under the canonical name (weight(3000g) -> weight(3kg)).
-        name = self._canonical_name(_name_of(subcategory))
-        if payload is not None:
-            self._payloads[name] = payload
-        if meta is not None:
-            self.nodes[name].metadata = dict(meta)
+        # under the canonical name (weight(3000g) -> weight(3kg)), and a
+        # compound graph-kind term as its parts (DIMENSIONS.md §15).
+        for name in self._graph_parts(_name_of(subcategory)):
+            name = self._canonical_name(name)
+            if payload is not None:
+                self._payloads[name] = payload
+            if meta is not None:
+                self.nodes[name].metadata = dict(meta)
 
     def remove(self, node_to_remove):
         name = self._canonical_name(_name_of(node_to_remove))

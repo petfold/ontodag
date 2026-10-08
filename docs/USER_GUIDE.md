@@ -873,10 +873,16 @@ What to know:
   of a match has to be inside (loopmarket reads the courier's argument as
   what the courier *accepts*, so the wanter's must be inside it). Rules:
   each listed category must exist and each term must parse, or the whole
-  term fails closed; a constraint another one already implies
-  (`transport(bicycle small-item)`) is refused, so one set has one name;
-  the kind is not in the prelude — declare it with `odag put
-  graph-dimension dimension`, then `odag put transport graph-dimension`.
+  term fails closed; a constraint another one already implies is
+  dropped (once bicycles are small items, `transport(bicycle small-item)`
+  is spelled `transport(bicycle)`), so one set has one name; a thing filed
+  under a term with several constraints is filed under one term per
+  constraint (`transport(bicycle fragile)` files it under
+  `transport(bicycle)` and `transport(fragile)`, and the coarser one drops
+  out if the graph later says bicycles are fragile), so what is stored never
+  depends on the order the facts arrived in; the kind is not in the
+  prelude — declare it with `odag put graph-dimension dimension`, then
+  `odag put transport graph-dimension`.
 - **Counts are whole and start at one.** `count(2dz)` is fine (that's 24);
   `count(2.5)` refuses — continuous stuff belongs under a dimensional head
   like `mass` or `volume`. `count(0)` also refuses, with a reason worth
@@ -1726,7 +1732,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.30.5 - type help for help
+Ontodag 0.30.6 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png

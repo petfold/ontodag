@@ -8,6 +8,7 @@ is what the courier accepts, and the wanter's `transport(bicycle mass(5kg))`
 fits within it. Which side must be inside is the consumer's rule; ontodag
 only orders."""
 
+import random
 import unittest
 
 from ontodag import prelude
@@ -42,14 +43,22 @@ class TestGrammar(unittest.TestCase):
         self.assertEqual(render("transport(mass(..8kg) small-item)", dag),
                          "transport(mass(..8kg) small-item)")
 
-    def test_unknown_and_redundant_constraints_are_refused(self):
+    def test_unknown_constraints_fail_closed_and_redundant_ones_are_dropped(self):
         dag = city()
         with self.assertRaisesRegex(ValueError, "unicorn"):
             dag.is_below("transport(unicorn)", "transport(goods)")
-        with self.assertRaisesRegex(ValueError, "redundant"):
-            dag.put("x", ["transport(bicycle small-item)"])
-        with self.assertRaisesRegex(ValueError, "redundant"):
-            dag.is_below("transport(mass(5kg) mass(..8kg))", "transport(goods)")
+        # A redundant constraint says nothing the finer one does not, so the
+        # spelling drops it (until 2026-10-08 it was refused, which made a
+        # write's acceptance depend on whether the graph already related
+        # the two): one class, one name.
+        self.assertEqual(dag._canonical_name("transport(bicycle small-item)"),
+                         "transport(bicycle)")
+        self.assertEqual(dag._canonical_name("transport(mass(5kg) mass(..8kg))"),
+                         "transport(mass(5kg))")
+        dag.put("x", ["transport(bicycle small-item)"])
+        self.assertEqual({p.name for p in dag.nodes["x"].parents},
+                         {"transport(bicycle)"})
+        self.assertIn("transport(small-item)", dag.nodes)   # named, so materialized
         # a kind node is not a constraint; an empty argument is not a term
         with self.assertRaises(ValueError):
             dag.is_below("transport(linear-dimension)", "transport(goods)")
@@ -107,11 +116,13 @@ class TestOrder(unittest.TestCase):
         self.assertEqual(dag.meet("transport(bicycle)", "transport(small-item)"),
                          "transport(bicycle)")
         self.assertTrue(dag.overlaps("transport(bicycle)", "transport(piano)"))
-        # two same-head parents fold to their meet, the union of the
-        # constraints — so `H(A B)` ≡ `H(A) H(B)` as an ITEM too
+        # `H(A B)` ≡ `H(A) H(B)` as an ITEM too: either spelling files the
+        # item under the parts, and no compound term is ever a node (§15)
         dag.put("courier-2", ["transport(small-item)", "transport(mass(..8kg))"])
-        self.assertEqual({p.name for p in dag.nodes["courier-2"].parents},
-                         {"transport(mass(..8kg) small-item)"})
+        parts = {"transport(mass(..8kg))", "transport(small-item)"}
+        for courier in ("courier-1", "courier-2"):
+            self.assertEqual({p.name for p in dag.nodes[courier].parents}, parts)
+        self.assertNotIn("transport(mass(..8kg) small-item)", dag.nodes)
         self.assertEqual(names(dag.get(["transport(mass(..8kg) small-item)"], items_only=True)),
                          {"courier-1", "courier-2"})
 
@@ -148,17 +159,20 @@ class TestATermGoesOnlyUnderItsHead(unittest.TestCase):
         self.assertEqual(before, after)
         self.assertNotIn("transport(vehicle)", dag.nodes)
 
-    def test_a_folded_term_stays_usable_when_its_constraints_meet(self):
-        # Since 0.26.0 a stored term was re-read against the redundancy
-        # rule at every parse, so once bicycle ⊑ small-item every query
-        # touching transport(bicycle small-item) raised.
+    def test_the_finer_part_stays_when_the_constraints_meet(self):
+        # Until 2026-10-08 the two terms folded into a stored
+        # transport(bicycle fragile), which became a second name for
+        # transport(bicycle) once bicycles were fragile.
         dag = city()
         dag.put("fragile", ["goods"])
         dag.put("courier", ["transport(bicycle)", "transport(fragile)"])
         self.assertEqual({p.name for p in dag.nodes["courier"].parents},
-                         {"transport(bicycle fragile)"})
+                         {"transport(bicycle)", "transport(fragile)"})
         dag.put("bicycle", ["fragile"])          # now fragile is redundant
+        self.assertEqual({p.name for p in dag.nodes["courier"].parents},
+                         {"transport(bicycle)"})
         self.assertTrue(dag.is_below("courier", "transport(goods)"))
+        self.assertTrue(dag.is_below("courier", "transport(bicycle fragile)"))
         self.assertIn("courier", {n.name for n in dag.get(["transport(goods)"])})
         self.assertFalse(dag.is_below("courier", "goods"))
 
@@ -174,7 +188,8 @@ class TestPersistence(unittest.TestCase):
         dag.put("courier", ["transport(mass(..8kg) small-item)"])
         root = dag.commit()
         again = EagerOntoDAG(RecordStore.at(root, store.blobs))
-        self.assertIn("transport(mass(..8kg) small-item)", again.nodes)
+        self.assertIn("transport(mass(..8kg))", again.nodes)
+        self.assertIn("transport(small-item)", again.nodes)
         self.assertTrue(again.is_below("transport(bicycle mass(5kg))",
                                        "transport(mass(..8kg) small-item)"))
         self.assertTrue(again.is_below("courier", "transport(goods)"))
@@ -183,6 +198,251 @@ class TestPersistence(unittest.TestCase):
         fresh.merge(again)
         self.assertEqual(fresh.commit(), root)
         self.assertTrue(fresh.is_below("courier", "transport(goods)"))
+
+
+
+def removals():
+    """A removal firm's catalogue: what a job moves, and two job tags."""
+    dag = EagerOntoDAG(RecordStore(MemoryBytesStore()))
+    prelude.apply(dag)
+    dag.put("graph-dimension", ["dimension"])
+    dag.put("transport", ["graph-dimension"])
+    for name, supers in (("goods", []), ("heavy-item", ["goods"]),
+                         ("piano", ["goods"])):
+        dag.put(name, supers)
+    return dag
+
+
+def parents(dag, name):
+    return {p.name for p in dag.nodes[name].parents}
+
+
+def graph_terms(dag, head="transport"):
+    return [n for n in dag.nodes if n.startswith(head + "(")]
+
+
+class TestStoredFormIsOrderFree(unittest.TestCase):
+    """A graph-kind term with several constraints is stored as its parts
+    (DIMENSIONS.md §15, 2026-10-08). Until then a job tagged "piano" and
+    "heavy item" was folded into a stored `transport(heavy-item piano)`,
+    so a store that learned "pianos are heavy" after the job was posted
+    kept a second name for `transport(piano)`'s class and a different
+    root from a store that knew it first; and nothing re-reduced the
+    graph kind's terms when one of their constraints moved."""
+
+    def test_the_piano_job_converges(self):
+        early = removals()
+        early.put("piano", ["heavy-item"])
+        early.put("job-17", ["transport(piano)", "transport(heavy-item)"])
+        late = removals()
+        late.put("job-17", ["transport(piano)", "transport(heavy-item)"])
+        late.put("piano", ["heavy-item"])
+        self.assertEqual(parents(early, "job-17"), {"transport(piano)"})
+        self.assertEqual(parents(late, "job-17"), {"transport(piano)"})
+        root = early.commit()
+        self.assertEqual(late.commit(), root)
+        merged = EagerOntoDAG(RecordStore(MemoryBytesStore()))
+        merged.merge(late)
+        merged.merge(early)
+        self.assertEqual(merged.commit(), root)
+
+    def test_a_job_type_keeps_no_redundant_tag(self):
+        def typed():
+            dag = removals()
+            dag.put("piano-move", ["transport(piano)"])
+            return dag
+        early, late = typed(), typed()
+        early.put("piano", ["heavy-item"])
+        early.put("job-19", ["piano-move", "transport(heavy-item)"])
+        late.put("job-19", ["piano-move", "transport(heavy-item)"])
+        late.put("piano", ["heavy-item"])
+        self.assertEqual(parents(late, "job-19"), {"piano-move"})
+        self.assertEqual(late.commit(), early.commit())
+
+    def test_the_two_tag_spelling_works_in_every_order(self):
+        for fact_first in (True, False):
+            dag = removals()
+            if fact_first:
+                dag.put("piano", ["heavy-item"])
+            dag.put("job-18", ["transport(heavy-item piano)"])
+            if not fact_first:
+                dag.put("piano", ["heavy-item"])
+            self.assertEqual(parents(dag, "job-18"), {"transport(piano)"})
+            self.assertEqual(sorted(graph_terms(dag)),
+                             ["transport(heavy-item)", "transport(piano)"])
+            self.assertTrue(dag.is_below("job-18", "transport(heavy-item piano)"))
+            self.assertEqual({i.name for i in dag.get(
+                ["transport(heavy-item piano)"], items_only=True)}, {"job-18"})
+
+    def test_a_term_put_as_an_item_is_its_parts(self):
+        dag = removals()
+        dag.put("transport(heavy-item piano)", [])
+        self.assertEqual(sorted(graph_terms(dag)),
+                         ["transport(heavy-item)", "transport(piano)"])
+
+    def test_a_nested_compound_splits_too(self):
+        dag = removals()
+        dag.put("option", ["graph-dimension"])
+        dag.put("job", ["option(transport(heavy-item piano))"])
+        self.assertEqual(parents(dag, "job"), {"option(transport(heavy-item))",
+                                               "option(transport(piano))"})
+        dag.put("piano", ["heavy-item"])
+        self.assertEqual(parents(dag, "job"), {"option(transport(piano))"})
+        self.assertTrue(dag.is_below("job", "option(transport(heavy-item piano))"))
+
+    def test_reclassify_takes_and_retracts_compounds(self):
+        dag = removals()
+        dag.put("crate", ["goods"])
+        dag.put("job", ["transport(crate)"])
+        dag.reclassify(["job"], to=["transport(heavy-item piano)"],
+                       from_=["transport(crate)"])
+        self.assertEqual(parents(dag, "job"),
+                         {"transport(heavy-item)", "transport(piano)"})
+        dag.reclassify(["job"], to=["transport(crate)"],
+                       from_=["transport(heavy-item piano)"])
+        self.assertEqual(parents(dag, "job"), {"transport(crate)"})
+
+    def test_a_store_written_before_reads_the_same_and_migrates(self):
+        # A store from before 2026-10-08 holds the folded compound as a
+        # node. It loads verbatim and answers the same questions; the
+        # migration replay files it as its parts.
+        from ontodag import migrate, native
+        old = native.loads(native.dumps(removals()) +
+                           "'transport(heavy-item piano)' transport\n"
+                           "job-17 'transport(heavy-item piano)'\n")
+        self.assertIn("transport(heavy-item piano)", old.nodes)
+        for query in ("transport(piano)", "transport(heavy-item)",
+                      "transport(heavy-item piano)"):
+            self.assertTrue(old.is_below("job-17", query), query)
+            self.assertEqual({i.name for i in old.get([query], items_only=True)},
+                             {"job-17"}, query)
+        entries = {name: sorted(p.name for p in node.parents
+                                if p.name != old.root.name)
+                   for name, node in old.nodes.items() if name != old.root.name}
+        fresh = migrate._replay(entries)
+        self.assertNotIn("transport(heavy-item piano)", fresh.nodes)
+        self.assertEqual(parents(fresh, "job-17"),
+                         {"transport(heavy-item)", "transport(piano)"})
+
+    def test_readers_writers_and_certificates(self):
+        from ontodag.certificates import prove_below, verify_below
+        from ontodag.lazy import LazyOntoDAG, SparseOntoDAG
+        blobs = MemoryBytesStore()
+        eager = EagerOntoDAG(RecordStore(blobs))
+        for name, supers in (("goods", []), ("heavy-item", ["goods"]),
+                             ("piano", ["goods"])):
+            eager.put(name, supers)
+        prelude.apply(eager)
+        eager.put("graph-dimension", ["dimension"])
+        eager.put("transport", ["graph-dimension"])
+        base = eager.commit()
+        eager.put("job-17", ["transport(heavy-item piano)"])
+        root = eager.commit()
+        sparse = SparseOntoDAG(RecordStore(blobs, root=base))
+        sparse.put("job-17", ["transport(heavy-item piano)"])
+        self.assertEqual(sparse.commit(), root)
+        reader = LazyOntoDAG(RecordStore.at(root, blobs))
+        self.assertEqual({i.name for i in reader.get(
+            ["transport(heavy-item piano)"], items_only=True)}, {"job-17"})
+        for sup, expected in (("transport(heavy-item piano)", True),
+                              ("transport(goods)", True),
+                              ("transport(heavy-item crate)", False)):
+            if sup.endswith("crate)"):
+                eager.put("crate", ["goods"])
+                root = eager.commit()
+            self.assertEqual(eager.is_below("job-17", sup), expected, sup)
+            cert = prove_below(eager, "job-17", sup)
+            self.assertEqual(verify_below(cert, root), expected, sup)
+
+
+class TestAgainstTheMeaning(unittest.TestCase):
+    """Random worlds against what a graph-kind term means: an item under
+    `transport(...)` terms moves ONE thing meeting every constraint named
+    on it or on its types, so it is below `transport(A...)` exactly when
+    each A is above one of those constraints. Every order of the same
+    writes, and every merge of two orders, must give one root, and no two
+    present terms may name one class (I1)."""
+
+    def world(self, seed):
+        rng = random.Random(seed)
+        cats = [f"c{i}" for i in range(7)]
+        edges = [(cats[i], cats[j]) for i in range(7) for j in range(i + 1, 7)
+                 if rng.random() < 0.25]
+
+        def term():
+            picked = rng.sample(cats, rng.choice((1, 1, 2, 3)))
+            return f"transport({' '.join(picked)})"
+
+        types = {f"type{k}": [term()] for k in range(2)}
+        jobs = {f"job{k}": rng.sample([term(), term(), "type0", "type1"],
+                                      rng.choice((1, 2)))
+                for k in range(6)}
+        queries = [term() for _ in range(10)]
+        return cats, edges, types, jobs, queries
+
+    def build(self, world, order_seed):
+        cats, edges, types, jobs, _ = world
+        dag = removals()
+        for c in cats:
+            dag.put(c, [])
+        for name, supers in types.items():
+            dag.put(name, supers)
+        writes = [("edge", e) for e in edges] + [("job", j) for j in jobs.items()]
+        random.Random(order_seed).shuffle(writes)
+        for kind, (a, b) in writes:
+            dag.put(a, [b] if kind == "edge" else b)
+        return dag
+
+    def meaning(self, world):
+        cats, edges, types, jobs, queries = world
+        up = {c: {c} for c in cats}
+        changed = True
+        while changed:
+            changed = False
+            for a, b in edges:
+                for c in cats:
+                    if a in up[c] and not up[b] <= up[c]:
+                        up[c] |= up[b]
+                        changed = True
+        constraints = lambda t: t[len("transport("):-1].split()
+        filler = {}
+        for job, supers in jobs.items():
+            terms = [t for s in supers for t in (types.get(s) or [s])]
+            filler[job] = {c for t in terms for c in constraints(t)}
+
+        def below(job, query):
+            return all(any(a in up[f] for f in filler[job])
+                       for a in constraints(query))
+        return below
+
+    def test_every_order_gives_one_root_and_the_meaning(self):
+        for seed in range(25):
+            world = self.world(seed)
+            below = self.meaning(world)
+            roots = set()
+            dags = [self.build(world, order) for order in range(4)]
+            for dag in dags:
+                roots.add(dag.commit())
+                for job in world[3]:
+                    for query in world[4]:
+                        self.assertEqual(dag.is_below(job, query),
+                                         below(job, query), (seed, job, query))
+                for query in world[4]:
+                    expected = {j for j in world[3] if below(j, query)}
+                    got = {i.name for i in dag.get([query])} & set(world[3])
+                    self.assertEqual(got, expected, (seed, query))
+                terms = graph_terms(dag)
+                self.assertTrue(all(" " not in t for t in terms), seed)
+                for a in terms:
+                    for b in terms:
+                        if a != b:
+                            self.assertFalse(dag.is_below(a, b) and dag.is_below(b, a),
+                                             (seed, a, b))
+            merged = EagerOntoDAG(RecordStore(MemoryBytesStore()))
+            merged.merge(dags[1])
+            merged.merge(dags[2])
+            roots.add(merged.commit())
+            self.assertEqual(len(roots), 1, seed)
 
 
 if __name__ == "__main__":

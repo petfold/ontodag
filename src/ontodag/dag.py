@@ -1445,15 +1445,18 @@ class OntoDAG(DAG):
         """The canonical spelling of a category term — constraints each
         canonical, deduplicated, sorted — with every constraint checked
         (a present category or a term of a declared dimension; anything
-        else fails closed) and a REDUNDANT constraint refused: `H(bicycle
-        small-item)` with `bicycle ⊑ small-item` denotes what `H(bicycle)`
-        denotes, and two names for one set would break the order (I1:
-        distinct canonical names are never mutually contained) — the
-        same reason a term for a whole dimension is refused (#17). The
-        graph decides redundancy, so the spelling a writer must use can
-        change as the graph grows; a stored name is never re-read against
-        that rule. Replays (merge, sync) land nodes before their edges and
-        run lenient, like role parameters naming not-yet-placed nodes."""
+        else fails closed). A REDUNDANT constraint — one another
+        constraint implies, `small-item` beside `bicycle` once `bicycle ⊑
+        small-item` — would give one set two names (I1: distinct canonical
+        names are never mutually contained). The graph kind DROPS it, so
+        `H(bicycle small-item)` is spelled `H(bicycle)`: its compound terms
+        are never stored (`_graph_parts`), so a spelling that follows the
+        graph harms nothing, and refusing would make whether a write is
+        accepted depend on the order facts arrived in. The relation kinds
+        still REFUSE it, since their compound terms are stored as written
+        and a stored name is never re-read against the rule. Replays
+        (merge, sync) land nodes before their edges and run lenient, like
+        role parameters naming not-yet-placed nodes."""
         lenient = getattr(self, "_role_lenient", 0)
         key = ("graph-term", name)
         trips = self._trips()
@@ -1476,16 +1479,47 @@ class OntoDAG(DAG):
                     f"constraints fail closed")
         canonical = sorted(set(canonical))
         if not lenient:
-            for a in canonical:
-                for b in canonical:
-                    if a != b and self._below_guarded(a, b):
-                        raise ValueError(
-                            f"{name}: {b!r} is redundant beside {a!r} "
-                            f"({a} ⊑ {b}) — write {head}"
-                            f"({' '.join(x for x in canonical if x != b)})")
+            if self._dimension_kind(head) == _dims.KIND_GRAPH:
+                canonical = self._reduce_constraints(canonical)
+            else:
+                for a in canonical:
+                    for b in canonical:
+                        if a != b and self._below_guarded(a, b):
+                            raise ValueError(
+                                f"{name}: {b!r} is redundant beside {a!r} "
+                                f"({a} ⊑ {b}) — write {head}"
+                                f"({' '.join(x for x in canonical if x != b)})")
             return self._memo_put_unless_tripped(
                 key, f"{head}({' '.join(canonical)})", trips)
         return f"{head}({' '.join(canonical)})"
+
+    def _graph_parts(self, name):
+        """The terms a graph-kind term is stored as: one per constraint,
+        `H(a)` and `H(b)` for `H(a b)`, each canonical (DIMENSIONS.md §15).
+        A constraint that is itself a graph-kind term with several
+        constraints splits too, since a graph-kind head relates an item to
+        ONE thing: `H(G(a b))` is `H(G(a))` and `H(G(b))`. The parts are not
+        reduced, because every part a write names is materialized whether or
+        not the graph already relates them: that keeps stored form the same
+        in every order, and reduction drops the edges a finer part implies,
+        then or later. Any other name is its own one part.
+
+        Why parts: a compound name's canonical spelling follows the graph
+        (`H(bicycle small-item)` is `H(bicycle)` once bicycles are small
+        items), while a stored name never changes. Stored compounds made
+        the same knowledge two stored forms, and two names for one class
+        once their constraints became related (fixed 2026-10-08)."""
+        split = _dims.split_term(name)
+        if split is None or self._dimension_kind(split[0]) != _dims.KIND_GRAPH:
+            return [name]
+        head, param = split
+        parts = []
+        for constraint in _dims.constraints(param):
+            for atom in self._graph_parts(constraint):
+                part = self._canonical_name(f"{head}({atom})")
+                if part not in parts:
+                    parts.append(part)
+        return sorted(parts)
 
     def _declared_units(self):
         """Graph-declared unit vocabulary (UNITS.md §7): the resolved map
@@ -1653,10 +1687,18 @@ class OntoDAG(DAG):
     def _index_args(self, name, split):
         for constraint in _dims.constraints(split[1]):
             named = self._args.setdefault(constraint, set())
+            if name in named:
+                continue
             named.add(name)
+            self._count_shape(constraint, split[0], +1)
             if len(named) == 1 and _dims.split_term(constraint) is not None:
                 self._nested_keys.add(constraint)
                 self._nested_version = getattr(self, "_nested_version", 0) + 1
+                indexes = getattr(self, "_constraint_values", None)
+                head = _dims.split_term(constraint)[0]
+                if indexes is not None and indexes[1].get(head) is not None \
+                        and not indexes[1][head].add(self, constraint):
+                    del indexes[1][head]
 
     def _args_index(self):
         """constraint -> the present terms naming it, built on first use."""
@@ -1677,6 +1719,8 @@ class OntoDAG(DAG):
             for constraint in _dims.constraints(split[1]):
                 named = args.get(constraint)
                 if named is not None:
+                    if name in named:
+                        self._count_shape(constraint, split[0], -1)
                     named.discard(name)
                     if not named:
                         del args[constraint]
@@ -1684,6 +1728,10 @@ class OntoDAG(DAG):
                             self._nested_keys.discard(constraint)
                             self._nested_version = getattr(
                                 self, "_nested_version", 0) + 1
+                            indexes = getattr(self, "_constraint_values", None)
+                            if indexes is not None:
+                                indexes[1].pop(
+                                    _dims.split_term(constraint)[0], None)
         values = getattr(self, "_values", None)
         if values is not None:
             values.pop(split[0], None)
@@ -1694,6 +1742,106 @@ class OntoDAG(DAG):
         heads = {head} if isinstance(head, str) else head
         return [term for term in self._args_index().get(name, ())
                 if _dims.split_term(term)[0] in heads and term in self.nodes]
+
+    @staticmethod
+    def _constraint_shape(constraint, heads):
+        """How the hop walks can reach a term naming `constraint`: None
+        when they always can (a node, an opaque name, or a value of a base
+        head that `_constraint_index` covers); "nested" for a term of a
+        kind the graph orders, which moves by the graph's own hops; "odd"
+        for any other value (a dominance value, a role term), which no
+        index covers."""
+        split = _dims.split_term(constraint)
+        if split is None:
+            return None
+        kind, base = heads.get(split[0], (None, None))
+        if kind is None:
+            return None
+        if kind in _dims.GRAPH_ORDERED:
+            return "nested"
+        if (kind in _dims._INTERVALISH or kind == _dims.KIND_PREFIX) \
+                and base == split[0]:
+            return None
+        return "odd"
+
+    def _count_shape(self, constraint, term_head, step):
+        shapes = getattr(self, "_shapes", None)
+        if shapes is None:
+            return
+        shape = self._constraint_shape(constraint, shapes[0])
+        if shape is not None:
+            counts = shapes[1] if shape == "nested" else shapes[2]
+            counts[term_head] = counts.get(term_head, 0) + step
+
+    def _constraint_shapes(self):
+        """(nested, odd): per head, how many of its present terms name a
+        constraint the hop walks cannot reach (`_constraint_shape`). Kept
+        by `_index_args`/`_unindex` as terms come and go, and rebuilt when
+        the declared heads change, since a declaration can turn an opaque
+        name into a term."""
+        heads = self._heads()
+        shapes = getattr(self, "_shapes", None)
+        if shapes is None or shapes[0] is not heads:
+            self._args_index()
+            nested, odd = {}, {}
+            for constraint, terms in self._args.items():
+                shape = self._constraint_shape(constraint, heads)
+                if shape is None:
+                    continue
+                counts = nested if shape == "nested" else odd
+                for term in terms:
+                    head = _dims.split_term(term)[0]
+                    counts[head] = counts.get(head, 0) + 1
+            shapes = self._shapes = (heads, nested, odd)
+        return shapes[1], shapes[2]
+
+    def _constraint_index(self, head, kind):
+        """The values of `head` that present terms name among their
+        constraints, indexed as a star is (`_value_index`). A value named
+        only inside a term, `transport(mass(..5kg))`, is not a node, so a
+        walk through present nodes never meets it; this is how the hop
+        walks find it (fixed 2026-10-08: until then a resident graph's
+        `get(["transport(mass(..8kg))"])` missed what was filed under
+        `transport(mass(..5kg))`). None when the values cannot be indexed."""
+        self._args_index()
+        units = self._declared_units()
+        units_key = getattr(self, "_unit_cache", (None,))[0]
+        indexes = getattr(self, "_constraint_values", None)
+        if indexes is None or indexes[0] is not units_key:
+            indexes = self._constraint_values = (units_key, {})
+        index = indexes[1].get(head)
+        if index is not None:
+            return index
+        index = (_Prefixes if kind == _dims.KIND_PREFIX else _Intervals)(units_key)
+        for key in self._nested_keys:
+            if _dims.split_term(key)[0] == head \
+                    and not index.add(self, key, units=units, kind=kind):
+                return None
+        indexes[1][head] = index
+        return index
+
+    def _value_constraints_near(self, names, above):
+        """Value constraints of present terms that contain (`above`) or lie
+        inside one of the values among `names`, which a hop walk has just
+        met; None when some cannot be found that way (the caller scans)."""
+        out = []
+        for name in names:
+            split = _dims.split_term(name)
+            if split is None:
+                continue
+            kind, base = self._heads().get(split[0], (None, None))
+            if kind not in _dims._INTERVALISH and kind != _dims.KIND_PREFIX:
+                continue
+            if base != split[0]:
+                continue
+            index = self._constraint_index(split[0], kind)
+            if index is None:
+                return None
+            found = index.hops(self, name, split[0], kind, above)
+            if found is None:
+                return None
+            out.extend(found)
+        return out
 
     def _graph_nested(self):
         """Does some present term name, among its constraints, a term of a
@@ -1919,14 +2067,31 @@ class OntoDAG(DAG):
         # The terms a hop can reach: those of narrower heads below, of
         # broader heads above (a narrower relation, §20).
         heads_reached = self._broader(head) if up else self._narrower(head)
+        # Constraints no walk below can meet: a value no index covers, here
+        # or in a term the hop could reach; and, for the graph kind, a term
+        # nesting a graph-ordered term (`transport(option(b))` above
+        # `transport(piano)` when piano ⊑ option(a) ⊑ option(b): no hop
+        # leads there, as one does for the relation kinds' nesting).
+        nested, odd = self._constraint_shapes()
+        if any(odd.get(h) for h in heads_reached) or any(
+                self._constraint_shape(x, heads) == "odd" for x in xs) or (
+                kind == _dims.KIND_GRAPH
+                and any(nested.get(h) for h in heads_reached)):
+            return None
         budget = 0
         for reached in heads_reached:
             reached_node = self.nodes.get(reached)
             budget += len(reached_node.neighbors) if reached_node is not None else 0
-        found = set()
+        found, scan = set(), []
 
-        def named(names):
-            for name in names:
+        def named(names, above):
+            # Also the terms naming a value inside (`above`: containing) a
+            # value the walk met: such a value need not be a node.
+            near = self._value_constraints_near(names, above)
+            if near is None:
+                scan.append(True)
+                return
+            for name in [*names, *near]:
                 found.update(self._terms_naming(name, heads_reached))
 
         covariant = kind != _dims.KIND_REVERSED
@@ -1946,7 +2111,10 @@ class OntoDAG(DAG):
                         continue
                     looked.add(z)
                     ancestry = self._ancestry(z)
-                    found.update(term for name in ancestry
+                    near = self._value_constraints_near(ancestry, True)
+                    if near is None:
+                        return None
+                    found.update(term for name in [*ancestry, *near]
                                  for term in self._terms_naming(name, reached))
                     for a in ancestry:
                         split = _dims.split_term(a)
@@ -1964,11 +2132,11 @@ class OntoDAG(DAG):
             # Above a covariant term, or below a reversed one: every
             # constraint of the other term is above, or is, one of ours.
             for x in xs:
-                named(self._ancestry(x))
+                named(self._ancestry(x), True)
             if up and kind == _dims.KIND_ENCLOSING and self._dimension_kind(
                     _dims.CONTAINMENT_HEAD) == _dims.KIND_TRANSITIVE:
                 for x in xs:
-                    named(self._containers(x))
+                    named(self._containers(x), True)
         else:
             # Below a covariant term, or above a reversed one: some
             # constraint of the other term is below, or is, one of ours.
@@ -1980,7 +2148,7 @@ class OntoDAG(DAG):
             below = self._below_names(pick, budget)
             if below is None:
                 return None
-            named(below)
+            named(below, False)
             if not up and kind == _dims.KIND_TRANSITIVE:
                 # ... or inside this very term: what is filed in it, or in
                 # a narrower relation's term of the same argument, and, to
@@ -2007,7 +2175,7 @@ class OntoDAG(DAG):
                     if inside is None:
                         return None
                     before = set(found)
-                    named(inside)
+                    named(inside, False)
                     chase.extend(t for t in found - before if beyond(t))
             if not up and kind == _dims.KIND_ENCLOSING and self._dimension_kind(
                     _dims.CONTAINMENT_HEAD) == _dims.KIND_TRANSITIVE:
@@ -2015,7 +2183,9 @@ class OntoDAG(DAG):
                 inside = self._located_in(located, budget)
                 if inside is None:
                     return None
-                named(inside)
+                named(inside, False)
+        if scan:
+            return None
         found.discard(canonical)
         if up:
             return [t for t in found if self._contains(t, canonical, kind)]
@@ -2493,8 +2663,11 @@ class OntoDAG(DAG):
         # none is created (DIMENSIONS.md §8).
         terms = {}
         parametric = {}  # canonical name -> (head, kind), present or not
-        for super_category in super_categories:
-            raw = _name_of(super_category)
+        # A compound graph-kind term asks for its parts at once (§15): one
+        # thing that meets every constraint, which is where `put` files it.
+        names = [part for super_category in super_categories
+                 for part in self._query_parts(_name_of(super_category))]
+        for raw in names:
             parsed = self._parse_parametric(raw)
             if parsed is not None:
                 parametric[parsed[2]] = (parsed[0], parsed[1])
@@ -2549,14 +2722,18 @@ class OntoDAG(DAG):
                     else:
                         virtual[name] = (head, head_kind[head])
 
-        # 2. Drop present terms subsumed by another present term.
+        # 2. Drop present terms subsumed by another present term. Asserted
+        # edges only: same-head terms were compared by containment above,
+        # and a climb through the computed order can cross every range
+        # containing a value, which cost more than the query (§15). A drop
+        # missed costs a cone, never an answer.
         nodes = list(terms.values())
         minimal = [
             node for node in nodes
             if not any(
                 other is not node
                 and node.descendant_count > other.descendant_count
-                and self._has_ancestors(other, (node,))
+                and self._has_ancestors(other, (node,), computed=False)
                 for other in nodes
             )
         ]
@@ -2564,9 +2741,24 @@ class OntoDAG(DAG):
         # 3. One list of cones, smallest estimated first (name as tiebreak,
         # keeping traversal deterministic). Sizes are asserted counts — the
         # exact walk cost for present terms, a lower bound for the others.
-        cones = [_Cone("node", node.descendant_count, node.name, node)
-                 for node in minimal]
+        cones = []
+        for node in minimal:
+            size = node.descendant_count
+            parsed = self._parse_parametric(node.name)
+            if parsed is not None:
+                # A present graph-kind term's cone runs on through the terms
+                # inside it, which its asserted count does not see.
+                estimate = self._graph_part_estimate(node.name, *parsed[:2])
+                if estimate is not None:
+                    size = max(size, estimate)
+            cones.append(_Cone("node", size, node.name, node))
         for name, (head, kind) in virtual.items():
+            estimate = self._graph_part_estimate(name, head, kind)
+            if estimate is not None:
+                # Found only if walked: a broad part (`transport(mass(..30kg))`
+                # beside `transport(c0)`) is cheaper probed per candidate.
+                cones.append(_Cone("lazy", estimate, name, (head, kind)))
+                continue
             values = self._contained_values(name, head, kind)
             cones.append(_Cone("virtual", self._cone_size(values), name,
                                values))
@@ -2591,6 +2783,34 @@ class OntoDAG(DAG):
             result &= self._walk_cone(cone)
         return finish(result)
 
+    def _graph_part_estimate(self, name, head, kind):
+        """A cheap size for a graph-kind query term, whose contained terms
+        the planner then finds only if it walks it (None for other kinds,
+        which keep their computed size). One part of a compound is often
+        broad, and finding every term inside it, to intersect with a small
+        answer, cost more than the answer (§15). A category constraint
+        gives its asserted count. A value-only term gets the store's size:
+        walking it finds every term inside its values, nested ranges each
+        inside the next, so it is probed whenever another term narrows the
+        query, and walked only when none does."""
+        if kind != _dims.KIND_GRAPH:
+            return None
+        sizes = []
+        for x in _dims.constraints(_dims.split_term(name)[1]):
+            node = self.nodes.get(x) if _dims.split_term(x) is None else None
+            if node is not None:
+                sizes.append(node.descendant_count + 1)
+        return min(sizes) if sizes else len(self.nodes) + 1
+
+    def _query_parts(self, name):
+        """A query term as the terms it asks for together: a compound
+        graph-kind term is its parts, reduced (the finer of two related
+        parts says all the coarser one does); any other name is itself."""
+        split = _dims.split_term(name)
+        if split is None or self._dimension_kind(split[0]) != _dims.KIND_GRAPH:
+            return [name]
+        return self._graph_parts(self._canonical_name(name))
+
     def _cone_size(self, values):
         """Estimated size of a computed cone: the values and what is
         asserted below them. Counts on an unexpanded lazy stub read 0, so
@@ -2604,6 +2824,9 @@ class OntoDAG(DAG):
     def _walk_cone(self, cone):
         if cone.kind == "node":
             return self.get_descendants(cone.payload)
+        if cone.kind == "lazy":
+            cone = cone._replace(payload=self._contained_values(
+                cone.name, *cone.payload))
         # Virtual: one walk over every contained value, sharing what it
         # has visited. The values can nest (an interval inside an
         # interval), and a walk per value re-walked every value inside:
@@ -2733,6 +2956,12 @@ class OntoDAG(DAG):
                 and sub_parsed[0] in self._narrower(sup_parsed[0]) \
                 and self._contains(sup, sub, sup_parsed[1]):
             return True
+        if sup_parsed is not None and sup_parsed[1] == _dims.KIND_GRAPH:
+            # A compound graph-kind bound: below it is below every part,
+            # where `put` files a thing meeting every constraint (§15).
+            parts = self._graph_parts(sup)
+            if len(parts) > 1:
+                return all(self.is_below(sub, part) for part in parts)
         if sub_node is None:
             # A virtual subject relates upward only through the present
             # values that contain it.
@@ -2902,12 +3131,15 @@ class OntoDAG(DAG):
         naming a node above the edge gains, as a parent, a term naming a
         node below it, and those pairs are re-reduced. Without this the
         stored form would depend on whether places were filed before or
-        after the offers naming them (I3, and therefore I7)."""
+        after the offers naming them (I3, and therefore I7). The graph
+        kind's terms move the same way: a job under `transport(piano)` and
+        `transport(heavy-item)` keeps one edge once pianos are heavy, as it
+        would had that been known when the job was filed (§15)."""
         roles = self._role_heads()
-        multi = self._multi_valued_heads()
-        if not roles and not multi:
+        heads = self._multi_valued_heads() + self._graph_kind_heads()
+        if not roles and not heads:
             return
-        moved, pairs = self._moved_terms(from_node, to_node, roles, multi)
+        moved, pairs = self._moved_terms(from_node, to_node, roles, heads)
         for term in moved:
             for parent in list(self._computed_parents(term)):
                 self._prune_rectangle(parent, term)
@@ -2954,8 +3186,21 @@ class OntoDAG(DAG):
                     seen.add(node.name)
                     queue.append(node.name)
 
+        nested_keys = []
+        if nested:
+            heads_now = self._heads()
+            nested_keys = [k for k in self._nested_keys if heads_now.get(
+                _dims.split_term(k)[0], (None,))[0] in _dims.GRAPH_ORDERED]
         while queue:
             name = queue.pop()
+            # A term the graph orders, named only as a constraint (`option(
+            # transport(piano))` with no transport(piano) node), moves with
+            # what it names, and so do the terms naming it.
+            for key in nested_keys:
+                if key not in seen and name in _dims.constraints(
+                        _dims.split_term(key)[1]):
+                    seen.add(key)
+                    queue.append(key)
             found = [t for t in self._args_index().get(name, ())
                      if t in self.nodes]
             for role in roles:
@@ -3092,6 +3337,11 @@ class OntoDAG(DAG):
         the transitive, enclosing and reversed kinds (§16–§18)."""
         return [head for head, (kind, _base) in self._heads().items()
                 if kind in _dims.MULTI_VALUED]
+
+    def _graph_kind_heads(self):
+        """Every declared head of the graph kind (§15)."""
+        return [head for head, (kind, _base) in self._heads().items()
+                if kind == _dims.KIND_GRAPH]
 
     def _refuse_rule(self, term, head, parent):
         """A graph-ordered term filed under anything but its head states a
@@ -3257,12 +3507,16 @@ class OntoDAG(DAG):
         transitive or enclosing head have no meet either — Zermatt is in
         Switzerland and in the Alps, a photo about Mars and about Earth — so
         they stay as they are too, and reduction keeps the finer of two
-        that are ordered (DIMENSIONS.md §16, §17). Returns the super names
+        that are ordered (DIMENSIONS.md §16, §17). Terms of the graph kind
+        are filed as their parts instead (`_graph_parts`): their meet is a
+        compound, whose spelling would follow the graph, so they stay apart
+        and reduction keeps the finer ones (§15). Returns the super names
         to file under."""
         by_head = {}
         for name in [*super_names, *live]:
             parsed = self._parse_parametric(name)
             if parsed is None or parsed[1] in _dims.MULTI_VALUED \
+                    or parsed[1] == _dims.KIND_GRAPH \
                     or self._param_node(
                         parsed[0], _dims.split_term(name)[1]) is not None:
                 continue
@@ -3360,11 +3614,25 @@ class OntoDAG(DAG):
         # else looks at it (weight(3000g) -> weight(3kg), §7).
         if isinstance(subcategory, str):
             subcategory = Item(subcategory)
+        parts = self._graph_parts(subcategory.name)
+        if len(parts) > 1:
+            # A compound graph-kind term is stored as its parts (§15).
+            for part in parts:
+                self.put(Item(part, metadata=dict(subcategory.metadata)),
+                         super_categories, optimized=optimized)
+            return
         sub_parsed = self._parse_parametric(subcategory.name)
         if sub_parsed is not None and subcategory.name != sub_parsed[2]:
             subcategory = Item(sub_parsed[2], metadata=subcategory.metadata)
-        super_names = [self._canonical_name(_name_of(sc))
-                       for sc in super_categories]
+        # A graph-kind parent with several constraints is filed as its
+        # parts, unreduced, so every part it names is materialized in every
+        # order; reduction then keeps the finer ones (§15).
+        super_names = []
+        for sc in super_categories:
+            for name in self._graph_parts(_name_of(sc)):
+                name = self._canonical_name(name)
+                if name not in super_names:
+                    super_names.append(name)
 
         self._check_parametric_placement(
             subcategory.name, super_names,
@@ -3567,8 +3835,12 @@ class OntoDAG(DAG):
             items.append(name)
 
         destinations, pending = [], []
+        # A compound graph-kind destination is its parts, as under `put`.
+        to = [part for name in to for part in self._graph_parts(_name_of(name))]
         for name in to:
             name = self._canonical_name(_name_of(name))
+            if name in destinations:
+                continue
             if name not in self.nodes:
                 # A typed value materializes on first use here exactly as it
                 # does under `put`, anchored beneath its head — otherwise
@@ -3600,6 +3872,19 @@ class OntoDAG(DAG):
             else:
                 wanted = []
                 for name in from_:
+                    parts = self._graph_parts(_name_of(name))
+                    if len(parts) > 1:
+                        # A compound graph-kind term was filed as its parts:
+                        # retracting it retracts the parts filed directly
+                        # (a part reduction dropped is implied by those).
+                        direct = [p for p in parts if p in self.nodes and
+                                  self.nodes[item] in self.nodes[p].neighbors]
+                        if not direct:
+                            raise ValueError(
+                                f"{item} is not filed under "
+                                f"{self._canonical_name(_name_of(name))}.")
+                        wanted.extend(p for p in direct if p not in wanted)
+                        continue
                     name = self._canonical_name(_name_of(name))
                     if name not in self.nodes:
                         raise ValueError(f"Category {name} does not exist.")

@@ -923,7 +923,10 @@ of x-in-y with y-in-x orphaned a node. It now prunes nothing on a cycle.
 Found and NOT changed: the graph kind folds same-head terms, so its
 stored form depends on filing order, and `about(mars)` with `about(earth)`
 becomes `about(earth mars)`. Reported to Peter, recorded in DIMENSIONS.md
-§16; it is why `about` (step 3.3) is not a graph-kind head.
+§16; it is why `about` (step 3.3) is not a graph-kind head. **Fixed
+2026-10-08 (0.30.6, Peter's option A):** a graph-kind compound term is
+never stored; it is filed as one term per constraint, and re-reduction
+covers the graph kind's heads (below, "The graph kind's canonical form").
 
 **3.3, the enclosing kind** (`enclosing-dimension`, DIMENSIONS.md §17;
 called `relation-dimension` until Peter chose the name later that day):
@@ -1194,7 +1197,8 @@ the rest:
   `<0.31.0` on its main (NOT released). Still owed: those two releases
   (Peter confirms each tag), categor.io's migration, and the survey's open
   questions for Peter (loopmarket's verifier compares pins exactly while
-  matching compares majors; the graph kind's folding/re-reduction answer).
+  matching compares majors; the graph kind's folding/re-reduction answer,
+  settled 2026-10-08 as option A, see "The graph kind's canonical form").
   **Decision 1 settled the same evening (Peter followed the advice):**
   compare majors everywhere. ontodag **contract 0.4 / G7, monotone
   versions** (within one contract major and one registry major a newer
@@ -1253,6 +1257,55 @@ the rest:
   left, fullest bucket 23/32, throwaway signer), loopmarket 297 passed +
   4 skipped, ontodag-fs 313 passed + 2 skipped, and `CI=1` suites green
   on main (1,167) and on both branches (1,186; 1,188).
+
+## The graph kind's canonical form (2026-10-08, 0.30.6 prepared)
+
+Peter's "fix 1 first", after he asked for the question with options and
+a better example (a removal job tagged "piano" and "heavy item"). The
+two bugs, both G1 breaks since 0.26.0: a graph-kind item under two terms
+of one head was FOLDED into a stored compound (`transport(heavy-item
+piano)`), whose canonical spelling follows the graph while a stored name
+never changes, so learning "pianos are heavy" after the job gave a
+different root (`55b70437…`) from knowing it first (`0b24367f…`), a
+third for their merge, and two names for one class (I1); and graph-kind
+terms were not re-reduced when a constraint moved. Options put to him:
+A store the parts, B keep folding and rename stored compounds as the
+graph grows, C stop folding with a two-fillers reading, D leave it. **He
+chose A.** Built (DIMENSIONS.md §15 "Stored as parts"): `_graph_parts`
+splits a compound (recursively for nested graph-kind constraints),
+unreduced, so every named part is materialized in every order; `put`,
+`reclassify` (`to` and `--from`) and a term put as an item use it;
+`_fold_same_head_values` skips the graph kind; `get` splits compound
+query terms (`_query_parts`), `is_below` against a compound bound is the
+conjunction of its parts; `_canonical_graph_term` DROPS a redundant
+constraint for the graph kind (relation kinds still refuse);
+`_reduce_roles_touching` includes `_graph_kind_heads()`. Verbatim paths
+(native load, hydrate, merge) keep legacy compound nodes, which answer
+correctly; `ontodag.migrate` replays them into parts; G7 holds.
+**Two released bugs found on the way (since 0.30.0's hop index), both
+fixed:** on a resident graph `get transport(mass(..8kg))` missed items
+under `transport(mass(..5kg))` (a value named only inside a term is no
+node): `_constraint_index` per head + `_value_constraints_near` in
+`_graph_hops`; and a graph-kind term nesting a graph-ordered term was
+reached by no up-hop: `_constraint_shapes` counts per head, such heads
+(and any naming an unindexable value) scan, and `_moved_terms` follows
+nested keys that are not nodes. **Planner, measured first:** answering
+a compound as parts walked the broad part (`transport(mass(..30kg))`,
+whose cone runs through every nested range) and the term-dropping step
+climbed the same chain: a graph-kind part's planner size is now at least
+`_graph_part_estimate` (narrowest category's count; the store's size if
+value-only; lazy `_Cone` kind computed only when walked) and term-dropping
+climbs asserted edges only. `get transport(c0 mass(..30kg))`: 1.8/11/37 ms
+at 400/1,600/6,400 offers (0.30.5: 0.9/62/554, with misses); filing flat
+~1.2 ms/put (0.30.5: 0.8). Tests: `TestStoredFormIsOrderFree`,
+`TestAgainstTheMeaning` (25 random worlds × 4 orders + a merge: one
+root, answers = the one-thing reading, no I1 pair),
+`TestGraphKindAgreesWithTheScan` (test_hops); 15 of the new tests fail on
+the old code. Suite `CI=1` 1,233. loopmarket: one test asserted the old
+refusal (`transport(bicycle small-item)` unknown); its update waits for
+0.30.6 on PyPI. ontodag-fs 313 passed against the tree. Still open
+(recorded, not changed): the relation kinds' explicitly written compounds
+(`in(museum-district tokyo)`) can still become a second name later.
 
 ## Role heads (2026-09-12) — issue #15 closed, DIMENSIONS.md §14
 

@@ -14,6 +14,57 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.30.6] — 2026-10-08
+
+### Fixed
+
+- **The graph kind's stored form no longer depends on the order facts
+  arrive in** (DIMENSIONS.md §15). A removal job tagged "piano" and
+  "heavy item" was folded into one stored term, `transport(heavy-item
+  piano)`, in a store that learned "pianos are heavy" after the job was
+  posted, and filed under `transport(piano)` in one that knew it first:
+  the same knowledge under two roots, a third root for their merge, and
+  two names for one class in the first store (rule I1). A term with
+  several constraints is now never stored. It is filed as one term per
+  constraint, every named part materialized, and reduction keeps the
+  finer ones, then or when a later fact relates them: both stores and
+  their merge now share one root. A graph-kind term nested as a
+  constraint splits too. Queries answer a compound as the conjunction of
+  its parts, so every compound query answers as before (Peter's choice,
+  over renaming stored compounds as the graph grows).
+- **Graph-kind terms are re-reduced when a constraint moves.** A job under
+  the type `piano-move ⊑ transport(piano)` and tagged
+  `transport(heavy-item)` kept the redundant tag if pianos were found
+  heavy afterwards.
+- **`get` on a fully loaded store missed things filed under graph-kind
+  terms in two shapes** (since 0.30.0's hop index; a lazy reader, which
+  scans, and `is_below` always answered right). A value named only inside
+  a term is not a node, so `get transport(mass(..8kg))` answered nothing
+  for what was filed under `transport(mass(..5kg))`; values named as
+  constraints now have an index per head. And a graph-kind term nesting
+  a graph-ordered term was reached by no hop; such heads now scan.
+- **A compound query walks its narrow part and probes the broad one.**
+  Answered as its parts, `get transport(c0 mass(..30kg))` would otherwise
+  find every term inside `mass(..30kg)` (ranges nest, each inside the
+  next) to intersect with a few answers; and the planner's check for one
+  query term above another climbed the same chain. Measured on offers
+  filed under such terms (one category, one mass range each): 1.8, 11 and
+  37 ms at 400, 1,600 and 6,400 offers (0.30.5: 0.9, 62 and 554 ms, and it
+  missed answers in the shapes above); filing stays flat, about 1.2 ms per
+  put (0.30.5: 0.8 ms; an item now has one edge per constraint).
+
+### Changed
+
+- **A redundant constraint in a graph-kind term is dropped, not
+  refused**: `transport(bicycle small-item)` is spelled
+  `transport(bicycle)` once bicycles are small items. Refusing made a
+  write's acceptance depend on whether the graph already related the
+  constraints. The relation kinds (`in`, `about`, `shared-with`) still
+  refuse it, since their compounds are stored as written.
+- Stores written before keep their compound nodes: they load verbatim
+  and answer the same questions, and `ontodag.migrate` replays them into
+  parts. No shipped pack uses the graph kind, so no golden root moved.
+
 ## [0.30.5] — 2026-10-08
 
 ### Changed
@@ -417,7 +468,8 @@ the version numbers appear in commit history and docs.
   filing order when constraints become related later, and changes the
   meaning of relations that aren't single-valued: `about(mars)` and
   `about(earth)` fold into `about(earth mars)`. Recorded in
-  DIMENSIONS.md §16; not changed here.
+  DIMENSIONS.md §16; not changed here. (Fixed in 0.30.6: compound terms
+  are stored as their parts.)
 - **The graph kind is not re-reduced when a constraint moves** (since
   0.26.0, found 2026-10-06). `courier-x` filed under
   `transport(small-item)` and under `bike-courier ⊑ transport(bicycle)`
@@ -425,7 +477,7 @@ the version numbers appear in commit history and docs.
   only the second if it was filed first: the same knowledge stored two
   ways, against G1. The fix is the re-reduction the relation kinds
   already use (DIMENSIONS.md §16); it changes graph-kind stored form, so
-  it waits for loopmarket, with the folding above.
+  it waits for loopmarket, with the folding above. (Fixed in 0.30.6.)
 - **An edge that moves a whole region or group pays for what it
   moves** (moving Japan into Asia moves everything in Japan): in
   proportion to the region, not to the store. Lazy readers and the

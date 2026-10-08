@@ -120,6 +120,140 @@ class TestAgreesWithTheScan(unittest.TestCase):
                                      (seed, name, query[0]))
 
 
+
+def graph_operations(seed, size=7, steps=40):
+    """The graph kind's shapes the first worlds never made: a value as the
+    only constraint (`transport(mass(..5kg))`, a value that is no node),
+    and a graph-kind term nested in another (`option(transport(n2))`)."""
+    rnd = random.Random(seed)
+    names = [f"n{i}" for i in range(size)]
+
+    def mass():
+        return f"mass(..{rnd.randint(2, 9)}kg)"
+
+    def term():
+        shape = rnd.random()
+        a, b = rnd.sample(names, 2)
+        if shape < 0.25:
+            return f"transport({a})"
+        if shape < 0.45:
+            return f"transport({mass()})"
+        if shape < 0.6:
+            return f"transport({a} {mass()})"
+        if shape < 0.75:
+            return f"transport({a} {b})"
+        if shape < 0.9:
+            return f"option(transport({a}))"
+        return f"option({a} transport({b} {mass()}))"
+
+    ops = []
+    for _ in range(steps):
+        shape = rnd.random()
+        if shape < 0.3:
+            a, b = sorted(rnd.sample(range(size), 2))
+            ops.append((names[a], names[b]))      # acyclic: lower under higher
+        elif shape < 0.4:
+            ops.append((rnd.choice(names), f"mass({rnd.randint(1, 9)}kg)"))
+        else:
+            ops.append((f"job{rnd.randint(0, 9)}", term()))
+    queries = [[term()] for _ in range(10)] + [[term(), term()] for _ in range(4)]
+    return names, ops, queries
+
+
+def play_graph(resident, names, ops):
+    dag = OntoDAG()
+    dag._resident = resident
+    prelude.apply(dag)
+    dag.put("graph-dimension", ["dimension"])
+    dag.put("transport", ["graph-dimension"])
+    dag.put("option", ["graph-dimension"])
+    for name in names:
+        dag.put(name, [])
+    for child, parent in ops:
+        try:
+            dag.put(child, [parent])
+        except ValueError:
+            pass
+    return dag
+
+
+class TestGraphKindAgreesWithTheScan(unittest.TestCase):
+    """Until 2026-10-08 a resident graph's hops missed two shapes, so
+    `get(["transport(mass(..8kg))"])` answered nothing for what was
+    filed under `transport(mass(..5kg))`, while `is_below` (and a lazy
+    reader, which scans) said yes; and the terms above `transport(piano)`
+    left out `transport(option(b))` when piano ⊑ option(a)."""
+
+    def test_a_value_named_only_inside_a_term(self):
+        for resident in (True, False):
+            dag = play_graph(resident, ["goods"], [
+                ("x", "transport(mass(..5kg))"),
+                ("y", "transport(goods mass(..5kg))")])
+            self.assertEqual({n.name for n in dag.get(
+                ["transport(mass(..8kg))"], items_only=True)}, {"x", "y"}, resident)
+
+    def test_a_term_nested_in_a_term(self):
+        for resident in (True, False):
+            dag = play_graph(resident, ["b"], [
+                ("a", "b"), ("piano", "option(a)"),
+                ("j1", "transport(piano)"), ("j2", "transport(option(b))")])
+            self.assertEqual([p.name for p in dag._computed_parents(
+                dag.nodes["transport(piano)"])], ["transport(option(b))"], resident)
+
+    def test_random_worlds(self):
+        for seed in range(30):
+            names, ops, queries = graph_operations(seed)
+            by_name, by_scan = play_graph(True, names, ops), play_graph(False, names, ops)
+            self.assertEqual(edge_set(by_name), edge_set(by_scan), seed)
+            for query in queries:
+                try:
+                    expected = {n.name for n in by_scan.get(query)}
+                except ValueError:
+                    continue
+                self.assertEqual({n.name for n in by_name.get(query)},
+                                 expected, (seed, query))
+            for node in list(by_scan.nodes.values()):
+                if node.name.startswith(("transport(", "option(")):
+                    for direction in ("_computed_parents", "_computed_children"):
+                        closure = lambda dag, step: {
+                            m.name for m in dag.get_ancestors(dag.nodes[node.name])
+                        } if step == "_computed_parents" else {
+                            m.name for m in dag.get_descendants(dag.nodes[node.name])}
+                        self.assertEqual(closure(by_name, direction),
+                                         closure(by_scan, direction),
+                                         (seed, node.name, direction))
+
+
+class TestACompoundQueryWalksItsNarrowPart(unittest.TestCase):
+    """A compound graph-kind query is the conjunction of its parts (§15).
+    One part is often broad: every offer accepting things up to some mass.
+    The planner walks the narrow part and probes the broad one per
+    candidate, rather than finding every term inside the broad one (which
+    nest, each range inside the next) to intersect with a small answer."""
+
+    def test_the_broad_part_is_probed(self):
+        rnd = random.Random(1)
+        dag = play_graph(True, [f"c{i}" for i in range(30)], [])
+        for k in range(600):
+            a = f"c{rnd.randrange(30)}"
+            dag.put(f"offer{k}", [f"transport({a} mass(..{rnd.randint(1, 60)}kg))"])
+        walked = []
+        original = OntoDAG._walk_cone
+
+        def walk(self, cone):
+            walked.append(cone.name)
+            return original(self, cone)
+        OntoDAG._walk_cone = walk
+        try:
+            got = dag.get(["transport(c0 mass(..30kg))"], items_only=True)
+        finally:
+            OntoDAG._walk_cone = original
+        self.assertEqual(walked, ["transport(c0)"])
+        expected = {f"offer{k}" for k in range(600)
+                    if dag.is_below(f"offer{k}", "transport(c0 mass(..30kg))")}
+        self.assertEqual({i.name for i in got}, expected)
+        self.assertTrue(expected)
+
 def role_operations(seed, places=7, steps=40):
     """Places in cells, regions above cells, and offers under `from(...)`
     in both spellings: a place (`from(p3)`) and a literal cell
