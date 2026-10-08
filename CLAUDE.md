@@ -464,9 +464,24 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     verified from fresh PyPI venvs. loopmarket: live book test passes on
     the new stack, no change needed (its `sig` extra still uses eth-keys
     for offer signatures — a candidate for the shared signer, not done).
-    **Still open:** `_diff`'s per-node loads (merge/sync); loopmarket's
-    offer signatures onto the shared signer (optional); the Bee issue draft
-    (Peter files it); batch `c931c8a5…` has ~10 days left.
+    **Then (2026-10-08 afternoon), the two follow-ups, on Peter's word:**
+    recordstore's diff/merge load ahead (`_Trie._diff` an explicit-stack
+    walk over pairs of subtrees, `_diff_step` shared with
+    `_prefetch_pairs`; `diff()` values in windows of 256; `merge()`
+    conflicts read and written in one batch each): 200-key diff 1,731 -> 9
+    rounds, live v12 -> v13 pack roots cold 305 rounds / 33.0 s -> 9 /
+    3.9 s, same blobs (recordstore 0.22.1, pushed `0917362`, CI green, NOT
+    released). loopmarket's signatures onto the shared signer: swarmfs
+    0.14.0 adds `sign_hash`/`recover_hash`/`recover_hash_key` (no prefix:
+    loopmarket signs raw ids, v 0/1), `checksum_address`, `compressed`
+    (pushed, CI green, NOT released); loopmarket 0.14.2 committed locally
+    as `cbdd8f1`, NOT pushed (its CI installs swarmfs>=0.14.0 from PyPI),
+    eth-keys outputs pinned byte for byte, suite 311 + 4, live 3/3.
+    Release order: swarmfs 0.14.0, then push + release loopmarket 0.14.2;
+    recordstore 0.22.1 independent. Batch `c931c8a5…` topped up on Peter's
+    word to expire 2026-11-15 12:00 UTC (75,889,609,216 PLUR/chunk at
+    depth 22, 31.84 xBZZ, tx `0x87389f…`; wallet 25.47 xBZZ). **Still
+    open:** the Bee issue draft (Peter files it).
 
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
 
