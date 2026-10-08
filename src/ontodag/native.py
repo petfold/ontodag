@@ -34,8 +34,9 @@ META_LINE = "#:meta"
 
 def loads(text, source="<text>"):
     """`.od` text -> OntoDAG. Raises ValueError, naming `source` and the
-    line, on a malformed metadata line; the graph's own errors (a cycle)
-    propagate as they would from `put`."""
+    line, on a malformed line (a metadata line that is not a JSON object, an
+    unbalanced quote); the graph's own errors (a cycle) propagate as they
+    would from `put`."""
     return _read(text.splitlines(), source)
 
 
@@ -87,7 +88,12 @@ def _read(lines, source):
             # silent data loss this line type exists to end.
             try:
                 _, name, blob = shlex.split(line)
-                metadata[name] = json.loads(blob)
+                values = json.loads(blob)
+                if not isinstance(values, dict):
+                    # JSON, but not an object: it escaped as TypeError at
+                    # `metadata.update` until 2026-10-09
+                    raise ValueError("the annotation is not a JSON object")
+                metadata[name] = values
             except (ValueError, json.JSONDecodeError) as exc:
                 raise ValueError(
                     f"{source}:{number}: malformed {META_LINE} line ({exc})"
@@ -95,7 +101,10 @@ def _read(lines, source):
             continue
         if line.startswith("#"):
             continue
-        tokens = shlex.split(line)
+        try:
+            tokens = shlex.split(line)
+        except ValueError as exc:        # an unbalanced quote
+            raise ValueError(f"{source}:{number}: malformed line ({exc})") from exc
         name = tokens[0]
         if name not in dag.nodes:
             dag.add_node(Item(name))

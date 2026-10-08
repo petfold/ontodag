@@ -1361,6 +1361,13 @@ class OntoDAG(DAG):
             # to x is related to that thing. A photo about Tokyo is about
             # Japan once Tokyo is in Japan.
             located = f"{_dims.CONTAINMENT_HEAD}({param_o})"
+            try:
+                self._canonical_name(located)
+            except ValueError:
+                # `outer` names a constraint that has since been removed
+                # (`about(c3 c5)`, then `remove c5`): nothing is inside
+                # what no longer exists (raised until 2026-10-09).
+                return False
             return any(self._within(x, located, _dims.CONTAINMENT_HEAD)
                        for x in ins)
         return False
@@ -2243,7 +2250,15 @@ class OntoDAG(DAG):
         if node is not None:
             cone = self.get_descendants(node)
         else:
-            parsed = self._parse_parametric(located)
+            try:
+                parsed = self._parse_parametric(located)
+            except ValueError:
+                # `located` is derived from a stored term whose constraint
+                # has since been removed (`about(c1 c4)`, then `remove c4`):
+                # nothing is known to be inside what no longer exists.
+                # Until 2026-10-09 this raised, so every query and write
+                # that walked the term failed.
+                return []
             if parsed is None:
                 return []
             cone = self._virtual_cone(parsed[0], parsed[1], parsed[2])

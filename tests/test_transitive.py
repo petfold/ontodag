@@ -331,6 +331,50 @@ def org(dag=None):
     return dag
 
 
+class TestARemovedConstraint(unittest.TestCase):
+    """A category may be removed while a stored relation term names it
+    (graph-ordered terms guard nothing, DIMENSIONS.md §14). The term then
+    names something that no longer exists, and nothing is inside that.
+    Until 2026-10-09 an `about` compound naming the removed category made
+    every query and write that walked it raise (the `in(c1 c4)` it derives
+    no longer parsed), while the sparse writer, which never loaded the
+    term, accepted the same writes."""
+
+    def check(self, remove):
+        dag = declare(about=True)
+        for name in ("c0", "c1", "c4"):
+            dag.put(name, [])
+        dag.put("x0", ["about(c1 c4)"])
+        dag.put("x1", ["about(c1)"])
+        remove(dag)
+        dag.put("c1", ["c0"])                 # walks the term: raised
+        self.assertEqual(names(dag.get(["about(c1)"])) & {"x0", "x1"},
+                         {"x0", "x1"})
+        self.assertEqual(names(dag.get(["about(c0)"])) & {"x0", "x1"},
+                         {"x0", "x1"})
+        self.assertTrue(dag.is_below("x0", "about(c0)"))
+
+    def test_after_contraction(self):
+        self.check(lambda dag: dag.remove("c4"))
+
+    def test_after_cone_removal(self):
+        self.check(lambda dag: dag.remove_cone(["c4"]))
+
+    def test_a_term_beside_one_naming_the_removed_category(self):
+        # The containment check derives `in(c3 c5)` from `about(c5 c3)`
+        # when it compares the two terms: the second path that raised.
+        dag = declare(about=True)
+        for name in ("c0", "c1", "c3", "c5"):
+            dag.put(name, [])
+        dag.put("x1", ["about(c1 c5)"])
+        dag.put("x3", ["about(c5 c3)"])
+        dag.remove_cone(["c5"])
+        dag.reclassify(["c1"], to=["c0"])
+        dag.put("c3", ["c1"])
+        self.assertTrue(dag.is_below("x3", "about(c0)"))
+        self.assertTrue(dag.is_below("x1", "about(c0)"))
+
+
 class TestAudience(unittest.TestCase):
     """The reversed kind: `for` (DIMENSIONS.md §18)."""
 

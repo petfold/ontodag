@@ -57,6 +57,15 @@ def test_a_malformed_meta_line_names_its_source_and_line():
         native.loads("# ontodag store v1\n#:meta rex 'not json'\nrex\n", source="upload.od")
 
 
+@pytest.mark.parametrize("line", ["#:meta rex '[1, 2]'", "#:meta rex 5",
+                                  "#:meta rex null", "rex 'unclosed"])
+def test_every_malformed_line_is_a_value_error_naming_its_line(line):
+    # JSON that is not an object escaped as TypeError, and an unbalanced
+    # quote named no line (until 2026-10-09)
+    with pytest.raises(ValueError, match=r"upload\.od:2: malformed"):
+        native.loads(f"# ontodag store v1\n{line}\nrex\n", source="upload.od")
+
+
 def test_load_of_a_missing_file_is_an_empty_store():
     with tempfile.TemporaryDirectory() as tmp:
         dag = native.load(os.path.join(tmp, "nothing-here.od"))

@@ -19,6 +19,16 @@ not released.
 
 ### Fixed
 
+- **Removing a category an `about` compound names broke the store** (a
+  released bug, since the enclosing kind arrived): after `put x
+  about(c1 c4)` and `remove c4` (or `remove --cone`), any write that moved
+  `c1` and any query walking `about(...)` raised, because the `in(c1 c4)`
+  the enclosing rule derives no longer parsed. The sparse writer, which
+  never loaded the term, accepted the same writes. A derived `in(...)`
+  naming a removed category now has nothing inside it. The term itself
+  stays, naming a category that no longer exists, as it already did for
+  `in`, `shared-with` and the graph kind; whether removal should refuse,
+  cascade or leave it is an open question (review §8).
 - **The sparse writer committed a different root from the eager one** once
   an earlier put had built its argument index: the terms it created later
   (and stubs it registered later) were never indexed, so re-reduction and
@@ -33,6 +43,9 @@ not released.
   {Item("a")}`); an Item is now simply unequal to things without a name.
 - `merge_delta(other_root, bytes_store=...)` with an empty store silently
   used its own (an empty `MemoryBytesStore` is falsy).
+- `native.loads` raises `ValueError` naming the line for every malformed
+  line, as documented: a `#:meta` line whose JSON was not an object
+  escaped as `TypeError`, and an unbalanced quote named no line.
 
 ### Changed
 
@@ -48,7 +61,11 @@ not released.
 - `tests/test_crosskind.py`: every kind at once (values, a role, graph-kind
   compounds, the three relations with compounds, a narrower relation): one
   root in every order and merge, a lazy reader answering like the eager
-  store, and the sparse writer committing the eager writer's root.
+  store, the sparse writer committing the eager writer's root, dropping
+  every derived cache at random points changing no answer, and writes
+  mixed with removals and moves agreeing across the eager store, the eager
+  store with dropped caches and the sparse writer (the test that found the
+  `about` bug above).
 - `odag`'s batch mode (commands on stdin) is tested for the first time;
   re-spelling is tested in the direction a peer brings the fact;
   migration keeps metadata and payloads; a sparse writer's fetch budget
