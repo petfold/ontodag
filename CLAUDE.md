@@ -417,7 +417,7 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     measurement (~3,500 test chunks, fullest bucket stayed 24/64): deferred
     249/s one at a time, 609/s at 4, 869/s at 16, 914/s at 32, 896/s at 64
     (the node's local work levels off); direct 2.6/s, 34/s at 16, 64/s at 32,
-    85/s at 64. ontodag (main, unreleased): `SwarmBackend._clone_from_swarm`
+    85/s at 64. ontodag (released as 0.30.3): `SwarmBackend._clone_from_swarm`
     reads the published root through `store.local` in read-through mode, so
     ontodag no longer uses `BeeBytesStore` or `requests` at all; an older
     swarmfs is named with the pip command, not worked around; the `swarm`
@@ -425,7 +425,7 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     `swarmfs>=0.12.0` named directly (ontodag uses a swarmfs feature
     itself); `TestCloneReadsThroughTheLocalStore` (2, mutation-checked);
     live 2/2 (39 s, the scorched-earth feed rehydration runs the new clone);
-    `CI=1` 1216 passed + 3 skipped (README 1219). loopmarket (main,
+    `CI=1` 1216 passed + 3 skipped (README 1219). loopmarket (released as
     unreleased): `swarm` extra `recordstore[bee,feeds]>=0.21.1`; suite 301 +
     4; live book test 1/1 (46 s). **Still open:** recordstore's trie walk
     (depth-first, one batch per node with children: ~2,700 sequential rounds
@@ -1544,7 +1544,7 @@ default earns its place; one that adds weight for a file format does not.*
 
 ## Release state
 
-**Current (2026-10-07): ontodag 0.30.0** (step 7: prelude v4, core v12, family pins, the keyplan consolidation; see the roles section). Before it, **0.29.0**, published by tag, all four
+**Current (2026-10-08): ontodag 0.30.3 and loopmarket 0.14.1**, both by tag on Peter's "release both", all workflow jobs green (ontodag's four incl. downstream and verify), verified from fresh PyPI venvs (ontodag smoke 27/27; `ontodag[swarm]==0.30.3` resolves recordstore 0.21.1 + swarmfs 0.12.0; loopmarket[swarm] resolves recordstore 0.21.1). Patches, so ontodag-fs's `<0.31.0` ceiling still holds. Content: the read-through clone and the swarm floors (see Bee run 12). Before that: **ontodag 0.30.0** (step 7: prelude v4, core v12, family pins, the keyplan consolidation; see the roles section). Before it, **0.29.0**, published by tag, all four
 workflow jobs green, and verified from PyPI (`release_smoke.py --pypi
 0.29.0`, 27/27). It is the `ontodag.act` revocation fix: token format
 2, where a check value of the child key heads each token and is bound
