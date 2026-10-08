@@ -1313,6 +1313,37 @@ from a fresh PyPI venv `transport(bicycle small-item)` is known, argument
 (recorded, not changed): the relation kinds' explicitly written compounds
 (`in(museum-district tokyo)`) can still become a second name later.
 
+## Relation-kind compounds keep their current spelling (2026-10-09, 0.30.7 prepared)
+
+The gap 0.30.6 recorded: a relation term with several constraints (`in`,
+`about`, `shared-with`) means ONE thing meeting all of them, so it cannot be
+split into parts (for an audience, splitting would WIDEN access), and a
+stored one kept a stale spelling once the graph related its constraints:
+a plan under `shared-with(employee sales-employee)` before `sales-employee
+⊑ employee` kept that name (I1 break, root `a1201572…` vs `dbec98f1…` for
+fact-first, where the spelling was refused). Options put to Peter: 1 keep
+the stored spelling current (re-file), 2 relation compounds query-only, 3
+leave it. **He chose 1.** Built: `_canonical_graph_term` drops a redundant
+constraint for EVERY graph-ordered kind; `_compound_terms` (kept by
+`_index_args`/`_unindex`) lists present compounds; `_moved_terms(...,
+touched)` collects the terms it meets and `_reduce_roles_touching` re-files
+any stale compound among them (`_respell_stored` → `_respelling` +
+`_refile`: move children to the current spelling, forget the old node;
+inner terms first, then the terms naming a re-filed one); inside replays it
+defers (`_respell_later`) and `merge`/`merge_delta` (eager and sparse) call
+`_respell_deferred` with the compounds the replay brought. Also the 0.30.6
+follow-up: the MCP write surface records compound graph-kind claims per
+part (`_canonical_supers` expands parts; `_subject_from` refuses a compound,
+naming its parts). Tests: `TestTheStoredSpellingStaysCurrent`,
+`TestRelationSpellingAgainstOrders` (30 random worlds, 4 orders + merge:
+one root, no I1 pair), the MCP per-part test; 7 of 8 fail on 0.30.6.
+Filing stays flat (0.25–0.30 ms per put at 200–3,200 people/places, same as
+0.30.6). Guide §4.9 gained an executed compound-audience snippet and lost a
+stale "not in the prelude yet". Price, documented: a stored relation
+compound's name can change (to its current spelling, same class), moving
+an ontodag-fs directory or a key plan's node key, and a provenance claim
+under the old spelling is not found under the new one.
+
 ## Role heads (2026-09-12) — issue #15 closed, DIMENSIONS.md §14
 
 Peter's order for the session: #15, then #16, then #14 (loopmarket's three

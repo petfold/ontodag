@@ -199,7 +199,7 @@ compatibility rule, affine temperatures, graph-declared units and packs.
 | `dominance-dimension` | boxes (componentwise intervals), components canonically sorted descending | componentwise | parcels/luggage ("fits in"), `size(390x230x190mm)` |
 | `calendar-dimension`  | the same interval denotations as linear over the time family, but every literal is a calendar period: `2026` the year, `2026-08` the month, `2026-08-15` the day, a timestamp the instant | identical to linear (shared code path) | dates on documents, "last summer", "everything from 2026" |
 | `count-dimension`     | whole numbers ≥ 1 of discrete things; ranges with floor 1 | interval containment | multiplicities (§ UNITS.md 11) |
-| `graph-dimension`  | a conjunction of constraints on the graph — category names and terms of other dimensions (`transport(small-item weight(..8kg))`), sorted, deduplicated, none redundant | **by the graph**, not the name: every outer constraint is above some inner one; meet = union, reduced (§15) | what an operator accepts (loopmarket's courier), any "things such that" argument |
+| `graph-dimension`  | a conjunction of constraints on the graph — category names and terms of other dimensions (`transport(small-item weight(..8kg))`), sorted, deduplicated, a redundant one dropped; stored as one term per constraint (§15) | **by the graph**, not the name: every outer constraint is above some inner one; meet = union, reduced (§15) | what an operator accepts (loopmarket's courier), any "things such that" argument |
 
 **`calendar-dimension` (added 2026-08-01, `REGISTRY_VERSION` 2).** A separate
 kind for one reason, and it is a grammar collision rather than a semantic
@@ -878,10 +878,10 @@ provenance and paths) and over reading two terms as two things (that is
 the relation kinds' reading, and not loopmarket's). Stores written before
 keep their compound nodes: they load verbatim and answer the same
 questions, and `ontodag.migrate` replays them into parts. The relation
-kinds keep compounds as written, since an item can relate to several
-things at once, so a compound there is not its parts; one written
-explicitly (`in(museum-district tokyo)`) still becomes a second name if its
-constraints are related later. That gap is recorded, not changed.
+kinds keep compounds whole, since an item can relate to several things at
+once, so a compound there is not its parts; their stored spelling is kept
+current instead (§16). A claim about a compound (the agent surface) is
+recorded per part too, since a part's spelling never follows the graph.
 `tests/test_graph_kind.py` (`TestStoredFormIsOrderFree`,
 `TestAgainstTheMeaning`: 25 random worlds, four orders each and a merge,
 one root, every answer checked against the one-thing reading).
@@ -950,8 +950,39 @@ the prelude yet; ROLES.md §9 step 3.7 moves the standard heads in once,
 together with the pack audit, so golden roots move once.
 
 **Grammar.** The graph kind's: a conjunction of constraints (present
-categories or terms of declared dimensions), canonical when sorted,
-deduplicated and with none redundant.
+categories or terms of declared dimensions), canonical when sorted and
+deduplicated, with a redundant constraint dropped (§15).
+
+**The stored spelling stays current (2026-10-08).** A relation term with
+several constraints means ONE thing meeting all of them:
+`shared-with(manager sales-employee)` is for the people who are both,
+`in(church landmark)` places a thing in a church that is a landmark. So,
+unlike the graph kind's, it is stored whole: as two terms it would say
+two things, and for an audience it would widen who may see. Its spelling
+follows the graph all the same. Shared with `shared-with(employee
+sales-employee)` before the org chart said sales employees are employees,
+a plan used to keep that name: a second name for
+`shared-with(sales-employee)`'s audience (I1), under a root
+(`a1201572…`) other than a store's that knew the chart first
+(`dbec98f1…`), which refused the spelling as redundant. Now a write drops
+the redundant constraint, and when a fact makes one of a stored term's
+constraints redundant, what is filed under the term is re-filed under its
+current spelling and the old name is dropped (`_respell_stored`, run from
+re-reduction, and after a merge or a sync for the compounds either side
+brought): both stores are `dbec98f1…`, and so is their merge either way
+round. A term naming a re-filed one (`in(in(church landmark))`) follows
+it. Peter chose this on 2026-10-08 over keeping relation compounds out of
+stored form (which loses "the people who are both") and over leaving the
+gap. The price is that a stored name can change, though only from a
+redundant spelling to its current one, never to another class: whatever
+refers to the node by name sees it move (an ontodag-fs directory, the
+node's key in a key plan, replaced on the next publish), and a
+provenance claim recorded under the old spelling is not found under the
+new one. The old spelling still answers queries.
+`tests/test_transitive.py` (`TestTheStoredSpellingStaysCurrent`,
+`TestRelationSpellingAgainstOrders`: 30 random worlds of `in`, `about`
+and `shared-with` compounds in four orders and a merge, one root, no two
+names for one class).
 
 **Order.** `R(X…) ⊑ R(A…)` iff every A is above (or is) some X — the
 graph kind's rule — **or some x in X is itself below `R(A…)`**. The
@@ -1149,9 +1180,9 @@ kind's rule with the two sides swapped. A parameter names a class of
 people as a conjunction, so `shared-with(manager sales-employee)` is for the
 people who are both, and `shared-with(sales-employee) ⊑ shared-with(manager
 sales-employee)`: what is for every sales employee is for the sales
-managers. A redundant constraint is refused, as for the graph kind,
+managers. A redundant constraint is dropped, as for the graph kind,
 since it is the parameter's class that counts, whichever way the order
-runs.
+runs; a stored one is re-filed under its current spelling (§16).
 
 **Kinds only, never `in`.** Membership is said by kinds (§16, "Scope"),
 and the reversed rule follows the plain order alone. Following `in` would
@@ -1168,7 +1199,7 @@ containment (`meet(shared-with(acme-employee), shared-with(sales-employee))` is
 
 **No guard of its own.** Two `shared-with` terms contain each other only if their
 parameters do, which takes a cycle the ordinary check refuses, or a
-redundant constraint the spelling refuses.
+redundant constraint, which the spelling drops (§16).
 
 **Terms of every kind the graph orders go only under their head**
 (graph, transitive, enclosing, reversed). Filing `shared-with(board)` under `secret`

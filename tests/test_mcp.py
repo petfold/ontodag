@@ -347,6 +347,31 @@ class TestWriteSurface(WritableHarness):
         self.assertIn("proposal", proposed)
         self.assertFalse(proposed["already_below"]["weight(3kg)"])
 
+    def test_a_compound_graph_claim_is_claimed_per_part(self):
+        # A compound graph-kind term is filed as its parts (DIMENSIONS.md
+        # §15), so it is claimed per part: a part's spelling never follows
+        # the graph, and the claim is still found once pianos are heavy.
+        for item, supers in [("dimension", []),
+                             ("graph-dimension", ["dimension"]),
+                             ("transport", ["graph-dimension"]), ("goods", []),
+                             ("heavy-item", ["goods"]), ("piano", ["goods"])]:
+            self.write(item, supers)
+        _, proposed = self.write("job", ["transport(heavy-item piano)"])
+        self.assertEqual(proposed["supers"],
+                         ["transport(heavy-item)", "transport(piano)"])
+        claims = {(r["subject"]["sub"], r["subject"]["sup"])
+                  for r in self.provenance_records()
+                  if r["subject"]["sub"] == "job"}
+        self.assertEqual(claims, {("job", "transport(heavy-item)"),
+                                  ("job", "transport(piano)")})
+        self.write("piano", ["heavy-item"])
+        review = self.call("review", {"sub": "job", "sup": "transport(piano)"})
+        self.assertEqual(len(review["records"]), 1)
+        text = self.call("review", {"sub": "job",
+                                    "sup": "transport(heavy-item piano)"},
+                         expect_error=True)
+        self.assertIn("claimed per part", text)
+
     def test_put_needs_a_matching_proposal(self):
         text = self.call("put", {"item": "pet", "supers": [],
                                  "proposal": "bogus"}, expect_error=True)

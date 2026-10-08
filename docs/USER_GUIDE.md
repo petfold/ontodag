@@ -1215,17 +1215,16 @@ of Mars directly under `mars`, and once a pack says `mars ⊑ planet`, the
 photo is a planet.
 
 The three relations are dimensions whose values are nodes rather than
-numbers. They aren't in the prelude yet, so a store declares them:
+numbers. The prelude (v4, since 0.30) declares them:
 
 ```console
 $ odag prelude
-$ odag put transitive-dimension dimension
-$ odag put in transitive-dimension
-$ odag put enclosing-dimension dimension
-$ odag put about enclosing-dimension
-$ odag put reversed-dimension dimension
-$ odag put shared-with reversed-dimension
 ```
+
+A store without the prelude files the same lines itself: `odag put
+transitive-dimension dimension`, `odag put in transitive-dimension`, and
+likewise `enclosing-dimension` with `about` and `reversed-dimension` with
+`shared-with`.
 
 **`in` is for places and parts, and it chains.** Tokyo is in Japan, so
 whatever is in Tokyo is in Japan:
@@ -1328,7 +1327,31 @@ odag: japan ⊑ in(tokyo) would put japan inside itself: in is strict, so nothin
 ```
 
 Several terms of one relation on one item stay separate: Zermatt can be
-`in(switzerland)` and `in(alps)`. The names `in`, `about` and `shared-with` are
+`in(switzerland)` and `in(alps)`. One term can also name ONE thing meeting
+several constraints: `shared-with(acme-lead acme-sales)` is for the
+people who are both. Such a term is kept whole, and its spelling follows
+the graph: a constraint another one implies is dropped, and a term filed
+before the fact that made it redundant is re-filed under its new spelling
+when the fact arrives, so the store ends up the same whichever came first:
+
+```console
+$ odag put acme-staff
+$ odag put acme-sales
+$ odag put acme-lead
+$ odag put acme-dana acme-sales acme-lead
+$ odag put forecast 'shared-with(acme-lead acme-sales)'
+$ odag below forecast 'shared-with(acme-dana)'
+true
+$ odag put roadmap 'shared-with(acme-sales acme-staff)'
+$ odag put acme-sales acme-staff
+$ odag get --items-only 'shared-with(acme-sales)'
+roadmap
+$ odag canon 'shared-with(acme-sales acme-staff)'
+shared-with(acme-sales)
+```
+
+The old spelling still works as a question; it just isn't a stored name any
+more. The names `in`, `about` and `shared-with` are
 the store's own; any head under one of these kinds behaves the same
 way. The design is [DIMENSIONS.md](DIMENSIONS.md) §16–§18, and the
 reasoning [plans/ROLES.md](plans/ROLES.md).
@@ -1732,7 +1755,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.30.6 - type help for help
+Ontodag 0.30.7 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png

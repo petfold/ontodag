@@ -759,5 +759,180 @@ class TestStoresAndReaders(unittest.TestCase):
         self.assertEqual(eager.commit(), sparse.commit())
 
 
+
+class TestTheStoredSpellingStaysCurrent(unittest.TestCase):
+    """A relation term with several constraints means ONE thing meeting all
+    of them (`shared-with(manager sales-employee)` is for the people who
+    are both), so unlike the graph kind's it is stored as written. Its
+    spelling follows the graph, though: once a fact makes a constraint
+    redundant, the stored term is re-filed under its current spelling
+    (Peter's option 1, 2026-10-08; DIMENSIONS.md §16). Until then a plan
+    shared with `shared-with(employee sales-employee)` before the org chart
+    said sales employees are employees kept that name, a second name for
+    `shared-with(sales-employee)`, under a different root from a store that
+    knew it first, which refused the spelling."""
+
+    def org(self):
+        dag = declare(EagerOntoDAG(RecordStore(MemoryBytesStore())),
+                      about=True, audience=True)
+        for name, supers in (("person", []), ("employee", ["person"]),
+                             ("sales-employee", ["person"]),
+                             ("alice", ["sales-employee"])):
+            dag.put(name, supers)
+        return dag
+
+    def test_the_audience_converges(self):
+        early, late = self.org(), self.org()
+        early.put("sales-employee", ["employee"])
+        early.put("plan", ["shared-with(employee sales-employee)"])
+        late.put("plan", ["shared-with(employee sales-employee)"])
+        late.put("sales-employee", ["employee"])
+        for dag in (early, late):
+            self.assertEqual(parents(dag, "plan"), {"shared-with(sales-employee)"})
+            self.assertNotIn("shared-with(employee sales-employee)", dag.nodes)
+            self.assertTrue(dag.is_below("plan", "shared-with(alice)"))
+            self.assertTrue(dag.is_below(
+                "plan", "shared-with(employee sales-employee)"))
+        root = early.commit()
+        self.assertEqual(late.commit(), root)
+        for first, second in ((early, late), (late, early)):
+            merged = EagerOntoDAG(RecordStore(MemoryBytesStore()))
+            merged.merge(first)
+            merged.merge(second)
+            self.assertEqual(merged.commit(), root)
+
+    def test_a_peers_old_spelling_is_re_filed_on_merge(self):
+        # The peer filed before it knew; this store knew first. Neither
+        # replays an edge that relates the constraints: the merge itself
+        # has to notice the old spelling.
+        peer, ours = self.org(), self.org()
+        peer.put("plan", ["shared-with(employee sales-employee)"])
+        ours.put("sales-employee", ["employee"])
+        ours.merge(peer)
+        self.assertEqual(parents(ours, "plan"), {"shared-with(sales-employee)"})
+        self.assertNotIn("shared-with(employee sales-employee)", ours.nodes)
+        known = self.org()
+        known.put("sales-employee", ["employee"])
+        known.put("plan", ["shared-with(sales-employee)"])
+        self.assertEqual(ours.commit(), known.commit())
+
+    def test_a_sync_re_files_too(self):
+        blobs = MemoryBytesStore()
+        a = declare(EagerOntoDAG(RecordStore(blobs)), audience=True)
+        for name, supers in (("person", []), ("employee", ["person"]),
+                             ("sales-employee", ["person"]),
+                             ("alice", ["sales-employee"])):
+            a.put(name, supers)
+        base_root = a.commit()
+        b = EagerOntoDAG(RecordStore(blobs, root=base_root))
+        a.put("plan", ["shared-with(employee sales-employee)"])
+        a_root = a.commit()
+        b.put("sales-employee", ["employee"])
+        b.commit()
+        b.sync(a_root)
+        self.assertEqual(parents(b, "plan"), {"shared-with(sales-employee)"})
+        self.assertNotIn("shared-with(employee sales-employee)", b.nodes)
+
+    def test_places_topics_and_nesting(self):
+        dag = declare(about=True)
+        for name, supers in (("place", []), ("church", ["place"]),
+                             ("landmark", ["place"]), ("animal", []),
+                             ("dog", ["animal"]), ("poodle", ["animal"])):
+            dag.put(name, supers)
+        dag.put("photo", ["in(church landmark)"])
+        dag.put("note", ["about(dog poodle)"])
+        dag.put("map", ["in(in(church landmark))"])
+        dag.put("church", ["landmark"])
+        dag.put("poodle", ["dog"])
+        self.assertEqual(parents(dag, "photo"), {"in(church)"})
+        self.assertEqual(parents(dag, "note"), {"about(poodle)"})
+        self.assertEqual(parents(dag, "map"), {"in(in(church))"})
+        for stale in ("in(church landmark)", "about(dog poodle)",
+                      "in(in(church landmark))"):
+            self.assertNotIn(stale, dag.nodes)
+            self.assertEqual(dag._canonical_name(stale),
+                             stale.replace("church landmark", "church")
+                             .replace("dog poodle", "poodle"))
+
+    def test_into_a_term_that_already_holds_things(self):
+        dag = self.org()
+        dag.put("handbook", ["shared-with(sales-employee)"])
+        dag.put("plan", ["shared-with(employee sales-employee)"])
+        dag.put("sales-employee", ["employee"])
+        self.assertEqual({i.name for i in dag.get(
+            ["shared-with(sales-employee)"], items_only=True)},
+            {"handbook", "plan"})
+        self.assertEqual([n for n in dag.nodes if n.startswith("shared-with(")],
+                         ["shared-with(sales-employee)"])
+
+    def test_the_sparse_writer_lands_on_the_same_root(self):
+        blobs = MemoryBytesStore()
+        eager = self.org()
+        base = declare(EagerOntoDAG(RecordStore(blobs)), about=True,
+                       audience=True)
+        for name, supers in (("person", []), ("employee", ["person"]),
+                             ("sales-employee", ["person"]),
+                             ("alice", ["sales-employee"])):
+            base.put(name, supers)
+        root = base.commit()
+        sparse = SparseOntoDAG(RecordStore(blobs, root=root))
+        for dag in (sparse, eager):
+            dag.put("plan", ["shared-with(employee sales-employee)"])
+            dag.put("sales-employee", ["employee"])
+        self.assertEqual(sparse.commit(), eager.commit())
+
+
+class TestRelationSpellingAgainstOrders(unittest.TestCase):
+    """Random worlds: items under relation terms with one or two
+    constraints, and category edges that relate constraints, written in
+    every order and merged. One root, and no two stored terms of one head
+    naming one class (I1)."""
+
+    def world(self, seed):
+        rng = random.Random(seed)
+        cats = [f"c{i}" for i in range(6)]
+        edges = [(cats[i], cats[j]) for i in range(6) for j in range(i + 1, 6)
+                 if rng.random() < 0.3]
+
+        def term():
+            head = rng.choice(["in", "about", "shared-with"])
+            return f"{head}({' '.join(rng.sample(cats, rng.choice((1, 2, 2))))})"
+
+        items = {f"x{k}": [term() for _ in range(rng.choice((1, 2)))]
+                 for k in range(6)}
+        return cats, edges, items
+
+    def build(self, world, order):
+        cats, edges, items = world
+        dag = declare(EagerOntoDAG(RecordStore(MemoryBytesStore())),
+                      about=True, audience=True)
+        for c in cats:
+            dag.put(c, [])
+        writes = [("edge", e) for e in edges] + [("item", i) for i in items.items()]
+        random.Random(order).shuffle(writes)
+        for kind, (a, b) in writes:
+            dag.put(a, [b] if kind == "edge" else b)
+        return dag
+
+    def test_every_order_and_merge_gives_one_root(self):
+        for seed in range(30):
+            world = self.world(seed)
+            dags = [self.build(world, order) for order in range(4)]
+            roots = {dag.commit() for dag in dags}
+            merged = EagerOntoDAG(RecordStore(MemoryBytesStore()))
+            merged.merge(dags[1])
+            merged.merge(dags[3])
+            roots.add(merged.commit())
+            self.assertEqual(len(roots), 1, seed)
+            dag = dags[0]
+            for head in ("in", "about", "shared-with"):
+                terms = [n for n in dag.nodes if n.startswith(head + "(")]
+                for a in terms:
+                    for b in terms:
+                        if a != b:
+                            self.assertFalse(
+                                dag.is_below(a, b) and dag.is_below(b, a),
+                                (seed, a, b))
+
 if __name__ == "__main__":
     unittest.main()

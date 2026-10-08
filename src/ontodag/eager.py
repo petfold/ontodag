@@ -287,6 +287,7 @@ class EagerOntoDAG(OntoDAG):
                     parent = self.nodes.get(parent_name)
                     if parent is not None:
                         self.add_edge(parent, node)
+        self._respell_deferred(touched)   # compounds left behind (merge())
 
         if getattr(self.store, "root", None) == other_root:
             for key, _mine, theirs in diff:

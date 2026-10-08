@@ -129,7 +129,9 @@ refused entirely for file stores, which remain `odag`'s own). The flow is
    the token; if the store moved or the spelling changed since the
    proposal, the write is refused with a teaching error ("propose again").
    On success: the knowledge change commits, **one signed assertion record
-   per claim** (basis = the root the author saw, shared `group` hash)
+   per claim** (basis = the root the author saw, shared `group` hash; a
+   compound graph-kind super is stored and claimed as its parts, whose
+   spellings never follow the graph, DIMENSIONS.md §15)
    lands in the provenance sibling store (`NAME-prov`), and the answer
    carries both new roots — the published pair.
 3. **`propose_remove` / `remove`** — same shape, and the §3 **coupling

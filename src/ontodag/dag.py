@@ -1448,15 +1448,16 @@ class OntoDAG(DAG):
         else fails closed). A REDUNDANT constraint — one another
         constraint implies, `small-item` beside `bicycle` once `bicycle ⊑
         small-item` — would give one set two names (I1: distinct canonical
-        names are never mutually contained). The graph kind DROPS it, so
-        `H(bicycle small-item)` is spelled `H(bicycle)`: its compound terms
-        are never stored (`_graph_parts`), so a spelling that follows the
-        graph harms nothing, and refusing would make whether a write is
-        accepted depend on the order facts arrived in. The relation kinds
-        still REFUSE it, since their compound terms are stored as written
-        and a stored name is never re-read against the rule. Replays
-        (merge, sync) land nodes before their edges and run lenient, like
-        role parameters naming not-yet-placed nodes."""
+        names are never mutually contained), so it is DROPPED:
+        `H(bicycle small-item)` is spelled `H(bicycle)`. Refusing it made
+        whether a write was accepted depend on the order facts arrived in.
+        The spelling follows the graph, so a stored compound can fall
+        behind it: the graph kind never stores one (`_graph_parts`), and a
+        relation kind's is re-filed under its current spelling when a fact
+        makes one of its constraints redundant (`_respell_stored`, both
+        2026-10-08). Replays (merge, sync) land nodes before their edges
+        and run lenient, like role parameters naming not-yet-placed
+        nodes."""
         lenient = getattr(self, "_role_lenient", 0)
         key = ("graph-term", name)
         trips = self._trips()
@@ -1479,16 +1480,7 @@ class OntoDAG(DAG):
                     f"constraints fail closed")
         canonical = sorted(set(canonical))
         if not lenient:
-            if self._dimension_kind(head) == _dims.KIND_GRAPH:
-                canonical = self._reduce_constraints(canonical)
-            else:
-                for a in canonical:
-                    for b in canonical:
-                        if a != b and self._below_guarded(a, b):
-                            raise ValueError(
-                                f"{name}: {b!r} is redundant beside {a!r} "
-                                f"({a} ⊑ {b}) — write {head}"
-                                f"({' '.join(x for x in canonical if x != b)})")
+            canonical = self._reduce_constraints(canonical)
             return self._memo_put_unless_tripped(
                 key, f"{head}({' '.join(canonical)})", trips)
         return f"{head}({' '.join(canonical)})"
@@ -1685,7 +1677,11 @@ class OntoDAG(DAG):
                 del values[split[0]]
 
     def _index_args(self, name, split):
-        for constraint in _dims.constraints(split[1]):
+        constraints = _dims.constraints(split[1])
+        if len(constraints) > 1 or any(_dims.split_term(c) is not None
+                                       for c in constraints):
+            self._compound_terms.add(name)      # its spelling can fall behind
+        for constraint in constraints:
             named = self._args.setdefault(constraint, set())
             if name in named:
                 continue
@@ -1704,6 +1700,7 @@ class OntoDAG(DAG):
         """constraint -> the present terms naming it, built on first use."""
         if getattr(self, "_args", None) is None:
             self._args, self._nested_keys = {}, set()
+            self._compound_terms = set()
             for present in list(self.nodes):
                 split = _dims.split_term(present)
                 if split is not None:
@@ -1716,6 +1713,7 @@ class OntoDAG(DAG):
             return
         args = getattr(self, "_args", None)
         if args is not None:
+            self._compound_terms.discard(name)
             for constraint in _dims.constraints(split[1]):
                 named = args.get(constraint)
                 if named is not None:
@@ -3139,7 +3137,15 @@ class OntoDAG(DAG):
         heads = self._multi_valued_heads() + self._graph_kind_heads()
         if not roles and not heads:
             return
-        moved, pairs = self._moved_terms(from_node, to_node, roles, heads)
+        touched = []
+        moved, pairs = self._moved_terms(from_node, to_node, roles, heads,
+                                         touched)
+        # A stored compound whose constraints the edge related is re-filed
+        # under its current spelling first (`_respell_stored`); then what
+        # moved is read again from the graph that re-filing left.
+        compounds = [t.name for t in touched if t.name in self._compound_terms]
+        if compounds and self._respell_stored(compounds):
+            moved, pairs = self._moved_terms(from_node, to_node, roles, heads)
         for term in moved:
             for parent in list(self._computed_parents(term)):
                 self._prune_rectangle(parent, term)
@@ -3147,7 +3153,86 @@ class OntoDAG(DAG):
             if upper.name in self.nodes and lower.name in self.nodes:
                 self._prune_rectangle(upper, lower)
 
-    def _moved_terms(self, from_node, to_node, roles, heads):
+    def _respelling(self, name):
+        """The current spelling of `name`, a stored term the graph orders,
+        or None when it is current. A compound's spelling follows the graph
+        (a redundant constraint is dropped, `_canonical_graph_term`), and a
+        stored name does not: once `sales-employee ⊑ employee` is filed,
+        `shared-with(employee sales-employee)` is spelled
+        `shared-with(sales-employee)`."""
+        split = _dims.split_term(name)
+        if split is None or getattr(self, "_role_lenient", 0):
+            return None
+        if self._dimension_kind(split[0]) not in _dims.GRAPH_ORDERED:
+            return None
+        try:
+            current = self._canonical_graph_term(name)
+        except ValueError:
+            return None          # a constraint no longer parses: leave it
+        return None if current == name else current
+
+    def _refile(self, term, name):
+        """Re-file what is filed under `term`, a stored spelling the graph
+        has left behind, under `name`, its current spelling (the same
+        class), and drop `term`: one class keeps one name (I1), and the
+        stored form is the same whether the term or the fact that made one
+        of its constraints redundant came first (Peter's option 1,
+        2026-10-08)."""
+        term = self.nodes.get(term.name, term)           # expands on lazy
+        head, kind, _ = self._parse_parametric(name)
+        target = self._ensure_parametric_node(name, head, kind)
+        children = list(term.neighbors)
+        for child in children:
+            self.remove_edge(term, child)
+        for parent in list(self._live_parents(term)):
+            self.remove_edge(parent, term)
+        self._forget(term.name)
+        for child in children:
+            if child.name in self.nodes and not self.is_below(child.name, name):
+                self.add_edge(target, self.nodes[child.name])
+
+    def _respell_stored(self, names):
+        """Re-file every stored compound among `names` whose spelling the
+        graph has left behind (`_respelling`), inner terms first, and then
+        the terms naming each one re-filed, whose own spelling changes
+        with it (`in(in(employee sales-employee))`). Returns whether
+        anything moved. A replay (merge, sync) lands nodes before their
+        edges, so inside one the names wait for `_respell_deferred`."""
+        if getattr(self, "_role_lenient", 0):
+            later = getattr(self, "_respell_later", None)
+            if later is None:
+                later = self._respell_later = set()
+            later.update(names)
+            return False
+        depth = lambda n: (n.count("("), n)
+        pending = sorted({n for n in names if n in self.nodes}, key=depth)
+        moved = False
+        while pending:
+            name = pending.pop(0)
+            if name not in self.nodes:
+                continue
+            current = self._respelling(name)
+            if current is None:
+                continue
+            naming = [t for t in self._args_index().get(name, ())
+                      if t in self.nodes and t not in pending]
+            self._refile(self.nodes[name], current)
+            moved = True
+            if naming:
+                pending = sorted(set(pending) | set(naming), key=depth)
+        return moved
+
+    def _respell_deferred(self, names=()):
+        """After a replay: re-spell what its edges touched, and `names`
+        (the compounds the replay brought in, which may arrive in a store
+        that already relates their constraints)."""
+        later = getattr(self, "_respell_later", None) or set()
+        self._respell_later = set()
+        self._args_index()
+        return self._respell_stored(
+            [n for n in {*later, *names} if n in self._compound_terms])
+
+    def _moved_terms(self, from_node, to_node, roles, heads, touched=None):
         """The terms the edge `from ⊑ to` gave a new parent, as
         (covariant terms, [(upper, lower) pairs of a reversed head]).
 
@@ -3203,6 +3288,8 @@ class OntoDAG(DAG):
                     queue.append(key)
             found = [t for t in self._args_index().get(name, ())
                      if t in self.nodes]
+            if touched is not None:
+                touched.extend(self.nodes[t] for t in found)
             for role in roles:
                 spellings = [f"{role}({name})"]
                 split = _dims.split_term(name)
@@ -4095,6 +4182,9 @@ class OntoDAG(DAG):
                         self.add_edge(self_node, self.nodes[neighbor.name])
 
             self._remove_duplicate_root_edges()
+        # A compound either side stored before the other learned a fact
+        # relating its constraints takes its current spelling (§16–§18).
+        self._respell_deferred(other_dag.nodes)
 
     def prune_to_common_descendants(self, interesting_nodes):
         # Gather each node's descendants in a list of sets

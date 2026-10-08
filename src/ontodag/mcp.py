@@ -177,6 +177,13 @@ class AgentSurface:
             return exists_subject(sub)
         if not isinstance(sup, str):
             raise ToolError("sup must be a string")
+        parts = dag._graph_parts(sup)
+        if len(parts) > 1:
+            # Filed as its parts, so claimed per part (DIMENSIONS.md §15):
+            # a part's spelling never follows the graph, a compound's does.
+            raise ToolError(
+                f"{sup} is filed as its parts and claimed per part: ask "
+                f"about each of {', '.join(parts)}")
         return below_subject(sub, dag._canonical_name(sup))
 
     def _canonical_supers(self, dag, supers):
@@ -185,7 +192,15 @@ class AgentSurface:
         if not isinstance(supers, list) or \
                 not all(isinstance(s, str) and s for s in supers):
             raise ToolError("supers must be a list of strings")
-        return [dag._canonical_name(s) for s in supers]
+        # A compound graph-kind super is stored, and so claimed, as its
+        # parts (DIMENSIONS.md §15): the echo shows what is stored.
+        out = []
+        for s in supers:
+            for part in dag._graph_parts(s):
+                part = dag._canonical_name(part)
+                if part not in out:
+                    out.append(part)
+        return out
 
     @staticmethod
     def _claims_for_put(item_c, supers_c):

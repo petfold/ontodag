@@ -14,6 +14,45 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.30.7] — 2026-10-09
+
+### Fixed
+
+- **A relation term with several constraints keeps its current spelling**
+  (`in`, `about`, `shared-with`; DIMENSIONS.md §16). Such a term means ONE
+  thing meeting all its constraints (`shared-with(manager sales-employee)`
+  is for the people who are both), so unlike the graph kind's it is stored
+  whole. But a plan shared with `shared-with(employee sales-employee)`
+  before the org chart said sales employees are employees kept that name:
+  a second name for `shared-with(sales-employee)`'s audience, and a
+  different root from a store that knew the chart first, where the same
+  spelling was refused. Now, when a fact makes one of a stored term's
+  constraints redundant, what is filed under it moves to its current
+  spelling and the old name is dropped; merges and syncs do the same for
+  the compounds either side brought. Both stores, and their merge either
+  way round, share one root. A term naming a re-filed one follows it
+  (Peter's option 1, over keeping relation compounds out of stored form,
+  which would lose "the people who are both").
+- **A claim about a compound graph-kind term is recorded per part** (the
+  agent surface's `put`, whose echo now lists the parts). 0.30.6 stored
+  such a term as its parts but recorded the claim under the compound's
+  spelling, which changes once the graph relates its constraints, so a
+  review stopped finding it. `review`, `endorse` and `retract` on a
+  compound name its parts.
+
+### Changed
+
+- **A redundant constraint in a relation term is dropped, not refused**,
+  as for the graph kind since 0.30.6.
+- The price of keeping the spelling current: a stored relation term's
+  name can change, though only from a redundant spelling to its current
+  one, never to another class. Whatever refers to the node by name sees it
+  move (an ontodag-fs directory; the node's key in a key plan, replaced on
+  the next publish), and a provenance claim recorded under the old spelling
+  is not found under the new one. The old spelling still answers queries.
+- The guide said the prelude did not declare `in`, `about` and
+  `shared-with`; prelude v4 (0.30.0) does.
+
 ## [0.30.6] — 2026-10-08
 
 ### Fixed
