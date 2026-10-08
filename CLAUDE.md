@@ -438,10 +438,35 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     node); ontodag's clone of `medicine` through swarmfs read-through: 37
     calls, 134 s incl. hashing + replay, cloned root == published.
     `tests/test_walk.py` (4). `_diff` (merge/sync) still loads per node.
-    **Still open:** recordstore's own direct route
-    (`BeeBytesStore`/`swarm_store`/`SwarmFeedPointer`) onto swarmfs, the rest
-    of the single route; the Bee issue draft (Peter files it); batch
-    `c931c8a5…` has ~10 days left.
+    **The single route, done (2026-10-08, Peter: "both steps, one shared
+    signer in swarmfs", with his concern about maintaining our own crypto
+    answered by writing none):** swarm-bee (one contributor, 12 releases
+    May 7-20 2026, nothing since, our issue #2 unanswered) used for one
+    feed write, chunk reads, feed-id/SOC helpers, and Ethereum
+    signed-message signing — all of which swarmfs had except `after` and a
+    signer. **swarmfs 0.13.0**: `swarmfs.signer` (sign/verify/recover via
+    coincurve = libsecp256k1; we own ~30 lines of encoding; refuses to sign
+    without coincurve; pure-Python RECOVERY only, no secrets; byte-identical
+    to swarm-bee and eth-keys' native backend over 60 random cases; anchors:
+    key 1 -> 0x7e5f...5bdf, bee-js key -> 0x8d37...e632), `feed_head`/`latest`
+    `after=` (passed only when given), feeds extra coincurve instead of
+    eth-keys (11 packages incl. pydantic). Its CI caught a 9%-flaky 0.12
+    test (a 16-of-30 sample misses 3 losses one time in eleven: the sampling
+    risk, live). **recordstore 0.22.0**: `BeeBytesStore` and
+    `SwarmFeedPointer` on swarmfs (same API; pointer keeps its reliability
+    logic, verifies every chunk read as swarm-bee did, `.owner`/`.topic`
+    added), extras without requests/swarm-bee; live 22/22; `[swarm-only,
+    local-first-swarm]` installs 17 packages. **ontodag 0.30.4**:
+    provenance `KeySigner`/`verify_record` on `swarmfs.signer` (a frozen
+    swarm-bee-signed record verifies; new records byte-identical), `swarm`
+    extra recordstore>=0.22 + swarmfs[feeds]>=0.13, `odag swarm` checks
+    swarmfs + coincurve; live 2/2; smoke 27/27 from PyPI. All three by tag,
+    verified from fresh PyPI venvs. loopmarket: live book test passes on
+    the new stack, no change needed (its `sig` extra still uses eth-keys
+    for offer signatures — a candidate for the shared signer, not done).
+    **Still open:** `_diff`'s per-node loads (merge/sync); loopmarket's
+    offer signatures onto the shared signer (optional); the Bee issue draft
+    (Peter files it); batch `c931c8a5…` has ~10 days left.
 
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
 
