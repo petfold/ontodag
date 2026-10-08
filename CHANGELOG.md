@@ -14,6 +14,8 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.30.3] — 2026-10-08
+
 ### Changed
 
 - **A fresh `swarm:` replica reads the published store through its own
