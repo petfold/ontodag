@@ -14,6 +14,18 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.30.5] — 2026-10-08
+
+### Changed
+
+- **The `swarm` extra needs recordstore 0.22.1**, whose `diff()` loads
+  ahead level by level instead of one trie node per round trip (a 200-key
+  diff of a 5,000-record store: 1,731 rounds -> 9; a published pack's
+  v12 -> v13 diff read cold from Bee: 33.0 s -> 3.9 s). Saving onto a
+  head another writer moved folds it in through that diff
+  (`merge_delta`), so the fold reads a peer's changes in a few rounds.
+  swarmfs stays at 0.13 or later: nothing here uses 0.14's additions.
+
 ## [0.30.4] — 2026-10-08
 
 ### Changed

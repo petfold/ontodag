@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ontodag"
-version = "0.30.4"
+version = "0.30.5"
 description = "Associative memory and categories based on a directed acyclic graph data structure"
 readme = "README.md"
 license = { text = "BSD-3-Clause" }
@@ -87,7 +87,7 @@ web = ["ontodag[viz,owl]", "flask", "dot2tex"]
 # pushes and heals also bootstraps; and since 0.31 provenance records sign
 # with swarmfs.signer (0.13). recordstore 0.22 is the floor that reaches Bee
 # only through swarmfs.
-swarm = ["recordstore[swarm-only,local-first-swarm]>=0.22.0", "swarmfs[feeds]>=0.13.0"]
+swarm = ["recordstore[swarm-only,local-first-swarm]>=0.22.1", "swarmfs[feeds]>=0.13.0"]
 # Everything, and it means everything: `all` is a promise about coverage, not
 # a curated selection. Leaving `swarm` out made it a lie about the one feature
 # this project is most about, and left the reader to notice that `[all]` still
