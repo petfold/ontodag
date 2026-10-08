@@ -488,8 +488,9 @@ get. **Re-run an hour earlier, after the surface-parity wave** (which touched `S
     two claims: `to_push == synced` proves nothing (`total_synced`
     increments on every attempt), and a depth-0 receipt means a copy was
     stored at proximity 0, not that the chunk was never forwarded.
-    swarmfs's `docs/bee-issue-draft.md` is now a comment for #5400 (Peter
-    posts it). Lesson: search the tracker and read the source before
+    Our evidence went to #5400 as a comment, posted on Peter's word
+    2026-10-08 (issuecomment-6064777994; text in swarmfs's
+    `docs/bee-issue-draft.md`). Lesson: search the tracker and read the source before
     drafting an upstream issue.
 
 Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
