@@ -296,6 +296,7 @@ class EagerOntoDAG(OntoDAG):
                     if parent is not None:
                         self.add_edge(parent, node)
         self._respell_deferred(touched)   # compounds left behind (merge())
+        self._respell_old_cells(touched)  # one cell, one name (merge())
         self._fold_replayed(touched)      # values left unmet (merge())
 
         if getattr(self.store, "root", None) == other_root:

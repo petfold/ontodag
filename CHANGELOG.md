@@ -31,6 +31,30 @@ the version numbers appear in commit history and docs.
   names 4.3); a record store (`rs:`, `swarm:`) folds when replayed by
   `ontodag.migrate`. `CONTRACT_VERSION` is `"0.6"`, `REGISTRY_VERSION`
   `"4.4"`.
+- **In a role of geo a bare word is a place, and a cell is written by its
+  own name, `from(geo(u2e4x))`** (review question 14, decided with Peter,
+  2026-10-10; CONTRACT.md G9 case 2, DIMENSIONS.md §14). A role read any
+  word it could not find as a cell, so one writer's `put parcel
+  from(sydney)` filed the parcel in a block of southern Turkey (`sydney`
+  is spelled with geohash letters, as are 14 of 481 time-zone city names),
+  `from(nyc)` in the Southern Ocean, and a mistyped `from(ljubljna)`
+  somewhere other than Ljubljana, with no word. A write naming a word
+  that is no filed place is now refused with a teaching error (file the
+  place under its cell, or write the cell), and so is a `geo(...)` cell
+  outside the geohash alphabet (`geo(london)`), on every surface:
+  `put`, `move`, `ingest` (once its stream is in), the web API and the
+  agent surface (at `propose_put`). A cell term stores nothing else and
+  orders as the bare value did. No answer is lost (G7): a term stored
+  before 4.4 (`from(u2e4x)`) reads as the cell while no place has that
+  name, and a query may still ask by a bare word; `old_cell_spellings()`
+  and `odag status` list stored ones; a write or a merge that brings the
+  new spelling of a cell the store holds the old way re-files the old
+  term under it, so one cell keeps one name. A time role keeps bare
+  values (`when(2026-08-15)`). **Migrate step (G8):** `ontodag.migrate`
+  respells every stored cell whose word is a geohash; one that is not
+  (`from(london)`) has no cell to name and reads as before. Consumers
+  writing role cells (loopmarket) spell them the new way, so ontodag 0.31
+  and the consumer release that respells go together.
 
 ### Known issue
 

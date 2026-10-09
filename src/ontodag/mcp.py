@@ -451,6 +451,11 @@ class AgentSurface:
         dag = self.dag
         item_c = dag.canonical(item)
         supers_c = self._canonical_supers(dag, arguments.get("supers"))
+        # Refused now rather than on confirm: a cell spelled as a bare word,
+        # or outside the geohash alphabet (review question 14).
+        for name in (*supers_c, item_c):
+            if name not in dag.nodes:
+                dag._refuse_new_cell_spelling(name)
         basis = self.root
         claims = self._claims_for_put(item_c, supers_c)
         missing = sorted({

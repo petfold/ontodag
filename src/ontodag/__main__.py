@@ -1086,6 +1086,18 @@ def cmd_ingest(args, session, out):
         if stream is not sys.stdin:
             stream.close()
     dag = session.dag
+    # What the stream adds is a new write, held to how a cell is spelled
+    # (question 14) once its places are in, below. A name that does not
+    # parse is left to the replay, which names its line.
+    created = set()
+    for _, item, supers in entries:
+        for name in (item, *supers):
+            try:
+                name = dag.canonical(name)
+            except ValueError:
+                continue
+            if name not in dag.nodes:
+                created.add(name)
     # A replay, order-free as a merge is, but not total: what contradicts
     # is refused, not kept (G9, case 3).
     with dag._lenient_roles(total=False):
@@ -1101,10 +1113,13 @@ def cmd_ingest(args, session, out):
         for name in (item, *supers):
             try:
                 dag._check_role_parameters(dag.canonical(name))
+                if dag.canonical(name) in created:
+                    dag._refuse_new_cell_spelling(dag.canonical(name))
             except ValueError as exc:
                 raise ValueError(f"line {lineno}: {item} cannot be filed, so "
                                  f"nothing was ingested: {exc}") from exc
     dag._respell_deferred()
+    dag._respell_old_cells(created)
     session.save()
 
 
@@ -1397,8 +1412,10 @@ def cmd_status(args, session, out):
 def _report_merge_leftovers(dag, out):
     """What a merge can leave that a single write is refused: values of one
     head that cannot all hold, and a role term whose word is also a
-    category outside its dimension. Said only when there is something to
-    say, each with the way out."""
+    category outside its dimension; and what a store from before registry
+    4.4 holds that a write is refused today, a cell in a role of geo
+    spelled as a bare word. Said only when there is something to say, each
+    with the way out."""
     contradictions = dag.contradictions()
     if contradictions:
         print(f"contradictions = {len(contradictions)} (an item under values "
@@ -1414,6 +1431,19 @@ def _report_merge_leftovers(dag, out):
         for term, category in clashes:
             print(f"  {term}: the category {category} is outside the dimension",
                   file=out)
+    old = dag.old_cell_spellings()
+    if old:
+        print(f"old cell spellings = {len(old)} (a role of geo's cell stored "
+              f"as a bare word before registry 4.4; each reads as the cell "
+              f"while no place has that name, and `python3 -m "
+              f"ontodag.migrate STORE` respells it by the cell's own name)",
+              file=out)
+        for term in old[:20]:
+            split = term.index("(")
+            print(f"  {term} -> {term[:split]}(geo({term[split + 1:-1]}))",
+                  file=out)
+        if len(old) > 20:
+            print(f"  ... and {len(old) - 20} more", file=out)
 
 
 def _image_base(spec):

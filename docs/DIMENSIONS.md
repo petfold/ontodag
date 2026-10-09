@@ -694,8 +694,9 @@ the same date, with cumulative naming as the consumers' interim.
 
 **The problem.** A role head is a head declared under another head so
 that it inherits the value space and the kind: `put("from", ["geo"])`,
-`put("when", ["time"])`. Values work at once — `from(u2e4x) ⊑ from(u2e4)`
-computes. But places are *nodes*, not values: `my_home` sits under
+`put("when", ["time"])`. Values work at once — `from(geo(u2e4x)) ⊑
+from(geo(u2e4))` computes (a cell is written by its own name since
+registry 4.4, below). But places are *nodes*, not values: `my_home` sits under
 `geo(u2e4x)`, `ljubljana` sits above `geo(u2e4)` and `geo(u2e5)`. Before
 this, `from(ljubljana)` parsed as the literal cell `ljubljana` — a
 parameter that *is* a node was silently read as a value that happened to
@@ -727,7 +728,27 @@ the cell `u2e`") answered structurally. For a role head:
   `odag status`) lists it until `rename` ends it (review question 13,
   decided by Peter 2026-10-10). Renaming or removing the category leaves
   such a term alone: it never named the category;
-- any other parameter is a value of the base's kind, as before.
+- in a role of `geo`, a value is written by **its own name**,
+  `from(geo(u2e4x))`, and a bare word must name a place: a new write
+  naming no place filed in the dimension is refused with a teaching error
+  (file the place under its cell, or write the cell), and so is a
+  `geo(...)` cell outside the geohash alphabet (registry 4.4, review
+  question 14, decided by Peter 2026-10-10). Before, any word a role could
+  not find was read as a cell, so `from(sydney)` filed a parcel in
+  southern Turkey (`sydney` is spelled with geohash letters) and a
+  mistyped place landed somewhere else, unnoticed. A cell term stores
+  nothing else (no `geo(u2e4x)` node) and orders exactly as the bare
+  value did. What was written the old way still reads the old way, so no
+  answer is lost (CONTRACT.md G7): a stored `from(u2e4x)` is the cell
+  while no place has that name, and so is a bare word in a query.
+  `old_cell_spellings()` and `odag status` list stored ones, `migrate`
+  respells them, and a write or a merge that brings the new spelling of a
+  cell the store holds the old way re-files the old term under it, so one
+  cell keeps one name (I1). The geohash alphabet binds `geo` itself and
+  its roles' cells, nothing else of the prefix kind (loopmarket's hex
+  `item(...)` ids); a stored non-geohash value reads as before;
+- any other parameter is a value of the base's kind, as before (a time
+  role keeps its values bare: `when(2026-08-15)`).
 
 **Canonical form is the name as spelled.** `from(my_home)` is stored as
 `from(my_home)`; the node's position may move with the catalogue, which
@@ -736,8 +757,8 @@ There is no value to canonicalize to: a floor has no cell of its own and a
 region has no single cell.
 
 **The order.** `R(x) ⊑ R(y)` iff `x ⊑ y` in the base dimension — values
-spelled as terms of the base head (`from(my_home) ⊑ from(u2e4)` iff
-`my_home ⊑ geo(u2e4)`), nodes as themselves. So a place is below the
+spelled as terms of the base head (`from(my_home) ⊑ from(geo(u2e4))`
+iff `my_home ⊑ geo(u2e4)`), nodes as themselves. So a place is below the
 cells above it and below every region containing those cells; a region
 is above the cells it covers and everything finer; two floors of one
 building are siblings although they share a cell. One combined order,
@@ -750,7 +771,7 @@ Two rules that fall out of monotonicity (CONTRACT G2):
   files the region under `geo(u2)`. Reading the covering as an upper
   bound would let a later cell flip a True answer to False.
 - **Same-head role terms never pre-intersect as meets.** No single term
-  names `from(my_home) ∩ from(u2e5)`; when one contains the other the
+  names `from(my_home) ∩ from(geo(u2e5))`; when one contains the other the
   planner keeps the finer, otherwise both stay separate cones. The
   disjoint-parents guard likewise refuses provably disjoint *values*
   only — the graph cannot prove two named places apart (the disjointness
@@ -777,7 +798,7 @@ Completeness for possibility (G6) is kept; the walk stopped inventing it.
 **Stored form stays canonical (I3, I7).** The order of role terms follows
 the catalogue, so filing a place or growing a region can make an asserted
 edge redundant *after the fact*: `ride ⊑ from(ljubljana)` and
-`ride ⊑ from(u2e6)` are both kept while `u2e6` is outside the region;
+`ride ⊑ from(geo(u2e6))` are both kept while `u2e6` is outside the region;
 adding the cell makes the first redundant, and no rectangle around the
 new edge sees it (the computed hop is a wormhole between the role's star
 and the base dimension). `add_edge` therefore ends with
@@ -1382,9 +1403,10 @@ closes §12 step 6.
   never a wrong hop. When the walk would be larger than the star, the
   star is scanned instead.
 - **Role terms**: the base dimension is walked from the parameter and
-  both spellings are looked up (`from(my_home)`, `from(u2e4)`), the
-  literal ones also by prefix, through a sorted index of the role's
-  literal parameters.
+  every spelling is looked up (a place, `from(my_home)`; a cell by its
+  own name, `from(geo(u2e4))`, or stored before 4.4, `from(u2e4)`), the
+  cells also by prefix, through a sorted index of the role's literal
+  parameters that maps each value to the names it is stored under.
 
 Hops are complete under closure rather than at every step: a walk that
 follows them reaches every term above or below, which is all any caller

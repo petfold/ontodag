@@ -44,7 +44,7 @@ def store_text():
         ("document", []), ("ticket", ["document"]), ("place", []), ("paris", ["place"]),
         ("louvre", ["place"]), ("louvre", ["in(paris)"]), ("guide", ["document", "about(louvre)"]),
         ("crate", ["mass(3kg)"]), ("trip", ["time(2026-08-15)"]), ("from", ["geo"]),
-        ("parcel", ["from(u2ed4)"]), ("graph-dimension", ["dimension"]),
+        ("parcel", ["from(geo(u2ed4))"]), ("graph-dimension", ["dimension"]),
         ("transport", ["graph-dimension"]), ("courier", ["transport(ticket)"]),
     ]:
         d.put(name, parents)

@@ -645,13 +645,15 @@ class _Intervals:
 class _Prefixes:
     """The values of one prefix head, sorted: a cell's finer cells are a
     range, and its coarser ones are its own prefixes (`OntoDAG._hops`).
-    For a role head (`literal_role`), the literal parameters of its terms
-    (`from(u2e4)`), whatever else its star holds."""
+    For a role head (`literal_role`), the literal parameters of its terms,
+    whatever else its star holds: `from(geo(u2e4))` and the older
+    `from(u2e4)` both index the value `u2e4`, each under its own name."""
 
     def __init__(self, units, literal_role=None):
         self.units = units
         self.literal_role = literal_role
         self.params = []
+        self.names = {}
 
     def add(self, dag, name, units=None, kind=None):
         split = _dims.split_term(name)
@@ -663,27 +665,28 @@ class _Prefixes:
             try:
                 if dag._param_node(split[0], split[1]) is not None:
                     return True           # names a node, found by the walk
-                _dims._parse_prefix(split[1])
+                value = _dims._prefix_parts(split[0], split[1])[0]
             except ValueError:
                 return True
         else:
             try:
-                _dims._parse_prefix(split[1])
+                value = _dims._parse_prefix(split[1])
             except ValueError:
                 return False
-        at = bisect.bisect_left(self.params, split[1])
-        if at == len(self.params) or self.params[at] != split[1]:
-            self.params.insert(at, split[1])
+        at = bisect.bisect_left(self.params, value)
+        if at == len(self.params) or self.params[at] != value:
+            self.params.insert(at, value)
+        self.names.setdefault(value, set()).add(name)
         return True
 
     def below(self, prefix, head):
-        """Names `head(q)` for the indexed q that extend `prefix`."""
+        """The indexed names whose value extends `prefix`."""
         out = []
         for other in self.params[bisect.bisect_left(self.params, prefix):]:
             if not other.startswith(prefix):
                 break
             if other != prefix:
-                out.append(f"{head}({other})")
+                out.extend(sorted(self.names[other]))
         return out
 
     def hops(self, dag, canonical, head, kind, up, limit=None):
@@ -696,7 +699,7 @@ class _Prefixes:
             if not other.startswith(param):
                 break
             if other != param:
-                out.append(f"{head}({other})")
+                out.extend(sorted(self.names[other]))
                 if limit is not None and len(out) > limit:
                     break
         return out
@@ -1084,6 +1087,9 @@ class OntoDAG(DAG):
         kind, base = self._dimension_of(head)
         if kind in _dims.GRAPH_ORDERED or base is None or base == head:
             return None                  # a category term's parameter is constraints
+        inner = _dims.split_term(param)
+        if inner is not None and inner[0] == base:
+            return None    # a value of the dimension, by its own name: `from(geo(u2e4x))`
         if param == base:
             # The dimension itself is not a place in it. "From anywhere" is
             # said by saying no from(...) at all: an item that states no
@@ -1131,6 +1137,41 @@ class OntoDAG(DAG):
             return None
         return node
 
+    def _cell_param(self, head, param):
+        """Is `param` a geo cell written by its own name (`geo(u2e4x)`) in
+        a term of `head`, a role of geo? The one nested parameter a flat
+        kind takes (review question 14)."""
+        inner = _dims.split_term(param)
+        if inner is None or inner[0] != _dims.GEO_HEAD:
+            return False
+        kind, base = self._dimension_of(head)
+        return kind == _dims.KIND_PREFIX and base == _dims.GEO_HEAD != head
+
+    @staticmethod
+    def _base_term(base, param):
+        """The base dimension's value a literal role parameter stands for:
+        `geo(u2e4)` for `u2e4` (the old spelling) and for `geo(u2e4)`."""
+        inner = _dims.split_term(param)
+        if inner is not None and inner[0] == base:
+            return param
+        return f"{base}({param})"
+
+    def _role_value(self, head, param):
+        """A literal role parameter's value: `u2e4` for `u2e4` and for
+        `geo(u2e4)`."""
+        return _dims._prefix_parts(head, param)[0] \
+            if self._cell_param(head, param) else param
+
+    def _cell_spellings(self, head, value):
+        """Both ways a role of geo can spell the cell `value`: as written
+        since review question 14 (`from(geo(u2e4))`) and as stored before
+        (`from(u2e4)`, which reads the same while no place is named so).
+        Other roles have one spelling."""
+        if head != _dims.GEO_HEAD and \
+                self._dimension_of(head)[1] == _dims.GEO_HEAD:
+            return (f"{head}({_dims.GEO_HEAD}({value}))", f"{head}({value})")
+        return (f"{head}({value})",)
+
     def _check_caller_term(self, name):
         """A term a caller hands in (a query term, a bound, a name to read)
         is held to what a write would be held to; a stored one reads as it
@@ -1162,6 +1203,105 @@ class OntoDAG(DAG):
             f"{base!r} dimension — a role of {base!r} takes its values or the "
             f"categories filed in it (a place under a cell, a region above "
             f"cells), never a category from elsewhere")
+
+    def _refuse_new_cell_spelling(self, name):
+        """A new write spells a geo cell with the geohash alphabet, and in a
+        role of geo a bare word names a place filed in the dimension, a
+        cell being written by its own name, `from(geo(u2e4x))` (review
+        question 14, decided by Peter 2026-10-10). Before, a role read any
+        word it could not find as a cell, so `from(sydney)` filed a parcel
+        in southern Turkey, and `from(ljubljna)`, mistyped, at a cell
+        nowhere near Ljubljana. Stored terms read as they were stored, and
+        a query reads a bare word as before (CONTRACT.md G7)."""
+        split = _dims.split_term(name)
+        if split is None or self._dimension_kind(_dims.GEO_HEAD) \
+                != _dims.KIND_PREFIX:
+            return
+        head, param = split
+        if head == _dims.GEO_HEAD:
+            cell = param
+        else:
+            kind, base = self._dimension_of(head)
+            if kind != _dims.KIND_PREFIX or base != _dims.GEO_HEAD:
+                return
+            if self._cell_param(head, param):
+                cell = _dims.split_term(param)[1]
+            elif "(" in param or self._param_node(head, param) is not None:
+                return
+            else:
+                written = (f"{head}({_dims.GEO_HEAD}({param}))"
+                           if _dims.GEOHASH_RE.match(param) else None)
+                raise ValueError(
+                    f"{name}: {param!r} is no place filed in the "
+                    f"{_dims.GEO_HEAD!r} dimension — a role of "
+                    f"{_dims.GEO_HEAD!r} takes a place by its name or a cell "
+                    f"by the cell's: file the place under its cell first "
+                    f"(put {param} '{_dims.GEO_HEAD}(<geohash>)')"
+                    + (f", or, for the geohash cell {param!r}, write {written}"
+                       if written else ""))
+        if not _dims.GEOHASH_RE.match(cell):
+            raise ValueError(
+                f"{_dims.GEO_HEAD}({cell}): a geo cell is a geohash, written "
+                f"with digits and the lowercase letters other than a, i, l "
+                f"and o, and {cell!r} is none — a named place is a category "
+                f"filed under its cell: put {cell} "
+                f"'{_dims.GEO_HEAD}(<geohash>)'")
+
+    def _old_cell_value(self, name):
+        """The cell a role of geo's term spells the old way (`from(u2e4x)`
+        for `u2e4x`, no place being named so), else None."""
+        split = _dims.split_term(name)
+        if split is None or split[0] == _dims.GEO_HEAD or "(" in split[1]:
+            return None
+        kind, base = self._dimension_of(split[0])
+        if kind != _dims.KIND_PREFIX or base != _dims.GEO_HEAD:
+            return None
+        if self._param_node(split[0], split[1]) is not None:
+            return None
+        return split[1]
+
+    def _respell_old_cells(self, names, every=False):
+        """Re-file a role of geo's term stored the old way (`from(u2e4x)`)
+        under the cell's own spelling, `from(geo(u2e4x))`, and drop it.
+        Writes and merges do so when they bring the new spelling of a cell
+        the store holds the old way, so one cell keeps one name (I1);
+        `migrate` does so for every such term (`every`), whose cell is a
+        geohash. Loading a store never does: it reads as it was stored."""
+        for name in sorted(n for n in names if n in self.nodes):
+            if name not in self.nodes:
+                continue
+            split = _dims.split_term(name)
+            if split is None:
+                continue
+            head, param = split
+            if self._cell_param(head, param):
+                old = f"{head}({_dims.split_term(param)[1]})"
+                new = name
+            else:
+                value = self._old_cell_value(name)
+                if value is None:
+                    continue
+                old, new = name, self._cell_spellings(head, value)[0]
+                if not every and new not in self.nodes:
+                    continue
+                if every and not _dims.GEOHASH_RE.match(value):
+                    continue      # no cell to name: it reads as before
+            if old not in self.nodes or self._old_cell_value(old) is None:
+                continue
+            self._refile(self.nodes[old], new)
+
+    def old_cell_spellings(self):
+        """Terms of a role of geo stored the old way (`from(u2e4x)`, read as
+        the cell while no place has that name), sorted: what `odag
+        migrate` respells as `from(geo(u2e4x))` (review question 14). A
+        walk over every role of geo's terms: what `odag status` reports."""
+        out = []
+        for head, base in sorted(self._role_heads().items()):
+            if base != _dims.GEO_HEAD:
+                continue
+            out.extend(term.name for term, _ in self._star(head)
+                       if self._old_cell_value(term.name) is not None)
+        return sorted(out)
 
     @contextmanager
     def _lenient_roles(self, total=True):
@@ -1241,10 +1381,15 @@ class OntoDAG(DAG):
         Until 2026-10-07 such terms were taken for roles here, and moves
         were refused with a message about the base's dimension. (Removal is
         another matter: no term may be left naming nothing, whatever its
-        kind, `_refuse_if_named`.)"""
+        kind, `_refuse_if_named`.) A value of the base names nothing either:
+        `from(geo(u2e6))` is the cell, read by arithmetic, so filing
+        `geo(u2e6)` under a region is no move of a named place."""
+        split = _dims.split_term(name)
         return [self.nodes[term] for term in
-                (f"{role}({name})" for role in sorted(self._role_heads())
-                 if self._dimension_kind(role) not in _dims.GRAPH_ORDERED)
+                (f"{role}({name})"
+                 for role, base in sorted(self._role_heads().items())
+                 if self._dimension_kind(role) not in _dims.GRAPH_ORDERED
+                 and not (split is not None and split[0] == base))
                 if term in self.nodes]
 
     def _check_role_parameters(self, name):
@@ -1305,9 +1450,9 @@ class OntoDAG(DAG):
                 raise
         base = self._dimension_of(head)[1]
         sub = node_inner.name if node_inner is not None \
-            else f"{base}({param_inner})"
+            else self._base_term(base, param_inner)
         sup = node_outer.name if node_outer is not None \
-            else f"{base}({param_outer})"
+            else self._base_term(base, param_outer)
         return self._below_guarded(sub, sup)
 
     def _fold_meet(self, upper, head, value, kind):
@@ -1347,7 +1492,8 @@ class OntoDAG(DAG):
                 return {head: canonical}, {head: {canonical}}
             base = self._dimension_of(head)[1]
             upper_raw, lower_raw = self._node_bounds(node)
-            respell = lambda term: f"{head}({_dims.split_term(term)[1]})"
+            respell = lambda term: self._cell_spellings(
+                head, _dims.split_term(term)[1])[0]
             upper, lower = {}, {}
             for other, value in upper_raw.items():
                 if self._dimension_of(other)[1] == base:
@@ -1736,7 +1882,9 @@ class OntoDAG(DAG):
             _dims.check_nesting(name)        # a new term: read recursively below
             return split[0], kind, self._canonical_graph_term(name)
         if "(" in split[1]:
-            return None       # the flat kinds: a nested parameter stays opaque, as before
+            if not self._cell_param(split[0], split[1]):
+                return None   # the flat kinds: a nested parameter stays opaque, as before
+            return split[0], kind, _dims.canonicalize(name, kind)
         if self._param_node(split[0], split[1]) is not None:
             # A role parameter naming a node: the node's name IS the
             # parameter's identity (its position may move with the
@@ -2260,17 +2408,18 @@ class OntoDAG(DAG):
     def _role_hops(self, canonical, head, base, up, limit=None):
         """`_hops` for a role head (DIMENSIONS.md §14): `R(y) ⊑ R(x)` when y
         is below x in the base dimension, a parameter naming either a node
-        (`from(my_home)`) or, spelled literally, a value of the base
-        (`from(u2e4)`, standing for `geo(u2e4)`). So the base dimension is
-        walked from the parameter and both spellings are looked up; literal
-        terms whose value is not a node are found through a sorted index of
-        the role's literal parameters, by prefix. Only a prefix base is
-        covered; any other falls back to the scan."""
+        (`from(my_home)`) or a value of the base, written by the value's own
+        name (`from(geo(u2e4))`) or, stored before registry 4.4, bare
+        (`from(u2e4)`). So the base dimension is walked from the parameter
+        and every spelling is looked up; terms of a value are also found
+        through a sorted index of the role's literal parameters, by prefix.
+        Only a prefix base is covered; any other falls back to the scan."""
         if self._dimension_of(base)[0] != _dims.KIND_PREFIX:
             return None
         param = _dims.split_term(canonical)[1]
         node = self._param_node(head, param)
-        start = node.name if node is not None else f"{base}({param})"
+        value = None if node is not None else self._role_value(head, param)
+        start = node.name if node is not None else f"{base}({value})"
         head_node = self.nodes.get(head)
         budget = len(head_node.neighbors) if head_node is not None else 0
         if limit is not None:
@@ -2279,25 +2428,29 @@ class OntoDAG(DAG):
         if walked is None:
             return None
         literals = self._role_literals(head)
+        spell = lambda v: self._cell_spellings(head, v)
         found = set()
         for name in walked:
             split = _dims.split_term(name)
             if split is not None and split[0] == base:
-                found.add(f"{head}({split[1]})")
+                found.update(spell(split[1]))
                 if up:
-                    found.update(f"{head}({split[1][:k]})"
-                                 for k in range(1, len(split[1])))
+                    for k in range(1, len(split[1])):
+                        found.update(spell(split[1][:k]))
                 else:
                     found.update(literals.below(split[1], head))
             else:
                 found.add(f"{head}({name})")
         if node is None:
             # A literal parameter also relates to literal terms by prefix,
-            # whether or not their values are nodes.
+            # whether or not their values are nodes, and to its own value
+            # spelled the other way (a store from before question 14).
+            found.update(spell(value))
             if up:
-                found.update(f"{head}({param[:k]})" for k in range(1, len(param)))
+                for k in range(1, len(value)):
+                    found.update(spell(value[:k]))
             else:
-                found.update(literals.below(param, head))
+                found.update(literals.below(value, head))
         found.discard(canonical)
         found = [t for t in found if t in self.nodes]
         kind = self._dimension_of(head)[0]
@@ -3473,7 +3626,7 @@ class OntoDAG(DAG):
     def _reduce_roles_touching(self, from_node, to_node):
         """Keep stored form canonical when an edge moves a term's arguments.
 
-        A computed hop such as `from(my_home) ⊑ from(u2e4x)` or
+        A computed hop such as `from(my_home) ⊑ from(geo(u2e4x))` or
         `in(tokyo) ⊑ in(japan)` holds only while the nodes the terms name
         stand where they do, so filing one of those nodes can make an
         asserted edge redundant that no rectangle around the new edge sees
@@ -4433,10 +4586,15 @@ class OntoDAG(DAG):
         for name in super_names:
             self._refuse_self_containment(name, sub_name)
         # An author's role term may not name a category outside its
-        # dimension; a replay keeps what it is given (G9).
+        # dimension, nor spell a cell as a bare word or one outside the
+        # geohash alphabet (question 14); a replay keeps what it is given
+        # (G9), and a name the store holds reads as it was stored.
         if not self._role_lenient:
             for name in super_names:
                 self._refuse_role_name_outside(name)
+            for name in (*super_names, sub_name):
+                if name not in self.nodes:
+                    self._refuse_new_cell_spelling(name)
         parametric_supers = {}  # head -> [(canonical name, kind), ...]
         for name in super_names:
             parsed = self._parse_parametric(name)
@@ -4594,6 +4752,10 @@ class OntoDAG(DAG):
 
         for super_cat in super_categories:
             self.add_edge(super_cat, subcategory)
+        if not self._role_lenient:
+            # A cell written the new way while the store holds it the old
+            # way (question 14): one cell keeps one name.
+            self._respell_old_cells([*super_names, subcategory.name])
 
     def remove(self, node_to_remove, with_terms=False):
         """Remove a category by contraction: it goes, and its children
@@ -4814,6 +4976,9 @@ class OntoDAG(DAG):
         for item in items:
             if not self._live_parent_names(item):
                 self.add_edge(self.root, self.nodes[item])
+        if not self._role_lenient:
+            self._respell_old_cells(
+                {d for item in items for d in targets[item]})   # question 14
 
         return retracted
 
@@ -5055,6 +5220,7 @@ class OntoDAG(DAG):
         # and an item each side filed under one value of a head lands under
         # their meet, as `put` would have filed it (§9).
         self._respell_deferred(other_dag.nodes)
+        self._respell_old_cells(other_dag.nodes)    # one cell, one name (question 14)
         self._fold_replayed(other_dag.nodes)
 
     def excerpt_names(self, queries, context=False):

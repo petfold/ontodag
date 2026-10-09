@@ -387,7 +387,9 @@ Each line points to its record.
       Built.
   14. In a role a bare word is a filed place and a cell is written by its
       name, `from(geo(u2e4x))`; `geo(...)` takes only geohash spellings;
-      old terms read as before until migrated (item 20). Not built yet.
+      old terms read as before until migrated (item 20). Built in ontodag
+      (a query still reads a bare word as a cell, for G7); loopmarket's
+      respelling waits on a branch for ontodag 0.31.
   15. loopmarket: one matching engine, ontodag's index, for simple
       matches and the aggregation search, no threshold; the default
       solver kept apart from the rest of loopmarket (item 2). Not built

@@ -259,8 +259,10 @@ class TestACompoundQueryWalksItsNarrowPart(unittest.TestCase):
 
 def role_operations(seed, places=7, steps=40):
     """Places in cells, regions above cells, and offers under `from(...)`
-    in both spellings: a place (`from(p3)`) and a literal cell
-    (`from(u2e4)`). `from` is a role of `geo` (DIMENSIONS.md §14)."""
+    in both spellings: a place (`from(p3)`) and a cell by its own name
+    (`from(geo(u2e4))`, review question 14). `from` is a role of `geo`
+    (DIMENSIONS.md §14). Queries also ask by the older bare spelling
+    (`from(u2e4)`), which a query still reads as the cell."""
     rnd = random.Random(seed)
     cells = ["u2", "u2e", "u2e4", "u2e4x", "u2e5", "u2e5y", "u3", "u3b"]
     names = [f"p{i}" for i in range(places)] + ["r0", "r1"]
@@ -276,8 +278,10 @@ def role_operations(seed, places=7, steps=40):
         elif shape < 0.8:
             ops.append((f"offer{rnd.randint(0, 9)}", f"from({rnd.choice(names)})"))
         else:
-            ops.append((f"offer{rnd.randint(0, 9)}", f"from({rnd.choice(cells)})"))
-    queries = [[f"from({rnd.choice(names + cells)})"] for _ in range(10)]
+            ops.append((f"offer{rnd.randint(0, 9)}",
+                        f"from(geo({rnd.choice(cells)}))"))
+    queries = [[f"from({rnd.choice(names + cells + [f'geo({c})' for c in cells])})"]
+               for _ in range(10)]
     return names, ops, queries
 
 
@@ -296,7 +300,42 @@ def play_roles(resident, names, ops):
     return dag
 
 
+def old_store(dag, seed):
+    """`dag` as a store from before registry 4.4 would hold it: some
+    offers under a cell spelled as a bare word (`from(u2e4)`), loaded from
+    text, so nothing respells them."""
+    from ontodag import native
+    rnd = random.Random(seed)
+    text = "\n".join(line for line in native.dumps(dag).splitlines()
+                     if not line.startswith("#:canonical"))
+    extra = []
+    for k in range(4):
+        cell = rnd.choice(["u2", "u2e", "u2e4", "u2e4x", "u2e5", "u3b"])
+        extra += [f"'from({cell})' from", f"old{k} 'from({cell})'"]
+    return native.loads(text + "\n" + "\n".join(extra) + "\n")
+
+
 class TestRolesAgreeWithTheScan(unittest.TestCase):
+    def test_random_worlds_from_an_old_store(self):
+        for seed in range(30):
+            names, ops, queries = role_operations(seed)
+            by_name = old_store(play_roles(True, names, ops), seed)
+            by_scan = old_store(play_roles(True, names, ops), seed)
+            by_scan._resident = False
+            for query in queries:
+                try:
+                    expected = {n.name for n in by_scan.get(query)}
+                except ValueError:
+                    continue
+                self.assertEqual({n.name for n in by_name.get(query)},
+                                 expected, (seed, query))
+            present = sorted(n for n in by_scan.nodes if n != "*")
+            rnd = random.Random(seed)
+            for _ in range(60):
+                a, b = rnd.choice(present), rnd.choice(present)
+                self.assertEqual(by_name.is_below(a, b), by_scan.is_below(a, b),
+                                 (seed, a, b))
+
     def test_random_worlds(self):
         for seed in range(30):
             names, ops, queries = role_operations(seed)

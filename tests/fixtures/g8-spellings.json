@@ -163,7 +163,7 @@
   [
    "delivery",
    [
-    "from(u2ed)"
+    "from(geo(u2ed))"
    ]
   ],
   [
@@ -357,6 +357,14 @@
   [
    "from(u2ed)",
    "from(u2ed)"
+  ],
+  [
+   "from(geo(u2ed))",
+   "from(geo(u2ed))"
+  ],
+  [
+   "from(geo(u2e))",
+   "from(geo(u2e))"
   ]
  ],
  "stored": [
@@ -367,12 +375,12 @@
   "box 'mass(2kg..5kg)'",
   "'count(24)' count",
   "courier 'transport(mass(..8kg))' 'transport(small-item)'",
-  "delivery 'from(u2ed)'",
+  "delivery 'from(geo(u2ed))'",
   "document '*'",
   "employee person",
   "fragile '*'",
   "from geo",
-  "'from(u2ed)' from",
+  "'from(geo(u2ed))' from",
   "gallery 'in(museum-district paris)'",
   "'geo(u2ed4)' geo",
   "'in(in(japan))' in",

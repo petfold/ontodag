@@ -61,8 +61,11 @@ from fractions import Fraction
 #      coulomb/farad spellings before an ontodag.migrate replay),
 # 4.4 (2026-10-10, the review's question 12: what a merge, a sync or a load
 #      brings is filed as `put` files it, an item under two overlapping
-#      values of one head under their meet; stores a merge made under 4.3
-#      come along with `ontodag.migrate`).
+#      values of one head under their meet; and question 14: in a role of
+#      geo a bare word names a place and a cell is written by its own name,
+#      `from(geo(u2e4x))`, while `geo(...)` takes geohashes only. Stores
+#      from 4.3 come along with `ontodag.migrate`, which also respells a
+#      role's bare cells; until then they read as they were stored).
 REGISTRY_VERSION = "4.4"
 
 
@@ -164,6 +167,16 @@ RELATION_KINDS = frozenset({KIND_TRANSITIVE, KIND_ENCLOSING, KIND_REVERSED})
 MULTI_VALUED = RELATION_KINDS
 # The transitive head an enclosing-kind head follows (ROLES.md §5).
 CONTAINMENT_HEAD = "in"
+# The geo dimension's head, reserved in code like `in` (review question 14,
+# decided by Peter 2026-10-10). A geo cell is a geohash, so `geo(...)` is
+# written with the geohash alphabet alone (digits and lowercase letters
+# without a, i, l, o); a word outside it is no cell. A role of geo
+# (`from`, `to`, `where`) writes a cell by the cell's own name,
+# `from(geo(u2e4x))`, and a bare word in it names a place: before, any
+# word in a role term not naming a place was read as a cell, so
+# `from(sydney)` landed in southern Turkey without a word.
+GEO_HEAD = "geo"
+GEOHASH_RE = re.compile(r"^[0-9b-hjkmnp-z]+$")
 # A head is pinned to one unit family by filing it under a family-narrowed
 # kind node: `mass ⊑ linear-dimension(mass) ⊑ linear-dimension` (ROLES.md
 # §8 item 21). Stating a family is subsumption, so "which heads hold mass"
@@ -743,6 +756,33 @@ def _parse_prefix(param):
     return param
 
 
+def _prefix_parts(head, param):
+    """(value, nested) of a prefix-kind parameter. A head other than `geo`
+    may write a geo cell by its own name, `from(geo(u2e4x))`, whose value
+    is `u2e4x` (review question 14); which heads may is the graph's to say
+    (a role of geo), so the DAG checks that before asking here. Any other
+    parameter is its own value."""
+    if head != GEO_HEAD:
+        split = split_term(param)
+        if split is not None and split[0] == GEO_HEAD:
+            return _parse_prefix(split[1]), True
+    return _parse_prefix(param), False
+
+
+def cell_value(name):
+    """The geohash a geo cell or a role of geo's cell term names — `u2e4x`
+    for `geo(u2e4x)` and for `from(geo(u2e4x))` — or None."""
+    split = split_term(name)
+    if split is None:
+        return None
+    if split[0] == GEO_HEAD:
+        return split[1]
+    inner = split_term(split[1])
+    if inner is not None and inner[0] == GEO_HEAD:
+        return inner[1]
+    return None
+
+
 # ---- rendering (the canonical form; names are the identity) ----------------
 
 def _fraction_text(value):
@@ -830,12 +870,18 @@ def canonicalize(name, kind, units=None):
     if split is None:
         raise ValueError(f"{name!r} is not a parametric term")
     head, param = split
+    if kind == KIND_PREFIX:
+        value, nested = _prefix_parts(head, param)
+        return f"{head}({GEO_HEAD}({value}))" if nested else f"{head}({value})"
     return f"{head}({_render(_denotation(param, kind, units), kind)})"
 
 
 def space_of(name, kind, units=None):
     """Value-space tag for put-time consistency checks: every value of one
     head must share it (one family, one arity)."""
+    if kind == KIND_PREFIX:
+        _prefix_parts(*split_term(name))       # validates
+        return "prefix"
     denotation = _denotation(split_term(name)[1], kind, units)
     if kind in _INTERVALISH:
         # Calendar shares linear's tag on purpose: the two describe the same
@@ -888,7 +934,7 @@ def contains(outer, inner, kind, units=None):
     Reflexive; distinct canonical names are therefore strictly ordered or
     incomparable, never mutually contained (that is what keeps the combined
     relation a partial order — DIMENSIONS.md §11, I1)."""
-    _, param_outer, param_inner = _same_head(outer, inner)
+    head, param_outer, param_inner = _same_head(outer, inner)
     if kind in _INTERVALISH:
         fam_o, lo_o, hi_o = _denotation(param_outer, kind, units)
         fam_i, lo_i, hi_i = _denotation(param_inner, kind, units)
@@ -905,8 +951,8 @@ def contains(outer, inner, kind, units=None):
                 f"incompatible dominance spaces: {outer!r} vs {inner!r}")
         return all(o >= i for o, i in zip(values_o, values_i))
     if kind == KIND_PREFIX:
-        return _parse_prefix(param_inner).startswith(
-            _parse_prefix(param_outer))
+        return _prefix_parts(head, param_inner)[0].startswith(
+            _prefix_parts(head, param_outer)[0])
     if kind in GRAPH_ORDERED:
         raise ValueError(
             f"{outer!r} vs {inner!r}: a category term is ordered by the "
@@ -939,12 +985,14 @@ def intersect(a, b, kind, units=None):
         meet = tuple(min(x, y) for x, y in zip(values_a, values_b))
         return f"{head}({_render((fam_a, meet), kind)})"
     if kind == KIND_PREFIX:
-        value_a = _parse_prefix(param_a)
-        value_b = _parse_prefix(param_b)
+        # The meet of two cells is the finer one, or nothing: returned as
+        # spelled, so a role of geo keeps the spelling it was given.
+        value_a = _prefix_parts(head, param_a)[0]
+        value_b = _prefix_parts(head, param_b)[0]
         if value_a.startswith(value_b):
-            return f"{head}({value_a})"
+            return a
         if value_b.startswith(value_a):
-            return f"{head}({value_b})"
+            return b
         return None
     if kind in GRAPH_ORDERED:
         raise ValueError(

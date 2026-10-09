@@ -184,6 +184,7 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `contested(a, b)` | items below both — the two-states-at-once list; empty when one entails the other |
 | `contradictions()` | items under values of one head that cannot all hold, as (item, [values]) pairs; only a merge makes one (a single write is refused it), every query finds the item under each value (`odag status` lists them) |
 | `name_clashes()` | role terms whose word is also a category outside the role's dimension, as (term, category) pairs; only a merge makes one, the term reads as the value it spells, `rename` ends it (`odag status` lists them) |
+| `old_cell_spellings()` | terms of a role of `geo` stored before registry 4.4 with a cell as a bare word (`from(u2e4x)`), read as the cell while no place has that name; `migrate` respells them `from(geo(u2e4x))` (`odag status` lists them) |
 
 Opening a store as `odag` does (`import ontodag` — standard library only,
 until a store needs recordstore or the `swarm` extra):
@@ -294,7 +295,9 @@ stored as edges. Registry `4.3`; same major = same arithmetic.
 | `reversed-dimension` | constraints on the graph, as for `graph-dimension`, but kept whole (one thing meeting them all); a stored compound is re-filed under its current spelling when the graph makes a constraint redundant (DIMENSIONS.md §18, §16) | against the graph: `R(X) ⊑ R(Y)` when every constraint of `X` is above, or is, some constraint of `Y`; kinds only, never `in` | `shared-with(sales-employee)` is inside `shared-with(alice)` when `alice ⊑ sales-employee` |
 
 Several values of one head on one item fold to their meet (`put(x, ["mass(1kg..3kg)", "mass(2kg..5kg)"])` files `x` under `mass(2kg..3kg)`; DIMENSIONS.md §9), and so do merges, syncs and loads of a file whose canonical mark does not vouch for it (registry 4.4; values that cannot all hold stay, listed by `odag status`), except a transitive, enclosing or reversed head's terms, which stay separate (Zermatt can be `in(switzerland)` and `in(alps)`, a photo `about(mars)` and `about(earth)`, a budget `shared-with(sales-employee)` and `shared-with(finance-employee)`). Rules that refuse, with teaching errors: cycles, including one that only a computed link the new edge creates would close; a term of a kind the graph orders (graph, transitive, enclosing, reversed) under anything but its head (`in(japan) ⊑ japanese` would state a rule, CONTRACT.md §5.1); anything that would put a thing inside itself under a transitive head (`japan ⊑ in(japan)`); a point filed under two
-provably disjoint values of one head; `count(0)` (an absence claim);
+provably disjoint values of one head; a role of `geo` naming a word that
+is no filed place, or a `geo(...)` cell outside the geohash alphabet;
+`count(0)` (an absence claim);
 fractional counts; negatives (except affine `C`/`F` spellings); values
 below absolute zero; unknown units (the error names the pack or
 declaration that would define them); a head inheriting two kinds; a new
@@ -315,7 +318,14 @@ cells), `where(my_home_4th)` (a floor under a building). Stored as
 spelled; ordered by the graph (`from(x) ⊑ from(y)` iff `x ⊑ y` under
 `geo`); a parameter naming a present node outside the dimension is
 refused. A node named by a role term cannot be removed or moved out of
-its dimension while the term stands.
+its dimension while the term stands. In a role of `geo` (registry 4.4) a
+bare word is a place and a cell is written by its own name,
+`from(geo(u2e4x))`: a write naming no filed place is refused, as is a
+`geo(...)` cell outside the geohash alphabet (digits and lowercase letters
+but a, i, l, o). A term stored before 4.4 with a bare cell
+(`from(u2e4x)`) reads as the cell while no place has that name, as does a
+bare word in a query; `migrate` respells it. A time role keeps bare
+values (`when(2026-08-15)`).
 
 Narrower relations (DIMENSIONS.md §20, contract 0.3): a head of a
 transitive, enclosing or reversed kind declared under another head of

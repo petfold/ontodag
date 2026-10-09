@@ -4,7 +4,6 @@ area 'linear-dimension(area)'
 calendar-dimension dimension
 count count-dimension
 count-dimension dimension
-delivery 'from(u2ed4)'
 dimension '*'
 dominance-dimension dimension
 duration 'linear-dimension(duration)'
@@ -12,7 +11,6 @@ duration 'linear-dimension(duration)'
 enclosing-dimension dimension
 energy 'linear-dimension(energy)'
 from geo
-'from(u2ed4)' from
 geo prefix-dimension
 graph-dimension dimension
 in transitive-dimension
@@ -48,3 +46,5 @@ volume 'linear-dimension(volume)'
 'mass(2kg..)' mass
 crate 'mass(..5kg)' 'mass(2kg..)'
 courier 'transport(small-item mass(..8kg))'
+'from(u2ed4)' from
+delivery 'from(u2ed4)'

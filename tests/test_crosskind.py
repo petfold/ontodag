@@ -88,7 +88,8 @@ def world(seed):
         if r < 0.34:
             return f"count({rng.randint(1, 5)})"
         if r < 0.42:
-            return f"from({rng.choice(places + CELLS)})"
+            # a place by its name, a cell by the cell's (review question 14)
+            return f"from({rng.choice(places + [f'geo({c})' for c in CELLS])})"
         if r < 0.52:
             return f"transport({a})" if rng.random() < 0.5 else f"transport({a} {b})"
         if r < 0.62:

@@ -1,5 +1,5 @@
 # ontodag store v1
-#:canonical 4.4 35e86d3745a8ce187147f5ee3632fa4ca35e3d10b46483656d369d260e3ad3eb
+#:canonical 4.4 4f535a1d709e70fd65d01d0002048aaa45d97df1af60b30d325c3c8ce81d055e
 about enclosing-dimension
 area 'linear-dimension(area)'
 calendar-dimension dimension
@@ -7,7 +7,7 @@ count count-dimension
 count-dimension dimension
 courier 'transport(mass(..8kg))' 'transport(small-item)'
 crate 'mass(2kg..5kg)'
-delivery 'from(u2ed4)'
+delivery 'from(geo(u2ed4))'
 dimension '*'
 dominance-dimension dimension
 duration 'linear-dimension(duration)'
@@ -15,7 +15,7 @@ duration 'linear-dimension(duration)'
 enclosing-dimension dimension
 energy 'linear-dimension(energy)'
 from geo
-'from(u2ed4)' from
+'from(geo(u2ed4))' from
 geo prefix-dimension
 graph-dimension dimension
 in transitive-dimension

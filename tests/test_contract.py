@@ -472,7 +472,8 @@ class TestG9WritesAndReplays(unittest.TestCase):
             [("price-tag", ["mass(5zz)"])],
             # 2. a role term's place must already be in its dimension
             [("home", ["city"]), ("parcel", ["from(home)"])],
-            [("parcel", ["from(home)"]), ("home", ["city"])],
+            [("parcel", ["from(home)"])],          # no place yet (0.6)
+            [("parcel", ["geo(home)"])],           # no geohash either
             # 3. of two writes that contradict, the later is refused
             [("crate", ["mass(3kg)"]), ("crate", ["mass(5kg)"])],
             [("a", ["city"]), ("city", ["a"])],

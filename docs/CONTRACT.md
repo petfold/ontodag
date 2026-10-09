@@ -228,6 +228,10 @@ decided at the 2026-08-01 review:
      `put animal` is refused, not silently given a new category).
   2. **A role term's place must already be in its dimension**, and a
      category a role term names must be placed inside it (DIMENSIONS.md §14).
+     Since 0.6, in a role of `geo` a bare word must name a place already
+     filed there, a cell being written by its own name (`from(geo(u2e4x))`):
+     `put parcel from(home)` before `home` is placed is refused at once,
+     where it used to read `home` as a cell and refuse the place later.
   3. **Of two writes that contradict, the later is refused**: two values of
      one head that cannot both hold, a cycle, something inside itself under
      a strict relation.
@@ -596,6 +600,14 @@ head), stop folding in `put`, or document the exception.
 3. The stored form of merged stores changes, so `REGISTRY_VERSION` goes to
    4.4 (G8); `ontodag.migrate` (which replays through `put`) brings an
    older store along.
+4. **G9's case 2 widens** (review question 14, decided by Peter the same
+   day): in a role of `geo` a bare word names a place, a cell is written
+   by its own name (`from(geo(u2e4x))`), and a write naming a word that is
+   no filed place is refused with a teaching error; so is a `geo(...)`
+   cell outside the geohash alphabet. Before, any such word was read as a
+   cell, so `from(sydney)` filed a parcel in southern Turkey. G7 holds:
+   a stored term reads as it was stored, and a query reads a bare word as
+   before; `migrate` respells stored cells, in the same registry minor.
 
 Found while building it: `put` itself keeps every meet it makes, so three
 or more overlapping values filed one at a time can leave an unused

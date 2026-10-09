@@ -3724,7 +3724,8 @@ class TestBatchFromStdin(unittest.TestCase):
 def test_status_lists_a_name_clash_a_merge_made(tmp_path):
     """`odag status` says what a merge left that a single write is refused:
     here a role term whose word is also a category outside its dimension
-    (review question 13)."""
+    (review question 13), from Alice's store written before registry 4.4,
+    where a bare word in a role of geo could be a cell (question 14)."""
     import io
     from ontodag import OntoDAG, native, prelude
     from ontodag.__main__ import Session, dispatch
@@ -3734,8 +3735,10 @@ def test_status_lists_a_name_clash_a_merge_made(tmp_path):
         prelude.apply(d)
         d.put("from", ["geo"])
         return d
-    alice, bob = fresh(), fresh()
-    alice.put("parcel", ["from(nyc)"])
+    old = "\n".join(line for line in native.dumps(fresh()).splitlines()
+                    if not line.startswith("#:canonical"))
+    alice = native.loads(old + "\n'from(nyc)' from\nparcel 'from(nyc)'\n")
+    bob = fresh()
     bob.put("city", [])
     bob.put("nyc", ["city"])
     merged = fresh()
@@ -3780,3 +3783,30 @@ def test_status_lists_a_contradiction_a_merge_made(tmp_path):
     out = io.StringIO()
     assert dispatch(["status"], Session(str(quiet)), out=out) == 0
     assert "contradictions" not in out.getvalue()
+
+
+def test_status_lists_old_cell_spellings(tmp_path):
+    """A store written before registry 4.4 may hold a role of geo's cell as
+    a bare word (`from(u2ed4)`); `odag status` names each with the spelling
+    `migrate` gives it (review question 14), and says nothing otherwise."""
+    import io
+    from ontodag import OntoDAG, native, prelude
+    from ontodag.__main__ import Session, dispatch
+
+    base = OntoDAG()
+    prelude.apply(base)
+    base.put("from", ["geo"])
+    old = "\n".join(line for line in native.dumps(base).splitlines()
+                    if not line.startswith("#:canonical"))
+    path = tmp_path / "store.od"
+    path.write_text(old + "\n'from(u2ed4)' from\ndelivery 'from(u2ed4)'\n")
+    out = io.StringIO()
+    assert dispatch(["status"], Session(str(path)), out=out) == 0
+    text = out.getvalue()
+    assert "old cell spellings = 1" in text
+    assert "  from(u2ed4) -> from(geo(u2ed4))" in text
+    base.put("delivery", ["from(geo(u2ed4))"])
+    native.save(base, str(path))
+    out = io.StringIO()
+    assert dispatch(["status"], Session(str(path)), out=out) == 0
+    assert "old cell spellings" not in out.getvalue()

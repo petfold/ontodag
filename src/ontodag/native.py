@@ -267,10 +267,16 @@ def _parametric(dag, name):
 
 
 def _stored_as(dag, name):
-    """The present names `name` was stored as: itself canonicalized, or
-    a graph-kind compound's parts (DIMENSIONS.md §15)."""
+    """The present names `name` was stored as: itself canonicalized, a
+    graph-kind compound's parts (DIMENSIONS.md §15), or a role of geo's
+    cell spelled the old way, by the cell's own name (question 14)."""
     names = [dag._canonical_name(part) for part in dag._graph_parts(name)]
-    return [n for n in names if n in dag.nodes]
+    found = [n for n in names if n in dag.nodes]
+    value = None if found else dag._old_cell_value(name)
+    if value is not None:
+        respelled = dag._cell_spellings(split_term(name)[0], value)[0]
+        found = [respelled] if respelled in dag.nodes else []
+    return found
 
 
 def _replay(entries, metadata=None):
@@ -288,6 +294,9 @@ def _replay(entries, metadata=None):
         for name in _load_order(pending):
             dag.put(name, pending[name])
     dag._respell_deferred()
+    # A role of geo's cell stored as a bare word (`from(u2e4x)`) is spelled
+    # by the cell's own name since registry 4.4 (review question 14).
+    dag._respell_old_cells(list(dag.nodes), every=True)
     for name, values in (metadata or {}).items():
         for stored in _stored_as(dag, name):
             dag.nodes[stored].metadata.update(values)

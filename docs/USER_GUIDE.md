@@ -1074,7 +1074,10 @@ knowledge queryable (the graph then prunes both originals).
 under an existing one and it becomes a **role** of that dimension — same
 kind, same values — and, unlike the base head, it also accepts the
 dimension's *nodes* as parameters: a place you filed under a cell, a
-region you filed above cells, a floor you filed under a building.
+region you filed above cells, a floor you filed under a building. In a
+role of `geo` the two are told apart by how they are written: a bare word
+is a **place**, and a cell is written by **its own name**,
+`from(geo(u2e4x))`.
 
 ```python
 dag = OntoDAG(); prelude.apply(dag)
@@ -1085,12 +1088,14 @@ dag.put("from", ["geo"])                          # `from` is a role of geo
 
 dag.put("offer", ["from(my_home)"])               # the place, by name
 dag.put("ride",  ["from(ljubljana)"])             # the region, by name
+dag.put("van",   ["from(geo(u2e5y))"])            # a cell, by the cell's name
 
-dag.is_below("offer", "from(u2e4)")          # True  — my_home is in u2e4
+dag.is_below("offer", "from(geo(u2e4))")     # True  — my_home is in u2e4
 dag.is_below("offer", "from(ljubljana)")     # True  — and u2e4 is in the region
-dag.is_below("from(ljubljana)", "from(u2)")  # False — nothing filed it under u2
-dag.get(["from(u2e)"])                       # offer (and the values above it)
-dag.get(["from(ljubljana)"])                 # offer, ride
+dag.is_below("van", "from(ljubljana)")       # True  — u2e5y is in u2e5
+dag.is_below("from(ljubljana)", "from(geo(u2))")  # False — nothing filed it under u2
+dag.get(["from(geo(u2e))"])                  # offer, van (and the values above them)
+dag.get(["from(ljubljana)"])                 # offer, ride, van
 
 dag.put("my_home_4th", ["my_home"])          # a floor: a sub-place node
 dag.put("want", ["from(my_home_4th)"])
@@ -1098,10 +1103,25 @@ dag.is_below("want", "from(my_home)")        # True  — the floor is in the bui
 dag.is_below("offer", "from(my_home_4th)")   # False — the building is not the floor
 dag.get_overlapping("from(my_home_4th)")     # includes offer: a give to the whole
                                              # building may serve the fourth floor
+dag.put("x", ["from(ljubljna)"])             # ValueError: no place filed as
+                                             # 'ljubljna' (a typo, caught)
+dag.put("x", ["from(sydney)"])               # ValueError: no place 'sydney' is
+                                             # filed; for the geohash cell, write
+                                             # from(geo(sydney)) — in Turkey
+dag.put("x", ["geo(london)"])                # ValueError: a cell is a geohash,
+                                             # and 'london' is none
 dag.put("Flight", [])
 dag.put("x", ["from(Flight)"])               # ValueError: Flight is a category
                                              # outside the geo dimension
 ```
+
+Before registry 4.4 a role read any word it could not find as a cell, so
+`from(sydney)` filed a parcel in a block of southern Turkey (`sydney` is
+spelled with geohash letters) and a mistyped place landed somewhere else
+in silence. A store written before keeps reading as it did — its
+`from(u2e4x)` is still the cell while no place has that name, and a query
+may still ask `from(u2e)` — `odag status` lists such terms, and `python3
+-m ontodag.migrate STORE.od` respells them `from(geo(u2e4x))`.
 
 **The pairwise question: `overlaps`, and the one-term meet.** `get_overlapping`
 lists candidates for a term; `overlaps(a, b)` answers it for a *pair*, and
@@ -1113,23 +1133,23 @@ gives the intersection of two same-head terms as one term, using the
 store's units, so you can reduce before you ask:
 
 ```python
-dag.overlaps("from(ljubljana)", "from(u2e)")      # True  — u2e4 is in both
-dag.overlaps("from(my_home)", "from(u2e4xz)")     # True  — possibly: my_home
-                                                  #         is somewhere in u2e4x
-dag.overlaps("from(my_home)", "from(u2f)")        # False — provably elsewhere
-dag.overlaps("ljubljana", "my_home")              # True  — nodes both sides
-dag.overlaps("offer", "from(u2e4)")               # True  — an item and a term
-dag.meet("from(u2e)", "from(u2e4x)")              # 'from(u2e4x)'
-dag.meet("from(u2e4)", "from(u2e5)")              # None  — provably empty
-dag.meet("from(ljubljana)", "from(u2e4x)")        # 'from(u2e4x)' — contained
+dag.overlaps("from(ljubljana)", "from(geo(u2e))")    # True  — u2e4 is in both
+dag.overlaps("from(my_home)", "from(geo(u2e4xz))")   # True  — possibly: my_home
+                                                     #         is somewhere in u2e4x
+dag.overlaps("from(my_home)", "from(geo(u2f))")      # False — provably elsewhere
+dag.overlaps("ljubljana", "my_home")                 # True  — nodes both sides
+dag.overlaps("offer", "from(geo(u2e4))")             # True  — an item and a term
+dag.meet("from(geo(u2e))", "from(geo(u2e4x))")       # 'from(geo(u2e4x))'
+dag.meet("from(geo(u2e4))", "from(geo(u2e5))")       # None  — provably empty
+dag.meet("from(ljubljana)", "from(geo(u2e4x))")      # 'from(geo(u2e4x))' — contained
 ```
 
 **Saying nothing.** An item that states nothing under `from` is in no
-`from` cone: `get(["ride", "from(u2f)"])` does not return it, and there
-is no "from anywhere" term to write — `from(geo)`, the dimension itself,
-is refused with that reason (the overlap of everything with A is just A).
-A *query* that does not name `from` does not constrain it; that is the
-only unconstrained side there is.
+`from` cone: `get(["ride", "from(geo(u2f))"])` does not return it, and
+there is no "from anywhere" term to write — `from(geo)`, the dimension
+itself, is refused with that reason (the overlap of everything with A is
+just A). A *query* that does not name `from` does not constrain it; that
+is the only unconstrained side there is.
 
 **Place and time are query terms.** A want's place and window go into
 the query beside its categories, and the answer is the gives that fit
@@ -1140,15 +1160,19 @@ dag.put("when", ["time"])                    # a role of time
 dag.put("ride", [])
 dag.put("r1", ["ride", "from(my_home)",
                "when(2026-08-15T10:00:00Z..2026-08-15T10:30:00Z)"])
-dag.put("r2", ["ride", "from(u2e5)",
+dag.put("r2", ["ride", "from(geo(u2e5))",
                "when(2026-08-15T18:00:00Z..2026-08-15T20:00:00Z)"])
 morning = "when(2026-08-15T08:00:00Z..2026-08-15T12:00:00Z)"
 
 dag.get(["ride", morning])                   # {r1}
-dag.get(["ride", morning, "from(u2e4)"])     # {r1} — three cones, one plan
-dag.get(["from(u2e)"])                       # from(my_home), from(u2e5), r1, r2
-dag.get(["from(u2e)"], items_only=True)      # r1, r2
+dag.get(["ride", morning, "from(geo(u2e4))"])  # {r1} — three cones, one plan
+dag.get(["from(geo(u2e))"])                  # r1, r2 and the offer, van and want
+                                             # filed above, with their terms
+dag.get(["from(geo(u2e))"], items_only=True)  # offer, r1, r2, van, want
 ```
+
+A time role keeps its values bare (`when(2026-08-15)`): only a role of
+`geo` takes places by name, so only there must a value be told apart.
 
 There is no overlap mode in `get` (one was built and withdrawn on
 2026-09-12: "a handover point exists" was a modelling error, not a missing
@@ -1162,9 +1186,9 @@ changing. Two consequences worth knowing: a region's cells are what it is
 *known* to cover (a lower bound — file the region under a coarser cell
 yourself if that is true), and a node named by a role term cannot be
 removed or moved out of its dimension while the term stands (remove the
-term first). Values still work exactly as before — `from(u2e4x)` is a
-cell — and only role heads look names up, so a category that merely
-happens to be called `u2e4` never becomes the cell.
+term first). Only role heads look names up, so a category that merely
+happens to be called `u2e4` never becomes the cell, and the base head's
+own values are always cells (`geo(u2e4)`).
 
 The full design (why the order is computed rather than stored, and what that
 preserves) is in [DIMENSIONS.md](DIMENSIONS.md); roles are its §14.
