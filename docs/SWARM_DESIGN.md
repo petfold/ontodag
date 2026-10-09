@@ -571,7 +571,7 @@ Historical/inspirational companion: `docs/plans/PHILOSOPHICAL_LANGUAGES.md`.
    `test_recordstore_bee.py` against a live node. The remaining half is
    real-network validation against a funded Bee ≥2.8.1 node.
 2. **Done (July 2026).** Fix the `dag.py` invariant bugs in
-   `tests/test_invariants.py` (see `CLAUDE.md` for the exact list and
+   `tests/test_invariants.py` (see `plans/JOURNAL.md` for the exact list and
    order) — this was a precondition, not parallel work, because the
    `EagerOntoDAG` adapter should inherit clean semantics rather than freeze
    bugs into a content-addressed encoding.
@@ -586,7 +586,8 @@ Historical/inspirational companion: `docs/plans/PHILOSOPHICAL_LANGUAGES.md`.
    > **Update (2026-07-20):** recordstore v0.4.0–v0.10.0 delivered three of
    > these four upstream — batched fetches (§6 update), the real feed
    > pointer, and the merge/reconcile substrate (§5 update; GSOC is now
-   > optional on top). The remaining OntoDAG-side sequence is in `CLAUDE.md`
-   > "Current task": pin bump → `items()` hydration → feed-pointer adoption
+   > optional on top). The remaining OntoDAG-side sequence was in `CLAUDE.md`
+   > "Current task" (now in `plans/JOURNAL.md`): pin bump → `items()`
+   > hydration → feed-pointer adoption
    > → the OntoDAG merge rule. Leaf-packing (§4) stays deferred pending
    > usage data.

@@ -1,0 +1,2360 @@
+# Journal: CLAUDE.md up to 2026-10-09
+
+Until 2026-10-09 the repository's `CLAUDE.md` was also its working diary:
+each session added what it built, measured, found and decided. That day
+(review question 10, `REVIEW_2026-10.md` §8 item 6) `CLAUDE.md` became a
+short guide to the current state, and the diary moved here unchanged,
+everything below the rule. It is history. Each claim in it was true when
+written, and many are not now (test counts, version floors, "next" items,
+"not built yet"). For what is true now, read `CLAUDE.md`, `CHANGELOG.md`
+and the design records in `docs/`.
+
+When a session's story is worth keeping (a measurement, a diagnosis, a
+lesson), add it at the end under a dated heading, and change `CLAUDE.md`
+only where the state, a rule or a decision changed.
+
+---
+
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this project is
+
+OntoDAG is a DAG-based associative memory and category manager. Items are placed into the DAG under supercategories; querying with a set of categories returns the intersection of their descendants. The root node `*` is the implicit ancestor of all top-level items.
+
+Conceptually OntoDAG is a **subsumption-only ontology**: a multi-parent category lattice kept in transitively reduced form, with one query primitive — the intersection of descendant cones ("everything below *all* of these categories"). It sits deliberately between flat tags/folders (no multi-parent subsumption) and full OWL/description-logic stacks (properties, axioms, reasoning). Its distinguishing property is that the **transitive reduction of a DAG is unique**, which gives the structure a canonical form. That canonical form is what later makes it content-addressable, diffable, and mergeable — see "Planned Swarm integration" below. Keeping the invariants exact is therefore not cosmetic: they are the precondition for the persistence and multi-writer story.
+
+## Branch history note
+
+The `recordstore` branch was rebased onto `origin/main` (July 2026), so it now sits on top of the package restructuring (PR #5) and the earlier PRs (merge-based workflow, DOT/LaTeX export, car-market demo, Manchester-syntax OWL). The pre-rebase state — which still had the old flat layout (`dag.py`, `ontodag.py`, `loader.py` at the repo root) — is preserved on the local branch `recordstore-pre-rebase`. The legacy standalone `ontodag.py` implementation and its tests (`testontodag.py`, `testitem_ontodag.py`) were superseded by the package and no longer exist on this branch. The rebased branch was force-pushed to `origin/recordstore` on 2026-07-12, so local and remote now agree; normal pushes work from here on.
+
+## Running tests
+
+Tests use `pytest` from the repo root; `conftest.py` puts `src/` on the import path, so no `PYTHONPATH` fiddling is needed. Note that `testdag.py`/`testitem.py`/`testowl.py` do **not** match pytest's default `test_*.py` discovery pattern — running `pytest tests/` silently skips them, so name them explicitly:
+
+```bash
+python3 -m pytest tests/testdag.py tests/testitem.py -v    # core DAG logic
+python3 -m pytest tests/test_invariants.py -v              # structural invariant tests (all 12 must pass)
+python3 -m pytest tests/test_boundaries.py -v              # dependency-boundary tests (must always pass)
+python3 -m pytest tests/test_cli.py -v                     # `odag` CLI (backends, set, swarm wiring via in-memory store)
+python3 -m pytest tests/test_lazy.py -v              # LazyOntoDAG: eager-oracle correctness + fetch budgets
+python3 -m pytest tests/test_sparse.py tests/test_multiwriter.py tests/test_cone_index.py -v  # SparseOntoDAG writer, sync merge rule, cone summaries
+python3 -m pytest tests/test_dimensions.py tests/test_dimensions_dag.py -v  # parametric dimensions: grammar oracle + DAG integration
+python3 -m pytest tests/test_count_deltas.py tests/test_canonical.py tests/test_is_below.py tests/test_union.py -v  # count-delta oracle (I5), canonical roots, below, get_any
+python3 -m pytest tests/test_contract.py -v                 # CONTRACT.md v0.1 conformance: G1–G6 + the as-of clause, public API only
+python3 -m pytest tests/test_surface.py -v                  # surface layer: rendering table, round-trip fuzz, CLI pipe rule (incl. a pty test)
+python3 -m pytest tests/test_mcp.py -v                      # odag-mcp agent surface: envelope/echo/as_of/teaching errors + stdio end-to-end
+python3 -m pytest tests/test_certificates.py -v             # is_below certificates: oracle sweep, tampering, cross-hash-seed verification (needs recordstore>=0.16.0)
+python3 -m pytest tests/test_provenance.py -v               # provenance store: claim subjects, signed records, per-writer union (real signing gated on bee)
+python3 -m pytest tests/test_prelude.py -v                  # the standard prelude: golden root v3, idempotent adoption, CLI
+python3 -m pytest tests/test_units.py -v                    # registry v3 unit system: table exactness, cross-system comparisons, migration
+python3 -m pytest tests/test_packs.py -v                    # graph-declared units + shipped packs: golden roots, vocabulary-travels, conflicts
+python3 -m pytest tests/test_name_consumers.py -v           # every surface a NAME flows out through, against one nasty corpus
+python3 -m pytest tests/test_reference.py -v                # docs/REFERENCE.md tables pinned to the code (commands, settings, kinds, MCP tools, extras, packs, API)
+
+# Live-node CLI Swarm test — skips unless BEE_API *and* BEE_BATCH are set
+# (always pass a real BEE_BATCH so nothing auto-buys; see "Bee integration status"):
+BEE_API=http://<node>:1633 BEE_BATCH=<batchID> python3 -m pytest tests/test_swarm_bee.py -v
+```
+
+All optional deps are now installed locally (`graphviz` and `dot2tex` since early July 2026; `owlready2` since 2026-07-21), so there are no expected failures left: `tests/testowl.py` collects and passes (7 tests), and bare `pytest` from the repo root (what CI's publish gate runs — it collects everything via the `python_files` setting, including `test_web.py`, which itself skips without the web extras) is 504 passed + 2 skipped (the `BEE_API`- and `BEE_SIGNER`-gated live tests, both re-run green against a live node 2026-08-01 evening) as of 2026-08-02 (was 107 before the dimension-lattices work; 229 at v0.4.0, 269 at v0.6.0, 283 at v0.7.0, 287 mid-0.8.0 development, 337 at v0.8.0 — `TestSwarmNodeDown` in `tests/test_cli.py`, `TestTopologicalSortIsDeterministic` in `tests/test_invariants.py`, and the calendar-dimension suites in `tests/test_dimensions.py` / `tests/test_dimensions_dag.py`; 352 with `tests/test_contract.py`, the CONTRACT.md v0.1 conformance suite, 2026-08-01; 377 with `tests/test_surface.py` + the surface boundary check, same day; 393 with `tests/test_mcp.py` + the mcp boundary check, same day; 408 with `tests/test_certificates.py` + its boundary check and MCP certify test, same day; 422 with `tests/test_provenance.py` + its boundary check, same day; 432 with the MCP write surface, same day; 438 with the review workflow, same day; 443 with `tests/test_prelude.py`, same day; 462 with registry v3 — `tests/test_units.py`, migration, the D9 conversion — same day; 465 with registry 3.1: information/data-rate/compute-rate, crypto denominations incl. BZZ/xBZZ and DAI/xDAI, stablecoins, and the ISO-4217 fiat set — 388 suffixes; second research round + top-20 crypto set -> 446... 466 with the second-round flagship cases; 477 with graph-declared units + packs (registry 3.2), incl. Q10's crypto-core re-sort — built-in = measurement only, same day; 478 with affine temperatures — registry 4.0, same day; 479 with pack-aware unknown-unit errors, same day; then the issues.txt pass on 2026-08-02: 493 with the empty query + `odag count` + the display cap + settings unification, 497 with the MCP `limit`/`truncated` tests, 504 with the web/visualizer session — `TestPicturesAndExports` and `TestVisualizerRendersEveryName`, the first coverage any rendering endpoint has ever had; 509 with `TestQueryPictureAgreesWithTheAnswer` after the real-browser pass; 604 passed + 2 skipped as of 2026-08-03 — the rs:PATH/funnel wave, then the count kind: registry 4.1 + prelude v3, `TestCountKind` in `tests/test_dimensions.py`, `TestCountDimensionInDAG` in `tests/test_dimensions_dag.py`, re-pinned golden root `9a732928…`; 620 passed + 2 skipped as of 2026-08-04 — the local-first swarm stores + transient windows wave, then merge-on-moved-head: `test_concurrent_windows_converge_by_merge_not_lww` in `tests/test_cli.py`; **638 passed + 2 skipped as of 2026-08-04 (later)** — the reduction-completeness + delta-merge wave: the downward-twin reduction shapes in `test_invariants.py`/`test_dimensions_dag.py`, cross-writer convergence + the commutativity fuzz + `TestDeltaFold` in `test_multiwriter.py`, the concurrent-delete pair in `test_cli.py`, `TestSparseSync` in `test_sparse.py`, and the first `migrate_record_store` test in `test_units.py`). Note the 2026-07-21 fix in `owl.py`: `ontology.save()` is called with the path *positional* because upstream `owlready2` names the parameter `file` while the `ontopy` fork names it `filename` — the old `filename=` keyword crashed `.owl` export under upstream owlready2 (silently swallowed into `**kargs`, falling back to the empty `onto_path`).
+
+All 12 invariant tests pass as of July 2026 (fixes I1–I4, I6 landed; see "Known bugs" below for what remains). The helpers in `tests/test_invariants.py` (`reach`, `edge_set`) compute reachability independently of the traversal code under test, so they remain a valid oracle while `dag.py` is being changed.
+
+## Architecture
+
+The project is a `src/`-layout package (`pyproject.toml`, `pip install -e .` or run from the repo root via `conftest.py`'s path insert). One top-level package (`ontodag`), plus the external `recordstore` dependency (see below) with a strictly one-directional dependency ontodag → recordstore:
+
+### `src/ontodag/` — the core data structure
+- `dag.py`:
+  - `Item`: graph node with `name`, `neighbors` (set of child `Item`s), `descendant_count`
+  - `DAG`: base directed graph — `add_node`, `add_edge`, `remove_edge`, `get_descendants`, `get_ancestors`, `topological_sort`, `intersection_dag`; descendant counts are maintained by **delta**, not recomputed — `_plan_add`/`_plan_remove` compute the per-ancestor change against the pre-operation graph and `_apply_count_deltas` applies it (oracle: `tests/test_count_deltas.py`, invariant I5)
+  - `OntoDAG(DAG)`: extends DAG with `put(item, super_categories)`, `get(super_categories)`, `get_any(queries)` (union/DNF, 2026-07-31 — CLI `or`, REST `|`), `is_below(sub, sup)` (Boolean fits-within, answered upward, reflexive, fail-closed, virtual parametric terms decidable from names alone — CLI `below`/`?`, REST `/dag/below`), `get_overlapping(term)`, `remove(item)`, `merge`, `copy_subdag` and a root node `*`; `put` accepts an optional `optimized=True` flag that prunes redundant supercategory links before inserting; overrides `add_edge` to call `_remove_unneeded_edges`
+  - (`OntoDAGVisualizer` moved out to `viz.py` on 2026-08-02 — see below; `dag.py` keeps a module `__getattr__` forwarding the old import path)
+- `viz.py`: Graphviz rendering — the optional *consumer* of a DAG, not part of one. Split out of `dag.py` 2026-08-02 so the core carries no renderer; `_digraph()` turns a missing dependency into a message naming the extra *and* the system binary. `visualize()`/`generate_dot_source()` need no Pillow; only `generate_image()` does.
+- `owl.py`: OWL import/export via `owlready2`, including Manchester syntax; reached lazily through `ontodag.OWLOntology` (module `__getattr__` in `__init__.py`), so importing the core never touches `owlready2`
+- `__main__.py`: the `odag` CLI (`python3 -m ontodag` or the `odag` script) — a Unix-style command: silent on success, errors to stderr with non-zero exit, results one-per-line to stdout. Persists to a default native-text store at `~/.ontodag/store.od` (override with `-f PATH`, `$ONTODAG_STORE`, or `set store PATH` written to `~/.ontodag/config`; home dir override `$ONTODAG_HOME`). `odag put cat` / `odag get cat` need no file argument. No command → reads commands from stdin (pipe/batch) or an interactive `>` prompt on a tty. Paths ending in `.owl`/`.omn` use OWL/Manchester (owlready2 imported lazily, so the native path stays dependency-free); `import`/`export`/`merge` convert between them. Commands: put/get/below/remove/show/list/merge/import/export/visualize/index/set/help (`get` takes literal `or` between disjuncts; `below SUB SUP` prints true/false and exits 0/1 grep-style, `?` is its alias at the prompt — commands may return an int from their `cmd_*` function to set the exit code).
+  - **Since 2026-10-09 the settings and the backends below live in `settings.py` and `stores.py`** (`ontodag.open` returns a `stores.Store`, the CLI's `Session`); `__main__` keeps their old names as aliases.
+  - **Storage backends** (`FileBackend`/`SwarmBackend`, `_make_backend`): a store spec is either a filesystem path or a `swarm:NAME` URI. `set store swarm:NAME` persists the spec verbatim to config so every later invocation uses Swarm — content via `BeeBytesStore`; the mutable latest-root via a **signed Swarm feed when a signer is configured** (`$BEE_SIGNER` or `bee_signer` in config → `recordstore.swarm_store()`/`SwarmFeedPointer`, a followable address) and via a local `FilePointer` at `~/.ontodag/NAME.root` otherwise (no key needed, nothing publishable). Bee config from `$BEE_API`/`$BEE_BATCH`/`$BEE_SIGNER` or `bee_api`/`bee_batch`/`bee_signer` in config (all four settable via `odag set` since 2026-07-31). `recordstore` + `eager` are imported lazily only on the Swarm path, so `import ontodag` and the native path stay dependency-free (B1 verified). The Swarm path also needs `requests` (recordstore's `BeeBytesStore.__init__` imports it) — declared as the `swarm` extra in `pyproject.toml` (`pip install -e ".[swarm]"`); a missing dep is caught in `SwarmBackend._record_store` and re-raised as a friendly `odag: ... install the swarm extra` message rather than a raw `ModuleNotFoundError`. **Store-open failures obey the CLI contract too (2026-08-01):** opening a `swarm:` store is network I/O — `batch=auto` asks the node for its batches and a non-empty store hydrates — so a stopped node used to dump a traceback from `main()`, which built the `Session` *outside* any handler. Now `main()` wraps it like `dispatch()` does, and `_record_store`/`load` turn `OSError` into `_swarm_open_error(...)`: a message naming the API URL, whether the node was unreachable at all (`_is_unreachable` walks the `__cause__` chain — connection failures arrive wrapped by `requests` *or* by aiohttp under swarmfs's stamp selection, and neither subclasses builtin `ConnectionError`), and the two escapes (`odag -f <default>` once, or `set store <default>`). Deliberately **no** automatic fallback to the local store (a silent store swap lets two stores diverge with nothing to say which is authoritative) and **no** auto-starting Bee. `Session.switch` is atomic (load, then assign) so a failed switch leaves the session on its old store; `set store` still persists the spec first — configuring a store before starting the node is legitimate — and says so in the error. Tests: `TestSwarmNodeDown` in `tests/test_cli.py`. Wiring is duck-typed via `SwarmBackend(name, store_factory=...)`; `tests/test_cli.py` exercises the full load→put→commit→reload cycle through `dispatch()` against an in-memory `RecordStore`, so the CLI is validated without a Bee node (the HTTP path is covered by recordstore's live-node suite; the signer-path wiring by `TestSwarmSignerWiring`, mocking `recordstore.swarm_store`). The fully-on-Swarm mutable root (old roadmap item 2) is thus adopted; its live validation is the `BEE_SIGNER`-gated `TestSwarmFeedPointerOnLiveBee` in `tests/test_swarm_bee.py` (scorched-earth rehydration from an empty home — the root can only come back via the feed), **run and passed against a real node 2026-08-01** (Bee integration run 5 below).
+
+### `recordstore` — generic versioned record store (external, see "Swarm integration" below)
+
+Extracted to its own repo **github.com/petfold/recordstore** (July 2026, `git subtree split`, history preserved) and depended on from PyPI in `pyproject.toml` as `recordstore>=0.14.0` (a floor, not an exact pin: every release since v0.3.0 has been additive). Its test suite (`test_recordstore.py`, `test_recordstore_fuzz.py`, `test_recordstore_bee.py`, plus the ported stdlib-only boundary check) lives in that repo as of `v0.1.1`; this repo keeps only its consumer-side checks (`test_boundaries.py` B2, `test_eager.py`). Public-API summary (manually synced): `docs/recordstore-interface.md` — since 2026-08-04 only the *consumer-side view*: recordstore (0.18.2+) and swarmfs (0.7.1+) each ship their own authoritative `docs/REFERENCE.md`, pinned against their code by a `tests/test_reference.py`, so the full-API half of the manual sync burden is gone. Check upstream first; update the interface doc only for what OntoDAG consumes.
+
+`BeeChunkStore` was renamed to **`BeeBytesStore`** in `v0.2.0` (2026-07-19) — the class wraps Bee's `/bytes` (blob-level) endpoint, not the raw `/chunks/{address}` single-chunk primitive, and the old name implied the latter. Then in **`v0.3.0`** (2026-07-20) the abstraction itself was renamed `ChunkStore` → **`BytesStore`** and `MemoryChunkStore` → **`MemoryBytesStore`** for the same reason (a recordstore storage unit is a `put(bytes) → ref` blob, not a Swarm chunk), and the `RecordStore` store parameter `chunks` → `bytes_store`. The pin above was bumped for both; no OntoDAG source code referenced the old names — only docs and `tests/test_eager.py`, updated in the same pass.
+
+**Doc sync (2026-08-01):** `docs/recordstore-interface.md` is verified signature-by-signature against the `v0.15.0` tag (local checkout at `/home/test/projects/recordstore`), with post-floor features marked **(needs ≥ x.y.z)** — the sync point is intentionally ahead of the floor. It now also documents what was missing: `RecordStore.blobs` and `.diff()`, `DirBytesStore`/`FsspecBytesStore` and pluggable `addressing=`, `swarm_store()`'s own signature, and the postage-batch health surface. **Packaging gap found in that pass, fixed the same day:** the default `postage_batch_id="auto"` path imports `swarmfs` (recordstore's `[stamps]` extra since 0.14.0), but OntoDAG's `swarm` extra declared only `recordstore[bee,feeds]` — a clean install therefore failed on `auto` at store-open with an `ImportError`, invisible on this box because swarmfs is installed from a local checkout. The extra is now `recordstore[bee,feeds,stamps]>=0.14.0`, which forced the floor bump: `stamps` does not exist at 0.13.1, and pip only *warns* on an unknown extra, so naming it against the older floor would have installed nothing while looking correct. `pip install -e ".[swarm]" --dry-run` resolves clean (all three extras provided and satisfied). The CLI's missing-dependency message now names all three components.
+
+**CRDT merge-on-moved-head in `SwarmBackend.save` — DONE (2026-08-04, picked up from the session handoff; the diagnosis and fix are recorded in the local-first paragraph below and in commit `EagerOntoDAG.base_root`).** Decision (Peter): multi-writer convergence is the commutative/idempotent DAG merge (I7), never locking. Cross-repo context: ontodag-fs ROADMAP (e6d889d) and swarmfs design doc (4567577) carry the two-layer framing (merge coordinates; flock = millisecond journal hygiene inside transient windows; readonly/refresh rejected).
+
+**Local-first swarm: stores (2026-08-04):** `SwarmBackend` builds through `recordstore.local_first_store` (recordstore 0.19, `[swarm-only,local-first-swarm]` extras): commits land in `~/.ontodag/NAME.store/` instantly and sync to Swarm in the background. **The store is opened in transient windows, never held** (decided same day, with ontodag-fs's mount + planned v0.1 filing in mind): the hydrated in-memory DAG serves the session; `load()` opens-hydrates-closes, `save()` opens-rebinds-commits-syncs-closes (`_SYNC_TIMEOUT` 60 s best-effort barrier, tests shrink it; offline prints a note instead of failing); brief window overlaps retry on `StoreLocked` (`_LOCK_RETRY` 5 s); `odag index`'s NAME-index store and the MCP server's NAME-prov store follow the same discipline (MCP no longer caches ProvenanceStore). **Save-onto-moved-head is the CRDT merge (2026-08-04, replacing the record-level LWW rebase the transient-windows commit shipped with):** `EagerOntoDAG` tracks `base_root` — the root of its own hydrate/commit lineage, updated at `_hydrate` and `commit()` — and `save()` rebinds `dag.store` to the fresh window *first* (sync's internal commit must write through the open window, never the closed previous one), then folds the head in via `dag.sync(head, bytes_store=store.blobs)` **only when the head moved past `base_root`**, else commits plainly. The base-root guard is what keeps replace-shaped flows (`odag import`) superseding instead of add-wins-merging back what they just replaced, and `merge_published`'s already-have-it short-circuit now compares `base_root` too (under transient windows `store.root` is the *peer's* moved head — equality there means "merge this", not "have it"). A raced import (another writer commits mid-import) still unions — the documented grow-only wall, same as remove-loses-to-readd. Test: `TestSwarmBackendLocalFirst.test_concurrent_windows_converge_by_merge_not_lww` (same-node concurrent edits from two sessions union parents to {p1, p2}). **Later the same day, the fold went delta-driven and the concurrent-delete gap closed:** `sync` routes through `EagerOntoDAG.merge_delta` — `RecordStore.diff(base_root → head)` drives the fold (first in-tree consumer of recordstore's diff; O(divergence), never O(store)) and the *same walk rebases `_synced` onto the head being committed onto*, so a record the peer deleted but this session still holds is re-staged (before: nothing staged — remove-WINS in the store while memory said remove-LOSES; tests: the `concurrent_remove` pair in `test_cli.py`). Prerequisite fixed first: `_remove_unneeded_edges` now covers the full redundancy rectangle (see "Known bugs" item 7), which makes the fold's replay order-free and the whole merge byte-identical both directions. A read-only localstore mode was considered and rejected as unnecessary: nothing serves reads from the store between windows. With a signer the head publishes to the feed only after network confirmation (`publish_pointer=SwarmFeedPointer`); legacy `NAME.root` heads migrate into the store's `HEAD` on first open and hydrate lazily from Swarm. The `swarm` extra floor is `recordstore>=0.19.0` — NB the base floor below predates this and still reads 0.16.0; raise it when the base API surface consumed moves past 0.16.
+
+**Version state (2026-08-01): the requirement is `recordstore>=0.16.0` and 0.16.0 is installed locally** (from the local checkout, after the prove/verify work landed there; the floor moved from 0.14.0 the same day because `ontodag.certificates` consumes `verify_proof` — see "Current task" Phase 1(c)) (previously upgraded from 0.13.1, so the environment satisfies `pyproject.toml` — the drift noted below is what happens otherwise). 0.15.0's `RecordStore.diff` remains unconsumed here; the floor passed it for the proofs, not for diff. (Before this, the declared floor was already `>=0.11` while the environment still had 0.10.0 — i.e. the install did not satisfy `pyproject.toml`; fixed by upgrading the user-site install. Note PEP 668 marks this Python as externally managed, so installing needs `pip install --user --break-system-packages`.) The releases since v0.3.0 relevant to OntoDAG: a **real `SwarmFeedPointer`** (v0.4.0/0.4.1 — signed Swarm feeds via the `swarm-bee` package behind a `recordstore[feeds]` extra; this *is* the signing-library decision this repo's roadmap was waiting on, made upstream), **concurrent bulk I/O** (v0.5.0–v0.7.1 — `RecordStore.items()`, `BytesStore.get_many`/`put_many`, pooled HTTP sessions, bulk trie writes in `commit()`), and **multi-writer machinery** (v0.8.0–v0.10.0 — canonical three-way `RecordStore.merge` with a `resolver` hook and `MergeConflict`/`ABSENT`/`DELETE`, auto-reconciling `commit(reconcile=True)`, best-effort `SwarmFeedPointer.compare_and_set` for cross-process reconcile). Adoption items are in "What does not exist yet" below; the new API surface is summarized in `docs/recordstore-interface.md`.
+
+### `web/`
+Flask REST API + UI wrapping `OntoDAG`, including the car-market demo (`/market`).
+
+## Web app
+
+```bash
+odag web        # or `odag-web`, or `web` at the interactive prompt
+```
+
+The app is `src/ontodag/web/` — **inside** the package since 0.17.1, because
+`pip install "ontodag[web]"` had installed Flask, dot2tex, graphviz,
+owlready2 and Pillow and then had nothing to run. `cars/` (the demo's 3.1 MB
+of photographs) is excluded from the wheel by `[tool.setuptools.package-data]`
+and `/market` says so when absent.
+
+REST endpoints: `POST /dag` (reset), `GET/POST/DELETE /dag/node`, `GET /dag/query?cat=A,B`, image renders (`/dag/image`, `/dag/query/image`), import (`/dag/import`; `/dag/query/import`, which queried by an uploaded file, was removed 2026-10-09), and exports in OWL/Manchester/DOT/LaTeX (`/dag/export`, `/dag/export/{omn,dot,tex}`, same under `/dag/query/`).
+
+**The page was replaced 2026-08-09 — design record
+`docs/plans/WEB_UI.md`, stages 1–4 of its §12 (the demo site and store
+selection are NOT built).** The old page was 32 controls in 7 forms with one text box driving
+four verbs (two destructive), a flat dump of every node as the main content
+area, everything drawn twice (a query result *is* a DAG, and the whole store
+is the answer to the empty query — a unification the core made and the page
+never followed), and canonical names on screen (`time(2026)` shown as its
+46-character timestamp range). The replacement is **one language, one
+result, one focus**: a browse pane whose breadcrumb *is* the query, a
+console running the same `odag` interpreter, and the rule that **every click
+writes its command into the console and every command updates the browse
+state** — sound because in OntoDAG a path is a query, so a click is
+literally `get Japan Flight`, which makes pointing the cheapest way to learn
+the language. New: `ontodag.browse` (the refinement rule — categories held
+by *some but not all* of the answer, so every choice leads somewhere new; a
+walk in the concept lattice, and the fifth import-nothing consumer module),
+`dispatch(argv, session, out=, err=)` via ContextVars (with a `_Parser`
+subclass so argparse's own messages are captured), and
+`OntoDAGVisualizer.generate_svg` — Graphviz writes viz.py's synthetic ids
+into the SVG, so click-to-focus needs no graph library and no build step.
+Front end is vendored Preact+htm, 13 KB, no build step, no CDN. Old page
+kept at `/classic`; **no REST route changed**, which is why 48 of the 53 web
+tests passed untouched. `scripts/browser_check.py` (Playwright, not in the
+suite) drives the real page: it found four bugs no status code could —
+`&gt;` rendered as four literal characters, a picture that never redrew
+after a mutation, a 33-node thumbnail squiggle, and a menu that opened on an
+empty line so that pressing Enter inserted a command instead of doing
+nothing. **Discoverability is the console's contextual suggestion list**,
+which is the completion list *and* the menu: commands while the verb is
+being typed, names after it, on screen only while in use (so it costs one
+`commands ▾` button and no permanent menu bar), read off the argparse parser
+via `GET /dag/commands` so it cannot drift, and pre-filling the selected item
+for the commands whose first argument really is one (`pack NAME` is not).
+
+## Key invariants (from `tests/test_invariants.py`)
+
+The invariant test file documents seven properties the data structure should uphold:
+- **I1 Acyclicity** — `add_edge` must reject cycles
+- **I2 Transitive reduction** — no redundant edges (if A→B→C exists, A→C must not)
+- **I3 Order independence** — `put(X, [A, B])` and `put(X, [B, A])` must produce identical graphs
+- **I4 No aliasing** — derived DAGs (intersection, copy) must not share `Item` objects with sources
+- **I5 Counter consistency** — `descendant_count` must always equal the true reachable count
+- **I6 Iterative traversal** — `get_descendants`/`get_ancestors` must not use recursion (Python recursion limit)
+- **I7 Merge algebra** — `merge` must be commutative and idempotent (CRDT property)
+
+## Dependency boundaries (from `tests/test_boundaries.py` — must always pass)
+
+- **B1 The core stays Swarm-free.** The `ontodag` package must remain importable and fully functional with no Swarm, no `recordstore`, no network, and no optional dependency installed (`owlready2`, `graphviz`, `dot2tex`, `flask`). The Swarm layer is an optional persistence backend layered *on top of* the data structure — never a requirement of it. When the `EagerOntoDAG` adapter lands, it must be reachable only via explicit import (and eventually an `[swarm]` extra in `pyproject.toml`), keeping plain `import ontodag` clean.
+- **B2 `recordstore` never depends on OntoDAG** and keeps its module-level imports stdlib-only (third-party imports like `requests` in `BeeBytesStore` stay lazy inside methods). This boundary made the July 2026 extraction to `github.com/petfold/recordstore` cheap — see `SWARM_DESIGN.md` §2; the checks now run against the installed package.
+
+## Known bugs and fix status
+
+Fixed (July 2026), one commit per invariant:
+
+1. ~~**No cycle check in `add_edge`.**~~ **Fixed (I1)** — `DAG.add_edge` raises `ValueError` when the edge would create a cycle, via the iterative early-exit `DAG._is_reachable`; `OntoDAG.add_edge` performs the check before `_remove_unneeded_edges` so a rejected edge never mutates the graph.
+2. ~~**Transitive reduction incomplete and order-dependent.**~~ **Fixed (I2, I3)** — `OntoDAG.add_edge` skips any edge whose target is already reachable, then prunes ancestor edges as before. Note: `testdag.test_descendant_count_after_remove` had asserted the old non-reduced contraction result and was updated to the reduced expectation.
+3. ~~**`intersection_dag` aliases live nodes.**~~ **Fixed (I4)** — builds fresh `Item`s via a name→copy mapping, mirroring `copy_subdag`; `is` name comparisons replaced with `==`.
+4. ~~**Recursive traversals overflow on deep graphs.**~~ **Fixed (I6)** — `get_descendants`, `get_ancestors`, and `_get_affected_nodes` use explicit frontier stacks.
+
+5. ~~**Quadratic structure maintenance.**~~ **Fixed (July 2026)** — `Item` has a `parents` set maintained symmetrically with `neighbors` via `_EdgeSet` (a set subclass that syncs the reverse direction even under direct `neighbors` mutation); `get_ancestors`, `_get_affected_nodes` and `remove` walk `parents` instead of scanning the graph; descendant-count refreshes stopped being per-edge full recounts. (The batching helper this note originally named, `_batched_count_updates`, no longer exists: counts were subsequently moved to exact **delta** maintenance — `_plan_add`/`_plan_remove`/`_apply_count_deltas` — which is what the code does today.) `parents` is the in-memory form of the record schema's `up` list, so the in-memory and persisted shapes now match.
+
+6. ~~**`topological_sort` is still recursive.**~~ **Fixed (July 2026)** — iterative post-order DFS with an explicit `(node, iterator)` path stack, completing I6; covered by `test_topological_sort_is_iterative` (1500-deep chain) and an ordering test in `test_invariants.py`.
+
+7. ~~**Transitive reduction was incomplete in the downward direction, making stored form order-dependent and multi-writer merge non-commutative.**~~ **Fixed (2026-08-04)** — `_remove_unneeded_edges` pruned only upward/same-child, so an existing edge whose only witness path runs *through* the new edge (`p→B` bypassed by adding `p→Z` with `Z⇝B`) was kept: same knowledge could hash to two roots depending on insertion order, and `EagerOntoDAG.sync` merges landed on *different* roots when the redundancy spanned the writers (verified I7 break). The fix completes the redundancy rectangle (x ∈ {from} ∪ ancestors(from), y ∈ {to} ∪ descendants(to), combined order) with a downward twin loop; fresh-leaf fast path keeps `put(item, supers)` near-free; verified against a brute-force reduction oracle over 300 random DAGs × 4 replay orders, golden roots unchanged. `_remove_duplicate_root_edges` is now a legacy-store safety net only. Same commit: `migrate_record_store` crashed on every real store (replayed the `"*"` record into `put`) — fixed and first-tested; migrate is the re-canonicalization path for stores carrying bug-era shapes. Tests: reparenting shapes in `test_invariants.py`, computed-hop variant in `test_dimensions_dag.py`, cross-writer convergence + seeded commutativity fuzz in `test_multiwriter.py`.
+
+No known open bugs in `dag.py`; remaining items are the secondary cleanups below.
+
+### Secondary cleanups (not blocking the invariant suite)
+- ~~**`__init__.py` forces an `owlready2` dependency.**~~ **Done** — `src/ontodag/__init__.py` now exposes `OWLOntology` via a lazy module `__getattr__`, enforced by `tests/test_boundaries.py`. **Also done 2026-08-02**: `pyproject.toml`'s `dependencies` is now **empty** — `graphviz`/`Pillow` → `[viz]`, `owlready2` → `[owl]`, `recordstore` → `[store]`, plus `[all]`. Before this a bare `pip install ontodag` pulled **31 MB** (owlready2 alone is 28 MB + a 2.2 MB compiled `.so` + bundled HermiT/Pellet **Java jars**) to deliver a 648 KB package that used none of it; because owlready2 ships **sdist-only** it also required a C toolchain and made the package **uninstallable under Pyodide** (micropip cannot build sdists) — i.e. that one line silently blocked the whole in-browser story recorded in Phase 4 item 6. The lesson generalizes: **B1 asserted the boundary in code but nothing asserted it in the metadata**, and B1 structurally cannot notice, because a dev environment has every optional dep installed. Closed by `TestTheBoundaryIsAlsoDeclared` in `tests/test_boundaries.py` (parses pyproject: base deps must be empty, each optional package must live in its named extra, and a missing extra must raise a *teaching* ImportError naming the pip command) and by a `bare install pulls in nothing else` check in `scripts/release_smoke.py`, which is the only place the *installed* package exists — verified to fail against the published 0.10.0.
+- ~~**API takes `Item` objects but re-resolves by name.**~~ **Done (2026-07-21)** — the public boundary accepts plain strings everywhere an `Item` was required: `put` (subcategory + supers), `get` terms, `remove`, `get_descendants`/`get_ancestors`, and the `EagerOntoDAG` overrides (via `_name_of` in `dag.py`); `Item` arguments remain accepted and are resolved by name (earlier partial fix: `get_descendants`/`get_ancestors` re-resolve instead of traversing the caller's object). `remove` now also resolves fresh `Item("x")` arguments to the instance's node — previously a fresh Item passed the existence check but had empty `parents`, so removal would orphan children and leave dangling edges (latent footgun, now tested in `TestStringAPI`). The user-facing docs (`docs/USER_GUIDE.md`) use the string API throughout.
+- ~~**Nondeterministic iteration.**~~ **Mostly done (2026-08-01).** `topological_sort` now sorts every iteration point by name (descending internally, because the post-order stack is reversed on the way out, so the returned order reads ascending). Equal content therefore gives the equal order whatever the build history, which makes `odag show` and the OWL/Manchester exports diffable — the export body is byte-identical across runs; only the per-export random ontology IRI (`urn:ontodag_<uuid4>`) still varies, which is a separate question about whether that IRI should be derived from content. Native-store serialization was already sorted. Pinned by `TestTopologicalSortIsDeterministic` in `tests/test_invariants.py`. Still open: `merge` iterates sets while applying operations — the *result* is canonical either way (I7), so this is not a correctness issue, but it should be sorted before anything depends on operation order.
+- ~~**`print()` in `prune_to_common_descendants`** should be `logging`.~~ **Done 2026-10-09** (the review); later the same day the method went, with `get_by_dag` and the classic page's import-query route that alone used them (review question 6).
+
+## Identity: strings vs pointers (design decision)
+
+Keep both, at different layers:
+- **Inside one DAG instance:** edges (`neighbors`, and the new `parents`) stay as object references — O(1) hops, natural for a live graph.
+- **At every boundary** — public API, serialization, and anything crossing *between* DAG instances — identity is the **name string**. `Item.__eq__`/`__hash__` already compare names only, so names are the true identity; pointer identity must never escape a single `DAG` object. Letting pointer identity leak across instances is exactly what caused the `intersection_dag` aliasing bug (#3).
+- Do **not** convert in-memory `neighbors` to sets of strings — that just adds a dict lookup per hop for no benefit.
+
+## Swarm integration — status and where things live
+
+The medium-term goal (see `ROADMAP.md`, which absorbed the old README checklist on 2026-07-25 — the "DAG-only graph database for Ethereum Swarm" and "plugin to store the DAG decentrally" items) is to persist OntoDAG on Ethereum Swarm, a content-addressed immutable chunk store.
+
+**Full design rationale is in `docs/SWARM_DESIGN.md` — read it before touching `recordstore` or the OntoDAG-Swarm adapter.** It covers: why a generic `recordstore` layer exists at all rather than calling Swarm directly, and the move of `recordstore` to its own repo (§2 — executed July 2026, see the update note there), the node record schema for the eventual adapter (§3), why storage is one-record-per-chunk for now and when that should change (§4), the planned multi-writer/CRDT merge mechanism (§5), the performance model and the four caching layers involved (§6), what's tested vs. not (§7), and the recommended sequencing of remaining work (§8). This file (`CLAUDE.md`) has the day-to-day task list; `SWARM_DESIGN.md` has the "why."
+
+### What already exists (the `recordstore` package — external repo, `>=0.14.0` from PyPI)
+
+A versioned key→record store over a content-addressed chunk store — the generic substrate `OntoDAG`-on-Swarm will sit on. Implemented and tested:
+- `RecordStore`: staged put/get/delete, `commit() → root`, `RecordStore.at(root)` read-only snapshots, sorted prefix iteration (`keys(prefix)`).
+- A persistent, canonically-encoded compacted radix trie (own implementation, not mantaray — see `SWARM_DESIGN.md` §2 for why compatibility with mantaray was deferred rather than required).
+- `BytesStore` backends: `MemoryBytesStore` (test double) and `BeeBytesStore` (real Bee node over `/bytes`).
+- `Pointer` backends: `MemoryPointer`, `FilePointer`, and — real since recordstore v0.4.0 (`[feeds]` extra, `swarm-bee` signing) — `SwarmFeedPointer`; adopted by the `odag` swarm backend 2026-07-31 (see "Storage backends" above).
+
+Tests (in the recordstore repo since `v0.1.1`, run them from a checkout of that repo): `tests/test_recordstore.py` (15 unit tests — canonical roots, snapshot isolation, structural sharing, no-aliasing, `FilePointer` persistence/atomicity), `tests/test_recordstore_fuzz.py` (model-based fuzz test against a dict oracle, 12 seeded runs × 400 ops, checks the canonical-root property under arbitrary put/delete histories), `tests/test_recordstore_bee.py` (integration test against a live Bee node — skips automatically unless `BEE_API` is set):
+
+```bash
+# from a checkout of github.com/petfold/recordstore:
+python3 -m pytest tests/ -v   # no external deps; Bee tests skip without BEE_API
+
+# integration test against a live node:
+BEE_API=http://<node>:1633 [BEE_BATCH=<batchID>] python3 -m pytest tests/test_recordstore_bee.py -v
+```
+
+**Bee integration status (July 2026).** Two runs, different evidence levels:
+
+1. **`bee dev` v2.7.1** (last release shipping dev mode — 2.8.0 removed it and broke protocol compatibility with 2.7.x, and the community bee-factory rig is dead since 2022): all 4 tests passed, plus an ad-hoc `EagerOntoDAG`-over-`BeeBytesStore` roundtrip. Validates the client↔node HTTP contract only; an isolated API fake, not network evidence. Re-run only if `BeeBytesStore`'s encoding changes.
+2. **Real node, 2026-07-11:** all 4 tests passed against a live **bee v2.8.1 light node on Gnosis mainnet** (Swarm Desktop's node, `localhost:1633`) using a **real purchased postage batch** (depth 17, immutable, ~2-day TTL). Validates the current bee version, real on-chain stamps, and real BMT refs. Two things learned: mainnet rejects batches below ~1 day of validity at the current storage price, so the test's auto-buy default (`/stamps/100000000/20`) fails on a real node — **always set `BEE_BATCH` against a real node** (also avoids surprise spending); and batch purchase → usable took ~65s on-chain.
+
+3. **Real node, 2026-07-19:** all 4 tests passed again, this time run from the extracted recordstore repo (post-`v0.1.1` move), against Swarm Desktop's bee v2.8.1 light node on Gnosis mainnet with a fresh purchased batch (depth 17, immutable, ~2-day TTL, ≈0.03 xBZZ). Operational notes: the node needed ~8.5 min after launch before `/chainstate`/`/wallet` responded (peers connect much sooner — wait for chainstate, not peers), and batch purchase → usable took ~70s, matching the July observation.
+
+Also done 2026-07-19, same node/batch: **retrievability** — `GET /stewardship/{root}` returned `isRetrievable: true` (push-sync out of the light node works); and the **adapter smoke against the real node** — `EagerOntoDAG` over `BeeBytesStore` roundtrip (commit → rehydrate in a fresh instance → query → idempotent re-commit), with two independent runs producing the identical root on real BMT refs. That run also surfaced a real API quirk, since fixed: `get_descendants`/`get_ancestors` traversed the caller's `Item` object rather than re-resolving by name, so querying a *rehydrated* DAG with fresh `Item("x")` objects silently returned the empty set. Both now resolve `self.nodes[node.name]` first (regression tests: `TestQueriesWithFreshItems` in `test_invariants.py`, `test_query_after_rehydrate_with_fresh_items` in `test_eager.py`).
+
+4. **Real node, 2026-07-21 — the `odag` CLI Swarm backend end-to-end.** Validated the `swarm:NAME` CLI backend (not just the adapter) against Swarm Desktop's bee v2.8.1 light node on Gnosis mainnet with a fresh purchased batch (depth 17, immutable, amount 2.4e9 → TTL ~2.06 days, ≈0.03 xBZZ; purchase → usable ~90s / 12 polls). All via the installed `od…`→`odag` command over `BeeBytesStore`+`FilePointer`: (a) build a 5-node DAG with `odag put` (each a commit, ~2.5s for all five), query hydrates from Swarm correctly; (b) **clean-environment rehydration** — a fresh `$ONTODAG_HOME` seeded with *only* the root ref in `pets.root` (no other local state) queried correctly, proving the records live on Swarm, retrievable by ref; (c) **canonical root** — rebuilding the same graph under a different store name *and* a different insertion order produced the byte-identical root `21728cd9…` (S2 history-independence, on real BMT refs); (d) `GET /stewardship/{root}` → `isRetrievable: true`; (e) idempotent commit (re-`put` of an existing edge left the root unchanged) and persisted removal (`remove` changed the root and dropped the node from subsequent queries). Confirms the CLI's lazy `requests`/BeeBytesStore path and the `set store swarm:…` config flow work against a real node. Now captured permanently as the `BEE_API`-gated **`tests/test_swarm_bee.py`** (skips unless `BEE_API` *and* `BEE_BATCH` are set; mirrors `test_recordstore_bee.py`), so this run is reproducible rather than one-off.
+
+5. **Real node, 2026-08-01 — the feed pointer, cone summaries, and the loopmarket book.** Bee v2.8.1 light node, Gnosis mainnet, an existing usable batch (depth 19, immutable, TTL ≈ 38 days — no purchase needed). (a) recordstore's full live surface: `test_recordstore_bee.py` 6/6 and — first time live — `test_recordstore_feed.py` + `test_swarm_store.py` 15/15 (2:39; feed lookups dominate), validating `SwarmFeedPointer` on real SOC signing incl. cross-process reconcile. (b) **`TestSwarmFeedPointerOnLiveBee` passed on its first live run** — scorched-earth rehydration from an empty `$ONTODAG_HOME`: the root came back purely via the signed feed. One test fix surfaced by the run: the keyless-mode class must clear `$BEE_SIGNER` in `setUp` (a signer in the environment routes the backend to the feed — the feature working — but that class tests the `FilePointer` mode). (c) **Cone summaries on real Swarm refs**: `odag set store swarm:conetest`, 71 items filed (~62s), `odag index` published the pair, and a thin `LazyOntoDAG` client answered the broad query with **1 record + 2 index fetches vs 71 without the index**. (d) **loopmarket's triangle cleared on a live Swarm book** (51s, now permanent as its gated `tests/test_swarm_book.py`): catalogue on Swarm, offers pinning its root, book head in a signed feed, a scorched-earth follower reading the settled loop and all six atomic fills back from the network, second solver pass empty — loopmarket P1's "run the demo against a Bee node" item, done. Throwaway signer, timestamped feed topics so reruns don't inherit state.
+
+6. **Real node, 2026-08-01 (evening) — post-release revalidation.** Bee v2.8.1 light node, existing usable batch (`c931c8a5…`, TTL ≈ 37 days), throwaway signers. ontodag's two gated tests passed (13s: the CLI swarm backend roundtrip and the scorched-earth feed rehydration — first run since the surface/MCP/certificates wave, so the whole 0.9.0 stack is live-clean), and recordstore's full live suite passed **against the published 0.16.0** (21 tests, 3:52 — `test_recordstore_bee` + `test_recordstore_feed` + `test_swarm_store`, feed lookups dominating as in run 5).
+
+7. **Real node, 2026-08-06 — and the gated suite caught a shipped regression.** Bee v2.8.1 light node, existing batch `c931c8a5…` (depth 19, TTL 31.9 days), throwaway signers. Both gated tests **failed first**, and only one of the two reasons was test staleness:
+   - *Stale test:* `TestSwarmBackendOnLiveBee._root()` read `~/.ontodag/NAME.root`, which local-first stores (0.14.0) no longer create — the head lives in `<NAME>.store/HEAD`. Updated. **These tests had not been run since the 2026-08-04 local-first wave**, which is why nobody noticed the next item.
+   - *Real regression, shipped in 0.14.0/0.15.0:* **a `swarm:` store published a feed nobody could follow.** A scorched-earth home read *nothing*, despite the feed holding the correct head (verified directly: `SwarmFeedPointer.get()` == local `HEAD`). Publication rides confirmation and works; **discovery** was missing — `local_first_store` resolves its root from the directory's `HEAD`/journal and never consults `publish_pointer`. Seeding `HEAD` from the feed then failed *differently*: swarmfs's `LocalStore.get` heals only refs the replica already knows (`ref not in self._blob_roots` → `KeyError`), so lazy healing recovers evicted blobs but **cannot bootstrap** a fresh replica — which also means the 0.14 legacy-`NAME.root` migration path was broken the same way. Fixed in `SwarmBackend`: `_bootstrap_root` (feed, else legacy file, only for a directory with no history) + `_clone_from_swarm` (replay the records through `RecordStore.at(root, BeeBytesStore(api))`, and canonical addressing verifies the clone — a re-commit must reproduce the same root, mismatch reported). Verified live: scorched `$ONTODAG_HOME` + same signer → the graph comes back. Both gated tests pass (35–41 s). Offline decision logic pinned by `TestSwarmBootstrapDecision` in `tests/test_cli.py`; the clone itself stays live-only, like the rest of the HTTP path.
+   - Minor, upstream: recordstore 0.19.0's `local_first_store` docstring still says "Feed publication is not wired here yet" while its body wires it (lines 2238–2247). Worth a one-line fix in that repo.
+
+8. **Real node, 2026-08-06 (later) — the pre-0.16.0 sweep, all three repos.** Same node, same batch `c931c8a5…` (TTL 31.8 days), throwaway signers. Every gated test in the family run, nothing left skipped: **ontodag 2/2** (43 s — the CLI swarm backend and the scorched-earth feed rehydration, i.e. the morning's bootstrap fix still holds), **recordstore 21/21** (3:56 — `test_recordstore_bee` + `test_recordstore_feed` + `test_swarm_store` at the 0.20.0 tag's code, so the published release is live-validated; the feed suite dominates the wall clock, as in runs 5–6), and **ontodag-fs 1/1** (its `test_live_bee`, real BMT refs for file content, against this repo's 0.16.0 candidate — the same thing the publish workflow's downstream gate runs). Nothing new learned about the node; the point of the run is that the release candidate has no unexercised Swarm path. **Run again after the three releases** (2026-08-06 ~16:20, the node having gone
+down and come back — Swarm Desktop's `Nook` process, which is how it is managed on
+this box): all three repos green against it, and this time **also the published
+wheels rather than the checkouts** — `pip install "ontodag[swarm]==0.16.0"` into a
+throwaway venv, then a live `swarm:` store through `odag`: put, `history` with a
+message, `--as-of` reading the earlier root, and `undo` moving the head back. That
+is the whole 0.16.0 story exercised end to end on real Swarm by the artifact users
+get. **Re-run an hour earlier, after the surface-parity wave** (which touched `Session._load` and the backends for `--as-of`): ontodag 2/2 again (42 s), and ontodag-fs's whole suite with the gate open — 283 passed, 0 skipped.
+
+9. **Real node, 2026-08-20 — the shipped packs published to Swarm.** Bee 2.8.1
+   light node, batch `c931c8a5…` (TTL 16.1 days), **keyless** (no feed — the
+   publisher-key decision is Peter's). All four packs pushed
+   (`odag -f swarm:pack-NAME pack NAME` from a scratch home), every store
+   root **byte-equal to the BMT fingerprint pinned in advance**
+   (`SWARM_GOLDEN_ROOTS`, computed offline the same day), all four
+   `isRetrievable: true`, and the adoption loop closed scorched-earth: a
+   reader holding only the root hydrated crypto-core over the network,
+   merged into a fresh BMT store, recommitted to the identical root, and
+   parsed `price(5000sat)` through the network-adopted vocabulary.
+   **Operational warning surfaced by the run: batch `c931c8a5…` is at 88%
+   bucket capacity (7/8 in the fullest bucket) — further writes risk 402
+   overissued; dilute one depth (halves the ~16-day TTL) and top up.**
+
+10. **Real node, 2026-09-11 — core v9 and the ten domain packs published.**
+   Bee **2.8.2** light node, Gnosis mainnet, the same batch `c931c8a5…`
+   (21.6 days TTL, 11% utilized, fullest bucket 13/16 — the 88% warning above
+   was against the older, shallower state), **keyless** as before. All eleven
+   stores pushed with `odag -f swarm:pack-NAME pack NAME` from a scratch home;
+   **every root byte-equal to its re-pinned `SWARM_GOLDEN_ROOTS` fingerprint**,
+   and after the repairs below **all eleven `isRetrievable: true`**.
+   **What the run cost, and the lesson: an upload that succeeds is not an
+   upload that landed.** All eleven exceeded the client's 60 s sync window,
+   and two — `computing` and `geography`, the largest — stayed unretrievable
+   afterwards while the node's own pusher reported its queue fully drained
+   (`to_push == synced`). The cause was **29,602 shallow receipts**: chunks
+   receipted by peers too shallow to be their storers, counted as errors and
+   never re-queued. Ruled out as causes: bucket overflow (max 13/16, none
+   full), invalid stamps (0), send failures (12 of 322,161) and funds (2.51
+   BZZ available, 3.61 BZZ already settled). The `overdraft_refresh` count of
+   142,180 — 477 peers pinned at the ~1e8 PLUR payment threshold — is
+   *time-metered* throttling, independent of the chequebook, and explains the
+   60 s timeouts but not the loss. **Re-uploading fixes it, probabilistically**:
+   `computing` landed on the second upload, `geography` on the third plus a
+   `PUT /stewardship/<ref>` (which needs `swarm-postage-batch-id`, and returns
+   an opaque 500 while the node no longer holds the chunks). So verify every
+   root with `GET /stewardship/<ref>` after publishing — never trust exit 0.
+   Written up in `../swarmfs/docs/bee-push-sync-findings.md`, with the
+   evidence beside it. Not filed upstream: a plain HTTP upload could not
+   reproduce the loss, and Bee's tags already answer "did it land".
+
+10. **Real node, 2026-09-02 — both gated tests green, and a lesson about
+    which node you are talking to.** `localhost:1633` first answered as
+    **Swarm Desktop's** bee 2.8.2 with one unrelated batch
+    (`3721da97…`, label `wintercluster-kopia-live`, ~3 h TTL, wallet 0.02
+    xBZZ); the keyless CLI test passed on it, the signer test refused
+    because swarmfs requires ≥ 1 day of batch validity (`TTL 11315s is
+    below the minimum 86400s` — a *rule*, not a bug), and `c931c8a5…`
+    was absent from its stamp list, which I misread as expiry. Peter
+    stopped that node and started **Nook's** bee 2.8.1 light node: batch
+    `c931c8a5…` TTL 2.81 days, utilization 7/8 (unchanged since run 9's
+    88% warning), 9.47 xBZZ, 90 peers. Both `tests/test_swarm_bee.py`
+    tests **passed** (56 s, throwaway signer); the fullest bucket stayed
+    at 7/8. Also checked from the network: all four unit-pack roots
+    published in run 9 are `isRetrievable: true`; the `core` root is
+    not (never published). **Rule for next time: `curl /health` and
+    `/stamps` before believing anything about a batch — two node
+    managers share the port on this box.** The batch still lapses
+    ~2026-09-05 unless topped up; the expiry experiment stands.
+    **Later the same day: the node identity moved from Nook (bee 2.8.1,
+    no upgrade path) into Swarm Desktop 0.55.2 (bee 2.8.2).** What was
+    learned, because it cost an afternoon: (a) a batch belongs to the
+    wallet key and cannot be transferred — "moving batches" = moving the
+    key; (b) bee's `swarm.key`, `libp2p_v2.key` and `pss.key` are
+    keystores encrypted with the `password:` line in **config.yaml**, so
+    a data-dir backup without its config is a locked box — Swarm
+    Desktop's old key (`0x2f55…`, 0.02 xBZZ, an expired batch) was lost
+    exactly that way (`rm -r "Swarm Desktop/"` before the reinstall);
+    back up config.yaml WITH data-dir; (c) a fresh statestore makes bee
+    **deploy a new empty chequebook** — the old one (`0x29bb…`, 5.65 xBZZ)
+    was found via the `swap_chequebook_last_issued_*` cheque records in
+    Nook's statestore (each cheque names the issuer's chequebook) and
+    confirmed on chain (`issuer()` = the wallet); (d) the **stamperstore**
+    holds the batch's bucket counters — a fresh one would have reported
+    empty buckets for a 7/8-full batch and overissued. Final procedure
+    that worked: re-encrypt Nook's `swarm.key` under Swarm Desktop's own
+    config password (keystore v3 scrypt/aes-128-ctr, pycryptodome), copy
+    Nook's statestore + stamperstore + localstore + kademlia-metrics,
+    keep the NEW install's libp2p/pss keys (network identity only),
+    `swap-enable: true` + Nook's Gnosis RPC in config. Verified from the
+    API: 2.8.2, wallet `0xbd93…` 9.47 xBZZ, "using existing chequebook"
+    `0x29bb…` (5.65 total / 2.68 available), batch `c931c8a5…` usable
+    with the fullest bucket at 7/8, peers reconnecting. Backups kept:
+    `~/swarm-desktop-OLD-0x2f55-data-dir-password-lost`,
+    `~/swarm-desktop-fresh-statestore-0xcde3-bak` (the orphan empty
+    chequebook's state), `~/NookDataDirBu`; Nook's own dir untouched.
+    Script: scratchpad `move_nook_key_to_desktop.py` (session-local).
+    **Batch maintained the same evening (Peter's decision: keep it, not
+    the expiry experiment):** diluted 19 → 20 (tx `0x01b326…`, TTL
+    halved 2.74 → 1.37 d as expected, bucket cap 8 → 16 so the 7/8 fill
+    became 7/16) then topped up 43,163,020,800 PLUR/chunk (+30 days at
+    83,262 PLUR/chunk/block, tx `0xcff3b9…`, ≈ 4.53 xBZZ): now **depth
+    20, TTL 31.4 days, usable, wallet 4.94 xBZZ**. Each PATCH confirmed
+    on chain in ~45 s. The expiry/GC experiment is therefore still not
+    run; it needs a batch nobody minds losing.
+
+11. **Real node, 2026-09-12 — the gated tests after the role-head wave, and
+    batch maintenance.** Bee 2.8.2 (Swarm Desktop), batch `c931c8a5…`,
+    throwaway signer: both `tests/test_swarm_bee.py` tests passed (56 s)
+    on the #15/#16/#14 code. The node warned the batch was at 81% bucket
+    capacity (13/16 in the fullest bucket, depth 20, TTL 19.8 d). On
+    Peter's instruction: **diluted 20 → 21** (tx `0x18feac…`, confirmed
+    ~30 s; TTL halved to 9.9 d, fill 13/32 = 41%) then **topped up
+    21,000,000,000 PLUR/chunk** (tx `0xc440ba…`, ~30 s; ≈ 4.40 xBZZ at
+    89,004 PLUR/chunk/block) → **depth 21, TTL 23.5 days, usable, wallet
+    0.537 xBZZ / 1.185 xDAI**. Sizing rule used: amount per chunk =
+    price × 17,280 blocks/day × days; cost = amount × 2^depth PLUR
+    (1 xBZZ = 1e16 PLUR) — at depth 21 a 30-day top-up would have been
+    ≈ 9 xBZZ, more than the wallet held, hence 13.7 days. The wallet now
+    needs xBZZ before the next top-up.
+
+12. **Real node, 2026-10-07 — 0.30's packs published.** Bee 2.8.2, batch
+    `c931c8a5…` diluted 21 → 22 on Peter's word (tx `0xecd34f…`, free;
+    TTL 21.5 → 10.8 days, fullest bucket 23/32 → 23/64; no top-up — the
+    price had risen to 149,269 PLUR/chunk/block, so 20 days at depth 22
+    would be ≈ 21.6 xBZZ; wallet 57.3 xBZZ). Core v12 and the ten domain
+    packs pushed keyless (`odag -f swarm:pack-NAME pack NAME`, driver in the
+    session scratchpad `publish_packs.py`): **all eleven roots byte-equal
+    to the re-pinned `SWARM_GOLDEN_ROOTS` and `isRetrievable: true`**, no
+    re-upload needed this time (fullest bucket 24/64 after). Two lessons:
+    the sync barrier timed out, not because of keyless mode as first
+    recorded here, and mainly not because of lost blobs as recorded next:
+    swarmfs's confirmation pass ran its stewardship checks one at a time,
+    ~1.2 s each, over a quarter of a pack's ~10,000 blobs — ~45 minutes
+    per store, so the 60 s barrier could never be met (measured
+    2026-10-07; the checks now run 32 at a time, see below). Lost blobs
+    were a second, separate problem; and `pkill -f NAME` kills the shell running it when
+    NAME is in its own command line — kill by PID. **Corrected the same
+    evening:** the repair lives in ONE place, swarmfs's `Syncer`
+    (released in swarmfs 0.11.2, 2026-10-08): when a sampled blob of a root is not
+    retrievable it checks every blob and re-pushes only the missing ones
+    directly, and the sample is never below `MIN_CONFIRM_SAMPLE` = 16
+    (a commit of four blobs used to check one). A second mechanism in
+    recordstore (`BeeBytesStore.confirm()`, `swarm_store(confirm=True)`,
+    fc6fe35) was built and **reverted the same night** (a544e5d, Peter:
+    "maybe too complicated"); recordstore 186 passed after the revert.
+    Bee's default upload redundancy is MEDIUM (2 dispersed replicas per
+    root chunk), which did not prevent the loss; the second
+    shallow-receipt occurrence is in swarmfs
+    `docs/bee-push-sync-findings.md`, and the Bee issue is drafted in
+    `docs/bee-issue-draft.md` there, not filed. Note: the publish
+    script's check covered each store's ROOT blob only; a store is
+    thousands of blobs.
+    **Open, proposed to Peter (his idea): recordstore reaches Bee only
+    through swarmfs.** Today there are three clients: swarmfs (aiohttp;
+    local-first stores), recordstore's `BeeBytesStore` (requests; used by
+    `swarm_store()` — loopmarket's book — and by ontodag's bootstrap
+    clone), and `SwarmFeedPointer` (swarm-bee). Measured on the published
+    `space` store, 1,000 blobs: `BeeBytesStore` 16 threads 1.6 s, swarmfs
+    one at a time 1.8 s, swarmfs 16 at once 0.6 s — the direct route is
+    not faster; it exists because swarmfs's `LocalStore` fetches one blob
+    at a time and refuses refs it has not seen (no bootstrap). Reading the
+    whole store took 552 s, and that is recordstore's trie walk, not the
+    client: depth-first, one batch per trie node with children (2,679 for
+    this store, 7,181 trie nodes in 11 levels) plus record windows of 16
+    (337); a level-at-a-time walk would be 11 rounds. Split proposed:
+    recordstore decides what to fetch together, swarmfs fetches it
+    concurrently, verifies, retries. Feeds stay compatible (topic hashing
+    and identifiers checked identical; both write timestamp + root).
+    ontodag's provenance signing still needs swarm-bee.
+    **Concurrency measured, then released (2026-10-07/08).** Peter asked
+    where the 16s came from (recordstore's `max_concurrent_reads=16`, a
+    v0.5.0 guess; my benchmark matched it) and to measure instead. Against
+    this Bee 2.8.2 light node (NAT, ~140 peers; client an i7-3612QM laptop),
+    two rounds in opposite orders, fresh blobs per level: reads of chunks
+    the node must fetch ~270 ms each, ~4/s per request in flight up to 32
+    (16: 58-60/s, 32: 85-108/s), noisy beyond (64: 95-153, 128: 103-122);
+    stewardship checks ~1.2 s each, linear to 16 (12/s), 32: 20/s, 64: 23/s,
+    128: 26-33/s. Neither stewardship nor HEAD /chunks is a cache oracle:
+    stewardship answers are not cached; HEAD says "not here" for chunks the
+    node serves in 3 ms. On chunks the node holds (~1 ms) the client's CPU
+    is the limit (requests ~1.7 ms/request under the GIL, aiohttp ~0.6 ms),
+    which is all the earlier "swarmfs is 3x faster" showed. Peter chose 32
+    (a 48 run was started and stopped on his word). Released: **swarmfs
+    0.11.2** (repair, `MIN_CONFIRM_SAMPLE` 16, checks `CHECK_CONCURRENCY` =
+    32 at a time, `scripts/concurrency_sweep.py`; its CI had been red since
+    3b3c81c on the README test count, and a 3.11 job hung in apt-get on
+    GitHub's side) and **recordstore 0.21.1** (`max_concurrent_reads` 32,
+    which also sizes `put_many` — writes unmeasured; `local-first-swarm`
+    needs swarmfs>=0.11.2). Both by tag, verified from fresh PyPI venvs.
+    Still one at a time in swarmfs at that point: `LocalStore.get_many`/
+    heals and the sync worker's pushes — closed the same night:
+    **swarmfs 0.12.0 + the read-through clone (2026-10-08, overnight; Peter
+    away: "continue, release, adopt in ontodag and loopmarket, commit, shut
+    down").** swarmfs 0.12.0 released by tag (CI green, verified from a
+    fresh PyPI venv): `LocalStore.get_many` fetches `FETCH_CONCURRENCY` = 32
+    at a time; `read_through=True` reads blobs the store never held
+    (fetched, hash-verified, NOT stored: an unlisted blob counts as pinned,
+    so keeping it would grow an unevictable pile); the sync worker's uploads
+    and repair re-pushes run `PUSH_CONCURRENCY` = 32 at a time. Upload
+    measurement (~3,500 test chunks, fullest bucket stayed 24/64): deferred
+    249/s one at a time, 609/s at 4, 869/s at 16, 914/s at 32, 896/s at 64
+    (the node's local work levels off); direct 2.6/s, 34/s at 16, 64/s at 32,
+    85/s at 64. ontodag (released as 0.30.3): `SwarmBackend._clone_from_swarm`
+    reads the published root through `store.local` in read-through mode, so
+    ontodag no longer uses `BeeBytesStore` or `requests` at all; an older
+    swarmfs is named with the pip command, not worked around; the `swarm`
+    extra is `recordstore[swarm-only,local-first-swarm]>=0.21.1` plus
+    `swarmfs>=0.12.0` named directly (ontodag uses a swarmfs feature
+    itself); `TestCloneReadsThroughTheLocalStore` (2, mutation-checked);
+    live 2/2 (39 s, the scorched-earth feed rehydration runs the new clone);
+    `CI=1` 1216 passed + 3 skipped (README 1219). loopmarket (released as
+    0.14.1): `swarm` extra `recordstore[bee,feeds]>=0.21.1`; suite 301 +
+    4; live book test 1/1 (46 s). **recordstore's trie walk fixed
+    (2026-10-08, released as recordstore 0.21.2 by tag, CI + publish green, verified from a fresh PyPI venv):** still depth-first
+    (sorted streaming, bounded memory) but `_Trie._prefetch` loads ahead
+    level by level from the walk's stack (`WALK_LOOKAHEAD` 4096, at most
+    half the node cache, prefix-pruned); `items()` windows >= 256. Counted:
+    space store 2,797 -> 393 rounds (the floor at 32 in flight). Live, two
+    same-size pack stores: 0.21.1 read `economics` in 3,260 calls / 324 s,
+    the new walk `computing` in 46 calls / 46 s (both partly cached on the
+    node); ontodag's clone of `medicine` through swarmfs read-through: 37
+    calls, 134 s incl. hashing + replay, cloned root == published.
+    `tests/test_walk.py` (4). `_diff` (merge/sync) still loads per node.
+    **The single route, done (2026-10-08, Peter: "both steps, one shared
+    signer in swarmfs", with his concern about maintaining our own crypto
+    answered by writing none):** swarm-bee (one contributor, 12 releases
+    May 7-20 2026, nothing since, our issue #2 unanswered) used for one
+    feed write, chunk reads, feed-id/SOC helpers, and Ethereum
+    signed-message signing — all of which swarmfs had except `after` and a
+    signer. **swarmfs 0.13.0**: `swarmfs.signer` (sign/verify/recover via
+    coincurve = libsecp256k1; we own ~30 lines of encoding; refuses to sign
+    without coincurve; pure-Python RECOVERY only, no secrets; byte-identical
+    to swarm-bee and eth-keys' native backend over 60 random cases; anchors:
+    key 1 -> 0x7e5f...5bdf, bee-js key -> 0x8d37...e632), `feed_head`/`latest`
+    `after=` (passed only when given), feeds extra coincurve instead of
+    eth-keys (11 packages incl. pydantic). Its CI caught a 9%-flaky 0.12
+    test (a 16-of-30 sample misses 3 losses one time in eleven: the sampling
+    risk, live). **recordstore 0.22.0**: `BeeBytesStore` and
+    `SwarmFeedPointer` on swarmfs (same API; pointer keeps its reliability
+    logic, verifies every chunk read as swarm-bee did, `.owner`/`.topic`
+    added), extras without requests/swarm-bee; live 22/22; `[swarm-only,
+    local-first-swarm]` installs 17 packages. **ontodag 0.30.4**:
+    provenance `KeySigner`/`verify_record` on `swarmfs.signer` (a frozen
+    swarm-bee-signed record verifies; new records byte-identical), `swarm`
+    extra recordstore>=0.22 + swarmfs[feeds]>=0.13, `odag swarm` checks
+    swarmfs + coincurve; live 2/2; smoke 27/27 from PyPI. All three by tag,
+    verified from fresh PyPI venvs. loopmarket: live book test passes on
+    the new stack, no change needed (its `sig` extra still uses eth-keys
+    for offer signatures — a candidate for the shared signer, not done).
+    **Then (2026-10-08 afternoon), the two follow-ups, on Peter's word:**
+    recordstore's diff/merge load ahead (`_Trie._diff` an explicit-stack
+    walk over pairs of subtrees, `_diff_step` shared with
+    `_prefetch_pairs`; `diff()` values in windows of 256; `merge()`
+    conflicts read and written in one batch each): 200-key diff 1,731 -> 9
+    rounds, live v12 -> v13 pack roots cold 305 rounds / 33.0 s -> 9 /
+    3.9 s, same blobs (recordstore 0.22.1). loopmarket's signatures onto
+    the shared signer: swarmfs 0.14.0 adds `sign_hash`/`recover_hash`/
+    `recover_hash_key` (no prefix: loopmarket signs raw ids, v 0/1),
+    `checksum_address`, `compressed`; loopmarket 0.14.2 uses them, eth-keys
+    outputs pinned byte for byte, suite 311 + 4, live 3/3 (book,
+    federation, register). **All three released by tag on Peter's word
+    (swarmfs 0.14.0, recordstore 0.22.1, then loopmarket 0.14.2 once
+    swarmfs was on PyPI), workflows green, verified from fresh PyPI
+    venvs** (no eth-keys, swarm-bee or requests installed). ontodag needs
+    no change: its merge-on-save goes through `RecordStore.diff`. Batch `c931c8a5…` topped up on Peter's
+    word to expire 2026-11-15 12:00 UTC (75,889,609,216 PLUR/chunk at
+    depth 22, 31.84 xBZZ, tx `0x87389f…`; wallet 25.47 xBZZ). **The Bee
+    issue is a duplicate** of ethersphere/bee#5400 (open since 2026-03,
+    confirmed on mainnet by a maintainer; fix proposed in PR #5390), found
+    by reading v2.8.2's source before filing. That reading also corrected
+    two claims: `to_push == synced` proves nothing (`total_synced`
+    increments on every attempt), and a depth-0 receipt means a copy was
+    stored at proximity 0, not that the chunk was never forwarded.
+    Our evidence went to #5400 as a comment, posted on Peter's word
+    2026-10-08 (issuecomment-6064777994; text in swarmfs's
+    `docs/bee-issue-draft.md`). Lesson: search the tracker and read the source before
+    drafting an upstream issue.
+
+Still open at the network level: postage expiry behavior and GC/pinning (needs a batch allowed to lapse — a calendar experiment, not a session).
+
+### `LazyOntoDAG` on-demand reader (`src/ontodag/lazy.py`) — DONE (2026-07-25)
+
+Read-only `OntoDAG` subclass that fetches records *as a query walks them*, so querying a published store costs the query rather than the store. Works because the §3 record schema carries `up`, `down` and `count` per node — exactly the planner's inputs. Nodes exist as **stubs** (name only, registered in `self.nodes` so `dag.py`'s `self.nodes.get(x.name) is x` identity checks hold) and are **expanded** (record fetched, count/meta set, children and parents added as stubs) on first traversal; `self.nodes` is a `_LazyNodes` dict whose `get` loads-and-expands, because the planner reads `descendant_count` off resolved terms and an unexpanded stub reports 0 (silently disabling cone ordering and term-dropping — correct results, no laziness). The three traversals the query path uses (`get_descendants`, `_has_ancestors`, `get_ancestors`) are overridden to expand as they walk; the inherited ones would walk a half-built graph. Cones are memoized by name (immutable snapshot, so no invalidation), bounded by `max_cached_cones`. `store.get` calls are counted in `.fetches`.
+
+**Read-only by construction** (`put`/`remove`/`merge`/`add_edge`/`add_node`/`commit` raise `TypeError`): whole-graph invariants and `commit()`'s diff against a complete `_synced` set are undefined for a fragment. `load_all()` materializes everything when an inherited whole-graph operation (`topological_sort`, `intersection_dag`, visualization) is needed. Duck-typed like the adapter — imports nothing from `recordstore` (new B1 case in `test_boundaries.py`), exposed as `ontodag.LazyOntoDAG` via the lazy `__getattr__`.
+
+**`SparseOntoDAG` (2026-07-31, same module) is the partially-resident WRITER** — LazyOntoDAG's residency plus the full OntoDAG mutation semantics, closing the "writing back from a partially-loaded graph" roadmap item. Change detection is a *resident-set diff*: mutations only ever touch expanded nodes (the mutation entries expand endpoints; `_live_parents`/`_get_affected_nodes`/`_is_reachable`/`_count_reachable` expand as they walk), and `_records` holds each resident node's as-loaded baseline, so `commit()` stages exactly what changed — no Merkle machinery needed. Locality came from flipping dag.py's three remaining downward reachability probes (add_edge redundancy skip, cycle check, plan_add/plan_remove "already-reaches-child") into upward ancestor-cone lookups — semantics identical, eager gets faster, and a sparse `put` on a 447-record store costs 7 fetches / stages 7 records (`tests/test_sparse.py`; the eager-writer root-equality oracle incl. randomized op sequences is the correctness story). Cone caches and cone indexes are disabled on the writer (they describe an immutable snapshot). Whole-peer `merge` (an O(|other|) hydration) stays EagerOntoDAG's job, but **`sync` is sparse too since 2026-08-04** — the diff-driven fold (`merge_delta`, mirroring eager's) reads only the diverged records plus the cones the replayed edges touch (`TestSparseSync`); it requires the store handle at the writer's own lineage (a handle rebound to another root would serve foreign records to lazy expansions mid-fold — refused with a teaching error; the rebind-to-moved-head flow is eager's). Construct over a *writable* store at the base (`RecordStore(blobs, root=base)`), never `.at()`.
+
+Measured cost (3,221 records: 20 top / 200 mid / 3,000 leaves, two parents each): specific term 42 fetches, two mid terms (empty result) 82, broad+specific 81, two broad terms 1,071. The last case is closed by **published cone summaries** (2026-07-31, `src/ontodag/cones.py` + the `cone_index=` parameter here): on the scaled 447-record fixture a two-broad-term query drops 375 → 3 record + 3 index fetches (results returned as *stubs* — names only, per-item attributes on demand; decision confirmed by Peter).
+
+Tests: `tests/test_lazy.py` (11 tests) — every 1/2/3-term query on the vehicles fixture and 200 random queries on a 40-node random DAG against an eager `EagerOntoDAG` oracle, plus **fetch budgets** (a query near the bottom of a 237-record chain reads <20 records; repeat queries add zero fetches; cache disabled/bounded), unknown terms, `Item`-vs-string arguments, refused mutations, and `load_all()`.
+
+### `EagerOntoDAG` adapter (`src/ontodag/eager.py`) — DONE (July 2026)
+
+An `OntoDAG` subclass persisted through a `RecordStore`, per `SWARM_DESIGN.md` §3/§6: one record per node keyed by name (`up`/`down` sorted, `count`, `payload`, `meta`); full hydration into memory on construction, batched through `RecordStore.items()` when the store offers it and falling back to `keys()`+`get` when it does not (`_all_records`, 2026-07-25); all mutation semantics inherited from `OntoDAG`; `commit()` diffs against the last-synced records and stages only changed nodes. The store is duck-typed — the module imports nothing from `recordstore` (B2), and `ontodag.EagerOntoDAG` is exposed via the lazy `__getattr__` so `import ontodag` stays clean (B1). `put` accepts optional `payload`/`meta` (nodes are undifferentiated `Item`s — there is deliberately no class/instance distinction).
+
+Tests: `tests/test_eager.py` (19 tests against `MemoryBytesStore`): roundtrip + rehydrated queries, history/put-order-independent canonical roots, idempotent commit, incremental staging, invariants after rehydration, merge convergence to identical roots from either side (the §5 CRDT precondition in persisted form), extras roundtrip, persisted removal, and batched-vs-serial hydration (`TestBatchedHydration`: `items()` used when present with zero per-node `get`s, correct fallback when absent, and both paths producing identical edges/counts/`_synced`).
+
+### What does not exist yet
+
+- ~~**`SwarmFeedPointer` adoption.**~~ **Done (2026-07-31)** — the CLI's `swarm:NAME` backend routes through `recordstore.swarm_store()` whenever a signer is configured (`$BEE_SIGNER` / `bee_signer`, settable via `odag set`), so the latest ontology root lives in a signed Swarm feed; without a signer the local `FilePointer` remains the keyless fallback. Wiring tested (`TestSwarmSignerWiring`); the gated live test (`TestSwarmFeedPointerOnLiveBee`) **passed against a real Gnosis-mainnet node 2026-08-01** — evidence gap closed (see "Bee integration status" run 5).
+- ~~**Multi-writer sync for `EagerOntoDAG`**~~ **Done (2026-07-31)** — `EagerOntoDAG.sync(other_root)` is the merge *rule* of `SWARM_DESIGN.md` §5: graph-level renormalization (hydrate the peer's root, `OntoDAG.merge` — the I7 semantics, combined-order reduction included — recommit), because a per-key record resolver cannot uphold whole-graph invariants. `tests/test_multiwriter.py`: two- and three-writer convergence to byte-identical roots under different gossip orders, parent-set union + re-reduction, remove-loses-to-readd (the documented grow-only stance), cross-writer *dimension* renormalization (coarse edge pruned on both replicas via the computed hop), and conflicting kind declarations surfacing loudly at first parametric use. Cross-process pointer racing (feed `compare_and_set` loops) is deliberately the deployment layer's business — `sync` is the fold it calls. The GSOC channel remains an *optional real-time op feed on top*, not built.
+- A committed Bee-backed `EagerOntoDAG` integration test (an ad-hoc roundtrip passed against `bee dev` 2.7.1 in July 2026, but only as a one-off script; follow the pattern of `test_recordstore_bee.py` — now in the recordstore repo — if making it permanent, same `BEE_API` gate and the same dev-mode caveat above).
+- Network-level behavior still unvalidated: postage expiry and GC/pinning (real-node runs on 2026-07-11 and 2026-07-19 covered upload, retrievability, and the adapter smoke — see "Bee integration status").
+- Leaf-packing / B-tree-style chunk layout (`SWARM_DESIGN.md` §4) — do not implement pre-emptively; it needs real usage data first.
+- Node provenance (`asserted`/`derived` origin, `derived_from`, `endorsed`) and the mdl-fca learned-DAG integration / retrieval-aware MDL direction (`SWARM_DESIGN.md` §8) — roadmap only, no schema field or code yet; it's the flag that will later drive eviction (§6) and shared-vs-personal sync (§5).
+- The semantic-code cone index (`docs/plans/SEMANTIC_CODES.md`, referenced from `SWARM_DESIGN.md` §8) — ancestor-set bitvector codes + per-category cone bitmaps, making `get()` a bitwise AND and enabling an index-only query path over Swarm without full hydration. **Design note only, explicitly gated** (see its §8: hot `get()` workload, RAM-exceeding graph, or thin-client queries); names remain the identity — codes are a derived, regenerable index like `descendant_count`. Its §9 records the declared goal (2026-07-20): a **workload-optimal materialization** between the bare asserted DAG and the full cone-bitmap lattice — materialized derived meets selected by input + retrieval statistics (view-selection / retrieval-aware-MDL / adaptive-indexing framing); the materialization layer is derived, local, per-writer, and never merged — only the asserted DAG syncs. Historical companion notes: `docs/plans/PHILOSOPHICAL_LANGUAGES.md`.
+
+## Previous tasks — DONE (July 2026)
+
+1. **`dag.py` invariant fixes** — all 12 tests in `tests/test_invariants.py` pass; one focused commit per invariant (I1, I2+I3, I4, I6), plus item 5 (reverse adjacency + batched counts). Remaining `dag.py` work: item 6 under "Known bugs".
+2. **`EagerOntoDAG` adapter** — see above.
+3. **Dimension lattices / parametric items (2026-07-30, released as v0.4.0)** — `docs/DIMENSIONS.md`; commits `80f18df` (grammar/registry/arithmetic), `590a402` (combined order + anchors + guards), `d78639d` (remove contraction), `72e7d31` (virtual query terms), `06b4df8` (LazyOntoDAG), `ff9b72a` (`get_overlapping`), plus user docs and the web REST pass-through.
+4. **The 2026-07-31 wave (released as v0.5.0 and v0.6.0)** — SwarmFeedPointer adoption finished (`fe676b5`: `bee_signer` setting, wiring tests, gated live test), the multi-writer merge rule (`9b5663d`: `EagerOntoDAG.sync`, `tests/test_multiwriter.py`), published cone summaries (`295f8cb`: `ontodag.cones`, `LazyOntoDAG(cone_index=...)`), the partially-resident writer (`c8c498b`: `SparseOntoDAG`, resident-set diff commits, upward-probe flip in reduction/count planning), and union queries (`3f81b76`: `get_any`, CLI `or`, REST `|`). Sister-repo adoptions the same days: loopmarket `DimensionIndex` (recall-exact candidate generation) and ontodag-fs virtual directories (released as ontodag-fs 0.1.0).
+
+## Current task: the agents-first plan (agreed 2026-08-01)
+
+**Strategy decision (2026-08-01, Peter): agents are the priority consumer** — OntoDAG's differentiators (canonical, addressable, verifiable, attributable knowledge) are exactly what agent ecosystems lack — while keeping a decent human interface (the surface renderer serves both: its canonical echo *is* the agent-facing echo). The companion decision: **the core gains no further expressiveness** (one scoped exception since contract 0.2, 2026-10-06: dimensions over nodes with kinds fixed in code, CONTRACT.md §5.1) — the KR question is answered by a higher layer that compiles down under a written contract, with non-monotone questions (negation, aggregation, closed-world) pinned to a root (as-of semantics; `RecordStore.at()` + `LazyOntoDAG` already implement it). Rationale and clauses: `docs/CONTRACT.md`; provenance design (gates agent writes): `docs/PROVENANCE.md` — **both drafted 2026-08-01 as discussion drafts, pending Peter's review; treat their clauses as proposed until marked agreed.** `ROADMAP.md` ("Direction" + "Next up" items 5–11) and `DATABASE_DIRECTION.md` ("Update 2026-08-01": two-axis criterion, as-of amendments to the negation/aggregation walls, refinements to the relations/constraints walls, three new walls) were revised the same day.
+
+**Release prep 0.10.0 — docs-before-publish pass DONE (2026-08-01, late evening):** version bumped to **0.10.0**; unit-table audit for further BZZ-class traps came back clean (legally-pegged fiat already separate families; Torr never shipped; conventions documented in UNITS.md addendum: oz=avoirdupois, pt/gal=US liquid + i-prefix imperial, hp=mechanical, BTU=IT, cal=thermochemical, a=Julian, mil=thou, mmHg=conventional, PLUR with xBZZ); stale claims fixed (README: rational arithmetic + unit breadth + prelude + the write surface and review in "For AI agents"; CONTRACT §2 surface parenthetical; guide: banner 0.10.0, §9.1 write-surface paragraph, §4.7 breadth, "rationals of SI anchors" in the rules list); §9.2 certificate snippet RE-EXECUTED under v3 (same outputs: 7 proofs, True). **recordstore needs no release** — 0.16.0 current, nothing unreleased. Release story since 0.9.0: Phase 2 complete (provenance store, odag-mcp --write, review workflow), Phase 3 complete (prelude, Quick Start), registry v3+3.1 (rational anchoring, 388 unit spellings, migration tool), the Merkle-DAG wall, factbond docs. **PUBLISHED 2026-08-01 (late evening): ontodag 0.10.0 AND recordstore 0.16.0.** The publish surfaced that recordstore 0.16.0 had never actually reached PyPI despite the morning's release (latest was 0.15.0 — so ontodag 0.9.0's `>=0.16.0` floor was uninstallable from PyPI all day, invisible locally because 0.16.0 was installed from the checkout; **lesson, now standing practice: post-publish verification = fresh-venv install from PyPI, not local state**). Both verified from a clean venv against pure PyPI: registry 4.0, `24C`, pack teaching errors, certificate round-trip. Post-publish coordination: loopmarket re-canonicalization (registry v4 now) when it bumps its ontodag floor. PyPI uploads: Claude publishes directly (verified `~/.pypirc`, both projects — see memory); note the repo ALSO has a tag-driven trusted-publishing workflow (`.github/workflows/publish.yml`, fires on `v*` tags) — tags stop at v0.7.0, which is exactly why 0.8.0/0.9.0 never reached PyPI (bumped, never tagged, manual upload assumed to have happened). **Repaired 2026-08-02** and now the preferred path: it gained `skip-existing` (so a retroactive tag of an already-uploaded version no longer red-fails), a tag-vs-pyproject version check, a smoke test of the built wheel, and a post-publish verify job against PyPI — see the Releasing section below. `CHANGELOG.md` exists as of 0.10.0 (back-filled to 0.1.0) — releases update it as part of the docs pass.
+
+**~~NEXT WORK ITEM~~ GRAPH-DECLARED UNITS — DONE (2026-08-01, registry 3.2): vocabulary is data.** **GATE (same day, Peter):** the pack *concept* outgrew units — preludes, lexicons, upper ontologies and private overlays are the same role — and got built ahead of its discussion. `docs/plans/PACKS.md` (discussion draft) now collects the questions: naming, the general-name collision problem (= Namespaces, arriving with urgency; units are the easy case because conflicts are detectable), the trust model (adopt-by-root as the primitive; endorsement of pack roots; diff-preview adoption; the semantic-spoofing residue — shitcoin-as-BTC is refused by the conflict machinery, verified, but lookalike names are social), the pack DAG (order-free by merge algebra), and distribution (Swarm stores + feeds as target; `ontodag.packs` is bootstrap-only and its release-coupling irony is named). **The PACKS.md discussion happened 2026-08-20 (this repo's session with Peter); decisions are recorded in PACKS.md Part II (§10–§14) and the freeze is lifted into a build order** — (1) merge preview + publish the shipped packs to Swarm (golden test: published root == shipped root), (2) collision warnings + name-level pack hints, (3) overlay-view seam + single-audience encryption, (3½) the act-categories crypto spike, (4) act-categories Phase 1 on the multi-audience tripwire, never blocked on upstream Bee. Headline decisions: a pack is a store (adoption = merge, preview on merge itself, no new verb); dependencies ship as closure; the prelude is pack zero; names stay identity (opaque-ID road declined on the convergence argument; collisions detected not prevented; the synonym cost recorded); trust = pin/preview/endorse (+ factbond bond ladder); privacy = per-audience overlay stores for structure + the act-categories key graph for content, unified at the blob-key seam. What is shipped stays: code-distributed packs carry pip's trust surface, no new one. — `unit(lb=45359237/100000000kg)`-style declaration nodes under a registry-known `unit-declaration` node; resolution = built-in table ∪ merged declarations; canonical names keep built-in anchors only, so G1/registry untouched — packs become preludes (published ontology + golden root + merge), and adding units to existing families stops needing releases. Shipped: `dimensions.resolve_declarations` (fixed-point chains, loud conflicts/unresolvables with teaching errors), self-checking `_declared_units()` cache on the DAG (no hooks — merge/put/remove picked up by construction), `units=` plumbed through all 14 parse/containment/intersect/space_of sites + the renderer + certificates' closure; **new-family declaration included in v1** (`unit-family(NAME)` — safe because declarations merge with the data: vocabulary travels inside the store, tested with a fresh reader parsing a store's own values). **Built-in/pack re-sort per Peter (final, Q10 accepted):** built-in = physical/digital measurement ONLY (247 suffixes — nothing market-shaped is hard-claimed, ever); packs (`ontodag.packs`, `odag pack [NAME] [--show]`, golden roots pinned in `tests/test_packs.py`): **crypto-core v1** (BTC/ETH/BZZ/xBZZ/DAI/xDAI + sat/Gwei/wei/PLUR — root `4d501a43…`), crypto-majors v1, stablecoins v1, fiat-iso4217 v1. Rule of thumb recorded in UNITS.md §7: *if its importance can change, it's a pack; if only physics can change it, it's built in.* **Registry 4.0 (2026-08-01, latest, still inside unpublished 0.10.0):** affine temperatures — the D2 refusal retracted (UNITS.md §2): `24C`/`-40F`/`0C..100C` parse exactly onto the still-canonical kelvin scale (offsets are rationals; negatives admitted for affine spellings only; below absolute zero refuses). Bare `C`/`F` mean Celsius/Fahrenheit **context-free** (Peter's rule; a head-family-context design was built and rejected same session — canonical charge names like `1/500C` collide with typed spellings, so context can never disambiguate a fresh head); the bare coulomb/farad are spelled out (`coulomb`/`farad`, the new anchors — the two canonical-name changes that make this a MAJOR; all prefixed forms untouched); `degC`/`degF` are input aliases, rendering emits `C`/`F` (affine spellings compete in the renderer's largest-factor contest, so `24C` beats `297150mK`); declarations can't shadow affine spellings. A 3.x store carrying bare-C/F values needs those rewritten to `coulomb`/`farad` before an `ontodag.migrate` replay — realistically none exist (v3 was public for hours). LUSD joined the stablecoins pack (v1 re-pinned pre-release, root `71aa0647…`). `docs/UNIT_TABLE.md` is the generated full listing (247 suffixes + every pack's contents). Unknown-unit errors are pack-aware (2026-08-01, Peter's ask): `5USD`/`1BTC` before adoption refuse with the exact command (`packs.packs_defining` + `dimensions._pack_hint`, lazy core-only import on error paths; also on unresolvable declaration bases; 479 tests). `tests/test_packs.py` (11: golden roots, idempotence, per-lattice refusals, lamport rendering, vocabulary-travels, chained declarations, conflicts incl. built-in redefinition, cache follow, certificates over declared vocabulary). **Registry 4.1 (2026-08-03, unreleased): the count kind** — `count-dimension`, whole numbers ≥ 1 of discrete things (`count(0)` refused as an absence claim, fractions refused, `count(2dz)` = 24; the floor is semantic: `count(..5) ⊑ count(1..)`; shares `linear:count` space tag so linear→count re-declaration changes no stored name); prelude v3 declares the kind + the `count` head (golden root `9a732928…`); accepted by Peter after the BINDING.md/EVOLUTION.md discussion — design record UNITS.md §11, no `amount` head (G1 synonym hazard). Kind resolution stops at kind nodes, so the future `integer-valued-dimension` reflection parent is additive.
+
+**Registry v3 — the full unit system — SHIPPED 2026-08-01 evening (docs/UNITS.md, all verdicts D1–D10 accepted):** canonical values are now **reduced rationals of the SI coherent anchor** (D9: `weight(3kg)` is canonical; 500 g is `weight(1/2kg)`; the shaku's `length(10/33m)` works day one) — bases abolished, so no future base migration exists as a class; ~30 families / 120+ unit spellings, all exact (psi↔bar in one lattice — `32psi ⊑ ..3bar` is a theorem; kelvin-only temperature; degree-anchored angle; radian and Celsius refused with teaching errors); `REGISTRY_VERSION` now "3.1" (3.0 + the exactly-fixed non-SI families: bits/bytes incl. IEC, data rates, FLOPS, BTC/ETH/xBZZ denominations — each currency its own family, exchange rates never fixed) with major/minor compatibility (`registry_compatible`, D10 — cones + certificates now check major only); the sub-anchor precision error is GONE (rationals never round); prelude v2 (new heads: area/volume/speed/pressure/temperature/energy; golden root `18e42105…`); `ontodag.migrate` replays old stores through put (old `mg`/`mm` spellings remain valid input, so migration is a pure, idempotent, verifiable rename — raw entries only, never a live OntoDAG, whose lookups canonicalize). **Ecosystem note: loopmarket pins registry semantics — its stores need the same replay before mixing; canonical names of weight/length values changed (time/geo unchanged).** `tests/test_units.py` (13). Docs re-swept (DIMENSIONS.md superseded-note, SURFACE_LAYER §6 note, guide/help examples).\n\n**Sister repo created 2026-08-01: factbond** (`../factbond`, github.com/petfold/factbond) — bonded assertions + information insurance on factual claims (design stage; distilled from the prediction-markets transcript at the ontodag repo root, copied into its `docs/`). It is the *economic* third trust leg (proofs → provenance → guarantees); the fit with this repo is factbond's `docs/INTEGRATION.md`, and the ontodag-side hooks are recorded in `PROVENANCE.md` §7 (assertion layer = provenance records plus money; keep record shapes bond-forward-compatible), `CONTRACT.md` §7 L1-extension + open question 6 (guarantee status slot in MCP answers), `DATABASE_DIRECTION.md` (second consumer at the disjointness wall; family entry) and `ROADMAP.md` (research horizon). It changes nothing in the queue below — composition is one-directional (factbond consumes the contract; ontodag never imports it).
+
+Working queue, in phases:
+
+- **Phase 0 — docs review: COMPLETE (2026-08-01).** `CONTRACT.md` **reviewed & agreed, contract version 0.1** — all six §8 questions resolved (record in its §8): G6 (`get_overlapping`: complete for possibility, silent on satisfaction) and the G2 remove-note added, certificate policy fixed (JSON envelopes over raw bytes, format-name versioning, opt-in `certify:` transport), tool inventory + discoverability fields scoped to a future `docs/AGENT_SURFACE.md` (with two contract-level constraints kept in §2: the discoverability record never lives inside the knowledge store; answers are extensible objects with a namespaced `annotations` map), and `ontodag.CONTRACT_VERSION = "0.1"` added to `__init__.py`. `PROVENANCE.md` **reviewed & agreed the same day** — all seven §8 questions resolved (record in its §8), headline decisions: **subjects are claims, not edges** (reduction can prune an asserted edge whose claim stays entailed — edge-grain provenance would dangle; subjects are `sub ⊑ sup` canonical-name pairs, `X ⊑ *` for existence, deterministic operation `group` hash), no semantic canonical form needed (or-set union, `s/<subject-hash>/<record-hash>` keys), timestamps in-claim never load-bearing, `binding` records for key↔name (fourth type, web-of-trust endorsable), per-writer stores merged by explicit reference (spam needs no store-side mechanism), remove→retraction coupling required on the agent surface only, `v` + namespaced extensions map on every record. Flagged residual: the `payload(name, content-hash)` subject form is sketched, not worked. **Phase 2's design gate is now open.**
+- **Phase 1 — unblocked code, any order:** (a) ~~**renderer + `odag canon`**~~ — **done 2026-08-01**: `src/ontodag/surface.py` (`render`/`elaborate`, `SURFACE_VERSION = "0.1"` — pure function of canonical name + declared kind; opaque heads pass through, or the round-trip law would break on them; only vocabulary-defined spellings emitted, collapses only on exact denotation); CLI per the §9.4 rule in `__main__.py` (`_want_render`: per-command `--render`/`--raw` > leading global `--raw`/`--render` in `main()` > `$ONTODAG_SURFACE` 0/1 > tty test on the actual output stream, so `-o FILE` gets canonical bytes; rendering applied to `get`/`list`/`show` output only — input elaboration was always the core's job); `canon TERM` prints the stored form (teaching error + exit 1 on malformed), bare `canon` prints surface+registry versions; `tests/test_surface.py` (24 tests: §6 table, seeded one-direction fuzz over all four kinds, almost-a-year injectivity guard, CLI precedence, a **real pty** for the tty default) plus a `test_boundaries.py` case that plain `import ontodag` never pulls `ontodag.surface`; (b) ~~**read-only MCP server**~~ — **done 2026-08-01**: `src/ontodag/mcp.py` (`odag-mcp` script + `python3 -m ontodag.mcp`; shares odag's store settings), design note `docs/AGENT_SURFACE.md`. Six tools — `about` (the discoverability record, computed on demand, never stored), `query` (`terms` xor `any_of`), `is_below`, `overlapping` (G6 modality named in the answer), `describe`, `canon` — every answer citing its root + contract version + empty namespaced `annotations` map; canonical echo throughout, `display` beside the name never in place of it; `as_of` via `RecordStore.at` + LazyOntoDAG; **file stores get a semantic root** (hydrated into a memory record store and committed — G1 through the surface, tested across put orders); `certify` reserved with a teaching refusal; failed calls logged as JSON lines (stderr + `$ONTODAG_MCP_LOG`) — the tripwire instrument. Transport: stdlib-only newline-delimited JSON-RPC (MCP stdio) — no SDK dependency; module-level imports core-only (new boundary check), recordstore lazy. `tests/test_mcp.py` (15 tests incl. stdio end-to-end subprocess). Deliberately absent: writes (provenance-gated), certificates, guarantee-status annotations — see AGENT_SURFACE.md §6; (c) **recordstore `prove`/`verify` — DONE (2026-08-01, recordstore v0.16.0)**: `RecordStore.prove(key)` → JSON-ready envelope of raw trie-node blobs along the key's one possible path; pure `verify_proof(proof, root)` (no store access; hash-chain over carried bytes; returns record or `ABSENT`, raises `ProofError`); absence provable because the encoding is canonical; auto-detected addressing (`sha256`/`swarm`) with override; staged keys refused; every proof self-verified at prove time. 18 tests in that repo (`tests/test_proofs.py`: all divergence shapes, adversarial tampering suite, wire round-trip, dict-oracle fuzz); recordstore suite 130 passed + 16 gated skips; **0.16.0 installed to user-site from the local checkout**. Interface doc synced (`docs/recordstore-interface.md`, marked needs ≥ 0.16.0). **`is_below` certificates — DONE (same day): `src/ontodag/certificates.py`** — `prove_below(dag_or_store, sub, sup)` / pure `verify_below(cert, root)`. Design: **re-execution over authenticated fragments** — the prover records a real `is_below` walk over a `LazyOntoDAG`, then adds the **order-invariant dependency closure** (full combined upward closure of both terms + head records/stars/kind chains; needed because set-iteration order differs across processes, so a minimal recorded path could strand a differently-ordered verifier — pinned by a 3-hash-seed subprocess test), proves every touched key (inclusion or absence), and the verifier re-runs the real `is_below` over a strict fragment store serving only proof-verified records (uncovered key ⇒ `CertificateError`, never a wrong answer; proven-absent ⇒ `KeyError`, fail-closed as ever). Semantics stay single-sourced in `dag.py`; both polarities cost the shallow ancestor cone; `REGISTRY_VERSION` pinned, mismatch refuses (L2). `tests/test_certificates.py` (13 tests: every answer shape incl. virtual terms, 100-pair oracle sweep, tamper suite, purity, cross-seed verification). **Floor bumped: `recordstore>=0.16.0`** (base + swarm extra); **MCP `certify: true` live on `is_below`** (answer gains `certificate`; query keeps a teaching refusal pointing at is_below). **Phase 1 is COMPLETE.** (d) ~~**`tests/test_contract.py` conformance suite**~~ — **done 2026-08-01**: 15 tests, one named class per guarantee G1–G6 plus `TestAsOfClause` (§4) and the version constant, public `ontodag` API only (recordstore's public surface where a guarantee is about roots); full suite 352 passed + 2 skipped.
+- **Release prep 0.9.0 — docs-before-publish pass DONE (2026-08-01):** README (renderer, `For AI agents` section, CONTRACT/AGENT_SURFACE links), USER_GUIDE (canon in the §5 command list, new §5.5 readable-output section and §9 agents+certificates section — both with *executed* snippets; old §9/§10 renumbered to §10/§11), HOW_IT_WORKS §6 "Proving it to a stranger" note, `pyproject.toml` bumped to **0.9.0**, stale-claim grep clean (interactive-prompt version string updated; egg-info is a build artifact). recordstore's guide gained its Proving section the same pass (pushed). **Publish order: recordstore 0.16.0 to PyPI first** (ontodag's floor requires it), **then ontodag 0.9.0** — publishing itself is Peter's step. Release story: contract v0.1 + conformance suite, readable output + `odag canon`, `odag-mcp` agent surface, verifiable `is_below` certificates.
+- **Phase 2 — agent writes (design gate open; in progress):** (1) ~~**provenance store**~~ — **done 2026-08-01**: `src/ontodag/provenance.py` per the agreed design — claim-grain subjects (`below_subject`/`exists_subject`/`binding_subject`, callers canonicalize; `payload(...)` deliberately not implemented, still the flagged residual), four signed record types with `v` + namespaced `ext` (factbond's fields ride there), `s/<subject-hash>/<record-hash>` content-addressed keys (set semantics — identical record twice is one, re-assertion with new time/basis is deliberately two), `operation_group` hash, `KeySigner` (secp256k1 via the `bee` package, same key format as `bee_signer`; duck-typed seam) + `verify_record`, and conflict-free direction-independent `union(other_root)` (equal keys ⇒ equal bytes by construction, so per-writer stores fold with no resolver; refuses staged records). `tests/test_provenance.py` (13 tests incl. real-signing roundtrip + tamper, gated on `bee`); boundary check: module imports stay core-only (recordstore + bee lazy). **(2) ~~the write surface~~ — done 2026-08-01**: `odag-mcp --write` (file stores refused with a teaching error — they stay odag's own; signer required, from `bee_signer`/`$BEE_SIGNER` or injected). Four tools: `propose_put`/`put`, `propose_remove`/`remove` — propose returns the **canonical echo** (stored spellings, claims, `already_below`, `missing_supers`) plus a **proposal token** = `operation_group(op, canonical item, canonical supers, current root)`; confirm recomputes it, so a moved store or changed spelling refuses with "propose again" (compare-and-confirm). On success: knowledge commit + one signed assertion record per claim (basis = the root the author saw, shared `group`) into the `NAME-prov` sibling store (`SwarmBackend.provenance_record_store`, injection seam `prov_store_factory`), answer carries the root **pair**. `remove` emits retraction records (existence + each parent claim) — §3's coupling rule enforced. Idempotent: re-put is a graph no-op (same root) and a new audit record, by design. Known caveat (documented): the two commits aren't atomic across stores — a crash between them loses only speech acts, re-asserting is safe. Tests: `TestWriteSurface`/`TestWriteGating` in `tests/test_mcp.py` (full propose→confirm flow, stale-proposal refusal, retraction coupling, read-only hiding+refusal, signer/file-store gating). **(3) ~~endorsement/review workflow~~ — done 2026-08-01. PHASE 2 COMPLETE.** `review {sub, sup?, trust?}` — a READ tool (available on any store with a provenance sibling, read-only servers included): the claim's full audit view, every record signature-verified (verifier seam `AgentSurface(verifier=...)`; real `verify_record` by default, `verification: unavailable` reported when `bee` is absent), per-author standing from **verified records only** (retraction sticky per author — set-based, fail-closed: no trusted time exists), and reader-side `accepted`/`accepted_by` under an explicit `trust` list. Forged records are listed but never count (tested with a forging writer). `endorse`/`retract {sub, sup?}` (write mode): signed speech acts about a claim — knowledge untouched, `sup` omitted = existence claim. `TestReviewWorkflow` in `tests/test_mcp.py`. Deliberately absent (AGENT_SURFACE.md §8): peer-provenance adoption as a tool (`ProvenanceStore.union` exists; surface wiring waits for a real multi-writer deployment).
+- **Phase 3 — human track — DONE (2026-08-01):** (a) **the prelude**: `src/ontodag/prelude.py` (`PRELUDE_VERSION = 1`, `DECLARATIONS` = the four kind nodes + weight/length/duration/time/geo/size, `prelude_dag()`/`apply(dag)`) + `odag prelude [--show]` — adoption by explicit idempotent merge, never a fresh-store default; **prelude v1's canonical root is pinned by a golden test** (`tests/test_prelude.py`, `GOLDEN_ROOT_V1 = a160bf51…`) so a DECLARATIONS change must bump the version visibly; publishing it as a Swarm store others `sync` is the same move one deployment step later. (b) **User Guide Quick Start**: a two-minute section at the top (install → file travel documents under overlapping categories + a typed date after `odag prelude` → `get`/`below`, all outputs executed for real), plus prelude mentions in §4.7, the §5 command list, and HELP_TEXT. Remaining `issues.txt` wishes (empty query = everything; web-guide polish; wasm/Pyodide) are future items, not Phase 3.
+- **Phase 4 — the `issues.txt` pass (started 2026-08-02, after a discussion of the whole list).** Items 1–2 of the agreed ordering are DONE; the rest of the list is triaged in this session's discussion (summary below). **(1) Doc fixes + the empty query.** Platform support tiers in the guide (§2 "Which platforms": Linux tested, macOS **tested 2026-08-04** by Andras — `[all,test]` install, core suite green on 3.13; the only problem was `coincurve` having no Python 3.14 wheel yet, so `[swarm]`/`[all]` fall back to a source build that fails, now documented in the new §2 "Which Python" together with the half-rebuilt-venv trap that made it look like a 3.13 failure — Windows **tested 2026-08-24** (see the section below) — the code was always portable, `expanduser` handles `%USERPROFILE%`; the untested risk is `bee`'s native secp256k1), the stale "pet shop" line, and **the empty query is now the universe**: `OntoDAG.get([])` returns the root's cone (the empty intersection is unconstrained — the identity of the operation, which also makes `get` total), `get_any([set()])` is everything and absorbs the other disjuncts, `get_any([])` is the dual empty set. Consequences: `odag get`, `odag list` and `odag get '*'` are ONE code path; a dangling `or` is still an error (a typo must not silently become a full dump); REST `?cat=` absent is the empty query; MCP `query` with neither `terms` nor `any_of` likewise. New **`odag count [CAT...]`** — same queries, one number, never capped, deliberately its own command rather than a `--get` flag because it composes worse and that is the point. New **display cap**: 50 lines when stdout is a tty, never in a pipe, `-n N` / `-n 0`, withheld count on **stderr** so it cannot contaminate data. The cap is what makes the widened `get` safe to type; it is display-only and the query is always complete. MCP diverges deliberately: **no default cap** (an agent cannot see a terminal, so it cannot see a truncation), explicit `limit`, answer carries `truncated` while `count` stays the complete size. Tests: `TestEmptyQueryAndCount`/`TestDisplayLimit` in `test_cli.py`, the rewritten empty-query tests in `testdag.py`/`test_union.py`/`test_dimensions_dag.py` (they now pin the law instead of the old `TypeError`), a lazy-reader test naming the honest cost (the empty query is the one query laziness cannot help — it fetches the store), and four MCP tests. **(2) Settings unification.** All six settings — `store`, `limit`, `render`, `bee_api`, `bee_batch`, `bee_signer` — are now one table (`_SETTINGS`) resolved by one rule, `_configured()`: **flag > environment > config file > default**. Every setting gained the layers it was missing (CLI flags for the three bee settings; env + config + `set` for render and limit), `auto` is a real value meaning "decide from the tty", and `set` validates at set time rather than at the next command that reads it. `_SURFACE_OVERRIDE` became the general `_OVERRIDES` dict. `conftest.py` now points `$ONTODAG_HOME` at a temp dir, because settings reading the real `~/.ontodag/config` is a genuine test-isolation hazard once config is a layer for everything. Guide: new §5.6 (empty query, count, the cap), §5.7 (the settings matrix, with the layers explained by *how long they last*), and §1.1 (the surfaces matrix — five ways in, and a feature grid whose gaps were each verified against the code, not asserted). **Not done, deliberately:** `/dag/query/image` and `/cars/query` still refuse an empty `cat` (they have whole-DAG twins and a different code path); a **contract clause** for opt-in self-declaring truncation is proposed but NOT added — `CONTRACT.md` is agreed at 0.1 and amending it is Peter's call.
+- **Phase 4 item (3) — the web/visualizer session: DONE 2026-08-02, and it found three real bugs.** Verified by running the app and exercising every endpoint the page calls. **(a) Visualization was broken by dimensions** — the visualizer used canonical names as DOT node *identifiers*, and DOT reads `:` as the port separator, so `time(2026-…T00:00:00Z..)` split mid-name and graphviz died with a syntax error. Any store containing a typed date could not be drawn at all: `odag visualize`, `/dag/image`, `/dag/export/dot` and `/dag/export/tex` were all dead. Fixed in `dag.py`: names go in **labels**, identifiers are synthetic (`n0`, `n1`, … assigned in the DAG's deterministic iteration order, so DOT stays diffable), and neighbors are sorted. Labels are quoted correctly by the graphviz package, so this makes *every* name renderable whatever a future canonical form contains. **(b) The REST API could not be used without the browser** — session state (`my_dag`, `visualizer`) was initialized only by the two page routes, so a curl-only client got a raw `KeyError` traceback; this was *documented* as a gotcha rather than fixed. Now `current_dag()`/`current_visualizer()` initialize on demand, the gotcha is deleted from the guide, and the API is a standalone surface as §1.1 claims. **(c) The UI did not URL-encode query terms** — a name containing `+`, `&` or `#` silently queried something else (`C++ notes` arrived as `C   notes`); `index.html` now encodes per-term, leaving `,` and `|` as separators. Also: `/dag/query/image?cat=` (empty) now draws the whole DAG rather than 400-ing, since the UI hits it whenever the query box is submitted blank, and `get_by_dag` on an empty query dag returns only the root. Verified working over HTTP: parametric puts and queries, virtual terms, calendar dimensions, `|` union, empty query, all four exports, both images, market demo. Tests: `TestPicturesAndExports` (test_web.py, 6) + `TestVisualizerRendersEveryName` (testdag.py, 2) — confirmed to fail against the pre-fix source. **There had been zero test coverage of any rendering endpoint**, which is why (a) survived the whole dimensions release. Guide §6 gained a "what the page gives you" paragraph and two deliberate limitations: the browser shows **canonical** names (no renderer on the web surface) and the web DAG is **server memory per session** — not your `odag` store, no Swarm. `.gitignore` now covers the export/visualize artifacts the app drops beside the process. **Then clicked through in a real browser** (Brave + the Claude in Chrome extension; the session must be started with `claude --chrome`, `/chrome` alone cannot enable it), which found **three more bugs that HTTP checks had missed because the endpoints returned 200 with wrong or empty content** — a 200 is not a pass; one of the bad responses was a valid 83x59 PNG I had recorded as success. **(d) The query picture ignored parametric terms.** It came from `get_by_dag`, which intersects by *name*, so a virtual term dropped out entirely: `weight(..5kg)` drew an empty graph and `Japan,weight(..5kg)` drew all of Japan — a picture contradicting the result list beside it. Replaced by `_query_picture(my_dag, queries)` in `web/app.py`, built from `get()` (the authoritative path) with query terms drawn as nodes **even when no such node exists** — sound because the picture is a *view*: drawn and discarded, never merged or committed, so inventing a node to draw the constraint costs nothing. Results copy via `copy_subdag` (cones are downward-closed under intersection, so the answer carries its own structure), each term hung above the topmost answers of *its own disjunct*. **(e) The query picture had no union**: it split on `,` only, so `Flight,Japan|Hotel` drew one node literally named `Japan|Hotel`. It now parses the same DNF as `/dag/query`. **(f) `/market` 500'd in any session that had touched the main page** — both share the `my_dag` session key and the demo only loaded the car ontology when that key was absent; **pre-existing** (reproduced against the stashed pre-fix source), but easier to hit now that every endpoint creates a DAG on demand. It now loads whenever the resident DAG isn't a car one. Tests: `TestQueryPictureAgreesWithTheAnswer` (5, all failing against the pre-fix source) asserts the drawn DAG against the query answer rather than against a status code. No test for (f): loading the car ontology fetches `http://127.0.0.1:5000/market/dag` from the running app, so it cannot run in-process. Verified by eye: live redraw after Add Item, click-to-enlarge overlay, query-term shading, union as two branches, blank query = everything, Remove Item, the error modal on a missing parent, and the market demo intersecting Budget+ElectricVehicle to one offer. No console errors.
+- **Phase 4 remaining, in the agreed order:** (4) the **London→Rome worked example** as docs only — the finding is that `transport(from(London), to(Rome), duration(..10h))` needs no new machinery: three coordinates as three supercategories *is* the product lattice, and plain intersection already answers it, so the nested spelling is surface sugar over a conjunction (prerequisites: a geo hierarchy, i.e. a pack; and `from`/`to` are roles, safe here only because they are distinguishable category names rather than properties). **The boundary of that trick is now written up in `docs/plans/BINDING.md`** (2026-08-03, discussion draft): flat roles are sound for one filler per role per item; multi-instance grouping (two-leg journeys) and multiplicity (the bouquet) break flat sets and are the two consumers behind the proposed ground-bundles amendment there — the worked example should state the scope rule and the legs-plus-join pattern, and its §9.8 asks whether it also mentions bundles; (5) the **upper-ontology question** → **DONE 2026-09-02 as the `core` pack** (`src/ontodag/core_ontology.py`, design record `docs/CORE.md`, guide §4.8, `TestCorePack`): v1 was 194 hand-written categories in seven branches; **v2 (same day, evening) is 2,927 categories in ten branches, GENERATED by consensus in `../ontodag-core` from WordNet/SUMO/OpenCyc/schema.org/YAGO/BFO/DOLCE (two witnesses per edge or Peter's ruling; ~1,900 single-witness edges read by Claude; names hand-checked), a strict superset of v1; it presumes the prelude (`pack_dag` applies it) and asserts the three kind-level edges `linear-/count-/calendar-dimension ⊑ attribute`; dimension heads, unit spellings and currency denominations stay with the registry; policy for the sciences (hinges in core, contents in packs) in ontodag-core's UPPER.md §7** — v1 was under the EVOLUTION.md admission rule — **and since 2026-09-02 (later) the pack is authored in the sister repo `../ontodag-core` (github.com/petfold/ontodag-core)**: extractors for WordNet 3.0, SUMO and the OpenCyc OWL export into one Graph shape, their tops as importable `.od` files beside `core`'s, and `docs/UPPER.md` there recording what a pack version commits (names + edge truth; coverage never — refinement and deepening propagate by merge, retraction and rename do not). Peter's review verdict on v1: good but too small and arbitrary-looking; the top must be got right; it is a project of its own, golden-rooted under both addressings; packs now carry plain categories beside unit declarations (`pack_entries`/`is_unit_pack`), and `packs_declaring_node` fires for real names as its docstring promised. Same day: (4) the London→Rome example is guide §5.12, and (6) the offline half of Pyodide ran — `demo/pyodide/` (page + peer check, root byte-identical to native). History of (5): was blocked behind the PACKS.md discussion; **unblocked 2026-08-20** (PACKS.md Part II — note its principle 3 gives the tiering rule: prelude = interpreter-dereferenced names only, so a top/core ontology is pack-tier by *distribution* even where EVOLUTION.md argues prelude-grade *governance*). **Upgraded 2026-08-03: `docs/plans/EVOLUTION.md`** (discussion draft, the top-ontology + Rover threads with Peter) — the change asymmetry (refinement converges and pruned-redundant edges are immune to resurrection, *verified by execution*; interventions need social coordination), the top discipline that follows (small, coarse-but-true, admission is a one-way door; prelude-tier not pack-tier; Cyc/BFO/DOLCE/SUMO read for decisions never imported; disjointness-wall caveat up front), the math skeleton / registry-reflection plan, selective retraction (the proposed `reclassify` write-surface op: retract + keep-list + grouped evidence; the `remove_edge` orphan footgun; the computable disjoint-values lint — dimension values give a decidable island inside the disjointness wall). Makes the top the PACKS.md tiering discussion's most consequential client. Its §3 also records the **levels-of-measurement mapping** (2026-08-03, Peter's Stevens question): canonicalization = quotient by the scale's admissible transformations (nominal→plain nodes, interval→affine 4.0, ratio→linear, absolute→count 4.1); the one gap is an **ordinal kind** (graph-declared chains, parked on the faking-ranks-as-linear tripwire, §8.9), and scale levels become load-bearing as the computed-values type check (§8.10). Research verdict: OntoDAG eats subsumption and nothing else, so importing OpenCyc gets the *least* valuable part of Cyc (its value was axioms and microtheories, which the core structurally cannot hold) and it is abandoned with a murky licence — skip it. Ranked by how much survives the import: **Wikidata P279** (a real multi-parent DAG, free, extractable per-domain, has cycles to break — best source for *derived* packs), **schema.org** (right size, business-shaped: Person/Organization/Event/Ticket/Place, imports almost losslessly), **BFO** (ISO 21838, ~35 classes, rigorous but too abstract to know an email is from a human), **WordNet noun hypernyms** (actually a DAG, good common-sense breadth, weak on technical). Recommendation: hand-write a small reviewable `core` pack (~100–200 nodes) that gets the email-from-a-human and plane-ticket examples right, and offer Wikidata-derived packs per domain separately; (6) **Pyodide** — feasible and B1 is exactly why (core and recordstore are stdlib-only at module level, no C extensions), so `micropip.install("ontodag")` should give a working DAG and native store in a browser; what will not come is graphviz/owlready2/dot2tex and `requests` (Pyodide cannot socket — needs the `pyodide-http` shim, or bee-js over JS interop for Swarm, and IndexedDB behind the `BytesStore` seam); (7) **computed values** (`duration = end - begin`) stay parked, but the transport case is arguably the first real consumer. Note it is a *different* kind of computed from the dimension arithmetic that exists: dimensions compute an *order between two names*, this computes a *new name from two others*. Position if it is ever built: store endpoints only and compute at query (materializing at put breaks canonicality if the formula changes), with the formula declared in the graph like unit declarations so it travels. (8) Terminology answer for "cutting part of a DAG": a query result is a **principal down-set** (order theory: ideal; graph theory: the descendant cone); for what you extract, **view** if live and derived, **excerpt**/**subgraph** if materialized — "projection" is the wrong loan from relational algebra (that drops columns). Both halves already existed in code (`intersection_dag`, `copy_subdag`) — **and
+since 2026-08-06 one of them has a command: `odag excerpt FILE [CAT…]`** (the
+whole-DAG `export`/`visualize` were the only scoped-output commands; the web
+surface had `/dag/query/export*` all along). Decisions: the *excerpt* is the only
+half that gets a command — a view is live and discarded, and `get` already is it,
+so naming an ephemeral thing on a Unix-style CLI would misdescribe what comes
+back; FILE is positional-first because CATs are variadic; **query terms are not
+added as nodes** (Peter: "keep it importable" — the web *picture* invents a node
+to draw a constraint, which is free because it is discarded, but an excerpt round
+-trips through `import` and would file the constraint as a fact); parentless
+answers are hung under the excerpt root, without which they import as orphans
+invisible to `list`/`get`. The empty query gives a file byte-identical to
+`export`'s (pinned). 11 tests in `TestExcerpt` (`tests/test_cli.py`), each
+asserted against the query answer rather than an exit code. **`odag visualize
+[CAT…]` followed** (same day, Peter's ask): the drawn twin, which *does* draw
+the query terms — the one deliberate asymmetry with `excerpt`, on the grounds
+that a picture is discarded (so inventing a node for a virtual term costs
+nothing and is the only way to show it) while a file round-trips. The web app's
+`_query_picture` moved into `ontodag.viz.query_picture` and `web/app.py` now
+imports it, so the two surfaces cannot draw different pictures of one answer;
+`tests/test_cli.py::TestVisualizeScoping` asserts the *shaping* with a fake
+visualizer, so it needs neither the `viz` extra nor `dot`. That work surfaced a
+shipped bug: bare `odag visualize` (no `--out`) had raised `AttributeError`
+since 0.12.0, when `rs:` stores removed `Session.path` — fixed via
+`_image_base(spec)`, which names the image after the store for all three
+backend spellings. Nothing caught it because no test ever omitted `--out`;
+`scripts/release_smoke.py` now omits one deliberately.
+
+**Then the send-and-review pair (2026-08-06, same session, from Peter's "can I
+email it to someone who can merge it?" / "would a diff be useful?").** Both
+answers were *measured* first, and the measurements are the design record:
+
+- Merging a plain excerpt back into its own store is a no-op **at the canonical
+  root** — the invented `* → x` edges are redundant there, so complete reduction
+  drops them (pinned by `test_both_cuts_are_absorbed_by_the_store_they_came_from`).
+- But merging it into a store that has your upper categories and *not* the items
+  files them at TOP LEVEL: `get Japan` → empty. The edges a plain cut drops are
+  the ones that pointed at the query terms, and those are the classification. So
+  **`odag excerpt --context`**: answer ∪ *asserted* ancestors, induced subgraph,
+  nothing invented (root edges real too). Asserted-only deliberately — computed
+  parents are star siblings, and copying them in would drag unrelated coarse
+  values along, while the *declarations* travel anyway because a head like
+  `weight` is a real asserted parent of its values (tested: a fresh store
+  importing a contexted cut answers computed queries).
+- A plain cut is **not diffable** against its source: unscoped it reads as 18
+  spurious deletions, and it cannot even be scoped by the query it came from
+  because the terms are not in it. A contexted cut scoped to its own names diffs
+  to `+[] -[]` — an exact subview. That is the second, non-obvious reason for
+  the flag, and it is why the two features shipped together.
+- **`odag diff OTHER [CAT…]`**: claims decide, edges display. Numbers behind
+  that: one `put` measured `edges +1 -2` with **zero** claims lost (reduction
+  re-routed them), so an edge-grain diff accuses people of deletions they did
+  not make; conversely a leaf added twelve levels down is **+13 claims** and one
+  edge high in a chain is +11, so claim-grain listing cascades. Hence the
+  listing is edge-grain filtered by `is_below` on the *other* side, and the
+  cascade is a count on the stderr summary. Scope with categories = exactly the
+  `excerpt --context` name set of both sides. Exit 0/1 grep-style like `below`.
+  A missing file is refused (elsewhere a missing native store is an empty one;
+  for a comparison that turns a typo into "your whole store was deleted").
+- Deliberately NOT built, and written down instead (guide §5.8, CHANGELOG): the
+  diff is **two-way**, so it cannot separate "they deleted it" from "you added
+  it after sending" — that is three-way, needs the base you sent, and `rs:`/
+  `swarm:` stores already record it as the root you were at. recordstore has
+  shipped canonical three-way `merge(base, ours, theirs)` since 0.8.0, so the
+  substrate is there; wiring it needs a resolver policy and touches retraction,
+  so it waits for two real people doing it.
+- `OntoDAG.induced_subdag(names)` is the new core primitive (third derived-DAG
+  operation beside `intersection_dag` and `copy_subdag`); `excerpt` is one code
+  path over it in both modes. 20 new tests (`TestExcerptContext`, `TestDiff`).
+
+**Then `diff --additions PATH` (2026-08-06, from Peter's "would a patch be the
+same as a merge?"), and the answer to why there is no `odag patch`.** Measured:
+merging the additive fragment reaches the **byte-identical root** to merging the
+peer's whole store, and is idempotent — so *the additive half of a patch IS a
+merge*, needing no new mechanism, only a smaller file (4 lines vs the store).
+Removals cannot be in a mergeable file, and this is permanent, not pending:
+`remove X` reattaches X's children to X's parents and putting X back does NOT
+restore them (lossy), and a removal does not commute with a concurrent addition
+(`remove` then `put D X` **fails** — no such parent; `add` then `remove` silently
+yields a different graph). A file whose effect depends on when it is applied
+cannot be a fold, so it would take the CRDT property with it. Hence the flag is
+`--additions`, never `--patch` (a name that promised removals would cost someone
+data), it prints how many removals it left out whenever there are any, and the
+subtractive half is routed where it belongs: a base-pinned three-way apply
+(recordstore has shipped `merge(base, ours, theirs)` since 0.8.0; `rs:`/`swarm:`
+stores record the base for free) carrying **attributed retractions** per
+PROVENANCE.md — not a third file format. Fragment contents = their new items +
+the parents those hang from + both ends of each new claim; parentless arrivals
+are absorbed by reduction on merge, the same property that makes a plain excerpt
+a no-op. Written even when empty so scripts can merge unconditionally.
+`TestDiffAdditions` (9 tests, incl. the same-root and idempotence properties);
+the release smoke now applies a fragment end to end.
+
+**Then bulk + cone removal (2026-08-06, from Peter's "if we can remove one
+concept, we can remove a whole subgraph too, right?").** Yes — but it is *two*
+operations, and conflating them destroys data: looping the existing contraction
+over a cone deletes multi-parent members (measured: contracting the cone of
+`Japan` also removed `JAL`, which was a Flight). So `remove NAME...` stayed
+contraction (verified order-independent over 12 random DAGs × 6 orders × 5
+victims → identical canonical roots, which is *why* several names are allowed:
+the result is a function of the set), and the deleting form is `--cone`, per
+Peter's choice of a flag over a separate verb. **Survival rule** (what makes
+"delete the subgraph" well defined at all in a multi-parent DAG): a cone member
+is deleted **iff the root can no longer reach it once the targets are gone** —
+orphan-collection, verified equal to a brute-force reachability oracle over 25
+random DAGs. Survivors are **detached, never contracted**: contraction would
+file them under whatever sat above the deleted node (`JAL` under `Asia`), a
+claim nobody made. Cone walk is **asserted-only** — the computed order would
+sweep every finer value of a dimension into a deletion no stored edge asserted.
+New core API: `remove_cone(names)` + the pure `cone_removal_plan(names)` (so
+`--dry-run` and the CLI's kept/deleted note need no dry-run parameter in the
+core). Two findings worth keeping:
+- **The count-delta trick does not generalize to deletion.** `remove`/`add_edge`
+  can use a per-ancestor delta because contraction preserves everything below;
+  deletion can additionally *strand a surviving subtree* from an ancestor that
+  reached it only through a deleted node. Assuming −1 per deleted node left 22
+  of 25 random cases with wrong `descendant_count`s. Counts are now recomputed
+  for the affected ancestors (root's is free: `len(nodes) - 1`), measured
+  1.3–1.5 ms on the 3,221-node fixture — acceptable because deletion is rare
+  and deliberate, unlike the per-write case the delta machinery exists for.
+- **A sloppy delete corrupts upward silently.** The first prototype dropped
+  nodes from `self.nodes` and discarded them from their parents' `neighbors`,
+  leaving stale objects in their *children's* `parents` sets; since
+  `Item.__eq__` is by name, a later re-add is then **shadowed** by the stale
+  entry, so the graph reads correct by `neighbors` and wrong by `parents` (and
+  `EagerOntoDAG._record_for` silently drops the `up` entry). Hence the real
+  implementation goes through `remove_edge` in both directions. Pinned by
+  `test_a_deleted_name_can_be_used_again`.
+Tests: `TestConeRemoval` (10, in `test_invariants.py` — oracle agreement, I2/I5
+plus parent/child symmetry over 25 random deletions, the Asia case, typed
+values), `TestRemoveMany` (9, CLI — order independence, all-or-nothing,
+`--dry-run`, stderr notes, and **excerpt-as-undo**: back up the cone, delete,
+merge back, identical root), `test_cone_removal_persists` in `test_eager.py`
+(records deleted, survivors reparented, root equals a store that never filed
+them). MCP's `remove` tool is untouched — a cone deletion there would need a
+retraction record per deleted claim, which is a provenance decision, not a
+transcription.
+
+**Then `odag move` / `OntoDAG.reclassify` (2026-08-06, from Peter's active →
+archive question), with the contested-set report.** The gap was real: `put` only
+adds a parent and `remove` deletes the item, so the CLI could not reclassify
+anything, and remove-then-put **loses the subtree** (children reattach to the old
+category and stay there — measured). Shapes: `--from X --to Y` surgical,
+`--to Y` alone = "under Y and nothing else", `--from X` alone = unfile (top-level
+via the never-orphan rule, needed because `--to '*'` cannot express it: a root
+edge is redundant while any parent exists, so `put X '*'` is a measured no-op).
+Design points, each forced by a measurement:
+- **Assert before retract**, so a refusal leaves nothing half-moved — and because
+  adding the new parent can make the old edge *redundant*, which reduction prunes
+  for us. An already-gone edge counts as retracted; without that, moving to a
+  finer category under the same parent (`active` → `recent`) died on
+  `Edge does not exist`.
+- **`put`'s dimension guards are now shared** (`_check_parametric_placement`,
+  extracted from `put`, called by both against the *final* parent set): a
+  placement `put` refuses must not be reachable by moving into it. Materializing
+  a typed destination is deferred until after validation, or a refused move left
+  new vocabulary behind.
+- **The contested set** is the report: moving `A` to archive leaves a child that
+  also hangs under a live `B` in *both* states. That is true and unresolvable
+  here — **subsumption inherits, exclusive status cannot** — so it is counted and
+  named on stderr, and it is the same answer as `get old new` (the intersection
+  query *is* the review list). Refinement pairs (`new ⊑ old` or `old ⊑ new`) are
+  excluded, or the most ordinary move would cry wolf.
+- `--dry-run` performs the real move on a `deepcopy`, so preview and refusals
+  cannot drift from the act.
+**The price of retraction, measured and now written in the guide (§5.10):**
+canonical form, merge commutativity/idempotence, totality and convergence *all
+survive* — a moved store is byte-identical to one that was always that way (put-
+then-move == filed-directly), and moved-there-and-back == never-moved. The single
+loss is that **a retraction does not propagate through merge or sync**: a peer
+that still holds the old edge resurrects it, in both directions (verified through
+`EagerOntoDAG.sync`, not just file merge). This is exactly the price `remove`
+already paid, so `move` widens no wall; it is paid only by *concurrent writers*
+(single-writer and publish-to-readers keep the move permanently), and the
+monotone escape hatch is to encode the transition as a dated *addition* with the
+current value decided at read time. **Separate finding for Peter, unfixed:**
+`merge` does NOT enforce the disjoint-parents guard — merging two stores that
+each file `crate` under a different `weight` value yields the state `put` refuses.
+Arguably correct (a refusing merge would not be total, which would break I7), but
+`DIMENSIONS.md` §9 documents the guard without saying it stops at the merge
+boundary. Tests: `TestReclassify` (9, `test_invariants.py` — subtree travel, the
+shared-child case, all six refusal shapes leaving `edge_set` unchanged, the
+put-parity guard, and counts/reduction/no-orphans over 15 seeded random move
+sequences), `TestMove` (12, CLI). Release smoke: 21 checks.
+
+**Where the 2026-08-06 operations are reachable from (asked and answered the same
+day).** Python: `induced_subdag`, `reclassify`, `remove_cone`,
+`cone_removal_plan` are `OntoDAG` methods, so they are inherited by
+`EagerOntoDAG` **and `SparseOntoDAG`** — the partially-resident writer produces
+byte-identical roots to the eager one for both new mutations (20-seed sweep in
+`TestSparseReclassifyAndConeRemoval`), after two bugs found by asking that
+question: `remove_cone` staged no store deletes (the committed root still held
+the deleted records) and took the root's count from `len(self.nodes)`, the
+*resident* count. Both fixed by routing node deletion through the single
+`OntoDAG._forget` seam, which the sparse writer hooks — so any future deleting
+operation is covered too. `LazyOntoDAG` refuses both (they route through
+`add_edge`/`remove_edge`), while `cone_removal_plan` works there, being a query.
+**Not reachable yet: the web REST API and the MCP surface.** `excerpt`/`diff`
+had no Python API at all (the comparison logic lived in `__main__.py`), so a
+non-CLI consumer would have had to reimplement it — **both closed the same day**
+(`OntoDAG.excerpt` below; `ontodag.compare` at the end of this section). For the web layer the gap
+is worse than absence: **`/dag/query/export*` exports `session["query_result_dag"]`,
+which `/dag/query/image` sets to the *picture* — including the invented
+query-term nodes — so a downloaded query export re-imports the constraint as
+knowledge**, exactly the failure `excerpt` was designed to avoid (and it depends
+on which endpoint was hit last). For MCP, `move`/`remove --cone` are a
+*provenance* decision, not a transcription: §3's coupling rule requires a
+retraction record per retracted claim.
+
+**Closed the same day (2026-08-06), except MCP.** `OntoDAG.excerpt(queries,
+context=False)` / `excerpt_names` / `contested(a, b)` are now core methods, so
+the excerpt logic and the two-states-at-once query have ONE implementation shared
+by the CLI, the web app and any Python consumer (the CLI's private
+`_excerpt_names` and its inline contested rule are gone). Web: the four
+`/dag/query/export*` routes now export the **excerpt** — `?cat=` (DNF, remembered
+per session) and `?context=1` — closing the bug above; new `PATCH /dag/node`
+(reclassify, answering with `retracted` + `contested`), `DELETE /dag/node?cone=1`
+(answering with `deleted` + `kept`) and `GET /dag/removal?name=…&cone=1` (the
+pure preview). PATCH is the verb the REST API never had: POST only adds a
+category, DELETE removes the item, so no client could move anything. Tests:
+`TestQueryExportIsTheExcerptNotThePicture`, `TestMoveOverRest`,
+`TestConeRemovalOverRest` in `tests/test_web.py` (15), all exercised over HTTP
+first with curl against the running app. **The UI followed the same day**: a **Move Item** row (*Move to* / *out of*,
+blank *out of* = replace every category), **Delete + Contents** (previews via
+`GET /dag/removal` and confirms, listing what it would delete *and* keep), a
+**with context** checkbox on the query exports, and a `#notice` bar — news is
+not failure, so the contested set and the kept-items report do not go through
+the error modal. Query downloads now carry the query on screen rather than
+whatever the session remembered. **Browser caveat, stated because it matters:
+this UI was NOT clicked through in a real browser** — that needs a session
+started with `claude --chrome`, and the 2026-08-02 pass is the standing evidence
+that a browser finds what HTTP cannot (three bugs behind 200s). Compensating
+static checks were added instead (`TestThePageIsWiredUp` in `tests/test_web.py`,
+6 tests): every `getElementById` id must exist in the markup, every URL the
+script fetches must be a registered Flask route, the new controls must be
+present with the right methods, and the script must pass `node --check`. Those
+catch the silent-dead-button failure modes (typo'd id, typo'd URL, syntax
+error); they do not catch layout or rendering, so a browser pass is still owed.
+Every request the buttons make was driven by hand with curl against the running
+app first, including a name containing `+`, `&` and spaces. MCP still
+deliberately has neither operation.
+
+**Surface-parity audit (2026-08-06, Peter's ask: check every feature is on every
+suitable interface, with a good reason where not).** Inventories taken from the
+code, not the docs (CLI 25 commands → 27, MCP 13 tools, REST 23 routes → 27,
+browser 12 controls → 17, Python everything). Five gaps had no reason and are
+filled: **`overlapping`** on the CLI and REST (contract **G6** was reachable only
+from Python and MCP — a documented guarantee invisible from the two surfaces most
+people use); **`--as-of ROOT`** on the CLI (a global pre-command flag like `-m`,
+prefix-resolved against `store.history()` because `history` prints twelve
+characters, read-only with an error naming `undo`/`redo`; `Session._load` routes
+through a new `Backend.load_at`, which hydrates inside one transient window and
+closes it — an EagerOntoDAG holds the whole state, so reading a past version costs
+nothing afterwards); **`/dag/prelude` + `/dag/pack` + browser buttons** (the real
+bug of the set: typed values are *refused* on the web surface without
+declarations, and the only way to declare them through the API was hand-creating
+the three declaration nodes — which is literally what `tests/test_web.py` does);
+**`/dag/canon`** + a Canon control (worth most on the surface that deliberately
+shows canonical names); and a **Below?** control for the endpoint the page already
+had. Justified absences are now written down in guide §1.1 rather than implied:
+MCP has no move/cone-delete (each retraction owes a signed record per claim), no
+files or pictures (agents get answers with a root); the web app has no
+history/as-of/certificates because its DAG is per-session server memory with no
+store and no root; `diff` has no web surface (the second store has to come from
+somewhere); the CLI has no provenance/certificates (signing needs a key with an
+identity). One wart recorded rather than fixed: **the query workload log exists
+only in the web app** — the surface least used for real work — which defeats
+SEMANTIC_CODES §9's purpose for it; fixing it needs a design (where would a CLI
+keep counters?), not a patch. Tests: `TestOverlappingCommand`/`TestAsOf`
+(8, `test_cli.py`), `TestDeclaringDimensionsOverRest`/`TestOverlappingOverRest`/
+`TestCanonOverRest` (12, `test_web.py`), and the page-wiring checks cover the new
+controls. Release smoke 23 checks.
+
+**Undo/redo/history (2026-08-06, from Peter's "should there be an undo, and where
+— here or recordstore?"). Answer: recordstore first, and it shipped as 0.20.0.**
+The diagnosis was the useful part: undo was **not** a data-recovery problem.
+Measured on an `rs:` store — every past root still reads perfectly (blobs are
+content-addressed and nothing collects them), and writing an old root back into
+the pointer file *is* undo. What was missing was the ability to **name** the
+previous state: `store/root` is 64 bytes, the current root and nothing else,
+while local-first stores journal lineage that `RecordStore` never exposed. So the
+mechanism belongs where the mutable pointer lives, not in a consumer keeping a
+parallel log.
+- **recordstore 0.20.0** (published, verified from PyPI): a `Pointer` keeps a
+  *timeline* (FilePointer → a `<path>.timeline` JSON sibling; MemoryPointer → in
+  memory), giving `RecordStore.history()` → `Version(root, at, message,
+  current)`, `undo()`, `redo()`, `checkout(root)`, `status()`, and
+  `commit(message=…)`. Local-first stores get it free — their HEAD *is* a
+  FilePointer. Semantics are an **editor's**: a line of states plus a position, a
+  commit after an undo abandons the redo tail, and the journal remains the deeper
+  audit (this timeline is the branch, the journal is the reflog). Two bugs the
+  tests caught: an undo at the start of the line returned None but still moved
+  the root (emptying the store's view of itself), and a **no-op commit recorded a
+  duplicate state** — which `odag` would have hit immediately, since it commits
+  after every command.
+- **Messages: yes, but never in the content** (Peter was unsure; this is the
+  recommendation, now implemented and documented). A git commit hashes its
+  message, so the same change described differently is a different commit. A root
+  here hashes state alone, which is what makes equal content converge, dedup and
+  merge. So `-m` labels a transition in *this replica's* timeline; attribution
+  that must travel is a signed provenance record about the claim.
+- **ontodag side**: `odag history` / `status` / `undo` / `redo` (`--dry-run` on
+  the last two, counted with `ontodag.compare` over the two roots), global `-m`,
+  floor raised to `recordstore>=0.20.0` (base, `store`, `swarm` extras + the
+  boundary test's ALLOWED_BASE). Backends gained `open_store()` — `FileBackend`
+  raises a teaching error naming the tiers that keep history, which is the funnel
+  argument again. `SwarmBackend.publish_head()` republishes after a HEAD move,
+  because publication rides confirmation events and moving a head backwards
+  produces none — without it an undo would be invisible to followers, a silent
+  disagreement between what a replica shows and what it publishes. **Verified
+  against the live node**: undo on a `swarm:` store moved the signed feed back
+  too. `TestHistoryAndUndo` (13, `test_cli.py`); release smoke now 22 checks
+  (label → cone-delete → undo → redo, plus the file store explaining itself).
+  Undo is **local**: a peer merging afterwards re-adds what it took out — the
+  third appearance of that wall today, and the reason undo is cheap.
+
+**`ontodag.compare` (2026-08-06): the diff logic extracted to a
+library.** `compare(ours, theirs, queries=None)` → a `Comparison` carrying
+`only_ours`/`only_theirs`, `added`/`removed` (edge grain, claim-filtered), the
+**lazily computed** `entailed_added`/`entailed_removed` cascade (the expensive
+half — most callers only want its size) and `additions()`. Fourth opt-in consumer
+module beside `surface`, `viz` and `mcp`, and the strictest yet: it **imports
+nothing at all**, the DAGs being duck-typed, so it works over `OntoDAG`,
+`EagerOntoDAG`, `SparseOntoDAG` *and* a read-only `LazyOntoDAG` view of a
+published root (tested — you can diff a published store lazily). Two new boundary
+cases pin that plain `import ontodag` never pulls it. `cmd_diff` kept only
+presentation and its 21 CLI tests passed unchanged, which is the extraction's
+proof; `tests/test_compare.py` (19) pins the semantics at the library level.
+**Number corrected in four places while writing it:** the cascade of a leaf added
+twelve levels down is **13** claims, not the 14 the exploratory script reported —
+that script counted the root as an ancestor, and `compare`'s scope excludes it
+("under `*`" is under nothing in particular). The docs quote what the tool
+reports, so CHANGELOG, guide, CLAUDE.md and the module docstring now say 13.
+- **Parked, tripwire-gated:** EL/relations canonicalization research (now observable via MCP traffic) — **discussion draft exists as of 2026-08-03: `docs/plans/BINDING.md`** (prompted by Peter's London→Rome → two-leg → bouquet probes; scope rule for flat roles, ground bundles as a proposed scoped contract amendment with two consumers — multi-instance grouping and multiplicity — the §6 coordinate-order fork, the compile-down baseline; nothing decided, grammar work gated on discussing it with Peter); computed values (passes the admissibility axes, no consumer — the itinerary's derived from/to/summed-duration is noted in BINDING.md §3 as another appearance), languages/lexicon (fork recorded in `SURFACE_LAYER.md` §12).
+
+Previous milestone — **dimension lattices (parametric items), done and released** — design, implementation, docs and PyPI release all on 2026-07-30. `docs/DIMENSIONS.md` is the design record and tracks its own §12 sequencing (steps 1–5 and 7 done; step 6, the per-dimension sorted index, stays parked until profiling asks). One-line summary: values like `weight(3kg)` are ordinary categories whose order is computed from the canonical name (containment of denotations, exact integers in base units), never materialized as edges; anchor stars enumerate each dimension; virtual query terms cost no writes; `get_overlapping` is the possibly-satisfies mode. Works through the CLI (quote the parentheses), the web REST API (names now pass through to put/get — `tests/test_web.py`), `EagerOntoDAG` (canonical roots verified across put orders) and `LazyOntoDAG` (bounded fetches). Adoption notes for the sister projects are in loopmarket ARCHITECTURE.md §3 (update note) and ontodag-fs ROADMAP.md. Headline decisions: parametric items (`weight(..5000000mg)`) ordered by containment of denoted value sets — computed at query time, **never materialized as edges**; kinds declared by ordinary edges under registry-known nodes (`weight → linear-dimension → dimension`), nothing in `meta`, no callables in data; values are integers in per-family base units (agreed 2026-07-30 — no decimals; sub-base precision is a boundary error, the UI renders friendly units); anchor/star edges under the head node are schema, exempt from reduction; `add_edge`/`_remove_unneeded_edges` consult combined (asserted + computed) reachability; only exact-arithmetic kinds ever enter the canonical order (geo discs stay application-side — see loopmarket). This fired the "exact arithmetic" wall's tripwire — recorded in `DATABASE_DIRECTION.md` — via the `../loopmarket` sister project (marketplace matching is a main OntoDAG goal); overlap matching (`get_overlapping`) is deliberately the *first follow-up*, not v1, because overlap is not transitive and therefore not a cone.
+
+Done 2026-07-25 (were items 1–2 of this list): the recordstore requirement was raised to `>=0.11` with 0.11.0 installed and `docs/recordstore-interface.md` re-synced against it (since superseded — see "Version state" above); `EagerOntoDAG._hydrate` now batches through `RecordStore.items()`.
+
+The broader roadmap (delivered / queued / parked / research horizon, for a general
+audience) is `ROADMAP.md`; this list is the working queue.
+
+**Open design discussion — `docs/plans/SURFACE_LAYER.md` (draft 2026-08-01, nothing agreed).** A separate derived/local/never-merged layer between people and the exact core: forgiving elaboration in (bare `2026` as a year, ISO weeks, eventually a local LLM), readable rendering out (`time(2026)` and `weight(3kg)` instead of the canonical timestamp range and `3000000mg`). Prompted by the `time(2026)` work, which surfaced that the guiding rule was never "context-free" — `contains()` has always taken the kind from the graph — but **context that merges**: interpretation may depend on synced declarations plus a pinned `REGISTRY_VERSION`, and on nothing else. Half the layer already exists (canonicalization *is* elaboration; two spellings of one denotation already collapse to one identity); what is missing is the render direction and a stated contract. Key proposed invariant: `elaborate(render(t)) == t`, with rendering a pure function of the canonical name — **the user's spelling is never stored**, or two people filing the same fact by different spellings would get different roots. Both layers must stay reachable everywhere (`--raw` and an `odag canon TERM` on the CLI, an opt-in `ontodag.surface` module the core never calls). Eight open questions in its §9, of which **§9.4 (pipe semantics) is decided (2026-08-01)**: output is canonical whenever stdout is not a terminal, with `--render` to opt in when it isn't and `--raw` to force canonical on a terminal (precedence: flag > `$ONTODAG_SURFACE` > tty test) — so `odag get | odag put` round-trips by default. The rule is output-only (input elaboration never depends on a tty), stderr always renders, and the default path needs a pty to test. That unblocks §10 step 1, the renderer + round-trip fuzz test, which is self-contained enough to build before the rest of the layer is agreed. **Part II (§11–§14) records the wider questions the discussion opened, none answered:** (§11) the surface layer is *not* separate software — the interpreter is already made of OntoDAG (`time(2026)` resolves by an ancestor walk to a kind node), so build it out of OntoDAG where possible and treat the LLM as the one optional departure; this corrects §3's "never merged" into *shared vocabulary merges, local policy does not*. (§12) Languages: translating user names is the roadmap's Namespaces item in new clothes, and the fork is whether a translation is an identity or a disputable relation (SKOS is the prior art; near-synonyms are the hard residue) — **§12 gained the worked binding proposal 2026-08-20** (`fr(Mercure=Mercury (planet))` declaration nodes under a `language-form` kind, the unit-declaration pattern verbatim: no concept edge, no special node, elaboration stores canonical so cross-language filing converges; build still gated on the Namespaces tripwire). (§13) Limits of OntoDAG: the criterion that falls out is **monotone and computable from names is admissible; non-monotone fights merge** — negation, defaults and closed-world would take the CRDT property with them, so KR/inference belongs in a higher layer that compiles down, against a written-down "what a higher layer may assume" contract. (§14) AI agents: the value is not storing what a model already knows but being *canonical, addressable, verifiable and attributable* — none of which a model's knowledge is; open interface questions on discoverability, canonical echo, idempotence, MCP as a surface, and the review problem once agents write faster than anyone can check. §13 and §14 may deserve their own documents. **Update (2026-08-01, later the same day): they got them.** The strategy discussion settled the direction (see "Current task" above): agents-first agreed; §13 → `docs/CONTRACT.md` (two-axis criterion, as-of/root-pinning, verifiability tiers); §14's provenance prerequisite → `docs/PROVENANCE.md` (attribution in a parallel store, never in the knowledge record); positions recorded (not decided) on the remaining §9 questions and §12's identity-vs-relation fork, inline in `SURFACE_LAYER.md`; §4 gained three sharpenings (policy-picks/vocabulary-defines, injectivity-per-context, and the deliberate non-law `render(elaborate(s)) != s`).
+
+Next candidates after the current task — **this list is complete (all three landed 2026-07-31) and is superseded by the phased queue above**; kept for the details of how each landed (updated 2026-07-25 — see "What does not exist yet" for details):
+1. ~~**Published cone summaries**~~ — **done 2026-07-31** (`src/ontodag/cones.py`, `tests/test_cone_index.py`; plan steps A–C of the local `docs/CONE_SUMMARIES_PLAN.md`). Encoding v0 is **sorted name lists**, not bitmaps (bitmaps are positional — a thin client would need the whole name↔position dictionary, which defeats the purpose; the manifest carries the format name so bitmaps can land later without touching readers). Selection is the deterministic `descendant_count >= threshold` rule; the index lives in a **separate record store** with its own root and a manifest pinning `{format, data_root, policy, registry_version}` — the asserted root is untouched by indexing (tested), and the `registry_version` pin means a reader on a different dimensions interpreter ignores the index and walks with its own arithmetic (summaries state *combined* cones; asserted-only requests are never served from them). `LazyOntoDAG(cone_index=...)` treats it as a cache with an exact fallback; index hits return stub members. Deliberately not done: plan step D (fetch-aware probe cost — superseded by the index for exactly the broad terms it targeted; revisit on profiling) and step E (CLI surface `odag index` — follow-up when publishing workflows ask for it).
+2. ~~**Adopt `SwarmFeedPointer`**~~ — **done 2026-07-31**, see "What does not exist yet" (only the live-node run of the gated test remains).
+3. ~~**Multi-writer merge rule**~~ — **done 2026-07-31** (`EagerOntoDAG.sync`, `tests/test_multiwriter.py`; see "What does not exist yet").
+
+Optional, pull-forward-anytime (agreed 2026-07-20): **in-memory cone bitmaps behind `get()`** — step (1) of `docs/plans/SEMANTIC_CODES.md` §8's sequencing, exempted from that note's parking because it is bounded, in-memory-only, dependency-free (Python ints), schema-invisible, and oracle-tested by I5 (`popcount == descendant_count`). Do it if/when queries are measurably hot (web UI); it neither advances nor blocks items 1–3. The **`get()` query planner** — **DONE (2026-07-21), including the adaptive walk-vs-probe step**: `OntoDAG.get` resolves/dedups terms by name, drops query terms that are ancestors of other terms (upward `_has_ancestors` walk from the smaller-count term, so planning scales with the query, never the graph; `descendant_count` as the cheap necessary condition), orders cones smallest-count-first, then executes adaptively — before each remaining term it picks walk (traverse the cone, intersect) or probe (upward walk per surviving candidate settling all remaining terms at once) from the now-known running-result size, with early exit on empty. All steps are result-preserving; `_PROBE_COST_ESTIMATE` only steers operator choice (time, never correctness). Tests: `tests/testdag.py::TestQueryPlanner` — brute-force oracle over all 1/2/3-term fixture queries, forced-probe/forced-walk modes, a 60-node seeded-random DAG under all modes, and the meet-substitution guard (a node named "AB" under A and B is NOT the meet of A and B — `put(X, [A, B])` creates a *sibling* of AB — so do not "optimize" `get` through such nodes; see `SEMANTIC_CODES.md` §10).
+
+## Roles as dimensions: ROLES.md §9 steps 3–8 (from 2026-10-06, unreleased)
+
+Peter settled the semantics on 2026-10-06 (docs/plans/ROLES.md §8): a
+node is a class of items and below is inclusion; kinds and qualities take
+items directly, entities only through a dimension over nodes (`in`,
+`about`, `for`); "dimension" is the one word; `in` is strict. Built on
+main so far: **3.1** (HOW_IT_WORKS.md §1, "What an arrow means") and
+**3.2**, the general **transitive kind** (`transitive-dimension`,
+registry 4.3, DIMENSIONS.md §16): the graph kind's rule plus "or some
+constraint is itself below R(Y)"; strict with a guard (`_refuse_self_
+containment`, asked on names in `_check_parametric_placement` before put
+or reclassify materializes anything, and in `add_edge`); no folding, no
+meets; re-reduction of terms whose constraints moved, to a fixpoint for
+nested terms; and a memo of `is_below`, graph-ordered containment and
+graph-term spellings against `DAG._version`, without which the rule was
+exponential. Two things found and fixed on the way: `constraints()`
+returns a tuple (a `!= [name]` comparison silently disabled the guard,
+and the unguarded self-containment then sent queries into runaway
+recursion); and `_prune_rectangle` assumed no cycles, so a lenient merge
+of x-in-y with y-in-x orphaned a node. It now prunes nothing on a cycle.
+Found and NOT changed: the graph kind folds same-head terms, so its
+stored form depends on filing order, and `about(mars)` with `about(earth)`
+becomes `about(earth mars)`. Reported to Peter, recorded in DIMENSIONS.md
+§16; it is why `about` (step 3.3) is not a graph-kind head. **Fixed
+2026-10-08 (0.30.6, Peter's option A):** a graph-kind compound term is
+never stored; it is filed as one term per constraint, and re-reduction
+covers the graph kind's heads (below, "The graph kind's canonical form").
+
+**3.3, the enclosing kind** (`enclosing-dimension`, DIMENSIONS.md §17;
+called `relation-dimension` until Peter chose the name later that day):
+the graph kind's rule plus "or some constraint is below `in(Y)`",
+following only the reserved transitive head `in`
+(`dimensions.CONTAINMENT_HEAD`). `about`, `from` and `to` are heads a store
+declares under it; `geo` is unchanged (see the decisions below). Adding
+it, the oracle found three bugs in the shared machinery, two of them also
+in the 3.2 code already pushed:
+re-reduction missed terms below a moved term, and skipped terms the new
+edge itself touched (being touched is not having a constraint move); and
+the memo cached provisional answers. A re-entrancy guard says "no" to
+break a loop in the reasoning, and that "no" was stored as final. Fixed
+by never memoizing an answer computed while a guard tripped (`_trip`);
+the speed that cost was won back by a lean `is_below` (`_lean`,
+`_escapes`): term bounds are tested by containment directly, and computed
+links are walked only for dimensions whose terms are filed under
+something besides their head. A one-off 300-world oracle stress found no
+disagreement. `tests/test_transitive.py` now holds 27 tests.
+
+**Peter's three decisions after 3.3** (same day, ROLES.md §8 items 8–10):
+(1) `in` is for places and parts only; membership goes under kinds
+(`alice ⊑ sales-employee ⊑ employee`), because membership by `in` chained
+into location (checked: Alice `in(sales)` and sales
+`in(ljubljana-office)` made Alice located in the office). The code can't
+enforce it; it is a modeling rule. The test fixture's Acme staff became
+the Louvre (Mona Lisa in the Denon wing, the pyramid directly in the
+Louvre: the `in(in(Z))` case) and Zermatt (in Switzerland and in the
+Alps: the multi-valued case). (2) `geo` and `in`: (a) now, apart and
+linked by assertion (`geo(u2e4) ⊑ in(ljubljana)` puts everything in the
+cell `in(ljubljana)`, checked; the reverse isn't derived), (b) the bridge
+rule as the target, sound only now that `in` is spatial. (3) The kind's
+name, `enclosing-dimension`. Consequence for 3.4: `for` is the plain
+order reversed and follows kinds only, since following `in` would turn a
+location fact into an access grant.
+
+**Contract 0.2 (2026-10-06, Peter: "amend to allow it").** CONTRACT.md
+now states what an arrow means (§2: every name is a class of items, below
+is inclusion), admits dimensions over nodes as the one scoped exception to
+"no further expressiveness" (§5.1: users declare heads, never rules; each
+kind is a fixed rule in code with an oracle; the order stays a local
+walk; monotone, merge never refuses; narrower relations admissible later
+as their own clause change; chains, grouping, n-ary relations and defined
+concepts stay behind the wall), and adds O6 (file by the one meaning;
+`in` for places and parts, membership by kinds). A new kind is a clause
+change; a new head never is. `CONTRACT_VERSION = "0.2"` (MCP answers
+carry it; loopmarket compares majors only, `_major_skew`, so no skew).
+`tests/test_contract.py` gained `TestDimensionsOverNodes` (4).
+
+**3.4, the reversed kind** (`reversed-dimension`, `KIND_REVERSED`,
+DIMENSIONS.md §18, same day): `R(X) ⊑ R(Y)` iff every X constraint is
+above some Y constraint (the graph rule with sides swapped), so
+`for(sales-employee) ⊑ for(alice)` once `alice ⊑ sales-employee`; kinds
+only, never `in`; multi-valued (no fold, meet by containment only). Two
+findings while building it, both fixed: (1) **a relation term filed under
+anything but its head** (`for(board) ⊑ secret`, an "escape") is a rule
+(∃for.Board ⊑ Secret, an EL GCI with the existential on the left) and
+made evaluation exponential: with escapes 19/60 random worlds of
+`in`+`about` (pushed 3.3 code) and 43/60 of `for` hit >3 s puts; without,
+worst 12 ms. Now refused for all three relation kinds
+(`dimensions.RELATION_KINDS`, `_refuse_rule`, in
+`_check_parametric_placement` before materializing and in `add_edge`;
+lenient on merge). Recorded as ROLES.md §8 item 12 **for Peter to
+confirm**. (2) **An edge could close a loop through a computed link it
+creates** (cycle check runs pre-edge): `transport(vehicle) ⊑ rush ⊑
+transport(bicycle)` then `bicycle ⊑ vehicle` — released bug in the graph
+kind (0.26.0) and role heads (0.25.0). `add_edge` now runs
+`_term_on_new_cycle` after the structural add (moved terms of heads whose
+terms escape; rollback + refuse). `_escapes` became a per-DAG cache kept
+current by `_note_escape` (it was a star scan per version: 29% of filing
+time). Tests: `TestAudience` (9), `TestCertificatesAcrossProcesses` (3
+hash seeds; the reversed rule walks the bound's argument upward), oracle
+with `for` + refused escapes, `TestNoLoopThroughAComputedLink`
+(test_graph_kind.py), `TestNoLoopThroughARoleLink` (test_roles.py); 300
+larger worlds, 0 disagreements. **Found and NOT changed** (CHANGELOG
+"Known issue"): graph-kind terms are not re-reduced when a constraint
+moves (stored form depends on filing order, a G1 break since 0.26.0; fix
+= add graph heads to the re-reduction, waits for loopmarket with the
+folding question); and filing cost grows with terms per head.
+
+**Peter's ruling on item 12 (2026-10-06/07): "We expect very large
+graphs, so exponential is out of the question."** (Memory:
+`very-large-graphs`.) The audit that followed: (1) the released graph
+kind was exponential with escapes too (38/60 worlds) — escapes refused
+for every GRAPH_ORDERED kind (`_refuse_rule`); loopmarket's suite passes
+against the tree (297 passed); (2) every parse re-checked a STORED
+graph-ordered term for redundancy — after `courier ⊑ transport(bicycle
+fragile)` then `bicycle ⊑ fragile`, every query touching it raised
+(since 0.26.0), and the checks ran inside walks and recursed (2/60
+graph-kind worlds exponential without escapes) — a present name now
+parses as stored; (3) the loop check had also run for heads filed under
+an ordinary node (loopmarket's `transport ⊑ operator`), where it would
+mistake the folding issue for a loop and refuse plain facts — now gated
+on `_escapes` only; (4) an `in` chain 200 deep raised RecursionError —
+`_within` is a worklist over containers that memoizes everything it
+settles; 3,000 levels answer in 0.15 s (`TestDeepChains`). **Open and
+measured:** per-put cost is linear in the terms per head for every
+dimension kind (star scans): weight 31/73/156 ms at 200/400/800 values,
+same as 0.28.0; in 28/64/132; for 8/18/39; plain 0.1 flat. Declaring
+in/for doubles it on value-heavy stores (re-reduction's full cones).
+Proposed as ROLES.md §9 step 4a, output-sensitive hops, before 3.5.
+
+**4a, done overnight 2026-10-07** (Peter: "push and continue with 4a ...
+continue as far on this plan as you can", away, no questions possible;
+design record DIMENSIONS.md §19). Hops found from the term itself on
+resident graphs (`OntoDAG._hops`; `_resident = False` on LazyOntoDAG,
+which keeps the scan): `_Intervals`/`_Prefixes` per-head indexes for
+values, an argument index (`_args`, kept by `add_node`/`_unindex`) plus
+walks near the constraints for graph-ordered terms (`_graph_hops`,
+`_ancestry`, `_below_names`, `_containers`, `_located_in`, candidates
+verified with `_contains`, scan when the walk would exceed the star),
+role terms through the base dimension and a literal-parameter index
+(`_role_hops`). Writes: fresh anchors skip pruning/re-reduction/loop
+check; `add_edge` checks are `is_below` (`_below`); `_prune_rectangle`
+iterates the lower end's parents; the strictness guard walks the
+parent's containers once (fast path for a new place); re-reduction is
+`_moved_terms` (index lookups, fixpoint over moved cones, reversed
+pairs). Also fixed: `is_below`'s meet fallback recursed through
+`_bounds` (now the meet of the values its walk met); a refused `x ⊑
+in(x)` left `in(x)` behind (my fast-path bug, pushed in 03b6566, caught
+by the stress run, fixed in d94f639; the oracle now asserts refusals
+leave nothing). Numbers: per put at 3,200 terms weight 0.9 ms, in 0.6,
+for 0.3; loopmarket shape 1.8 flat; queries proportional to answers.
+Tests: `tests/test_hops.py` (differential vs scan over every kind and
+roles; filing never walks a star). Live Bee tests 2/2 on bee 2.8.2;
+loopmarket 297 passed against the tree; ontodag-fs's contract pin was
+moved later the same night (below). Lesson recorded: never commit in the
+same command that reads a validation result.
+
+**The rest of that night (2026-10-07), after 4a.** Steps 5–8 each wait
+on a decision of Peter's, so the night did what needed none and prepared
+the rest:
+- **ontodag-fs accepts contract 0.2** (`CONTRACT_VERSIONS = ("0.1",
+  "0.2")` in its `tests/test_upstream_contract.py`, after a review of
+  what it relies on; pushed to its main, no release). The 0.30 downstream
+  gate runs that suite from main, so nothing is owed there any more.
+- **Main:** `odag put` explains a term-shaped parent that is no term
+  (ROLES.md §4's complaint: `smell` under the store's own `my-kind`);
+  a graph-ordered head declared under another head (`courier ⊑
+  transport`, `departure ⊑ from`) no longer guards the nodes its terms
+  name — the §14 role guards had refused removing or moving them since
+  0.26.0; a virtual query term's cone is one walk with a shared visited
+  set (`_walk_cone`, `_virtual_cone`; LazyOntoDAG honours a shared set
+  and never caches such a walk): 754 → 30 ms for 100 nested ranges.
+  Still superlinear: the interval index lists every value inside a range
+  as its hops, so 1,600 ranges each inside the last take 2.9 s; random
+  real-shaped time windows stay modest (4,000 in 0.56 s). USER_GUIDE
+  §4.9 (in/about/for, executed). ROADMAP.md gained the roles section and
+  lost "no relations". Suite 1,167 (README).
+- **Step 5, narrower relations, built on the branch
+  `narrower-relations`** (pushed, no PR) in a proposed form: a head of a
+  relation kind filed under another head of the same kind is a narrower
+  relation (`departure ⊑ from` gives `departure(x) ⊑ from(y)` iff
+  `from(x) ⊑ from(y)`); value roles and the graph kind keep their
+  meaning. Design record DIMENSIONS.md §20; the 0.3 clause drafted in
+  CONTRACT.md §5.1 and marked not agreed (`CONTRACT_VERSION` stays 0.2
+  on the branch; on agreement it becomes 0.3 and ontodag-fs's pin needs
+  it too). Two hard parts, both found by tests: hops must look past
+  narrower terms whose broader term was never filed (`x ⊑ inside(z)`,
+  `z ⊑ inside(y)` puts x in y through a missing `in(z)`), done by
+  worklists in `_graph_hops`; and a late declaration must re-reduce and
+  may put something inside itself, checked after pruning (the head is
+  ambiguous until its old kind edge is pruned) with rollback via an
+  edge log. `tests/test_narrower.py` (19 tests, a seven-head fixpoint
+  oracle); one-off 500 oracle + 150 scan-differential worlds, 0
+  disagreements; filing flat. Branch suite 1,186. **Merge only when Peter
+  agrees to the form.**
+- **Step 7's audit, drafted** by a background agent and committed in
+  ontodag-core (`docs/AUDIT_ROLES.md`, `align/audit-roles.tsv`): 45 of
+  12,960 shipped edges fail the one-meaning test (22 high confidence; 27
+  in economics' hand-asserted crypto terms, 10 in geography, 5 in core),
+  the entities per pack (core holds two), and 22 British spellings, eight
+  of them sense pairs, with checked replacement names. ROLES.md §8/§9
+  updated. Two questions in it for Peter: `in` for parts of abstract
+  systems (or `about`), and what `bitcoin` names.
+- **Step 4's rebase** (swarm-sharing onto main, now that `for` exists):
+  pushed as the new branch `swarm-sharing-rebased`, leaving
+  `swarm-sharing` untouched. Conflicts resolved toward main (`act.py`
+  format 2; merged texts for `KeyGraph.revoke`'s gap and guide §9.3);
+  `tests/test_keyplan.py`'s `_derivable` skips keys that format 2's
+  checked `unwrap` refuses. Suite 1,188 there. The keyplan consolidation
+  (principals as people, shares under `for(...)`) is Peter's to start.
+- **Next morning, Peter's decision on step 5: form A** (the edge between
+  two relation heads), over a declaration node or deferring. Merged into
+  main by fast-forward as **contract 0.3** (`CONTRACT_VERSION = "0.3"`,
+  CONTRACT.md §5.1 + amendment record §8, `TestNarrowerRelations` in
+  `tests/test_contract.py`, ROLES.md §8 item 13); ontodag-fs's pin
+  accepts 0.3 (pushed first). Suite 1,188. The remaining open questions
+  (the audit's two, step 7's prelude/spelling/`for` choices, the keyplan
+  consolidation) are being taken one by one.
+- **The same morning, the open questions one by one** (ROLES.md §8
+  items 14–18): parts of systems go under `in(...)` (components) or
+  `about(...)` (mechanisms), a generic part naming the kind of whole;
+  `bitcoin` is the coin, `bitcoin-network` the system (words, not case:
+  names are case-sensitive but all shipped names are lowercase); the
+  audit's rewrites are decided edge by edge in ontodag-core
+  `align/roles-rewrites.tsv` (43 rewrites, 2 keeps); prelude v4 will
+  carry the four missing kind nodes and `in`, `about`, `shared-with`,
+  but NOT `from`/`to` (loopmarket's geo roles would get two kinds);
+  prelude heads get pinned to their unit families (`weight` keeps its
+  name, holds mass); and the audience head is **`shared-with`**, renamed
+  from `for` in comments, tests and docs (no code names it). All of it
+  lands in step 7, so every root moves once.
+- **The keyplan consolidation — DONE and merged into main by fast-forward
+  (2026-10-07, commits 387f340, 7450306, 5632ade; unreleased, for 0.30).**
+  One sharing model (ROLES.md §8 item 20): `ontodag.sharing`, `odag
+  shared-with`, `get --as` and `keyplan` all read the cone of
+  `shared-with(person)`; a member reaches a group's shares through
+  `shared-with(group) ⊑ shared-with(member)`; a virtual term starts from
+  the audience terms it contains (`sharing.tops`). `sharing.timeline`,
+  `point_values`, `Received.timeline`, `keyplan.inbox` and record `values`
+  are gone (a share brings only what is below it plus its content;
+  `KP_VERSION = 3`). Review fixes: a name that leaves the store loses its
+  key (refiled = fresh key); `publish` snapshots state and restores it on
+  any exception (a retry overwrites staged writes); `Reader` uses one
+  worker under `sys.platform == "emscripten"`. `ontodag.act` keeps only
+  the primitives (Bee-ACT grantee entries, format-2 `wrap`/`unwrap`, the
+  curve + pure-Python fallback, `store_key_for`); `KeyGraph`, `Resolver`,
+  `align`, `audience_key`, `node_id`, `AccessDenied` are removed
+  (CHANGELOG "Removed"). Guide §9.3 = primitives, §9.4 re-executed on
+  §5.13's store (17 records). SHARING.md Q1 settled; SHARING_ON_SWARM is
+  now the record for act-categories' phases (status notes there, in
+  act-categories/DESIGN and WALLS_AND_INBOXES). Found on the way and fixed
+  on main first: `reclassify` moving an item up to an ancestor of its
+  parent unfiled it (2ab43b2). `CI=1` suite 1,200 passed + 3 skipped
+  (README 1,203); Pyodide demo green with the pure-Python curve.
+  `experiments/keyplan_spike.py` and `keyplan_swarm.py` predate the model
+  and say so (run them against 0.29). Next in the agreed order: step 7
+  (prelude v4, audit rewrites, renames, golden roots, packs republished),
+  then release 0.30, then migrate categor.io's shares to
+  `shared-with(address)`. Step 7 still owes a design for how a prelude
+  head declares its unit family.
+- **Step 7 — DONE on main (2026-10-07, evening), release 0.30.0 prepared,
+  not tagged.** Decisions taken one by one with Peter (ROLES.md §8 items
+  21–23): a head states its unit family in its kind (`mass ⊑
+  linear-dimension(mass)`, DIMENSIONS.md §21; `_head_family`,
+  `_refuse_pin_over_values`, `_ensure_family_node`, `dimensions.kind_node`);
+  the prelude says `mass`, never `weight` ("let the surface layer worry
+  about the wrong word"); core's lump-of-matter `mass` → `body-of-matter`;
+  core declares the heads for the quantity names it owns (`force`,
+  `current`, `frequency`; `force` = the physics quantity); ship core v11
+  as part of **core v12** (v11 + step 7). Fixed on the way: merge crashed
+  on two unit families under one head (I7, released bug). Prelude v4:
+  nine kinds, nine pinned heads (family nodes listed explicitly), `in`,
+  `about`, `shared-with`; root `ad8b1a09…`. ontodag-core gained
+  `tools/step7.py` (the last stage of `build.sh`; idempotent, chained
+  renames included; core may lean on no pack, so `leaf-blade ⊑ in(leaf)
+  natural-object` deviates from the table's `plant-part` — flagged to
+  Peter) and `align/core-heads.tsv`; ontodag-core `d157031`. Domain packs
+  regenerated, each +1; `pack_dag` carries the prelude when a pack's
+  parents include family pins or `in(...)`/`about(...)` terms. Every
+  golden root re-pinned with the new `scripts/repin_golden_roots.py
+  [--swarm] [--union]` (union `f7c44636…`, 11,892 categories; ~20 min
+  with both flags). Docs swept (weight → mass; executed snippets re-run;
+  CORE.md v12 entry; EVOLUTION.md §8 item 13: vectors, matrices, tensors,
+  Peter's aside). Validated: `CI=1` 1,210 passed + 3 skipped (README
+  1,213), slow union test, release smoke 27/27 on the 0.30.0 wheel, live
+  Bee 2/2, ontodag-fs 313 passed against the tree. **loopmarket** needs
+  `mass(...)`: done on its branch `ontodag-0.30` (floor
+  `ontodag>=0.30.0`), merge after 0.30 is on PyPI; **ontodag-fs**'s
+  ceiling `<0.30.0` needs raising after the release. **Then, same day:
+  0.30.0 PUBLISHED by tag** (all four jobs green; `release_smoke.py --pypi
+  0.30.0` 27/27); the packs republished to Swarm (Bee run 12); loopmarket's
+  branch merged to its main with the follow-through a survey found
+  (prelude-v4 example catalogues, pinned heads as their own base,
+  `Ontology.load` with typed parents, unknown-prelude-term hints; 300
+  passed, CI green, NOT released); ontodag-fs's ceiling raised to
+  `<0.31.0` on its main (NOT released). Still owed: those two releases
+  (Peter confirms each tag), categor.io's migration, and the survey's open
+  questions for Peter (loopmarket's verifier compares pins exactly while
+  matching compares majors; the graph kind's folding/re-reduction answer,
+  settled 2026-10-08 as option A, see "The graph kind's canonical form").
+  **Decision 1 settled the same evening (Peter followed the advice):**
+  compare majors everywhere. ontodag **contract 0.4 / G7, monotone
+  versions** (within one contract major and one registry major a newer
+  ontodag never takes an answer away; `TestG7MonotoneVersions` over
+  `tests/fixtures/g7.od` + `g7-answers.json`, generated by
+  `tests/fixtures/make_g7.py`, never to be regenerated to make a failure
+  pass). Its first run found a **bug shipped in 0.30.0**: the per-head value
+  index followed node creation, not anchor edges, so after a native load a
+  store with a role head under `geo` answered `get geo(...)` with nothing
+  (fixed by `_note_star_child`; `TestALoadedStoreAnswersAsItDidLive`,
+  mutation-checked under every hash seed). On main, unreleased: **0.30.1
+  owed** (the fix + G7). ontodag-fs accepts contract 0.4 (main). loopmarket's
+  verifier change is on its branch **`major-pins`** (beat pins majors;
+  one shared pin-check shape kept LegVerifier under EIP-170 — a second
+  shape cost ~480 bytes), NOT main: the deployed BeatClearing `0xC475…11d4`
+  demands exact versions, so merging needs a redeploy (Peter's call).
+  **Then, on Peter's "go ahead": all released and deployed (2026-10-07,
+  afternoon).** ontodag **0.30.1** (index fix + contract 0.4; all four jobs
+  green, PyPI smoke 27/27); ontodag-fs **0.6.4** (ceiling `<0.31.0`, contract
+  0.4; resolves 0.30.1 from PyPI); loopmarket's clearing contracts
+  **redeployed on Gnosis** (BeatClearing `0x4A35ee6e86C266de94134BaD5523A8D7C8fA5cF4`,
+  LegVerifier `0x9E5A…FD2b`, StatementVerifier `0xAF36…51b2`, SealedBeat
+  `0xfC55…B5cE`; `0xC475…11d4` retired to it; `~/.loopmarket/config`
+  updated, backup `config.bak-2026-10-07`), checked live by `eth_call` (the
+  mixed 4.2/4.3 loop verifies on the new contract, refused by the retired
+  one), `major-pins` merged, loopmarket **0.14.0** published and verified
+  from PyPI. **categor.io migrated in code** (its main, `15a55e3`): Share
+  files under `shared-with(address)`, stores move across once at startup
+  (`stores.migrate_shares`, one history entry each), pre-0.30 imports
+  moved too, `names.is_audience`/`is_meta`, floor `ontodag>=0.30.1`, 35
+  tests; **the live site is not updated yet** — `ssh -t peter@categor.io
+  sudo categorio-update` is Peter's (needs his sudo). Found on the way, for
+  Peter: core has `group ⊑ agent` (since its first consensus build), which
+  puts 187 concepts under `agent` (species, sequence, matrix, system, row,
+  pair); v11's `gene ⊑ sequence` made a gene an agent. **Fixed the same
+  evening as core v13** (Peter: "a group is not an agent"; ontodag-core
+  `align/rulings-v13.tsv`, applied by `tools/step7.py`'s new move/parent+/add
+  actions): `group` the eleventh top branch, organization/legislature/
+  executive/jury/movement keep `agent`, democracy/monarchy/republic under
+  `system`, engagement under `meeting`, gene also `natural-object`; plus
+  **vaccine** (missing everywhere): `vaccine ⊑ medication` (core's sense
+  "treats or prevents") and `vaccination ⊑ medical-care` in core, the
+  medicine pack's vaccines under the hinge with five kinds (medicine v7).
+  **Released as 0.30.2** (a patch, as 0.19.1/0.22.1 were, so ontodag-fs's
+  `<0.31.0` ceiling holds; all four jobs green; PyPI smoke 27/27). Union
+  `edd681de…`, 11,899 categories. **Swarm republication of core + the ten
+  domain packs was owed** (the node was down at release time) **and done the
+  same evening** once Peter restarted it: all eleven stores, from a fresh
+  home (old pack stores hold v12, and a retraction never propagates by
+  merge), every root byte-equal to its re-pinned `SWARM_GOLDEN_ROOTS` and
+  `isRetrievable: true`; chemistry, biology and medicine each needed one
+  `PUT /stewardship` re-upload first (the September lesson again: verify,
+  never trust the upload).
+- **Validated at the end of the night, against main as pushed:** the
+  live Bee tests 2/2 (bee 2.8.2, batch `c931c8a5…` usable, 22.1 days
+  left, fullest bucket 23/32, throwaway signer), loopmarket 297 passed +
+  4 skipped, ontodag-fs 313 passed + 2 skipped, and `CI=1` suites green
+  on main (1,167) and on both branches (1,186; 1,188).
+
+## The graph kind's canonical form (2026-10-08, released as 0.30.6)
+
+Peter's "fix 1 first", after he asked for the question with options and
+a better example (a removal job tagged "piano" and "heavy item"). The
+two bugs, both G1 breaks since 0.26.0: a graph-kind item under two terms
+of one head was FOLDED into a stored compound (`transport(heavy-item
+piano)`), whose canonical spelling follows the graph while a stored name
+never changes, so learning "pianos are heavy" after the job gave a
+different root (`55b70437…`) from knowing it first (`0b24367f…`), a
+third for their merge, and two names for one class (I1); and graph-kind
+terms were not re-reduced when a constraint moved. Options put to him:
+A store the parts, B keep folding and rename stored compounds as the
+graph grows, C stop folding with a two-fillers reading, D leave it. **He
+chose A.** Built (DIMENSIONS.md §15 "Stored as parts"): `_graph_parts`
+splits a compound (recursively for nested graph-kind constraints),
+unreduced, so every named part is materialized in every order; `put`,
+`reclassify` (`to` and `--from`) and a term put as an item use it;
+`_fold_same_head_values` skips the graph kind; `get` splits compound
+query terms (`_query_parts`), `is_below` against a compound bound is the
+conjunction of its parts; `_canonical_graph_term` DROPS a redundant
+constraint for the graph kind (relation kinds still refuse);
+`_reduce_roles_touching` includes `_graph_kind_heads()`. Verbatim paths
+(native load, hydrate, merge) keep legacy compound nodes, which answer
+correctly; `ontodag.migrate` replays them into parts; G7 holds.
+**Two released bugs found on the way (since 0.30.0's hop index), both
+fixed:** on a resident graph `get transport(mass(..8kg))` missed items
+under `transport(mass(..5kg))` (a value named only inside a term is no
+node): `_constraint_index` per head + `_value_constraints_near` in
+`_graph_hops`; and a graph-kind term nesting a graph-ordered term was
+reached by no up-hop: `_constraint_shapes` counts per head, such heads
+(and any naming an unindexable value) scan, and `_moved_terms` follows
+nested keys that are not nodes. **Planner, measured first:** answering
+a compound as parts walked the broad part (`transport(mass(..30kg))`,
+whose cone runs through every nested range) and the term-dropping step
+climbed the same chain: a graph-kind part's planner size is now at least
+`_graph_part_estimate` (narrowest category's count; the store's size if
+value-only; lazy `_Cone` kind computed only when walked) and term-dropping
+climbs asserted edges only. `get transport(c0 mass(..30kg))`: 1.8/11/37 ms
+at 400/1,600/6,400 offers (0.30.5: 0.9/62/554, with misses); filing flat
+~1.2 ms/put (0.30.5: 0.8). Tests: `TestStoredFormIsOrderFree`,
+`TestAgainstTheMeaning` (25 random worlds × 4 orders + a merge: one
+root, answers = the one-thing reading, no I1 pair),
+`TestGraphKindAgreesWithTheScan` (test_hops); 15 of the new tests fail on
+the old code. Suite `CI=1` 1,233. loopmarket: one test asserted the old
+refusal (`transport(bicycle small-item)` unknown); updated and released
+as loopmarket 0.14.4 right after 0.30.6 (floor `ontodag>=0.30.6`). **Both
+released on Peter's "release both"**: ontodag 0.30.6 by tag (all four jobs
+green incl. downstream + verify; `release_smoke.py --pypi 0.30.6` 27/27
+after one index-lag retry; the piano example run from the PyPI package:
+one root in both orders), then loopmarket 0.14.4 (CI and publish green;
+from a fresh PyPI venv `transport(bicycle small-item)` is known, argument
+`("bicycle",)`, a racing bicycle fits). ontodag-fs 313 passed against the tree. Still open
+(recorded, not changed): the relation kinds' explicitly written compounds
+(`in(museum-district tokyo)`) can still become a second name later.
+
+## Relation-kind compounds keep their current spelling (2026-10-09, 0.30.7 prepared)
+
+The gap 0.30.6 recorded: a relation term with several constraints (`in`,
+`about`, `shared-with`) means ONE thing meeting all of them, so it cannot be
+split into parts (for an audience, splitting would WIDEN access), and a
+stored one kept a stale spelling once the graph related its constraints:
+a plan under `shared-with(employee sales-employee)` before `sales-employee
+⊑ employee` kept that name (I1 break, root `a1201572…` vs `dbec98f1…` for
+fact-first, where the spelling was refused). Options put to Peter: 1 keep
+the stored spelling current (re-file), 2 relation compounds query-only, 3
+leave it. **He chose 1.** Built: `_canonical_graph_term` drops a redundant
+constraint for EVERY graph-ordered kind; `_compound_terms` (kept by
+`_index_args`/`_unindex`) lists present compounds; `_moved_terms(...,
+touched)` collects the terms it meets and `_reduce_roles_touching` re-files
+any stale compound among them (`_respell_stored` → `_respelling` +
+`_refile`: move children to the current spelling, forget the old node;
+inner terms first, then the terms naming a re-filed one); inside replays it
+defers (`_respell_later`) and `merge`/`merge_delta` (eager and sparse) call
+`_respell_deferred` with the compounds the replay brought. Also the 0.30.6
+follow-up: the MCP write surface records compound graph-kind claims per
+part (`_canonical_supers` expands parts; `_subject_from` refuses a compound,
+naming its parts). Tests: `TestTheStoredSpellingStaysCurrent`,
+`TestRelationSpellingAgainstOrders` (30 random worlds, 4 orders + merge:
+one root, no I1 pair), the MCP per-part test; 7 of 8 fail on 0.30.6.
+Filing stays flat (0.25–0.30 ms per put at 200–3,200 people/places, same as
+0.30.6). Guide §4.9 gained an executed compound-audience snippet and lost a
+stale "not in the prelude yet". Price, documented: a stored relation
+compound's name can change (to its current spelling, same class), moving
+an ontodag-fs directory or a key plan's node key, and a provenance claim
+under the old spelling is not found under the new one.
+
+## Role heads (2026-09-12) — issue #15 closed, DIMENSIONS.md §14
+
+Peter's order for the session: #15, then #16, then #14 (loopmarket's three
+GitHub issues). **#15 shipped:** a head declared under another head (`from`
+under `geo`) is a *role* of that dimension and takes the base dimension's
+**nodes** as parameters — `from(my_home)`, `from(ljubljana)`,
+`where(my_home_4th)` — stored as spelled, ordered by the graph
+(`from(x) ⊑ from(y)` iff `x ⊑ y` under `geo`), one combined order for
+`is_below`/`get`/reduction/lazy/certificates. Design record: DIMENSIONS.md
+§14; tests: `tests/test_roles.py` (23; 957 passed + 4 skipped). What cost
+the most thought, kept here so it is not re-derived: (a) the *heavy* stance
+was chosen — role hops are part of the combined order, so stored form stays
+canonical only because `add_edge` ends with `_reduce_roles_touching` (a
+place filed or a region grown after the terms naming it re-reduces those
+terms' computed hops; the rectangle around the new edge cannot see them —
+the hop is a wormhole between the role's star and the base dimension); the
+*light* stance (query-time only) was rejected because it makes `is_below`
+and `add_edge` disagree about redundancy. (b) A region's covering is a
+**lower bound only** (G2 monotonicity: an upper reading lets a later cell
+flip True→False). (c) Overlap for nodes excludes upper×upper — two places
+under one cell are two places (Peter's floors rule) — and `get_overlapping`
+now walks asserted edges below each anchor (it had followed computed hops,
+over-including items under provably non-overlapping finer values: a latent
+bug, fixed). (d) Values are leaves of the declaration walk (a node under
+`geo(u2e4x)` is no longer a head). (e) Guards: role-named nodes cannot be
+removed/cone-deleted/moved out of the dimension; creating a category a role
+term already names as a literal must land it inside; replays (`merge`,
+`sync`) are lenient while nodes precede their edges. (f) Interpretation can
+loop without the graph cycling — `_param_node` is re-entrancy-guarded.
+Deferred: Peter's covering-as-a-value (`where(u24m+u24q)`) — a prefix-kind
+grammar change, fires on the anonymity tripwire.
+
+**#16 shipped the same session:** `OntoDAG.overlaps(a, b)` (pairwise G6 —
+terms or nodes either side; values by arithmetic, nodes by the graph, the
+§14 rule) and `OntoDAG.meet(a, b)` (the one-term intersection with store
+units; `None` when provably empty; raises when no single term names it,
+which is the node-parameter case with neither containing the other). On
+every surface: `odag overlaps A B` / `odag meet A B` (grep-style exits),
+`GET /dag/overlaps` / `GET /dag/meet`, MCP `overlaps` / `meet` read tools;
+REFERENCE §3/§4/§5/§7/§8 and AGENT_SURFACE rows added (test_reference pins
+them). `TestOverlapsAndMeet` (7) + CLI/REST/MCP tests; 969 passed + 4
+skipped (973 collected, README count updated). Invariant pinned:
+`is_below(a,b) or is_below(b,a) ⇒ overlaps(a,b)`; `meet is None ⟺ not
+overlaps` for the node case by construction.
+
+**#14 shipped last, completing Peter's order:** `get(terms, overlapping=[…],
+items_only=False)` (and `get_any`). The planner now runs ONE list of cones
+of three kinds — present nodes, virtual containment terms, overlap terms —
+sorted by estimated size, walk-or-probe per step: an overlap cone's anchors
+are the star values overlapping the term, its walk is `get_overlapping`'s
+(asserted below each anchor), its probe an *asserted* climb into the anchor
+set; virtual containment terms gained a probe too (they were walk-only and
+always first). Overlap terms are never pre-intersected as meets (pinned).
+`items_only` = not a parametric value and no asserted children — the
+structural "item", since the core has no class/instance distinction; note
+the prelude's unused heads are childless plain nodes and so count as items
+in a universe query (a test fixture tripped on exactly that). Lazy-reader
+budget test pins the probe firing (small concept cone × whole-book overlap
+cone: one plan fetches < ¼ of the overlap walk). Surfaces: `odag get/count
+--overlapping TERM --items-only`, `/dag/query?overlapping=&items_only=`,
+MCP `query` `overlapping`/`items_only` (echoed). Oracle everywhere: the
+consumer's old `get(...) & get_overlapping(...)`, all three planner modes.
+**980 passed + 4 skipped (984 collected) as of 2026-09-12.** All three
+issues are closed in code and docs; the GitHub issues themselves are still
+open — closing them (with the consumer commitments quoted back) is Peter's
+call or the next session's.
+
+**#17 and #18 (same night, from loopmarket's consumption of the three):**
+(#17) first built as "the base head named as a role parameter is the
+whole space" (`from(geo)`), then UNDONE the same night on Peter's two
+rules — *what is unconstrained is not visited; the other constraints give
+the result* and *the overlap of everything with A is just A* — and
+answered in §8 instead (next paragraph): an item stating nothing under a
+head is unconstrained on it, and `from(geo)` is refused in `_param_node`
+with that reason. Tests: `TestTheDimensionItselfIsNoParameter` in
+`tests/test_roles.py` (2). (#18) `_dimension_of` cached per DAG
+(`_dim_cache`), dropped with `_heads_cache` in `_maybe_invalidate_heads`
+and `_forget`; when the heads cache is empty the dim cache is dropped on
+every plain edge instead (no upward walk on a lazy writer's put). Tests:
+`TestDimensionCache` in
+`tests/test_dimensions_dag.py` (6). Numbers in the issues.
+
+**Withdrawn the same night.** Peter, after two revisions of the overlap
+mode: *"why is overlap relevant at all? Ontodag is based on intersection."*
+And the modelling correction: *a want is a wider cone and a give a
+narrower cone* — the toothbrush wanted within five metres of the
+reception desk within thirty minutes is a narrow want, and the give that
+fits within it matches; my "a handover point exists" (both sides flexible,
+overlap of two ranges) was not his model. So `get(overlapping=...)` is
+gone from `get`/`get_any`, CLI, REST and MCP; `items_only` stays;
+`get_overlapping`/`overlaps`/`meet` stay as the candidate question and
+pairwise arithmetic; `from(geo)` stays refused. loopmarket matches every
+term by containment and its `DimensionIndex.candidates` is
+`get([line, *want.concepts], items_only=True)` — the want's conjunction
+IS the query. Record: DIMENSIONS.md §8 ("built and WITHDRAWN"). **984
+passed + 4 skipped (988 collected) as of 2026-09-12 night.** **991 passed + 4 skipped (995 collected) as of 2026-09-13 evening — 0.26.0, the graph kind (#19, renamed from category-dimension in 0.26.1, `tests/test_graph_kind.py`), registry 4.2, prelude deliberately unchanged.** **992 passed + 4 skipped (996 collected) 2026-09-14 — 0.26.2, canonical placement: an item under several values of one head is filed under their meet (DIMENSIONS.md §9).** Lesson for
+the file: when a consumer asks for an operator, ask what reading of the
+data makes it necessary before building it.
+
+## The projection seam (2026-08-20) — PROJECTIONS.md §4–§5 shipped
+
+**Overlay views + `odag ingest` + the projection-drop golden test**, in one
+commit (`c92696b`), making the personal-data pipeline runnable end to end:
+holdings scan → `project-ontodag` JSONL → `odag -f proj.od ingest` → joined
+browse with `set overlays proj.od`. The seam is `Session.view()` (primary ∪
+configured overlays, cached, invalidated on load/switch/save); the routing
+rule is the excerpt/visualize asymmetry generalized — **answers and pictures
+read the view; mutations and mergeable artifacts read the primary** — so a
+machine layer can never launder into a file someone merges. The composed
+view is a plain in-memory `OntoDAG` (no store, no `commit`: persisting the
+union is impossible, not refused). `overlays` is the seventh settings row
+(all four layers; validated at set time); the web sandbox's
+`WebSession.view()` deliberately opts out (the server's overlays must not
+serve an anonymous stranger). `ingest` is idempotent, order-free
+(provisional top-level categories refined when their own line arrives),
+one commit per run, `--drop` = full-rebuild; listed-and-refused in the
+browser like import/export. Tests: `TestOverlayView` / `TestProjectionDrop`
+/ `TestIngest` in `tests/test_cli.py` — **893 passed + 2 skipped as of
+2026-08-20**, plus a by-hand end-to-end run (stdin ingest, cross-layer get,
+export purity, the `--overlay` flag layer). Not yet: MCP reads through
+overlays (needs a design for `about`/root citation over a composed view —
+a view has no root to cite), and single-audience encryption (PACKS §14
+item 3's other half).
+
+## act-categories Phase 1, items 1–3 (2026-09-02) — `ontodag.act`
+
+*(Retired 2026-10-07 for 0.30: `KeyGraph`/`Resolver`/`align` are removed;
+`ontodag.keyplan` derives the tokens from the store. Kept as history.)*
+
+Peter asked for PACKS §14 item 4 to start ahead of its multi-audience
+tripwire. Shipped client-side only, no Bee involved: `KeyGraph` (the key
+manager: mint K_v, `link(u, v)` publishes T(u→v) = Enc(K_u, K_v) under a
+**per-edge** key — one keystream per edge, because Bee's stream cipher is
+an XOR and reusing K_u's keystream across two children would leak their
+XOR; `grant(person, pk)` publishes a Bee-ACT grantee entry bit for bit
+(`lookup = Keccak(x‖0)`, wrap under `Keccak(x‖1)`, vectors from the
+August spike pinned in `tests/test_act.py`); `rotate`/`revoke` are
+forward-only epoch events — categories rotate, document leaves do not,
+since their content is already out; `align(dag, people=, documents=,
+bridges=)` mints along asserted cones, people upward, documents
+downward), `Resolver` (walk from a personal secp256k1 key, memoized BFS
+over `act/t/` records, works over a `RecordStore.at(old_root, blobs)` snapshot), `audience_key`
+(sorted-name AND), `store_key_for` (→ `EncryptedBytesStore`: the seam the
+2026-08-20 encstore note promised). Node ids are sha256 of the name
+(opaque in the store). `act` extra; module imports stdlib-only. Tests
+(`tests/test_act.py`, gated): Bee vectors, the §2.2 picture incl. the
+audience trap as a modeling rule, a 12-seed reachability oracle, the
+two-time-pad guard, revocation + old epochs, equal keys ⇒ equal store,
+the encstore seam, the align shapes. NOT done: item 4 (category manifests
++ feeds), anything Bee-side, the on-Swarm format (Phase 3). Open
+questions in DESIGN.md §9 were answered by default (flat KVS token set,
+per-node epochs, aligned twin) and say so in its Phase 1 status note.
+
+**Format 2 (2026-10-06, unreleased): revocation was broken and is fixed.**
+Found in the swarm-sharing review: a token was `K_v XOR KS(K_u, id(v))`,
+so when v rotated under a parent that kept its key, the re-minted token
+reused the keystream and the old and new tokens XORed to the keys' XOR.
+A revoked reader recovered the new key from the public store, under
+lazy and eager rotation alike. The tests had only modeled an attacker
+who unwraps. Format 2: a token is `check(K_v)` (32 bytes, a domain-
+separated Keccak of the key) followed by K_v under a keystream bound to
+the edge AND the check; `unwrap` verifies the check. Chosen over binding
+the *epoch*, because `KeyGraph(keys=...)` resets epochs to 0, so an
+epoch-bound keystream would repeat after a rebuild from exported keys.
+Format-1 graphs are refused with a reason. `TestARotationCannotBeUndone`
+(4 tests) fails on format 1. Still open, documented: `revoke` leaves
+document leaves unrotated, so a child linked under one later is
+derivable (rotate the leaf and re-encrypt first). The full plan, with
+keyplan replacing KeyGraph, is docs/plans/ROLES.md §9.
+
+## Single-audience encryption (2026-08-20, after 0.18.0) — PACKS §14 item 3 closed
+
+`ontodag.encstore` (stdlib-only at module level; pycryptodome behind the new
+`crypto` extra): `EncryptedBytesStore` wraps the blobs seam, so records AND
+trie structure are ciphertext at rest; **deterministic AES-SIV** because the
+store is content-addressed — a random nonce would break G1 *within one
+audience* (two devices, same key, same knowledge must reach the same root);
+the accepted trade is that blob sizes/counts/record-equality stay visible.
+`store_key` is the ninth settings row (secret, any string, KDF'd with
+versioned domain separation). **The marker in the store decides; the setting
+only supplies key material**: new store + key = encrypted, existing stores
+keep what they are (so plaintext overlays compose with an encrypted
+primary), wrong key refuses at open via a keycheck in the marker — never
+garbage. The index/prov siblings inherit the audience (`_store_at` is the
+one constructor — contagion by code shape). Scope: `rs:` only; encrypted
+`swarm:` needs a blobs seam in recordstore's `local_first_store` (owed
+upstream); certificates don't cross the audience boundary (proofs carry
+trie bytes = ciphertext) — documented, not a gap. The wrapper is the seam
+act-categories' key graph later feeds audience keys into. Tests:
+`TestEncryptedStore` (6) + an encstore boundary case — **909 passed + 2
+skipped** (913 after the Windows pass below); hands-on smoke: status line, zero plaintext on disk, both
+teaching errors, history-over-ciphertext, the flag layer. Two test bugs the
+work caught: recordstore's `get_many` returns a dict (the wrapper first
+iterated its keys), and the blob-walk helper missed sharded subdirs, making
+a ciphertext assertion vacuously green.
+
+## Windows (2026-08-24) — the code passed, the tests did not
+
+First real run of the suite on Windows (11, Python 3.13, `ontodag[test]`):
+**779 passed, 15 failed** — and not one failure was a defect in the library.
+Eleven were *the tests not saying what they need*: five encrypted-store
+tests needed pycryptodome (which `[test]` did not install — so **CI had
+been failing those too** since the encstore commit), four needed Graphviz's
+`dot` **binary**, one needed dot2tex. Four read POSIX shapes into
+platform-neutral behavior: a leading `/` on an absolutised `rs:` path, `/`
+as the separator out of `_image_base`, and `0600` on the config file (twice
+plus once in the signer suite).
+
+What that cost, and the rule it leaves: **an extra that installs a wrapper
+is not the same as having the tool.** `viz` installs the `graphviz` package;
+the drawing is done by a program pip cannot install. So the gate is
+`shutil.which("dot")`, not an import — and the same distinction was live in
+the *product*, not only the tests: rendering imported fine and died later
+inside graphviz with `ExecutableNotFound`, thirty lines of stack whose
+useful sentence was at the bottom. That is exactly the failure 0.17.1 fixed
+for missing packages, still open for binaries, and it is the single
+likeliest Windows failure of all. `viz._rendered` now turns it into one
+line naming apt/brew/winget; the web app's routes answer **501** with it
+(the new page's SVG route already caught `ImportError`, and `MissingExtra`
+is one, so it improved for free). `crypto` joined the `test` extra so the
+suite keeps covering encryption rather than skipping it.
+
+Two platform facts now written in USER_GUIDE §2 rather than discovered:
+
+- **`chmod` does nothing on Windows.** `_write_config` writes `0600`
+  because the file can hold `bee_signer`; on Windows there are no
+  permission bits, so the key's privacy is the profile directory's ACL —
+  weaker than the POSIX guarantee (an administrator reads it), and the
+  honest advice there is `$BEE_SIGNER` instead of the config file. The
+  three mode assertions skip rather than pretend.
+- **PowerShell's `>` mangles non-ASCII.** `odag` writes UTF-8 to a redirect
+  (`_force_utf8_streams`), but PowerShell *re-decodes* a child's output
+  with the console codepage before writing the file, so `odag get doc >
+  out.txt` turned `árvíztűrő tükörfúrógép` into `├írv├¡zt…` — UTF-8 read as
+  CP852, then written UTF-16LE. Not ours to fix: `-o FILE` writes the file
+  itself and is correct, which is what the tester's second attempt proved.
+
+Suite after the pass: **913 passed + 2 skipped** locally (**932 + 2 as of
+2026-09-02**, with `TestCorePack` and `tests/test_act.py`); **890 passed + 25
+skipped, zero failed** with `dot` hidden from `PATH` — the check that the
+gates work, and the one worth repeating whenever a test grows a dependency.
+(Checked while here: owlready2 is still sdist-only on PyPI — the `.whl` in
+the tester's pip cache is one pip built locally — so the Pyodide argument
+in `BROWSER.md` stands.)
+
+## Releasing
+
+Standing practice, in order. The first rule predates this list; the third
+was added after 0.10.1.
+
+1. **Docs before publish** (Peter's rule): README, User Guide with
+   *executed* snippets, HOW_IT_WORKS, help text, CHANGELOG entry, and a
+   stale-claim grep. Never as a follow-up. That includes the README's
+   test count, whose guard runs only when `CI` is set: **run the full
+   suite with `CI=1` before tagging.** 0.29.0's first tag was stopped by
+   exactly that, after six new tests.
+2. **Version bump** in `pyproject.toml`, and re-execute anything in the
+   docs that prints it (the guide's interactive-prompt banner).
+3. **`python3 scripts/release_smoke.py`** — build the wheel, install it
+   into a throwaway venv, and *use* it: prelude, typed values, query,
+   computed containment, the empty query, the cap, canon, visualize,
+   export, re-import. This exists because 0.10.0 was published unable to
+   draw any DAG containing a typed date, with a green suite, green CI and
+   a completed docs pass. What nobody did was install it and ask for a
+   picture. **A green test suite is not evidence that the artifact works.**
+4. **Publish**, either way:
+   - **By tag** (preferred since 2026-08-02): push `vX.Y.Z` and
+     `.github/workflows/publish.yml` does the rest — it checks the tag
+     against `pyproject`'s version (a mismatch would otherwise publish the
+     wrong version under the right tag name), runs the suite, builds,
+     smoke-tests the built wheel, uploads by trusted publishing with
+     `skip-existing`, and then re-runs the smoke test against what PyPI
+     actually serves. It had not run since v0.7.0, which is why 0.8.0 and
+     0.9.0 never reached PyPI at all.
+   - **By hand**: `twine upload dist/...` (Claude has `~/.pypirc` for both
+     projects), then step 5.
+5. **Verify from PyPI, not from disk**: `scripts/release_smoke.py --pypi
+   VERSION`. The tag path does this for you. The index takes a little while
+   to propagate, so an immediate run can install the *previous* release —
+   the script fails on a version mismatch rather than testing the wrong
+   thing quietly.
+
+Note on `skip-existing`: it makes a duplicate upload a no-op *success*, so
+the publish job passing means "PyPI has this version", not "this run put it
+there". The authority on the latter is step 5.
+
+## Browser + Swarm: queued, with the details written down (2026-08-02)
+
+`docs/plans/BROWSER.md` is the implementation record — read it before touching
+this. Headlines: the base install going pure Python is what makes
+`micropip.install("ontodag")` possible at all (it failed outright while
+owlready2 was a hard dependency, since micropip cannot build sdists);
+`src/ontodag/browser.py` implements the four methods recordstore needs over
+a JS bridge; `ontodag[swarm]` can **never** run in a browser (25 packages
+including compiled `coincurve`/`pycryptodome`), so Swarm is reached through
+JavaScript permanently. The obstacle is sync-over-async, and **miss-and-replay** solves it with no
+JSPI and no COOP/COEP headers (blobs are immutable, so replaying a query
+over a growing cache is free). Whole-store load was rejected — the shared
+ontology is too large. Cost measured in `experiments/browser_rounds.py`:
+~12 sequential round trips for a session's first query, 4–5 after, on a
+3,221-node store. The cone index is **mandatory** there (305 rounds → 10),
+and frontier batching is the one code change needed — `lazy.py` has the
+`_expand_many` seam and nothing calls it (47 rounds → 8). Blocked on two questions about Peter's
+in-browser node (§7 there) and on releasing the pure-Python base install:
+the wheel on PyPI still has the old hard dependencies, so a demo must serve
+its own wheel until then. Nothing has run in a browser; the adapters are
+tested against a fake bridge, including the byte-identical-canonical-root
+property that makes a browser a peer rather than a silo.
+
+## Swarm adoption: the funnel, not the dependency edge (2026-08-02)
+
+Peter's concern was that making Swarm optional would mean fewer people try
+it. The measurement says the extra is not what stops them: the repo's own
+Bee logs record ~8.5 minutes before a fresh node's chainstate answers, ~70
+seconds between buying a postage batch and being able to use it, mainnet
+refusing batches under ~1 day of validity, and xDAI + xBZZ needed first.
+`pip install "ontodag[swarm]"` is five seconds of that. Bundling it removes
+none of the wall and puts `requests`/`swarmfs`/`swarm-bee` into every
+embedded and browser install.
+
+What was actually missing was a **middle rung**. `recordstore` shipped
+`DirBytesStore` and `FilePointer` — a local content-addressed store — and
+the CLI never exposed them, so the only way to see a canonical root, a
+snapshot, a certificate or a `sync` was to stand up a node first. The
+infrastructure wall stood in front of the ideas. Hence `rs:PATH`
+(`LocalRecordBackend`): the same semantics on a directory, so `swarm:NAME`
+becomes a backend swap. Three tiers that each pay for themselves —
+
+    file (.od)   a DAG that persists. Works anywhere, no dependency.
+    rs:PATH      canonical roots, snapshots, certificates, sync. No node.
+    swarm:NAME   the same store, shared.
+
+and `odag swarm` turns the last step from a wall into a checklist. It uses
+urllib, not requests, because a doctor that needs the patient healthy is no
+use; it stops at the first failure; and when the answer is "not today" it
+points at `rs:` rather than leaving the user with nothing.
+
+**`recordstore` went back to being a base dependency** in the same pass —
+184 KB, pure Python, no compiled extension, no dependencies of its own, so
+it costs nothing Pyodide or an embedded target cares about, and it is what
+makes the differentiating properties default-on. The earlier move to an
+extra lumped it with owlready2 (28 MB, sdist-only, C extension, bundled
+Java reasoners); that was over-correction. The criterion, recorded for the
+next dependency question: *a dependency that changes what the package is by
+default earns its place; one that adds weight for a file format does not.*
+
+## Release state
+
+**The review's open questions are being decided one by one (from 2026-10-09).** Question 1 (REVIEW §8 item 16), decided by Peter: a category a term names cannot be removed out from under it — `remove` refuses unless the terms go too (named, or `--with-terms`), a removed term is contracted into the terms just above it (`in(paris)` → `in(city)`, `in(france)`), a share ends rather than widen, and `odag rename OLD NEW` is the way out for a wrong name (DIMENSIONS.md §14, `tests/test_removal_terms.py`). Built on main, unreleased (CHANGELOG [Unreleased]), together with the native-load fix for role terms. Follow-up for categor.io when it takes this: its "remove contact" must pass `with_terms=True`, or a contact with shares is refused. Question 2 (REVIEW §5), decided: **B, signal, don't freeze** — contract **0.5**, G8: a valid name's spelling and the stored form of the same filings change only with `REGISTRY_VERSION`'s minor (migrate step named in CHANGELOG), enforced by `TestG8SignalledSpellings` over `tests/fixtures/g8-spellings.json` (regenerate with `make_g8.py` ONLY together with a registry bump; it fails against 0.30.5/0.30.6, holds from 0.30.7). ontodag-fs accepts 0.5 (its main, `0845529`, not released); loopmarket compares majors and passes. Question 3 (REVIEW §8 item 15), decided: **A** — single writes stay strict (a name must exist first, a role term's place must be in its dimension, the later of two contradictions is refused) and replays are order-free: contract 0.5's **G9**, `TestG9WritesAndReplays`; `odag ingest` fixed to be the replay it claimed (lenient, all or nothing, refusals no longer called format errors). Question 4 (REVIEW §8 item 8), decided: **A** — `native.dumps` marks every file with `#:canonical <registry> <sha256 of the rest>` as its second line; a file whose mark holds is built directly (`_direct`, 0.47 s for the 11,900-category union; a whole `odag -f union.od` call 9.6 → 0.66 s); any other file is read **as a merge of its lines** (`_restore`: canonical spellings, values anchored, parent-only graph compounds as parts, parent-only plain names top level, lined parentless names as written, stored form kept, total). **Adaptation made while building, reported to Peter:** the agreed "replay through `put`" migrated on load and failed `TestG7MonotoneVersions` (g7.od's folded compound became its parts); `put` replay stays `ontodag.migrate`'s (`native._replay`). Both replays order unit declarations first and every term after its heads (`_load_order`) — which fixed `migrate` on pack-unit stores. Same build: the replay leniency split in two (`_lenient_roles(total=True)` for merge/sync/load; `ingest` uses `total=False`, keeps the self-containment/rule/pin/family guards, and checks role parameters at the end, `_check_role_parameters`); `Session.discard` + `_dispatch` drop a refused command's in-memory changes; git conflict markers in a `.od` file are refused. Found and left OPEN for Peter (REVIEW §8 items 18–19): a merge keeps an item under two overlapping values where `put` files the meet (G1 break since 0.26.2), and a merge can make a store whose reads raise (role literal meets a same-named category outside the dimension). Cost of the mark: two git branches that both change a store always conflict on it. Question 5 (REVIEW §8 item 7), decided: **A, a small public layer** — `ontodag.open(spec=None, as_of=None)` → `ontodag.stores.Store` (the CLI's session: `dag`, `view()`, `save(message=None)`, `spec`, `as_of`, `describe()`, `discard()`; nothing read until first use; explicit `as_of` else the flag layer's), `ontodag.settings` (the table, `configured`, `OVERRIDES`, `read_config`/`write_config`, `resolve_store`/`normalize_spec`/`overlay_specs`, `home_dir`/`config_path`/`default_store_path`), and `OntoDAG.parse_term` (→ `dag.Term(head, kind, canonical)` or None), `canonical`, `parents_of` (sorted, root excluded, ValueError for an unknown name). Settings, backends and Session moved out of `__main__` (3,235 → 2,362 lines) into `settings.py`/`stores.py`, the output ContextVars into `_streams.py`; `__main__` keeps every old name as an alias of the same object (`Session is Store`, `_OVERRIDES is settings.OVERRIDES`), pinned by `test_the_cli_names_are_the_public_objects`. Patch `ontodag.stores.make_backend`/`_SYNC_TIMEOUT` in tests, not the CLI aliases (rebinding an alias changes nothing). Opening a store never imports the CLI (boundary test). loopmarket and ontodag-fs still use the aliases; switching them needs a released ontodag floor. Question 6 (REVIEW §8 item 3), decided: **A, remove the legacy query path** — `get_by_dag`, `prune_to_common_descendants`, `/dag/query/import`, `/dag/query/dag/image` and the classic page's upload input are gone (a query file naming `Japan` and `mass(..5kg)` answered all of Japan); `intersection_dag` stays; `browser_check.py` moved to `scripts/` and the release smoke fails if a dev script ships. Two public methods removed, so the next release is a minor (0.31.0) and needs ontodag-fs's `<0.31.0` ceiling raised. Question 7 (REVIEW §4, nesting), decided: **A** — `dimensions.MAX_NESTING` = 32, `check_nesting` (fast path: no more `(` than the limit) called in `_parse_parametric` for a graph-ordered name not yet stored and at the top of `_graph_parts` (`_nested` marks the recursion); stored names are never re-read. 700 levels had given a CLI traceback, a dead `odag-mcp` (it caught only ToolError/ValueError/OSError; a non-object JSON line killed it too) and a web 500; now one-line errors, and `MCPServer` answers any other exception (`internal_error` logged with trace; isError result for tools, -32603/-32600 otherwise). `/dag/query/image` answers 400 for malformed terms. Tests: `TestDeeplyNestedTerms` (test_transitive), CLI/MCP/web one each. Question 8 (REVIEW §8 item 13), decided: **A, both halves** — a broad `about` query was not output-sensitive (`get about(p0)` 1.9 s at 12,800 places; a chain of 160 nested places, a document about each, 2.2 s for 319 answers; 16,000 villages nothing was about cost a query about France 61 ms). Three causes, each fixed: (1) **the settled set** — a walk asked every term it reached for the terms inside it; now `_walk_children` leaves a term unasked once the walk holds every term of its head inside it: after the head itself (anchors list them all; resident graphs only, since `_heads()` costs a lazy reader fetches) or after a term whose `_terms_inside` list is complete (every kind but the transitive one, pinned against the scan by `TestTermsInsideAreAllOfThem`), never for a head whose terms escape; (2) **the early exit** — `_located_in` stops at its budget (`get_descendants(..., limit=)`) instead of walking the whole `in` cone and dropping it; (3) **the planner** — it took a stored term's count (asserted-only) as the size of its answer (`about(p0)` count 1, answer 1,968; same for `in(...)` and value ranges), and listed a virtual term in full to size it; now every dimension term but the graph kind's is sized by `_size_unsized`: walked only up to the smallest sized cone × `_PROBE_COST_ESTIMATE`, else probed (`_TooCostly` when finding its contents would cost more, the limit threaded through `_hops` into the index/role/graph walks); with no sized cone the terms race at budgets ×4 from 64. `_virtual_cone` and `_cone_size` are gone; the `"virtual"` cone kind is `"lazy"` now. Measured fresh, same answers in all 16 cases: tree 200/800/3,200/12,800 places 112/415/681/1,887 → 27/82/169/239 ms (what remains: one check per `about` term in the answer, climbing the hierarchy, so answers × depth); chain 160 2,242 → 27 ms; villages 61 → 1.4 ms; `about(p0) review` 1,861 → 4 ms; `in(p0) museum` 912 → 24 ms; `mass(..5kg) fragile` 139 → 2.3 ms; `get about` 1,845 → 4.8 ms; the empty query 2,287 → 66 ms; `in(p0)` alone unchanged (already proportional). Lazy reader `about(p0) review` 504 → 177 fetches; most of the rest is the first upward check through `about`, which fetches the head's star for `_escapes` (recorded, not changed). Tests: `TestTermsInsideAreAllOfThem`, `TestAQueryCostsItsAnswer` (6, count-based, each mechanism mutation-checked), `TestAVirtualConeIsOneWalk` rewritten, `TestQueriesAgainstTheOracle` and `TestABroadTermOnALazyReader` in test_transitive. The earlier claim to Peter that the review's remedy "doesn't help" was wrong (a cache keyed by place never hits within one query); corrected to him before he decided. Pre-existing, left for question 9: pyflakes flags an unused `_dims` import in `lazy.py`. Question 9 (REVIEW §8 item 5, §7 items 6 and 8), decided: **A** — loopmarket joins ontodag's release gate (the `downstream` job became a matrix over ontodag-fs and loopmarket, `[test,sig]`, each consumer's main against the candidate wheel; a local run of that leg: 262 passed + 65 skipped); loopmarket's 61 chain tests run in a new `chain.yml` nightly (03:17 UTC) and on demand, and its publish build installs `[test,sig,evm]` so they run before every release, both cloning factbond beside the checkout for the six that compile its `Assertions.sol` (first dispatched run on GitHub: 324 passed + 3 skipped, 6.4 min; 10 min on this laptop); pinned `pyflakes==3.4.0` in all five repos' CI (a `lint` job in tests.yml, and before the release build), after one cleanup per repo — ontodag 23 findings, loopmarket 48, recordstore 15, swarmfs 10, ontodag-fs 1. pyflakes ignores the `# noqa` markers the code already had, so availability checks became `importlib.import_module`, re-exports got `__all__` (ontodag `__init__`: star-import now exactly CONTRACT_VERSION/DAG/Item/OntoDAG, CHANGELOG "Changed"; loopmarket `case.py`), and loopmarket's fixtures shared across test modules (`env`, `chain`) moved verbatim into a new `tests/conftest.py`. All workflows checked with actionlint (scratch venv). Found: `mypip/` (16 MB: pip, graphviz, an early `cgagviz.py` prototype) has been tracked since e4e0ab1 (2026-07-27) — excluded from the lint, untracking left to Peter. Next: question 10, CLAUDE.md as a current-state guide (REVIEW §8 item 6). **Current (2026-10-09, morning): ontodag 0.30.8, recordstore 0.22.2, loopmarket 0.14.5** — the 2026-10-09 review's fixes, released on Peter's "make the releases", recordstore first (both others' floors are now `recordstore>=0.22.2`: base, `store` and `swarm` here, base and `swarm` in loopmarket). Each by tag, every workflow job green (ontodag's four incl. downstream and verify), verified from PyPI: recordstore commits 12,000 records in 0.58 s from a fresh venv; `release_smoke.py --pypi 0.30.8` 27/27; `loopmarket==0.14.5` resolves ontodag 0.30.8 + recordstore 0.22.2 and refuses `1/0` and `1e10000000`. Live before tagging (bee 2.8.2, batch `c931c8a5…`, 36.5 days left): ontodag 2/2, loopmarket's full suite 327 passed with its three live tests. Patches, so ontodag-fs's `<0.31.0` ceiling holds. Before that, **ontodag 0.30.7** (relation-kind compounds keep their current spelling, Peter's option 1; by tag, all jobs green, verified from PyPI). **The review itself is `docs/plans/REVIEW_2026-10.md`** (goals against code, complexity, compatibility, performance, coverage, recommendations; nothing in it is decided). Before that, **ontodag 0.30.6 and loopmarket 0.14.4** (the graph kind's canonical form, see its section; both by tag, verified from PyPI). Before that, **ontodag 0.30.5**, by tag on Peter's word (all four jobs green incl. downstream and verify; `release_smoke.py --pypi 0.30.5` 27/27 after one index-lag retry) (the `swarm` extra's floor raised to recordstore 0.22.1 for the diff lookahead in merge-on-save; `CI=1` 1,217 passed + 3 skipped, live 2/2, smoke 27/27 on the wheel, `.[swarm]` resolves recordstore 0.22.1 + swarmfs 0.14.0 with no requests/swarm-bee/eth-keys). Sister releases the same day: swarmfs 0.14.0, recordstore 0.22.1, loopmarket 0.14.2. Before that: **ontodag 0.30.3 and loopmarket 0.14.1**, both by tag on Peter's "release both", all workflow jobs green (ontodag's four incl. downstream and verify), verified from fresh PyPI venvs (ontodag smoke 27/27; `ontodag[swarm]==0.30.3` resolves recordstore 0.21.1 + swarmfs 0.12.0; loopmarket[swarm] resolves recordstore 0.21.1). Patches, so ontodag-fs's `<0.31.0` ceiling still holds. Content: the read-through clone and the swarm floors (see Bee run 12). Before that: **ontodag 0.30.0** (step 7: prelude v4, core v12, family pins, the keyplan consolidation; see the roles section). Before it, **0.29.0**, published by tag, all four
+workflow jobs green, and verified from PyPI (`release_smoke.py --pypi
+0.29.0`, 27/27). It is the `ontodag.act` revocation fix: token format
+2, where a check value of the child key heads each token and is bound
+into its keystream. Format 1 (0.19–0.28) let a revoked reader recover
+rotated keys from the public tokens. Also in it: the pure-Python
+secp256k1 fallback, the command-count fixes, and the guide's extras
+rows (CHANGELOG [0.29.0]). It is step 2 of docs/plans/ROLES.md §9's
+order. The first `v0.29.0` tag was stopped by the CI-only README
+test-count guard; nothing was published, the count was fixed, and the
+tag moved to `75a832d`. Checked before tagging: the suite, the smoke
+test on the wheel (27/27), the gated live Bee tests (2/2, bee 2.8.2,
+batch c931c8a5… with 22.6 days left and its fullest bucket at 23/32),
+and ontodag-fs's suite on the wheel. **ontodag-fs 0.6.3** (same day)
+raised its ceiling to `<0.30.0`, the ceiling owed since 0.27.0;
+verified from PyPI (it resolves ontodag 0.29.0).
+
+Before that: 0.28.0 (2026-09-24), published by tag with all four
+workflow jobs green (the `downstream` job ran ontodag-fs's suite against
+the candidate). 0.27.0 (same day) is the embedder API: `ontodag.native`,
+`OntoDAG.is_term`, `packs.pack_members`/`pack_top`, `COMMAND_EFFECTS` /
+`effects(argv)`, the markup-label fix. 0.28.0 is `ontodag.sharing`
+(`reach`/`landing`/`losses`) and `odag shared-with` / `get --as` —
+docs/plans/SHARING.md steps 1–2. Both were driven by categor.io
+(github.com/petfold/categorio), a website over OntoDAG, which now depends
+on `ontodag>=0.28`. **Open:** SHARING.md Q1 (how a store marks its
+principals), now reframed by docs/plans/ROLES.md §7 (principals as
+people, shares under `for(...)`). The work order is ROLES.md §9: steps
+3.1–3.4 and 4a are on main (unreleased), step 5 is on the branch
+`narrower-relations` and merged as contract 0.3 on 2026-10-07, and steps
+6–8 wait on his decisions (the roles section above). The table and paragraphs below are older
+history, not updated since 0.23.0/0.25.0.
+
+**All three repos released 2026-08-06**, each by tag through its publish
+workflow, each verified against what PyPI serves rather than what is on disk.
+`CHANGELOG.md` in each repo is the authoritative per-release history; this
+section is the *current* state and the cross-repo pins.
+
+**What 0.25.0 is** (2026-09-13, published by tag after the live Bee suite
+and the opt-in slow pack test, all four workflow jobs green incl. verify): the three
+loopmarket asks of 2026-09-12 — role heads take the base dimension's
+nodes as parameters (#15), `overlaps`/`meet` (#16), `items_only` (#14's
+second half) — plus the `_dimension_of` cache (#18) and the refusal of
+the dimension itself as a role parameter (#17). #14's overlap query mode
+was built and withdrawn the same day (§8): every query term is a
+containment term. loopmarket 0.4.0 pins `ontodag>=0.25.0` (released by tag the same day);
+ontodag-fs 0.6.1 (same day, pin-only) raises its ceiling to `<0.26.0`.
+
+| package | version | verified by | pins |
+|---|---|---|---|
+| **ontodag** | **0.23.0** (2026-09-04, small hours) | `scripts/release_smoke.py --pypi 0.23.0` → 27/27 after the index caught up, plus the workflow's `verify` job (all four jobs green, `downstream` ran ontodag-fs's suite) | needs `recordstore>=0.20.0` (base, `store`, `swarm`) |
+| **recordstore** | **0.20.1** | fresh-venv install; undo/history exercised | none (stdlib-only base) |
+| **ontodag-fs** | **0.3.7** (2026-09-04, ceiling bump only) | ontodag 0.23.0's downstream gate ran its suite against the candidate; published by tag, both jobs green | needs `ontodag>=0.16.0,<0.24.0` |
+
+**What 0.23.0 is** (2026-09-04, small hours, on Peter's "go" and his
+instruction to finish, push and power off): **core v6, the everyday goods
+layer.** Peter asked whether loopmarket's products and services could be
+named precisely; a probe of ~390 marketplace terms against the union found
+the hinges and almost no leaves (`appliance` had no children). The
+everyday-word rule puts the layer in core, not a pack — and puts services
+there too, so there is no "commerce pack" (I had said otherwise; corrected).
+Source: the **Google Product Taxonomy** as a witness (ontodag-core
+`tools/extract_gpt.py` + `tools/align_gpt.py`, UPPER.md §10): 1,207 new
+categories defined by WordNet, 350 hand sense picks, a hand list of 84
+goods GPT lacks (jeans, aspirin, duvet); ~1,050 single-witness edges read,
+~130 rejected; thirty GPT department words cleared where they hit a core
+word in another sense; `appliance` corrected to the durable-good sense
+(its old sense was a childless leaf). Core is **4,137 categories**; the
+packs ceded 29 names and are regenerated (physics v3, medicine v4,
+economics v4, computing v3, geography v4). Two aligner lessons: the
+generator's baseline must subtract its own previous output, and a
+hand-named synset must not reserve its first lemma (core's `grinder`,
+`station`, `trail`, `shot` had been renamed away — fixed). **For Peter
+(CORE.md "open sense questions"):** core-wordnet's first senses make
+`table` the laid table, `window` a service hatch, `case` a display case,
+`stake` the bet, `bag` the suitcase, `product` the arithmetic product,
+`television` the system — each a v7 sense correction to decide. **Still
+owed for loopmarket:** the services half, the ~6,000 retail compounds,
+a `humidity` registry family, secure-storage kinds.
+
+**What 0.22.1 is** (2026-09-03 late night, a patch on Peter's verdicts):
+**domain packs v3** for medicine, ai, economics and geography. The
+cross-pack check had 21 Wikidata items carrying two names each; Peter's
+rule — *of two synonyms keep the first* — dropped nine (`rate-of-exchange`,
+`lunacy`, `line-of-credit`, `export`, `leverage`, `android-robot`,
+`clinical-neurology`, `abarticulation`, `futures-exchange`); the other
+twelve were Wikidata's P8814 merging two distinct WordNet concepts onto one
+item (`sudorific` on *prescription drug* was the one Peter queried), so both
+names stay and the alignment is cleared on the one not matching the label.
+Core's water spring is `natural-spring` (`outflow` reads as finance) — but
+core's build did not carry that concept (it was unplaced in core and placed
+by geography), so core stays v5 and only geography's file changed. Released
+as a patch the same night because a drop or rename never propagates by
+merge. **Two build mechanics that cost an hour** (UPPER.md §9): a drop of a
+*renamed* WordNet concept must name the offset, not the names.tsv name; and
+a hand ruling about a name admits that name even after a drop — the ai pack
+came back with `android-robot` from its own `android-robot ⊑ humanoid-robot`
+ruling, and economics from `wikidata-roots.tsv`. Union: 9,777 categories,
+root `1d67a670…`.
+
+**What 0.22.0 is** (2026-09-03 night): **the second reading and core v5.**
+Every single-source edge in the six domain packs that had had one reading
+(medicine, ai, economics, computing, geography, space — 3,649 edges, listed
+with both glosses by ontodag-core's new `tools/second_reading.py`) was read
+against the glosses: **108 rejected and re-ruled (3.0%)**, the morning's rate
+for the sciences again. The patterns, not the list, are the record (UPPER.md
+§9): WordNet's chains misfile by hypernym (`antibiotic ⊑ antibacterial`
+drags antifungals and anticancer antibiotics along; accounting *methods*
+under `transaction-record` via the `account` chain), Wikidata files by loose
+association (search algorithms ⊑ information retrieval, devices ⊑ user
+interface, statements ⊑ control flow, cloud genera under each other,
+zoonoses ⊑ animal disease), and sense mismatches show in the gloss column
+(economics' `stock` was merchandise while Wikidata's is shares). **Core v5:**
+`exoplanet ⊑ planet` exposed core's `planet` as WordNet's solar-system sense;
+it is now the generic body orbiting a star and the freed synset enters as
+`major-planet ⊑ planet` (2,930 categories) — one concept, one ruling, but a
+new version, because a sense correction never propagates by merge. Seven
+pack modules are v2 (physics too, for `outer-planet`); mathematics,
+chemistry, biology stay v1 **but their golden roots moved anyway** — a
+domain pack's root is core + pack, so every pin in `tests/test_packs.py`
+was recomputed (both addressings, plus the union: 9,786 categories, sha
+`81650b1b…`, BMT `e36871b3…`). Two tool lessons: `regen_ontodag_packs.py`
+now keeps each module's hand-bumped VERSION instead of resetting it to 1;
+and `integrate.py` reads the *shipped* core module from `../ontodag`, so
+regenerate first, integrate second — the first re-run showed `major-planet`
+at top level for exactly that reason. Rulings I make at core level now
+live in `align/claude-ruling.tsv` there too (first entry: this one).
+
+**What 0.21.0 is** (2026-09-03 evening, published by tag, all four jobs
+green, verified from PyPI 27/27): **the ten domain packs ship in the wheel**
+— `odag pack physics|mathematics|chemistry|biology|medicine|ai|economics|
+computing|geography|space`, 6,793 categories over core, as `ontodag.domain.
+<name>` modules generated by ontodag-core's `tools/regen_ontodag_packs.py`.
+Peter's "go" on the next steps; the reversible half of PACKS.md Part II's
+distribution question (Swarm publication later reproduces the same roots).
+Design: `packs.adoption_dag(dag, name)` is what adoption merges — the pack's
+own claims with core's names as parentless stubs (reduction drops the
+redundant root edges), preceded by `core` only when the store lacks the core
+names the pack hangs from; the CLI's `pack` and `pack --diff` both go
+through it, so preview and act cannot differ. A name borrowed from a
+*sibling* pack (`BORROWED` in each module) sits at top level until the
+sibling is adopted; `odag pack` counts and `packs_declaring_node` exclude
+such names. Golden roots pinned per pack under both addressings; the union
+root `871bdde8…` (core + all ten, any order, 11,410 categories) is pinned too
+and reproduced from the shipped modules — that test and the per-pack
+on-disk/BMT loops for the nine larger packs are gated behind
+`ONTODAG_SLOW_TESTS=1` (the first version of `pack_dag` rebuilt and
+re-merged core for every domain adoption and took the suite from 52 s to
+11 min; the stub design brought it to 3 min, the gates to under 4 with
+`space` standing in for the slow paths). ontodag-fs 0.3.5 released the same
+hour (ceiling `<0.22.0`). Guide §4.8 gained the domain packs with executed
+snippets incl. the borrowed-name case. **Open next: the second reading of
+the six one-pass packs** (medicine, ai, economics, computing, geography,
+space; ~4,000 single-source edges — sample first, or the factbond bounty).
+
+**What 0.20.0 is** (2026-09-03 afternoon, published by tag, all four jobs
+green, verified from PyPI 27/27): **core v4** — Wikidata as the fourth
+witness (2,085 concepts aligned through P8814; 13 newly placed, ~80 gain a
+parent, nothing lost), three **sense corrections** made now because a sense
+never propagates by merge (`dividend` = the company dividend, `meteorology` =
+the science, `star` = the physical star), two renames (`pan`/`genus-pan`,
+`pb`/`lead-metal`); 2,929 listed categories. Docs: CORE.md's v4 section
+also records the ten domain packs built in ontodag-core (~6,900 categories,
+one integration build of core + all ten converging on a single root) and
+that they are **not in the wheel** — distribution is Peter's open decision.
+ontodag-fs 0.3.4 released the same hour (ceiling `<0.21.0`); its first tag
+was stopped by its own `test_reference` (REFERENCE.md must name the version
+being released — the same docs-sweep rule this repo has), fixed and
+re-tagged. Local lesson: `release_smoke.py --pypi` failed twice on pip
+before the index served the wheel; the workflow's `verify` job had already
+passed against PyPI, and the third local run passed — index lag, not the
+artifact, as the Releasing section warns.
+
+**What 0.19.1 is** (2026-09-02 late evening, published by tag, all four jobs
+green, verified from PyPI): **core v3** — 0.19.0's core (v2) had shipped with
+106 names still carrying WordNet field suffixes (`condition.state`,
+`organ.body`) because the hand-naming pass ran before the last three
+branches were added and was never re-run, and without its three kind-level
+edges; v3 names every one by hand (the filed sense takes the word: `tooth`,
+`organ`, `condition`; the minor sense is renamed: `gear-tooth`, `pipe-organ`,
+`precondition`), drops sixteen near-duplicates, carries the edges — 2,914
+categories. Released the same day because a rename never propagates by
+merge. Also: **the prelude is pack zero** (`packs.PACKS["prelude"]`,
+`odag pack prelude`; `presumes_prelude` applies it first for any pack that
+names its nodes). **Lesson recorded: a "no qualified names left" check has
+to be re-run after every batch that adds concepts; it is now part of the
+build output in ontodag-core.** The physics pack (ontodag-core
+`packs/physics/`, 173 concepts, 12 new unit heads) is built but NOT in this
+release: two rulings pending Peter (`theory ⊑ concept`,
+`elementary-particle ⊑ particle`).
+
+**Overnight 2026-09-03 (autonomous run on Peter's standing instruction — no
+release):** the four science packs are built in `../ontodag-core` and pushed
+there, none in this wheel: **physics 173** (Wikidata confirmed it; the two
+rulings accepted), **mathematics 607** (Wikidata skeleton over 227 verified
+roots: algebra, number types, sets, spaces, graph theory, logic, order theory
++ FCA, discrete mathematics, cryptography — 98 rulings), **chemistry 243**
+(2 new unit heads) and **biology 346** (plant-part and DNA hinges). UPPER.md
+§8 there carries the table and three Wikidata lessons worth keeping: verify
+every root QID by label before walking it (four of the first 33 were wrong —
+metabolism was biotechnology, ecosystem a Swiss district); some roots cannot
+be walked (`chemical compound` = 89 MB of direct subclasses, `gene` 453,793,
+`protein` 769,212 — label-only, and the fetcher caps a level at 3,000); and
+Wikidata's labels collide with everyday words more than WordNet's senses do
+(`clique`, `edge`, `filter`, `region` all arrived under the taxonomic rank
+`subclass`; every such edge rejected on the WordNet gloss). Core v4 was
+regenerated here from ontodag-core `5bf8167`: the cooking pan takes the plain
+word `pan` now that the chimpanzee genus is `genus-pan`, and `pb` is
+`lead-metal`; golden roots re-pinned in `tests/test_packs.py` (932 passed +
+2 skipped). Also learned about the harness: a background Bash task is killed
+when the turn ends, so multi-minute network jobs must run under
+`setsid nohup … & disown` with the turn kept alive by a foreground
+`timeout … until` wait.
+
+**Morning 2026-09-03, with Peter — the second pass over the science packs.**
+Peter spotted `acyclic-graph ⊑ undirected-graph`; the edge was Wikidata's
+definition (Q3115453 is a forest) and the ruling behind it was mine, sitting
+in `review.tsv`, nominally Peter's file. Three consequences, all in
+ontodag-core: (1) **attribution** — rulings I make under standing permission
+live in `claude-ruling.tsv` per pack and count as the witness
+`claude-ruling`; `review.tsv` holds only Peter's lines (in the packs: two);
+in `claude-review.tsv` the last verdict on a pair wins; a ruling may place a
+concept core left unplaced (`gene`). (2) **A second reading of all 1,109
+single-source pack edges** against both glosses: 40 rejected and re-ruled
+(WordNet's own slips like `heterozygote ⊑ zygote`, `covariance ⊑ variance`,
+`mathematical-analysis ⊑ calculus` inverted; my wrong-not-coarse rulings
+like `chemical-chain ⊑ concept`; wrong senses behind right names — the
+physics unit heads `charge`/`power`/`resistance`/`force` had aligned to the
+payment, the person and the act of opposing), 4 concepts dropped, ~105
+renamed because **the mathematics rule now covers every pack**: a pack
+never takes an everyday word (`cone-cell`, `mechanical-stress`,
+`statistical-mode`, `function-domain`, `gene-expression`; `acyclic-graph`
+→ `forest-graph`; physics `parity` → `parity-conservation`), which also
+cleared fifteen cross-pack collisions nothing had detected. Peter's random
+sample of 50 edges: no errors found by a non-expert. UPPER.md §9 records
+it, with a doubtful list left for Peter. (3) **Pack files no longer carry
+parents core already entails** (the raw file had made `activated-carbon ⊑
+carbon` look like `⊑ substance`); chemistry gained isotope/radioisotope/
+radioactive-material hinges from Peter's spot check, and the gaseous
+elements left `fluid` — *a substance has no state of matter, a sample at a
+temperature does*. Final sizes: physics 185, mathematics 605, chemistry 246,
+biology 342. Two design records fell out: **UNITS.md §12 — measured values
+are intervals, definitional values are points** (a scale's 3.2 kg is
+`weight(3.15kg..3.25kg)`; a finer reading refines by containment,
+disagreement is a detectable disjointness; `0C`/`1in` are points by fiat,
+and `100C` shows a status changing from definitional to measured in 1954),
+mirrored as a rule + executed snippet in guide §4.7; measured boiling
+points were demonstrated as typed categories (`get chemical-element
+'boiling-point(..20C)'` → the gases) and deliberately NOT added to the pack.
+And **factbond INTEGRATION.md §11**: bounties on the science packs as the
+worked example — bond the pack root, dispute a leaf, bounty keyed to the
+witness class in `evidence.tsv`; the 3.6% second-reading rate is the base
+rate, the residual is what the bounty measures. (Peter's aside, worth
+keeping: compare the token cost of finding those 40 against a bounty to
+decide what to check.)
+
+**Then the medicine pack (2026-09-03, same session): 1,048 concepts** in
+`../ontodag-core/packs/medicine/` — WordNet's medicine/pathology/psychiatry
+topics and bounded cones plus a new `children` source kind (a synset and its
+direct hyponyms, for disease/symptom/medication whose whole cones are 500+),
+and 27 Wikidata roots verified by label first. Built with the second-pass
+rules from the start (everyday words qualified as they appeared; slang
+dropped; `anemia` overridden from WordNet's "lack of vitality" hub sense to
+the blood disorder). One source-level fix: Wikidata's P8814 maps
+Q12140 *medication* onto WordNet's *act of medicating*, so every drug arrived
+as a treatment until the alignment was overridden. Wikidata noise was worse
+than in the sciences (85 of 151 Wikidata-only edges rejected: `patent-
+medicine ⊑ crime`, `intern ⊑ servant`, specialties under the profession).
+Medicine has had one reading, not two — the bounty target. Core hinges
+sufficed; nothing was added to core. Not shipped in the wheel.
+
+**Then the AI / machine-learning pack (2026-09-03, afternoon): 676
+concepts** in `../ontodag-core/packs/ai/` — the first pack where Wikidata is
+the *primary* source (WordNet's `artificial intelligence` cone has four nouns).
+Method: two label-search passes over ~840 terms (45 min at the API's rate),
+every QID read against its description before use, ~440 roots, ~220
+descendants picked from the fetched neighbourhood, instances excluded. New
+failure modes recorded in UPPER.md §9: Wikidata files everything under
+`artificial intelligence` (a vehicle, a heuristic, a technique), inverts
+freely (`AI model ⊑ neural network`), and its P8814 WordNet links can land on
+the wrong sense. ~280 hand rulings for roots with no fetched parent; hubs
+`ai-model ⊑ concept`, `statistical-model ⊑ concept`, `algorithm ⊑
+procedure`, core's `automaton` for robots. Covers GOFAI through alignment;
+one reading only. Not shipped in the wheel.
+
+**Then the economics pack (2026-09-03, afternoon): 1,055 concepts** in
+`../ontodag-core/packs/economics/` — markets, finance, trading, investing,
+accounting, payments, insurance, contracts, logistics (for loopmarket),
+Bitcoin and the Ethereum ecosystem. **Scope rule from Peter: only the
+universally accepted parts; no macroeconomics, no government-driven economics
+(tax, monetary policy, welfare), no Solana or other shitcoins; if in doubt,
+leave it out** — ~150 WordNet concepts and ~60 Wikidata edges dropped on it
+(WordNet's commerce cone reaches farming and roller coasters, its payment cone
+bribes and alimony; Wikidata files a slave and a kite under `goods`). Sources:
+WordNet cones, ~520 Wikidata roots resolved by exact-label SPARQL (the search
+API had slowed to 4 s/term — SPARQL `VALUES` over 35 labels a query is the
+way), and **hand-asserted vocabulary via `extra-edges.tsv`** for the ~80
+concepts Wikidata lacks (mempool, halving, Lightning channels, gas, rollups,
+validators, MEV, Swarm postage batches and chunks). **Core change found on
+the way: `dividend` was WordNet's hub sense "a bonus; something extra"; core
+now takes the company dividend (override) — an intervention against published
+v3, flagged in UPPER.md §9 with `cold`/`operation`.** Core v4 regenerated
+(2,928 categories; also `gem ⊑ mineral`, `syndrome ⊑ disease`), golden roots
+re-pinned, 932 passed. The regeneration script now lives in ontodag-core as
+`tools/regen_ontodag_core.py` (its scratchpad copy died with last night's
+poweroff — /tmp does not survive a reboot; put tools in repos). Seven packs:
+physics 185, mathematics 605, chemistry 246, biology 342, medicine 1,048, ai
+676, economics 1,055 — none shipped in the wheel.
+
+**Then the computing pack (2026-09-03, evening): 1,370 concepts** in
+`../ontodag-core/packs/computing/`, from Peter's list — computing, CS,
+software engineering, programming languages and concepts, databases (incl.
+functional/immutable and Swarm-style decentralized storage), distributed
+systems and P2P, web, IR, information theory, networks, Internet, semantic
+web, KR, knowledge graphs, algorithms outside AI, open source, Linux,
+Wikipedia/Wikidata, ontologies, data structures, protocols, file formats.
+**Instances are categories here on Peter's word** (Linux, Git, Python, PNG,
+HTTP, Wikipedia) — and Wikidata holds them by P31, not P279, so the fetch
+returned no parent for ~850 of ~970 items and the pack is placed by ~1,150
+rulings, more than any earlier one. Two tool changes: **`tools/crosspack.py`**
+(one QID/offset → one name across packs; one name → one identity) found nine
+pre-existing cross-pack collisions (`content-addressing`/`content-addressable-
+storage`, maths' `satisfiability` on the Boolean-SAT item, `pencil-of-rays`,
+`error-correction-code`, `logic-operation`, `storage`, ai's `ontology`) and
+thirteen inside the pack where P8814 gave a WordNet synset the same item as an
+override (`push-down-storage` = stack, `browser`, `binary`); and **`consensus.py`
+bolted `extra-edges.tsv` on after the placement fixpoint**, so concepts whose
+only parent was a hand-asserted class never reached a root — fixed; economics
+silently gains 70 concepts (1,055 → 1,125). Everyday-word renames: `router`,
+`instruction`, `buffer`, `dump`, `sort`, `seek`, `telephone` → `telephony`,
+`ontology` → `computational-ontology` (in ai too); languages qualified only
+where the bare word is one (`python-language`, `c-language`, `go-language`;
+`haskell` stays). Core facts learned: `standard`, `system`, `design`,
+`pattern`, `principle`, `time-period` are *unplaced in core* (a pack ruling
+onto them places nothing — `technical-standard ⊑ document` instead); core's
+`graph` is the chart sense but aligned to Wikidata's mathematical graph. Swarm
+vocabulary asserted by hand: `authenticated-data-structure`, `merkle-dag`,
+`content-identifier`, `append-only-log`, `immutable-/versioned-/functional-
+database`, `local-first-software`, `decentralized-storage` (economics'
+`swarm-storage` hangs there). One reading only. Eight packs now; none shipped.
+Harness note: Wikidata's `wbsearchentities` runs ~1 term/4 s and SPARQL
+label lookups silently return nothing for a chunk now and then — verify every
+QID by label+description in a second query before trusting it.
+
+**Then the geography pack (2026-09-03, late evening): 1,008 concepts** in
+`../ontodag-core/packs/geography/` — Peter's brief: geography, Earth, space,
+"only the uncontested, uncontroversial, stable and certain", with GPS,
+coordinate systems, map projections and great circles, integrated with the
+existing space representations. Physical geography, geodesy (WGS 84, geoid,
+datums, ECEF, ITRS), 25 map projections and their classes, GNSS (GPS, GLONASS,
+Galileo, BeiDou, DGPS, RTK), time standards (UTC, TAI, Unix time, Julian
+day), Earth's structure and spheres, plate tectonics, the geologic time scale
+Hadean→Holocene, landforms, ice, water bodies, oceans, climate classes, cloud
+genera, storms, the sciences and instruments, GIS formats. Instances: the
+seven continents, five oceans, poles, tropics, prime meridian and a dozen
+features with one universal name — **no countries, cities, disputed sea
+names or borders**. Units stay with the registry (nmi, kn, deg, arcmin exist
+there); the `geo` prefix-dimension head is the registry's; `geohash` here is
+the *concept*. Space/astronomy is deferred to a sibling `space` pack (core
+already has celestial-body, planet, star; physics has meteoroid, red-shift).
+Findings: WordNet's `rock` cone is the lump sense while the rock *types* hang
+from the material sense core lacks (added as `rock-material`); `layer` drags
+in the skin's strata, `sediment` coffee grounds, `pit` barbecue pits; core's
+name for the water spring is WordNet's first lemma `outflow` (flagged);
+Wikidata's `geographical feature` is over-broad (a door, a bridge and `place`
+itself hang from it — 58 of 166 edges rejected); P8814 maps several synsets
+to one item (`bluff`/`precipice`/`cliff`). **Core fix carried into core v4:**
+`meteorology` was the *forecast* sense and unplaced; now the science, placed.
+The geography Wikidata pull also refined core by consensus — cave, glacier,
+hill, ridge, mountain-range, valley, cliff now ⊑ `landform`, fog ⊑ cloud,
+bill ⊑ cash, option ⊑ contract — so core v4 is regenerated (2,929 listed
+categories, golden roots re-pinned `fc49774d…`/`0238dc86…`). New tool in
+ontodag-core: `tools/resolve_labels.py` (exact-label SPARQL resolver, kept in
+the repo). Nine packs now, none shipped; geography has had one reading.
+
+**Then the space pack (2026-09-03, night): 353 concepts** in
+`../ontodag-core/packs/space/` — the second half of Peter's brief. Astronomy
+and spaceflight, uncontested part: object types (brown dwarf to supermassive
+black hole), galaxy types and groupings, the Sun's layers and activity,
+cosmology **as concepts only** (Big Bang, CMB, inflation, Hubble's law, dark
+matter/energy, ΛCDM — no age of the universe in years, no Hubble constant:
+UNITS.md §12 again), celestial coordinate systems, orbital mechanics
+(elements, apsides, Lagrange points, Hohmann transfer, the named Earth
+orbits), eclipses and phases, spaceflight (vehicles, missions, EVA,
+agencies), telescopes and catalogues. Instances: the Sun, eight planets,
+Pluto/Ceres/Eris, the well-known moons, Solar System, Milky Way, Andromeda,
+Magellanic Clouds, Local Group, ISS, Hubble, JWST, Voyagers, Apollo 11,
+Sputnik 1, Space Shuttle, Falcon 9, Saturn V, Soyuz. Units (ly, pc, au) stay
+with the registry. **Second core sense fix of the evening: core's `star` was
+WordNet's naked-eye "point of light" sense; now the physical star** (edge
+unchanged — star ⊑ celestial-body — so `core_ontology.py` did not change and
+the golden roots stand; the sense lives in ontodag-core's alignment). Core
+keeps `satellite` = artificial, `moon` = the Moon, `sun` = the Sun, so the
+generic senses are qualified (`natural-satellite`, `planetary-moon`,
+`host-star`, `planetary-body`). Physics names unified with space
+(`astronomical-conjunction`, `orbital-inclination`; `stellar-body` folded
+into core's `star`). Wikidata edges that take a side in a live classification
+question were rejected (`dwarf planet ⊑ minor planet`). Ten packs now
+(physics 196, mathematics 614, chemistry 248, biology 345, medicine 1,048,
+ai 676, economics 1,125, computing 1,370, geography 1,008, space 353), none
+shipped in the wheel.
+
+**Integration build (2026-09-03, night): `../ontodag-core/tools/integrate.py`.**
+Core (with the prelude) plus all ten packs merged into one store: **9,793
+categories, 10,908 edges**, every pack concept reachable, three shuffled
+orders and the reversed order give the same root, a second merge of
+everything changes nothing, sha256 root `759ebb5a…`, BMT root `7d38cfe6…`
+(UPPER.md §8.1 pins both). The first run found a real bug in the pack build:
+an edge whose parent lives in a *sibling* pack (not core, not this pack)
+never reached a root and was silently left out of the pack file —
+geography's GIS formats under computing's `file-format`, economics' whole
+Swarm/wallet chain, space's coordinate systems under geography's. Sibling
+names are now placeable parents (borrowed, written parentless like core's),
+so a pack adopted without the sibling it leans on shows the borrowed name at
+top level until the sibling arrives (geography alone adds `file-format`,
+`database`, `data-processing`, `classification-scheme`, `theory`; computing
+`theorem`; space `coordinate-system`) — refinement by merge, as UPPER.md §1
+promises. 110 names occur in several packs with different parents and merge
+to the union of them; that list is the review queue for the second reading.
+Union queries on the in-memory store: `get landform` 0 ms, the empty query
+22 ms. Economics grew to 1,135 (the two hinges its chains hung from were
+missing). Next: release core v4 as 0.20.0; decide pack distribution.
+
+**What 0.19.0 is** (2026-09-02 evening, published by tag, all four jobs green,
+verified from PyPI): **the core pack v2** — 2,927 categories in ten branches,
+generated by consensus in `../ontodag-core` (github.com/petfold/ontodag-core)
+over WordNet/SUMO/OpenCyc/schema.org/YAGO/BFO/DOLCE, a strict superset of the
+never-published hand-written v1; `pack core` applies the prelude and asserts
+`linear-/count-/calendar-dimension ⊑ attribute` — plus **`ontodag.act`**
+(category-based access control, Phase 1 items 1–3, `act` extra), the Pyodide
+demo (`demo/pyodide/`, the browser runs the real package to the same root),
+guide §5.12 (London→Rome) and §9.3, and the Windows-round fixes' leftovers.
+ontodag-fs 0.3.3 released the same evening (ceiling `<0.20.0`). Cross-repo
+rule reminder: the ceiling line below says `<0.17.0`; it is `<0.20.0` now.
+
+**What 0.18.1 is** (2026-09-02, published by tag, all four jobs green):
+the Windows round's fixes plus the encrypted `rs:` stores that had sat
+unreleased since 2026-08-20 — a missing Graphviz *binary* is an instruction
+(exit 1 naming apt/brew/winget; the web app answers 501), tests skip what
+an environment cannot run (`crypto` in the `test` extra, so CI covers
+encryption again), the three POSIX-shaped assertions made platform-neutral,
+and the `store_key` setting / `crypto` extra. Shipped as a patch on Peter's
+call even though encrypted stores are additive new surface, which kept
+ontodag-fs's `<0.19.0` ceiling valid — no downstream release needed. Same
+pass: `issues.txt` untracked (Peter's private note, now in `.gitignore`),
+the essay and the Windows round-3 tester script filed under `docs/plans/`.
+
+**What 0.18.0 is** (2026-08-20, published by tag; the first tag was
+correctly stopped by the workflow's suite gate — a swarm-addressing test
+that skipped locally but failed on CI's bare env because the BMT import
+surfaces at hash time, not construction; fixed, tag moved, all four jobs
+green): **the projection seam and the pack ecosystem.** Overlay views
+(`overlays` setting; answers and pictures read the composed view, writes
+and mergeable artifacts read the primary), `odag ingest` (the
+PROJECTIONS.md §4 JSONL wire format; idempotent, order-free, `--drop` =
+full rebuild), the projection-drop golden test, `merge --diff` /
+`pack --diff` (additions + the mechanical unit-conflict refusal + the
+unrelated-classification warning on shared categories), pack golden
+roots pinned for BOTH addressings, `put` naming its missing parents with
+honest pack hints. Released same-day with the packs' live Swarm
+publication (Bee run 9) and the §10.1 scale measurement.
+
+Also live-validated after publication: the **published ontodag wheel** driving a
+`swarm:` store on a real Bee node through put → `history` → `--as-of` → `undo`
+(Bee run 8 above), which is the release story exercised by the artifact users get
+rather than by a checkout.
+
+**What 0.17.1 is** (2026-08-09, published by tag, all four jobs green): the
+fix for what 0.17.0 shipped broken. `pip install "ontodag[web]"` installed
+Flask, dot2tex, graphviz, owlready2 and Pillow **and then had nothing to
+run** — `web/` sat outside `src/` and had never been packaged. The app is now
+`src/ontodag/web/`, started three ways (`odag web`, the `odag-web` script, or
+`web` at the interactive prompt; `--host`/`--port`, Ctrl-C returns you to the
+prompt) and never with the Werkzeug debugger on. `cars/` (3.1 MB of demo
+photographs) stays in the repo, excluded by `[tool.setuptools.package-data]`,
+and `/market` explains itself when absent; wheel 140 KB → 188 KB. Same
+release, found by the same measurement: **a missing extra printed a
+traceback** with the useful sentence at the bottom — `require()` now raises
+`ontodag._extras.MissingExtra`, which `dispatch` reports like any other
+user-facing failure, so `odag visualize` on a base install finally says `pip
+install "ontodag[viz]"` and exits 1 (a genuine ImportError still gets its
+traceback). `web` is deliberately absent from the browser's Commands sheet.
+Two new smoke guards, each in the only environment that can see it: *the web
+app ships in the wheel* (site-packages, not the repo) and *a missing extra is
+an instruction* (the bare-install env). **Lesson, recorded because I got it
+wrong first: I found the packaging boundary during the release pass and
+documented it as a boundary instead of calling it the bug it was — a release
+whose headline feature is not in the artifact is not a release.**
+
+**What 0.17.0 is** (2026-08-09, published by tag; all four workflow jobs
+green, including the ontodag-fs downstream gate): the browse-and-type web
+interface — the page is a breadcrumb that *is* the query, a console running
+the same `odag` interpreter, and the rule that every click writes its command
+into the console; plus `ontodag.browse` (the refinement rule),
+`dispatch(argv, session, out=, err=)` (the CLI is now embeddable, streams
+bound with ContextVars), and `OntoDAGVisualizer.generate_svg`/`node_ids` (the
+picture is clickable because Graphviz writes viz.py's ids into the SVG).
+**The web app itself is NOT in the wheel** — `web/` is outside `src/`, so it
+never has been; the `web` extra installs what the app needs, not the app.
+README and guide now say so. **ontodag-fs's ceiling was raised to `<0.18.0` and released as
+0.3.1 the same day**, so the two install together at their current versions.
+
+**What 0.16.0 was** (one line each; details in `CHANGELOG.md`): `excerpt`
+(+`--context`) and `diff` (+`--additions`) for sending and reviewing parts of a
+store; `move`/`reclassify` with the contested-set report; `remove --cone` with the
+survival rule; `history`/`status`/`undo`/`redo` and a `-m` label on recordstore
+0.20's timeline; `--as-of` to read a past version; `overlapping` on the CLI and
+REST; `ontodag.compare` as a library; `OntoDAG.excerpt`/`excerpt_names`/
+`contested`/`induced_subdag`; web PATCH/cone-delete/prelude/pack/canon endpoints
+plus the matching browser controls; and the swarm feed-discovery fix (a fresh
+replica clones from the published root, since swarmfs cannot heal a ref it never
+knew).
+
+**Standing cross-repo rules.**
+- ontodag-fs pins a *ceiling* (`<0.24.0` now) because a released consumer cannot
+  be re-tested against a future ontodag. **Raise it — by hand — after ontodag's
+  publish workflow's `downstream` job runs ontodag-fs's suite against the
+  candidate.** That job is the evidence; the bump is the acknowledgement.
+- ontodag-fs's *floor* is a use, not a precaution: 0.16.0 for `Backend.load_at`.
+- loopmarket asks for `ontodag>=0.30.6` with no ceiling, so a new ontodag
+  reaches its users at once; since 2026-10-09 the publish workflow's
+  `downstream` job is a matrix over ontodag-fs **and loopmarket** (review
+  question 9), each consumer's `main` against the candidate wheel. It pins
+  registry semantics, so mixing stores across a registry change needs the
+  `ontodag.migrate` replay first.
+- **Every repo of the family lints in CI** (2026-10-09): pinned
+  `pyflakes==3.4.0` over every tracked `.py` file, as a `lint` job in
+  tests.yml and again before each release build (ontodag excludes `mypip/`,
+  a virtualenv committed by accident in July). pyflakes ignores `# noqa`, so
+  an optional import is tried with `importlib.import_module`, a re-export
+  needs `__all__`, and a fixture several test modules share lives in a
+  `conftest.py`. loopmarket's chain tests (the `evm` extra) run nightly
+  (`chain.yml`) and before each loopmarket release.
+- recordstore has no CLAUDE.md; its brief lives in `ONBOARDING.md` and its status
+  in `README.md`.
+
+**Two lessons this round paid for**, both now standing practice:
+1. **Docs-before-publish includes the README**, because it is the PyPI landing
+   page. recordstore 0.20.0 shipped with undo undocumented there, which is the
+   only reason 0.20.1 exists.
+2. **Verify from PyPI, never from disk** — and expect index propagation lag; an
+   immediate check can install the *previous* release, which is why the smoke
+   script fails on a version mismatch instead of quietly testing the wrong thing.
+
+Older history (0.15.0 and before) is in `CHANGELOG.md`, which was back-filled to
+0.1.0; the headline of 0.15.0 was complete transitive reduction, making stored
+form and multi-writer merge order-independent.
+
+## Documentation layout (2026-08-03)
+
+The docs follow the Diátaxis split, mapped in `docs/README.md` (one job per
+document — check it before adding a section somewhere). `docs/` holds what
+*describes the shipped system*: USER_GUIDE (tutorial/how-to, executed
+snippets), **REFERENCE.md** (compact lookup — its tables are pinned to the
+code by `tests/test_reference.py`, so a new command/setting/kind/MCP
+tool/extra/pack MUST be added there or the suite fails), HOW_IT_WORKS
+(explanation), UNIT_TABLE (generated), plus the design records (CONTRACT,
+PROVENANCE, AGENT_SURFACE, DIMENSIONS, UNITS, SWARM_DESIGN,
+recordstore-interface). **`docs/plans/`** holds discussion drafts and
+directions — ROADMAP, act-categories/DESIGN (2026-08-04: category-based
+access control — per-category keys, rekeying tokens along edges, so a
+directed token path from a person's leaf to a document's key is what
+decrypts; Bee-side work near zero, Phase 1 all client-side; extended
+2026-08-20 with knowledge-DAG mutation interactions and the claims-vs-
+payload division of labor), BINDING, EVOLUTION, PACKS, PROJECTIONS (2026-08-20:
+the shared auto-categorization contract with holdings and ucomm —
+sources of truth / regenerable `sys:` projections / the human layer; the
+JSONL ingest format; the overlay-view seam and cone-drop fit as ontodag's
+owed pieces; retention classes for local-first vs. link vs. live data),
+SEMA (2026-08-17: relation to Henrik Westerberg's SEMA — per-definition
+hash identity there vs. whole-state canonical convergence here; lessons to
+take, the collaboration pitch, email draft; pack-shaped options behind the
+PACKS.md freeze), ROLES (2026-10-06: what "below" means — a node is a
+class of items, below is inclusion; relations to entities become
+dimensions such as `in`, `about`, `for`; kinds vs. qualities vs.
+entities; the work order for it and for the swarm-sharing branch),
+SURFACE_LAYER,
+DATABASE_DIRECTION, SEMANTIC_CODES, BROWSER, MERKLE_NOTES,
+PHILOSOPHICAL_LANGUAGES, SWARM_DESIGN_update — nothing there is shipped;
+new discussion drafts go there. (Paths throughout this file were updated in
+the same pass.)
+
+## Papers (`paper/`)
+
+Two manuscripts, both LaTeX, both built in place. Neither is submitted
+anywhere; they are the long-form write-ups the design docs are too granular
+to be.
+
+- **`main.tex` — "OntoDAG: A Semantic Layer for Distributed Storage"**
+  (July 2026, two-column). The systems story: the data structure, the Swarm
+  persistence mapping, coordination-free merge, and MDL learning as the
+  source of categories.
+- **`ontodag-fca.tex` — "Concepts, Codes and Canonical Forms"**
+  (2026-08-06, 80 pages, one column, tutorial style; `make` builds it).
+  The theory companion, written from Peter's question about the FCA
+  connection. Structure: Part I teaches order theory, the neural-code origin,
+  then FCA and OntoDAG side by side on one six-document example; Part II
+  gives the exact correspondence; Part III the two lists (adopt / keep);
+  Part IV agents and crypto; Part V directions D1–D16.
+
+  **The three results worth remembering from it**, because they are things
+  this repo did not previously have written down:
+  1. **FCA's derivation operator *is* `get`.** In the context
+     `K(P) = (nodes, nodes, reachability)`, the attribute-derivation `B'` is
+     literally the intersection of cones. So a formal concept is a *query in
+     balance with its own answer*, and the two systems compute the same
+     function — they differ only in *when* (FCA closes everything in advance,
+     OntoDAG per query). This upgrades SEMANTIC_CODES §2's "FCA maps
+     directly" from an analogy to an identity.
+  2. **The concept lattice of an OntoDAG is its Dedekind–MacNeille
+     completion** (MacNeille 1937; Ganter & Wille). So the gap between the
+     two formalisms is *exactly* the meets the DAG never named — measured on
+     the running example as 17 concepts = 11 nodes + 4 genuine unnamed meets
+     + 2 bookends. That also re-states the meet-substitution guard
+     (SEMANTIC_CODES §10) in standard terms: OntoDAG nodes are not the meets;
+     the meets live in the completion.
+  3. **OntoDAG's parametric dimensions are an *interval pattern structure***
+     (Ganter & Kuznetsov 2001; Kaytoue et al. 2011) — arrived at
+     independently. Free consequences: the semilattice condition on `⊓` is
+     the same thing as "only exact-arithmetic kinds enter the canonical
+     order"; the projection theory is the principled version of the parked
+     per-dimension index; and the open multi-coordinate question
+     (BINDING.md §6) has a ready answer — product semilattice, componentwise
+     meet. This is direction D1 and it costs nothing but writing.
+
+  Also recorded there and worth acting on eventually: the scale/Stevens table
+  reveals OntoDAG has **no ordinal kind** (D2); attribute exploration with an
+  LLM as the expert is the paper's best idea for the review problem, because
+  it makes review of machine-written knowledge bounded, ordered and
+  terminating (D6, single-writer case buildable today); and `merge` not
+  enforcing the disjoint-parents guard is repeated there as a documentation
+  gap, not a bug.
+
+  **Everything quantitative in it is executed**, not asserted:
+  `paper/experiments/fca_experiments.py` (stdlib + ontodag; NextClosure and
+  the FCA operators implemented in-file and checked against brute-force
+  oracles) writes `experiments/results.txt`, which the appendix includes
+  verbatim, plus `explosion.dat` and four of the seven Graphviz figures. The
+  CLI and MCP transcripts in it are real sessions. Build needs `pdflatex`,
+  `bibtex`, `graphviz`, `dot2tex`; `make` runs four LaTeX passes because the
+  cross-references do not settle in three.
+
+## Working across sessions
+
+This is a multi-session project. At the start of each session:
+1. Run the full test suite (`testdag.py`, `testitem.py`, `test_invariants.py`, `test_boundaries.py`, `test_eager.py`, `test_cli.py` — the first two must be named explicitly, see "Running tests"; the recordstore tests live in the recordstore repo since its `v0.1.1`) to confirm the starting state matches what this file claims.
+2. Check which of the two current-task sections above is still open, and update this file's "Definition of done" / "What does not exist yet" sections as work completes — this file should always reflect actual repo state, not a stale plan.
+3. Prefer small, focused commits over large multi-concern ones; each should be reviewable against one invariant or one design-doc section.

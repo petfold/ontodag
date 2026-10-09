@@ -3,8 +3,8 @@
 Skips automatically unless BEE_API **and** BEE_BATCH are set — mirroring the
 gating of `test_recordstore_bee.py` in the recordstore repo. Unlike
 `test_cli.py` (which drives an in-memory RecordStore double), this exercises
-the *real* SwarmBackend — BeeBytesStore + FilePointer over a live node —
-end-to-end through `dispatch()`, exactly as the `odag` command does.
+the *real* SwarmBackend — a local-first store syncing to a live node through
+swarmfs — end-to-end through `dispatch()`, exactly as the `odag` command does.
 
 Run it against a live node (see CLAUDE.md "Bee integration status" for the
 caveats — always pass a real BEE_BATCH so nothing auto-buys):
@@ -12,8 +12,8 @@ caveats — always pass a real BEE_BATCH so nothing auto-buys):
     BEE_API=http://localhost:1633 BEE_BATCH=<batchID> \
         python3 -m pytest tests/test_swarm_bee.py -v
 
-A validated reference run (bee v2.8.1 light node, Gnosis mainnet, 2026-07-21)
-is recorded in CLAUDE.md.
+Every run against a real node, with what it found, is recorded in
+docs/plans/JOURNAL.md under the same heading.
 """
 
 import io

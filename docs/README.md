@@ -65,3 +65,10 @@ tester, with expected outputs; round 2 is summarized in USER_GUIDE §2),
 REVIEW_2026-10 (a code, performance and design review of ontodag and
 loopmarket: the goals against the code, unnecessary complexity, how the two
 repos fit, measured performance and coverage, and recommendations).
+
+## History
+
+| document | job |
+|---|---|
+| [../CHANGELOG.md](../CHANGELOG.md) | What each release changed, back to 0.1.0. |
+| [plans/JOURNAL.md](plans/JOURNAL.md) | The working diary: what sessions built, measured and decided. It was `CLAUDE.md` until 2026-10-09, moved here unchanged; later entries are dated. History, not a description of the current system: `CLAUDE.md` says what is true now. |
