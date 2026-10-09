@@ -44,6 +44,37 @@ class TestMigrationKeepsWhatNodesCarry(unittest.TestCase):
         self.assertEqual(record.get("up"), ["pet"])
 
 
+class TestMigrationWritesTheseBytes(unittest.TestCase):
+    """What `migrate` writes for one legacy store, pinned byte for byte
+    (tests/fixtures/make_migrate.py): old spellings, metadata, an item a
+    merge left under two overlapping values, a graph-kind compound stored
+    folded, a role term naming a cell. A change here is a change to a
+    registry minor's migrate step (CONTRACT.md G8): regenerate the fixture
+    with it, deliberately, and read the diff of migrate-out.od."""
+
+    def _migrated(self, source):
+        import shutil
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "store.od")
+            shutil.copy(source, path)
+            migrate.migrate_native(path)
+            with open(path, "rb") as f:
+                return f.read()
+
+    def test_the_bytes_are_the_recorded_ones(self):
+        here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+        with open(os.path.join(here, "migrate-out.od"), "rb") as f:
+            expected = f.read()
+        self.assertEqual(self._migrated(os.path.join(here, "migrate-in.od")), expected)
+
+    def test_migrating_the_result_changes_nothing(self):
+        here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+        out = os.path.join(here, "migrate-out.od")
+        with open(out, "rb") as f:
+            expected = f.read()
+        self.assertEqual(self._migrated(out), expected)
+
+
 if __name__ == "__main__":
     unittest.main()
 

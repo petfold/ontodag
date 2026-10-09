@@ -189,6 +189,32 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **A node under a term-shaped category was a dimension head or not,
+  depending on history.** In `z` under `x(y)` under `mass`, the walk up
+  from `z` passed through `x(y)` and found `mass`, while the walk down
+  from the kinds (`_heads`) stops at any term-shaped name; and an edge to
+  a term-shaped name leaves the caches alone. So `is_term("z(3kg)")` was
+  False if the question had been asked before the edge from `mass` to
+  `x(y)`, and True if not, and `put w z(3kg)` was refused in one history
+  and filed in the other. A term-shaped name (a kind node apart) now ends
+  the walk both ways (review §3.1, found by its test suggestion 1).
+- **An empty relation term raised deep inside queries.** `shared-with( )`
+  canonicalized to `shared-with()`, which the term reader does not read
+  as a term, and every walk that met it raised a `TypeError`. A term of a
+  relation or graph kind with no constraint is now refused when written,
+  with the fix named.
+- **The web API answered 500 to requests it could not read.** A JSON body
+  that was a list or a string, a list field that was a string (read
+  letter by letter), a `depth` that was no number, a console command
+  that left the page's own query naming what it removed, and a refusal
+  nothing caught: each is now a 400 with the reason, the console's answer
+  keeping the command's output. Found by the review's hostile-input
+  tests, as were the two below.
+- **`odag-mcp` called a request's `params` a dict without checking.** A
+  list there raised out of the handler; a tool's `arguments` that were
+  not an object, or an `as_of` that was not a string, were internal
+  errors. They are now a JSON-RPC error and tool errors that say what
+  each field takes.
 - **A broad `about` query cost time in proportion to the place hierarchy,
   not to its answer** (review question 8, decided with Peter, 2026-10-09).
   `get about(france)` lists what is filed about anything in France; to
@@ -250,6 +276,23 @@ the version numbers appear in commit history and docs.
   mid-load. The loader now replays as a merge does (`_lenient_roles`),
   then makes the re-spellings such a replay defers. `rs:` and `swarm:`
   stores were not affected: they hydrate verbatim.
+
+### Tests
+
+- **Written before the review's decided changes, to guard them**
+  (question 23): G7's second record (`tests/fixtures/make_g7b.py`), taken
+  under contract 0.5 / registry 4.3 with graph-kind and relation
+  compounds, role terms naming cells and places, and an item a merge left
+  under two overlapping values; what `migrate` writes for one legacy
+  store, byte for byte (`make_migrate.py`); the lazy reader's and the
+  sparse writer's caches dropped at random points, and certificates
+  proved from random worlds, against the eager store
+  (`test_crosskind.py`); whole-store reading, committing and hydrating,
+  flat per record from 2,500 to 10,000 records (`test_scale.py`); seeded
+  hostile input to native files, `odag-mcp` and the web API
+  (`test_hostile.py`); and `odag web` started as a process and asked over
+  HTTP. `ONTODAG_SLOW_TESTS=1` runs five times as many worlds and cases,
+  and 10,000 against 50,000 records.
 
 ## [0.30.8] — 2026-10-09
 

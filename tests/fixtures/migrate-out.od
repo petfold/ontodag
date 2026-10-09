@@ -1,0 +1,54 @@
+# ontodag store v1
+#:canonical 4.3 35e86d3745a8ce187147f5ee3632fa4ca35e3d10b46483656d369d260e3ad3eb
+about enclosing-dimension
+area 'linear-dimension(area)'
+calendar-dimension dimension
+count count-dimension
+count-dimension dimension
+courier 'transport(mass(..8kg))' 'transport(small-item)'
+crate 'mass(2kg..5kg)'
+delivery 'from(u2ed4)'
+dimension '*'
+dominance-dimension dimension
+duration 'linear-dimension(duration)'
+'duration(5400s)' duration
+enclosing-dimension dimension
+energy 'linear-dimension(energy)'
+from geo
+'from(u2ed4)' from
+geo prefix-dimension
+graph-dimension dimension
+in transitive-dimension
+length 'linear-dimension(length)'
+lesson 'duration(5400s)'
+linear-dimension dimension
+'linear-dimension(area)' linear-dimension
+'linear-dimension(duration)' linear-dimension
+'linear-dimension(energy)' linear-dimension
+'linear-dimension(length)' linear-dimension
+'linear-dimension(mass)' linear-dimension
+'linear-dimension(pressure)' linear-dimension
+'linear-dimension(speed)' linear-dimension
+'linear-dimension(temperature)' linear-dimension
+'linear-dimension(volume)' linear-dimension
+mass 'linear-dimension(mass)'
+'mass(..5kg)' mass
+'mass(2kg..)' mass
+'mass(2kg..5kg)' mass
+'mass(3kg)' mass
+#:meta parcel '{"label": "Parcel 7"}'
+parcel 'mass(3kg)'
+prefix-dimension dimension
+pressure 'linear-dimension(pressure)'
+reversed-dimension dimension
+shared-with reversed-dimension
+size dominance-dimension
+small-item '*'
+speed 'linear-dimension(speed)'
+temperature 'linear-dimension(temperature)'
+time calendar-dimension
+transitive-dimension dimension
+transport graph-dimension
+'transport(mass(..8kg))' transport
+'transport(small-item)' transport
+volume 'linear-dimension(volume)'

@@ -79,6 +79,44 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=float(os.getenv("FL
 app.session_interface = InMemorySessionInterface()
 
 
+class _BadRequest(ValueError):
+    """A request the API cannot read; answered 400 with the reason."""
+
+
+def _json_object():
+    """The request's JSON body as an object, {} when there is none.
+
+    Anything else (a list, a string, a number) is refused with a 400. The
+    handlers used to call `.get` on whatever arrived, and a list was a 500
+    (found by the review's hostile-input tests, 2026-10-10)."""
+    data = request.get_json(silent=True)
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise _BadRequest("the request body must be a JSON object")
+    return data
+
+
+def _string_list(data, key):
+    """`data[key]` as a list of names: absent is [], anything but a list of
+    strings is refused (a string would otherwise be read letter by letter)."""
+    value = data.get(key)
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise _BadRequest(f"{key!r} must be a list of names")
+    return value
+
+
+@app.errorhandler(ValueError)
+def _refused(exc):
+    """A refusal the core or a handler raised and nothing caught: 400, with
+    the message, which is written to teach. A ValueError is how the core
+    refuses (a malformed term, a contradiction, a category that does not
+    exist); a bug shows as another exception and stays a 500."""
+    return jsonify({"error": str(exc)}), 400
+
+
 @app.errorhandler(MissingExtra)
 def _missing_extra(exc):
     """An optional dependency is not installed — 501, with the instruction.
@@ -324,12 +362,21 @@ def console():
     trip that ran it. Navigation is the client's business — it owns the query;
     the server owns the knowledge.
     """
-    data = request.json or {}
+    data = _json_object()
     line = data.get("line", "")
+    if not isinstance(line, str):
+        raise _BadRequest("'line' must be a string")
     dag = current_dag()
     out, err, code = run_console_line(line, dag)
     answer = {"out": out, "err": err, "code": code}
-    answer.update(_state(dag, query_terms(remember=False)))
+    try:
+        answer.update(_state(dag, query_terms(remember=False)))
+    except ValueError as exc:
+        # The command ran; it is the page's own query that no longer reads
+        # (it named what the command removed, say). Answer the command and
+        # start the view over, saying why, rather than lose the answer.
+        answer["err"] += f"the current query was dropped: {exc}\n"
+        answer.update(_state(dag, []))
     return jsonify(answer)
 
 
@@ -507,7 +554,10 @@ def picture():
 
     dag = current_dag()
     focus_name = request.args.get("focus")
-    depth = int(request.args.get("depth") or 1)
+    try:
+        depth = int(request.args.get("depth") or 1)
+    except ValueError:
+        raise _BadRequest("depth must be a whole number") from None
 
     if focus_name and focus_name in dag.nodes:
         drawn = dag.induced_subdag(_neighbourhood(dag, focus_name, depth))
@@ -574,14 +624,14 @@ def get_dag_image():
 
 @app.route("/dag/node", methods=["POST"])
 def add_dag_items():
-    data = request.json
+    data = _json_object()
     my_dag = current_dag()
     try:
-        subcategories = [Item(name) for name in data.get("subcategories", [])]
+        subcategories = [Item(name) for name in _string_list(data, "subcategories")]
         # Pass names through: put resolves them itself, which is what lets
         # parametric terms (weight(3kg), weight(..5kg)) materialize with
         # their anchors and sugar resolve to canonical names.
-        super_categories = data.get("super_categories") or [my_dag.root.name]
+        super_categories = _string_list(data, "super_categories") or [my_dag.root.name]
 
         for subcategory in subcategories:
             my_dag.put(subcategory, super_categories)
@@ -594,9 +644,9 @@ def add_dag_items():
 
 @app.route("/dag/node", methods=["DELETE"])
 def remove_dag_items():
-    data = request.json or {}
+    data = _json_object()
     my_dag = current_dag()
-    names = data.get("subcategories", [])
+    names = _string_list(data, "subcategories")
     cone = (request.args.get("cone", "").lower() in ("1", "true", "yes")
             or bool(data.get("cone")))
     # A category a term names (in(paris), about(paris)) is refused unless the
@@ -671,10 +721,10 @@ def move_dag_items():
     exclusive status cannot), and no rule here can resolve it — so it is
     reported, exactly as `odag move` reports it.
     """
-    data = request.json or {}
-    items = data.get("subcategories") or data.get("items") or []
-    to = data.get("to") or []
-    from_ = data.get("from") or None
+    data = _json_object()
+    items = _string_list(data, "subcategories") or _string_list(data, "items")
+    to = _string_list(data, "to")
+    from_ = _string_list(data, "from") or None
     if not items:
         return jsonify({"error": "no items to move"}), 400
     if not to and not from_:
@@ -808,7 +858,9 @@ def adopt_pack():
              "declarations": len(entries),     # kept: the count of entries
              "kind": "units" if is_unit_pack(name) else "categories"}
             for name, (version, entries) in sorted(PACKS.items())]})
-    name = (request.json or {}).get("name")
+    name = _json_object().get("name")
+    if name is not None and not isinstance(name, str):
+        raise _BadRequest("'name' must be a pack's name")
     if not name:
         return jsonify({"error": "need a pack name (GET /dag/pack lists them)"}), 400
     try:

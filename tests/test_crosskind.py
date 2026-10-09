@@ -20,9 +20,16 @@ store:
   refusal and no root;
 * with removals and moves among the writes, an eager store, the same with
   its caches dropped, and the sparse writer agree on every outcome and on
-  the root.
+  the root;
+* the sparse writer and the lazy reader, their caches dropped at random
+  points, agree with the eager store, and a certificate proved from a
+  committed world verifies to the eager answer (2026-10-10, the review's
+  test suggestions 1 and 2).
+
+`ONTODAG_SLOW_TESTS=1` runs five times as many worlds.
 """
 
+import os
 import random
 import unittest
 
@@ -33,6 +40,12 @@ from ontodag.eager import EagerOntoDAG
 from ontodag.lazy import LazyOntoDAG, SparseOntoDAG
 
 CELLS = ["u2", "u2e", "u2e4", "u2e5", "u3"]
+SLOW = bool(os.environ.get("ONTODAG_SLOW_TESTS"))
+
+
+def seeds(n, start=0):
+    """`n` worlds, or five times as many in a slow run."""
+    return range(start, start + (5 * n if SLOW else n))
 
 
 def declare(dag):
@@ -141,7 +154,7 @@ def build(cats, places, writes, order, blobs=None):
 
 class TestEveryKindAtOnce(unittest.TestCase):
     def test_every_order_and_merge_gives_one_root(self):
-        for seed in range(40):
+        for seed in seeds(40):
             cats, places, writes, _ = world(seed)
             built = [build(cats, places, writes, order) for order in range(4)]
             self.assertEqual(len({tuple(r) for _, r in built}), 1, seed)
@@ -153,7 +166,7 @@ class TestEveryKindAtOnce(unittest.TestCase):
             self.assertEqual(len(roots), 1, seed)
 
     def test_a_lazy_reader_answers_the_same(self):
-        for seed in range(40):
+        for seed in seeds(40):
             cats, places, writes, queries = world(seed)
             blobs = MemoryBytesStore()
             eager, _ = build(cats, places, writes, 0, blobs)
@@ -174,7 +187,7 @@ class TestEveryKindAtOnce(unittest.TestCase):
                                  (seed, a, b))
 
     def test_the_sparse_writer_commits_the_same_root(self):
-        for seed in range(25):
+        for seed in seeds(25):
             cats, places, writes, _ = world(seed)
             blobs = MemoryBytesStore()
             base = declare(EagerOntoDAG(RecordStore(blobs)))
@@ -203,7 +216,7 @@ class TestEveryKindAtOnce(unittest.TestCase):
         that a write failed to keep current shows as a different answer,
         refusal or root. (Checked 2026-10-09: with the argument index never
         fed, 12 of 20 worlds differ.)"""
-        for seed in range(30):
+        for seed in seeds(30):
             cats, places, writes, queries = world(seed)
             rng = random.Random(seed * 7 + 1)
             dags = [declare(EagerOntoDAG(RecordStore(MemoryBytesStore())))
@@ -236,6 +249,75 @@ class TestEveryKindAtOnce(unittest.TestCase):
                 self.assertEqual(outcomes[1], outcomes[0], (seed, name, supers))
             self.assertEqual(dags[1].commit(), dags[0].commit(), seed)
 
+    def test_dropping_caches_in_the_sparse_writer_changes_no_root(self):
+        """The sparse writer keeps the same derived caches over a partly
+        resident graph. Dropped at random points between its writes, it
+        must still refuse what the eager writer refuses and commit its
+        root."""
+        for seed in seeds(25):
+            cats, places, writes, _ = world(seed)
+            blobs = MemoryBytesStore()
+            base = declare(EagerOntoDAG(RecordStore(blobs)))
+            for c in cats:
+                base.put(c, [])
+            for p in places:
+                base.put(p, ["geo(u)"])
+            root = base.commit()
+            rng = random.Random(seed * 11 + 3)
+            order = list(writes)
+            rng.shuffle(order)
+            eager = EagerOntoDAG(RecordStore(blobs, root=root))
+            sparse = SparseOntoDAG(RecordStore(blobs, root=root))
+            for name, supers in order:
+                if rng.random() < 0.4:
+                    drop_caches(sparse)
+                refused = []
+                for writer in (eager, sparse):
+                    try:
+                        writer.put(name, supers)
+                        refused.append(False)
+                    except ValueError:
+                        refused.append(True)
+                self.assertEqual(refused[1], refused[0], (seed, name, supers))
+            self.assertEqual(sparse.commit(), eager.commit(), seed)
+
+    def test_dropping_caches_in_a_lazy_reader_changes_no_answer(self):
+        """A lazy reader over a committed root, its derived caches and its
+        cone cache dropped at random points between questions, answers as
+        the eager store does."""
+        for seed in seeds(30):
+            cats, places, writes, queries = world(seed)
+            blobs = MemoryBytesStore()
+            eager, _ = build(cats, places, writes, 0, blobs)
+            root = eager.commit()
+            lazy = LazyOntoDAG(RecordStore.at(root, blobs))
+            rng = random.Random(seed * 13 + 5)
+            names = sorted(n for n in eager.nodes if n != "*")
+            for _ in range(30):
+                if rng.random() < 0.4:
+                    drop_caches(lazy)
+                    if lazy._cone_cache is not None:
+                        lazy._cone_cache.clear()
+                op = (("get", rng.choice(queries)) if rng.random() < 0.5
+                      else ("below", (rng.choice(names), rng.choice(names))))
+                self.assertEqual(answer(lazy, op), answer(eager, op), (seed, op))
+
+    def test_certificates_prove_what_the_store_answers(self):
+        """For random pairs in a committed world, a certificate proved from
+        the store verifies, against the root alone, to the eager answer:
+        the proof path agrees with the resident one over every kind."""
+        from ontodag.certificates import prove_below, verify_below
+        for seed in seeds(10):
+            cats, places, writes, _ = world(seed)
+            eager, _ = build(cats, places, writes, 0)
+            root = eager.commit()
+            rng = random.Random(seed * 17 + 7)
+            names = sorted(n for n in eager.nodes if n != "*")
+            for _ in range(8):
+                a, b = rng.choice(names), rng.choice(names)
+                self.assertEqual(verify_below(prove_below(eager, a, b), root),
+                                 eager.is_below(a, b), (seed, a, b))
+
     def test_removals_and_moves_agree_across_writers(self):
         """Writes mixed with `remove`, `reclassify` and `remove_cone`, applied
         to an eager store, an eager store whose caches are dropped at random
@@ -244,7 +326,7 @@ class TestEveryKindAtOnce(unittest.TestCase):
         removing a category an `about` compound named made later writes
         raise in the eager store, while the sparse writer, never loading the
         term, accepted them."""
-        for seed in range(150, 190):
+        for seed in seeds(40, 150):
             cats, places, writes, _ = world(seed)
             rng = random.Random(seed * 31 + 5)
             blobs = MemoryBytesStore()
@@ -302,7 +384,7 @@ class TestEveryKindAtOnce(unittest.TestCase):
         """Removals that take the terms naming what goes (`with_terms`) and
         renames, mixed with writes, over every kind at once: the three
         writers agree on every outcome and on the root."""
-        for seed in range(40):
+        for seed in seeds(40):
             cats, places, writes, _ = world(seed)
             rng = random.Random(seed * 17 + 3)
             blobs = MemoryBytesStore()

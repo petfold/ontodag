@@ -218,6 +218,9 @@ class AgentSurface:
 
     def _dag_at(self, as_of):
         """The DAG a query should run against, and the root it will cite."""
+        if as_of is not None and not isinstance(as_of, str):
+            raise ToolError("as_of must be a root, written as a string "
+                            "(`about` cites the current one)")
         if not as_of or as_of == self.root:
             return self.dag, self.root
         if as_of in self._snapshots:
@@ -896,8 +899,17 @@ class MCPServer:
         msg_id = message.get("id")
         if msg_id is None:  # a notification: never answered
             return None
+        params = message.get("params")
+        if params is None:
+            params = {}
+        if not isinstance(params, dict):
+            # A list or a string where an object belongs used to reach
+            # `params.get` and raise out of `handle` (found by the review's
+            # hostile-input tests, 2026-10-10).
+            return {"jsonrpc": "2.0", "id": msg_id,
+                    "error": {"code": -32602,
+                              "message": "invalid params: an object expected"}}
         if method == "initialize":
-            params = message.get("params") or {}
             return self._result(msg_id, {
                 "protocolVersion": params.get("protocolVersion")
                 or self.PROTOCOL_VERSION,
@@ -910,10 +922,14 @@ class MCPServer:
             return self._result(msg_id,
                                 {"tools": self.surface.tool_specs()})
         if method == "tools/call":
-            params = message.get("params") or {}
             name = params.get("name")
-            arguments = params.get("arguments") or {}
+            arguments = params.get("arguments")
+            if arguments is None:
+                arguments = {}
             try:
+                if not isinstance(arguments, dict):
+                    raise ToolError("a tool's arguments are a JSON object "
+                                    "(see tools/list for each tool's fields)")
                 answer = self.surface.call(name, arguments)
             except (ToolError, ValueError, OSError) as exc:
                 _log_failure({"event": "tool_error", "tool": name,

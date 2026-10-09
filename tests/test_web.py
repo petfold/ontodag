@@ -5,6 +5,8 @@ level) — and, per test, when Graphviz's `dot` binary is missing, which is
 its own gate: the `viz` extra installs the Python wrapper, the binary comes
 from the OS and is a separate download on Windows."""
 
+import json
+import os
 import shutil
 
 import pytest
@@ -1136,3 +1138,51 @@ class TestCanonOverRest:
         response = client.get("/dag/canon", query_string={"term": "mass(zz)"})
         assert response.status_code == 400
         assert "error" in response.get_json()
+
+
+class TestOdagWebStartedForReal:
+    """`odag web` started as a user starts it: a separate process listening
+    on a port, asked over real HTTP (the review's test suggestion 9; until
+    2026-10-10 only the in-process test client ever reached the app)."""
+
+    def test_the_server_answers_over_http(self, tmp_path):
+        import socket
+        import subprocess
+        import sys
+        import time
+        import urllib.request
+
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        env = dict(os.environ, ONTODAG_HOME=str(tmp_path))
+        src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
+        env["PYTHONPATH"] = os.pathsep.join([src, env.get("PYTHONPATH", "")])
+        proc = subprocess.Popen(
+            [sys.executable, "-m", "ontodag", "web", "--host", "127.0.0.1",
+             "--port", str(port)],
+            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            deadline, page = time.time() + 30, None
+            while time.time() < deadline and page is None:
+                try:
+                    with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=2) as r:
+                        page = (r.status, r.read().decode())
+                except OSError:
+                    if proc.poll() is not None:
+                        break
+                    time.sleep(0.2)
+            assert page is not None, proc.stderr.read().decode()[-2000:] if proc.poll() is not None else "no answer"
+            assert page[0] == 200 and "<html" in page[1].lower()
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{port}/dag/node", method="POST",
+                data=json.dumps({"subcategories": ["cat"]}).encode(),
+                headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                assert r.status == 201
+        finally:
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()

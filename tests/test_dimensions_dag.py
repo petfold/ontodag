@@ -589,6 +589,28 @@ class TestDimensionCache(unittest.TestCase):
         self.assertEqual(a.commit(), b.commit())
         self.assertEqual({p.name for p in a.nodes["r"].parents}, {"from(u2e4x)"})
 
+    def test_a_term_shaped_name_is_no_link_in_a_head_chain(self):
+        """`z` under `x(y)` under `weight`: `_heads` never lists `z` (a
+        term-shaped name ends the downward walk), and the upward walk must
+        agree, or the cached answer depends on history. It did: asked
+        before the edge from `weight` to `x(y)` (which leaves the caches
+        alone, being an edge to a term-shaped name), `z` stayed no head;
+        asked after, `z` was a role of `weight`, and `put w z(3kg)` was
+        refused in one history and filed in the other (review, 2026-10-09,
+        §3.1; built 2026-10-10)."""
+        outcomes = []
+        for ask_first in (True, False):
+            dag = make_dag()
+            dag.put("x(y)", [])
+            dag.put("z", ["x(y)"])
+            if ask_first:
+                dag._dimension_of("z")
+            dag.put("x(y)", ["weight"])
+            outcomes.append((dag._dimension_of("z"), dag.is_term("z(3kg)"),
+                             "z" in dag._heads()))
+        self.assertEqual(outcomes[0], outcomes[1])
+        self.assertEqual(outcomes[0], ((None, None), False, False))
+
 
 class TestEagerDimensions(unittest.TestCase):
     STEPS = [("weight", ["linear-dimension"]),

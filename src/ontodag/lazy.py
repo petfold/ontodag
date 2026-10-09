@@ -86,6 +86,7 @@ layer for ``items()``); the traversals below are written so that change is
 local to ``_expand_many``.
 """
 
+from ontodag import dimensions as _dims
 from ontodag.dag import DAG, Item, OntoDAG, _name_of
 
 
@@ -236,14 +237,17 @@ class LazyOntoDAG(OntoDAG):
 
     def _kind_walk_parents(self, node):
         """The declaration walk's seam: expand as it climbs, follow only this
-        DAG's own parents, and skip parametric values like the eager one."""
+        DAG's own parents, and skip every term-shaped name but a kind node,
+        like the eager one; by name, so such a parent is never fetched."""
         out = []
         for parent in self._expand(node).parents:
             if dict.get(self.nodes, parent.name) is not parent:
                 continue
+            if _dims.split_term(parent.name) is not None \
+                    and not _dims.is_kind_node(parent.name):
+                continue
             self._expand(parent)
-            if not self._looks_like_value(parent):
-                out.append(parent)
+            out.append(parent)
         return out
 
     # ------------------------------------------------------- traversals

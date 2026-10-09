@@ -709,23 +709,21 @@ class OntoDAG(DAG):
         """The registry kind a declared dimension head inherits, or None."""
         return self._dimension_of(head_name)[0]
 
-    def _looks_like_value(self, node):
-        """Syntactic anchor test — `head(param)` with a parent named `head`.
-        No parse and no walk, so the declaration walk can afford it."""
-        split = _dims.split_term(node.name)
-        if split is None or _dims.is_kind_node(node.name):
-            return False      # `linear-dimension(mass)` is a kind node, not a value
-        return any(parent.name == split[0] for parent in node.parents)
-
     def _kind_walk_parents(self, node):
         """The parents the declaration walk follows: this DAG's own, with
-        parametric VALUES left out. A value is a leaf of the declaration
-        walk, not a link in a head chain — a place filed under a geohash
-        cell is not thereby a dimension head, whatever its name looks like.
-        Seam for the lazy reader, which expands as it walks."""
+        every term-shaped name but a kind node left out. A value is a leaf
+        of the declaration walk, not a link in a head chain — a place filed
+        under a geohash cell is not thereby a dimension head, whatever its
+        name looks like — and so is any other term-shaped name, as `_heads`
+        has it: a node under `x(y)` under `mass` is no role of `mass`. Were
+        it one here and not there, the cached answer would depend on
+        whether it was asked before the edge to `x(y)` (edges to term-shaped
+        names leave the caches alone, `_maybe_invalidate_heads`). Seam for
+        the lazy reader, which expands as it walks."""
         return [parent for parent in node.parents
                 if self.nodes.get(parent.name) is parent
-                and not self._looks_like_value(parent)]
+                and (_dims.split_term(parent.name) is None
+                     or _dims.is_kind_node(parent.name))]
 
     def _dimension_of(self, head_name):
         """(kind, base) for a declared dimension head, (None, None) otherwise.
@@ -749,8 +747,9 @@ class OntoDAG(DAG):
         cached (they may appear), and an ambiguous declaration raises
         uncached, so the error stays loud at every use."""
         node = self.nodes.get(head_name)
-        if node is None or _dims.is_kind_node(head_name):
-            return None, None
+        if node is None or _dims.is_kind_node(head_name) \
+                or _dims.split_term(head_name) is not None:
+            return None, None     # a term-shaped name is never a head (`_heads`)
         cache = getattr(self, "_dim_cache", None)
         if cache is None:
             cache = self._dim_cache = {}
@@ -1553,6 +1552,14 @@ class OntoDAG(DAG):
             if hit is not _MISSING:
                 return hit
         head, param = _dims.split_term(name)
+        if not _dims.constraints(param):
+            # `shared-with( )`: no constraint at all. It would canonicalize to
+            # `shared-with()`, which is no term (`split_term` reads none), and
+            # every walk that met it raised a TypeError (found by the review's
+            # hostile-input tests, 2026-10-10).
+            raise ValueError(
+                f"{name}: a term of {head!r} names at least one category "
+                f"(write {head}(something))")
         canonical = []
         for c in _dims.constraints(param):
             parsed = self._parse_parametric(c)

@@ -1,0 +1,96 @@
+# ontodag store v1
+#:canonical 4.3 e5213580036178e1260b908dcdfab88b3524ce72144312cd65f97b04984e0a8f
+about enclosing-dimension
+'about(louvre tokyo)' about
+'about(paris)' about
+alice sales-employee
+area 'linear-dimension(area)'
+bicycle small-item
+bob employee
+bouquet 'count(5)'
+calendar-dimension dimension
+count count-dimension
+'count(5)' count
+count-dimension dimension
+courier 'transport(mass(..8kg))' 'transport(small-item)'
+crate 'mass(..5kg)' 'mass(2kg..)'
+delivery 'from(u2ed4)' 'to(home)'
+dimension '*'
+document '*'
+dominance-dimension dimension
+duration 'linear-dimension(duration)'
+employee person
+enclosing-dimension dimension
+energy 'linear-dimension(energy)'
+europe place
+festival 'time(2026-08-01T00:00:00Z..2026-08-31T23:59:59Z)' 'time(2026-08-10T00:00:00Z..2026-09-20T23:59:59Z)'
+fragile '*'
+france 'in(europe)' place
+from geo
+'from(u2e)' from
+'from(u2ed4)' from
+garden place
+geo prefix-dimension
+'geo(u2ed4x)' geo
+graph-dimension dimension
+guide 'about(louvre tokyo)' document
+handbook document 'shared-with(employee)'
+home 'geo(u2ed4x)'
+in transitive-dimension
+'in(europe)' in
+'in(france)' in
+'in(garden louvre)' in
+'in(japan)' in
+'in(louvre)' in
+'in(paris)' in
+japan place
+length 'linear-dimension(length)'
+linear-dimension dimension
+'linear-dimension(area)' linear-dimension
+'linear-dimension(duration)' linear-dimension
+'linear-dimension(energy)' linear-dimension
+'linear-dimension(length)' linear-dimension
+'linear-dimension(mass)' linear-dimension
+'linear-dimension(pressure)' linear-dimension
+'linear-dimension(speed)' linear-dimension
+'linear-dimension(temperature)' linear-dimension
+'linear-dimension(volume)' linear-dimension
+louvre 'in(paris)' place
+mass 'linear-dimension(mass)'
+'mass(..5kg)' mass
+'mass(2kg..)' mass
+memo document 'shared-with(alice bob)'
+mona-lisa 'in(louvre)'
+mover 'transport(bicycle)' 'transport(fragile)'
+parcel 'from(u2e)'
+paris 'in(france)' place
+person '*'
+place '*'
+plan 'about(paris)' document
+prefix-dimension dimension
+pressure 'linear-dimension(pressure)'
+reversed-dimension dimension
+sales-employee employee
+shared-with reversed-dimension
+'shared-with(alice bob)' shared-with
+'shared-with(employee)' shared-with
+size dominance-dimension
+small-item '*'
+speed 'linear-dimension(speed)'
+statue 'in(garden louvre)'
+temperature 'linear-dimension(temperature)'
+time calendar-dimension
+'time(2026-08-01T00:00:00Z..2026-08-31T23:59:59Z)' time
+'time(2026-08-10T00:00:00Z..2026-09-20T23:59:59Z)' time
+'time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)' time
+to geo
+'to(home)' to
+tokyo 'in(japan)' place
+transitive-dimension dimension
+transport graph-dimension
+'transport(bicycle)' transport
+'transport(fragile)' transport
+'transport(mass(..8kg))' transport
+'transport(small-item)' transport
+trip 'time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)'
+volume 'linear-dimension(volume)'

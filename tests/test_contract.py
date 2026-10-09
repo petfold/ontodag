@@ -330,14 +330,16 @@ class TestG7MonotoneVersions(unittest.TestCase):
     release removes an answer: that is a major bump, and only then is the
     record regenerated (tests/fixtures/make_g7.py says how)."""
 
+    fixture, answers, least = "g7.od", "g7-answers.json", 200
+
     @classmethod
     def setUpClass(cls):
         import json
         import os
         from ontodag import native
         here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
-        cls.dag = native.load(os.path.join(here, "g7.od"))
-        with open(os.path.join(here, "g7-answers.json")) as f:
+        cls.dag = native.load(os.path.join(here, cls.fixture))
+        with open(os.path.join(here, cls.answers)) as f:
             cls.record = json.load(f)
 
     def test_the_record_belongs_to_these_majors(self):
@@ -351,12 +353,23 @@ class TestG7MonotoneVersions(unittest.TestCase):
     def test_every_recorded_true_below_stays_true(self):
         lost = [(a, b) for a, b in self.record["below"] if not self.dag.is_below(a, b)]
         self.assertEqual(lost, [], "answers taken away within one major")
-        self.assertGreater(len(self.record["below"]), 200)
+        self.assertGreater(len(self.record["below"]), self.least)
 
     def test_every_recorded_answer_stays_inside_the_new_one(self):
         for case in self.record["get"]:
             now = names(self.dag.get(case["terms"]))
             self.assertLessEqual(set(case["answer"]), now, case["terms"])
+
+
+class TestG7SecondRecord(TestG7MonotoneVersions):
+    """G7's second record (tests/fixtures/make_g7b.py), taken under contract
+    0.5 / registry 4.3 before the 2026-10 review's decided changes were
+    built: graph-kind compounds filed as their parts, relation compounds,
+    role terms naming cells and places, and an item a merge left under two
+    overlapping values of one head. The same rule: never regenerated to
+    make a failure pass."""
+
+    fixture, answers, least = "g7b.od", "g7b-answers.json", 300
 
 
 class TestG8SignalledSpellings(unittest.TestCase):
