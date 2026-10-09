@@ -95,7 +95,8 @@ Elsewhere: `tests/` (fixtures in `tests/fixtures/`), `scripts/`
 (`release_smoke.py`, `repin_golden_roots.py`, `browser_check.py`, a
 Playwright check outside the suite), `experiments/` (one-off probes),
 `demo/pyodide/` (the in-browser page), `paper/` (two manuscripts), and
-`mypip/`, a virtualenv committed by accident (see the open questions).
+`mypip/`, a virtualenv committed by accident (to be untracked, decided
+question 22).
 
 ## Tests, lint and CI
 
@@ -398,6 +399,8 @@ Each line points to its record.
       (the format freeze gates a public launch, factbond's scored Phase 0
       gates selling insurance from a pool); factbond's plans aligned at
       once (item 17). loopmarket's documents not rewritten yet.
+  22. `mypip/` untracked and ignored, its prototype `cgagviz.py` moved to
+      `experiments/` first (§4). Not done yet.
 
 ## Bee integration status
 
@@ -435,16 +438,15 @@ Each line points to its record.
   (opening a store at a chosen residency) belongs on `Store`.
 - The sister repos' CI and lint changes are on their main branches, not
   released; none changes behaviour.
-- Decided and waiting to be built: questions 11 to 21. Peter's instruction
+- Decided and waiting to be built: questions 11 to 22. Peter's instruction
   (2026-10-09): from question 11 on, record each decision and build them
   all once the last question is decided.
 
 ## Open questions for Peter
 
 From the 2026-10 review (`docs/plans/REVIEW_2026-10.md`), not yet
-decided: untracking `mypip/` (§4; question 22), and which of the
-remaining test suggestions to take up (§7, items 1–5, 7 and 9; question
-23). Every §8 item is decided.
+decided: which of the remaining test suggestions to take up (§7;
+question 23). Every other item is decided.
 
 Older, not urgent: the 0.31.0 release; a publisher key for the packs on
 Swarm (published without one, so no feed yet; PACKS.md); BROWSER.md §7's
