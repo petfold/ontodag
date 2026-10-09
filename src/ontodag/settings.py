@@ -49,11 +49,14 @@ def config_path():
     return os.path.join(home_dir(), "config")
 
 
-def read_config():
+def read_config(path=None):
     """The config file as a dict (`key = value` lines; `#` comments and
-    malformed lines skipped). Empty when there is no file."""
+    malformed lines skipped). Empty when there is no file. `path` reads
+    another file in the same format instead: a sister tool keeping its own
+    config beside odag's (loopmarket's `~/.loopmarket/config`) reads and
+    writes it here rather than copying the format."""
     cfg = {}
-    path = config_path()
+    path = path or config_path()
     if not os.path.exists(path):
         return cfg
     with open(path, encoding="utf-8") as fh:
@@ -66,8 +69,9 @@ def read_config():
     return cfg
 
 
-def write_config(cfg):
-    """Write the config file, readable only by its owner.
+def write_config(cfg, path=None):
+    """Write the config file (or `path`, another file in its format, see
+    `read_config`), readable only by its owner.
 
     It can hold `bee_signer` — a private key that can publish to your feed —
     and was previously written with default permissions, which under a typical
@@ -81,8 +85,9 @@ def write_config(cfg):
     file's privacy is whatever the profile directory's ACL gives it. Stated
     in USER_GUIDE §2 rather than papered over: the honest advice on that
     platform is to keep the key in `$BEE_SIGNER`."""
-    os.makedirs(home_dir(), mode=0o700, exist_ok=True)
-    path = config_path()
+    path = path or config_path()
+    os.makedirs(os.path.dirname(os.path.abspath(path)), mode=0o700,
+                exist_ok=True)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         for key in sorted(cfg):

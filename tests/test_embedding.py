@@ -502,3 +502,18 @@ def test_parents_of():
     for name in ("louvre", "paris", "place", "crate"):
         live = dag._live_parent_names(name)
         assert dag.parents_of(name) == sorted(p for p in live if p != "*")
+
+
+def test_a_sister_tool_reads_and_writes_its_own_config_in_odags_format(tmp_path):
+    """`read_config(path)` and `write_config(cfg, path)` serve another file
+    in odag's `key = value` format, so a tool keeping its own config beside
+    odag's (loopmarket's) does not copy the reader and the owner-only writer
+    (review item 10's settings half)."""
+    import os
+    path = tmp_path / "loop" / "config"
+    settings.write_config({"book": "rs:/x", "bee_signer": "k"}, str(path))
+    assert settings.read_config(str(path)) == {"book": "rs:/x", "bee_signer": "k"}
+    assert path.read_text() == "bee_signer = k\nbook = rs:/x\n"
+    if os.name == "posix":
+        assert os.stat(path).st_mode & 0o777 == 0o600
+    assert settings.read_config(str(tmp_path / "absent")) == {}

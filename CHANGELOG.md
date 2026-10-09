@@ -119,6 +119,12 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+- **`settings.read_config(path)` and `settings.write_config(cfg, path)`**
+  read and write another file in odag's `key = value` format, owner-only
+  as before, so loopmarket's config beside odag's stops being a copy of
+  the reader and writer (the review's item 10, the settings half: the
+  machinery comes from ontodag's public layer). Without `path`, odag's
+  config, as before.
 - **`OntoDAG` declares what it keeps, and indexes every new node through
   one hook** (review question 11, decided with Peter, 2026-10-10). Twenty
   caches and operation flags used to appear on first use (`getattr(self,

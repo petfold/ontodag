@@ -206,7 +206,7 @@ writes, by the rule in §4):
 | `settings.SETTINGS` | the table: key → `Setting(env, default, flag, doc, secret)` |
 | `settings.configured(key, flag=None)` | the value in effect: `flag` (a command's own), then the flag layer, the environment, the config file, the default; KeyError for an unknown key |
 | `settings.OVERRIDES` | the flag layer, one dict per process: a tool that takes one of these settings as its own flag puts it here, and every store it opens sees it |
-| `settings.read_config()` / `settings.write_config(cfg)` | the config file as a dict; written readable by its owner only, since it can hold `bee_signer` |
+| `settings.read_config(path=None)` / `settings.write_config(cfg, path=None)` | the config file as a dict; written readable by its owner only, since it can hold `bee_signer`; `path` reads or writes another file in the same format (a sister tool's own config) |
 | `settings.resolve_store(spec=None)` / `settings.normalize_spec(spec)` | the active store spec (`spec` first, then the `store` setting, then the default) / a spec made absolute |
 | `settings.overlay_specs()` | the configured `overlays`, in order, each made absolute |
 | `settings.home_dir()` / `settings.config_path()` / `settings.default_store_path()` | `$ONTODAG_HOME` or `~/.ontodag`, its `config` file, its `store.od` |
