@@ -1121,12 +1121,47 @@ class OntoDAG(DAG):
             # its edges land. The loud refusal is for authors, not replays.
             return node
         if not inside:
-            raise ValueError(
-                f"{head}({param}): {param!r} names a category outside the "
-                f"{base!r} dimension — a role of {base!r} takes its values "
-                f"or the categories filed in it (a place under a cell, a "
-                f"region above cells), never a category from elsewhere")
+            # Not a parameter, then: a role's parameter is a node only when
+            # the node is in the role's dimension. A stored term whose word
+            # is also a category outside it (a merge brought the two
+            # together) reads as the value it was written as, so the store
+            # keeps answering; a new write is refused that clash by
+            # `_check_parametric_placement` (review question 13, decided by
+            # Peter 2026-10-10), and `name_clashes` lists such terms.
+            return None
         return node
+
+    def _check_caller_term(self, name):
+        """A term a caller hands in (a query term, a bound, a name to read)
+        is held to what a write would be held to; a stored one reads as it
+        was stored. So a role term whose word is a category outside the
+        role's dimension is refused when typed, and read as the value it
+        spells when a merge left it in the store (review question 13)."""
+        if isinstance(name, str) and name not in self.nodes \
+                and not self._role_lenient:
+            self._refuse_role_name_outside(name)
+        return name
+
+    def _refuse_role_name_outside(self, name):
+        """A new role term whose word names a category outside the role's
+        dimension is refused: the author meant one of two things, and the
+        store cannot tell which (a stored one reads as the value)."""
+        parsed = self._parse_parametric(name)
+        if parsed is None:
+            return
+        kind, base = self._dimension_of(parsed[0])
+        if kind in _dims.GRAPH_ORDERED or base is None or base == parsed[0]:
+            return
+        param = _dims.split_term(name)[1]
+        node = self.nodes.get(param)
+        if node is None or _dims.is_kind_node(node.name) \
+                or self._in_dimension(node, base):
+            return
+        raise ValueError(
+            f"{parsed[0]}({param}): {param!r} names a category outside the "
+            f"{base!r} dimension — a role of {base!r} takes its values or the "
+            f"categories filed in it (a place under a cell, a region above "
+            f"cells), never a category from elsewhere")
 
     @contextmanager
     def _lenient_roles(self, total=True):
@@ -1226,8 +1261,7 @@ class OntoDAG(DAG):
         if _dims.split_term(name) is not None:
             terms.append(self.nodes[name])
         for term in terms:
-            head, param = _dims.split_term(term.name)
-            self._param_node(head, param)          # raises when outside
+            self._refuse_role_name_outside(term.name)
 
     def _below_guarded(self, sub, sup):
         """`is_below` with a re-entrancy guard: a place filed under a role
@@ -1738,7 +1772,7 @@ class OntoDAG(DAG):
         no honest yes or no to answer. For an embedder deciding whether a
         name it has never seen is a category that must exist or a value
         OntoDAG creates on first use."""
-        return self._parse_parametric(name) is not None
+        return self._parse_parametric(self._check_caller_term(name)) is not None
 
     def parse_term(self, name):
         """How this DAG reads `name`: a `Term(head, kind, canonical)` when it
@@ -1751,7 +1785,7 @@ class OntoDAG(DAG):
         is not declared included: it stays an opaque atom (DIMENSIONS.md
         §7). A malformed value of a declared head (`mass(3zz)`) raises the
         ValueError `put` would give."""
-        parsed = self._parse_parametric(name)
+        parsed = self._parse_parametric(self._check_caller_term(name))
         return None if parsed is None else Term(*parsed)
 
     def canonical(self, name):
@@ -1760,7 +1794,7 @@ class OntoDAG(DAG):
         Raises like `parse_term`. Every public method that takes a name
         already canonicalizes it; this is for comparing names, keying a
         cache, or showing what was stored."""
-        return self._canonical_name(name)
+        return self._canonical_name(self._check_caller_term(name))
 
     def parents_of(self, name):
         """The categories `name` is filed under, sorted: its asserted parents
@@ -2521,7 +2555,7 @@ class OntoDAG(DAG):
         generator for a consumer's own exact check, not a query mode:
         `get` is containment, and every query term is a containment term
         (DIMENSIONS.md §8, 2026-09-12)."""
-        name = _name_of(term)
+        name = self._check_caller_term(_name_of(term))
         parsed = self._parse_parametric(name)
         if parsed is None:
             raise ValueError(
@@ -2559,8 +2593,8 @@ class OntoDAG(DAG):
         value raises; unknown plain names fail closed to False.
         `is_below(a, b) or is_below(b, a)` implies `overlaps(a, b)`.
         Overlap is not transitive, so it is a question, never an edge."""
-        a = self._canonical_name(_name_of(a))
-        b = self._canonical_name(_name_of(b))
+        a = self._canonical_name(self._check_caller_term(_name_of(a)))
+        b = self._canonical_name(self._check_caller_term(_name_of(b)))
         parsed_a = self._parse_parametric(a)
         parsed_b = self._parse_parametric(b)
         if (parsed_a is None and a not in self.nodes) or \
@@ -2582,8 +2616,8 @@ class OntoDAG(DAG):
         the meet is nameable only when one term contains the other (the
         finer one), or empty when they do not overlap; anything else
         raises, since no single term denotes it — pass both to `get`."""
-        a = self._canonical_name(_name_of(a))
-        b = self._canonical_name(_name_of(b))
+        a = self._canonical_name(self._check_caller_term(_name_of(a)))
+        b = self._canonical_name(self._check_caller_term(_name_of(b)))
         parsed_a = self._parse_parametric(a)
         parsed_b = self._parse_parametric(b)
         if parsed_a is None or parsed_b is None:
@@ -2929,7 +2963,8 @@ class OntoDAG(DAG):
         # A compound graph-kind term asks for its parts at once (§15): one
         # thing that meets every constraint, which is where `put` files it.
         names = [part for super_category in super_categories
-                 for part in self._query_parts(_name_of(super_category))]
+                 for part in self._query_parts(
+                     self._check_caller_term(_name_of(super_category)))]
         for raw in names:
             parsed = self._parse_parametric(raw)
             if parsed is not None:
@@ -3218,8 +3253,8 @@ class OntoDAG(DAG):
         """
         normalized = []
         for query in queries:
-            terms = frozenset(self._canonical_name(_name_of(term))
-                              for term in query)
+            terms = frozenset(self._canonical_name(
+                self._check_caller_term(_name_of(term))) for term in query)
             # An empty disjunct is the universe (see `get`), and the pruning
             # below then does the right thing without a special case: the
             # empty term set is a strict subset of every other, so every
@@ -3260,8 +3295,8 @@ class OntoDAG(DAG):
         rule with dimensions (a point value with a large asserted cone
         sits below an interval whose asserted cone is empty).
         """
-        sub = self._canonical_name(_name_of(node))
-        sup = self._canonical_name(_name_of(super_category))
+        sub = self._canonical_name(self._check_caller_term(_name_of(node)))
+        sup = self._canonical_name(self._check_caller_term(_name_of(super_category)))
         key = ("below", sub, sup)
         hit = self._memo_get(key)
         if hit is not _MISSING:
@@ -3876,7 +3911,8 @@ class OntoDAG(DAG):
         the argument index on a resident graph; a partial one reads each
         such head's list of terms instead, one record per head, since a term
         it never loaded is in no index."""
-        found = {term.name for term in self._role_terms_naming(name)}
+        found = {term.name for term in self._role_terms_naming(name)
+                 if self._names_its_node(term.name)}
         ordered = {head for head, (kind, _base) in self._heads().items()
                    if kind in _dims.GRAPH_ORDERED}
         if not ordered:
@@ -3893,6 +3929,17 @@ class OntoDAG(DAG):
                     and name in _dims.constraints(split[1]):
                 found.add(term)
         return sorted(found)
+
+    def _names_its_node(self, role_term):
+        """Does a role term's word name its node, that is, is the node in
+        the role's dimension? One outside it is a clash a merge made: the
+        term reads as the value it spells, and renaming or removing the
+        category leaves it alone (`name_clashes`)."""
+        head, param = _dims.split_term(role_term)
+        node = self.nodes.get(param)
+        base = self._dimension_of(head)[1]
+        return node is not None and base is not None \
+            and self._in_dimension(node, base)
 
     def _names_any(self, term, names):
         """Does `term` name one of `names`, at any depth of nesting?"""
@@ -4230,10 +4277,11 @@ class OntoDAG(DAG):
         all in (`_check_role_parameters`)."""
         if self._role_lenient:
             return
-        terms = self._role_terms_naming(name)
+        node = self.nodes.get(name)      # None while being created
+        terms = [term for term in self._role_terms_naming(name)
+                 if node is None or self._names_its_node(term.name)]
         if not terms:
             return
-        node = self.nodes.get(name)      # None while being created
         for term in terms:
             base = self._dimension_of(_dims.split_term(term.name)[0])[1]
             base_node = self.nodes.get(base)
@@ -4355,6 +4403,11 @@ class OntoDAG(DAG):
         # asked here, before put or reclassify materializes anything.
         for name in super_names:
             self._refuse_self_containment(name, sub_name)
+        # An author's role term may not name a category outside its
+        # dimension; a replay keeps what it is given (G9).
+        if not self._role_lenient:
+            for name in super_names:
+                self._refuse_role_name_outside(name)
         parametric_supers = {}  # head -> [(canonical name, kind), ...]
         for name in super_names:
             parsed = self._parse_parametric(name)
@@ -4889,6 +4942,22 @@ class OntoDAG(DAG):
                     self.get_descendants(node, computed=False))
 
         return deleted
+
+    def name_clashes(self):
+        """Role terms whose word is also a category outside the role's
+        dimension, as (term, category) pairs, sorted. Only a merge can make
+        one (a single write is refused it); such a term reads as the value
+        it was written as, and renaming one side (`rename`) ends the clash.
+        A walk over every role's terms: what `odag status` reports."""
+        out = []
+        for head, base in sorted(self._role_heads().items()):
+            for term, _ in self._star(head):
+                param = _dims.split_term(term.name)[1]
+                node = self.nodes.get(param)
+                if node is not None and not _dims.is_kind_node(param) \
+                        and not self._in_dimension(node, base):
+                    out.append((term.name, param))
+        return sorted(out)
 
     def merge(self, other_dag):
         """Merge another OntoDAG into this one.

@@ -519,3 +519,62 @@ class TestHeadsTheGraphOrdersAreNoRoles(unittest.TestCase):
                 self.assertEqual({p.name for p in dag.nodes["job"].parents},
                                  {f"{head}(vehicle)"})
 
+
+
+class TestANameUsedTwoWaysAfterAMerge(unittest.TestCase):
+    """Review question 13 (decided by Peter 2026-10-10, option A). Alice
+    files a parcel under `from(nyc)` in a store with no category `nyc`, so
+    `nyc` is a cell; Bob has a category `nyc` under `city`. Each store is
+    valid and a single writer is refused either second write; a merge
+    takes both. Until 2026-10-10 every read and write that met the term
+    then raised. A category outside the role's dimension is no parameter,
+    so the term reads as the value it was written as."""
+
+    def fresh(self):
+        d = OntoDAG()
+        prelude.apply(d)
+        d.put("from", ["geo"])
+        return d
+
+    def merged(self):
+        alice, bob = self.fresh(), self.fresh()
+        alice.put("parcel", ["from(nyc)"])
+        bob.put("city", [])
+        bob.put("nyc", ["city"])
+        m = self.fresh()
+        m.merge(alice)
+        m.merge(bob)
+        return alice, m
+
+    def test_the_merged_store_answers_as_alice_did(self):
+        alice, m = self.merged()
+        for probe in ("from(ny)", "from(n)", "from(nyc)"):
+            self.assertEqual(m.is_below("parcel", probe),
+                             alice.is_below("parcel", probe), probe)
+        self.assertIn("parcel", names(m.get(["from(ny)"])))
+        self.assertEqual(names(m.get(["city"])), {"nyc"})
+        m.put("box", ["from(nycz2)"])                    # writes go on too
+        self.assertTrue(m.is_below("box", "from(ny)"))
+
+    def test_a_single_writer_is_still_refused_both_ways(self):
+        d = self.fresh()
+        d.put("parcel", ["from(nyc)"])
+        d.put("city", [])
+        with self.assertRaises(ValueError):
+            d.put("nyc", ["city"])
+        d = self.fresh()
+        d.put("city", [])
+        d.put("nyc", ["city"])
+        with self.assertRaisesRegex(ValueError, "outside the 'geo' dimension"):
+            d.put("parcel", ["from(nyc)"])
+        d.put("parcel", [])
+        with self.assertRaisesRegex(ValueError, "outside the 'geo' dimension"):
+            d.reclassify(["parcel"], to=["from(nyc)"])
+
+    def test_the_clash_is_listed_and_a_rename_ends_it(self):
+        _, m = self.merged()
+        self.assertEqual(m.name_clashes(), [("from(nyc)", "nyc")])
+        m.rename("nyc", "new-york-city")
+        self.assertEqual(m.name_clashes(), [])
+        self.assertTrue(m.is_below("parcel", "from(ny)"))
+        self.assertEqual(names(m.get(["city"])), {"new-york-city"})

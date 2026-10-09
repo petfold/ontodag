@@ -1379,6 +1379,7 @@ def cmd_status(args, session, out):
         # A file store: no history, but the rest is still worth saying.
         print(f"items = {len(session.dag.get([]))}", file=out)
         print("history = none (a plain file keeps one state)", file=out)
+        _report_merge_leftovers(session.dag, out)
         return 0
     try:
         status = store.status()
@@ -1389,7 +1390,22 @@ def cmd_status(args, session, out):
         print(f"redoable = {status['redoable']}", file=out)
     finally:
         close()
+    _report_merge_leftovers(session.dag, out)
     return 0
+
+
+def _report_merge_leftovers(dag, out):
+    """What a merge can leave that a single write is refused: a role term
+    whose word is also a category outside its dimension. Said only when
+    there is something to say, each with the way out."""
+    clashes = dag.name_clashes()
+    if clashes:
+        print(f"name clashes = {len(clashes)} (a role term's word is also a "
+              f"category outside its dimension: the term reads as the value "
+              f"it was written as; `rename` one side)", file=out)
+        for term, category in clashes:
+            print(f"  {term}: the category {category} is outside the dimension",
+                  file=out)
 
 
 def _image_base(spec):

@@ -200,6 +200,19 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **A merge could make a store whose reads raise** (review question 13,
+  decided with Peter, 2026-10-10). Alice files a parcel under
+  `from(nyc)` in a store with no category `nyc`, so `nyc` is a geohash
+  cell; Bob has a category `nyc` under `city`. A single writer is refused
+  either second write, but a merge takes both, and afterwards every read
+  and write that met the term raised "names a category outside the 'geo'
+  dimension": `is_below(parcel, from(ny))`, `get from(ny)`, even `put box
+  from(nycz2)`. A category outside a role's dimension is no parameter of
+  it, so a stored term reads as the value it was written as and every
+  answer Alice's store gave survives the merge (G2). A new write, and a
+  term typed in a query, are still refused the clash. `name_clashes()`
+  and `odag status` list such terms; `rename` ends one, and renaming or
+  removing the category leaves the term alone, since it never named it.
 - **A node under a term-shaped category was a dimension head or not,
   depending on history.** In `z` under `x(y)` under `mass`, the walk up
   from `z` passed through `x(y)` and found `mass`, while the walk down

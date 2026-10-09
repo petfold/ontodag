@@ -375,8 +375,9 @@ Each line points to its record.
       contradicting values stay as they arrive and `odag status` lists
       them; registry 4.4 (item 18). Not built yet.
   13. A role term whose name meets a category outside its dimension reads
-      as the value; `odag status` lists such clashes (item 19). Not built
-      yet.
+      as the value when stored, is refused when written or typed;
+      `name_clashes()` and `odag status` list such clashes (item 19).
+      Built.
   14. In a role a bare word is a filed place and a cell is written by its
       name, `from(geo(u2e4x))`; `geo(...)` takes only geohash spellings;
       old terms read as before until migrated (item 20). Not built yet.

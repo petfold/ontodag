@@ -182,6 +182,7 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `copy_subdag` / `induced_subdag` / `intersection_dag` | derived DAGs, never aliasing (`copy_subdag` closes downward, `induced_subdag` copies exactly the names given, `intersection_dag` keeps the names both DAGs hold) |
 | `excerpt(queries, context=False)` / `excerpt_names(...)` | a query's answer as a standalone DAG (query terms never added; `context` also brings the categories it hangs from) |
 | `contested(a, b)` | items below both — the two-states-at-once list; empty when one entails the other |
+| `name_clashes()` | role terms whose word is also a category outside the role's dimension, as (term, category) pairs; only a merge makes one, the term reads as the value it spells, `rename` ends it (`odag status` lists them) |
 
 Opening a store as `odag` does (`import ontodag` — standard library only,
 until a store needs recordstore or the `swarm` extra):

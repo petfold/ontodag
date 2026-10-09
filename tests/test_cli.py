@@ -3719,3 +3719,32 @@ class TestBatchFromStdin(unittest.TestCase):
             stored = handle.read()
         self.assertIn("dog pet", stored)
         self.assertNotIn("never", stored)               # quit ended it
+
+
+def test_status_lists_a_name_clash_a_merge_made(tmp_path):
+    """`odag status` says what a merge left that a single write is refused:
+    here a role term whose word is also a category outside its dimension
+    (review question 13)."""
+    import io
+    from ontodag import OntoDAG, native, prelude
+    from ontodag.__main__ import Session, dispatch
+
+    def fresh():
+        d = OntoDAG()
+        prelude.apply(d)
+        d.put("from", ["geo"])
+        return d
+    alice, bob = fresh(), fresh()
+    alice.put("parcel", ["from(nyc)"])
+    bob.put("city", [])
+    bob.put("nyc", ["city"])
+    merged = fresh()
+    merged.merge(alice)
+    merged.merge(bob)
+    path = tmp_path / "store.od"
+    native.save(merged, str(path))
+    out = io.StringIO()
+    assert dispatch(["status"], Session(str(path)), out=out) == 0
+    text = out.getvalue()
+    assert "name clashes = 1" in text
+    assert "from(nyc): the category nyc is outside the dimension" in text

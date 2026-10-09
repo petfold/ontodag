@@ -703,7 +703,13 @@ the cell `u2e`") answered structurally. For a role head:
   head (a place under a cell, a floor under a building, an offer under a
   role value), or above one of its values (a region) — denotes that node;
 - a parameter naming a present node **outside** the dimension is refused
-  (`ValueError`), never guessed;
+  (`ValueError`), never guessed, when it is written or asked about; a
+  term already stored that way (only a merge makes one: Alice's
+  `from(nyc)` was a cell, Bob's `nyc` a city) reads as the value it was
+  written as, so the store keeps answering, and `name_clashes()` (and
+  `odag status`) lists it until `rename` ends it (review question 13,
+  decided by Peter 2026-10-10). Renaming or removing the category leaves
+  such a term alone: it never named the category;
 - any other parameter is a value of the base's kind, as before.
 
 **Canonical form is the name as spelled.** `from(my_home)` is stored as
