@@ -398,7 +398,10 @@ have not thought of yet.
   it, as today; vocabulary-additive changes (new suffixes, new families)
   bump the minor and interoperate — old readers refuse unknown spellings
   as input, loudly, but read all stored data. Makes classes A/B/D formal
-  non-events.
+  non-events. *Extended 2026-10-09 (CONTRACT.md G8):* the minor also counts
+  the spelling rules — any change to how a valid name is spelled, or to
+  what a given set of filings stores, bumps it at least, with its
+  `ontodag.migrate` step named in CHANGELOG.
 
 ## 11. Addendum: registry 4.1 — the count kind
 (2026-08-03, accepted by Peter in the BINDING.md/EVOLUTION.md session)

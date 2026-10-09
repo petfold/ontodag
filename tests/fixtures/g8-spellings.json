@@ -1,0 +1,412 @@
+{
+ "contract": "0.4",
+ "registry": "4.3",
+ "filings": [
+  [
+   "document",
+   []
+  ],
+  [
+   "ticket",
+   [
+    "document"
+   ]
+  ],
+  [
+   "place",
+   []
+  ],
+  [
+   "japan",
+   [
+    "place"
+   ]
+  ],
+  [
+   "tokyo",
+   [
+    "place",
+    "in(japan)"
+   ]
+  ],
+  [
+   "paris",
+   [
+    "place"
+   ]
+  ],
+  [
+   "museum-district",
+   [
+    "place"
+   ]
+  ],
+  [
+   "gallery",
+   [
+    "in(museum-district paris)"
+   ]
+  ],
+  [
+   "person",
+   []
+  ],
+  [
+   "employee",
+   [
+    "person"
+   ]
+  ],
+  [
+   "sales-employee",
+   [
+    "employee"
+   ]
+  ],
+  [
+   "plan",
+   [
+    "shared-with(employee sales-employee)"
+   ]
+  ],
+  [
+   "trip.pdf",
+   [
+    "ticket",
+    "about(tokyo)",
+    "time(2026-08-15)"
+   ]
+  ],
+  [
+   "parcel",
+   [
+    "mass(500g)",
+    "size(20x30x40cm)"
+   ]
+  ],
+  [
+   "box",
+   [
+    "mass(1kg..5kg)",
+    "mass(2kg..8kg)"
+   ]
+  ],
+  [
+   "bouquet",
+   [
+    "count(2dz)"
+   ]
+  ],
+  [
+   "photo.jpg",
+   [
+    "geo(u2ed4)",
+    "about(japan)"
+   ]
+  ],
+  [
+   "small-item",
+   []
+  ],
+  [
+   "bicycle",
+   [
+    "small-item"
+   ]
+  ],
+  [
+   "fragile",
+   []
+  ],
+  [
+   "graph-dimension",
+   [
+    "dimension"
+   ]
+  ],
+  [
+   "transport",
+   [
+    "graph-dimension"
+   ]
+  ],
+  [
+   "job",
+   [
+    "transport(bicycle fragile)"
+   ]
+  ],
+  [
+   "courier",
+   [
+    "transport(small-item mass(..8kg))"
+   ]
+  ],
+  [
+   "located-at",
+   [
+    "in"
+   ]
+  ],
+  [
+   "statue",
+   [
+    "located-at(tokyo)"
+   ]
+  ],
+  [
+   "from",
+   [
+    "geo"
+   ]
+  ],
+  [
+   "delivery",
+   [
+    "from(u2ed)"
+   ]
+  ],
+  [
+   "ring",
+   [
+    "in(in(japan))"
+   ]
+  ]
+ ],
+ "spellings": [
+  [
+   "mass(500g)",
+   "mass(1/2kg)"
+  ],
+  [
+   "mass(1.5kg)",
+   "mass(3/2kg)"
+  ],
+  [
+   "mass(3lb)",
+   "mass(136077711/100000000kg)"
+  ],
+  [
+   "mass(1kg..2000g)",
+   "mass(1kg..2kg)"
+  ],
+  [
+   "mass(..5kg)",
+   "mass(..5kg)"
+  ],
+  [
+   "mass(2kg..)",
+   "mass(2kg..)"
+  ],
+  [
+   "mass(1/2kg)",
+   "mass(1/2kg)"
+  ],
+  [
+   "length(1in)",
+   "length(127/5000m)"
+  ],
+  [
+   "length(1ft..2m)",
+   "length(381/1250m..2m)"
+  ],
+  [
+   "length(10/33m)",
+   "length(10/33m)"
+  ],
+  [
+   "length(5mi)",
+   "length(201168/25m)"
+  ],
+  [
+   "area(1ha)",
+   "area(10000m2)"
+  ],
+  [
+   "volume(1L)",
+   "volume(1/1000m3)"
+  ],
+  [
+   "volume(2gal)",
+   "volume(473176473/62500000000m3)"
+  ],
+  [
+   "speed(100kmh)",
+   "speed(250/9mps)"
+  ],
+  [
+   "pressure(32psi)",
+   "pressure(8896443230521/40322500Pa)"
+  ],
+  [
+   "energy(1kWh)",
+   "energy(3600000J)"
+  ],
+  [
+   "temperature(24C)",
+   "temperature(5943/20K)"
+  ],
+  [
+   "temperature(-40F)",
+   "temperature(4663/20K)"
+  ],
+  [
+   "temperature(0C..100C)",
+   "temperature(5463/20K..7463/20K)"
+  ],
+  [
+   "duration(90min)",
+   "duration(5400s)"
+  ],
+  [
+   "duration(1h..2h)",
+   "duration(3600s..7200s)"
+  ],
+  [
+   "duration(1d)",
+   "duration(86400s)"
+  ],
+  [
+   "time(2026)",
+   "time(2026-01-01T00:00:00Z..2026-12-31T23:59:59Z)"
+  ],
+  [
+   "time(2026-10)",
+   "time(2026-10-01T00:00:00Z..2026-10-31T23:59:59Z)"
+  ],
+  [
+   "time(2026-10-09)",
+   "time(2026-10-09T00:00:00Z..2026-10-09T23:59:59Z)"
+  ],
+  [
+   "time(2026-10-09T12:00:00Z)",
+   "time(2026-10-09T12:00:00Z)"
+  ],
+  [
+   "time(2026-10-09T12:00:00Z..)",
+   "time(2026-10-09T12:00:00Z..)"
+  ],
+  [
+   "time(..2026)",
+   "time(..2026-12-31T23:59:59Z)"
+  ],
+  [
+   "count(2dz)",
+   "count(24)"
+  ],
+  [
+   "count(..5)",
+   "count(..5)"
+  ],
+  [
+   "count(3..)",
+   "count(3..)"
+  ],
+  [
+   "geo(u2e4)",
+   "geo(u2e4)"
+  ],
+  [
+   "geo(u2ed4)",
+   "geo(u2ed4)"
+  ],
+  [
+   "size(20x30x40cm)",
+   "size(2/5x3/10x1/5m)"
+  ],
+  [
+   "transport(fragile bicycle)",
+   "transport(bicycle fragile)"
+  ],
+  [
+   "transport(small-item bicycle)",
+   "transport(bicycle)"
+  ],
+  [
+   "transport(mass(..8kg) small-item)",
+   "transport(mass(..8kg) small-item)"
+  ],
+  [
+   "in(paris museum-district)",
+   "in(museum-district paris)"
+  ],
+  [
+   "in(japan)",
+   "in(japan)"
+  ],
+  [
+   "in(in(japan))",
+   "in(in(japan))"
+  ],
+  [
+   "about(tokyo japan)",
+   "about(japan tokyo)"
+  ],
+  [
+   "shared-with(sales-employee employee)",
+   "shared-with(sales-employee)"
+  ],
+  [
+   "shared-with(person)",
+   "shared-with(person)"
+  ],
+  [
+   "located-at(tokyo)",
+   "located-at(tokyo)"
+  ],
+  [
+   "from(u2ed)",
+   "from(u2ed)"
+  ]
+ ],
+ "stored": [
+  "'about(japan)' about",
+  "'about(tokyo)' about",
+  "bicycle small-item",
+  "bouquet 'count(24)'",
+  "box 'mass(2kg..5kg)'",
+  "'count(24)' count",
+  "courier 'transport(mass(..8kg))' 'transport(small-item)'",
+  "delivery 'from(u2ed)'",
+  "document '*'",
+  "employee person",
+  "fragile '*'",
+  "from geo",
+  "'from(u2ed)' from",
+  "gallery 'in(museum-district paris)'",
+  "'geo(u2ed4)' geo",
+  "'in(in(japan))' in",
+  "'in(japan)' in",
+  "'in(museum-district paris)' in",
+  "japan place",
+  "job 'transport(bicycle)' 'transport(fragile)'",
+  "located-at in",
+  "'located-at(tokyo)' located-at",
+  "'mass(1/2kg)' mass",
+  "'mass(1kg..5kg)' mass",
+  "'mass(2kg..5kg)' mass",
+  "'mass(2kg..8kg)' mass",
+  "museum-district place",
+  "parcel 'mass(1/2kg)' 'size(2/5x3/10x1/5m)'",
+  "paris place",
+  "person '*'",
+  "photo.jpg 'about(japan)' 'geo(u2ed4)'",
+  "place '*'",
+  "plan 'shared-with(sales-employee)'",
+  "ring 'in(in(japan))'",
+  "sales-employee employee",
+  "'shared-with(sales-employee)' shared-with",
+  "'size(2/5x3/10x1/5m)' size",
+  "small-item '*'",
+  "statue 'located-at(tokyo)'",
+  "ticket document",
+  "'time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)' time",
+  "tokyo 'in(japan)' place",
+  "transport graph-dimension",
+  "'transport(bicycle)' transport",
+  "'transport(fragile)' transport",
+  "'transport(mass(..8kg))' transport",
+  "'transport(small-item)' transport",
+  "trip.pdf 'about(tokyo)' ticket 'time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)'"
+ ]
+}

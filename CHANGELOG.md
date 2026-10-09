@@ -14,6 +14,21 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Contract 0.5
+
+- **G8, signalled spellings** (decided with Peter, 2026-10-09;
+  CONTRACT.md §3, amendment record §8). A valid name's canonical spelling,
+  and what a given set of filings stores (so its root), change only
+  together with `REGISTRY_VERSION`'s minor, and the CHANGELOG entry of such
+  a release names the `ontodag.migrate` step. Before, 0.30.6 and 0.30.7
+  changed both within registry 4.3, so two stores holding the same
+  knowledge could differ by version with nothing in any version number to
+  say so. Enforced by `TestG8SignalledSpellings` over
+  `tests/fixtures/g8-spellings.json` (fixed filings, spellings over every
+  kind, the stored form), which 0.30.5 and 0.30.6 would have failed.
+  `CONTRACT_VERSION` is `"0.5"`; G7 still governs answers, and consumers
+  still compare majors for those.
+
 ### Changed
 
 - **A category a term names can no longer be removed out from under it**

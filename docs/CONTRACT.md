@@ -11,12 +11,13 @@ narrower relations between their heads. The individual clauses are
 marked **holds today** (a restatement of a tested guarantee) or **committed**
 (agreed direction, not yet built).
 
-**Contract version: 0.4 — amended 2026-10-07** (0.1 was reviewed and agreed
-2026-08-01, 0.2 on 2026-10-06, 0.3 the next morning). 0.2 states what an arrow means (§2), admits
+**Contract version: 0.5 — amended 2026-10-09** (0.1 was reviewed and agreed
+2026-08-01, 0.2 on 2026-10-06, 0.3 and 0.4 on 2026-10-07). 0.2 states what an arrow means (§2), admits
 dimensions over nodes as the scoped exception (§5.1), and adds the writer's
 obligation that goes with them (O6); 0.3 admits narrower relations between
 their heads (§5.1); 0.4 promises that versions within a major only add
-answers (G7). The record of every version is §8. All open questions
+answers (G7); 0.5 promises that a spelling or a stored form changes only
+with the registry minor (G8). The record of every version is §8. All open questions
 from the 0.1 draft were resolved in the same-day review and folded into the
 clauses. The version is exposed as
 `ontodag.CONTRACT_VERSION`, will be carried by the discoverability record
@@ -164,6 +165,30 @@ decided at the 2026-08-01 review:
   must stay answers. The first run of that test found a released bug (a
   value index missing values after a load, 0.30.0) — exactly the kind of
   answer-taken-away it exists for.
+
+- **G8 — Signalled spellings.** A valid name's canonical spelling, and the
+  stored form a given set of filings produces (so its root), change only
+  together with `REGISTRY_VERSION`'s minor. Within one registry version
+  every release spells every name it accepts the same way, and the same
+  filings give the same store and the same root — except where the store's
+  own knowledge re-spells a term (a compound relation term whose
+  constraints the graph comes to relate takes its current spelling,
+  DIMENSIONS.md §16), which follows the store, not the release. A release
+  that changes a spelling rule or a stored form bumps the registry minor,
+  and its CHANGELOG entry names the `ontodag.migrate` step that brings an
+  older store to the new form. So names and roots are comparable as
+  identifiers when they were made under one registry version, while answers
+  stay comparable across a whole major (G7). Releases before contract 0.5
+  did not keep this: 0.30.6 changed how a graph-kind compound is stored,
+  and 0.30.7 began re-spelling relation compounds, both within registry
+  4.3. **Committed** (2026-10-09), and held to by
+  `TestG8SignalledSpellings`: fixed filings over every kind, the spelling
+  of inputs over every kind, and the stored form of the filings, recorded
+  under registry 4.3 (`tests/fixtures/g8-spellings.json`). A failure means
+  a release changes one of them: bump the registry minor, name the migrate
+  step, then record the new forms (`tests/fixtures/make_g8.py`). The record
+  replayed against 0.30.5 and 0.30.6 fails, against 0.30.7 and later it
+  holds.
 
 ## 4. The as-of clause (root-pinning)
 
@@ -490,6 +515,23 @@ means), and accepted the same day:
 3. **Why the arbitrary-relations wall still stands** → the "Still outside"
    paragraph of §5.1, and `DATABASE_DIRECTION.md`. The exception admits
    fixed rules over declared names, not rules that users write.
+
+### Amendment 0.5 (2026-10-09)
+
+Prompted by the review of 2026-10-09 (`plans/REVIEW_2026-10.md` §5):
+loopmarket hashes ontodag's spellings into offer ids, provenance claims and
+key-plan keys are names, and a published store is known by its root, yet
+0.30.6 and 0.30.7 changed spellings and stored forms with every version
+number unchanged. Three options were put to Peter: promise stability within
+a major (every canonical-form fix a major bump, before 1.0 a jump to 1.0),
+signal changes through the registry minor, or leave it unwritten. He chose
+the second:
+
+1. **G8, signalled spellings** → §3, with its conformance test and a record
+   that changes only together with a registry bump.
+2. **What does not change:** G7 still governs answers, and majors are still
+   what consumers compare for them; `REGISTRY_VERSION`'s minor now also
+   counts spelling and stored-form rules, not only vocabulary.
 
 ### Amendment 0.4 (2026-10-07)
 

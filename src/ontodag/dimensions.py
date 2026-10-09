@@ -35,6 +35,11 @@ from fractions import Fraction
 # vocabulary-additive changes (new unit spellings, new families) bump the
 # minor and interoperate — stored names carry only anchor suffixes, so old
 # readers read everything and merely refuse unknown spellings as input.
+# Since contract 0.5 (CONTRACT.md G8, 2026-10-09) the minor also counts the
+# spelling rules: any change to how a valid name is spelled, or to what a
+# given set of filings stores, bumps it (the major, when the order changes
+# too), with the `ontodag.migrate` step named in CHANGELOG. The record that
+# enforces this is tests/fixtures/g8-spellings.json.
 # History: 1 (dimension lattices), 2 (+KIND_CALENDAR),
 # 3.0 (2026-08-01: rational anchoring, the full SI + customary unit table),
 # 3.1 (2026-08-01: information/data-rate/compute-rate families and the

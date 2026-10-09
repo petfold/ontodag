@@ -32,7 +32,7 @@ def declare_weight(dag):
 
 class TestContractVersion(unittest.TestCase):
     def test_version_constant_matches_document(self):
-        self.assertEqual(ontodag.CONTRACT_VERSION, "0.4")
+        self.assertEqual(ontodag.CONTRACT_VERSION, "0.5")
 
 
 class TestG1CanonicalRoot(unittest.TestCase):
@@ -357,6 +357,55 @@ class TestG7MonotoneVersions(unittest.TestCase):
         for case in self.record["get"]:
             now = names(self.dag.get(case["terms"]))
             self.assertLessEqual(set(case["answer"]), now, case["terms"])
+
+
+class TestG8SignalledSpellings(unittest.TestCase):
+    """G8: a valid name's canonical spelling, and what a given set of filings
+    stores, change only together with `REGISTRY_VERSION`'s minor.
+    `tests/fixtures/g8-spellings.json` holds fixed filings over every kind,
+    the spelling of inputs over every kind, and the stored form of the
+    filings, recorded under one registry version. A failure means a release
+    changes a spelling or a stored form: bump the registry minor, name the
+    `ontodag.migrate` step in CHANGELOG, then rerun
+    `tests/fixtures/make_g8.py`. Never rerun it without the bump."""
+
+    @classmethod
+    def setUpClass(cls):
+        import json
+        import os
+        from ontodag import native, prelude
+        here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+        with open(os.path.join(here, "g8-spellings.json"), encoding="utf-8") as f:
+            cls.record = json.load(f)
+        cls.dag = ontodag.OntoDAG()
+        prelude.apply(cls.dag)
+        for name, parents in cls.record["filings"]:
+            cls.dag.put(name, parents)
+        own = set(prelude.prelude_dag().nodes)
+        cls.stored = [line for line in native.dumps(cls.dag).splitlines()[1:]
+                      if line.split()[0].strip("'") not in own
+                      and not line.startswith("#:meta")]
+
+    def test_the_record_belongs_to_this_registry_version(self):
+        from ontodag.dimensions import REGISTRY_VERSION
+        self.assertEqual(
+            self.record["registry"], REGISTRY_VERSION,
+            "REGISTRY_VERSION moved: record its spellings with "
+            "tests/fixtures/make_g8.py, and name the migrate step in CHANGELOG")
+
+    def test_every_spelling_is_as_recorded(self):
+        from ontodag.surface import elaborate
+        changed = [(term, recorded, elaborate(term, self.dag))
+                   for term, recorded in self.record["spellings"]
+                   if elaborate(term, self.dag) != recorded]
+        self.assertEqual(changed, [], "a spelling changed within one registry "
+                         "version: bump REGISTRY_VERSION's minor (G8)")
+        self.assertGreater(len(self.record["spellings"]), 40)
+
+    def test_the_same_filings_store_the_same(self):
+        self.assertEqual(self.stored, self.record["stored"],
+                         "the same filings store something else within one "
+                         "registry version: bump REGISTRY_VERSION's minor (G8)")
 
 
 class TestAsOfClause(unittest.TestCase):
