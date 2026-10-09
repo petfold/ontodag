@@ -1,4 +1,4 @@
-"""The `medicine` pack, version 6: 1040 categories, adopted by merge.
+"""The `medicine` pack, version 7: 1040 categories, adopted by merge.
 
 GENERATED — do not edit by hand. Built by consensus in the sister repo
 github.com/petfold/ontodag-core (packs/medicine, commit 5dc7315) from WordNet 3.0

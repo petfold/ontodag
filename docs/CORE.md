@@ -289,7 +289,7 @@ that every root moves once.
 **4,984 listed categories.** Renames and drops never propagate by merge,
 which is why they ride one version.
 
-**v13 (0.31, 2026-10-07): a group is not an agent; vaccine.** Peter's
+**v13 (0.30.2, 2026-10-07): a group is not an agent; vaccine.** Peter's
 rulings, applied by ontodag-core's `tools/step7.py` from
 `align/rulings-v13.tsv`. Since its first consensus build core had `group ⊑
 agent`: WordNet's general `group` ("any number of entities considered as a
@@ -320,7 +320,7 @@ plant or fungus (`carrot-vegetable`, `onion-vegetable`, `mushroom-food`);
 system (`television-receiver`); `bowl`, `screen`, `sleeve`, `deck`,
 `fountain`, `housing`, `grinder` (the sandwich), `station` (a sentry's
 post), `trail` (evidence), `shot` (a film shot). Switching each to the
-everyday artifact or food sense is the recommendation; it is a v7 decision.
+everyday artifact or food sense was the recommendation, decided in v9 (below).
 
 The same weeks built **ten domain packs** in ontodag-core beside core —
 physics, mathematics, chemistry, biology, medicine, ai, economics,

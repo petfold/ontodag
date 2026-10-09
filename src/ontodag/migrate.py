@@ -1,16 +1,20 @@
 """Registry migration: re-canonicalize a store under the current interpreter.
 
 Registry v3 (docs/UNITS.md) changed canonical value spellings from
-integers-in-tiny-bases to rationals-at-SI-anchors — the one canonical-name
-migration in the system's life (D9 abolishes the class that caused it).
+integers-in-tiny-bases to rationals-at-SI-anchors (D9 abolishes the class
+that caused it). Later changes migrate the same way (4.0's `coulomb` and
+`farad`, the graph kind's parts in 0.30.6), and since contract 0.5 (G8)
+each comes with a registry minor and a migrate step named in CHANGELOG.
 The old spellings (``mg``, ``mm``, ``s``…) remain valid *input* under v3,
 which makes migration nothing but a replay: rebuild the graph through
 ``put``, which canonicalizes every name, parents-first. The replay reads
 the RAW entries (file lines, records) rather than a live ``OntoDAG`` —
 the new interpreter canonicalizes lookups, so a graph stored under old
 spellings cannot even be traversed as-is; raw name→parents pairs can.
-Scaling preserves containment, so the shape is untouched: a migration is
-a pure rename, deterministic, and therefore verifiable by recomputation.
+A rescale preserves containment, so it is a pure rename; a stored-form
+change (a folded compound filed as its parts, overlapping values as their
+meet) reshapes the graph. Either is deterministic, and therefore
+verifiable by recomputation.
 What a node carries travels with it: native `#:meta` lines, and a record's
 `meta` and `payload` (until 2026-10-09 both were dropped).
 

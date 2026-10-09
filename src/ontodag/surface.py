@@ -25,7 +25,7 @@ Three rules keep the law cheap to uphold (§4's 2026-08-01 sharpenings):
   that give the name its kind). Never of what anyone originally typed.
 
 Like the core, rendering is interpretation-context-relative: whether
-`weight(1/2000kg)` may be shown as `weight(500g)` depends on `weight` being
+`mass(1/2kg)` may be shown as `mass(500g)` depends on `mass` being
 a declared dimension in the graph at hand — an *opaque* name that merely
 looks parametric is returned unchanged, or the law above would break on it.
 Pass the DAG (any OntoDAG), or pass the kind directly when you already

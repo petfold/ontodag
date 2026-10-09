@@ -37,7 +37,7 @@ The shapes, exactly as agreed:
   cryptography is libsecp256k1's (coincurve; lazy import, optional — the
   `swarm` extra's chain) — and ``verify_record`` checks any record against
   its ``author`` address, with no compiled dependency (recovery falls back
-  to pure Python, which handles no secret). Until 0.31 both went through
+  to pure Python, which handles no secret). Until 0.30.4 both went through
   the ``swarm-bee`` package; the signature and address strings are
   byte-identical, so records signed then verify the same. Tests may
   inject any signer; what the network should trust is the real one.

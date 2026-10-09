@@ -1,4 +1,4 @@
-"""The `core` pack, version 9: an upper ontology built by consensus, adopted by merge.
+"""The `core` pack, version 13: an upper ontology built by consensus, adopted by merge.
 
 GENERATED — do not edit by hand. The list is produced in the sister repo
 github.com/petfold/ontodag-core (tools/build.sh, commit 5dc7315) from WordNet 3.0, Wikidata,
@@ -18,20 +18,24 @@ document, and `get document` finds it without anyone building the path.
 
 **It presumes the prelude.** Three edges connect the unit registry's kind
 nodes to `attribute` (a measured dimension is an attribute), so `pack core`
-applies the prelude first; the dimension heads themselves (weight, length,
-temperature, ...) and every unit spelling belong to the registry and are
-deliberately absent here. Quantities are values, not categories.
+applies the prelude first. The everyday dimension heads (mass, length,
+temperature, ...) are the prelude's and every unit spelling the registry's;
+core declares only the heads for the quantity names it owns (`force`,
+`current`, `frequency`), each pinned to its unit family. Quantities are
+values, not categories.
 
 **What a version commits.** Names, and the truth of every edge — never
 coverage. Adding nodes, inserting levels and deepening the top all
-propagate by merge; a retraction or a rename does not. Versions are
-therefore monotone: v2 is a strict superset of v1.
+propagate by merge; a retraction or a rename does not, so a version that
+makes one is a deliberate intervention: v2 was a strict superset of v1,
+while v9, v12 and v13 moved senses, renamed and retracted.
 """
 
 CORE_VERSION = 13
 
 # (name, parents) — sorted by name; a root has no parents. Parents outside
-# this tuple are the prelude's kind nodes.
+# this tuple need only the prelude: unit-family pins
+# (`linear-dimension(force)`) and `in(...)` terms (`in(egg)`).
 CORE = (
     ('abalone', ('mollusk',)),
     ('abbey', ('monastery',)),

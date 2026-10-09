@@ -812,10 +812,10 @@ loopmarket asked for exactly that, to file a give silent on `from` under
 undone on Peter's rule: *when something is unconstrained it should not be
 visited at all; the other constraints give the result* — and *the overlap
 of everything with A is just A*, so a term for the whole space is never
-more than a redundant edge beside anything finer. The answer is in §8: an
-overlap term constrains only candidates that state a value of its head,
-so an item that says nothing under `from` IS from anywhere, with no edge
-at all. `from(geo)` is therefore refused, with the reason ("`geo` is the
+more than a redundant edge beside anything finer. An item that says
+nothing under `from` IS from anywhere, with no edge at all: it is
+unconstrained on `from`, and only a query naming a `from` term asks about
+it (§8; the overlap terms that reasoning first served are withdrawn). `from(geo)` is therefore refused, with the reason ("`geo` is the
 dimension itself, not a value or a place in it — an item that is from
 anywhere states no from(...) at all"). A base head's own parameters stay
 values (`geo(geo)` is the literal prefix `geo`): only roles look names up.

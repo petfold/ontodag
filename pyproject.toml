@@ -84,7 +84,7 @@ web = ["ontodag[viz,owl]", "flask", "dot2tex"]
 # swarmfs is named directly too since 2026-10-08, because ontodag uses one of
 # its features itself: a fresh replica reads the published root through its
 # own local store in read-through mode (swarmfs 0.12), so the one client that
-# pushes and heals also bootstraps; and since 0.31 provenance records sign
+# pushes and heals also bootstraps; and since 0.30.4 provenance records sign
 # with swarmfs.signer (0.13). recordstore 0.22 is the floor that reaches Bee
 # only through swarmfs, and 0.22.2 the one whose commit of a large store is
 # linear (0.22.1 took over ten minutes for 11,900 records).

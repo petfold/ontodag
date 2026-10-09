@@ -5,7 +5,8 @@ RAM on construction. Its sibling `LazyOntoDAG` fetches records as a query
 walks them. Neither knows anything about Swarm — the store is duck-typed, so
 memory, a Bee node, or anything else with the same five methods works
 identically. Swarm is chosen one layer down, by whoever builds the record
-store (`recordstore.swarm_store(...)` is the one call that does it).
+store (odag's `swarm:` backend calls `recordstore.local_first_store(...)`;
+`recordstore.swarm_store(...)` is the direct-on-Swarm one).
 
 Implements the design in docs/SWARM_DESIGN.md:
 

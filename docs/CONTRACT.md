@@ -328,9 +328,11 @@ heads with no composition, admitted on the terms above:
 - *Users still declare no rules.* The declaration is an ordinary edge
   between two heads, and what it means is fixed here, for these three
   kinds only. A head under a head of a value kind stays a role that
-  takes its base's values (DIMENSIONS.md §14). The graph kind is left out
-  while its conjunctions fold (§15), since a narrower graph-kind head
-  would make stored form depend on filing order.
+  takes its base's values (DIMENSIONS.md §14). The graph kind is left
+  out: it was left out while its conjunctions folded (§15), when a
+  narrower graph-kind head would have made stored form depend on filing
+  order, and admitting it now that they are stored as parts would be a
+  clause change of its own.
 - *Local.* Deciding `R(x) ⊑ S(y)` walks the heads above R and the
   ancestors of x, as before.
 - *Monotone.* A declaration only adds pairs. One made after terms were

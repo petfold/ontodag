@@ -521,8 +521,8 @@ class DAG:
         # every run -- string hashing is randomized per process. That made
         # `odag show` and the OWL/Manchester exports, which both order their
         # output by this function, undiffable across runs for identical
-        # content. Names are the identity at every boundary (see the identity
-        # note in CLAUDE.md), so name order is the one canonical choice
+        # content. Names are the identity at every boundary (see "Identity"
+        # in CLAUDE.md), so name order is the one canonical choice
         # available here.
         #
         # Root-first still holds for OntoDAG regardless of the start order:
@@ -1040,8 +1040,8 @@ class OntoDAG(DAG):
         if param == base:
             # The dimension itself is not a place in it. "From anywhere" is
             # said by saying no from(...) at all: an item that states no
-            # value of a head is unconstrained on it and passes every
-            # overlap term of that head unvisited (§8). A term for the
+            # value of a head is unconstrained on it, and only a query
+            # naming a term of that head asks about it (§8). A term for the
             # whole space would only ever be redundant beside anything
             # finer — the overlap of everything with A is A (Peter,
             # 2026-09-12) — so it is refused rather than carried.
@@ -1428,9 +1428,10 @@ class OntoDAG(DAG):
             try:
                 self._canonical_name(located)
             except ValueError:
-                # `outer` names a constraint that has since been removed
-                # (`about(c3 c5)`, then `remove c5`): nothing is inside
-                # what no longer exists (raised until 2026-10-09).
+                # `outer` names a constraint that is not in the store (a
+                # term an older release's `remove` left behind, or one a
+                # hand-edited file brings): nothing is inside what does not
+                # exist.
                 return False
             return any(self._within(x, located, _dims.CONTAINMENT_HEAD)
                        for x in ins)
@@ -1674,8 +1675,8 @@ class OntoDAG(DAG):
     def is_term(self, name):
         """Is `name` a typed value of a dimension this DAG declares?
 
-        True for `time(2026-08)` or `weight(3000g)` once `time` and `weight`
-        are declared (the prelude does); False for any other name, including
+        True for `time(2026-08)` or `mass(3000g)` once `time` and `mass` are
+        declared (the prelude does); False for any other name, including
         a term-shaped one whose head is not declared, which stays an opaque
         atom (DIMENSIONS.md §7). A malformed value of a declared head —
         `time(zzz)` — raises the ValueError `put` would give, since there is
@@ -1790,16 +1791,16 @@ class OntoDAG(DAG):
 
     def _walk_children(self, node, settled, limit=None):
         """`_computed_children` as one walk follows them, leaving out what
-        the walk already holds (the review's "share the settled set",
-        2026-10-09). A head's anchor edges list every term of it, and a term
-        whose hops list every term of its head inside it (`_terms_inside`)
-        does the same for its own cone; once the walk has met either, a term
-        of that head further down holds nothing the walk will not reach
-        anyway, and asking it listed the same terms again, a containment
-        check each. `get about(france)` checked about(louvre) against
-        about(france) and again against about(paris): a chain of n places
-        with something filed about each cost n²/2 checks for 2n answers.
-        `settled` holds those heads for one walk. A term filed under
+        the walk already holds. A head's anchor edges list every term of
+        it, and a term whose hops list every term of its head inside it
+        (`_terms_inside`) does the same for its own cone; once the walk has
+        met either, a term of that head further down holds nothing the walk
+        will not reach anyway, and asking it would list the same terms
+        again, a containment check each. Without this, `get about(france)`
+        checks about(louvre) against about(france) and again against
+        about(paris): a chain of n places with something filed about each
+        costs n²/2 checks for 2n answers. `settled` holds those heads for
+        one walk. A term filed under
         something other than its head (an escape, which only a lenient
         merge can bring) is reached outside such a cone, so a head with
         escapes is never settled by a term."""
@@ -2420,10 +2421,10 @@ class OntoDAG(DAG):
 
     def _located_in(self, located, budget):
         """Everything below `in(X…)`, present or virtual; None once that is
-        more than `budget` names. The walk stops there: until 2026-10-09 it
-        went on to the end of the cone and then dropped it, so a query about
-        France walked every village in France to learn that checking the
-        store's three terms about anything was cheaper."""
+        more than `budget` names. The walk stops there rather than finish
+        the cone and drop it: a query about France must not walk every
+        village in France to learn that checking the store's three terms
+        about anything is cheaper."""
         node = self.nodes.get(located)
         try:
             if node is not None:
@@ -2432,11 +2433,10 @@ class OntoDAG(DAG):
                 try:
                     parsed = self._parse_parametric(located)
                 except ValueError:
-                    # `located` is derived from a stored term whose
-                    # constraint has since been removed (`about(c1 c4)`,
-                    # then `remove c4`): nothing is known to be inside what
-                    # no longer exists. Until 2026-10-09 this raised, so
-                    # every query and write that walked the term failed.
+                    # `located` is derived from a stored term naming a
+                    # constraint that is not in the store (left by an older
+                    # release's `remove`, or brought by a hand-edited file):
+                    # nothing is known to be inside what does not exist.
                     return []
                 if parsed is None:
                     return []

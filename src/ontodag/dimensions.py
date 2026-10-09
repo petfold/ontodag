@@ -48,8 +48,8 @@ from fractions import Fraction
 # 3.2 (2026-08-01: GRAPH-DECLARED UNITS — `unit(spelling=value)` and
 #      `unit-family(NAME)` nodes under the registry node `unit-declaration`
 #      extend the vocabulary as DATA (UNITS.md §7); the built-in table
-#      slims to physical/digital measurement + the stack's own tokens, and
-#      currencies move to shipped packs adopted by merge),
+#      slims to physical/digital measurement, and every currency moves to
+#      shipped packs adopted by merge, the stack's own tokens too),
 # 4.0 (2026-08-01: AFFINE TEMPERATURES, and bare C/F go to them — Peter:
 #      "if I type 24C it should be Celsius rather than Coulomb". `24C`,
 #      `-40F`, `0C..100C` parse exactly onto the kelvin scale (offsets are
@@ -217,9 +217,9 @@ _INTERVALISH = _LINEARISH | {KIND_COUNT}
 # sensitive, slash-free (the slash belongs to rational values), and unique
 # across ALL families — the suffix alone determines the family (verified at
 # import below, and unit-by-unit in tests/test_units.py).
-# Honest exclusions (UNITS.md §2): Celsius/Fahrenheit (affine — temperature
-# is kelvin-anchored) and the radian (pi/180 is irrational — the angle
-# family is degree-anchored).
+# Not in this table: Celsius/Fahrenheit, which are affine and parse through
+# `_AFFINE` below (temperature stays kelvin-anchored), and the radian
+# (pi/180 is irrational — the angle family is degree-anchored; UNITS.md §2).
 # --------------------------------------------------------------------------- #
 
 def _build_units():

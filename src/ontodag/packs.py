@@ -1,19 +1,20 @@
-"""Shipped unit packs: graph-declared vocabulary, adopted by merge.
+"""Shipped packs: vocabulary as graph data, adopted by merge.
 
-UNITS.md §7, implemented (registry 3.2): a pack is an ordinary small
-ontology of `unit-family(NAME)` / `unit(SPELLING=VALUE)` declaration nodes
-under the registry node `unit-declaration`. Adopting one is an explicit,
+A pack is an ordinary ontology: the prelude (pack zero), the `core` upper
+ontology and ten domain packs of plain categories, and unit packs of
+`unit-family(NAME)` / `unit(SPELLING=VALUE)` declaration nodes under the
+registry node `unit-declaration` (UNITS.md §7). Adopting one is an explicit,
 idempotent merge (`odag pack NAME`, or `ontodag.packs.apply(dag, name)`),
 exactly like the prelude — versioned, fingerprinted (golden roots in
 tests/test_packs.py), and **carried inside the store**: a store's
 vocabulary travels with its data, so any reader of the store can parse its
 values without installing anything.
 
-What ships as a pack vs the built-in table: the table holds physical and
-digital *measurement* (timeless, universal) plus the stack's own tokens
-(BTC, ETH, BZZ/xBZZ, DAI/xDAI); packs hold **market-shaped and bulk
-vocabularies** — the crypto majors (rankings churn; a pack updates without
-an OntoDAG release), stablecoins, and the ISO-4217 fiat registry. Each
+What ships as a pack vs the built-in table: the table holds only what
+physics fixes, physical and digital *measurement*; every currency is a
+pack — the stack's own tokens (crypto-core), the crypto majors (rankings
+churn; a pack updates without an OntoDAG release), stablecoins, and the
+ISO-4217 fiat registry. Each
 currency is one family (exchange rates and pegs are never arithmetic);
 denominations are declared where a protocol fixes them.
 """
@@ -93,8 +94,8 @@ _CRYPTO_CORE = (
 # Bump a pack's version when its entries change; the golden-root tests pin
 # each version's fingerprint.
 PACKS = {
-    # pack zero: the pack that carries the interpreter's five reflection names
-    # (`dimension`, `linear-dimension`, ...) — special only in that the code
+    # pack zero: the pack that carries the interpreter's reflection names
+    # (`dimension` and its nine kinds, `linear-dimension`, ...) — special only in that the code
     # dereferences those names; mechanically a pack like the others.
     "prelude": (_PRELUDE_VERSION, _PRELUDE),
     "core": (CORE_VERSION, CORE),

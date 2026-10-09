@@ -2,7 +2,7 @@
 
 (The command is `odag`, not `od`: `od` is the standard octal-dump utility.)
 
-Design goals (see the module docstring history in CLAUDE.md):
+Design goals:
   * silent on success, errors on stderr with a non-zero exit code;
   * a persistent default store in ~/.ontodag so `odag put cat` / `odag get cat`
     work with no file argument;
@@ -1708,9 +1708,9 @@ Commands:
   prelude [--show]      adopt the standard dimension declarations (mass,
                         time, geo, size, in, ...) in one idempotent merge;
                         --show prints them instead
-  pack [NAME] [--show]  list unit packs, or adopt one (crypto-majors,
-                        stablecoins, fiat-iso4217) — vocabulary as graph
-                        data, no new release needed; travels with the
+  pack [NAME] [--show]  list the shipped packs, or adopt one (core,
+                        geography, crypto-majors, ...) — vocabulary as
+                        graph data, no new release needed; travels with the
                         store. --diff previews the adoption first
   history [-n N]        the states this store has been in, newest first
                         (`*` marks where it is now). Needs a store that
@@ -1757,8 +1757,9 @@ round-trips and `odag get ... | wc -l` counts right. Override with
 --render / --raw and -n N (-n 0 for all). `canon TERM` shows the exact
 stored form of any spelling. See docs/plans/SURFACE_LAYER.md.
 
-Settings: store, bee_api, bee_batch, bee_signer, render, limit. Each can be
-given four ways, and the first that is present wins:
+Settings: store, bee_api, bee_batch, bee_signer, store_key, overlays,
+render, limit. Each can be given four ways, and the first that is present
+wins:
 
   flag  >  environment  >  config file (`set`)  >  default
 
@@ -1777,13 +1778,12 @@ Beyond a plain file, a store can be:
                  it checks the node, chain, wallet and postage batch in
                  order and tells you which one to fix.
 
-A store may also be `swarm:NAME`, persisted on Ethereum Swarm (content on a
-Bee node, latest root in ~/.ontodag/NAME.root). `set store swarm:NAME` makes
-it the default, so every later command uses Swarm. Needs the swarm extra
-(`pip install -e ".[swarm]"`). Configure the node with $BEE_API / $BEE_BATCH
-(and $BEE_SIGNER to publish the latest root to a followable Swarm feed
-instead of keeping it in a local file)
-or `bee_api` / `bee_batch` in ~/.ontodag/config.
+A `swarm:NAME` store commits to a local store (~/.ontodag/NAME.store) and
+syncs it to the Bee node in the background. `set store swarm:NAME` makes it
+the default, so every later command uses Swarm. Needs the swarm extra
+(`pip install "ontodag[swarm]"`). Configure the node with $BEE_API /
+$BEE_BATCH (and $BEE_SIGNER to also publish the latest root to a followable
+Swarm feed), or `bee_api` / `bee_batch` / `bee_signer` in ~/.ontodag/config.
 
 The store can also be browsed as a filesystem (paths as category queries,
 FUSE-mountable) with `odag-fs`, which shares these settings — see
@@ -2096,7 +2096,7 @@ def build_parser():
     p.set_defaults(func=cmd_list, stream_output=True)
 
     p = sub.add_parser("pack", add_help=True,
-                       help="list unit packs, or adopt one by merge "
+                       help="list the shipped packs, or adopt one by merge "
                             "(--show to inspect)")
     p.add_argument("name", nargs="?")
     p.add_argument("--show", action="store_true",

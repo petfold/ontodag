@@ -90,10 +90,10 @@ def _save(dag, path):
 # save() opens-commits-syncs-closes (rebinding dag.store for the window).
 # Between windows no lock is held — odag, odag-fs mounts, and the MCP
 # server interleave freely; simultaneous windows retry briefly on
-# StoreLocked. Committing onto a head another writer moved is a clean
-# record-level rebase: EagerOntoDAG stages only records changed since its
-# own hydrate, so the other writer's untouched records survive (per-record
-# last-write-wins on true conflicts). save()'s best-effort sync barrier
+# StoreLocked. Committing onto a head another writer moved folds that head
+# in with the commutative, idempotent DAG merge (I7, EagerOntoDAG.sync,
+# reading only the diverged records), never last-write-wins; an unmoved
+# head commits plainly. save()'s best-effort sync barrier
 # gets the commit onto the network before a short-lived CLI run exits;
 # when the node is down the commit is safe locally and the next window's
 # syncer picks it up. Two modes:
@@ -157,9 +157,9 @@ _UNREACHABLE_ERRNOS = {
     errno.ENETDOWN, errno.ETIMEDOUT,
 }
 
-# Connection failures reach us wrapped by whichever HTTP client ran: `requests`
-# for the blob store, or aiohttp under swarmfs's postage-stamp selection. Both
-# subclass OSError but neither subclasses the builtin ConnectionError, so match
+# Connection failures reach us wrapped by swarmfs's HTTP client (aiohttp), the
+# only one on the swarm path. Its errors subclass OSError but not the builtin
+# ConnectionError, so match
 # the cause chain (which does bottom out in a real ConnectionRefusedError) and
 # fall back to type names for clients that break the chain.
 _UNREACHABLE_NAMES = {
