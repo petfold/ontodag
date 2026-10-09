@@ -295,7 +295,9 @@ Several values of one head on one item fold to their meet (`put(x, ["mass(1kg..3
 provably disjoint values of one head; `count(0)` (an absence claim);
 fractional counts; negatives (except affine `C`/`F` spellings); values
 below absolute zero; unknown units (the error names the pack or
-declaration that would define them); a head inheriting two kinds.
+declaration that would define them); a head inheriting two kinds; a new
+term nested more than 32 levels (`dimensions.MAX_NESTING`; real names
+use two).
 
 Unit vocabulary: ~250 built-in suffixes (physical/digital measurement
 only — generated listing in [UNIT_TABLE.md](UNIT_TABLE.md)); everything

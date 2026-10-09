@@ -107,7 +107,11 @@ decision that changes nothing here.
 ## 5. The tripwire instrument
 
 Every failed tool call is logged as a JSON line — `{event, tool, arguments,
-error}` — to stderr, and appended to `$ONTODAG_MCP_LOG` when set. What
+error}` — to stderr, and appended to `$ONTODAG_MCP_LOG` when set. A bug in
+a tool (anything but a refusal) is answered too, as an error result naming
+it, and logged as `internal_error` with its trace; no request ends the
+server (2026-10-09: before, a term nested 700 levels deep, or a line that
+was not a JSON object, did). What
 agents try and cannot express is exactly the evidence
 `DATABASE_DIRECTION.md`'s walls wait for (relations, exclusion queries,
 constraint pressure); collect it from day one, decide from data.

@@ -935,7 +935,12 @@ def get_query_dag_image():
     # node named "Japan|Hotel" and matched nothing.
     query = query_terms()
 
-    query_result_dag = _query_picture(my_dag, query)
+    try:
+        query_result_dag = _query_picture(my_dag, query)
+    except ValueError as e:
+        # The refusal /dag/query gives (a malformed value, a term nested too
+        # deep), not a 500: the picture asks the same question.
+        return jsonify({"error": str(e)}), 400
     # Kept so what was drawn can be checked against the answer
     # (tests/test_web.py, TestQueryPictureAgreesWithTheAnswer).
     session["query_result_dag"] = query_result_dag

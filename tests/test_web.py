@@ -219,6 +219,24 @@ class TestAMissingRendererIsAnInstruction:
             assert "dot" in response.get_json()["error"]
 
 
+class TestThePictureRefusesWhatTheAnswerRefuses:
+    """`/dag/query` answers a malformed term with 400 and its message; the
+    picture of the same query answered 500, for any malformed value, and
+    since the nesting limit (review question 7) for a term nested too deep."""
+
+    def test_400_with_the_message(self, client):
+        assert client.post("/dag/prelude").status_code in (200, 201)
+        put(client, "place")
+        put(client, "a", ["place"])
+        deep = "in(" * 700 + "a" + ")" * 700
+        for term, says in (("mass(3zz)", "unknown unit"),
+                           (deep, "a term nests at most 32")):
+            for route in ("/dag/query", "/dag/query/image"):
+                response = client.get(route, query_string={"cat": term})
+                assert response.status_code == 400, (route, term[:12])
+                assert says in response.get_json()["error"], route
+
+
 @requires_dot
 class TestQueryPictureAgreesWithTheAnswer:
     """The query image is built from `get()`, not from a name-intersection.

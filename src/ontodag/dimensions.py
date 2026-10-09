@@ -425,6 +425,37 @@ _NUM_RE = re.compile(r"^(-?\d+(?:\.\d+)?|-?\d+/\d+)([A-Za-z][A-Za-z0-9]*)?$")
 _PREFIX_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._\-]*$")
 
 
+#: How deeply a term may nest: `in(paris)` is one level,
+#: `transport(mass(..5kg))` two. Reading a term costs a round of recursion per
+#: level, and Python stops at about 600, so a deeper name ended in a
+#: RecursionError: a traceback from `odag`, an `odag-mcp` that exited, a 500
+#: from the web app, after seconds of work for a long name (review question 7,
+#: decided with Peter 2026-10-09). Real names use two levels.
+MAX_NESTING = 32
+
+
+def check_nesting(name):
+    """Refuse a term nested deeper than MAX_NESTING, before anything recursive
+    reads it. One pass over the name, and none for a name with no more opening
+    parentheses than the limit (almost every name)."""
+    if name.count("(") <= MAX_NESTING:
+        return
+    depth = deepest = 0
+    for ch in name:
+        if ch == "(":
+            depth += 1
+            if depth > deepest:
+                deepest = depth
+        elif ch == ")":
+            depth -= 1
+    if deepest > MAX_NESTING:
+        shown = name if len(name) <= 60 else name[:48] + "…"
+        raise ValueError(
+            f"{shown}: nested {deepest} levels deep; a term nests at most "
+            f"{MAX_NESTING} levels (in(paris) is one, "
+            f"transport(mass(..5kg)) two)")
+
+
 def split_term(name):
     """Purely syntactic split of `head(param)` -> (head, param), else None.
 

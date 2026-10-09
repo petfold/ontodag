@@ -266,6 +266,19 @@ parentheses inside a parameter since registry 4.2. CLI note: parentheses
 need shell quoting, and a category term with several constraints holds a
 space, so it needs quoting as one token.
 
+**Nesting is bounded (2026-10-09, review question 7, decided with Peter):**
+a new term nests at most `MAX_NESTING` = 32 levels (`in(paris)` is one,
+`transport(mass(..5kg))` two). Reading a term recurses once per level and
+Python stops at about 600, so a deeper name ended in a RecursionError — a
+traceback from `odag`, an `odag-mcp` that exited, a 500 from the web app —
+after seconds of work for a long name. `check_nesting` refuses it with a
+teaching error in one pass, before anything recursive reads it (in
+`_parse_parametric` and `_graph_parts`, the two ways in); a name already in
+a store is never read again, so no stored name is affected. Real names use
+two levels. The alternative, an iterative parser, was declined: it would
+rewrite the most intricate code for names nobody writes, and a deep name
+would still cost seconds.
+
 Boundary sugar (CLI/web, never the identity): friendly units
 (`3000g` → `3kg`), bare dates, bare numbers → `number(...)`,
 user-defined aliases like `max_weight(x) := weight(..x)` — all

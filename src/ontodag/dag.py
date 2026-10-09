@@ -1545,7 +1545,7 @@ class OntoDAG(DAG):
                 key, f"{head}({' '.join(canonical)})", trips)
         return f"{head}({' '.join(canonical)})"
 
-    def _graph_parts(self, name):
+    def _graph_parts(self, name, _nested=False):
         """The terms a graph-kind term is stored as: one per constraint,
         `H(a)` and `H(b)` for `H(a b)`, each canonical (DIMENSIONS.md §15).
         A constraint that is itself a graph-kind term with several
@@ -1560,14 +1560,21 @@ class OntoDAG(DAG):
         (`H(bicycle small-item)` is `H(bicycle)` once bicycles are small
         items), while a stored name never changes. Stored compounds made
         the same knowledge two stored forms, and two names for one class
-        once their constraints became related (fixed 2026-10-08)."""
+        once their constraints became related (fixed 2026-10-08).
+
+        Recursive in the nesting, so a new name is checked against
+        `MAX_NESTING` first, once, at the top (`_nested` is the recursion);
+        a stored one is read as it is, like everywhere else."""
         split = _dims.split_term(name)
         if split is None or self._dimension_kind(split[0]) != _dims.KIND_GRAPH:
             return [name]
+        if not _nested and name.count("(") > _dims.MAX_NESTING \
+                and name not in self.nodes:
+            _dims.check_nesting(name)
         head, param = split
         parts = []
         for constraint in _dims.constraints(param):
-            for atom in self._graph_parts(constraint):
+            for atom in self._graph_parts(constraint, _nested=True):
                 part = self._canonical_name(f"{head}({atom})")
                 if part not in parts:
                     parts.append(part)
@@ -1610,6 +1617,7 @@ class OntoDAG(DAG):
                 # pass, so the redundancy checks ran inside walks, recursed
                 # into further walks, and went exponential.
                 return split[0], kind, name
+            _dims.check_nesting(name)        # a new term: read recursively below
             return split[0], kind, self._canonical_graph_term(name)
         if "(" in split[1]:
             return None       # the flat kinds: a nested parameter stays opaque, as before

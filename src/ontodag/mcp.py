@@ -42,6 +42,7 @@ import json
 import os
 import sys
 import time
+import traceback
 
 from ontodag import CONTRACT_VERSION
 from ontodag import surface as _surface
@@ -887,6 +888,10 @@ class MCPServer:
     def handle(self, message):
         """One JSON-RPC message in, one response dict out (None for
         notifications)."""
+        if not isinstance(message, dict):
+            return {"jsonrpc": "2.0", "id": None,
+                    "error": {"code": -32600,
+                              "message": "invalid request: not a JSON object"}}
         method = message.get("method")
         msg_id = message.get("id")
         if msg_id is None:  # a notification: never answered
@@ -917,6 +922,22 @@ class MCPServer:
                     "content": [{"type": "text", "text": f"{exc}"}],
                     "isError": True,
                 })
+            except Exception as exc:
+                # A bug, not a refusal. Until 2026-10-09 it ended the server,
+                # and with it the agent's session: a term nested 700 levels
+                # deep did it with a RecursionError. Answer it, log it, keep
+                # serving.
+                _log_failure({"event": "internal_error", "tool": name,
+                              "arguments": arguments,
+                              "error": f"{type(exc).__name__}: {exc}",
+                              "trace": traceback.format_exc()})
+                return self._result(msg_id, {
+                    "content": [{"type": "text", "text":
+                                 f"internal error ({type(exc).__name__}: "
+                                 f"{exc}): a bug in odag-mcp, logged; the "
+                                 f"server is still serving"}],
+                    "isError": True,
+                })
             return self._result(msg_id, {
                 "content": [{"type": "text",
                              "text": json.dumps(answer, sort_keys=True)}],
@@ -945,7 +966,16 @@ class MCPServer:
                             "error": {"code": -32700,
                                       "message": "parse error"}}
             else:
-                response = self.handle(message)
+                try:
+                    response = self.handle(message)
+                except Exception as exc:    # one message never ends the session
+                    _log_failure({"event": "internal_error",
+                                  "error": f"{type(exc).__name__}: {exc}",
+                                  "trace": traceback.format_exc()})
+                    response = {"jsonrpc": "2.0", "id": message.get("id"),
+                                "error": {"code": -32603, "message":
+                                          f"internal error: {type(exc).__name__}: "
+                                          f"{exc}"}}
             if response is not None:
                 stdout.write(json.dumps(response, sort_keys=True) + "\n")
                 stdout.flush()

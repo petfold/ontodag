@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 
 from ontodag import CONTRACT_VERSION
 from ontodag.__main__ import Session, dispatch
@@ -564,6 +564,52 @@ class TestWriteGating(SurfaceHarness):
                 os.environ["ONTODAG_HOME"] = home
             else:
                 os.environ.pop("ONTODAG_HOME", None)
+
+
+class TestOneBadRequestNeverEndsTheSession(unittest.TestCase):
+    """Until 2026-10-09 anything but a refusal ended the server, and with it
+    the agent's session: a term nested 700 levels deep did it with a
+    RecursionError, and so did a line that was not a JSON object. Now the
+    deep term is refused like any malformed name (review question 7), a bug
+    in a tool comes back as an error result, and the next request is
+    served."""
+
+    def test_the_server_answers_and_keeps_serving(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = os.path.join(tmp, "store.od")
+            build_store(store, extra=("put graph-dimension dimension",
+                                      "put topic graph-dimension"))
+            surface = AgentSurface(store)
+            real = surface.call
+
+            def call(name, arguments):
+                if name == "describe":
+                    raise RuntimeError("a bug")
+                return real(name, arguments)
+            surface.call = call
+            deep = "topic(" * 700 + "cat" + ")" * 700
+            requests = ["[1, 2]"] + [json.dumps(r) for r in (
+                {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                 "params": {"name": "query", "arguments": {"terms": [deep]}}},
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                 "params": {"name": "describe", "arguments": {"name": "cat"}}},
+                {"jsonrpc": "2.0", "id": 3, "method": "ping"})]
+            out, err = io.StringIO(), io.StringIO()
+            with redirect_stderr(err):
+                MCPServer(surface).serve(stdin=io.StringIO("\n".join(requests)),
+                                         stdout=out)
+        answers = [json.loads(line) for line in out.getvalue().splitlines()]
+        self.assertEqual(len(answers), 4)
+        self.assertEqual(answers[0]["error"]["code"], -32600)
+        refused = answers[1]["result"]
+        self.assertTrue(refused["isError"])
+        self.assertIn("a term nests at most 32", refused["content"][0]["text"])
+        bug = answers[2]["result"]
+        self.assertTrue(bug["isError"])
+        self.assertIn("internal error (RuntimeError: a bug)",
+                      bug["content"][0]["text"])
+        self.assertEqual(answers[3], {"jsonrpc": "2.0", "id": 3, "result": {}})
+        self.assertIn('"event": "internal_error"', err.getvalue())
 
 
 class TestStdioEndToEnd(unittest.TestCase):

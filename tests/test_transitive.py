@@ -561,6 +561,84 @@ class TestDeepChains(unittest.TestCase):
         self.assertFalse(dag.is_below("doc", "shared-with(p0)"))
 
 
+class TestDeeplyNestedTerms(unittest.TestCase):
+    """A term nests at most MAX_NESTING levels (review question 7, decided
+    with Peter 2026-10-09). Reading a term recursed once per level, so 700
+    levels ended in RecursionError: a traceback from `odag`, an `odag-mcp`
+    that exited, a 500 from the web app, after seven seconds of work at
+    10,000 levels. Real names nest two levels (`transport(mass(..5kg))`)."""
+
+    @staticmethod
+    def nested(head, depth, leaf="a"):
+        return f"{head}(" * depth + leaf + ")" * depth
+
+    def setUp(self):
+        self.dag = declare(about=True)
+        self.dag.put("place", [])
+        self.dag.put("a", ["place"])
+        self.dag.put("transport", ["graph-dimension"])
+
+    def test_the_limit_is_where_it_says(self):
+        from ontodag.dimensions import MAX_NESTING
+        for head in ("in", "about", "transport"):
+            deepest = self.nested(head, MAX_NESTING)
+            self.dag.put(f"ok-{head}", [deepest])
+            self.assertTrue(self.dag.is_below(f"ok-{head}", deepest))
+            with self.assertRaisesRegex(
+                    ValueError, rf"nested {MAX_NESTING + 1} levels deep; "
+                                rf"a term nests at most {MAX_NESTING}"):
+                self.dag.put(f"no-{head}", [self.nested(head, MAX_NESTING + 1)])
+            self.assertNotIn(f"no-{head}", self.dag.nodes)
+
+    def test_every_way_in_refuses_a_deep_term_at_once(self):
+        import time
+        dag, before = self.dag, edge_set(self.dag)
+        for head in ("in", "about", "transport"):
+            deep = self.nested(head, 10_000)
+            calls = {
+                "canonical": lambda: dag.canonical(deep),
+                "parse_term": lambda: dag.parse_term(deep),
+                "is_term": lambda: dag.is_term(deep),
+                "put under it": lambda: dag.put("x", [deep]),
+                "put it": lambda: dag.put(deep, ["a"]),
+                "get": lambda: dag.get([deep]),
+                "get_any": lambda: dag.get_any([["a"], [deep]]),
+                "is_below, above": lambda: dag.is_below("a", deep),
+                "is_below, below": lambda: dag.is_below(deep, "a"),
+                "get_overlapping": lambda: dag.get_overlapping(deep),
+                "overlaps": lambda: dag.overlaps("a", deep),
+                "meet": lambda: dag.meet(deep, deep),
+                "reclassify": lambda: dag.reclassify(["a"], to=[deep]),
+                "remove": lambda: dag.remove(deep),
+                "excerpt": lambda: dag.excerpt([[deep]]),
+                "contested": lambda: dag.contested("a", deep),
+                "parents_of": lambda: dag.parents_of(deep),
+                "removal_plan": lambda: dag.removal_plan([deep]),
+                "cone_removal_plan": lambda: dag.cone_removal_plan([deep]),
+            }
+            for label, call in calls.items():
+                start = time.perf_counter()
+                with self.assertRaisesRegex(ValueError, "a term nests at most",
+                                            msg=f"{head}: {label}"):
+                    call()
+                self.assertLess(time.perf_counter() - start, 1.0,
+                                f"{head}: {label}")
+        self.assertEqual(edge_set(dag), before)       # nothing was filed
+
+    def test_a_stored_name_is_read_as_it_is(self):
+        """The limit is on reading a NEW term; a name already in a store is
+        never read again, so a store an older release filed deeper still
+        answers as it did (G7)."""
+        dag = self.dag
+        deep = self.nested("in", 40)
+        dag.add_node(Item(deep))
+        DAG.add_edge(dag, dag.nodes["in"], dag.nodes[deep])
+        dag.put("x", [deep])
+        self.assertEqual(names(dag.get([deep])), {"x"})
+        self.assertTrue(dag.is_below("x", deep))
+        self.assertEqual(dag.parse_term(deep).canonical, deep)
+
+
 class TestCertificatesAcrossProcesses(unittest.TestCase):
     """A verifier in another process iterates sets in another order, so its
     walk may take another path; the certificate must cover every path. The

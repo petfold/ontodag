@@ -184,6 +184,26 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **A term nested hundreds of levels deep** (review question 7, decided
+  with Peter, 2026-10-09). Reading a term recursed once per level, so
+  `in(in(…(a)…))` 700 levels deep ended in a RecursionError: `odag`
+  printed a traceback instead of its one-line error, `odag-mcp` exited
+  (no answer, and none for the requests after it), and the web app
+  answered 500, after seven seconds of work at 10,000 levels. A new term
+  now nests at most 32 levels (`dimensions.MAX_NESTING`), checked in one
+  pass before it is read: the refusal is a one-line error everywhere and
+  takes milliseconds. Real names use two levels
+  (`transport(mass(..5kg))`), and a name already in a store is never read
+  again, so no stored name is affected.
+- **`odag-mcp` no longer exits on an unexpected error.** It survived only
+  refusals and I/O errors; any other exception in a tool, or a line that
+  was not a JSON object, ended the server and the agent's session with
+  it. A bug in a tool now comes back as an error result naming it
+  (logged as `internal_error`, with its trace), anything else as a
+  JSON-RPC error, and the server keeps serving.
+- **The web app's query picture answered 500 for any malformed term**
+  (`/dag/query/image?cat=mass(3zz)`); it now answers 400 with the message
+  `/dag/query` gives.
 - **`ontodag.migrate` could not migrate a store using a pack's units**:
   its replay filed a value before the declaration of its unit whenever the
   value's name sorted first (`price(...)` before `unit-family(BTC)`), and

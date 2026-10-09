@@ -771,6 +771,25 @@ class TestBelow(unittest.TestCase):
                 (1, "false\n"))
 
 
+class TestDeeplyNestedTerm(unittest.TestCase):
+    def test_is_refused_in_one_line(self):
+        """Before the nesting limit (review question 7) this printed a
+        RecursionError traceback hundreds of lines long."""
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "s.od"))
+            for argv in (["prelude"], ["put", "place"], ["put", "a", "place"]):
+                self.assertEqual(_run(argv, session)[0], 0)
+            deep = "in(" * 700 + "a" + ")" * 700
+            for argv in (["put", "x", deep], ["get", deep], ["below", "a", deep]):
+                code, out, err = _run3(argv, session)
+                self.assertEqual(code, 1, argv[0])
+                self.assertEqual(err.count("\n"), 1, err[:300])
+                self.assertTrue(err.startswith("odag: in(in(in("), err[:80])
+                self.assertIn("nested 700 levels deep; a term nests at most 32",
+                              err)
+                self.assertLess(len(err), 300)       # the name is not echoed whole
+
+
 class TestIndexCommand(unittest.TestCase):
     def test_publish_and_consume_cone_summaries(self):
         data_blobs = MemoryBytesStore()
