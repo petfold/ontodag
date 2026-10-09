@@ -112,8 +112,16 @@ def _read(lines, source):
             if parent not in dag.nodes:
                 dag.add_node(Item(parent))
             edges.append((parent, name))
-    for parent, child in edges:
-        dag.add_edge(dag.nodes[parent], dag.nodes[child])
+    # A replay, like a merge: lines come in name order, so a role term
+    # (`from(my_home)`) can land before the edge that places `my_home` in
+    # its dimension. Strict, that refused mid-load, and a store holding such
+    # a term could never be opened again (since role heads arrived, 0.25.0;
+    # fixed 2026-10-09). The re-spellings a lenient replay defers are made
+    # once every edge is in.
+    with dag._lenient_roles():
+        for parent, child in edges:
+            dag.add_edge(dag.nodes[parent], dag.nodes[child])
+    dag._respell_deferred()
     for name, values in metadata.items():
         node = dag.nodes.get(name)
         if node is not None:          # an annotation for a node with no edges

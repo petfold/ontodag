@@ -66,6 +66,23 @@ def test_every_malformed_line_is_a_value_error_naming_its_line(line):
         native.loads(f"# ontodag store v1\n{line}\nrex\n", source="upload.od")
 
 
+def test_a_store_with_a_role_term_naming_a_place_reopens():
+    # A role term sorts before the place it names is placed in its
+    # dimension, and a strict replay refused it: such a store could not be
+    # loaded again (0.25.0 to 0.30.8).
+    from ontodag import prelude
+    dag = OntoDAG()
+    prelude.apply(dag)
+    for name, parents in (("place", ["geo"]), ("my_home", ["place"]),
+                          ("from", ["geo"]), ("parcel", ["from(my_home)"])):
+        dag.put(name, parents)
+    text = native.dumps(dag)
+    back = native.loads(text)
+    assert native.dumps(back) == text
+    assert back.is_below("parcel", "from(place)")
+    assert [i.name for i in back.get(["from(my_home)"]) if i.name == "parcel"]
+
+
 def test_load_of_a_missing_file_is_an_empty_store():
     with tempfile.TemporaryDirectory() as tmp:
         dag = native.load(os.path.join(tmp, "nothing-here.od"))

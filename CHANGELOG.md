@@ -12,6 +12,20 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Fixed
+
+- **A native (`.od`) store holding a role term that names a place could
+  not be opened again** (since role heads arrived in 0.25.0). After `put
+  parcel 'from(my_home)'` every later command on that store failed with
+  "'my_home' names a category outside the 'geo' dimension": the loader
+  replays the file's lines in name order, so the term's edge landed before
+  the one placing `my_home` in `geo`, and the role check refused it
+  mid-load. The loader now replays as a merge does (`_lenient_roles`),
+  then makes the re-spellings such a replay defers. `rs:` and `swarm:`
+  stores were not affected: they hydrate verbatim.
+
 ## [0.30.8] — 2026-10-09
 
 Found and fixed during the 2026-10-09 review (docs/plans/REVIEW_2026-10.md).
