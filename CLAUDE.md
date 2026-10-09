@@ -93,10 +93,10 @@ github.com/petfold.
 
 Elsewhere: `tests/` (fixtures in `tests/fixtures/`), `scripts/`
 (`release_smoke.py`, `repin_golden_roots.py`, `browser_check.py`, a
-Playwright check outside the suite), `experiments/` (one-off probes),
-`demo/pyodide/` (the in-browser page), `paper/` (two manuscripts), and
-`mypip/`, a virtualenv committed by accident (to be untracked, decided
-question 22).
+Playwright check outside the suite), `experiments/` (one-off probes, and
+`cgagviz.py`, the October 2024 prototype that came out of `mypip/`, a
+virtualenv committed by accident and untracked by question 22),
+`demo/pyodide/` (the in-browser page) and `paper/` (two manuscripts).
 
 ## Tests, lint and CI
 
@@ -113,7 +113,7 @@ question 22).
 - `tests/test_invariants.py` and `tests/test_boundaries.py` must always
   pass. `tests/test_reference.py` pins `docs/REFERENCE.md` to the code: a
   new command, setting, kind, MCP tool, extra or pack goes there too.
-- Lint: `git ls-files -- '*.py' ':!mypip/**' | xargs python3 -m pyflakes`
+- Lint: `git ls-files -- '*.py' | xargs python3 -m pyflakes`
   with pyflakes 3.4.0. It ignores `# noqa`, so try an optional import with
   `importlib.import_module`, declare a re-export in `__all__`, and put a
   fixture that several test modules share in a `conftest.py`.
@@ -412,7 +412,7 @@ Each line points to its record.
       gates selling insurance from a pool); factbond's plans aligned at
       once (item 17). loopmarket's documents not rewritten yet.
   22. `mypip/` untracked and ignored, its prototype `cgagviz.py` moved to
-      `experiments/` first (§4). Not done yet.
+      `experiments/` first (§4). Done.
   23. The review's test suggestions 1–5 and 9, each written before the
       decided item it guards (§7). Not done yet.
 

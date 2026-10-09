@@ -24,3 +24,7 @@ issues.txt
 # the Pyodide demo's node harness
 demo/pyodide/node_modules/
 demo/pyodide/package-lock.json
+
+# A virtualenv committed by accident in July 2026, untracked 2026-10-10
+# (review question 22); its prototype is experiments/cgagviz.py.
+mypip/

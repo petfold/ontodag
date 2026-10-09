@@ -40,7 +40,7 @@ jobs:
       # build (ontodag-fs 0.0.1 shipped broken for exactly this reason). The
       # lint is tests.yml's, repeated because a tag need not wait for it.
       - run: pip install pyflakes==3.4.0
-      - run: git ls-files -- '*.py' ':!mypip/**' | xargs python -m pyflakes
+      - run: git ls-files -- '*.py' | xargs python -m pyflakes
       - run: pytest
       - run: pip install build twine
       - run: python -m build
