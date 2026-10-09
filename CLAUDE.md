@@ -391,6 +391,9 @@ Each line points to its record.
   19. loopmarket: durations and relative times in ontodag's units (`min`,
       `wk`); a bare `m` or `w` is refused with the fix named (item 11).
       Not built yet.
+  20. loopmarket: v1/v2 offers retired (circulator's benchmark and the
+      tests move to v4+ first; old records stay readable), `MockClearing`
+      renamed `BookClearing` (item 12). Not built yet.
 
 ## Bee integration status
 
@@ -428,7 +431,7 @@ Each line points to its record.
   (opening a store at a chosen residency) belongs on `Store`.
 - The sister repos' CI and lint changes are on their main branches, not
   released; none changes behaviour.
-- Decided and waiting to be built: questions 11 to 19. Peter's instruction
+- Decided and waiting to be built: questions 11 to 20. Peter's instruction
   (2026-10-09): from question 11 on, record each decision and build them
   all once the last question is decided.
 
@@ -437,14 +440,13 @@ Each line points to its record.
 From the 2026-10 review (`docs/plans/REVIEW_2026-10.md` §8), not yet
 decided:
 
-- loopmarket: **12**, retiring v1/v2 offers and renaming `MockClearing`;
-  **17**, the build order against the README's gates.
+- loopmarket: **17**, the build order against the README's gates.
 - Also raised by the review: untracking `mypip/` (§4), and which of the
   remaining test suggestions to take up (§7, items 1–5, 7 and 9).
 
 They are put to Peter one at a time in that order, numbered on from the
-nineteen decided: loopmarket's item 12 is question 20, item 17 question
-21, then `mypip/` (22) and the test suggestions (23).
+twenty decided: loopmarket's item 17 is question 21, then `mypip/` (22)
+and the test suggestions (23).
 
 Older, not urgent: the 0.31.0 release; a publisher key for the packs on
 Swarm (published without one, so no feed yet; PACKS.md); BROWSER.md §7's
