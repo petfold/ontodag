@@ -375,6 +375,10 @@ Each line points to its record.
   14. In a role a bare word is a filed place and a cell is written by its
       name, `from(geo(u2e4x))`; `geo(...)` takes only geohash spellings;
       old terms read as before until migrated (item 20). Not built yet.
+  15. loopmarket: one matching engine, ontodag's index, for simple
+      matches and the aggregation search, no threshold; the default
+      solver kept apart from the rest of loopmarket (item 2). Not built
+      yet.
 
 ## Bee integration status
 
@@ -412,7 +416,7 @@ Each line points to its record.
   (opening a store at a chosen residency) belongs on `Store`.
 - The sister repos' CI and lint changes are on their main branches, not
   released; none changes behaviour.
-- Decided and waiting to be built: questions 11 to 14. Peter's instruction
+- Decided and waiting to be built: questions 11 to 15. Peter's instruction
   (2026-10-09): from question 11 on, record each decision and build them
   all once the last question is decided.
 
@@ -421,17 +425,16 @@ Each line points to its record.
 From the 2026-10 review (`docs/plans/REVIEW_2026-10.md` §8), not yet
 decided:
 
-- loopmarket: **2**, the indexed matcher in the solver; **4**, comparing
-  offer pins with the installed ontodag; **9**, checking a clearing book's
-  fills before the fold admits them; **10**, splitting `cli.py`; **11**,
-  one duration grammar with ontodag (`90m`, `1w`); **12**, retiring v1/v2
-  offers and renaming `MockClearing`; **17**, the build order against the
-  README's gates.
+- loopmarket: **4**, comparing offer pins with the installed ontodag;
+  **9**, checking a clearing book's fills before the fold admits them;
+  **10**, splitting `cli.py`; **11**, one duration grammar with ontodag
+  (`90m`, `1w`); **12**, retiring v1/v2 offers and renaming
+  `MockClearing`; **17**, the build order against the README's gates.
 - Also raised by the review: untracking `mypip/` (§4), and which of the
   remaining test suggestions to take up (§7, items 1–5, 7 and 9).
 
 They are put to Peter one at a time in that order, numbered on from the
-fourteen decided: loopmarket's item 2 is question 15, item 4 question 16,
+fifteen decided: loopmarket's item 4 is question 16, item 9 question 17,
 and so on.
 
 Older, not urgent: the 0.31.0 release; a publisher key for the packs on
