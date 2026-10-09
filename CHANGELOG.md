@@ -12,10 +12,16 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
-## [Unreleased]
+## [0.30.8] — 2026-10-09
 
-Found and fixed during the 2026-10-09 review (docs/plans/REVIEW_2026-10.md);
-not released.
+Found and fixed during the 2026-10-09 review (docs/plans/REVIEW_2026-10.md).
+
+### Dependencies
+
+- **`recordstore>=0.22.2`** (base, `store` and `swarm`): 0.22.1 committed a
+  store of more than about 11,000 records in quadratic time (over ten
+  minutes for the 11,900 categories of core plus the ten domain packs;
+  0.22.2 takes 1.1 s).
 
 ### Fixed
 

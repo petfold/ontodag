@@ -2,8 +2,8 @@
 
 `recordstore` lives in its own repo, [github.com/petfold/recordstore](https://github.com/petfold/recordstore),
 extracted from this repo in July 2026 with history preserved. OntoDAG depends on it
-from PyPI in `pyproject.toml` (`recordstore>=0.20.0`, both in the base dependencies and
-in the `swarm` extra, which asks for `recordstore[bee,feeds,stamps]`).
+from PyPI in `pyproject.toml` (`recordstore>=0.22.2`, both in the base dependencies and
+in the `swarm` extra, which asks for `recordstore[swarm-only,local-first-swarm]`).
 
 > **The authoritative reference now lives upstream.** Since recordstore
 > 0.18.2 the repo ships its own

@@ -281,7 +281,7 @@ class TestTheBoundaryIsAlsoDeclared(unittest.TestCase):
     # extension, no dependencies of its own, small. Anything failing that
     # belongs in an extra, because a hard dependency is inherited by every
     # embedded, container and browser install whether or not it is used.
-    ALLOWED_BASE = {"recordstore>=0.20.0"}
+    ALLOWED_BASE = {"recordstore>=0.22.2"}
 
     def test_the_base_install_stays_pure_python_and_tiny(self):
         declared = set(self._pyproject()["project"]["dependencies"])
