@@ -83,6 +83,173 @@ def test_a_store_with_a_role_term_naming_a_place_reopens():
     assert [i.name for i in back.get(["from(my_home)"]) if i.name == "parcel"]
 
 
+# ---- the canonical marker (2026-10-09) ----------------------------------------
+
+def _typed():
+    """A store with values, a pack's units, a relation and a role term."""
+    from ontodag import prelude
+    dag = OntoDAG()
+    prelude.apply(dag)
+    dag.merge(packs.pack_dag("crypto-core"))
+    for name, parents in (("price", ["linear-dimension"]), ("place", ["geo"]),
+                          ("paris", ["place"]), ("louvre", ["place", "in(paris)"]),
+                          ("from", ["geo"]), ("parcel", ["from(paris)", "mass(5kg)"]),
+                          ("coffee", ["price(5000sat)", "about(paris)"])):
+        dag.put(name, parents)
+    return dag
+
+
+def _unmarked(text):
+    """The same file as a release before the marker wrote it."""
+    head, marker, body = text.split("\n", 2)
+    assert marker.startswith(native.CANONICAL_LINE)
+    return f"{head}\n{body}"
+
+
+def test_dumps_marks_what_it_writes():
+    import hashlib
+    from ontodag.dimensions import REGISTRY_VERSION
+    text = native.dumps(_typed())
+    head, marker, body = text.split("\n", 2)
+    assert head == native.HEADER
+    assert marker == (f"{native.CANONICAL_LINE} {REGISTRY_VERSION} "
+                      f"{hashlib.sha256(body.encode()).hexdigest()}")
+
+
+def test_a_marked_file_is_built_as_written(monkeypatch):
+    text = native.dumps(_typed())
+    def refuse(*args, **kwargs):
+        raise AssertionError("a marked file was reduced again")
+    monkeypatch.setattr(OntoDAG, "add_edge", refuse)
+    back = native.loads(text)
+    assert native.dumps(back) == text
+    assert back.is_below("coffee", "price(..1/1000BTC)")
+    assert back.nodes["*"].descendant_count == len(back.nodes) - 1
+
+
+@pytest.mark.parametrize("change", ["no marker", "another registry", "edited"])
+def test_any_other_file_is_restored_to_the_same_store(change, monkeypatch):
+    text = native.dumps(_typed())
+    head, marker, body = text.split("\n", 2)
+    if change == "no marker":
+        other = _unmarked(text)
+    elif change == "another registry":
+        word, _, digest = marker.split()
+        other = f"{head}\n{word} 4.2 {digest}\n{body}"
+    else:
+        other = f"{head}\n{marker}\n{body}".replace("\nparcel ", "\nparcel  ")
+    def refuse(*args, **kwargs):
+        raise AssertionError("an unvouched file was trusted")
+    monkeypatch.setattr(native, "_direct", refuse)
+    assert native.dumps(native.loads(other)) == text
+
+
+@pytest.mark.parametrize("written", ["'mass(5000g)'", "'mass(5kg)'",
+                                     "'mass(5000000mg)' 'mass(5kg)'"])
+def test_a_hand_written_value_is_read_by_its_one_name(written):
+    # Until 2026-10-09 `x mass(5000g)` loaded as a second name for 5 kg,
+    # outside mass's star: is_below(x, mass(5kg)) was true while
+    # get mass(5kg) missed x.
+    from ontodag import prelude
+    body = native.dumps(prelude.prelude_dag()).split("\n", 2)[2]
+    dag = native.loads(f"{native.HEADER}\n{body}x {written}\n")
+    assert [p.name for p in dag.nodes["x"].parents] == ["mass(5kg)"]
+    assert not {"mass(5000g)", "mass(5000000mg)"} & set(dag.nodes)
+    assert "x" in {i.name for i in dag.get(["mass(5kg)"])}
+    assert "x" in {i.name for i in dag.get(["mass(..6kg)"])}
+
+
+def test_a_value_waits_for_its_vocabulary_whatever_the_names_sort_as():
+    # `area(1ha)` sorts before the kind node that makes `area` a head, and
+    # `price(...BTC)` before the pack declaration of BTC: read too early,
+    # each was an opaque name filed beside its head.
+    body = _unmarked(native.dumps(_typed())).split("\n", 1)[1]
+    dag = native.loads(f"{native.HEADER}\n{body}x 'area(1ha)' 'price(1000sat)'\n")
+    assert sorted(p.name for p in dag.nodes["x"].parents) == \
+        ["area(10000m2)", "price(1/100000BTC)"]
+    assert "area(1ha)" not in dag.nodes
+    assert dag.is_below("x", "price(..1/1000BTC)")
+
+
+def _merged(*peers):
+    from ontodag import prelude
+    stores = []
+    for filings in peers:
+        dag = OntoDAG()
+        prelude.apply(dag)
+        for name, parents in filings:
+            dag.put(name, parents)
+        stores.append(dag)
+    out = OntoDAG()
+    prelude.apply(out)
+    for peer in stores:
+        out.merge(peer)
+    return out
+
+
+@pytest.mark.parametrize("peers", [
+    # two values of one head that cannot both hold: put refuses the second
+    ([("crate", ["mass(1kg)"])], [("crate", ["mass(2kg)"])]),
+    # two that overlap: put files under the meet, a merge keeps both
+    ([("box", ["mass(1kg..5kg)"])], [("box", ["mass(2kg..8kg)"])]),
+    # each inside the other: put refuses the second
+    ([("place", []), ("x", ["place"]), ("y", ["place", "in(x)"])],
+     [("place", []), ("y", ["place"]), ("x", ["place", "in(y)"])]),
+], ids=["disjoint values", "overlapping values", "each inside the other"])
+def test_a_store_a_merge_made_opens_again_as_it_was(peers):
+    text = native.dumps(_merged(*peers))
+    assert native.dumps(native.loads(_unmarked(text))) == text
+
+
+@pytest.mark.parametrize("make", ["sample", "typed", "fragment", "g7"])
+def test_on_what_odag_writes_the_replay_reads_what_the_marker_vouches_for(make):
+    if make == "g7":
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "fixtures", "g7.od")
+        dag = native.load(path)
+    elif make == "fragment":
+        # what `diff --additions` writes: an arrival's parent without one
+        entries, metadata, _ = native._parse(
+            ["Ryokan", "Ryokan-Kyoto Ryokan", "JAL-cheap Ryokan"], "add.od")
+        dag = native._direct(entries, metadata)
+    else:
+        dag = _sample() if make == "sample" else _typed()
+    text = native.dumps(dag)
+    entries, metadata, lined = native._parse(text.splitlines(), "t")
+    assert native.dumps(native._restore(entries, metadata, lined)) == \
+        native.dumps(native._direct(entries, metadata)) == text
+
+
+def test_a_parent_never_given_a_line_is_top_level():
+    dag = native.loads("# ontodag store v1\nrex dog\n")
+    assert dag.root in dag.nodes["dog"].parents
+    assert {i.name for i in dag.get([])} == {"dog", "rex"}
+
+
+def test_an_older_release_s_store_loads_as_it_was():
+    # g7.od was written by 0.30.1, before the marker, and holds a compound
+    # that release folded: loading reads it, it does not migrate it (G7).
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "fixtures", "g7.od")
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
+    assert native.CANONICAL_LINE not in text
+    dag = native.loads(text)
+    assert "transport(mass(..8kg) small-item)" in dag.nodes
+    assert native.dumps(dag).split("\n", 2)[2] == text.split("\n", 1)[1]
+
+
+def test_a_file_git_could_not_merge_is_refused_not_read_as_names():
+    text = native.dumps(_sample())
+    head, marker, body = text.split("\n", 2)
+    conflicted = (f"{head}\n<<<<<<< HEAD\n{marker}\n=======\n"
+                  f"{native.CANONICAL_LINE} 4.3 {'0' * 64}\n>>>>>>> laptop\n{body}")
+    with pytest.raises(ValueError, match=r"me\.od:2: an unresolved merge conflict"):
+        native.loads(conflicted, source="me.od")
+    resolved = f"{head}\n{body}"
+    assert native.dumps(native.loads(resolved)) == text
+
+
 def test_load_of_a_missing_file_is_an_empty_store():
     with tempfile.TemporaryDirectory() as tmp:
         dag = native.load(os.path.join(tmp, "nothing-here.od"))

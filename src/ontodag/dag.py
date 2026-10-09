@@ -1054,15 +1054,32 @@ class OntoDAG(DAG):
         return node
 
     @contextmanager
-    def _lenient_roles(self):
-        """Replays (merge, sync) add nodes before edges; inside this block a
-        role parameter naming a not-yet-placed node is an isolated node
-        rather than a refusal (see `_param_node`)."""
+    def _lenient_roles(self, total=True):
+        """A replay (CONTRACT.md G9) lands names before the filings that
+        place them, so inside this block a role parameter naming a
+        not-yet-placed node is an isolated node rather than a refusal
+        (`_param_node`), creating a category a role term names is not
+        refused, and a compound's respelling waits for `_respell_deferred`.
+
+        A TOTAL replay — merge, sync, loading a stored file — also keeps
+        what an author would be refused: two values of one head that cannot
+        both hold, something inside itself, a rule, two unit families under
+        one head. A merge must stay total, and a store a merge made must
+        open again. `ingest` replays with `total=False`: as order-free as
+        the others, but those guards refuse its stream (G9, case 3)."""
         self._role_lenient = getattr(self, "_role_lenient", 0) + 1
+        if total:
+            self._replay_total = getattr(self, "_replay_total", 0) + 1
         try:
             yield
         finally:
             self._role_lenient -= 1
+            if total:
+                self._replay_total -= 1
+
+    def _total(self):
+        """Inside a total replay (`_lenient_roles`)?"""
+        return getattr(self, "_replay_total", 0)
 
     def _in_dimension(self, node, base):
         """Is `node` a member of the dimension headed by `base`: below its
@@ -1120,6 +1137,23 @@ class OntoDAG(DAG):
                  if self._dimension_kind(role) not in _dims.GRAPH_ORDERED)
                 if term in self.nodes]
 
+    def _check_role_parameters(self, name):
+        """Refuse, as a single write would have, a role parameter left
+        outside its dimension around `name`: `name` a role term whose
+        parameter names a category outside the dimension, or a category a
+        role term names, filed outside it. A replay files names before the
+        filings that place them (CONTRACT.md G9, case 2), so `ingest`, which
+        refuses a contradiction, asks this of each name once its whole
+        stream is in."""
+        if name not in self.nodes:
+            return
+        terms = self._role_terms_naming(name)
+        if _dims.split_term(name) is not None:
+            terms.append(self.nodes[name])
+        for term in terms:
+            head, param = _dims.split_term(term.name)
+            self._param_node(head, param)          # raises when outside
+
     def _below_guarded(self, sub, sup):
         """`is_below` with a re-entrancy guard: a place filed under a role
         term of itself would otherwise recurse forever. Fail closed."""
@@ -1154,7 +1188,7 @@ class OntoDAG(DAG):
                 return _dims.contains(outer, inner, kind,
                                       units=self._declared_units())
             except _dims.FamilyMismatch:
-                if getattr(self, "_role_lenient", 0):
+                if self._total():
                     # A merge brought values of two families under one head.
                     # Different families never contain each other, so the
                     # replay goes on; comparing them later is refused.
@@ -2424,11 +2458,12 @@ class OntoDAG(DAG):
         node = self.nodes.get(canonical)
         if node is not None:
             return node
-        if kind not in _dims.GRAPH_ORDERED and \
+        if kind not in _dims.GRAPH_ORDERED and not self._total() and \
                 self._param_node(head, _dims.split_term(canonical)[1]) is None:
             # A role parameter naming a node has no value space of its
             # own (it sits in the dimension's); only values are checked.
-            # A category term's space is the graph: nothing to check.
+            # A category term's space is the graph: nothing to check. A
+            # total replay keeps the two spaces a merge brought together.
             space = _dims.space_of(canonical, kind,
                                    units=self._declared_units())
             for sibling, _ in self._star(head):
@@ -2469,7 +2504,7 @@ class OntoDAG(DAG):
         declaration = not anchor and self._declares_narrower(from_node, to_node)
         if not anchor and parsed_to is not None \
                 and parsed_to[1] in _dims.GRAPH_ORDERED \
-                and not getattr(self, "_role_lenient", 0) \
+                and not self._total() \
                 and not self._below(to_node, from_node):
             self._refuse_rule(to_node.name, parsed_to[0], from_node.name)
         # Skip the edge entirely if to_node is already below from_node in
@@ -2489,7 +2524,7 @@ class OntoDAG(DAG):
             )
         if not anchor:
             self._refuse_self_containment(from_node.name, to_node.name)
-            if not getattr(self, "_role_lenient", 0):
+            if not self._total():
                 self._refuse_pin_over_values(from_node.name, to_node.name)
         # Plan the delta against the pre-operation graph, add the edge, then
         # prune. Pruning runs with live counts: an edge that is redundant via
@@ -2581,7 +2616,7 @@ class OntoDAG(DAG):
         every term of the narrower head at once (x ⊑ inside(y) becomes x ⊑
         in(y)). Any loop it closes passes through one of those terms, so
         their arguments are what is checked. Replays stay total."""
-        if getattr(self, "_role_lenient", 0):
+        if self._total():
             return None
         narrower = self._newly_narrower(from_node, to_node)
         if not narrower or self._dimension_kind(to_node.name) \
@@ -3128,7 +3163,7 @@ class OntoDAG(DAG):
         can be a long chain, or every member of a group)."""
         from_node, to_node = upper, lower
         if self._below(from_node, to_node) or (
-                getattr(self, "_role_lenient", 0)
+                self._total()
                 and from_node in self.get_ancestors(from_node)):
             # The pair lies on a cycle. Only a merge of contradictory
             # knowledge makes one (x in y in one store, y in x in another:
@@ -3384,7 +3419,7 @@ class OntoDAG(DAG):
         (`_refuse_rule`). A transitive term inside itself needs no loop at
         all, which is what `_refuse_self_containment` is for. Replays
         (merge, sync) stay total and are never checked."""
-        if getattr(self, "_role_lenient", 0):
+        if self._total():
             return None
         heads = self._heads()
         if not heads:
@@ -3506,7 +3541,7 @@ class OntoDAG(DAG):
         a refusal leaves no new vocabulary behind. Replays (merge, sync)
         are lenient, as with role parameters: a merge must stay total, so
         a merged store can hold what `put` refuses."""
-        if getattr(self, "_role_lenient", 0):
+        if self._total():
             return
         heads = self._transitive_heads()
         child = self.nodes.get(child_name)
@@ -3948,7 +3983,12 @@ class OntoDAG(DAG):
         return respelled
 
     def _check_role_reference_stays(self, name, parent_names):
-        """A move must leave a role-named node inside its dimension."""
+        """A move must leave a role-named node inside its dimension. A
+        replay files names before their places (G9, case 2): a total one
+        keeps what it is given, and `ingest` checks its stream once it is
+        all in (`_check_role_parameters`)."""
+        if getattr(self, "_role_lenient", 0):
+            return
         terms = self._role_terms_naming(name)
         if not terms:
             return
@@ -4004,8 +4044,9 @@ class OntoDAG(DAG):
         has (`live`) fold in too, and the reduction pass prunes their edges
         once the meet's edge exists. Role terms naming nodes have no
         nameable meet and stay as they are (the graph orders them); a
-        provably empty meet is the disjoint-parents refusal. Terms of a
-        transitive or enclosing head have no meet either — Zermatt is in
+        provably empty meet is the disjoint-parents refusal (a total replay
+        keeps such values unfolded, as the merge that made them did). Terms
+        of a transitive or enclosing head have no meet either — Zermatt is in
         Switzerland and in the Alps, a photo about Mars and about Earth — so
         they stay as they are too, and reduction keeps the finer of two
         that are ordered (DIMENSIONS.md §16, §17). Terms of the graph kind
@@ -4031,14 +4072,17 @@ class OntoDAG(DAG):
             for other in distinct[1:]:
                 met = self._intersect(meet, other, kind)
                 if met is None:
+                    if self._total():
+                        break      # kept as a merge keeps it, unfolded
                     raise ValueError(
                         f"{sub_name} cannot sit under both {meet} "
                         f"and {other}: provably disjoint {head!r} terms — "
                         "an item is in the intersection of its parents; for "
                         "a union, use a region node (DIMENSIONS.md §9)")
                 meet = met
-            for name in distinct:
-                folded[name] = meet
+            else:
+                for name in distinct:
+                    folded[name] = meet
         out = []
         for name in [*super_names, *live]:
             target = folded.get(name)
@@ -4061,7 +4105,7 @@ class OntoDAG(DAG):
         # asked before anything is materialized. One already below the
         # parent is a no-op, as add_edge makes it.
         if sub_parsed is not None and sub_parsed[1] in _dims.GRAPH_ORDERED \
-                and not getattr(self, "_role_lenient", 0):
+                and not self._total():
             for name in super_names:
                 if name != sub_parsed[0] and not (
                         sub_name in self.nodes and self.is_below(sub_name, name)):
@@ -4096,6 +4140,8 @@ class OntoDAG(DAG):
             if parsed is not None and parsed[0] in parametric_supers:
                 parametric_supers[parsed[0]].append((name, parsed[1]))
         for head, entries in parametric_supers.items():
+            if self._total():
+                break          # a merge keeps it, and so does its replay
             for (name_a, kind), (name_b, _) in combinations(entries, 2):
                 if self._param_node(head, _dims.split_term(name_a)[1]) \
                         is not None or self._param_node(

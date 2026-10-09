@@ -304,18 +304,24 @@ class TestStoredFormIsOrderFree(unittest.TestCase):
 
     def test_a_store_written_before_reads_the_same_and_migrates(self):
         # A store from before 2026-10-08 holds the folded compound as a
-        # node. It loads verbatim and answers the same questions; the
-        # migration replay files it as its parts.
+        # node. Loading keeps it, as every reader that takes a store as it
+        # is does (a marked file, a record store's hydrate, an unmarked file
+        # read as a merge of its lines), and it answers the same questions;
+        # the migration replay files it as its parts.
         from ontodag import migrate, native
-        old = native.loads(native.dumps(removals()) +
-                           "'transport(heavy-item piano)' transport\n"
-                           "job-17 'transport(heavy-item piano)'\n")
-        self.assertIn("transport(heavy-item piano)", old.nodes)
-        for query in ("transport(piano)", "transport(heavy-item)",
-                      "transport(heavy-item piano)"):
-            self.assertTrue(old.is_below("job-17", query), query)
-            self.assertEqual({i.name for i in old.get([query], items_only=True)},
-                             {"job-17"}, query)
+        body = (native.dumps(removals()).split("\n", 2)[2]
+                + "'transport(heavy-item piano)' transport\n"
+                  "job-17 'transport(heavy-item piano)'\n")
+        entries, metadata, _ = native._parse(body.splitlines(), "old.od")
+        for old in (native._direct(entries, metadata),
+                    native.loads(native.HEADER + "\n" + body)):
+            self.assertIn("transport(heavy-item piano)", old.nodes)
+            for query in ("transport(piano)", "transport(heavy-item)",
+                          "transport(heavy-item piano)"):
+                self.assertTrue(old.is_below("job-17", query), query)
+                self.assertEqual(
+                    {i.name for i in old.get([query], items_only=True)},
+                    {"job-17"}, query)
         entries = {name: sorted(p.name for p in node.parents
                                 if p.name != old.root.name)
                    for name, node in old.nodes.items() if name != old.root.name}

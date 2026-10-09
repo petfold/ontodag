@@ -184,7 +184,7 @@ The `.od` format as text (`from ontodag import native` — standard library only
 
 | call | one line |
 |---|---|
-| `native.dumps(dag)` / `native.loads(text, source=…)` | canonical `.od` text and back; `source` names the text in a malformed-line error |
+| `native.dumps(dag)` / `native.loads(text, source=…)` | canonical `.od` text, checksummed, and back: a file whose checksum holds is built as written, any other is read as a merge of its lines (spellings canonical, nothing migrated); `source` names the text in a malformed-line error |
 | `native.load(path)` / `native.save(dag, path)` | the same for a file; a missing file loads as an empty store |
 
 What a store shares (`from ontodag import sharing` — standard library only;
@@ -237,7 +237,8 @@ published as keys, with no server. The token plan is derived from
 included. It has keyed node ids, two keys per node, and
 lazy rotation with an upward fixpoint; docs/plans/SHARING_ON_SWARM.md),
 `ontodag.migrate`
-(replay a store across registry majors), `ontodag.OWLOntology` (OWL).
+(replay a store through `put` into the form this release stores, across
+registry majors too), `ontodag.OWLOntology` (OWL).
 
 ## 6. Dimensions (typed values)
 
@@ -358,7 +359,7 @@ throughout, `display` beside them.
 
 | artifact | format |
 |---|---|
-| native store | `.od` text, sorted, one node per line — diffable |
+| native store | `.od` text, sorted, one node per line, a checksum line — diffable |
 | OWL / Manchester | `.owl` / `.omn` by extension, via the `owl` extra |
 | store root | 64-hex content address; equal content ⇔ equal root |
 | certificate | JSON envelope of authenticated records; `verify_below(cert, root)` needs no store access |

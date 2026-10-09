@@ -724,6 +724,7 @@ than a file: a database row, an upload, a message.
 >>> dag.put("jal-123.pdf", ["Japan", "Flight"])
 >>> print(native.dumps(dag), end="")
 # ontodag store v1
+#:canonical 4.3 dbf02ef17ca844fa80bf4ae8abe5e1ea2c8026cd10a09d82413703941125fdb7
 Flight '*'
 Japan Travel
 Travel '*'
@@ -737,6 +738,19 @@ True
 
 `native.load(path)` and `native.save(dag, path)` do the same with a file (a
 missing file loads as an empty store, as `odag` treats a new one).
+
+The second line is a checksum of the rest, with the registry version that
+wrote it. A file that still matches is read back exactly as written: half
+a second for the 11,900 categories of core and every domain pack (§4.8).
+Any other file — edited by hand, written by a release from before the
+checksum, or under another registry version — is read the way a merge of
+its lines would be, which takes about five times as long: each name spelled
+as the registry spells it, every edge reduced. So a hand-written
+`x mass(5000g)` loads as `x` under `mass(5kg)` (§4.7), among `mass`'s values
+where `get mass(5kg)` finds it. Nothing is migrated on the way in: a store
+an older release wrote opens as it was, and
+`python3 -m ontodag.migrate STORE.od` is what rewrites it in the form this
+release stores.
 
 ### 4.7 Typed values: parametric dimensions
 
@@ -1827,6 +1841,7 @@ Ryokan
 $ odag -f travel.od excerpt japan.od Travel Japan
 $ cat japan.od
 # ontodag store v1
+#:canonical 4.3 24cd4d5eea55e39ac29e6c9a06e2a39b3e1bde93ccf6223bc392472fcb19e085
 JAL '*'
 JAL-cheap JAL
 Ryokan '*'
@@ -1880,7 +1895,13 @@ to write to a file instead of stdout.
 Useful habits:
 
 - The native store is line-oriented text; keep `~/.ontodag` (or a `-f` store) in a
-  git repository and diffs stay readable, merges reviewable.
+  git repository and diffs stay readable, merges reviewable. Each save also
+  rewrites the checksum on the second line (§4.6), so when two branches both
+  change the store, git reports a conflict there: keep the lines you want
+  from each side and delete git's markers and the `#:canonical` lines. odag
+  reads the result as a merge of its lines and writes a fresh checksum on
+  the next save. A file with git's markers still in it is refused, naming
+  the line.
 - Item names with parents are positional: `odag put ITEM PARENT1 PARENT2 …`. Omit the
   parents to add a top-level category.
 - If a parent doesn't exist yet, the command changes nothing and reports on stderr
@@ -2085,6 +2106,7 @@ which also writes the categories the answers hang from:
 $ odag -f travel.od excerpt japan.od Travel Japan --context
 $ cat japan.od
 # ontodag store v1
+#:canonical 4.3 32611a5d3cb1d15a9fa4aba5c7726598412eb63f2cc994db4717a82a73419ee1
 Flight Travel
 Hotel Travel
 JAL Flight Japan
@@ -2156,6 +2178,7 @@ are the whole of what it leaves out.
 
 $ cat add.od
 # ontodag store v1
+#:canonical 4.3 c0154eed4d8e0d1c449a4762721f7bfa0068cf6e9ff21706c3a08dda3d4470bb
 JAL-cheap Ryokan
 Onsen Ryokan-Kyoto
 Ryokan

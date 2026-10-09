@@ -870,6 +870,7 @@ class Session:
         as_of = _OVERRIDES.get("as_of")
         dag = backend.load_at(as_of) if as_of else backend.load()
         self._backend, self._dag = backend, dag
+        self._loaded = getattr(dag, "_version", None)
         self._view = None
 
     @property
@@ -884,6 +885,13 @@ class Session:
             self._load()
         return self._dag
 
+    def discard(self):
+        """Forget the store as held in memory, so the next use reads it
+        again: whatever a refused command changed and never saved goes with
+        it, instead of riding out on the next command's save."""
+        self._dag = None
+        self._view = None
+
     def switch(self, spec):
         # Atomic, and deliberately EAGER: build and load first, assign only
         # once nothing can fail. A store that won't open (node down) must
@@ -897,6 +905,7 @@ class Session:
         # in one session would otherwise hit its own lock).
         old = getattr(self._dag, "store", None)
         self.spec, self._backend, self._dag = spec, backend, dag
+        self._loaded = getattr(dag, "_version", None)
         self._view = None
         close = getattr(old, "close", None)
         if close is not None:
@@ -1950,13 +1959,24 @@ def cmd_ingest(args, session, out):
         if stream is not sys.stdin:
             stream.close()
     dag = session.dag
-    with dag._lenient_roles():            # a replay, as a merge is
+    # A replay, order-free as a merge is, but not total: what contradicts
+    # is refused, not kept (G9, case 3).
+    with dag._lenient_roles(total=False):
         for lineno, item, supers in entries:
             for sup in supers:
                 if sup not in dag.nodes:
                     _file_line(dag, lineno, sup, [])
         for lineno, item, supers in entries:
             _file_line(dag, lineno, item, supers)
+    # What a role parameter names had to wait until its place was in; now
+    # everything is, and it must be inside the role's dimension.
+    for lineno, item, supers in entries:
+        for name in (item, *supers):
+            try:
+                dag._check_role_parameters(dag._canonical_name(name))
+            except ValueError as exc:
+                raise ValueError(f"line {lineno}: {item} cannot be filed, so "
+                                 f"nothing was ingested: {exc}") from exc
     dag._respell_deferred()
     session.save()
 
@@ -3094,6 +3114,12 @@ def _dispatch(argv, session):
 
     out = _out()
 
+    # A command that is refused may already have changed the store in
+    # memory (a merge stopped by a cycle, an ingest stopped at line 3); a
+    # later command's save would then write half of it. So a refused
+    # command that changed anything is undone by reading the store again.
+    held = getattr(session, "_dag", None)
+    version = getattr(held, "_version", None)
     handle = None
     outpath = getattr(args, "output", None)
     try:
@@ -3109,6 +3135,13 @@ def _dispatch(argv, session):
         # viz extra" is an instruction, and `odag visualize` on a base
         # install used to bury it under twenty lines of stack.
         print(f"odag: {exc}", file=_err())
+        now = getattr(session, "_dag", None)
+        if now is not held:          # opened by this command
+            version = getattr(session, "_loaded", None)
+        if now is not None and getattr(now, "_version", None) != version:
+            discard = getattr(session, "discard", None)
+            if discard is not None:
+                discard()
         return 1
     finally:
         if handle is not None:

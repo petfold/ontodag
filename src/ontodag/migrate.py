@@ -18,61 +18,17 @@ What a node carries travels with it: native `#:meta` lines, and a record's
     migrate_record_store(old_rs, new_rs)       # record stores, programmatic
 """
 
-import json
-import shlex
 import sys
 
-from ontodag.dag import OntoDAG
-from ontodag.native import META_LINE
-
-
-def _stored_as(dag, name):
-    """The present names `name` was stored as: itself canonicalized, or
-    a graph-kind compound's parts (DIMENSIONS.md §15)."""
-    names = [dag._canonical_name(part) for part in dag._graph_parts(name)]
-    return [n for n in names if n in dag.nodes]
-
-
-def _replay(entries, metadata=None) -> OntoDAG:
-    """Rebuild from raw {name: [parent names]} through put (which
-    canonicalizes), parents-first, carrying each node's metadata. Raises
-    on unresolvable parents."""
-    out = OntoDAG()
-    pending = {name: list(parents) for name, parents in entries.items()}
-    done = set()
-    while pending:
-        ready = sorted(name for name, parents in pending.items()
-                       if all(p in done for p in parents))
-        if not ready:
-            raise ValueError(
-                f"cannot order entries (missing parents or a cycle): "
-                f"{sorted(pending)[:5]}")
-        for name in ready:
-            out.put(name, pending.pop(name))
-            done.add(name)
-            for stored in _stored_as(out, name):
-                out.nodes[stored].metadata.update((metadata or {}).get(name, {}))
-    return out
+from ontodag.native import _parse, _replay, _stored_as
 
 
 def _native_entries(path):
-    entries, metadata = {}, {}
+    """A native file's raw entries and metadata, read by `native`'s own
+    parser, so a malformed line, or git's conflict markers, is refused
+    naming the line."""
     with open(path, encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if line.startswith(META_LINE):
-                _, name, blob = shlex.split(line)
-                metadata[name] = json.loads(blob)
-                continue
-            if not line or line.startswith("#"):
-                continue
-            tokens = shlex.split(line)
-            entries.setdefault(tokens[0], [])
-            for parent in tokens[1:]:
-                if parent == "*":      # the implicit root, never replayed
-                    continue
-                entries.setdefault(parent, [])
-                entries[tokens[0]].append(parent)
+        entries, metadata, _ = _parse(fh.read().splitlines(), path)
     return entries, metadata
 
 

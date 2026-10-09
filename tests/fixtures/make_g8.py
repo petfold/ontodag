@@ -76,9 +76,9 @@ def build():
 def stored_lines(dag):
     """The store's native lines for every name the prelude does not hold."""
     own = set(prelude.prelude_dag().nodes)
-    return [line for line in native.dumps(dag).splitlines()[1:]
+    return [line for line in native.dumps(dag).splitlines()
             if line.split()[0].strip("'") not in own
-            and not line.startswith("#:meta")]
+            and not line.startswith("#")]
 
 
 if __name__ == "__main__":

@@ -46,3 +46,46 @@ class TestMigrationKeepsWhatNodesCarry(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMigrationReadsItsVocabularyFirst(unittest.TestCase):
+    def test_a_store_using_a_pack_s_units_migrates(self):
+        # A value was filed before the declaration of its unit when it
+        # sorted first (`price(...BTC)` before `unit-family(BTC)`), and the
+        # migration stopped at "unknown unit" (until 2026-10-09).
+        from ontodag import packs, prelude
+        dag = OntoDAG()
+        prelude.apply(dag)
+        dag.merge(packs.pack_dag("crypto-core"))
+        dag.put("price", ["linear-dimension"])
+        dag.put("coffee", ["price(5000sat)"])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "store.od")
+            native.save(dag, path)
+            migrate.migrate_native(path)
+            again = native.load(path)
+        self.assertEqual(native.dumps(again), native.dumps(dag))
+        self.assertTrue(again.is_below("coffee", "price(..1/1000BTC)"))
+
+    def test_a_store_a_merge_made_migrates(self):
+        # A merge keeps what an author would be refused; so must the
+        # migration's replay, or the store cannot be migrated (until
+        # 2026-10-09 it stopped at "cannot sit under both").
+        from ontodag import prelude
+        peers = []
+        for value in ("mass(1kg)", "mass(2kg)"):
+            peer = OntoDAG()
+            prelude.apply(peer)
+            peer.put("crate", [value])
+            peers.append(peer)
+        dag = OntoDAG()
+        prelude.apply(dag)
+        for peer in peers:
+            dag.merge(peer)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "store.od")
+            native.save(dag, path)
+            migrate.migrate_native(path)
+            again = native.load(path)
+        self.assertEqual({p.name for p in again.nodes["crate"].parents},
+                         {"mass(1kg)", "mass(2kg)"})

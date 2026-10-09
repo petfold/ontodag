@@ -48,9 +48,47 @@ the version numbers appear in commit history and docs.
   line, and nothing is saved. Such a refusal was also reported as "not a
   projection entry", a format error; it now says the line cannot be filed
   and why.
+- **…and it kept what it promised to refuse.** The leniency it shares with
+  a merge also switched off the guards against something inside itself
+  (`tokyo` under `in(tokyo)`), a rule (a relation term filed under
+  anything but its head), a unit pin over values and two unit families
+  under one head; and a role term whose parameter names a category outside
+  its dimension was accepted in one line order and refused in the other.
+  The leniency is now two: order, which every replay has, and totality,
+  which a merge, a sync and a load have; `ingest` takes only the first,
+  and checks role parameters once its whole stream is in. Each case is
+  refused in every order.
+- **A refused command left its work in memory.** At the `odag` prompt, in
+  batch mode, or for a program calling `dispatch`, what a refused `ingest`
+  (or a `merge` stopped by a cycle) had done before the refusal was saved
+  by the next command. A refused command that changed the store in memory
+  now discards it (`Session.discard`), and the next command reads the
+  store as it was saved.
 
 ### Changed
 
+- **A native store loads in a fraction of the time, and a hand-edited one
+  loads as what it says** (review question 4, decided with Peter,
+  2026-10-09). `odag` marks every `.od` file it writes with a second line,
+  `#:canonical <registry version> <sha256 of the rest>`. A file whose mark
+  holds is built straight from its lines: for the 11,900 categories of
+  core and every domain pack, 0.47 s where every `odag` command on such a
+  store used to spend 9.1 s re-reducing it. Any other file — edited by
+  hand, written before the mark, or under another registry version — is
+  read as a merge of its lines would be (2.4 s on the same store): each
+  name spelled as this registry spells it, a value anchored under its
+  head, so a hand-written `x mass(5000g)` is `x` under `mass(5kg)`, where
+  `get mass(5kg)` finds it. Before, it loaded as a second name for 5 kg
+  outside `mass`'s values: `is_below` said yes and `get` missed it.
+  Nothing is migrated on load: an older release's store opens as it was
+  (G7) and a store a merge made opens again (G9);
+  `python3 -m ontodag.migrate STORE.od` writes the current stored form. A
+  release before this one reads a marked file as before (it skips `#`
+  lines). The cost: two git branches that both change a store now always
+  conflict on the mark (keep both sides' other lines, delete the markers
+  and the mark). A file with git's conflict markers in it is refused,
+  naming the line; before, they were read as categories named `<<<<<<<`
+  and `HEAD`.
 - **A category a term names can no longer be removed out from under it**
   (decided with Peter, 2026-10-09; DIMENSIONS.md §14). Before, `remove
   paris` left `in(paris)` and `about(paris)` behind naming nothing: the
@@ -89,6 +127,13 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **`ontodag.migrate` could not migrate a store using a pack's units**:
+  its replay filed a value before the declaration of its unit whenever the
+  value's name sorted first (`price(...)` before `unit-family(BTC)`), and
+  stopped at "unknown unit". Nor a store a merge had made: the replay ran
+  an author's guards, and stopped at "cannot sit under both". Both replays
+  of a native store now take unit declarations first and each term after
+  the heads its spelling depends on, and are total, as a merge is.
 - **A native (`.od`) store holding a role term that names a place could
   not be opened again** (since role heads arrived in 0.25.0). After `put
   parcel 'from(my_home)'` every later command on that store failed with

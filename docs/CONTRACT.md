@@ -165,7 +165,13 @@ decided at the 2026-08-01 review:
   (`tests/fixtures/g7.od`) with the answers it gave when recorded, which
   must stay answers. The first run of that test found a released bug (a
   value index missing values after a load, 0.30.0) — exactly the kind of
-  answer-taken-away it exists for.
+  answer-taken-away it exists for. Loading reads a store and never
+  migrates it, which is what keeps G7 true of stores an older release
+  wrote: a native file the canonical marker does not vouch for is read as
+  a merge of its lines would be (2026-10-09; replaying it through `put`
+  instead would have filed the fixture's folded compound as its parts,
+  and its name would have left the answers). `ontodag.migrate` is the
+  explicit step into the current stored form.
 
 - **G8 — Signalled spellings.** A valid name's canonical spelling, and the
   stored form a given set of filings produces (so its root), change only
@@ -209,11 +215,14 @@ decided at the 2026-08-01 review:
      a strict relation.
 
   A replay adds every name before any filing and reads a role parameter
-  leniently until its place arrives, so cases 1 and 2 never refuse it. On
-  case 3 the replays differ only in how they stay order-free: a merge is
-  total (it keeps a contradiction an author would have been refused,
-  DIMENSIONS.md §9), while `ingest` refuses the whole stream, naming the
-  line, and saves nothing. Removals and moves are a different matter: they
+  leniently until its place arrives, so cases 1 and 2 never refuse it
+  mid-way. On case 3 the replays differ only in how they stay order-free:
+  a merge, a sync and loading a stored file are total (they keep a
+  contradiction an author would have been refused, DIMENSIONS.md §9, since
+  a store a merge made must open again), while `ingest` refuses the whole
+  stream, naming the line, and keeps none of it, on disk or in memory;
+  once the stream is all in, it also refuses a role parameter still naming
+  a category outside its dimension, case 2's end state. Removals and moves are a different matter: they
   do not commute with additions at all (G2's remove note). A script or an
   agent that cannot control the order of its writes uses a replay.
   **Committed** (2026-10-09; until then `ingest` applied its lines as single
@@ -568,7 +577,20 @@ the second:
    order-freedom without having it (`ingest`) was made one. Peter chose
    this over making role terms lenient for authors too, and over replay
    semantics for every write (which would drop the typo and contradiction
-   guards).
+   guards). Building review question 4 the same day showed the replays'
+   shared leniency had also switched off `ingest`'s guards against
+   self-containment and rules, so it is now two: order (every replay) and
+   totality (merge, sync, load); `ingest` has only the first. G9's text
+   was corrected to match, and to say loading is total.
+4. **G7 is kept by loading, not by migrating** (review question 4: a
+   native file the marker does not vouch for is read as a merge of its
+   lines). Peter chose a fast load for files the marker vouches for and a
+   canonicalizing replay through `put` for everything else; built that
+   way, the replay failed `TestG7MonotoneVersions`, because it migrated on
+   load (the fixture's folded compound was filed as its parts, and its
+   name left the answers). So the replay canonicalizes spellings and keeps
+   the stored form, and migration stays `ontodag.migrate`'s explicit step.
+   This adaptation was made while building and reported to Peter with it.
 
 ### Amendment 0.4 (2026-10-07)
 

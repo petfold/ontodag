@@ -19,6 +19,7 @@ recordstore's own live-node suite. These tests validate the CLI wiring.
 
 import importlib.util
 import io
+import json
 import os
 import sys
 import tempfile
@@ -3307,6 +3308,56 @@ class TestIngest(unittest.TestCase):
             self.assertNotIn("not a projection entry", err.getvalue())
             with open(path, encoding="utf-8") as fh:
                 self.assertEqual(fh.read(), before)     # nothing saved
+
+    def test_every_contradiction_is_refused_in_every_order(self):
+        """G9, case 3: ingest is order-free but not total. A merge keeps
+        each of these; until 2026-10-09 ingest kept them too, in some orders
+        or all, because the leniency it shares with a merge also switched
+        off the guards against them."""
+        import itertools
+        cases = {
+            "inside itself": [("tokyo", ["city"]), ("tokyo", ["in(tokyo)"])],
+            "each inside the other": [("x", ["city", "in(y)"]),
+                                      ("y", ["city", "in(x)"])],
+            "a rule": [("shared-with(france)", ["fragile"])],
+            "a role naming a category outside its dimension":
+                [("parcel", ["from(u09t)"]), ("u09t", ["city"])],
+        }
+        for label, lines in cases.items():
+            for n, order in enumerate(itertools.permutations(lines)):
+                with self.subTest(case=label, order=n), \
+                        tempfile.TemporaryDirectory() as home:
+                    path = os.path.join(home, "p.od")
+                    session = self._declared(path)
+                    with open(path, encoding="utf-8") as fh:
+                        before = fh.read()
+                    stream = self._stream(home, [json.dumps(
+                        {"item": item, "supercategories": supers})
+                        for item, supers in order])
+                    code, _, err = _run3(["ingest", stream], session)
+                    self.assertEqual(code, 1, err)
+                    self.assertIn("so nothing was ingested", err)
+                    with open(path, encoding="utf-8") as fh:
+                        self.assertEqual(fh.read(), before)
+
+    def test_a_refused_stream_leaves_nothing_for_the_next_save(self):
+        """All or nothing at the prompt too: the lines filed before the
+        refusal were held in memory, and the next command's save wrote
+        them (until 2026-10-09)."""
+        with tempfile.TemporaryDirectory() as home:
+            path = os.path.join(home, "p.od")
+            session = self._declared(path)
+            stream = self._stream(home, [
+                '{"item": "ok", "supercategories": ["city"]}',
+                '{"item": "crate", "supercategories": ["mass(3kg)"]}',
+                '{"item": "crate", "supercategories": ["mass(5kg)"]}',
+            ])
+            self.assertEqual(_run(["ingest", stream], session)[0], 1)
+            self.assertEqual(_run(["put", "town", "city"], session)[0], 0)
+            saved = cli._load_native(path)
+            self.assertIn("town", saved.nodes)
+            self.assertNotIn("ok", saved.nodes)
+            self.assertNotIn("ok", session.dag.nodes)
 
     def test_malformed_line_names_the_line(self):
         with tempfile.TemporaryDirectory() as home:
