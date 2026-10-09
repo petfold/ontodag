@@ -365,6 +365,10 @@ Each line points to its record.
   11. The kinds get a complexity budget: a new kind must retire complexity
       elsewhere; every cache is declared, and the indexes are fed through
       one hook in the base `DAG`'s operations (item 14). Not built yet.
+  12. Every replay (merge, sync, loading an unmarked file) folds an item's
+      overlapping values of one head into their meet, as `put` does;
+      contradicting values stay as they arrive and `odag status` lists
+      them; registry 4.4 (item 18). Not built yet.
 
 ## Bee integration status
 
@@ -402,7 +406,7 @@ Each line points to its record.
   (opening a store at a chosen residency) belongs on `Store`.
 - The sister repos' CI and lint changes are on their main branches, not
   released; none changes behaviour.
-- Decided and waiting to be built: question 11. Peter's instruction
+- Decided and waiting to be built: questions 11 and 12. Peter's instruction
   (2026-10-09): from question 11 on, record each decision and build them
   all once the last question is decided.
 
@@ -411,9 +415,8 @@ Each line points to its record.
 From the 2026-10 review (`docs/plans/REVIEW_2026-10.md` §8), not yet
 decided:
 
-- ontodag: **18**, whether a merge files canonically, folding overlapping
-  values as `put` does; **19**, what a merge does with a role literal that
-  meets a category of the same name outside the dimension.
+- ontodag: **19**, what a merge does with a role literal that meets a
+  category of the same name outside the dimension.
 - loopmarket: **2**, the indexed matcher in the solver; **4**, comparing
   offer pins with the installed ontodag; **9**, checking a clearing book's
   fills before the fold admits them; **10**, splitting `cli.py`; **11**,
@@ -424,7 +427,8 @@ decided:
   remaining test suggestions to take up (§7, items 1–5, 7 and 9).
 
 They are put to Peter one at a time in that order, numbered on from the
-eleven decided: item 18 is question 12, item 19 question 13, and so on.
+twelve decided: item 19 is question 13, loopmarket's item 2 question 14,
+and so on.
 
 Older, not urgent: the 0.31.0 release; a publisher key for the packs on
 Swarm (published without one, so no feed yet; PACKS.md); BROWSER.md §7's
