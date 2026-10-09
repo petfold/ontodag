@@ -382,6 +382,9 @@ Each line points to its record.
   16. loopmarket: matching and clearing refuse an offer whose registry or
       contract major differs from the installed ontodag's (item 4). Not
       built yet.
+  17. loopmarket: the fold re-checks every clearing book's loops, and
+      where a chain is configured only on-chain fills hide an offer
+      (item 9). Not built yet.
 
 ## Bee integration status
 
@@ -419,7 +422,7 @@ Each line points to its record.
   (opening a store at a chosen residency) belongs on `Store`.
 - The sister repos' CI and lint changes are on their main branches, not
   released; none changes behaviour.
-- Decided and waiting to be built: questions 11 to 16. Peter's instruction
+- Decided and waiting to be built: questions 11 to 17. Peter's instruction
   (2026-10-09): from question 11 on, record each decision and build them
   all once the last question is decided.
 
@@ -428,17 +431,15 @@ Each line points to its record.
 From the 2026-10 review (`docs/plans/REVIEW_2026-10.md` §8), not yet
 decided:
 
-- loopmarket: **9**, checking a clearing book's fills before the fold
-  admits them;
-  **10**, splitting `cli.py`; **11**, one duration grammar with ontodag
-  (`90m`, `1w`); **12**, retiring v1/v2 offers and renaming
+- loopmarket: **10**, splitting `cli.py`; **11**, one duration grammar
+  with ontodag (`90m`, `1w`); **12**, retiring v1/v2 offers and renaming
   `MockClearing`; **17**, the build order against the README's gates.
 - Also raised by the review: untracking `mypip/` (§4), and which of the
   remaining test suggestions to take up (§7, items 1–5, 7 and 9).
 
 They are put to Peter one at a time in that order, numbered on from the
-sixteen decided: loopmarket's item 9 is question 17, item 10 question 18,
-and so on.
+seventeen decided: loopmarket's item 10 is question 18, item 11 question
+19, and so on.
 
 Older, not urgent: the 0.31.0 release; a publisher key for the packs on
 Swarm (published without one, so no feed yet; PACKS.md); BROWSER.md §7's
