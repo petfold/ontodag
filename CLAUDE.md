@@ -369,6 +369,9 @@ Each line points to its record.
       overlapping values of one head into their meet, as `put` does;
       contradicting values stay as they arrive and `odag status` lists
       them; registry 4.4 (item 18). Not built yet.
+  13. A role term whose name meets a category outside its dimension reads
+      as the value; `odag status` lists such clashes (item 19). Not built
+      yet.
 
 ## Bee integration status
 
@@ -406,7 +409,7 @@ Each line points to its record.
   (opening a store at a chosen residency) belongs on `Store`.
 - The sister repos' CI and lint changes are on their main branches, not
   released; none changes behaviour.
-- Decided and waiting to be built: questions 11 and 12. Peter's instruction
+- Decided and waiting to be built: questions 11 to 13. Peter's instruction
   (2026-10-09): from question 11 on, record each decision and build them
   all once the last question is decided.
 
@@ -415,8 +418,9 @@ Each line points to its record.
 From the 2026-10 review (`docs/plans/REVIEW_2026-10.md` §8), not yet
 decided:
 
-- ontodag: **19**, what a merge does with a role literal that meets a
-  category of the same name outside the dimension.
+- ontodag: **20**, how a place name and a geohash are told apart (`geo`
+  takes any word as a cell, and a role term naming no filed place
+  becomes one).
 - loopmarket: **2**, the indexed matcher in the solver; **4**, comparing
   offer pins with the installed ontodag; **9**, checking a clearing book's
   fills before the fold admits them; **10**, splitting `cli.py`; **11**,
@@ -427,8 +431,8 @@ decided:
   remaining test suggestions to take up (§7, items 1–5, 7 and 9).
 
 They are put to Peter one at a time in that order, numbered on from the
-twelve decided: item 19 is question 13, loopmarket's item 2 question 14,
-and so on.
+thirteen decided: item 20 is question 14, loopmarket's item 2 question
+15, and so on.
 
 Older, not urgent: the 0.31.0 release; a publisher key for the packs on
 Swarm (published without one, so no feed yet; PACKS.md); BROWSER.md §7's
