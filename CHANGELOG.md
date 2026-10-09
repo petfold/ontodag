@@ -228,6 +228,12 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **The web app's move missed the contested set for a typed category**
+  (review §3.1). `PATCH /dag/node` compared the names it was given with
+  the store's, so `"to": ["time(2026)"]`, stored under its canonical
+  spelling, reported nothing contested where `odag move` reported the
+  item left in both states. The route now reads names as the store spells
+  them, as the CLI does.
 - **A query missed an item a merge filed under two values of one head**,
   though `is_below` found it (fixed by question 12's fold). After merging
   Alice's crate under `mass(..5kg)` with Bob's under `mass(2kg..)`, `get

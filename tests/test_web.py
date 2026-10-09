@@ -380,6 +380,21 @@ class TestMoveOverRest:
         assert query_names(client, "archive") == {"A", "a1", "C"}
         assert query_names(client, "active") == {"B", "C"}
 
+    def test_typed_names_are_read_as_the_store_spells_them(self, client):
+        """`odag move` canonicalizes what it is given and the route did not:
+        moved to `time(2026)`, stored under its canonical spelling, it
+        reported nothing contested (review 2026-10, §3.1)."""
+        projects(client)
+        client.post("/dag/prelude")
+        response = client.patch("/dag/node", json={
+            "subcategories": ["A"], "to": ["time(2026)"], "from": ["active"]})
+        assert response.status_code == 200, response.get_json()
+        assert response.get_json()["contested"] == ["C"]
+        response = client.patch("/dag/node", json={
+            "subcategories": ["A"], "to": ["active"], "from": ["time(2026)"]})
+        assert response.status_code == 200, response.get_json()
+        assert response.get_json()["retracted"][0][1] == "A"
+
     def test_the_contents_travel_with_it(self, client):
         projects(client)
         client.patch("/dag/node", json={"subcategories": ["A"],

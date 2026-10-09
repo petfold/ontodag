@@ -731,16 +731,20 @@ def move_dag_items():
         return jsonify({"error": "give `to`, `from`, or both"}), 400
 
     my_dag = current_dag()
-    olds = list(from_) if from_ else sorted(
-        {name for item in items
-         if item in my_dag.nodes
-         for name in my_dag.parents_of(item)})
+    # Names as the store spells them, as `odag move` reads them: a typed
+    # term arrives as typed (`time(2026)`) and is stored canonical, so the
+    # contested set compared raw spellings and found nothing (review §3.1).
     try:
+        news = [my_dag.canonical(name) for name in to]
+        olds = sorted({my_dag.canonical(name) for name in from_}) if from_ \
+            else sorted({name for item in items
+                         if my_dag.canonical(item) in my_dag.nodes
+                         for name in my_dag.parents_of(item)})
         retracted = my_dag.reclassify(items, to=to, from_=from_)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
-    contested = sorted({name for old in olds for new in to
+    contested = sorted({name for old in olds for new in news
                         if new != old and new in my_dag.nodes
                         for name in my_dag.contested(old, new)})
     return jsonify({
