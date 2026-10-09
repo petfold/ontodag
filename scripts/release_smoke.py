@@ -488,7 +488,11 @@ def smoke(env, expect_version):
                      os.path.join("static", "app.js"),
                      os.path.join("static", "vendor", "preact-htm.module.js")):
             assert os.path.exists(os.path.join(root, part)), f"missing {part}"
-        return "app, templates and static are installed"
+        # ...and nothing for developers only: the browser check needs
+        # Playwright and a running server (it moved to scripts/, 2026-10-09).
+        assert not os.path.exists(os.path.join(root, "browser_check.py")), \
+            "a development script ships in the package"
+        return "app, templates and static are installed, dev scripts are not"
 
     check("the web app ships in the wheel", web_app_is_in_the_package)
 
@@ -515,6 +519,11 @@ def main():
                       'install: pip install build', file=sys.stderr)
                 return 1
             print("building ...", flush=True)
+            # setuptools copies the package into build/lib and never removes
+            # what the source tree no longer has, so a wheel built over an old
+            # build/ ships deleted modules (found 2026-10-09: the moved
+            # browser_check.py came back from a stale copy). Start clean.
+            shutil.rmtree(os.path.join(ROOT, "build"), ignore_errors=True)
             subprocess.run([sys.executable, "-m", "build", "--wheel",
                             "--outdir", os.path.join(ROOT, "dist")],
                            cwd=ROOT, check=True,

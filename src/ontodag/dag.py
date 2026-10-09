@@ -2,11 +2,8 @@ from collections import namedtuple
 import bisect
 from contextlib import contextmanager
 from itertools import combinations
-import logging
 
 from ontodag import dimensions as _dims
-
-_log = logging.getLogger(__name__)
 
 
 class _EdgeSet(set):
@@ -3135,20 +3132,6 @@ class OntoDAG(DAG):
                 and self._contains(sup, upper, kind)
         return self._has_ancestors(sub_node, (sup_node,), computed=self._lean)
 
-    def get_by_dag(self, query_dag):
-        """
-        Returns a new DAG with a new root, with the nodes that are intersected with the query nodes,
-        including their common descendants.
-        The highest level super-categories from the query DAG are added under the root, and their common descendants
-        are added under the respective super-categories.
-        """
-        intersected_dag = self.intersection_dag(query_dag)
-        intersected_dag_nodes = intersected_dag.nodes.values()
-
-        copy_dag = self.copy_subdag(intersected_dag_nodes)
-        copy_dag.prune_to_common_descendants(intersected_dag_nodes)
-        return copy_dag
-
     def _remove_duplicate_root_edges(self):
         # No longer load-bearing since _remove_unneeded_edges covers the
         # full redundancy rectangle (2026-08-04): instrumented across the
@@ -4723,46 +4706,6 @@ class OntoDAG(DAG):
         # A compound either side stored before the other learned a fact
         # relating its constraints takes its current spelling (§16–§18).
         self._respell_deferred(other_dag.nodes)
-
-    def prune_to_common_descendants(self, interesting_nodes):
-        # Gather each node's descendants in a list of sets
-        sets_of_descendants = []
-        for node in interesting_nodes:
-            if node.name in self.nodes:
-                sets_of_descendants.append(self.get_descendants(self.nodes[node.name]))
-            else:
-                sets_of_descendants = []
-                break
-
-        # If any interesting node is missing or there's nothing to keep, remove all but root
-        if not sets_of_descendants:
-            self.clear()
-            return
-
-        # Find the intersection of all descendant sets
-        common_descendants = set.intersection(*sets_of_descendants)
-
-        # Include the interesting nodes themselves
-        for node in interesting_nodes:
-            if node.name in self.nodes:
-                common_descendants.add(self.nodes[node.name])
-
-        # Remove all other nodes from the DAG (together: a term going with what
-        # it names is no reason to refuse)
-        going = {n.name for n in self.nodes.values()
-                 if n not in common_descendants and n is not self.root}
-        for name in sorted(going):
-            if name in self.nodes:
-                self._contract_node(name, going)
-
-        # Remove duplicate edges between ancestors and lower level sub-categories
-        for n in list(self.nodes.values()):
-            for subcategory in list(n.neighbors):
-                subcategory_ancestors = self.get_ancestors(subcategory, {self.root})
-                for ancestor in subcategory_ancestors:
-                    if ancestor in n.neighbors and subcategory in n.neighbors:
-                        self.remove_edge(n, subcategory)
-                        _log.debug('removed edge %s -> %s', n.name, subcategory.name)
 
     def excerpt_names(self, queries, context=False):
         """The names an excerpt of `queries` covers.

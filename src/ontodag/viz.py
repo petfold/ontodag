@@ -87,7 +87,8 @@ def query_picture(dag, queries):
     disjunct* produced, so a union reads as the two branches it is.
 
     Built from `get()` — the authoritative query path — because the obvious
-    alternative is wrong. `get_by_dag` intersects by *name*, so a parametric
+    alternative is wrong. `get_by_dag` (removed 2026-10-09, with the upload
+    form that still used it) intersected by *name*, so a parametric
     term with no node of its own (a virtual term like `weight(..5kg)`, which
     is the whole point of dimensions) simply vanished from the query: asking
     for `weight(..5kg)` drew an empty graph, and asking for

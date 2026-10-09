@@ -502,7 +502,8 @@ import, and the Download menu.
 
 ### What the browser found that HTTP could not
 
-The standing lesson (2026-08-02) held. `web/browser_check.py` drives the page
+The standing lesson (2026-08-02) held. `web/browser_check.py` (since
+2026-10-09 `scripts/browser_check.py`, outside the package) drives the page
 with Playwright and asserts what is on screen; it is **not** in the test
 suite (it needs a running server and a downloaded browser). Three real bugs,
 none of which any status code would have shown:

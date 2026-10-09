@@ -120,6 +120,31 @@ the version numbers appear in commit history and docs.
   `ontodag.__main__._make_backend` or set `_SYNC_TIMEOUT` there now does
   so in `ontodag.stores`, where they are read.
 
+### Removed
+
+- **Querying by an uploaded file** (review question 6, decided with Peter,
+  2026-10-09): the classic page's query "Import File" input, the routes
+  `/dag/query/import` and `/dag/query/dag/image` behind it, and the two
+  methods only they used, `OntoDAG.get_by_dag` and
+  `prune_to_common_descendants`. They matched the file's categories by
+  name, so a typed value dropped out of the query: a file naming `Japan`
+  and `mass(..5kg)` answered everything filed in Japan, a 200 kg piano
+  included, where `get Japan mass(..5kg)` answers the crate alone. The
+  query box, `/dag/query` and its picture answer the same question
+  correctly. Nothing else called them (loopmarket, ontodag-fs and
+  categor.io were checked), and no test did. `intersection_dag` stays.
+  Two public methods go, so this belongs in a minor release (0.31.0, with
+  ontodag-fs's `<0.31.0` ceiling raised).
+- **`browser_check.py` is no longer in the package.** The Playwright check
+  of the web page needs a browser and a running server, and every install
+  carried it as a module that could not even be imported without
+  Playwright. It is `scripts/browser_check.py` now, beside the release
+  smoke test, which fails if a development script ships again. That check
+  failed at once: setuptools never removes from `build/lib` what the
+  source tree no longer has, so a wheel built locally over an old `build/`
+  still carried the moved file. The smoke test now builds from a clean
+  `build/` (the publish workflow always did, from a fresh checkout).
+
 ### Added
 
 - **`ontodag.open(spec=None, as_of=None)` and `ontodag.settings`: a program

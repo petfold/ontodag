@@ -163,7 +163,6 @@ from ontodag.dag import OntoDAG          # always available, no extras
 |---|---|
 | `put(name, supers, optimized=False)` | file under supers (strings or Items) |
 | `get(terms, items_only=False)` / `get_any(queries, …)` | intersection / union-of-intersections; returns Items; `items_only` = leaves that are not typed values |
-| `get_by_dag(query_dag)` | intersect against another DAG's categories (the web app's path) |
 | `is_below(sub, sup)` | reflexive, fail-closed Boolean |
 | `is_term(name)` | is `name` a typed value of a dimension this DAG declares? `False` for other names, including a term-shaped one with an undeclared head; a malformed value of a declared head raises `put`'s ValueError |
 | `parse_term(name)` | how this DAG reads `name`: `Term(head, kind, canonical)` for a typed value of a declared dimension (`mass(3000g)` → `Term("mass", "linear-dimension", "mass(3kg)")`; a role term naming a node keeps the node's name), else `None`; raises like `is_term` |
@@ -180,7 +179,7 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `reclassify(names, to, from_=None)` | assert new classifications, retract old ones; asserts before retracting, never orphans, and refuses any placement `put` would refuse |
 | `cone_removal_plan(names)` / `remove_cone(names, with_terms=False)` | the *deleting* removal: the categories plus whatever only existed under them; a cone member that hangs elsewhere survives. The plan is pure, so it can be previewed. Terms naming what goes are refused, or contracted with `with_terms` (`cone_terms_plan(names, with_terms)` previews them) |
 | `merge(other)` | commutative, idempotent union with re-reduction |
-| `copy_subdag` / `induced_subdag` / `intersection_dag` / `prune_to_common_descendants` | derived DAGs, never aliasing (`copy_subdag` closes downward, `induced_subdag` copies exactly the names given) |
+| `copy_subdag` / `induced_subdag` / `intersection_dag` | derived DAGs, never aliasing (`copy_subdag` closes downward, `induced_subdag` copies exactly the names given, `intersection_dag` keeps the names both DAGs hold) |
 | `excerpt(queries, context=False)` / `excerpt_names(...)` | a query's answer as a standalone DAG (query terms never added; `context` also brings the categories it hangs from) |
 | `contested(a, b)` | items below both — the two-states-at-once list; empty when one entails the other |
 
@@ -347,7 +346,7 @@ empty `cat` = everything.
 | `/dag/overlaps?a=&b=` | GET | Boolean possible overlap (pairwise G6) |
 | `/dag/meet?a=&b=` | GET | intersection of two same-head terms as one term (`null` if empty) |
 | `/dag/image`, `/dag/query/image` | GET | rendered PNG |
-| `/dag/import`, `/dag/query/import` | POST | native/OWL upload |
+| `/dag/import` | POST | OWL/Manchester upload, merged in |
 | `/dag/export[/omn\|/dot\|/tex]` | GET | exports of the whole DAG |
 | `/dag/query/export[/omn\|/dot\|/tex]` | GET | export of the query's **excerpt** — `?cat=` (DNF) and `?context=1`; never the picture, so it re-imports without the query terms |
 | `/dag/node` | PATCH | reclassify: `{subcategories, to, from}`; answers with `retracted` and the `contested` set |

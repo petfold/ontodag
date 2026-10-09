@@ -936,6 +936,8 @@ def get_query_dag_image():
     query = query_terms()
 
     query_result_dag = _query_picture(my_dag, query)
+    # Kept so what was drawn can be checked against the answer
+    # (tests/test_web.py, TestQueryPictureAgreesWithTheAnswer).
     session["query_result_dag"] = query_result_dag
 
     # Before reading the vis_color_* settings: they are set by the same
@@ -950,27 +952,6 @@ def get_query_dag_image():
         for node in query_result_dag.nodes.values()
     }
     return _png(visualizer.generate_image(query_result_dag, color_mapping))
-
-
-@app.route("/dag/query/dag/image", methods=["GET"])
-def get_query_as_dag_dag_image():
-    query_result_dag = session["query_result_dag"]
-    query = session["query_dag"]
-
-    visualizer = current_visualizer()
-    # Make query nodes appear with a different color
-    color_mapping = {}
-    for node in query_result_dag.nodes.values():
-        if node in query.nodes.values():
-            color_mapping[node] = session["vis_color_query"]
-        else:
-            color_mapping[node] = session["vis_color_query_result"]
-
-    img = visualizer.generate_image(query_result_dag, color_mapping)
-    buf = BytesIO()
-    img.save(buf, format="PNG")
-    buf.seek(0)
-    return send_file(buf, mimetype="image/png")
 
 
 @app.route("/dag/import", methods=["POST"])
@@ -991,30 +972,6 @@ def import_dag():
             imported_dag = owl.import_dag(file_content=file_content)
         my_dag.merge(imported_dag)
         return jsonify({"message": "File imported and DAG created."}), 201
-    except Exception as e:
-        return jsonify({"error": "Error importing file. Reason: " + str(e)}), 400
-
-
-@app.route("/dag/query/import", methods=["POST"])
-def import_query_dag():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part."}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No selected file."}), 400
-
-    file_content = BytesIO(file.read())
-
-    owl = OWLOntology(file.filename)
-    my_dag = current_dag()
-    try:
-        imported_query_dag = owl.import_dag(file_content=file_content)
-        session["query_dag"] = imported_query_dag
-
-        query_result_dag = my_dag.get_by_dag(imported_query_dag)
-        session["query_result_dag"] = query_result_dag
-
-        return jsonify({"nodes": list([node.to_dict() for node in query_result_dag.nodes.values()])})
     except Exception as e:
         return jsonify({"error": "Error importing file. Reason: " + str(e)}), 400
 

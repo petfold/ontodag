@@ -59,9 +59,7 @@
         <input type="text" id="query-categories" placeholder="Super-categories (comma-separated)" size="50"/>
         <button type="submit">Query</button>
       </form>
-      <form id="query-import-file-form" enctype="multipart/form-data">
-       <input type="file" id="query-file-input" name="file" />
-        <button type="submit">Import File</button>
+      <form id="query-export-form">
         Export
         <label title="Also include the categories the answers hang from, so the file merges into a store that shares them"><input type="checkbox" id="export-with-context"/> with context</label>
         <button type="button" id="export-query-dag-button">OWL</button>
@@ -356,28 +354,6 @@
 
         await loadDAG();
         reloadDagImage();
-      });
-
-      document.getElementById("query-import-file-form").addEventListener("submit", async (evt) => {
-        evt.preventDefault();
-        const formData = new FormData();
-        const fileInput = document.getElementById("query-file-input");
-        formData.append("file", fileInput.files[0]);
-
-        await fetch("/dag/query/import", {
-          method: "POST",
-          body: formData
-        }).then(response => handleError(response))
-          .then(response => response.json())
-          .then(data => {
-            const { nodes } = data;
-            console.log(nodes);
-            queryDAG(nodes);
-          });
-
-        const dagQueryImage = document.getElementById("dag-query-image");
-        dagQueryImage.src = "/dag/query/dag/image";
-        dagQueryImage.style.display = "block";
       });
 
       document.getElementById("export-dag-button").addEventListener("click", () => {

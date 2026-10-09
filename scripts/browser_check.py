@@ -11,7 +11,11 @@ or a template entity rendered as four literal characters.
 
     pip install playwright && python3 -m playwright install chromium
     odag web &
-    python3 -m ontodag.web.browser_check [--url http://127.0.0.1:5000] [--shots DIR]
+    python3 scripts/browser_check.py [--url http://127.0.0.1:5000] [--shots DIR]
+
+A development tool, so it lives beside the release smoke test rather than in
+the package: until 2026-10-09 it was `ontodag/web/browser_check.py` and every
+install carried a module that cannot even be imported without Playwright.
 """
 
 import argparse
