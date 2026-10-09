@@ -151,7 +151,7 @@ class TestReferenceIsPinned(unittest.TestCase):
         self.assertEqual(Store("x.od").spec, "x.od")
         self.assertIn("`Store.spec`", self.text)
         for name in settings.__all__:
-            listed = f"`Setting(" if name == "Setting" else f"`settings.{name}"
+            listed = "`Setting(" if name == "Setting" else f"`settings.{name}"
             self.assertIn(listed, self.text,
                           f"settings.{name} missing from REFERENCE.md §5")
 

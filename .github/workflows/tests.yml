@@ -27,3 +27,18 @@ jobs:
       # testdag.py/testitem.py/testowl.py names comes from the python_files
       # pattern in pyproject.toml.
       - run: pytest
+
+  # Unused and shadowed names. In loopmarket a second definition of a
+  # function silently replaced the first and changed what users approve
+  # (review 2026-10, question 9); pyflakes names that line. Pinned, so a
+  # new pyflakes release cannot turn the build red on its own. `mypip/` is
+  # a virtualenv committed by accident in July, not this project's code.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install pyflakes==3.4.0
+      - run: git ls-files -- '*.py' ':!mypip/**' | xargs python -m pyflakes

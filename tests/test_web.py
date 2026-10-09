@@ -267,7 +267,6 @@ class TestQueryPictureAgreesWithTheAnswer:
         # The endpoint stashes the DAG it drew; that is what the PNG shows.
         assert client.get("/dag/query/image",
                           query_string={"cat": cat}).status_code == 200
-        from flask import session as flask_session
         with client.session_transaction() as sess:
             drawn = sess["query_result_dag"]
         return {name for name in drawn.nodes if name != "*"}

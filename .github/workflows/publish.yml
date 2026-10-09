@@ -37,7 +37,10 @@ jobs:
 
       # A v* tag publishes irreversibly — PyPI never allows re-uploading a
       # version, only yanking. Run the suite first so a tag cannot ship a red
-      # build (ontodag-fs 0.0.1 shipped broken for exactly this reason).
+      # build (ontodag-fs 0.0.1 shipped broken for exactly this reason). The
+      # lint is tests.yml's, repeated because a tag need not wait for it.
+      - run: pip install pyflakes==3.4.0
+      - run: git ls-files -- '*.py' ':!mypip/**' | xargs python -m pyflakes
       - run: pytest
       - run: pip install build twine
       - run: python -m build
@@ -56,7 +59,7 @@ jobs:
           name: dist
           path: dist/
 
-  # Does this candidate break its consumer? Answered before upload, because
+  # Does this candidate break its consumers? Answered before upload, because
   # afterwards is too late: PyPI never lets a version be replaced.
   #
   # This is the gap that let ontodag 0.10.x ship a new canonical-name grammar
@@ -71,9 +74,24 @@ jobs:
   # ontodag-fs's main is red, for any reason. That is the correct default for
   # two repos where one is the other's index — and it is cheap to see, because
   # this job names which suite failed.
+  #
+  # loopmarket joined on 2026-10-09 (review question 9). It asks for
+  # `ontodag>=0.30.6` with no ceiling, so a new ontodag reaches its users the
+  # moment it is on PyPI, and 0.30.6 failed one of its tests: a run by hand
+  # before tagging found it, nothing automatic would have. Its chain tests
+  # skip here (no `evm` extra); loopmarket's own CI runs them nightly and
+  # before each of its releases.
   downstream:
     needs: build
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - repository: petfold/ontodag-fs
+            extras: test
+          - repository: petfold/loopmarket
+            extras: test,sig
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -81,7 +99,7 @@ jobs:
           path: dist/
       - uses: actions/checkout@v5
         with:
-          repository: petfold/ontodag-fs
+          repository: ${{ matrix.repository }}
           path: consumer
       - uses: actions/setup-python@v6
         with:
@@ -93,17 +111,17 @@ jobs:
       # the consumer's pin is no longer satisfied — that is this job doing its
       # job, not a problem: the ceiling in ontodag-fs is deliberately raised by
       # hand once this gate has passed.
-      - name: Install ontodag-fs, then the candidate ontodag over it
+      - name: Install ${{ matrix.repository }}, then the candidate ontodag over it
         working-directory: consumer
         run: |
-          pip install -e ".[test]"
+          pip install -e ".[${{ matrix.extras }}]"
           pip install --force-reinstall --no-deps ../dist/*.whl
-          python -c "from importlib.metadata import version; print('ontodag-fs is being tested against ontodag', version('ontodag'))"
+          python -c "from importlib.metadata import version; print('${{ matrix.repository }} is being tested against ontodag', version('ontodag'))"
 
-      # Only one Python version: ontodag-fs's own CI covers its matrix against
-      # released ontodag, and what this gate asks is a semantic question about
-      # the candidate, not a per-interpreter one.
-      - name: ontodag-fs's suite against this candidate
+      # Only one Python version: each consumer's own CI covers its matrix
+      # against released ontodag, and what this gate asks is a semantic
+      # question about the candidate, not a per-interpreter one.
+      - name: ${{ matrix.repository }}'s suite against this candidate
         working-directory: consumer
         run: pytest
 

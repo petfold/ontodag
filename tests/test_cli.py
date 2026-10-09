@@ -580,7 +580,6 @@ class TestSwarmConfig(unittest.TestCase):
             old = os.environ.get("ONTODAG_HOME")
             os.environ["ONTODAG_HOME"] = home
             try:
-                cfg = {}
                 cli._write_config({"store": cli._normalize_spec("swarm:pets")})
                 self.assertEqual(cli._read_config()["store"], "swarm:pets")
                 self.assertEqual(cli._resolve_store(None), "swarm:pets")
@@ -1350,7 +1349,7 @@ class TestSwarmBackendLocalFirst(unittest.TestCase):
 
     def setUp(self):
         try:
-            import swarmfs.localstore  # noqa: F401
+            importlib.import_module("swarmfs.localstore")
         except ImportError:
             self.skipTest("swarmfs not installed")
         self._home = tempfile.TemporaryDirectory()

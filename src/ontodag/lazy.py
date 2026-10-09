@@ -86,7 +86,6 @@ layer for ``items()``); the traversals below are written so that change is
 local to ``_expand_many``.
 """
 
-from ontodag import dimensions as _dims
 from ontodag.dag import DAG, Item, OntoDAG, _name_of
 
 

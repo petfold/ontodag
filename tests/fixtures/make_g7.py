@@ -6,7 +6,7 @@ majors. So NEVER rerun this to make a failing test pass: a failure means a
 release takes an answer away, which is a major bump. Rerun it only after a
 major bump, deliberately, and say so in the commit.
 """
-import itertools, json, sys
+import json, sys
 import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "src"))

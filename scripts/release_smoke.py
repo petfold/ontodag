@@ -24,6 +24,7 @@ than quietly testing the wrong thing.
 """
 
 import argparse
+import importlib
 import os
 import shutil
 import subprocess
@@ -333,8 +334,8 @@ def smoke(env, expect_version):
         o("put", "ProjectA", "active")
         o("put", "spec.md", "ProjectA")
         o("put", "archive")
-        note = env.run(env.odag, "move", "ProjectA", "--from", "active",
-                       "--to", "archive")
+        env.run(env.odag, "move", "ProjectA", "--from", "active",
+                "--to", "archive")
         assert "ProjectA" in o("get", "archive").split(), "the move did nothing"
         assert "spec.md" in o("get", "archive").split(), "the subtree stayed"
         assert "ProjectA" not in o("get", "active").split(), "still active"
@@ -512,7 +513,7 @@ def main():
         wheel = args.wheel
         if not wheel:
             try:
-                import build  # noqa: F401
+                importlib.import_module("build")
             except ImportError:
                 print('this script builds the wheel itself and needs the '
                       '`build` package, which is not part of ontodag\'s own '

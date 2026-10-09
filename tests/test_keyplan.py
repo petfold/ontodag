@@ -20,13 +20,14 @@ Gated on the `act` extra (coincurve + pycryptodome); skips otherwise.
 """
 
 import hashlib
+import importlib
 import json
 import random
 import unittest
 
 try:
-    import coincurve  # noqa: F401
-    from Crypto.Cipher import AES  # noqa: F401
+    importlib.import_module("coincurve")
+    importlib.import_module("Crypto.Cipher.AES")
     HAVE_ACT = True
 except ImportError:
     HAVE_ACT = False

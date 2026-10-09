@@ -67,6 +67,11 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+- **`from ontodag import *` brings exactly `CONTRACT_VERSION`, `DAG`, `Item`
+  and `OntoDAG`** (an `__all__`, added when CI gained a linter, review
+  question 9). It also brought the submodules `dag` and `dimensions`, and
+  since `ontodag.open` arrived, `open`, which shadowed the builtin.
+  `ontodag.open` itself is unchanged.
 - **A native store loads in a fraction of the time, and a hand-edited one
   loads as what it says** (review question 4, decided with Peter,
   2026-10-09). `odag` marks every `.od` file it writes with a second line,

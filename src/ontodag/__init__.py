@@ -1,5 +1,11 @@
 from ontodag.dag import DAG, OntoDAG, Item
 
+# What `from ontodag import *` brings: the core classes and the contract
+# version. `open` stays out so that a star import cannot shadow the
+# builtin, and the names `__getattr__` serves stay out so that one never
+# loads an optional dependency.
+__all__ = ["CONTRACT_VERSION", "DAG", "Item", "OntoDAG"]
+
 # Version of the higher-layer contract this package implements
 # (docs/CONTRACT.md — what agents and inference layers may assume).
 # Bumped on any clause change; agreed at 0.1 on 2026-08-01, amended to

@@ -27,7 +27,7 @@ import shlex
 import sys
 
 from ontodag._extras import MissingExtra
-from ontodag.dag import OntoDAG, Item
+from ontodag.dag import OntoDAG
 from ontodag import native as _native
 from ontodag import surface as _surface
 from ontodag import dimensions as _dims
@@ -870,7 +870,7 @@ def cmd_pack(args, session, out):
     # explicit, idempotent merge — the prelude pattern, for units. The
     # vocabulary then travels inside the store itself.
     from ontodag.dimensions import UNIT_DECLARATION
-    from ontodag.packs import PACKS, adoption_dag, describe, pack_dag, pack_entries
+    from ontodag.packs import PACKS, adoption_dag, describe, pack_entries
     if not args.name:
         for name in sorted(PACKS):
             version, _entries = PACKS[name]

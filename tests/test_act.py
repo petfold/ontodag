@@ -11,12 +11,13 @@ revocation, are the key plan's: tests/test_keyplan.py.
 Gated on the `act` extra (coincurve + pycryptodome); skips otherwise.
 """
 
+import importlib
 import random
 import unittest
 
 try:
-    import coincurve  # noqa: F401
-    from Crypto.Hash import keccak  # noqa: F401
+    importlib.import_module("coincurve")
+    importlib.import_module("Crypto.Hash.keccak")
     HAVE_ACT = True
 except ImportError:
     HAVE_ACT = False
@@ -167,7 +168,7 @@ class TestTheEncstoreSeam(unittest.TestCase):
         from ontodag import act
         from ontodag.encstore import EncryptedBytesStore
         try:
-            from Crypto.Cipher import AES  # noqa: F401
+            importlib.import_module("Crypto.Cipher.AES")
         except ImportError:
             self.skipTest("needs the crypto extra")
         k, other = _seeded_rng(3)(32), _seeded_rng(4)(32)

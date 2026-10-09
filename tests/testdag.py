@@ -1,3 +1,4 @@
+import importlib
 import os
 import shutil
 import unittest
@@ -331,7 +332,7 @@ class TestVisualizerRendersEveryName(unittest.TestCase):
 
     def setUp(self):
         try:
-            import graphviz  # noqa: F401
+            importlib.import_module("graphviz")
         except ImportError:
             self.skipTest("graphviz not installed")
         self.dag = OntoDAG()

@@ -7,6 +7,7 @@ Pyodide ships pycryptodome but not coincurve, so this is also the check that
 browser page would need to read a friend's shares with no server.
 """
 
+import importlib
 import json
 import time
 
@@ -63,7 +64,7 @@ for key in carol_keys.values():
         pass
 
 try:
-    import coincurve  # noqa: F401
+    importlib.import_module("coincurve")
     curve = "coincurve"
 except ImportError:
     curve = "pure Python"

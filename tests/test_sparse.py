@@ -129,7 +129,7 @@ class TestEagerOracle(unittest.TestCase):
             sparse, eager = writers(base, blobs)
             for op, *args in operations:
                 try:
-                    result_sparse = getattr(sparse, op)(*args)
+                    getattr(sparse, op)(*args)
                     failed_sparse = None
                 except ValueError as exc:
                     failed_sparse = str(exc)

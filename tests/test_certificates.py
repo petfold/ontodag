@@ -22,7 +22,6 @@ from recordstore import MemoryBytesStore, RecordStore
 import ontodag
 from ontodag.certificates import (CertificateError, prove_below,
                                   verify_below)
-from ontodag.dimensions import REGISTRY_VERSION
 
 REPO_SRC = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
