@@ -58,8 +58,12 @@ from fractions import Fraction
 #      is untouched, and those are what charge/capacitance actually use.
 #      MAJOR because two canonical anchors change and bare C/F change
 #      meaning: a 3.x store carrying bare-C/F values must rewrite them to
-#      coulomb/farad spellings before an ontodag.migrate replay).
-REGISTRY_VERSION = "4.3"
+#      coulomb/farad spellings before an ontodag.migrate replay),
+# 4.4 (2026-10-10, the review's question 12: what a merge, a sync or a load
+#      brings is filed as `put` files it, an item under two overlapping
+#      values of one head under their meet; stores a merge made under 4.3
+#      come along with `ontodag.migrate`).
+REGISTRY_VERSION = "4.4"
 
 
 def registry_compatible(version, other=None):

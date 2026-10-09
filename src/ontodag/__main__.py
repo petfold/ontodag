@@ -1395,9 +1395,17 @@ def cmd_status(args, session, out):
 
 
 def _report_merge_leftovers(dag, out):
-    """What a merge can leave that a single write is refused: a role term
-    whose word is also a category outside its dimension. Said only when
-    there is something to say, each with the way out."""
+    """What a merge can leave that a single write is refused: values of one
+    head that cannot all hold, and a role term whose word is also a
+    category outside its dimension. Said only when there is something to
+    say, each with the way out."""
+    contradictions = dag.contradictions()
+    if contradictions:
+        print(f"contradictions = {len(contradictions)} (an item under values "
+              f"of one head that cannot all hold; every query finds it under "
+              f"each: fix the facts)", file=out)
+        for item, values in contradictions:
+            print(f"  {item}: {' '.join(values)}", file=out)
     clashes = dag.name_clashes()
     if clashes:
         print(f"name clashes = {len(clashes)} (a role term's word is also a "

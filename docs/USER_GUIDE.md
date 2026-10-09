@@ -985,7 +985,12 @@ What to know:
   (`time(..2026-01-01)` *and* `time(2026-12-31..)`) is refused with an error. For
   a union — "weekends", a delivery region — make an ordinary category and put
   the values under *it* (`dag.put("time(2026-08-01)", ["weekend"])`, one
-  edge per member).
+  edge per member). Two values that overlap are filed at their meet
+  (`mass(..5kg)` and `mass(2kg..)` give `mass(2kg..5kg)`), and a merge does
+  the same with values from two stores. A merge never refuses, though: if
+  Alice's store says `mass(..5kg)` and Bob's `mass(6kg..)`, the merged store
+  keeps both, and `odag status` lists the item under `contradictions` until
+  someone fixes the facts.
 - **Value nodes answer queries too.** A bare `dag.get(["time(2026-08-01..)"])`
   returns the matching `time(...)` categories alongside your documents — they are
   ordinary categories and they genuinely satisfy the query. Pair the date with a

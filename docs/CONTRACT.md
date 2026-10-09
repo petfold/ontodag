@@ -11,14 +11,18 @@ narrower relations between their heads. The individual clauses are
 marked **holds today** (a restatement of a tested guarantee) or **committed**
 (agreed direction, not yet built).
 
-**Contract version: 0.5 — amended 2026-10-09** (0.1 was reviewed and agreed
-2026-08-01, 0.2 on 2026-10-06, 0.3 and 0.4 on 2026-10-07). 0.2 states what an arrow means (§2), admits
+**Contract version: 0.6 — amended 2026-10-10** (0.1 was reviewed and agreed
+2026-08-01, 0.2 on 2026-10-06, 0.3 and 0.4 on 2026-10-07, 0.5 on
+2026-10-09). 0.2 states what an arrow means (§2), admits
 dimensions over nodes as the scoped exception (§5.1), and adds the writer's
 obligation that goes with them (O6); 0.3 admits narrower relations between
 their heads (§5.1); 0.4 promises that versions within a major only add
 answers (G7); 0.5 promises that a spelling or a stored form changes only
 with the registry minor (G8), and that a replay does not depend on the
-order of what it replays (G9). The record of every version is §8. All open questions
+order of what it replays (G9); 0.6 files what a merge brings as a single
+write files it, so equal knowledge has one root however it arrived (G1),
+with one stated exception for contradictions (G5). The record of every
+version is §8. All open questions
 from the 0.1 draft were resolved in the same-day review and folded into the
 clauses. The version is exposed as
 `ontodag.CONTRACT_VERSION`, will be carried by the discoverability record
@@ -108,11 +112,19 @@ decided at the 2026-08-01 review:
 - **G1 — Canonical root.** Equal knowledge yields an equal root: the stored
   form is a *semantic* canonical form (unique transitive reduction; dimension
   values canonicalized by denotation), not a syntactic one. Build history,
-  insertion order, and spelling of equal denotations do not affect the root.
+  insertion order, and spelling of equal denotations do not affect the root,
+  nor does whether a fact arrived by `put` or by a merge: since 0.6 a merge,
+  a sync and a load file an item left under two overlapping values of one
+  head under their meet, as `put` does.
   Relativity clause: "knowledge" is read against the interpretation context —
   declarations that merge with the data, plus `REGISTRY_VERSION`. **Holds
   today** (eager/sparse root-equality oracles; live canonical-root runs on
-  real Swarm refs).
+  real Swarm refs), with one gap found 2026-10-10 and open (review
+  question 24): each fold keeps the meet it made, so an item given three
+  or more overlapping values of one head one at a time, or by merges in
+  different groupings, can leave an unused intermediate meet in one order
+  and not in another. The item's placement and every answer about it are
+  the same; the root is not.
 - **G2 — Monotonicity under merge.** Merge is union followed by
   re-reduction. `is_below` answers that are true stay true; `get`/`get_any`
   results only grow. The one documented exception: a `remove` loses to a
@@ -134,7 +146,13 @@ decided at the 2026-08-01 review:
   today.**
 - **G5 — Convergence.** Writers who fold in each other's published roots
   (`sync`) reach byte-identical roots regardless of gossip order. **Holds
-  today** (two- and three-writer tests).
+  today** (two- and three-writer tests). *One exception (0.6):* for an item
+  whose values of one head cannot all hold, a contradiction only a merge
+  makes, which root the writers agree on can depend on the order of the
+  merges, because folding values into their meet forgets which values made
+  it. Writers that exchange roots still reach one root among them; `odag
+  status` and `contradictions()` list such items, and fixing the facts
+  ends the exception.
 - **G6 — `get_overlapping` is complete for possibility, silent on
   satisfaction.** Defined only for parametric terms of a declared dimension
   (`ValueError` otherwise). Returns a recall-complete candidate set — every
@@ -556,6 +574,34 @@ means), and accepted the same day:
 3. **Why the arbitrary-relations wall still stands** → the "Still outside"
    paragraph of §5.1, and `DATABASE_DIRECTION.md`. The exception admits
    fixed rules over declared names, not rules that users write.
+
+### Amendment 0.6 (2026-10-10)
+
+Prompted by the review of 2026-10-09 (`plans/REVIEW_2026-10.md` §8 item
+18, decided by Peter as question 12): `put` files an item under two
+overlapping values of one head under their meet, and a merge did not, so
+Alice's `mass(..5kg)` merged with Bob's `mass(2kg..)` stored the crate
+under both while one writer filing both stored it under `mass(2kg..5kg)`:
+two roots for one piece of knowledge, a G1 break since 0.26.2. Options:
+fold on every replay (chosen), fold and give a contradiction one fixed
+"no value fits" form (exact, but that form would answer every query on its
+head), stop folding in `put`, or document the exception.
+
+1. **G1** now holds across merges for consistent knowledge: a merge, a
+   sync and a load fold as `put` does.
+2. **G5 gains a stated exception** for contradictions: a folding merge is
+   commutative and idempotent but not associative once values contradict,
+   because folding forgets which values made a meet; the root then
+   depends on merge order as it already depended on the order of puts.
+3. The stored form of merged stores changes, so `REGISTRY_VERSION` goes to
+   4.4 (G8); `ontodag.migrate` (which replays through `put`) brings an
+   older store along.
+
+Found while building it: `put` itself keeps every meet it makes, so three
+or more overlapping values filed one at a time can leave an unused
+intermediate meet that depends on the order (G1's stated gap). Merges
+share it; the fix changes a documented rule ("a value once named stays"),
+so it went back to Peter as question 24.
 
 ### Amendment 0.5 (2026-10-09)
 

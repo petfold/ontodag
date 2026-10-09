@@ -175,14 +175,19 @@ Only on Peter's word. Pushing a `v*` tag publishes to PyPI; never dispatch
   `import ontodag`.
 - **B2** recordstore never depends on ontodag.
 
-Contract 0.5 (`docs/CONTRACT.md`, `tests/test_contract.py`):
+Contract 0.6 (`docs/CONTRACT.md`, `tests/test_contract.py`):
 
-- **G1** equal knowledge, equal root (a semantic canonical form).
+- **G1** equal knowledge, equal root (a semantic canonical form), whether
+  it came by `put` or by a merge. Open gap: three or more overlapping
+  values of one head on one item can leave an unused meet that depends on
+  the order (question 24).
 - **G2** merge is monotone: true stays true, answers only grow (a removal
   loses to a concurrent re-add).
 - **G3** the same root and context give the same answers on any replica.
 - **G4** `is_below` is fail-closed.
-- **G5** writers who sync each other's roots converge byte for byte.
+- **G5** writers who sync each other's roots converge byte for byte,
+  except for values a merge left that cannot all hold (listed by `odag
+  status`).
 - **G6** `get_overlapping` is complete for possibility, silent on
   satisfaction.
 - **G7** within one contract major and one registry major, a newer
@@ -193,7 +198,8 @@ Contract 0.5 (`docs/CONTRACT.md`, `tests/test_contract.py`):
   (`make_g8.py`) only together with a registry bump.
 - **G9** replays are order-free; single writes are checked as they come.
 
-Versions now: contract 0.5, registry 4.3, prelude 4, surface 0.1.
+Versions now: contract 0.6, registry 4.4 (both unreleased), prelude 4,
+surface 0.1.
 Consumers compare majors.
 
 ## Standing rules
@@ -373,7 +379,8 @@ Each line points to its record.
   12. Every replay (merge, sync, loading an unmarked file) folds an item's
       overlapping values of one head into their meet, as `put` does;
       contradicting values stay as they arrive and `odag status` lists
-      them; registry 4.4 (item 18). Not built yet.
+      them; contract 0.6, registry 4.4 (item 18). Built. It found item 21,
+      open as question 24.
   13. A role term whose name meets a category outside its dimension reads
       as the value when stored, is refused when written or typed;
       `name_clashes()` and `odag status` list such clashes (item 19).
@@ -451,7 +458,9 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Every item of the 2026-10 review (`docs/plans/REVIEW_2026-10.md`) is
+Question 24 (`docs/plans/REVIEW_2026-10.md` item 21, found building
+question 12): whether a value nothing is filed under is kept, which
+decides G1's remaining gap. Every other item of the 2026-10 review is
 decided.
 
 Older, not urgent: the 0.31.0 release; a publisher key for the packs on

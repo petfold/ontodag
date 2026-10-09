@@ -263,6 +263,33 @@ class TestSparseSync(unittest.TestCase):
             self.assertEqual(eager.sync(other_root), expected,
                              f"eager delta fold diverged at trial {trial}")
 
+    def test_overlapping_values_meet_in_the_fold(self):
+        """Review question 12 (decided 2026-10-10): a fold files an item
+        under the meet of its overlapping values of one head, as `put`
+        does. The sparse writer's fold lands where the eager one does."""
+        from ontodag import prelude
+        blobs = MemoryBytesStore()
+        seed = EagerOntoDAG(RecordStore(blobs))
+        prelude.apply(seed)
+        seed.put("crate", [])
+        base = seed.commit()
+        peer = EagerOntoDAG(RecordStore(blobs, root=base))
+        peer.put("crate", ["mass(2kg..)"])
+        other_root = peer.commit()
+
+        sparse, eager = writers(base, blobs)
+        for w in (sparse, eager):
+            w.put("crate", ["mass(..5kg)"])
+        oracle = EagerOntoDAG(RecordStore(blobs, root=base))
+        oracle.put("crate", ["mass(..5kg)"])
+        oracle.put("crate", ["mass(2kg..)"])
+        expected = oracle.commit()
+
+        self.assertEqual(sparse.sync(other_root), expected)
+        self.assertEqual(eager.sync(other_root), expected)
+        self.assertEqual({p.name for p in sparse.nodes["crate"].parents},
+                         {"mass(2kg..5kg)"})
+
     def test_local_remove_resurrected_by_union(self):
         """A local uncommitted remove loses to the peer's still-held copy —
         same union-of-states stance as the eager fold."""

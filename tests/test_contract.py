@@ -32,7 +32,7 @@ def declare_weight(dag):
 
 class TestContractVersion(unittest.TestCase):
     def test_version_constant_matches_document(self):
-        self.assertEqual(ontodag.CONTRACT_VERSION, "0.5")
+        self.assertEqual(ontodag.CONTRACT_VERSION, "0.6")
 
 
 class TestG1CanonicalRoot(unittest.TestCase):

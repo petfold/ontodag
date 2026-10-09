@@ -326,3 +326,116 @@ class TestDimensionsAcrossWriters(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAMergeFilesAtTheMeet(unittest.TestCase):
+    """Review question 12 (decided by Peter 2026-10-10, option A). `put`
+    files an item under two overlapping values of one head under their
+    meet; a merge kept both, so Alice's `mass(..5kg)` merged with Bob's
+    `mass(2kg..)` had another root than one writer filing both (a G1
+    break since 0.26.2). Every replay now folds as `put` does; values that
+    cannot all hold stay as they came (G5's stated exception)."""
+
+    @staticmethod
+    def store(filings, blobs=None):
+        from ontodag import prelude
+        # an empty MemoryBytesStore is falsy: test for None, or two writers
+        # meant to share blobs each get their own
+        dag = EagerOntoDAG(RecordStore(
+            blobs if blobs is not None else MemoryBytesStore()))
+        prelude.apply(dag)
+        for name, supers in filings:
+            dag.put(name, supers)
+        return dag
+
+    def test_a_merge_stores_what_one_writer_stores(self):
+        one = self.store([("crate", ["mass(..5kg)"]), ("crate", ["mass(2kg..)"])])
+        for first, second in ((["mass(..5kg)"], ["mass(2kg..)"]),
+                              (["mass(2kg..)"], ["mass(..5kg)"])):
+            merged = self.store([])
+            merged.merge(self.store([("crate", first)]))
+            merged.merge(self.store([("crate", second)]))
+            self.assertEqual(parents(merged, "crate"), {"mass(2kg..5kg)"})
+            self.assertEqual(merged.commit(), one.commit())
+
+    def test_a_sync_stores_it_too(self):
+        blobs = MemoryBytesStore()
+        alice = self.store([("crate", ["mass(..5kg)"])], blobs)
+        bob = self.store([("crate", ["mass(2kg..)"])], blobs)
+        alice.commit()
+        bob_root = bob.commit()
+        root = alice.sync(bob_root, bytes_store=blobs)
+        one = self.store([("crate", ["mass(..5kg)"]), ("crate", ["mass(2kg..)"])])
+        self.assertEqual(parents(alice, "crate"), {"mass(2kg..5kg)"})
+        self.assertEqual(root, one.commit())
+
+    def test_a_load_files_it_too(self):
+        from ontodag import native, prelude
+        from ontodag.dag import OntoDAG
+        base = OntoDAG()
+        prelude.apply(base)
+        text = "\n".join(line for line in native.dumps(base).splitlines()
+                         if not line.startswith("#:canonical"))
+        dag = native.loads(text + "\ncrate 'mass(..5kg)' 'mass(2kg..)'\n")
+        self.assertEqual(parents(dag, "crate"), {"mass(2kg..5kg)"})
+        self.assertIn("crate", {i.name for i in dag.get(["mass(2kg..5kg)"])})
+
+    def test_values_that_cannot_both_hold_stay_and_are_listed(self):
+        merged = self.store([])
+        merged.merge(self.store([("crate", ["mass(..5kg)"])]))
+        merged.merge(self.store([("crate", ["mass(6kg..)"])]))
+        self.assertEqual(parents(merged, "crate"), {"mass(..5kg)", "mass(6kg..)"})
+        self.assertEqual(merged.contradictions(),
+                         [("crate", ["mass(..5kg)", "mass(6kg..)"])])
+        for term in ("mass(..5kg)", "mass(6kg..)"):     # every query still finds it
+            self.assertIn("crate", {i.name for i in merged.get([term])})
+
+    @staticmethod
+    def used(dag):
+        """The stored form less the values nothing is filed under. Folding
+        keeps every meet it makes, so three overlapping values filed one at
+        a time leave one unused intermediate meet or another depending on
+        the order: a difference `put` has made since 0.26.2, found here,
+        and open (REVIEW_2026-10.md item 21, question 24)."""
+        unused = {name for name, node in dag.nodes.items()
+                  if not node.neighbors and dag.parse_term(name) is not None
+                  and {p.name for p in node.parents}
+                  == {dag.parse_term(name).head}}
+        return {(p.name, c.name) for p in dag.nodes.values()
+                for c in p.neighbors if c.name not in unused}
+
+    def test_merges_of_consistent_values_meet_in_any_order(self):
+        """Random items, each given values of one head that share a point,
+        filed by three writers and merged in every order: every item where
+        one writer filing everything puts it, and the same stored form but
+        for unused intermediate meets. Two writers: the same root."""
+        import itertools
+        import random
+        for seed in range(12):
+            rng = random.Random(seed)
+            filings = []
+            for i in range(6):
+                point = rng.randint(3, 30)
+                for _ in range(rng.randint(1, 3)):
+                    lo, hi = point - rng.randint(0, 3), point + rng.randint(0, 3)
+                    filings.append((f"x{i}", [f"mass({lo}kg..{hi}kg)"]))
+            shares = [[], [], []]
+            for filing in filings:
+                shares[rng.randrange(3)].append(filing)
+            one = self.store(filings)
+            items = sorted({name for name, _ in filings})
+            for order in itertools.permutations(range(3)):
+                merged = self.store([])
+                for k in order:
+                    merged.merge(self.store(shares[k]))
+                for item in items:
+                    self.assertEqual(parents(merged, item), parents(one, item),
+                                     (seed, order, item))
+                self.assertEqual(self.used(merged), self.used(one), (seed, order))
+            for a, b in itertools.permutations(range(3), 2):
+                pair = self.store(shares[a] + shares[b])
+                merged = self.store(shares[a])
+                merged.merge(self.store(shares[b]))
+                if all(len({s[0] for n, s in shares[a] + shares[b] if n == item}) <= 2
+                       for item in items):
+                    self.assertEqual(merged.commit(), pair.commit(), (seed, a, b))

@@ -3587,6 +3587,35 @@ class OntoDAG(DAG):
         return self._respell_stored(
             [n for n in {*later, *names} if n in self._compound_terms])
 
+    def _fold_replayed(self, names=None):
+        """After a total replay (a merge, a sync, loading a file the
+        canonical mark does not vouch for): file an item the replay left
+        under two overlapping values of one head under their meet, as
+        `put` files it (canonical placement, DIMENSIONS.md §9; review
+        question 12, decided by Peter 2026-10-10). Before, Alice's
+        `mass(..5kg)` merged with Bob's `mass(2kg..)` left the crate under
+        both, and the same knowledge had a second root. Values that cannot
+        all hold stay as they arrived, a contradiction `contradictions()`
+        lists. Folding forgets which values made the meet, so for an item
+        whose values contradict the root can depend on the order of
+        merges as well as of puts (CONTRACT.md G5). `names`: the items the
+        replay touched (all of them when None)."""
+        pool = self.nodes if names is None else names
+        with self._lenient_roles():
+            for name in sorted(n for n in pool
+                               if n in self.nodes and n != self.root.name):
+                live = self._live_parent_names(name)
+                if sum(1 for parent in live if "(" in parent) < 2:
+                    continue
+                node = self.nodes[name]
+                for target in self._fold_same_head_values(name, [], live):
+                    if target in live:
+                        continue
+                    if target not in self.nodes:
+                        parsed = self._parse_parametric(target)
+                        self._ensure_parametric_node(target, parsed[0], parsed[1])
+                    self.add_edge(self.nodes[target], node)
+
     def _moved_terms(self, from_node, to_node, roles, heads, touched=None):
         """The terms the edge `from ⊑ to` gave a new parent, as
         (covariant terms, [(upper, lower) pairs of a reversed head]).
@@ -4943,6 +4972,37 @@ class OntoDAG(DAG):
 
         return deleted
 
+    def contradictions(self):
+        """Items under values of one head that cannot all hold, as (item,
+        [values]) pairs, sorted. A single write is refused one; a merge
+        keeps it, as it keeps what each side filed, and every query still
+        finds the item under each value; fixing it is fixing the facts.
+        A walk over every item: what `odag status` reports."""
+        out = []
+        for name in sorted(self.nodes):
+            live = self._live_parent_names(name)
+            if sum(1 for parent in live if "(" in parent) < 2:
+                continue
+            by_head = {}
+            for parent in live:
+                parsed = self._parse_parametric(parent)
+                if parsed is None or parsed[1] in _dims.MULTI_VALUED \
+                        or parsed[1] == _dims.KIND_GRAPH \
+                        or self._param_node(
+                            parsed[0], _dims.split_term(parent)[1]) is not None:
+                    continue
+                by_head.setdefault(parsed[0], (parsed[1], []))[1].append(parent)
+            for head, (kind, values) in sorted(by_head.items()):
+                if len(values) < 2:
+                    continue
+                meet = values[0]
+                for other in values[1:]:
+                    meet = self._intersect(meet, other, kind)
+                    if meet is None:
+                        out.append((name, sorted(values)))
+                        break
+        return out
+
     def name_clashes(self):
         """Role terms whose word is also a category outside the role's
         dimension, as (term, category) pairs, sorted. Only a merge can make
@@ -4991,8 +5051,11 @@ class OntoDAG(DAG):
 
             self._remove_duplicate_root_edges()
         # A compound either side stored before the other learned a fact
-        # relating its constraints takes its current spelling (§16–§18).
+        # relating its constraints takes its current spelling (§16–§18),
+        # and an item each side filed under one value of a head lands under
+        # their meet, as `put` would have filed it (§9).
         self._respell_deferred(other_dag.nodes)
+        self._fold_replayed(other_dag.nodes)
 
     def excerpt_names(self, queries, context=False):
         """The names an excerpt of `queries` covers.

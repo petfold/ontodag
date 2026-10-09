@@ -3748,3 +3748,35 @@ def test_status_lists_a_name_clash_a_merge_made(tmp_path):
     text = out.getvalue()
     assert "name clashes = 1" in text
     assert "from(nyc): the category nyc is outside the dimension" in text
+
+
+def test_status_lists_a_contradiction_a_merge_made(tmp_path):
+    """`odag status` names an item a merge left under values of one head
+    that cannot all hold, which a single write is refused (review question
+    12): the merge keeps both, every query finds the item under each."""
+    import io
+    from ontodag import OntoDAG, native, prelude
+    from ontodag.__main__ import Session, dispatch
+
+    def fresh():
+        d = OntoDAG()
+        prelude.apply(d)
+        return d
+    alice, bob = fresh(), fresh()
+    alice.put("crate", ["mass(..5kg)"])
+    bob.put("crate", ["mass(6kg..)"])
+    merged = fresh()
+    merged.merge(alice)
+    merged.merge(bob)
+    path = tmp_path / "store.od"
+    native.save(merged, str(path))
+    out = io.StringIO()
+    assert dispatch(["status"], Session(str(path)), out=out) == 0
+    text = out.getvalue()
+    assert "contradictions = 1" in text
+    assert "  crate: mass(..5kg) mass(6kg..)" in text
+    quiet = tmp_path / "quiet.od"
+    native.save(alice, str(quiet))
+    out = io.StringIO()
+    assert dispatch(["status"], Session(str(quiet)), out=out) == 0
+    assert "contradictions" not in out.getvalue()

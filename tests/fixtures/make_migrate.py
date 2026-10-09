@@ -37,16 +37,11 @@ def legacy_text():
     ]:
         d.put(name, parents)
     d.nodes["parcel"].metadata["label"] = "Parcel 7"
-    peer = OntoDAG()
-    prelude.apply(peer)
-    peer.put("crate", ["mass(..5kg)"])
-    d.merge(peer)
-    peer = OntoDAG()
-    prelude.apply(peer)
-    peer.put("crate", ["mass(2kg..)"])
-    d.merge(peer)
     text = native.dumps(d)
     lines = [line for line in text.splitlines() if not line.startswith("#:canonical")]
+    # an item under two overlapping values, as a merge stored it before 4.4
+    lines += ["'mass(..5kg)' mass", "'mass(2kg..)' mass",
+              "crate 'mass(..5kg)' 'mass(2kg..)'"]
     # a graph-kind compound as releases before 0.30.6 stored it, folded
     lines.append("courier 'transport(small-item mass(..8kg))'")
     text = "\n".join(lines) + "\n"

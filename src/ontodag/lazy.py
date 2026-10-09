@@ -677,4 +677,5 @@ class SparseOntoDAG(LazyOntoDAG):
                     if parent is not None:
                         self.add_edge(parent, node)
         self._respell_deferred(touched)   # compounds left behind (merge())
+        self._fold_replayed(touched)      # values left unmet (merge())
         return bool(touched)

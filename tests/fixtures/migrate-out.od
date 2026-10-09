@@ -1,5 +1,5 @@
 # ontodag store v1
-#:canonical 4.3 35e86d3745a8ce187147f5ee3632fa4ca35e3d10b46483656d369d260e3ad3eb
+#:canonical 4.4 35e86d3745a8ce187147f5ee3632fa4ca35e3d10b46483656d369d260e3ad3eb
 about enclosing-dimension
 area 'linear-dimension(area)'
 calendar-dimension dimension

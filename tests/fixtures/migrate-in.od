@@ -4,7 +4,6 @@ area 'linear-dimension(area)'
 calendar-dimension dimension
 count count-dimension
 count-dimension dimension
-crate 'mass(..5kg)' 'mass(2kg..)'
 delivery 'from(u2ed4)'
 dimension '*'
 dominance-dimension dimension
@@ -30,8 +29,6 @@ linear-dimension dimension
 'linear-dimension(temperature)' linear-dimension
 'linear-dimension(volume)' linear-dimension
 mass 'linear-dimension(mass)'
-'mass(..5kg)' mass
-'mass(2kg..)' mass
 'mass(3000g)' mass
 #:meta parcel '{"label": "Parcel 7"}'
 parcel 'mass(3000g)'
@@ -47,4 +44,7 @@ time calendar-dimension
 transitive-dimension dimension
 transport graph-dimension
 volume 'linear-dimension(volume)'
+'mass(..5kg)' mass
+'mass(2kg..)' mass
+crate 'mass(..5kg)' 'mass(2kg..)'
 courier 'transport(small-item mass(..8kg))'

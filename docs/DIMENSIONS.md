@@ -379,15 +379,32 @@ the parents the item keeps). One denotation, one stored form, and every
 query path — a two-term `get`, a `get` on the meet, `is_below` against a
 bound only the meet is inside — finds the item where it is. Every value
 named in the put is still materialized (a value once named stays), so
-stored form does not depend on the order of puts. The graph kind is the
+two values give the same stored form in either order. Three or more do
+not quite: each fold keeps the meet it made, so filing `1kg..6kg`,
+`3kg..9kg`, `2kg..5kg` one at a time leaves an unused `3kg..6kg` in one
+order and nothing in another — same placement, same answers about the
+item, another root (found 2026-10-10 building question 12; open, REVIEW
+item 21). The graph kind is the
 exception since 2026-10-08: its meet is a compound term whose spelling
 follows the graph, so its terms are filed as their parts instead (§15). Role terms naming nodes
 have no nameable meet and keep their several parents; a provably empty
-meet is the disjoint-parents refusal below. A legacy or edge-built store
-may still hold an item under two values of one head; the planner
-intersects the two cones and `is_below` consults the meet of the item's
-same-head ancestors, so it is found there too — the gap found while
-building §15. This is the "canonical placement" SEMANTIC_CODES.md §10
+meet is the disjoint-parents refusal below. **Replays fold too (registry
+4.4, review question 12).** A merge, a sync and loading a file whose
+canonical mark does not vouch for it fold an item's values of one head
+into their meet as `put` does — until 4.4 a merge kept both, so Alice's
+`mass(..5kg)` merged with Bob's `mass(2kg..)` had another root than one
+writer filing both, and `get mass(2kg..5kg)` missed the crate while
+`is_below` said it was there. A merge never refuses, so values that
+cannot all hold (`mass(..5kg)` from one writer, `mass(6kg..)` from
+another) stay as they came: the one exception to convergence the
+contract states (CONTRACT.md G5), listed by `odag status` and
+`contradictions()` so someone fixes the facts. A file written before
+4.4 is folded as it loads, its mark naming another registry; a record
+store (`rs:`, `swarm:`) is folded by `ontodag.migrate`, the 4.4 migrate
+step. An edge-built store may still hold an item under two values of one
+head; the planner intersects the two cones and `is_below` consults the
+meet of the item's same-head ancestors, so it is found there too — the
+gap found while building §15. This is the "canonical placement" SEMANTIC_CODES.md §10
 names as the soundness condition for materialized meets, holding for
 dimension values (whose meets are computed, never asserted).
 

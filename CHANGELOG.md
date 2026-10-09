@@ -14,6 +14,34 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Contract 0.6, registry 4.4
+
+- **A merge files an item at the meet of its values, as `put` does**
+  (review question 12, decided with Peter, 2026-10-10; CONTRACT.md
+  amendment 0.6, DIMENSIONS.md §9). `put` files an item given
+  `mass(..5kg)` and `mass(2kg..)` under `mass(2kg..5kg)`; a merge of
+  Alice's store holding the first with Bob's holding the second stored the
+  crate under both, so one piece of knowledge had two roots (a G1 break
+  since 0.26.2). A merge, a sync (eager and sparse) and loading a file
+  whose canonical mark does not vouch for it now fold the same way. A
+  merge never refuses, so values that cannot all hold (`mass(..5kg)` and
+  `mass(6kg..)`) stay as they came: G5 states that exception, and
+  `contradictions()` and `odag status` list such items. **Migrate step
+  (G8):** a native file written before 4.4 folds as it loads (its mark
+  names 4.3); a record store (`rs:`, `swarm:`) folds when replayed by
+  `ontodag.migrate`. `CONTRACT_VERSION` is `"0.6"`, `REGISTRY_VERSION`
+  `"4.4"`.
+
+### Known issue
+
+- **An unused intermediate meet can depend on filing order** (found
+  building question 12; open as question 24). Each fold keeps the meet it
+  makes, a rule `put` has followed since 0.26.2 ("a value once named
+  stays"), so `1kg..6kg`, `3kg..9kg` and `2kg..5kg` filed one at a time
+  leave an empty `mass(3kg..6kg)` in one order and nothing in another.
+  The item's placement and every answer about it agree; the root does
+  not. Merges in different groupings share it.
+
 ### Contract 0.5
 
 - **G8, signalled spellings** (decided with Peter, 2026-10-09;
@@ -200,6 +228,11 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **A query missed an item a merge filed under two values of one head**,
+  though `is_below` found it (fixed by question 12's fold). After merging
+  Alice's crate under `mass(..5kg)` with Bob's under `mass(2kg..)`, `get
+  mass(2kg..5kg)` and even `get mass(1kg..6kg)` answered nothing, while
+  `is_below("crate", "mass(2kg..5kg)")` was true.
 - **A merge could make a store whose reads raise** (review question 13,
   decided with Peter, 2026-10-10). Alice files a parcel under
   `from(nyc)` in a store with no category `nyc`, so `nyc` is a geohash
