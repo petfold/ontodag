@@ -17,7 +17,8 @@ dimensions over nodes as the scoped exception (§5.1), and adds the writer's
 obligation that goes with them (O6); 0.3 admits narrower relations between
 their heads (§5.1); 0.4 promises that versions within a major only add
 answers (G7); 0.5 promises that a spelling or a stored form changes only
-with the registry minor (G8). The record of every version is §8. All open questions
+with the registry minor (G8), and that a replay does not depend on the
+order of what it replays (G9). The record of every version is §8. All open questions
 from the 0.1 draft were resolved in the same-day review and folded into the
 clauses. The version is exposed as
 `ontodag.CONTRACT_VERSION`, will be carried by the discoverability record
@@ -189,6 +190,35 @@ decided at the 2026-08-01 review:
   step, then record the new forms (`tests/fixtures/make_g8.py`). The record
   replayed against 0.30.5 and 0.30.6 fails, against 0.30.7 and later it
   holds.
+
+- **G9 — Replays are order-free; single writes are checked as they come.**
+  A *replay* — merging a peer, syncing, loading a stored file, ingesting a
+  projection stream — reaches the same store from the same filings in
+  whatever order they arrive (and so, by G1, the same root). A *single
+  write* (`put`, `move`, `remove`, the agent surface's write tools) is
+  checked against the store as it is at that moment, so a sequence of
+  single writes can be refused in one order and accepted in another. The
+  cases, each a guard for the person writing:
+  1. **What a write names must exist first**: a parent, a category a term
+     names, a declared head or unit (a typo guard: `put dog animal` before
+     `put animal` is refused, not silently given a new category).
+  2. **A role term's place must already be in its dimension**, and a
+     category a role term names must be placed inside it (DIMENSIONS.md §14).
+  3. **Of two writes that contradict, the later is refused**: two values of
+     one head that cannot both hold, a cycle, something inside itself under
+     a strict relation.
+
+  A replay adds every name before any filing and reads a role parameter
+  leniently until its place arrives, so cases 1 and 2 never refuse it. On
+  case 3 the replays differ only in how they stay order-free: a merge is
+  total (it keeps a contradiction an author would have been refused,
+  DIMENSIONS.md §9), while `ingest` refuses the whole stream, naming the
+  line, and saves nothing. Removals and moves are a different matter: they
+  do not commute with additions at all (G2's remove note). A script or an
+  agent that cannot control the order of its writes uses a replay.
+  **Committed** (2026-10-09; until then `ingest` applied its lines as single
+  writes, so a role term and its place were refused in either order), held
+  to by `TestG9WritesAndReplays` and `TestIngest` (`tests/test_cli.py`).
 
 ## 4. The as-of clause (root-pinning)
 
@@ -532,6 +562,13 @@ the second:
 2. **What does not change:** G7 still governs answers, and majors are still
    what consumers compare for them; `REGISTRY_VERSION`'s minor now also
    counts spelling and stored-form rules, not only vocabulary.
+3. **G9, replays are order-free; single writes are checked as they come**
+   → §3 (the same day, review question 3). The order-dependence of single
+   writes is kept, as the guards it is, and stated; the replay that claimed
+   order-freedom without having it (`ingest`) was made one. Peter chose
+   this over making role terms lenient for authors too, and over replay
+   semantics for every write (which would drop the typo and contradiction
+   guards).
 
 ### Amendment 0.4 (2026-10-07)
 

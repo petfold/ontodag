@@ -28,6 +28,26 @@ the version numbers appear in commit history and docs.
   kind, the stored form), which 0.30.5 and 0.30.6 would have failed.
   `CONTRACT_VERSION` is `"0.5"`; G7 still governs answers, and consumers
   still compare majors for those.
+- **G9, replays are order-free; single writes are checked as they come**
+  (review question 3, same day). A replay — merge, sync, load, ingest —
+  reaches the same store from the same filings in any order. A single
+  write is checked against the store as it is, and the cases where order
+  then matters are stated: what it names must exist first, a role term's
+  place must already be in its dimension, and of two contradicting writes
+  the later is refused. Held to by `TestG9WritesAndReplays`.
+
+### Fixed (G9)
+
+- **`odag ingest` was not order-free**, though documented so: it applied
+  each line as a single write, so a role term and its place (`parcel`
+  under `from(home)`, `home` under `geo(u09t)`) were refused in either
+  order. It now reads the whole stream, creates every missing name first,
+  and files every line under the leniency a merge uses, then makes the
+  re-spellings that deferral leaves; six orders of a mixed stream give one
+  store. A line that cannot be filed refuses the whole stream, naming the
+  line, and nothing is saved. Such a refusal was also reported as "not a
+  projection entry", a format error; it now says the line cannot be filed
+  and why.
 
 ### Changed
 

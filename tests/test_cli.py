@@ -3245,6 +3245,69 @@ class TestIngest(unittest.TestCase):
             code, _ = _run(["ingest", "--drop", "nonesuch", stream], session)
             self.assertEqual(code, 0)
 
+    STREAM = [
+        '{"item": "parcel", "supercategories": ["from(home)", "mass(500g)"]}',
+        '{"item": "home", "supercategories": ["city", "geo(u09t)"]}',
+        '{"item": "louvre", "supercategories": ["in(paris)"]}',
+        '{"item": "paris", "supercategories": ["city", "in(france)"]}',
+        '{"item": "job", "supercategories": ["transport(bicycle fragile)"]}',
+        '{"item": "bicycle", "supercategories": ["vehicle"]}',
+    ]
+
+    def _declared(self, path):
+        session = cli.Session(path)
+        for argv in (["prelude"], ["put", "from", "geo"], ["put", "city"],
+                     ["put", "france"], ["put", "vehicle"], ["put", "fragile"],
+                     ["put", "graph-dimension", "dimension"],
+                     ["put", "transport", "graph-dimension"]):
+            self.assertEqual(_run(argv, session)[0], 0, argv)
+        return session
+
+    def test_every_line_order_gives_one_store(self):
+        """A replay (CONTRACT.md G9): a role term before its place, a term
+        before the category it names, a value in a surface spelling — in
+        any order, one store. Until 2026-10-09 the first two lines were
+        refused in either order."""
+        import random
+        orders = [list(self.STREAM), list(reversed(self.STREAM))]
+        for seed in range(4):
+            shuffled = list(self.STREAM)
+            random.Random(seed).shuffle(shuffled)
+            orders.append(shuffled)
+        with tempfile.TemporaryDirectory() as home:
+            stored = set()
+            for n, lines in enumerate(orders):
+                path = os.path.join(home, f"s{n}.od")
+                session = self._declared(path)
+                stream = self._stream(home, lines, f"in{n}.jsonl")
+                code, _ = _run(["ingest", stream], session)
+                self.assertEqual(code, 0, lines)
+                with open(path, encoding="utf-8") as fh:
+                    stored.add(fh.read())
+            self.assertEqual(len(stored), 1)
+            self.assertTrue(session.dag.is_below("parcel", "from(u09)"))
+            self.assertTrue(session.dag.is_below("louvre", "in(france)"))
+
+    def test_a_contradiction_refuses_the_whole_stream(self):
+        with tempfile.TemporaryDirectory() as home:
+            path = os.path.join(home, "p.od")
+            session = self._declared(path)
+            with open(path, encoding="utf-8") as fh:
+                before = fh.read()
+            stream = self._stream(home, [
+                '{"item": "ok", "supercategories": ["city"]}',
+                '{"item": "crate", "supercategories": ["mass(3kg)"]}',
+                '{"item": "crate", "supercategories": ["mass(5kg)"]}',
+            ])
+            out, err = io.StringIO(), io.StringIO()
+            code = cli.dispatch(["ingest", stream], session, out=out, err=err)
+            self.assertEqual(code, 1)
+            self.assertIn("line 3: crate cannot be filed, so nothing was ingested",
+                          err.getvalue())
+            self.assertNotIn("not a projection entry", err.getvalue())
+            with open(path, encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), before)     # nothing saved
+
     def test_malformed_line_names_the_line(self):
         with tempfile.TemporaryDirectory() as home:
             session = cli.Session(os.path.join(home, "p.od"))

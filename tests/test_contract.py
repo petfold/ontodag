@@ -408,6 +408,81 @@ class TestG8SignalledSpellings(unittest.TestCase):
                          "registry version: bump REGISTRY_VERSION's minor (G8)")
 
 
+class TestG9WritesAndReplays(unittest.TestCase):
+    """G9: a replay reaches the same store from the same filings in any
+    order; a single write is checked against the store as it is, and the
+    cases where order then matters are the three stated in §3 (ingest's
+    order-freedom is tested in tests/test_cli.py)."""
+
+    def base(self):
+        from ontodag import prelude
+        dag = ontodag.OntoDAG()
+        prelude.apply(dag)
+        for name, parents in (("from", ["geo"]), ("city", []), ("france", [])):
+            dag.put(name, parents)
+        return dag
+
+    def peer(self, filings):
+        """A peer that filed `filings` in an order its author could."""
+        dag = self.base()
+        for name, parents in filings:
+            dag.put(name, parents)
+        return dag
+
+    def test_a_merge_does_not_depend_on_order(self):
+        import itertools
+        from ontodag import native
+        # One peer has `home` as a plain city, the other has it placed in
+        # geo with a role term naming it: an author holding the first could
+        # not file the second's term, a merge takes both in either order.
+        a = self.peer([("home", ["city"]), ("paris", ["city", "in(france)"]),
+                       ("louvre", ["in(paris)"])])
+        b = self.peer([("home", ["geo(u09t)"]), ("parcel", ["from(home)"])])
+        stores = set()
+        for first, second in itertools.permutations((a, b)):
+            dag = self.base()
+            dag.merge(first)
+            dag.merge(second)
+            stores.add(native.dumps(dag))
+            self.assertTrue(dag.is_below("parcel", "from(u09)"))
+            self.assertTrue(dag.is_below("louvre", "in(france)"))
+        self.assertEqual(len(stores), 1)
+        # Loading a stored file is a replay too: it reads back what it wrote.
+        text = stores.pop()
+        self.assertEqual(native.dumps(native.loads(text)), text)
+
+    def test_single_writes_are_refused_in_the_stated_cases(self):
+        cases = [
+            # 1. what a write names must exist first
+            [("dog", ["animal"])],
+            [("job", ["in(nowhere)"])],
+            [("price-tag", ["mass(5zz)"])],
+            # 2. a role term's place must already be in its dimension
+            [("home", ["city"]), ("parcel", ["from(home)"])],
+            [("parcel", ["from(home)"]), ("home", ["city"])],
+            # 3. of two writes that contradict, the later is refused
+            [("crate", ["mass(3kg)"]), ("crate", ["mass(5kg)"])],
+            [("a", ["city"]), ("city", ["a"])],
+            [("tokyo", ["city"]), ("tokyo", ["in(tokyo)"])],
+        ]
+        for writes in cases:
+            with self.subTest(writes=writes):
+                dag = self.base()
+                for name, parents in writes[:-1]:
+                    dag.put(name, parents)
+                with self.assertRaises(ValueError):
+                    dag.put(*writes[-1])
+
+    def test_in_the_other_order_the_same_writes_are_accepted(self):
+        for writes in ([("animal", []), ("dog", ["animal"])],
+                       [("home", ["geo(u09t)"]), ("parcel", ["from(home)"]),
+                        ("home", ["city"])]):
+            with self.subTest(writes=writes):
+                dag = self.base()
+                for name, parents in writes:
+                    dag.put(name, parents)
+
+
 class TestAsOfClause(unittest.TestCase):
     """§4: a root-pinned answer is an immutable, replayable fact."""
 

@@ -1885,11 +1885,19 @@ def cmd_ingest(args, session, out):
       holds), so `ingest --drop sys:holdings stream.jsonl` is the contract's
       "drop every sys: membership, re-ingest" in one command. Staleness is
       the only permitted failure mode; drift is not.
-    * **Missing categories are created at top level first**, then refined:
-      a later line may file a category under parents of its own, and
-      reduction prunes the provisional root edge — so the stream's line
-      order cannot matter, which is what lets projectors emit facts in
-      whatever order their source yields them.
+    * **Order-free, as a replay** (CONTRACT.md G9): the whole stream is read
+      first, every missing category is created at top level, and then every
+      line is filed under the leniency a merge uses — a role term naming a
+      place not yet in its dimension is accepted and connects once the place
+      is placed — so the stream's line order cannot change the result, which
+      is what lets projectors emit facts in whatever order their source
+      yields them. A later line may file a category under parents of its
+      own; reduction prunes the provisional root edge. Until 2026-10-09 the
+      lines were applied one by one under an author's checks, so a role term
+      and its place were refused in either order.
+    * **All or nothing**: a line that cannot be filed (two values of one head
+      that cannot both hold, a cycle) refuses the whole stream, naming the
+      line, and nothing is saved — a stale projection, never half of one.
 
     The stream normally targets a dedicated projection store
     (`odag -f proj.od ingest ...`), read alongside the human store via the
@@ -1919,6 +1927,7 @@ def cmd_ingest(args, session, out):
         session.dag.put(f"sys:source:{args.source_key}", list(args.drop or []))
     stream = (sys.stdin if args.file in (None, "-")
               else open(args.file, encoding="utf-8"))
+    entries = []
     try:
         for lineno, line in enumerate(stream, 1):
             line = line.strip()
@@ -1931,19 +1940,33 @@ def cmd_ingest(args, session, out):
                 if not isinstance(item, str) or \
                         not all(isinstance(s, str) for s in supers):
                     raise TypeError("names must be strings")
-                for sup in supers:
-                    if sup not in session.dag.nodes:
-                        session.dag.put(sup, [])
-                session.dag.put(item, supers)
             except (ValueError, KeyError, TypeError) as exc:
                 raise ValueError(
                     f"line {lineno}: not a projection entry "
                     f'(need {{"item": NAME, "supercategories": [NAME, ...]}}'
                     f"): {exc}") from exc
+            entries.append((lineno, item, supers))
     finally:
         if stream is not sys.stdin:
             stream.close()
+    dag = session.dag
+    with dag._lenient_roles():            # a replay, as a merge is
+        for lineno, item, supers in entries:
+            for sup in supers:
+                if sup not in dag.nodes:
+                    _file_line(dag, lineno, sup, [])
+        for lineno, item, supers in entries:
+            _file_line(dag, lineno, item, supers)
+    dag._respell_deferred()
     session.save()
+
+
+def _file_line(dag, lineno, item, supers):
+    try:
+        dag.put(item, supers)
+    except ValueError as exc:
+        raise ValueError(f"line {lineno}: {item} cannot be filed, so nothing "
+                         f"was ingested: {exc}") from exc
 
 
 def cmd_excerpt(args, session, out):
