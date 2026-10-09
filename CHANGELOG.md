@@ -375,11 +375,11 @@ the version numbers appear in commit history and docs.
   sparse writer's caches dropped at random points, and certificates
   proved from random worlds, against the eager store
   (`test_crosskind.py`); whole-store reading, committing and hydrating,
-  flat per record from 2,500 to 10,000 records (`test_scale.py`); seeded
+  flat per record from 1,000 to 10,000 records (`test_scale.py`); seeded
   hostile input to native files, `odag-mcp` and the web API
   (`test_hostile.py`); and `odag web` started as a process and asked over
   HTTP. `ONTODAG_SLOW_TESTS=1` runs five times as many worlds and cases,
-  and 10,000 against 50,000 records.
+  and 5,000 against 50,000 records.
 
 ## [0.30.8] — 2026-10-09
 

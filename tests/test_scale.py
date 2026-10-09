@@ -5,9 +5,13 @@ Filing and querying have their own per-size tests (`TestFilingDoesNotScan`,
 `TestAQueryCostsItsAnswer`); the operations over a whole store had none, and
 recordstore's commit took over ten minutes at 11,900 records before anyone
 noticed (quadratic: every insertion scanned the placeholders). Here each
-operation runs on a store and on one four times its size, and the time per
-record may grow by at most `GROWTH`: a linear operation passes with room for
-a noisy machine, a quadratic one (four times the time per record) fails.
+operation runs on a store and on one ten times its size, and the time per
+record may grow by at most `GROWTH`: a quadratic operation (ten times the
+time per record) fails, and a linear one passes with room for a machine
+whose time per record grows with the working set. GitHub's runners do: at
+four times the size their hydrate grew 2.8 to 3.3 times per record where
+this laptop's grew 1.3 (2026-10-10), and the four-to-one budget failed
+there one run in two; ten-to-one at five separates the two cases.
 
 - reading a native file the canonical mark does not vouch for (`_restore`,
   every spelling canonicalized, every edge reduced) and one it does
@@ -15,7 +19,7 @@ a noisy machine, a quadratic one (four times the time per record) fails.
 - committing a store's records into a record store;
 - hydrating an eager store from a committed root.
 
-Sizes 2,500 against 10,000 records; `ONTODAG_SLOW_TESTS=1` runs 10,000
+Sizes 1,000 against 10,000 records; `ONTODAG_SLOW_TESTS=1` runs 5,000
 against 50,000.
 """
 
@@ -30,8 +34,8 @@ from ontodag import OntoDAG, native, prelude
 from ontodag.eager import EagerOntoDAG
 
 SLOW = bool(os.environ.get("ONTODAG_SLOW_TESTS"))
-SMALL, LARGE = (10_000, 50_000) if SLOW else (2_500, 10_000)
-GROWTH = 2.5      # allowed growth of the time per record, LARGE against SMALL
+SMALL, LARGE = (5_000, 50_000) if SLOW else (1_000, 10_000)
+GROWTH = 5        # allowed growth of the time per record, LARGE against SMALL
 
 
 def store_text(n, seed=1):
