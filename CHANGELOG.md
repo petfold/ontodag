@@ -111,9 +111,41 @@ the version numbers appear in commit history and docs.
   widens**: one naming a removed person or group ends, and adding them
   back brings nothing back.
 - MCP's `propose_remove` refuses a named category at the proposal.
+- **The settings, the store backends and the session left the CLI
+  module** for `ontodag.settings` and `ontodag.stores`; `ontodag.__main__`
+  is 2,362 lines instead of 3,235, and opening a store no longer imports
+  the command line. The flag layer is one dict per process: under
+  `python3 -m ontodag`, the CLI module ran a second time whenever the web
+  app imported it, with a flag layer of its own. Test code that patched
+  `ontodag.__main__._make_backend` or set `_SYNC_TIMEOUT` there now does
+  so in `ontodag.stores`, where they are read.
 
 ### Added
 
+- **`ontodag.open(spec=None, as_of=None)` and `ontodag.settings`: a program
+  opens a store the way `odag` does** (review question 5, decided with
+  Peter, 2026-10-09). loopmarket's `loop` and ontodag-fs's `odag-fs` did
+  this through private names in `ontodag.__main__` (`_resolve_store`,
+  `_normalize_spec`, `_make_backend`, `_read_config`, `_write_config`,
+  `_SETTINGS`, `_OVERRIDES`, `Session`), which could change in any release
+  with no version number saying so. `ontodag.open` returns a `Store`
+  (`ontodag.stores`; what `odag` calls its session): `dag`, loaded on first
+  use, `view()` with the overlays, `save(message=None)`, `spec`, `as_of`,
+  `describe()`, `discard()`. `ontodag.settings` is the settings table and
+  its one rule: `SETTINGS`, `configured(key, flag=None)`, `OVERRIDES` (the
+  flag layer), `read_config`/`write_config`,
+  `resolve_store`/`normalize_spec`/`overlay_specs`,
+  `home_dir`/`config_path`/`default_store_path`. The private names stay in
+  `ontodag.__main__` as aliases of the same objects, so released versions
+  of both projects keep working.
+- **`OntoDAG.parse_term(name)`, `canonical(name)` and `parents_of(name)`**,
+  for what code outside the core read through private methods:
+  `parse_term` gives `Term(head, kind, canonical)` for a typed value, else
+  `None` (ontodag-fs resolved typed-value paths with `_parse_parametric`);
+  `canonical` is the spelling a name is filed under (the MCP server called
+  `_canonical_name` sixteen times); `parents_of` is a name's own
+  categories, sorted, root excluded. The MCP server, the web app, the CLI,
+  `surface`, `sharing` and `certificates` now use them.
 - **`odag rename OLD NEW`** (`OntoDAG.rename`), for a name that was the
   mistake: what is filed under the category, its own placement and every
   term naming it follow (`in(pairs)` → `in(paris)`), and when NEW already

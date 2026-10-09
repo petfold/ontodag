@@ -20,22 +20,22 @@ imported lazily only when a command actually needs them.
 """
 
 import argparse
-import collections
-import contextvars
 import importlib.util
-import errno
 import json
 import os
 import shlex
-import socket
 import sys
-import time
 
 from ontodag._extras import MissingExtra
 from ontodag.dag import OntoDAG, Item
 from ontodag import native as _native
 from ontodag import surface as _surface
 from ontodag import dimensions as _dims
+from ontodag import settings as _settings
+from ontodag import stores as _stores
+# Where output and notes go (`_out()`/`_err()`): ContextVars that dispatch()
+# binds for an embedder. Shared with the store backends, which write notes.
+from ontodag._streams import _ERR, _OUT, _err, _out
 from ontodag.dimensions import REGISTRY_VERSION
 
 try:
@@ -77,903 +77,58 @@ def _force_utf8_streams():
 
 
 # --------------------------------------------------------------------------- #
-# Home directory, config and store resolution
-# --------------------------------------------------------------------------- #
-
-def _home_dir():
-    return os.environ.get("ONTODAG_HOME") or os.path.join(
-        os.path.expanduser("~"), ".ontodag"
-    )
-
-
-def _config_path():
-    return os.path.join(_home_dir(), "config")
-
-
-def _read_config():
-    cfg = {}
-    path = _config_path()
-    if not os.path.exists(path):
-        return cfg
-    with open(path, encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            cfg[key.strip()] = value.strip()
-    return cfg
-
-
-def _write_config(cfg):
-    """Write the config file, readable only by its owner.
-
-    It can hold `bee_signer` — a private key that can publish to your feed —
-    and was previously written with default permissions, which under a typical
-    umask left a key group- and world-readable. O_CREAT's mode covers a file
-    this call creates; the explicit chmod also repairs one written before this
-    (or by an older version), which is the case that actually matters since
-    the leak is already on disk by then.
-
-    On Windows neither call means anything — `chmod` there toggles the
-    read-only attribute and there are no permission bits to set — so the
-    file's privacy is whatever the profile directory's ACL gives it. Stated
-    in USER_GUIDE §2 rather than papered over: the honest advice on that
-    platform is to keep the key in `$BEE_SIGNER`."""
-    os.makedirs(_home_dir(), mode=0o700, exist_ok=True)
-    path = _config_path()
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        for key in sorted(cfg):
-            fh.write(f"{key} = {cfg[key]}\n")
-    os.chmod(path, 0o600)
-
-
-def _abspath(path):
-    return os.path.abspath(os.path.expanduser(path))
-
-
-def _is_swarm(spec):
-    return spec.startswith("swarm:")
-
-
-def _is_record_store(spec):
-    """`rs:PATH` — a content-addressed record store on local disk."""
-    return spec.startswith("rs:")
-
-
-def _normalize_spec(spec):
-    """A store spec is either a `swarm:NAME` URI or a filesystem path.
-
-    Swarm specs are kept verbatim; file paths are made absolute so a spec
-    saved to config resolves the same from any working directory, and an
-    `rs:` path is absolutised inside its prefix for the same reason."""
-    if _is_swarm(spec):
-        return spec
-    if _is_record_store(spec):
-        return "rs:" + _abspath(spec[len("rs:"):])
-    return _abspath(spec)
-
-
-def _default_store_path():
-    """The zero-dependency default store: a native text file under the home
-    dir. Named separately from `_resolve_store` because error messages offer
-    it as the fallback when a configured Swarm store can't be opened."""
-    return os.path.join(_home_dir(), "store.od")
-
-
-# --------------------------------------------------------------------------- #
-# Settings: one table, one precedence rule
+# Settings, store specs and the stores themselves
 # --------------------------------------------------------------------------- #
 #
-# Every setting is settable four ways and resolved the same way:
-#
-#     command-line flag  >  environment variable  >  config file  >  default
-#
-# The first two are per-invocation; the config file (written by `set`) is the
-# durable one. `auto` is a real value, not a missing one: it means "decide from
-# whether output is a terminal", which is what makes `odag get | odag put`
-# round-trip while an interactive session stays readable.
+# Moved out on 2026-10-09 (the review's question 5): the settings table and its
+# one precedence rule are `ontodag.settings`, and the backends with the session
+# every command works on are `ontodag.stores` (`ontodag.open` returns one). The
+# names below are the ones this module used to define, kept as aliases of the
+# same objects because other code reaches for them: loopmarket and ontodag-fs
+# opened odag's stores through them (released versions still do), and so do
+# the tests. `_OVERRIDES` is the flag layer itself, the one dict
+# `settings.OVERRIDES`, so writing to either writes to both. Rebinding an alias
+# changes nothing in the moved code, so patch `ontodag.stores` or
+# `ontodag.settings` instead; and `_SYNC_TIMEOUT` is not kept, because a copy
+# would silently ignore a write (set `ontodag.stores._SYNC_TIMEOUT`).
 
-# `secret` marks a value that must not be printed back: `odag set` is the
-# routine "what is configured?" command, so anything it echoes lands in
-# scrollback, screen shares and captured terminal output.
-_Setting = collections.namedtuple("_Setting", "env default flag doc secret")
-_Setting.__new__.__defaults__ = (False,)
+_home_dir = _settings.home_dir
+_config_path = _settings.config_path
+_read_config = _settings.read_config
+_write_config = _settings.write_config
+_abspath = _settings._abspath
+_is_swarm = _settings._is_swarm
+_is_record_store = _settings._is_record_store
+_normalize_spec = _settings.normalize_spec
+_default_store_path = _settings.default_store_path
+_Setting = _settings.Setting
+_SETTINGS = _settings.SETTINGS
+_OVERRIDES = _settings.OVERRIDES
+_configured = _settings.configured
+_resolve_store = _settings.resolve_store
+_overlay_specs = _settings.overlay_specs
 
-_SETTINGS = {
-    "store": _Setting(
-        "ONTODAG_STORE", "", "-f PATH",
-        "active store: a file path or a swarm:NAME URI"),
-    "bee_api": _Setting(
-        "BEE_API", "http://localhost:1633", "--bee-api URL",
-        "Bee node API endpoint, for swarm: stores"),
-    "bee_batch": _Setting(
-        "BEE_BATCH", "", "--bee-batch ID",
-        "postage batch to pay for Swarm writes"),
-    "bee_signer": _Setting(
-        "BEE_SIGNER", "", "--bee-signer KEY",
-        "private key; when set, the latest root lives in a signed feed",
-        secret=True),
-    "store_key": _Setting(
-        "ONTODAG_STORE_KEY", "", "--store-key SECRET",
-        "encryption secret for rs: stores (any string; a NEW store is "
-        "created encrypted iff this is set — existing stores keep "
-        "whatever they are)",
-        secret=True),
-    "overlays": _Setting(
-        "ONTODAG_OVERLAYS", "", "--overlay SPECS",
-        "read-only stores merged into every answer (comma-separated store "
-        "specs); writes, exports and excerpts never include them"),
-    "render": _Setting(
-        "ONTODAG_SURFACE", "auto", "--render / --raw",
-        "readable output (auto = on at a terminal, off in a pipe)"),
-    "limit": _Setting(
-        "ONTODAG_LIMIT", "auto", "-n N",
-        "max result lines (auto = 50 at a terminal, all in a pipe; 0 = all)"),
-}
-
-# Settings given as flags on this invocation. Global flags are recorded here by
-# main(); per-command flags stay on `args` and outrank these (the closer the
-# flag is to the command, the more specific the intent).
-_OVERRIDES = {}
-
-
-def _configured(key, flag=None):
-    """The configured value of a setting, by the one precedence rule above.
-
-    `flag` is a per-command flag value, or None if the command has none.
-    Empty strings count as unset, so `BEE_BATCH=` does not shadow config."""
-    if flag:
-        return flag
-    if _OVERRIDES.get(key):
-        return _OVERRIDES[key]
-    env = os.environ.get(_SETTINGS[key].env)
-    if env:
-        return env
-    cfg = _read_config()
-    if cfg.get(key):
-        return cfg[key]
-    return _SETTINGS[key].default
-
-
-def _resolve_store(override=None):
-    """The active store spec. `store`'s only peculiarity is that its default
-    is computed (a path under the home dir) rather than a constant."""
-    spec = _configured("store", override)
-    return _normalize_spec(spec) if spec else _default_store_path()
-
-
-def _overlay_specs():
-    """The configured overlay store specs, in order. Comma-separated because
-    the settings table holds one string per setting; a comma cannot start a
-    store spec in any backend's grammar, so the join is unambiguous."""
-    value = _configured("overlays")
-    if not value:
-        return []
-    return [_normalize_spec(spec.strip())
-            for spec in value.split(",") if spec.strip()]
-
-
-# --------------------------------------------------------------------------- #
-# Serialization: native line format by default, OWL/Manchester by extension
-# --------------------------------------------------------------------------- #
-
-def _detect_format(path):
-    ext = os.path.splitext(path)[1].lower()
-    if ext == ".omn":
-        return "manchester"
-    if ext == ".owl":
-        return "owl"
-    return "native"
-
+Session = _stores.Store
+_make_backend = _stores.make_backend
+FileBackend = _stores.FileBackend
+SwarmBackend = _stores.SwarmBackend
+LocalRecordBackend = _stores.LocalRecordBackend
+_detect_format = _stores._detect_format
+_load = _stores._load
+_save = _stores._save
+_load_at_root = _stores._load_at_root
+_resolve_root = _stores._resolve_root
+_is_unreachable = _stores._is_unreachable
+_swarm_open_error = _stores._swarm_open_error
+_UNREACHABLE_ERRNOS = _stores._UNREACHABLE_ERRNOS
+_UNREACHABLE_NAMES = _stores._UNREACHABLE_NAMES
 
 # The native `.od` format lives in `ontodag.native` (public: `loads`/`dumps`
 # for text, `load`/`save` for paths). These names stay because other code
-# reaches for them — `ontodag.migrate`, the tests, ontodag-fs's tests.
+# reaches for them — the tests, ontodag-fs's tests.
 _META_LINE = _native.META_LINE
 _load_native = _native.load
 _save_native = _native.save
-
-
-def _load(path):
-    fmt = _detect_format(path)
-    if fmt == "native":
-        return _load_native(path)
-    from ontodag.owl import OWLOntology
-    if fmt == "manchester":
-        return OWLOntology.import_dag_manchester(file_name=path)
-    return OWLOntology(f"file://{_abspath(path)}").import_dag(file_name=path)
-
-
-def _save(dag, path):
-    parent = os.path.dirname(path)
-    if parent:
-        os.makedirs(parent, exist_ok=True)
-    fmt = _detect_format(path)
-    if fmt == "native":
-        _save_native(dag, path)
-        return
-    from ontodag.owl import OWLOntology
-    if fmt == "manchester":
-        OWLOntology.export_dag_manchester(dag, path)
-    else:
-        OWLOntology.export_dag(dag, path)
-
-
-# --------------------------------------------------------------------------- #
-# Storage backends
-#
-# A backend hides *where* the store lives behind load()/save(dag)/describe().
-# The default is a local file (native/OWL/Manchester by extension). A
-# `swarm:NAME` spec persists through EagerOntoDAG over a **local-first**
-# record store (recordstore[local-first-swarm], 0.19+): commits land in a
-# store directory under ~/.ontodag instantly — offline is the normal mode —
-# and a background syncer pushes them to Swarm and confirms peer-to-peer.
-#
-# The store is opened in TRANSIENT WINDOWS, never held: the local-first
-# store carries a single-writer lock, and the hydrated in-memory DAG is
-# what actually serves a session, so load() opens-hydrates-closes and
-# save() opens-commits-syncs-closes (rebinding dag.store for the window).
-# Between windows no lock is held — odag, odag-fs mounts, and the MCP
-# server interleave freely; simultaneous windows retry briefly on
-# StoreLocked. Committing onto a head another writer moved is a clean
-# record-level rebase: EagerOntoDAG stages only records changed since its
-# own hydrate, so the other writer's untouched records survive (per-record
-# last-write-wins on true conflicts). save()'s best-effort sync barrier
-# gets the commit onto the network before a short-lived CLI run exits;
-# when the node is down the commit is safe locally and the next window's
-# syncer picks it up. Two modes:
-#
-#   with a signer  -> additionally publishes the head to a Swarm feed —
-#                     and only after network confirmation, so the feed
-#                     never points readers at content the network cannot
-#                     serve yet (publish_pointer=SwarmFeedPointer).
-#   without one    -> nothing publishable; the head lives in the store
-#                     directory's HEAD file. (Pre-local-first stores kept
-#                     it in NAME.root — migrated on first open.)
-#
-# recordstore and the adapter are imported lazily here, so `import ontodag`
-# and the native path stay dependency-free (tests/test_boundaries.py B1).
-# --------------------------------------------------------------------------- #
-
-#: How long save() waits for the background syncer to confirm the commit
-#: on Swarm before letting the process move on (the commit is durable
-#: locally either way; tests shrink this).
-_SYNC_TIMEOUT = 60
-#: How long to retry when another transient window briefly holds the
-#: store's writer lock.
-_LOCK_RETRY = 5.0
-
-
-class FileBackend:
-    def __init__(self, path):
-        self.path = path
-
-    def load(self):
-        return _load(self.path)
-
-    def load_at(self, root):
-        raise ValueError(
-            f"{self.path} is a plain file: it has no versions to read from. "
-            f"A store that does:  odag set store rs:"
-            f"{os.path.splitext(self.path)[0]}")
-
-    def open_store(self):
-        """There is no store here, and therefore no history.
-
-        A `.od` file holds one state: the current one. Undo needs to be able to
-        *name* the previous state, which is what a content-addressed store gives
-        for free — so this is a tier answer, not a missing feature."""
-        raise ValueError(
-            f"{self.path} is a plain file: it keeps no version history, so "
-            f"there is nothing to undo, redo or list.\n"
-            f"  a store that does:  odag set store rs:{os.path.splitext(self.path)[0]}\n"
-            f"  (or swarm:NAME to share it — see `odag swarm`)")
-
-    def save(self, dag, message=None):
-        # A message labels a state in a store's timeline; a file has neither.
-        _save(dag, self.path)
-
-    def describe(self):
-        return self.path
-
-
-_UNREACHABLE_ERRNOS = {
-    errno.ECONNREFUSED, errno.EHOSTUNREACH, errno.ENETUNREACH,
-    errno.ENETDOWN, errno.ETIMEDOUT,
-}
-
-# Connection failures reach us wrapped by whichever HTTP client ran: `requests`
-# for the blob store, or aiohttp under swarmfs's postage-stamp selection. Both
-# subclass OSError but neither subclasses the builtin ConnectionError, so match
-# the cause chain (which does bottom out in a real ConnectionRefusedError) and
-# fall back to type names for clients that break the chain.
-_UNREACHABLE_NAMES = {
-    "ConnectionError", "ConnectTimeout", "ReadTimeout", "Timeout",
-    "ClientConnectorError", "ServerTimeoutError", "MaxRetryError",
-    "NewConnectionError",
-}
-
-
-def _is_unreachable(exc):
-    """True when `exc` means "no answer from the node", as opposed to the node
-    answering with an error (no usable stamp, HTTP 4xx, bad reference)."""
-    for _ in range(10):  # bounded: cause chains can be cyclic
-        if exc is None:
-            return False
-        if isinstance(exc, (ConnectionError, socket.gaierror, TimeoutError)):
-            return True
-        if getattr(exc, "errno", None) in _UNREACHABLE_ERRNOS:
-            return True
-        if type(exc).__name__ in _UNREACHABLE_NAMES:
-            return True
-        exc = exc.__cause__ or exc.__context__
-    return False
-
-
-def _swarm_open_error(name, api, exc):
-    """A ValueError whose message tells the user what to do next.
-
-    Deliberately *not* a silent fallback to the local store: writing to a
-    different store than the configured one would let a local file and the
-    Swarm store diverge with no signal about which is authoritative. Offer
-    the fallback, never take it unasked. Starting the node is likewise the
-    user's call — a query command must not spawn a syncing daemon.
-    """
-    local = _default_store_path()
-    if _is_unreachable(exc):
-        head = (f"cannot reach the Bee node at {api}, needed by store "
-                f"'swarm:{name}' ({exc})\n"
-                f"  * start your Bee node, then run this again")
-    else:
-        head = (f"cannot open swarm store '{name}' via {api}: {exc}\n"
-                f"  * check the node and its postage batch "
-                f"(odag set shows bee_api / bee_batch)")
-    return ValueError(
-        f"{head}\n"
-        f"  * or work locally for one command:  odag -f {local} ...\n"
-        f"  * or switch back to local storage:  odag set store {local}\n"
-        f"    (local is the default and needs no node: one text file, "
-        f"nothing published)"
-    )
-
-
-class SwarmBackend:
-    _publish_pointer = None
-
-    def __init__(self, name, store_factory=None, index_store_factory=None,
-                 prov_store_factory=None):
-        if not name:
-            raise ValueError("swarm store needs a name, e.g. swarm:travel")
-        if os.sep in name or (os.altsep and os.altsep in name) or name == "..":
-            raise ValueError(f"invalid swarm store name: {name!r}")
-        self.name = name
-        # Injection seam: tests pass a factory returning a RecordStore over an
-        # in-memory bytes store, exercising the whole wiring without a node.
-        self._store_factory = store_factory
-        self._index_store_factory = index_store_factory
-        self._prov_store_factory = prov_store_factory
-
-    def provenance_record_store(self):
-        """The per-writer provenance store (docs/PROVENANCE.md): signed
-        speech acts about claims, in a SEPARATE record store under the
-        sibling name NAME-prov — beside the knowledge store, never inside
-        it, so identical knowledge keeps identical roots whoever asserted
-        it. Same wiring as the data store (and as NAME-index)."""
-        if self._prov_store_factory is not None:
-            return self._prov_store_factory()
-        return SwarmBackend(self.name + "-prov")._record_store()
-
-    def index_record_store(self):
-        """The SEPARATE record store for published cone summaries (the
-        `odag index` command): same wiring as the data store under the
-        sibling name NAME-index, so the derived index never touches the
-        ontology's own root (docs/DIMENSIONS.md-era purity rule; see
-        ontodag.cones)."""
-        if self._index_store_factory is not None:
-            return self._index_store_factory()
-        return SwarmBackend(self.name + "-index")._record_store()
-
-    def pointer_path(self):
-        # the pre-local-first head file (<= ontodag 0.14.x); still read once
-        # for migration into the store directory's HEAD
-        return os.path.join(_home_dir(), self.name + ".root")
-
-    def store_dir(self):
-        return os.path.join(_home_dir(), self.name + ".store")
-
-    def _legacy_root(self):
-        """The head a pre-local-first store (<= 0.14.x) left in NAME.root."""
-        try:
-            with open(self.pointer_path(), encoding="utf-8") as f:
-                return f.read().strip() or None
-        except FileNotFoundError:
-            return None
-
-    def _has_local_history(self):
-        directory = self.store_dir()
-        return (os.path.exists(os.path.join(directory, "HEAD"))
-                or os.path.exists(os.path.join(directory, "journal.jsonl")))
-
-    def _bootstrap_root(self, pointer):
-        """The root a brand-new local store should start from, if any.
-
-        The signed feed first (a followable head is the point of publishing
-        one), else the legacy NAME.root file. Only ever consulted for a store
-        directory with no history of its own: a replica that has committed
-        locally resolves its own HEAD, and a head that moved on elsewhere is
-        folded in by `save`'s merge — never adopted as this replica's starting
-        point behind its back."""
-        if self._has_local_history():
-            return None
-        if pointer is not None:
-            try:
-                published = pointer.get()
-            except Exception:
-                published = None        # offline, or nothing published yet
-            if published:
-                return published
-        return self._legacy_root()
-
-    def _clone_from_swarm(self, store, api, root):
-        """Fill a brand-new local store from Swarm, once.
-
-        Seeding the directory's HEAD is NOT enough, and finding that out cost a
-        live-node session: `swarmfs`'s `LocalStore.get` heals a missing blob
-        only if this replica already *knows* the ref (`_blob_roots`), so a
-        scorched-earth replica raises `KeyError` on the very first read. Lazy
-        healing recovers evicted blobs; it cannot bootstrap. So a fresh replica
-        reads the published root through its own local store in read-through
-        mode (swarmfs >= 0.12: blobs it never held are fetched from the node,
-        hash-verified, 32 at a time, and not kept) and replays the records into
-        itself — after which it owns its blobs and the local store behaves
-        normally. Until 2026-10-08 this read went through recordstore's
-        `BeeBytesStore`, a second HTTP client; now the client that pushes and
-        heals also does the reading.
-
-        Canonical addressing makes this verifiable: replaying the same records
-        must commit to the same root. A mismatch means the network served
-        something other than what the pointer promised, which is worth saying
-        out loud rather than adopting silently."""
-        from recordstore import RecordStore
-        local = store.local
-        if not hasattr(local, "read_through"):
-            raise ValueError(
-                f"reading the published {self.name} store needs swarmfs "
-                "0.12.0 or later (read-through); upgrade with:  "
-                "pip install -U \"ontodag[swarm]\"")
-        local.read_through = True
-        try:
-            source = RecordStore.at(root, local)
-            for key, record in source.items():
-                store.put(key, record)
-        finally:
-            local.read_through = False
-        cloned = store.commit()
-        if cloned != root:
-            print(f"odag: warning: cloned {self.name} from {root[:12]}… but the "
-                  f"records commit to {cloned[:12]}… — the node served "
-                  f"different content than the feed points at", file=_err())
-
-    def _record_store(self):
-        # BeeRemote resolves this order itself, but being explicit keeps
-        # `describe`/errors honest about which endpoint is in play
-        api = _configured("bee_api") or os.environ.get(
-            "BEE_API_URL", "http://localhost:1633")
-        # "auto" (ask the node for a usable batch) is this call site's default,
-        # not the setting's: `set bee_batch` showing "auto" would misreport an
-        # unconfigured batch as a configured one.
-        batch = _configured("bee_batch") or "auto"
-        signer = _configured("bee_signer")
-        try:
-            if self._store_factory is not None:
-                return self._store_factory()
-            from recordstore import local_first_store
-            os.makedirs(_home_dir(), exist_ok=True)
-            publish_pointer = None
-            if signer:
-                from recordstore import SwarmFeedPointer
-                publish_pointer = SwarmFeedPointer(
-                    api, self.name, signer=signer, postage_batch_id=batch)
-            self._publish_pointer = publish_pointer
-            # Asked before opening (the answer depends on the directory being
-            # untouched), used after (cloning needs an open store).
-            bootstrap = self._bootstrap_root(publish_pointer)
-            # Transient windows may overlap for a moment (odag saving while
-            # an odag-fs mount rehydrates): the writer lock is only ever
-            # held briefly, so a short retry absorbs it.
-            deadline = time.monotonic() + _LOCK_RETRY
-            while True:
-                try:
-                    store = local_first_store(self.store_dir(), api,
-                                              stamp=batch,
-                                              publish_pointer=publish_pointer)
-                    break
-                except Exception as exc:
-                    if type(exc).__name__ != "StoreLocked" or \
-                            time.monotonic() > deadline:
-                        raise
-                    time.sleep(0.2)
-            if bootstrap and getattr(store, "root", None) is None:
-                self._clone_from_swarm(store, api, bootstrap)
-            return store
-        except ImportError as exc:
-            missing = exc.name or "swarmfs"
-            raise ValueError(
-                f"the swarm backend needs an optional dependency that is not "
-                f"installed ({missing!r}); install the swarm extra with:  "
-                f"pip install \"ontodag[swarm]\"   "
-                f"(that covers the local-first store machinery — swarmfs — "
-                f"plus coincurve for signing feed updates)"
-            ) from exc
-        except OSError as exc:
-            raise _swarm_open_error(self.name, api, exc) from exc
-
-    def load(self):
-        from ontodag.eager import EagerOntoDAG
-        store = self._record_store()
-        try:
-            # Hydration reads every record, so a node that dies between
-            # opening the store and reading it lands here, not above.
-            return EagerOntoDAG(store)
-        except OSError as exc:
-            raise _swarm_open_error(self.name, _configured("bee_api"),
-                                    exc) from exc
-        finally:
-            # transient window: the in-memory DAG serves the session;
-            # save() reopens and rebinds. (No-op for factory test stores.)
-            close = getattr(store, "close", None)
-            if close is not None:
-                close()
-
-    def open_store(self):
-        """A store handle for history operations (a transient window, as ever)."""
-        return self._record_store()
-
-    def load_at(self, root):
-        return _load_at_root(self, root)
-
-    def publish_head(self, store):
-        """After a HEAD move, point the feed at it too.
-
-        Publication normally rides a confirmation event, and moving HEAD
-        backwards produces none — so without this an undo would be invisible to
-        anyone following the feed, which is a silent disagreement between what
-        this replica shows and what it publishes."""
-        pointer = self._publish_pointer
-        publish = getattr(store, "publish", None)
-        if pointer is None or publish is None:
-            return None
-        return publish(pointer)
-
-    def save(self, dag, message=None):
-        store = self._record_store()  # transient writer window
-        try:
-            # Multi-writer convergence is MERGE, not locking: if another
-            # window moved the head past this dag's own lineage
-            # (`base_root`, the root it last hydrated from or committed),
-            # fold the moved head in with the commutative, idempotent DAG
-            # merge (I7 — the CRDT property) before committing, so
-            # same-node concurrent edits union their parents instead of
-            # last-write-wins. An unmoved head commits plainly — that keeps
-            # replace-shaped flows (`odag import`) superseding rather than
-            # merging back what they just replaced. Rebind before syncing:
-            # sync() commits through dag.store, and the previous window
-            # is closed.
-            head = store.root
-            dag.store = store
-            if head is not None and head != dag.base_root:
-                dag.sync(head, bytes_store=store.blobs)
-            else:
-                dag.commit(message=message)  # local, instant, offline-safe
-            # Best-effort barrier: a CLI run is short-lived, so give the
-            # background syncer a chance to land the commit on Swarm before
-            # the window closes. Offline (or slow) is not an error — the
-            # commit is durable locally and the next window's syncer
-            # resumes it.
-            sync = getattr(store, "sync", None)
-            if sync is not None:
-                try:
-                    sync(timeout=_SYNC_TIMEOUT)
-                except Exception as exc:  # TimeoutError, node down, ...
-                    print(
-                        f"note: committed locally; not yet confirmed on "
-                        f"Swarm ({exc}). It will sync on the next use of "
-                        f"this store.",
-                        file=_err(),
-                    )
-        finally:
-            close = getattr(store, "close", None)
-            if close is not None:
-                close()
-
-    def describe(self):
-        return f"swarm:{self.name}"
-
-
-class LocalRecordBackend:
-    """A content-addressed record store on ordinary disk (`rs:PATH`).
-
-    The rung that was missing between a text file and Swarm. The native
-    `.od` store persists perfectly well but has no *identity*: a file has no
-    name for its contents, no history, and nothing to prove. Everything that
-    makes OntoDAG worth distributing — canonical roots (equal knowledge,
-    equal root), immutable snapshots, `is_below` certificates, two writers
-    converging under `sync` — is a property of the record store, not of
-    Swarm.
-
-    Before this, seeing any of that meant first standing up a Bee node,
-    funding a wallet and buying a postage batch: the whole infrastructure
-    wall in front of the ideas. Here the same semantics run on a directory,
-    which makes `swarm:NAME` a backend swap rather than a new concept.
-
-    Layout, self-contained so the store moves by copying one directory:
-
-        PATH/blobs/         content-addressed data blobs
-        PATH/root           the latest root
-        PATH/index/...      published cone summaries (`odag index`)
-        PATH/prov/...       provenance records, if any
-    """
-
-    def __init__(self, path, store_factory=None):
-        if not path:
-            raise ValueError("a local record store needs a path, "
-                             "e.g. rs:~/work/travel")
-        self.path = _abspath(path)
-        self._store_factory = store_factory
-        self._key = None                   # resolved on first open
-
-    def _encryption_key(self):
-        """The store's encryption key, or None for a plaintext store.
-
-        **The marker in the store decides; the setting only supplies key
-        material.** An existing encrypted store refuses to open without
-        the right `store_key` (wrong key refuses at open — never garbage);
-        an existing plaintext store stays plaintext even when a key is
-        configured (so a public overlay can sit beside an encrypted
-        primary under one setting); a NEW store is created encrypted iff
-        `store_key` is set at creation time. The index and provenance
-        siblings inherit the decision — audience is contagious along
-        derivation (PROJECTIONS.md §11)."""
-        from ontodag import encstore
-        secret = _configured("store_key")
-        marker = encstore.read_marker(self.path)
-        if marker is not None:
-            if not secret:
-                raise ValueError(
-                    f"{self.describe()} is encrypted — set store_key "
-                    f"(odag set store_key ..., $ONTODAG_STORE_KEY, or "
-                    f"--store-key) to open it")
-            key = encstore.derive_key(secret)
-            encstore.check_key(marker, key, self.describe())
-            return key
-        exists = (os.path.exists(os.path.join(self.path, "root"))
-                  or os.path.isdir(os.path.join(self.path, "blobs")))
-        if secret and not exists:
-            key = encstore.derive_key(secret)
-            encstore.write_marker(self.path, key)
-            return key
-        return None
-
-    def _store_at(self, directory):
-        from ontodag._extras import require
-        rs = require("recordstore", "store", "a local record store (rs:)")
-        os.makedirs(directory, exist_ok=True)
-        if self._key is None:
-            self._key = self._encryption_key() or False
-        blobs = rs.DirBytesStore(os.path.join(directory, "blobs"))
-        if self._key:
-            from ontodag.encstore import EncryptedBytesStore
-            blobs = EncryptedBytesStore(blobs, self._key)
-        return rs.RecordStore(
-            blobs,
-            pointer=rs.FilePointer(os.path.join(directory, "root")))
-
-    def _record_store(self):
-        if self._store_factory is not None:
-            return self._store_factory()
-        return self._store_at(self.path)
-
-    def index_record_store(self):
-        return self._store_at(os.path.join(self.path, "index"))
-
-    def provenance_record_store(self):
-        return self._store_at(os.path.join(self.path, "prov"))
-
-    def load(self):
-        from ontodag.eager import EagerOntoDAG
-        return EagerOntoDAG(self._record_store())
-
-    def open_store(self):
-        return self._record_store()
-
-    def load_at(self, root):
-        return _load_at_root(self, root)
-
-    def save(self, dag, message=None):
-        dag.commit(message=message)
-
-    def describe(self):
-        return f"rs:{self.path}"
-
-
-def _load_at_root(backend, root):
-    """Hydrate a read-only DAG at `root`, inside one transient window.
-
-    `RecordStore.at` is a *view* over the same blobs, so the window can close
-    the moment hydration is done: an EagerOntoDAG holds the whole state in
-    memory, which is exactly what makes reading a past version cost nothing
-    afterwards. `root` may be any unambiguous prefix of one the timeline knows
-    — `odag history` prints twelve characters, so demanding sixty-four would
-    make the feature unusable with the only thing that shows you roots."""
-    from ontodag.eager import EagerOntoDAG
-    from recordstore import RecordStore
-
-    store = backend.open_store()
-    close = getattr(store, "close", None)
-    try:
-        resolved = _resolve_root(store, root)
-        return EagerOntoDAG(RecordStore.at(resolved, store.blobs))
-    finally:
-        if close is not None:
-            close()
-
-
-def _resolve_root(store, root):
-    """A full root from a prefix, or a teaching error naming the ambiguity."""
-    known = [version.root for version in store.history()]
-    if root in known:
-        return root
-    matches = sorted({name for name in known if name.startswith(root)})
-    if len(matches) == 1:
-        return matches[0]
-    if not matches:
-        raise ValueError(
-            f"{root}: not a version this store has been at "
-            f"(odag history lists them)")
-    raise ValueError(
-        f"{root}: ambiguous — matches {', '.join(name[:16] for name in matches)}")
-
-
-def _make_backend(spec):
-    if _is_swarm(spec):
-        return SwarmBackend(spec[len("swarm:"):])
-    if _is_record_store(spec):
-        return LocalRecordBackend(spec[len("rs:"):])
-    return FileBackend(spec)
-
-
-# --------------------------------------------------------------------------- #
-# The in-memory session (the loaded store)
-# --------------------------------------------------------------------------- #
-
-class Session:
-    """The store, opened lazily on first use.
-
-    Opening is I/O — for a `swarm:` spec, network I/O — so it belongs to
-    the commands that touch the store, where dispatch()'s error contract
-    already applies. Commands that never do (`help`, bare `canon`,
-    `set KEY VALUE`, `prelude --show`, `swarm`) must work with the node
-    down: a user whose node is unreachable and who types `odag help` to
-    find the way out has to get help, not the error they came to fix."""
-
-    def __init__(self, spec):
-        self.spec = spec
-        self._backend = None
-        self._dag = None
-        self._view = None
-        self._view_specs = None
-
-    def _load(self):
-        backend = _make_backend(self.spec)
-        as_of = _OVERRIDES.get("as_of")
-        dag = backend.load_at(as_of) if as_of else backend.load()
-        self._backend, self._dag = backend, dag
-        self._loaded = getattr(dag, "_version", None)
-        self._view = None
-
-    @property
-    def backend(self):
-        if self._backend is None:
-            self._load()
-        return self._backend
-
-    @property
-    def dag(self):
-        if self._dag is None:
-            self._load()
-        return self._dag
-
-    def discard(self):
-        """Forget the store as held in memory, so the next use reads it
-        again: whatever a refused command changed and never saved goes with
-        it, instead of riding out on the next command's save."""
-        self._dag = None
-        self._view = None
-
-    def switch(self, spec):
-        # Atomic, and deliberately EAGER: build and load first, assign only
-        # once nothing can fail. A store that won't open (node down) must
-        # leave the session on the one it already had, not half-switched to
-        # a backend whose load failed — and `set store` validating at set
-        # time is the feature.
-        backend = _make_backend(spec)
-        dag = backend.load()
-        # A local-first store holds a writer lock and a sync thread; release
-        # them when the session moves on (switching back to the same store
-        # in one session would otherwise hit its own lock).
-        old = getattr(self._dag, "store", None)
-        self.spec, self._backend, self._dag = spec, backend, dag
-        self._loaded = getattr(dag, "_version", None)
-        self._view = None
-        close = getattr(old, "close", None)
-        if close is not None:
-            close()
-
-    def view(self):
-        """The composed READ view: this store with every configured overlay
-        merged in — the join of `docs/plans/PROJECTIONS.md` §5.
-
-        Overlays are regenerable machine layers (projections) or reference
-        stores consulted alongside your own; composing them at read time is
-        what lets `get photo vienna sys:on:drive-budapest` cross the layers
-        while nothing ever writes the union anywhere. The routing rule is the
-        excerpt/visualize asymmetry once more: **anything that answers or
-        draws reads the view; anything that produces a mergeable artifact or
-        mutates reads the primary** — an export of the composed view would
-        launder machine claims into a human store on the next import.
-
-        The composed object is a plain in-memory OntoDAG: it has no store and
-        no commit, so committing the union is not refused but *impossible*.
-        Each layer keeps its own reduction; the composition re-reduces in
-        memory via merge (I7), and query results are identical either way
-        because cones are reduction-invariant. Cached per session; every
-        rebinding of the primary (`_load`, `switch`) and every mutation
-        (`save`) invalidates it, and a changed `overlays` setting is caught
-        by comparing specs."""
-        specs = _overlay_specs()
-        if not specs:
-            return self.dag
-        if self._view is None or self._view_specs != specs:
-            composed = OntoDAG()
-            composed.merge(self.dag)
-            for spec in specs:
-                composed.merge(_make_backend(spec).load())
-            self._view, self._view_specs = composed, specs
-        return self._view
-
-    def save(self):
-        # A past state is a state, not a place to write from: the pointer is
-        # elsewhere, so a commit here would either be ignored or silently
-        # fork. `undo`/`redo` are how the store *moves*.
-        if _OVERRIDES.get("as_of"):
-            raise ValueError(
-                "--as-of opens a past version read-only; nothing can be "
-                "written to it.\n"
-                "  to make the store go back there:  odag undo  (or `redo`)")
-        self.backend.save(self.dag, message=_OVERRIDES.get("message"))
-        self._view = None
-
-    def describe(self):
-        # Describing must not open the store (`odag set` runs with the node
-        # down). An unloaded session describes the spec it would open —
-        # the same string every backend's describe() echoes back.
-        if self._backend is None:
-            return self.spec
-        return self._backend.describe()
-
-    def import_from(self, incoming):
-        """Replace the store's contents with `incoming`, in place.
-
-        Mutating the live DAG (rather than rebinding self.dag) keeps a
-        EagerOntoDAG's identity, so its commit() still diffs against what it
-        hydrated. Works for either backend via the public API alone: clearing
-        to the root then merging reproduces `incoming` exactly (remove
-        reconnects children upward, never deletes siblings)."""
-        self.dag.clear()
-        self.dag.merge(incoming)
-        self.save()
 
 
 # --------------------------------------------------------------------------- #
@@ -987,33 +142,6 @@ class Session:
 # --------------------------------------------------------------------------- #
 
 _TTY_LIMIT = 50   # generous enough that ordinary stores never notice it
-
-
-# --------------------------------------------------------------------------- #
-# Where output goes. Commands already take `out`; the *notes* (what a move left
-# contested, how many lines were withheld) went straight to `sys.stderr`, which
-# is fine for a process and wrong for any embedder — a web console has to
-# capture both streams to show the teaching errors that are half the value of
-# this CLI.
-#
-# ContextVars rather than module globals or `redirect_stdout`: both of those
-# are process-wide, so under a threaded server one request would swallow
-# another's output. A ContextVar is per-thread by default, so two concurrent
-# `dispatch` calls cannot see each other's streams.
-# --------------------------------------------------------------------------- #
-
-_OUT = contextvars.ContextVar("ontodag_out", default=None)
-_ERR = contextvars.ContextVar("ontodag_err", default=None)
-
-
-def _out():
-    stream = _OUT.get()
-    return sys.stdout if stream is None else stream
-
-
-def _err():
-    stream = _ERR.get()
-    return sys.stderr if stream is None else stream
 
 
 def _isatty(out):
@@ -1116,7 +244,7 @@ def cmd_put(args, session, out):
     from ontodag import dimensions as dims
 
     def made_by_put(name):
-        if session.dag._parse_parametric(name) is not None:
+        if session.dag.is_term(name):
             return True
         pin = dims.kind_node(name)
         return pin is not None and pin[1] is not None \
@@ -1617,17 +745,16 @@ def cmd_move(args, session, out):
         raise ValueError("nothing to do: give --to, --from, or both")
 
     dag = session.dag
-    news = [dag._canonical_name(name) for name in args.to]
+    news = [dag.canonical(name) for name in args.to]
     if args.from_:
-        olds = sorted({dag._canonical_name(name) for name in args.from_})
+        olds = sorted({dag.canonical(name) for name in args.from_})
     else:
         # No --from: the old categories are whatever they are under now, which
         # has to be read before the move, not after.
         olds = sorted({name
                        for item in args.items
-                       for name in dag._live_parent_names(
-                           dag._canonical_name(item))
-                       if name != dag.root.name})
+                       if dag.canonical(item) in dag.nodes
+                       for name in dag.parents_of(item)})
     before = {old: {item.name for item in dag.get([old])}
               for old in olds if old in dag.nodes}
 
@@ -1973,7 +1100,7 @@ def cmd_ingest(args, session, out):
     for lineno, item, supers in entries:
         for name in (item, *supers):
             try:
-                dag._check_role_parameters(dag._canonical_name(name))
+                dag._check_role_parameters(dag.canonical(name))
             except ValueError as exc:
                 raise ValueError(f"line {lineno}: {item} cannot be filed, so "
                                  f"nothing was ingested: {exc}") from exc

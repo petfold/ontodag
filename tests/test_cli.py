@@ -28,6 +28,7 @@ from unittest import mock
 from contextlib import redirect_stderr, redirect_stdout
 
 import ontodag.__main__ as cli
+from ontodag import stores
 from ontodag.dag import Item, OntoDAG
 from recordstore import MemoryBytesStore, MemoryPointer, RecordStore
 
@@ -478,7 +479,7 @@ class TestSwarmNodeDown(unittest.TestCase):
         err = io.StringIO()
         boom = self._aiohttp_style_refusal()
 
-        with mock.patch.object(cli, "_make_backend", lambda spec: cli.SwarmBackend(
+        with mock.patch.object(stores, "make_backend", lambda spec: cli.SwarmBackend(
                 "pets", store_factory=self._raiser(boom))), \
              mock.patch.object(cli, "_resolve_store", lambda *a: "swarm:pets"), \
              redirect_stderr(err):
@@ -498,7 +499,7 @@ class TestSwarmNodeDown(unittest.TestCase):
         from unittest import mock
 
         boom = self._aiohttp_style_refusal()
-        with mock.patch.object(cli, "_make_backend", lambda spec: cli.SwarmBackend(
+        with mock.patch.object(stores, "make_backend", lambda spec: cli.SwarmBackend(
                 "pets", store_factory=self._raiser(boom))):
             session = cli.Session("swarm:pets")
 
@@ -529,7 +530,7 @@ class TestSwarmNodeDown(unittest.TestCase):
 
         # `set store swarm:down` with the node unreachable.
         boom = self._aiohttp_style_refusal()
-        with mock.patch.object(cli, "_make_backend", lambda spec: cli.SwarmBackend(
+        with mock.patch.object(stores, "make_backend", lambda spec: cli.SwarmBackend(
                 "down", store_factory=self._raiser(boom))):
             code, _ = _run(["set", "store", "swarm:down"], session)
         self.assertEqual(code, 1)
@@ -547,7 +548,7 @@ class TestSwarmNodeDown(unittest.TestCase):
 
         session = cli.Session(os.path.join(self._home.name, "local.od"))
         err = io.StringIO()
-        with mock.patch.object(cli, "_make_backend", lambda spec: cli.SwarmBackend(
+        with mock.patch.object(stores, "make_backend", lambda spec: cli.SwarmBackend(
                 "down", store_factory=self._raiser(
                     self._aiohttp_style_refusal()))), redirect_stderr(err):
             code = cli.dispatch(["set", "store", "swarm:down"], session)
@@ -1339,11 +1340,11 @@ class TestSwarmBackendLocalFirst(unittest.TestCase):
         os.environ["ONTODAG_HOME"] = self._home.name
         os.environ["BEE_API"] = "http://127.0.0.1:9"  # nothing listens here
         os.environ["BEE_BATCH"] = "beef" * 16
-        self._timeout = cli._SYNC_TIMEOUT
-        cli._SYNC_TIMEOUT = 0.2
+        self._timeout = stores._SYNC_TIMEOUT
+        stores._SYNC_TIMEOUT = 0.2
 
     def tearDown(self):
-        cli._SYNC_TIMEOUT = self._timeout
+        stores._SYNC_TIMEOUT = self._timeout
         for key, value in self._saved.items():
             if value is None:
                 os.environ.pop(key, None)

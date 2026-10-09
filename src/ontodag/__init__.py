@@ -7,6 +7,32 @@ from ontodag.dag import DAG, OntoDAG, Item
 CONTRACT_VERSION = "0.5"
 
 
+def open(spec=None, *, as_of=None):
+    """Open a store the way `odag` does, as a `Store` (`ontodag.stores`).
+
+    `spec` names the store: a file (`.od`, or `.owl`/`.omn` by extension),
+    `rs:PATH` or `swarm:NAME`, made absolute like odag's `-f`. None opens
+    the active store, found by the settings' one rule (flag > environment
+    > config file > default; `ontodag.settings`). `as_of` reads a past
+    version instead (any prefix of a root `odag history` shows), read-only.
+
+    Nothing is read until the store is used: `store.dag` loads it (and is
+    where a store that cannot be opened raises odag's ValueError),
+    `store.view()` adds the configured overlays for answering,
+    `store.save(message=None)` writes the DAG back.
+
+        store = ontodag.open("rs:~/work/travel")
+        store.dag.put("kyoto", ["japan"])
+        store.save(message="kyoto")
+
+    Named like the builtin on purpose (`gzip.open`, `shelve.open`): it is
+    reached as `ontodag.open`, never imported bare."""
+    from ontodag.settings import resolve_store
+    from ontodag.stores import Store
+
+    return Store(resolve_store(spec), as_of=as_of)
+
+
 def __getattr__(name):
     # Optional features, reached lazily so that `import ontodag` needs
     # nothing but the standard library (tests/test_boundaries.py, B1). Each
@@ -52,4 +78,11 @@ def __getattr__(name):
         from ontodag.lazy import SparseOntoDAG
 
         return SparseOntoDAG
+    # What `odag set` reads and writes, and the stores `open` returns:
+    # standard library only, but reached on first use like the rest, so
+    # `ontodag.settings` works after a bare `import ontodag`.
+    if name in ("settings", "stores"):
+        import importlib
+
+        return importlib.import_module(f"ontodag.{name}")
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

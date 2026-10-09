@@ -684,8 +684,7 @@ def move_dag_items():
     olds = list(from_) if from_ else sorted(
         {name for item in items
          if item in my_dag.nodes
-         for name in my_dag._live_parent_names(item)
-         if name != my_dag.root.name})
+         for name in my_dag.parents_of(item)})
     try:
         retracted = my_dag.reclassify(items, to=to, from_=from_)
     except ValueError as e:

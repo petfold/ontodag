@@ -183,7 +183,7 @@ def _resolve(name, dag, kind):
         return split[0], kind, _dims.canonicalize(name, kind)
     if dag is None:
         return None  # no context, no interpretation: identity
-    return dag._parse_parametric(name)
+    return dag.parse_term(name)
 
 
 def elaborate(name, dag=None, kind=None):

@@ -89,6 +89,11 @@ class Item:
 # and the probe read (the node, or the list of values/anchors).
 _Cone = namedtuple("_Cone", "kind size name payload")
 
+#: What `OntoDAG.parse_term` reads a typed value as: its head (`mass`), the
+#: head's kind (`linear-dimension`) and the canonical spelling the store
+#: files it under (`mass(3kg)` for `mass(3000g)`).
+Term = namedtuple("Term", "head kind canonical")
+
 
 def _name_of(node_or_name):
     """Identity at the public boundary is the name: accept a plain string or
@@ -1647,6 +1652,41 @@ class OntoDAG(DAG):
         name it has never seen is a category that must exist or a value
         OntoDAG creates on first use."""
         return self._parse_parametric(name) is not None
+
+    def parse_term(self, name):
+        """How this DAG reads `name`: a `Term(head, kind, canonical)` when it
+        is a typed value of a dimension this DAG declares, else None.
+
+        `parse_term("mass(3000g)")` is `Term("mass", "linear-dimension",
+        "mass(3kg)")` once `mass` is declared (the prelude declares it); a
+        role term naming a node (`in(paris)`) parses with the node's name as
+        its parameter. Any other name is None, a term-shaped one whose head
+        is not declared included: it stays an opaque atom (DIMENSIONS.md
+        §7). A malformed value of a declared head (`mass(3zz)`) raises the
+        ValueError `put` would give."""
+        parsed = self._parse_parametric(name)
+        return None if parsed is None else Term(*parsed)
+
+    def canonical(self, name):
+        """The name this DAG files `name` under: a typed value's canonical
+        spelling (`mass(3000g)` is `mass(3kg)`), any other name unchanged.
+        Raises like `parse_term`. Every public method that takes a name
+        already canonicalizes it; this is for comparing names, keying a
+        cache, or showing what was stored."""
+        return self._canonical_name(name)
+
+    def parents_of(self, name):
+        """The categories `name` is filed under, sorted: its asserted parents
+        (a typed value's head included), never the computed order's, and
+        never the root, so a top-level name has none. Raises ValueError for
+        a name the DAG does not hold, and like `parse_term` for a malformed
+        value."""
+        canonical = self._canonical_name(name)
+        node = self.nodes.get(canonical)
+        if node is None:
+            raise ValueError(f"{name} is not in the store")
+        return sorted(parent for parent in self._live_parent_names(canonical)
+                      if parent != self.root.name)
 
     def _is_anchor(self, parent, child):
         """head -> value edges are schema, not assertions: exempt from

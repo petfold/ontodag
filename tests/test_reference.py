@@ -14,7 +14,7 @@ import unittest
 
 import ontodag
 from ontodag import dimensions as dims
-from ontodag.__main__ import _SETTINGS
+from ontodag.settings import SETTINGS
 from ontodag.core_ontology import CORE_VERSION
 from ontodag.packs import describe
 from ontodag.prelude import DECLARATIONS, PRELUDE_VERSION
@@ -63,7 +63,7 @@ class TestReferenceIsPinned(unittest.TestCase):
                              f"REFERENCE.md §4")
 
     def test_every_setting_is_listed_with_its_env(self):
-        for key, spec in _SETTINGS.items():
+        for key, spec in SETTINGS.items():
             self.assertIn(f"`{key}`", self.text,
                           f"setting {key!r} missing from REFERENCE.md")
             self.assertIn(f"`{spec.env}`", self.text,
@@ -135,6 +135,25 @@ class TestReferenceIsPinned(unittest.TestCase):
             self.assertIn(f"`{effect}`", self.text,
                           f"command effect {effect!r} missing from REFERENCE.md §4")
         self.assertIn("COMMAND_EFFECTS`", self.text)
+
+    def test_opening_a_store_and_the_settings_are_listed(self):
+        """What a program opens odag's stores with (review question 5):
+        everything `ontodag.settings` exports, `ontodag.open`, and what the
+        Store it returns promises."""
+        from ontodag import settings
+        from ontodag.stores import Store
+        self.assertTrue(callable(ontodag.open))
+        self.assertIn("`ontodag.open(", self.text)
+        for name in ("dag", "view", "save", "describe", "discard", "as_of"):
+            self.assertTrue(hasattr(Store, name), f"Store.{name} is gone")
+            self.assertIn(f"`Store.{name}", self.text,
+                          f"Store.{name} missing from REFERENCE.md §5")
+        self.assertEqual(Store("x.od").spec, "x.od")
+        self.assertIn("`Store.spec`", self.text)
+        for name in settings.__all__:
+            listed = f"`Setting(" if name == "Setting" else f"`settings.{name}"
+            self.assertIn(listed, self.text,
+                          f"settings.{name} missing from REFERENCE.md §5")
 
     def test_plans_are_marked_unshipped(self):
         # The reference must keep sending readers to plans/ with the

@@ -46,8 +46,9 @@ import time
 from ontodag import CONTRACT_VERSION
 from ontodag import surface as _surface
 from ontodag.dimensions import KINDS, REGISTRY_VERSION
-from ontodag.__main__ import (__version__, _make_backend, _read_config,
-                              _resolve_store)
+from ontodag.__main__ import __version__
+from ontodag.settings import configured, resolve_store
+from ontodag.stores import make_backend
 
 
 def _utc_now():
@@ -77,7 +78,7 @@ def _log_failure(event):
 class AgentSurface:
     def __init__(self, spec, backend=None, signer=None, writable=False,
                  verifier=None):
-        backend = backend or _make_backend(spec)
+        backend = backend or make_backend(spec)
         self._backend = backend
         self._verifier = verifier   # signature-check seam (tests inject)
         self._has_provenance = hasattr(backend, "provenance_record_store")
@@ -114,8 +115,7 @@ class AgentSurface:
                     "(swarm:NAME) with a provenance sibling; file stores "
                     "are odag's own — use `odag put` for local files")
             if self._signer is None:
-                key = (os.environ.get("BEE_SIGNER")
-                       or _read_config().get("bee_signer") or "")
+                key = configured("bee_signer")
                 if not key:
                     raise ValueError(
                         "writes are signed speech acts — configure a "
@@ -171,7 +171,7 @@ class AgentSurface:
         """{sub, sup?} → a claim subject, canonicalized. No sup (or '*')
         means the existence claim."""
         from ontodag.provenance import below_subject, exists_subject
-        sub = dag._canonical_name(self._need(arguments, "sub"))
+        sub = dag.canonical(self._need(arguments, "sub"))
         sup = arguments.get("sup")
         if sup in (None, "", "*"):
             return exists_subject(sub)
@@ -184,7 +184,7 @@ class AgentSurface:
             raise ToolError(
                 f"{sup} is filed as its parts and claimed per part: ask "
                 f"about each of {', '.join(parts)}")
-        return below_subject(sub, dag._canonical_name(sup))
+        return below_subject(sub, dag.canonical(sup))
 
     def _canonical_supers(self, dag, supers):
         if supers is None:
@@ -197,7 +197,7 @@ class AgentSurface:
         out = []
         for s in supers:
             for part in dag._graph_parts(s):
-                part = dag._canonical_name(part)
+                part = dag.canonical(part)
                 if part not in out:
                     out.append(part)
         return out
@@ -261,7 +261,7 @@ class AgentSurface:
             what = "a list of strings" if allow_empty \
                 else "a non-empty list of strings"
             raise ToolError(f"terms must be {what}")
-        return [dag._canonical_name(t) for t in terms]
+        return [dag.canonical(t) for t in terms]
 
     @staticmethod
     def _limit(arguments):
@@ -359,8 +359,8 @@ class AgentSurface:
         sub = self._need(arguments, "sub")
         sup = self._need(arguments, "sup")
         payload = {
-            "sub": dag._canonical_name(sub),
-            "sup": dag._canonical_name(sup),
+            "sub": dag.canonical(sub),
+            "sup": dag.canonical(sup),
             "result": bool(dag.is_below(sub, sup)),
         }
         if arguments.get("certify"):
@@ -377,7 +377,7 @@ class AgentSurface:
         term = self._need(arguments, "term")
         candidates = sorted(i.name for i in dag.get_overlapping(term))
         return self._envelope(root, {
-            "term": dag._canonical_name(term),
+            "term": dag.canonical(term),
             "candidates": candidates,
             "count": len(candidates),
             "note": "recall-complete candidates: anything that could "
@@ -391,8 +391,8 @@ class AgentSurface:
         a = self._need(arguments, "a")
         b = self._need(arguments, "b")
         return self._envelope(root, {
-            "a": dag._canonical_name(a),
-            "b": dag._canonical_name(b),
+            "a": dag.canonical(a),
+            "b": dag.canonical(b),
             "result": bool(dag.overlaps(a, b)),
             "note": "possible coexistence, not satisfaction: true means the "
                     "two denotations may share a point (values by "
@@ -405,15 +405,15 @@ class AgentSurface:
         a = self._need(arguments, "a")
         b = self._need(arguments, "b")
         return self._envelope(root, {
-            "a": dag._canonical_name(a),
-            "b": dag._canonical_name(b),
+            "a": dag.canonical(a),
+            "b": dag.canonical(b),
             "meet": dag.meet(a, b),      # None: provably empty
         })
 
     def tool_describe(self, arguments):
         dag, root = self._dag_at(arguments.get("as_of"))
         term = self._need(arguments, "term")
-        canonical = dag._canonical_name(term)
+        canonical = dag.canonical(term)
         node = dag.nodes.get(canonical)
         payload = {
             "name": canonical,
@@ -445,13 +445,13 @@ class AgentSurface:
         from ontodag.provenance import operation_group
         item = self._need(arguments, "item")
         dag = self.dag
-        item_c = dag._canonical_name(item)
+        item_c = dag.canonical(item)
         supers_c = self._canonical_supers(dag, arguments.get("supers"))
         basis = self.root
         claims = self._claims_for_put(item_c, supers_c)
         missing = sorted({
             s for s in supers_c
-            if dag.nodes.get(s) is None and dag._parse_parametric(s) is None})
+            if dag.nodes.get(s) is None and dag.parse_term(s) is None})
         payload = {
             "op": "put",
             "item": item_c,                       # the canonical echo:
@@ -473,7 +473,7 @@ class AgentSurface:
         item = self._need(arguments, "item")
         proposal = self._need(arguments, "proposal")
         dag = self.dag
-        item_c = dag._canonical_name(item)
+        item_c = dag.canonical(item)
         supers_c = self._canonical_supers(dag, arguments.get("supers"))
         basis = self.root
         if proposal != operation_group("put", item_c, supers_c, basis):
@@ -507,7 +507,7 @@ class AgentSurface:
                                         operation_group)
         item = self._need(arguments, "item")
         dag = self.dag
-        item_c = dag._canonical_name(item)
+        item_c = dag.canonical(item)
         node = dag.nodes.get(item_c)
         if node is None:
             raise ToolError(f"{item_c!r} is not in the store — nothing to "
@@ -545,7 +545,7 @@ class AgentSurface:
         item = self._need(arguments, "item")
         proposal = self._need(arguments, "proposal")
         dag = self.dag
-        item_c = dag._canonical_name(item)
+        item_c = dag.canonical(item)
         basis = self.root
         if proposal != operation_group("remove", item_c, [], basis):
             raise ToolError(
@@ -967,7 +967,7 @@ def main(argv=None):
                              "with the knowledge change")
     args = parser.parse_args(argv)
     try:
-        surface = AgentSurface(_resolve_store(args.store),
+        surface = AgentSurface(resolve_store(args.store),
                                writable=args.write)
     except (ValueError, OSError, ImportError) as exc:
         # ImportError included so a missing extra reads as one line of

@@ -335,3 +335,170 @@ def test_the_web_console_is_derived_from_the_effects():
         "prelude", "pack", "help", "shared-with"}
     # Every command it refuses still says why.
     assert set(COMMAND_EFFECTS) - CONSOLE_COMMANDS <= set(CONSOLE_REFUSALS)
+
+
+# ---- ontodag.open, ontodag.settings (review question 5) ----------------------
+#
+# What loopmarket and ontodag-fs reached for in `ontodag.__main__`'s private
+# names, public. Pinned to the CLI on both sides: a program and `odag` open the
+# same store from the same settings, and the old names are the new objects.
+
+import ontodag
+import ontodag.__main__ as cli
+from ontodag import settings, stores
+
+
+@pytest.fixture
+def home(tmp_path, monkeypatch):
+    """A fresh odag home, no store setting from the environment, and an empty
+    flag layer (restored afterwards: it is one dict for the process)."""
+    monkeypatch.setenv("ONTODAG_HOME", str(tmp_path / "home"))
+    for setting in settings.SETTINGS.values():
+        monkeypatch.delenv(setting.env, raising=False)
+    saved = dict(settings.OVERRIDES)
+    settings.OVERRIDES.clear()
+    yield tmp_path
+    settings.OVERRIDES.clear()
+    settings.OVERRIDES.update(saved)
+
+
+def test_open_finds_the_store_odag_would(home, monkeypatch):
+    default = os.path.join(str(home), "home", "store.od")
+    assert ontodag.open().spec == default == cli._resolve_store()
+    settings.write_config({"store": "rs:" + str(home / "configured")})
+    assert ontodag.open().spec == "rs:" + str(home / "configured")
+    monkeypatch.setenv("ONTODAG_STORE", str(home / "env.od"))
+    assert ontodag.open().spec == str(home / "env.od")
+    settings.OVERRIDES["store"] = str(home / "flag.od")
+    assert ontodag.open().spec == str(home / "flag.od")
+    assert ontodag.open(str(home / "given.od")).spec == str(home / "given.od")
+    # Normalized as odag's -f is: absolute, inside an rs: prefix too.
+    monkeypatch.chdir(home)
+    assert ontodag.open("rs:here").spec == "rs:" + str(home / "here")
+
+
+def test_a_program_and_odag_share_one_store(home, capsys):
+    path = str(home / "travel.od")
+    store = ontodag.open(path)
+    store.dag.put("japan", [])
+    store.dag.put("kyoto", ["japan"])
+    store.save()
+    assert cli.dispatch(["get", "japan"], cli.Session(path)) == 0
+    assert capsys.readouterr().out == "kyoto\n"
+    assert cli.dispatch(["put", "osaka", "japan"], cli.Session(path)) == 0
+    assert {n.name for n in ontodag.open(path).dag.get(["japan"])} == {"kyoto", "osaka"}
+
+
+def test_open_reads_nothing_until_the_store_is_used(home):
+    path = home / "broken.od"
+    path.write_text("# ontodag store v1\n<<<<<<< HEAD\nx\n", encoding="utf-8")
+    store = ontodag.open(str(path))          # constructing never fails on the store
+    assert store.describe() == str(path)
+    with pytest.raises(ValueError, match="merge conflict"):
+        store.dag
+
+
+def test_a_past_version_reads_as_it_was_and_takes_no_writes(home, capsys):
+    pytest.importorskip("recordstore")
+    spec = "rs:" + str(home / "versions")
+    store = ontodag.open(spec)
+    store.dag.put("rex", [])
+    store.save(message="rex arrives")
+    first = store.dag.store.root
+    store.dag.put("tweety", [])
+    store.save(message="tweety arrives")
+    assert cli.dispatch(["history"], cli.Session(spec)) == 0
+    shown = capsys.readouterr().out
+    assert "rex arrives" in shown and "tweety arrives" in shown
+    past = ontodag.open(spec, as_of=first[:12])     # the prefix history shows
+    assert "tweety" not in past.dag.nodes and "rex" in past.dag.nodes
+    with pytest.raises(ValueError, match="read-only"):
+        past.save()
+    assert "tweety" in ontodag.open(spec).dag.nodes   # the store stayed put
+
+
+def test_settings_resolve_by_one_rule(home, monkeypatch):
+    assert settings.configured("limit") == "auto"                 # default
+    settings.write_config({"limit": "7"})
+    assert settings.read_config() == {"limit": "7"}
+    assert settings.configured("limit") == "7"                    # config file
+    monkeypatch.setenv("ONTODAG_LIMIT", "9")
+    assert settings.configured("limit") == "9"                    # environment
+    settings.OVERRIDES["limit"] = "3"
+    assert settings.configured("limit") == "3"                    # flag layer
+    assert settings.configured("limit", "5") == "5"               # the command's own flag
+    with pytest.raises(KeyError):
+        settings.configured("no_such_setting")
+
+
+def test_the_cli_names_are_the_public_objects():
+    """loopmarket's and ontodag-fs's released versions still reach for these;
+    an alias that became a copy would let the two drift (a write to
+    `cli._OVERRIDES` must be a write to the flag layer)."""
+    assert cli._OVERRIDES is settings.OVERRIDES
+    assert cli._SETTINGS is settings.SETTINGS
+    for old, new in (("_configured", "configured"), ("_read_config", "read_config"),
+                     ("_write_config", "write_config"), ("_resolve_store", "resolve_store"),
+                     ("_normalize_spec", "normalize_spec"), ("_home_dir", "home_dir"),
+                     ("_config_path", "config_path"),
+                     ("_default_store_path", "default_store_path"),
+                     ("_overlay_specs", "overlay_specs")):
+        assert getattr(cli, old) is getattr(settings, new), old
+    assert cli.Session is stores.Store
+    assert cli._make_backend is stores.make_backend
+    for name in ("FileBackend", "SwarmBackend", "LocalRecordBackend"):
+        assert getattr(cli, name) is getattr(stores, name)
+
+
+# ---- OntoDAG.parse_term / canonical / parents_of (review question 5) ----------
+
+def _typed_places():
+    from ontodag import prelude
+    dag = OntoDAG()
+    prelude.apply(dag)
+    dag.put("place", [])
+    dag.put("city", ["place"])
+    dag.put("paris", ["city"])
+    dag.put("museum", [])
+    dag.put("louvre", ["in(paris)", "museum"])
+    dag.put("crate", ["mass(3000g)"])
+    return dag
+
+
+def test_parse_term():
+    dag = _typed_places()
+    term = dag.parse_term("mass(3000g)")
+    assert term == ("mass", "linear-dimension", "mass(3kg)")
+    assert (term.head, term.kind, term.canonical) == term
+    assert dag.parse_term("in(paris)") == ("in", "transitive-dimension", "in(paris)")
+    assert dag.parse_term("paris") is None
+    assert dag.parse_term("foo(bar)") is None            # term-shaped, undeclared head
+    with pytest.raises(ValueError, match="unknown unit"):
+        dag.parse_term("mass(3zz)")                      # declared head, malformed value
+    for name in ("mass(3000g)", "time(2026-08)", "in(paris)", "paris", "foo(bar)"):
+        assert dag.parse_term(name) == dag._parse_parametric(name)
+
+
+def test_canonical():
+    dag = _typed_places()
+    assert dag.canonical("mass(3000g)") == "mass(3kg)"
+    assert dag.canonical("paris") == "paris"
+    assert dag.canonical("foo(bar)") == "foo(bar)"
+    with pytest.raises(ValueError):
+        dag.canonical("mass(3zz)")
+    for name in ("mass(3000g)", "time(2026-08)", "paris"):
+        assert dag.canonical(name) == dag._canonical_name(name)
+
+
+def test_parents_of():
+    dag = _typed_places()
+    assert dag.parents_of("louvre") == ["in(paris)", "museum"]     # sorted
+    assert dag.parents_of("paris") == ["city"]
+    assert dag.parents_of("place") == []                           # top level: not "*"
+    assert dag.parents_of("crate") == ["mass(3kg)"]
+    assert dag.parents_of("mass(3000g)") == ["mass"]               # any spelling, its head
+    with pytest.raises(ValueError, match="not in the store"):
+        dag.parents_of("berlin")
+    for name in ("louvre", "paris", "place", "crate"):
+        live = dag._live_parent_names(name)
+        assert dag.parents_of(name) == sorted(p for p in live if p != "*")

@@ -752,6 +752,35 @@ an older release wrote opens as it was, and
 `python3 -m ontodag.migrate STORE.od` is what rewrites it in the form this
 release stores.
 
+`native` reads and writes a file you name. A program that wants a store the
+way `odag` opens one — a file, an `rs:` or `swarm:` store (§5.1), or simply
+whichever store `odag` is set to use — calls `ontodag.open`:
+
+```python
+>>> import ontodag
+>>> store = ontodag.open("travel.od")       # a path, rs:PATH or swarm:NAME
+>>> store.dag.put("Japan", [])
+>>> store.dag.put("jal-123.pdf", ["Japan"])
+>>> store.save()
+>>> store.spec                              # made absolute, as odag's -f does
+'/home/you/travel.od'
+>>> ontodag.open().describe()               # no spec: the store odag would use
+'/home/you/.ontodag/store.od'
+```
+
+```console
+$ odag -f travel.od get Japan
+jal-123.pdf
+```
+
+Nothing is read until `store.dag` is first used, and that is where a store
+that cannot be opened (a Bee node that is down) raises `odag`'s message.
+`store.save(message=...)` labels the version an `rs:` or `swarm:` store
+commits, and `ontodag.open(spec, as_of=ROOT)` reads a past one, read-only
+(§5.11). `store.view()` is the DAG with the configured overlays merged in
+(§5.7): what `odag` answers from, never what it writes. The settings
+themselves are `ontodag.settings`.
+
 ### 4.7 Typed values: parametric dimensions
 
 Everything so far has sorted itself by the edges you asserted. But dates are the
@@ -2096,6 +2125,20 @@ The flags all go **before** the command (`odag -n 5 get Japan`), where they
 apply to every command in a batch or interactive session; `get`, `list` and
 `show` also accept `-n` and `--render`/`--raw` after the command, for that one
 command only.
+
+A program reads the same settings by the same rule with `ontodag.settings`,
+which is what `odag-mcp` and the tools that share odag's stores use:
+
+```python
+>>> from ontodag import settings
+>>> settings.configured("limit")
+'auto'
+>>> settings.resolve_store()          # the store `odag` would open
+'/home/you/.ontodag/store.od'
+```
+
+A tool with flags of its own for these settings puts their values in
+`settings.OVERRIDES`, the flag layer, so every store it opens sees them.
 
 ### 5.8 Sending someone a piece of your store, and seeing what came back
 

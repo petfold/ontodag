@@ -190,6 +190,38 @@ class TestCoreIsSwarmFree(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
 
+    def test_settings_and_stores_imports_stay_core_only(self):
+        # What `ontodag.open` stands on: recordstore and the adapters load
+        # inside the backends that need them, never at import.
+        for module in ("ontodag.settings", "ontodag.stores"):
+            loaded = fresh_import(module, CORE_FORBIDDEN)
+            self.assertEqual(loaded, [], f"importing {module} loaded {loaded}")
+
+    def test_a_program_opens_a_store_without_the_cli(self):
+        # The reason the opener left `ontodag.__main__` (2026-10-09): a
+        # program that opens a store must not build odag's argument parser,
+        # and under `python3 -m ontodag` a second import of the CLI module
+        # would be a second copy of its state. Plain `import ontodag` loads
+        # neither the settings nor the stores until they are asked for.
+        code = (
+            "import sys, tempfile, os\n"
+            "import ontodag\n"
+            "assert 'ontodag.stores' not in sys.modules, 'import ontodag loaded the stores'\n"
+            "assert 'ontodag.settings' not in sys.modules, 'import ontodag loaded the settings'\n"
+            "path = os.path.join(tempfile.mkdtemp(), 's.od')\n"
+            "store = ontodag.open(path)\n"
+            "store.dag.put('a', [])\n"
+            "store.save()\n"
+            "assert [n.name for n in ontodag.open(path).dag.get([])] == ['a']\n"
+            "assert 'ontodag.__main__' not in sys.modules, 'opening a store loaded the CLI'\n"
+        )
+        env = dict(os.environ, PYTHONPATH=SRC)
+        proc = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True,
+            env=env,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+
     def test_core_never_imports_the_surface(self):
         # SURFACE_LAYER.md §7: ontodag.surface is opt-in by import — the
         # human-facing rendering layer. The core must never call it, or

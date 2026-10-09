@@ -219,7 +219,7 @@ shared with the feed's SOC writes.
 
 This is the single greppable answer to "where is Swarm specified?" — everything above
 `RecordStore` stays backend-neutral. It is what `odag`'s `swarm:NAME` backend calls when
-a signer is configured (`src/ontodag/__main__.py`, `SwarmBackend._record_store`); without
+a signer is configured (`src/ontodag/stores.py`, `SwarmBackend._record_store`); without
 one, `odag` assembles `BeeBytesStore` + a local `FilePointer` itself, which is the wiring
 `swarm_store` exists to replace — that combination leaves the head on local disk while
 only the blobs go to Swarm, which is exactly the keyless mode's documented limitation.

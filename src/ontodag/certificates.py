@@ -119,7 +119,7 @@ def _cover(lazy, seeds):
             continue
         visited.add(name)
         try:
-            parsed = lazy._parse_parametric(name)
+            parsed = lazy.parse_term(name)
         except ValueError:
             parsed = None      # malformed for its kind: the probe happened
         nxt = set()

@@ -119,7 +119,8 @@ from these rather than keeping one: a test fails when a command lacks them.
 The web app's console runs exactly the commands that only read or write.
 
 **Settings** — one precedence rule: **flag > environment > config file >
-default**. `auto` means "decide from whether output is a terminal".
+default**. `auto` means "decide from whether output is a terminal". A program
+reads and writes the same table through `ontodag.settings` (§5).
 
 | key | env | flag | default |
 |---|---|---|---|
@@ -165,6 +166,9 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `get_by_dag(query_dag)` | intersect against another DAG's categories (the web app's path) |
 | `is_below(sub, sup)` | reflexive, fail-closed Boolean |
 | `is_term(name)` | is `name` a typed value of a dimension this DAG declares? `False` for other names, including a term-shaped one with an undeclared head; a malformed value of a declared head raises `put`'s ValueError |
+| `parse_term(name)` | how this DAG reads `name`: `Term(head, kind, canonical)` for a typed value of a declared dimension (`mass(3000g)` → `Term("mass", "linear-dimension", "mass(3kg)")`; a role term naming a node keeps the node's name), else `None`; raises like `is_term` |
+| `canonical(name)` | the name `name` is filed under: a typed value's canonical spelling, any other name unchanged; raises like `is_term`. Every method that takes a name already does this |
+| `parents_of(name)` | the categories `name` is filed under (its asserted parents, a value's head included), sorted, never the root, so a top-level name has none; ValueError for a name the DAG does not hold |
 | `get_overlapping(term)` | possibly-satisfies candidates |
 | `overlaps(a, b)` | pairwise possibly-satisfies Boolean (terms or nodes) |
 | `meet(a, b)` | intersection of two same-head terms as one term, store units; `None` if empty |
@@ -179,6 +183,36 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `copy_subdag` / `induced_subdag` / `intersection_dag` / `prune_to_common_descendants` | derived DAGs, never aliasing (`copy_subdag` closes downward, `induced_subdag` copies exactly the names given) |
 | `excerpt(queries, context=False)` / `excerpt_names(...)` | a query's answer as a standalone DAG (query terms never added; `context` also brings the categories it hangs from) |
 | `contested(a, b)` | items below both — the two-states-at-once list; empty when one entails the other |
+
+Opening a store as `odag` does (`import ontodag` — standard library only,
+until a store needs recordstore or the `swarm` extra):
+
+| call | one line |
+|---|---|
+| `ontodag.open(spec=None, as_of=None)` | → `Store`. `spec` is a path, `rs:PATH` or `swarm:NAME`, made absolute like `-f`; `None` opens odag's active store (`settings.resolve_store`). `as_of` reads a past version (any prefix `odag history` prints), read-only. Nothing is read until the store is used |
+| `Store.dag` | the DAG, loaded on first use (`EagerOntoDAG` for `rs:`/`swarm:`, `OntoDAG` for a file); a store that cannot be opened raises odag's ValueError here |
+| `Store.view()` | the DAG with the configured `overlays` merged in, for answering; writes never read it |
+| `Store.save(message=None)` | write `Store.dag` back: a commit labelled `message` (odag's `-m` when not given) for `rs:`/`swarm:`, the file otherwise; refused for a past version |
+| `Store.spec` / `Store.as_of` / `Store.describe()` | the spec as opened, the version asked for, where the store lives (without opening it) |
+| `Store.discard()` | forget unsaved changes; the next use reads the store again |
+
+The settings (`from ontodag import settings` — what `odag set` reads and
+writes, by the rule in §4):
+
+| call | one line |
+|---|---|
+| `settings.SETTINGS` | the table: key → `Setting(env, default, flag, doc, secret)` |
+| `settings.configured(key, flag=None)` | the value in effect: `flag` (a command's own), then the flag layer, the environment, the config file, the default; KeyError for an unknown key |
+| `settings.OVERRIDES` | the flag layer, one dict per process: a tool that takes one of these settings as its own flag puts it here, and every store it opens sees it |
+| `settings.read_config()` / `settings.write_config(cfg)` | the config file as a dict; written readable by its owner only, since it can hold `bee_signer` |
+| `settings.resolve_store(spec=None)` / `settings.normalize_spec(spec)` | the active store spec (`spec` first, then the `store` setting, then the default) / a spec made absolute |
+| `settings.overlay_specs()` | the configured `overlays`, in order, each made absolute |
+| `settings.home_dir()` / `settings.config_path()` / `settings.default_store_path()` | `$ONTODAG_HOME` or `~/.ontodag`, its `config` file, its `store.od` |
+
+Programs used to reach for these through `ontodag.__main__`'s private
+names (`_resolve_store`, `_normalize_spec`, `_read_config`, `_SETTINGS`,
+`_OVERRIDES`, `Session`, …). Those names remain, as aliases of the same
+objects, for the releases still using them.
 
 The `.od` format as text (`from ontodag import native` — standard library only):
 

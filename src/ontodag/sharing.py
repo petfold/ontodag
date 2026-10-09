@@ -68,7 +68,7 @@ def tops(dag, principal):
     if node is not None:
         return term, [node]
     try:
-        parsed = dag._parse_parametric(term)
+        parsed = dag.parse_term(term)
     except ValueError:
         return term, []                 # the principal is not a node here
     if parsed is None:

@@ -32,7 +32,8 @@ def main(argv=None):
     """The `odag-web` script — the same thing `odag web` runs."""
     import sys
 
-    from ontodag.__main__ import Session, _resolve_store, dispatch
+    import ontodag
+    from ontodag.__main__ import dispatch
 
     argv = list(sys.argv[1:] if argv is None else argv)
-    sys.exit(dispatch(["web"] + argv, Session(_resolve_store())))
+    sys.exit(dispatch(["web"] + argv, ontodag.open()))
