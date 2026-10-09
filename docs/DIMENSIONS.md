@@ -536,6 +536,19 @@ fixture (courier + flour + time window + geohash).
 
 ## 13. Future kinds — parked, with tripwires (recorded 2026-08-01)
 
+**The price of a new kind (decided by Peter, 2026-10-10, the review's
+question 11).** Nine kinds share one class, and every bug the October
+review found sat where two of their machineries meet. So a new kind is
+admitted only if it retires complexity elsewhere, and it comes with its
+oracle and measurements showing filing flat and queries costing their
+answer. What the class keeps is declared in one place
+(`OntoDAG._declare_state`: the derived half, dropped together by
+`_drop_derived`, and the flags operations set and clear), and every new
+node passes one hook in the base class (`_on_node_added`), so a subclass
+that adds nodes its own way still feeds the indexes. Moving the dimension
+interpreter into an object of its own was considered and left for the
+day a new kind is admitted, as part of that kind's price.
+
 The four shipped kinds are not the boundary of what the admissibility
 criterion allows. The criterion never mentions topology; it asks only
 that **containment of named regions be a partial order decidable by

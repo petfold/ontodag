@@ -113,6 +113,9 @@ class DAG:
         self.nodes = {}
         self._version = 0
         self._counts_frozen = False  # True while an operation maintains counts itself
+        self._memo = None            # answers memoized against `_version`
+        self._memo_version = 0
+        self._guard_trips = 0        # re-entrancy guards answered provisionally
         if nodes:
             for node in nodes:
                 self.add_node(node)
@@ -120,7 +123,7 @@ class DAG:
     def _changed(self):
         """Every change to the graph's shape passes here, so answers
         memoized against an older shape are dropped (`_memo_get`)."""
-        self._version = getattr(self, "_version", 0) + 1
+        self._version += 1
 
     # Answers that are pure functions of the graph's shape are memoized
     # against `_version` and dropped wholesale on any change. Bounded, so a
@@ -135,10 +138,10 @@ class DAG:
         right, since the search goes on through other branches, but answers
         computed under the provisional one may not be, so they must not be
         memoized (`_memo_put_unless_tripped`)."""
-        self._guard_trips = getattr(self, "_guard_trips", 0) + 1
+        self._guard_trips = self._guard_trips + 1
 
     def _trips(self):
-        return getattr(self, "_guard_trips", 0)
+        return self._guard_trips
 
     def _memo_put_unless_tripped(self, key, value, trips_before):
         """Memoize `value` only if no guard tripped while computing it."""
@@ -147,14 +150,14 @@ class DAG:
         return value
 
     def _memo_get(self, key):
-        memo = getattr(self, "_memo", None)
-        if memo is None or self._memo_version != getattr(self, "_version", 0):
+        memo = self._memo
+        if memo is None or self._memo_version != self._version:
             return _MISSING
         return memo.get(key, _MISSING)
 
     def _memo_put(self, key, value):
-        version = getattr(self, "_version", 0)
-        memo = getattr(self, "_memo", None)
+        version = self._version
+        memo = self._memo
         if memo is None or self._memo_version != version \
                 or len(memo) >= self._MEMO_LIMIT:
             memo = self._memo = {}
@@ -166,6 +169,14 @@ class DAG:
         """Add a node (Item) to the graph."""
         self.nodes[node.name] = node
         self._changed()
+        self._on_node_added(node)
+
+    def _on_node_added(self, node):
+        """The one hook every new node passes through, whoever adds it: a
+        subclass that registers nodes its own way (the lazy reader's stubs,
+        the sparse writer's new nodes) calls the base `add_node` or this,
+        and whatever a subclass of this class indexes is fed here. The base
+        graph keeps no index."""
 
     # ---- computed order (parametric dimensions) ----------------------------
     #
@@ -694,8 +705,45 @@ class _Prefixes:
 class OntoDAG(DAG):
     def __init__(self):
         super().__init__()
+        self._declare_state()
         self.root = Item("*")
         self.nodes[self.root.name] = self.root
+
+    def _declare_state(self):
+        """Every cache, index and operation flag this class keeps, declared
+        in one place (review question 11, decided by Peter 2026-10-10), so
+        a subclass can see what it must keep current. The derived half is
+        rebuilt on demand from the graph and dropped together by
+        `_drop_derived`; the other half belongs to the operation that sets
+        it, which clears it again."""
+        self._drop_derived()
+        self._role_lenient = 0      # >0 while a replay lands nodes before their edges
+        self._replay_total = 0      # >0 while a replay must not refuse
+        self._edge_log = None       # edges pruned while a declaration may be rolled back
+        self._respell_later = None  # compounds a replay re-spells when it ends
+        self._param_active = None   # re-entrancy guards of interpretation
+        self._role_guard = None
+        self._bounds_active = None
+
+    def _drop_derived(self):
+        """Forget everything rebuilt on demand from the graph: the hop
+        indexes, the heads, dimension, relation, escape, unit and nesting
+        caches, and the memo. No answer changes; each is rebuilt on first
+        use (tests drop them at random points to show it)."""
+        self._args = None                 # the argument index, built with
+        self._nested_keys = set()         #   the nested-constraint keys and
+        self._compound_terms = set()      #   the stored compounds
+        self._values = None               # per-head value indexes
+        self._constraint_values = None
+        self._shapes = None
+        self._unit_cache = None
+        self._nested_cache = None
+        self._nested_version = 0
+        self._heads_cache = None
+        self._dim_cache = None
+        self._rel_cache = None
+        self._escape_cache = None
+        self._memo = None
 
     # ---- parametric dimensions (docs/DIMENSIONS.md) -------------------------
     #
@@ -750,7 +798,7 @@ class OntoDAG(DAG):
         if node is None or _dims.is_kind_node(head_name) \
                 or _dims.split_term(head_name) is not None:
             return None, None     # a term-shaped name is never a head (`_heads`)
-        cache = getattr(self, "_dim_cache", None)
+        cache = self._dim_cache
         if cache is None:
             cache = self._dim_cache = {}
         elif head_name in cache:
@@ -854,7 +902,7 @@ class OntoDAG(DAG):
         a plain child, and `add_edge`/`remove_edge`/`_forget` invalidate on
         exactly those; hydration bypasses `add_edge`, so the cache starts
         empty and builds on first use."""
-        cached = getattr(self, "_heads_cache", None)
+        cached = self._heads_cache
         if cached is not None:
             return cached
         heads = {}
@@ -912,10 +960,10 @@ class OntoDAG(DAG):
         """Per-shape cache for `_broader`/`_narrower`, living exactly as long
         as the `_dimension_of` cache, which every edge that can change a
         head's place drops."""
-        dims_cache = getattr(self, "_dim_cache", None)
+        dims_cache = self._dim_cache
         if dims_cache is None:
             dims_cache = self._dim_cache = {}
-        cached = getattr(self, "_rel_cache", None)
+        cached = self._rel_cache
         if cached is None or cached[0] is not dims_cache:
             cached = self._rel_cache = (dims_cache, {})
         return cached[1]
@@ -992,7 +1040,7 @@ class OntoDAG(DAG):
         if _dims.split_term(to_node.name) is not None \
                 and not _dims.is_kind_node(to_node.name):
             return
-        cached = getattr(self, "_heads_cache", None)
+        cached = self._heads_cache
         if cached is None:
             self._dim_cache = None
             return
@@ -1007,7 +1055,7 @@ class OntoDAG(DAG):
         the index may have been built from a star the value was not yet in.
         Adding is idempotent; a child that is no value (a role head under
         `geo`) leaves the head unindexable, as building from the star would."""
-        values = getattr(self, "_values", None)
+        values = self._values
         if values is None or head.name not in values:
             return
         index = values[head.name]
@@ -1016,12 +1064,12 @@ class OntoDAG(DAG):
 
     def remove_edge(self, from_node, to_node):
         self._maybe_invalidate_heads(from_node, to_node)
-        values = getattr(self, "_values", None)
+        values = self._values
         if values is not None:
             values.pop(from_node.name, None)        # rebuilt from the star on use
         super().remove_edge(from_node, to_node)
         self._note_escape(from_node, to_node, added=False)
-        log = getattr(self, "_edge_log", None)
+        log = self._edge_log
         if log is not None:
             log.append((from_node, to_node))
 
@@ -1055,7 +1103,7 @@ class OntoDAG(DAG):
         # `offer` is in the dimension walks below/above it, and a role term
         # met on the way parses its own parameter. Re-entry on the same
         # (head, param) reads the parameter as a literal — fail closed.
-        active = getattr(self, "_param_active", None)
+        active = self._param_active
         if active is None:
             active = self._param_active = set()
         if (head, param) in active:
@@ -1066,7 +1114,7 @@ class OntoDAG(DAG):
             inside = self._in_dimension(node, base)
         finally:
             active.discard((head, param))
-        if not inside and getattr(self, "_role_lenient", 0):
+        if not inside and self._role_lenient:
             # A replay (merge, sync) adds nodes edgeless before their edges:
             # the node is momentarily outside, and as an isolated node it
             # relates to nothing — safe for reduction, which re-runs when
@@ -1094,9 +1142,9 @@ class OntoDAG(DAG):
         one head. A merge must stay total, and a store a merge made must
         open again. `ingest` replays with `total=False`: as order-free as
         the others, but those guards refuse its stream (G9, case 3)."""
-        self._role_lenient = getattr(self, "_role_lenient", 0) + 1
+        self._role_lenient = self._role_lenient + 1
         if total:
-            self._replay_total = getattr(self, "_replay_total", 0) + 1
+            self._replay_total = self._replay_total + 1
         try:
             yield
         finally:
@@ -1106,7 +1154,7 @@ class OntoDAG(DAG):
 
     def _total(self):
         """Inside a total replay (`_lenient_roles`)?"""
-        return getattr(self, "_replay_total", 0)
+        return self._replay_total
 
     def _in_dimension(self, node, base):
         """Is `node` a member of the dimension headed by `base`: below its
@@ -1184,7 +1232,7 @@ class OntoDAG(DAG):
     def _below_guarded(self, sub, sup):
         """`is_below` with a re-entrancy guard: a place filed under a role
         term of itself would otherwise recurse forever. Fail closed."""
-        guard = getattr(self, "_role_guard", None)
+        guard = self._role_guard
         if guard is None:
             guard = self._role_guard = set()
         key = (sub, sup)
@@ -1243,7 +1291,7 @@ class OntoDAG(DAG):
         A value term is both its own upper and lower bound; a role term
         whose parameter names a node carries that node's bounds respelled
         under the role. The two are what `overlaps` compares."""
-        active = getattr(self, "_bounds_active", None)
+        active = self._bounds_active
         if active is None:
             active = self._bounds_active = set()
         if name in active:
@@ -1544,7 +1592,7 @@ class OntoDAG(DAG):
         2026-10-08). Replays (merge, sync) land nodes before their edges
         and run lenient, like role parameters naming not-yet-placed
         nodes."""
-        lenient = getattr(self, "_role_lenient", 0)
+        lenient = self._role_lenient
         key = ("graph-term", name)
         trips = self._trips()
         if not lenient:
@@ -1623,7 +1671,7 @@ class OntoDAG(DAG):
         definitions — the conflicting-kind-declaration precedent."""
         node = self.nodes.get(_dims.UNIT_DECLARATION)
         names = frozenset(child.name for child in node.neighbors)             if node is not None else frozenset()
-        cached = getattr(self, "_unit_cache", None)
+        cached = self._unit_cache
         if cached is not None and cached[0] == names:
             return cached[1]
         units = _dims.resolve_declarations(names)
@@ -1864,23 +1912,22 @@ class OntoDAG(DAG):
 
     _resident = True
 
-    def add_node(self, node):
-        super().add_node(node)
+    def _on_node_added(self, node):
         self._index_name(node.name)
 
     def _index_name(self, name):
         """Keep the argument and value indexes current for a name that just
-        became known. The one seam: a subclass that registers nodes another
-        way (the lazy reader's stubs, the sparse writer's new nodes) calls
-        it too, or what it registers is invisible to re-reduction (until
-        2026-10-09 the sparse writer's own new terms were: its root then
-        differed from the eager writer's)."""
+        became known. Reached through `_on_node_added`, the base class's
+        hook, so a subclass that adds nodes through the base `add_node`
+        feeds the indexes without knowing they exist; one that missed this
+        once committed a different root from the eager writer, its new
+        terms invisible to re-reduction."""
         split = _dims.split_term(name)
         if split is None:
             return
-        if getattr(self, "_args", None) is not None:
+        if self._args is not None:
             self._index_args(name, split)
-        values = getattr(self, "_values", None)
+        values = self._values
         if values is not None and split[0] in values:
             index = values[split[0]]
             if index is None or not index.add(self, name):
@@ -1899,8 +1946,8 @@ class OntoDAG(DAG):
             self._count_shape(constraint, split[0], +1)
             if len(named) == 1 and _dims.split_term(constraint) is not None:
                 self._nested_keys.add(constraint)
-                self._nested_version = getattr(self, "_nested_version", 0) + 1
-                indexes = getattr(self, "_constraint_values", None)
+                self._nested_version = self._nested_version + 1
+                indexes = self._constraint_values
                 head = _dims.split_term(constraint)[0]
                 if indexes is not None and indexes[1].get(head) is not None \
                         and not indexes[1][head].add(self, constraint):
@@ -1908,7 +1955,7 @@ class OntoDAG(DAG):
 
     def _args_index(self):
         """constraint -> the present terms naming it, built on first use."""
-        if getattr(self, "_args", None) is None:
+        if self._args is None:
             self._args, self._nested_keys = {}, set()
             self._compound_terms = set()
             for present in list(self.nodes):
@@ -1921,7 +1968,7 @@ class OntoDAG(DAG):
         split = _dims.split_term(name)
         if split is None:
             return
-        args = getattr(self, "_args", None)
+        args = self._args
         if args is not None:
             self._compound_terms.discard(name)
             for constraint in _dims.constraints(split[1]):
@@ -1934,13 +1981,12 @@ class OntoDAG(DAG):
                         del args[constraint]
                         if constraint in self._nested_keys:
                             self._nested_keys.discard(constraint)
-                            self._nested_version = getattr(
-                                self, "_nested_version", 0) + 1
-                            indexes = getattr(self, "_constraint_values", None)
+                            self._nested_version = self._nested_version + 1
+                            indexes = self._constraint_values
                             if indexes is not None:
                                 indexes[1].pop(
                                     _dims.split_term(constraint)[0], None)
-        values = getattr(self, "_values", None)
+        values = self._values
         if values is not None:
             values.pop(split[0], None)
 
@@ -1973,7 +2019,7 @@ class OntoDAG(DAG):
         return "odd"
 
     def _count_shape(self, constraint, term_head, step):
-        shapes = getattr(self, "_shapes", None)
+        shapes = self._shapes
         if shapes is None:
             return
         shape = self._constraint_shape(constraint, shapes[0])
@@ -1988,7 +2034,7 @@ class OntoDAG(DAG):
         the declared heads change, since a declaration can turn an opaque
         name into a term."""
         heads = self._heads()
-        shapes = getattr(self, "_shapes", None)
+        shapes = self._shapes
         if shapes is None or shapes[0] is not heads:
             self._args_index()
             nested, odd = {}, {}
@@ -2013,8 +2059,8 @@ class OntoDAG(DAG):
         `transport(mass(..5kg))`). None when the values cannot be indexed."""
         self._args_index()
         units = self._declared_units()
-        units_key = getattr(self, "_unit_cache", (None,))[0]
-        indexes = getattr(self, "_constraint_values", None)
+        units_key = (self._unit_cache or (None,))[0]
+        indexes = self._constraint_values
         if indexes is None or indexes[0] is not units_key:
             indexes = self._constraint_values = (units_key, {})
         index = indexes[1].get(head)
@@ -2057,8 +2103,8 @@ class OntoDAG(DAG):
         through the graph's own hops, so re-reduction then walks them."""
         self._args_index()
         heads = self._heads()
-        version = getattr(self, "_nested_version", 0)
-        cached = getattr(self, "_nested_cache", None)
+        version = self._nested_version
+        cached = self._nested_cache
         if cached is not None and cached[0] is heads and cached[1] == version:
             return cached[2]
         answer = any(heads.get(_dims.split_term(key)[0], (None,))[0]
@@ -2069,16 +2115,15 @@ class OntoDAG(DAG):
     def _value_index(self, head, kind):
         """The index of `head`'s values, built on first use from its star;
         None when the head's values cannot be indexed."""
-        values = getattr(self, "_values", None)
+        values = self._values
         if values is None:
             values = self._values = {}
         units = self._declared_units()
         index = values.get(head)
-        if index is not None and index.units is getattr(
-                self, "_unit_cache", (None,))[0]:
+        if index is not None and index.units is (self._unit_cache or (None,))[0]:
             return index
         cls = _Prefixes if kind == _dims.KIND_PREFIX else _Intervals
-        index = cls(getattr(self, "_unit_cache", (None,))[0])
+        index = cls((self._unit_cache or (None,))[0])
         for value, _ in self._star(head):
             if not index.add(self, value.name, units=units, kind=kind):
                 values.pop(head, None)
@@ -2229,7 +2274,7 @@ class OntoDAG(DAG):
     def _role_literals(self, head):
         """The role's literal parameters, sorted (a `_Prefixes` index kept
         with the value indexes)."""
-        values = getattr(self, "_values", None)
+        values = self._values
         if values is None:
             values = self._values = {}
         index = values.get(head)
@@ -3436,7 +3481,7 @@ class OntoDAG(DAG):
         `shared-with(employee sales-employee)` is spelled
         `shared-with(sales-employee)`."""
         split = _dims.split_term(name)
-        if split is None or getattr(self, "_role_lenient", 0):
+        if split is None or self._role_lenient:
             return None
         if self._dimension_kind(split[0]) not in _dims.GRAPH_ORDERED:
             return None
@@ -3473,8 +3518,8 @@ class OntoDAG(DAG):
         with it (`in(in(employee sales-employee))`). Returns whether
         anything moved. A replay (merge, sync) lands nodes before their
         edges, so inside one the names wait for `_respell_deferred`."""
-        if getattr(self, "_role_lenient", 0):
-            later = getattr(self, "_respell_later", None)
+        if self._role_lenient:
+            later = self._respell_later
             if later is None:
                 later = self._respell_later = set()
             later.update(names)
@@ -3501,7 +3546,7 @@ class OntoDAG(DAG):
         """After a replay: re-spell what its edges touched, and `names`
         (the compounds the replay brought in, which may arrive in a store
         that already relates their constraints)."""
-        later = getattr(self, "_respell_later", None) or set()
+        later = self._respell_later or set()
         self._respell_later = set()
         self._args_index()
         return self._respell_stored(
@@ -3648,7 +3693,7 @@ class OntoDAG(DAG):
         the head's entry, removing one drops it (`_note_escape`), and
         `_forget` drops them all. A hydrated graph, or a lazy reader that
         expands the star as it scans, computes an entry on first use."""
-        cache = getattr(self, "_escape_cache", None)
+        cache = self._escape_cache
         if cache is None:
             cache = self._escape_cache = {}
         hit = cache.get(head)
@@ -3671,7 +3716,7 @@ class OntoDAG(DAG):
 
     def _note_escape(self, from_node, to_node, added):
         """Keep `_escapes` current across one edge into a term."""
-        cache = getattr(self, "_escape_cache", None)
+        cache = self._escape_cache
         split = _dims.split_term(to_node.name)
         if cache is None or split is None or split[0] == from_node.name:
             return
@@ -4183,7 +4228,7 @@ class OntoDAG(DAG):
         replay files names before their places (G9, case 2): a total one
         keeps what it is given, and `ingest` checks its stream once it is
         all in (`_check_role_parameters`)."""
-        if getattr(self, "_role_lenient", 0):
+        if self._role_lenient:
             return
         terms = self._role_terms_naming(name)
         if not terms:

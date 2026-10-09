@@ -107,19 +107,12 @@ def world(seed):
     return cats, places, writes, queries
 
 
-# Derived state the core rebuilds from the graph when it is absent: the
-# argument, value, constraint and shape indexes, the memo, and the heads,
-# dimension, relation and escape caches.
-CACHES = ("_args", "_nested_keys", "_compound_terms", "_values",
-          "_constraint_values", "_unit_cache", "_shapes", "_nested_cache",
-          "_nested_version", "_memo", "_memo_version", "_heads_cache",
-          "_escape_cache", "_dim_cache", "_rel_cache")
-
-
 def drop_caches(dag):
-    for name in CACHES:
-        if name in vars(dag):
-            delattr(dag, name)
+    """Drop the derived state the core rebuilds from the graph on use: the
+    argument, value, constraint and shape indexes, the memo, and the heads,
+    dimension, relation, escape, unit and nesting caches. All of it is
+    declared in one place (`OntoDAG._drop_derived`, review question 11)."""
+    dag._drop_derived()
 
 
 def answer(dag, op):
@@ -248,6 +241,37 @@ class TestEveryKindAtOnce(unittest.TestCase):
                         outcomes.append(str(exc))
                 self.assertEqual(outcomes[1], outcomes[0], (seed, name, supers))
             self.assertEqual(dags[1].commit(), dags[0].commit(), seed)
+
+    def test_a_subclass_that_skips_the_add_node_override_feeds_the_indexes(self):
+        """The bug class question 11 closed: the sparse writer's `add_node`
+        called the base `DAG.add_node`, skipping the line in
+        `OntoDAG.add_node` that indexed a new term, and its root differed
+        from the eager writer's. Indexing now hangs on the base class's own
+        hook, so a subclass written that way still feeds the indexes."""
+        from ontodag.dag import DAG
+
+        class Bypassing(EagerOntoDAG):
+            def add_node(self, node):
+                DAG.add_node(self, node)
+
+        for seed in seeds(15):
+            cats, places, writes, queries = world(seed)
+            outcomes = []
+            for cls in (EagerOntoDAG, Bypassing):
+                dag = declare(cls(RecordStore(MemoryBytesStore())))
+                for c in cats:
+                    dag.put(c, [])
+                for p in places:
+                    dag.put(p, ["geo(u)"])
+                dag.put("warm-up", [cats[0]])      # builds the indexes first
+                for name, supers in writes:
+                    try:
+                        dag.put(name, supers)
+                    except ValueError:
+                        pass
+                outcomes.append((dag.commit(),
+                                 [answer(dag, ("get", q)) for q in queries]))
+            self.assertEqual(outcomes[1], outcomes[0], seed)
 
     def test_dropping_caches_in_the_sparse_writer_changes_no_root(self):
         """The sparse writer keeps the same derived caches over a partly

@@ -185,7 +185,7 @@ class LazyOntoDAG(OntoDAG):
         if node is None:
             node = Item(name)
             dict.__setitem__(self.nodes, name, node)
-            self._index_name(name)
+            self._on_node_added(node)     # the hook every new node passes
         return node
 
     def _expand(self, node):
@@ -492,8 +492,7 @@ class SparseOntoDAG(LazyOntoDAG):
     # (and therefore that _records holds their pre-change baseline).
 
     def add_node(self, node):
-        DAG.add_node(self, node)
-        self._index_name(node.name)       # OntoDAG.add_node's indexing
+        DAG.add_node(self, node)          # indexes it, through the base hook
         # A created node is fully known: nothing in the store to expand.
         self._records.setdefault(node.name, None)
         self._expanded.add(node.name)

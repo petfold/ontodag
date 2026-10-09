@@ -232,6 +232,9 @@ Consumers compare majors.
   reading of the data needs it.
 - A node filed under A and B is not their meet. Never route `get` through
   such nodes (SEMANTIC_CODES §10).
+- A new kind must retire complexity elsewhere and bring its oracle and
+  measurements (DIMENSIONS.md §13). Keep every cache and flag declared in
+  `_declare_state`, and index through `_on_node_added`, never beside it.
 - Removing, moving, undoing and retracting are local: a peer that still
   holds the old fact brings it back on merge. A mergeable file carries
   additions only (`diff --additions`; never call it a patch).
@@ -364,8 +367,9 @@ Each line points to its record.
      every repo (item 5).
   10. This file is a current-state guide, the diary a journal (item 6).
   11. The kinds get a complexity budget: a new kind must retire complexity
-      elsewhere; every cache is declared, and the indexes are fed through
-      one hook in the base `DAG`'s operations (item 14). Not built yet.
+      elsewhere (DIMENSIONS.md §13); every cache and flag is declared in
+      `_declare_state`, and every new node passes the base class's
+      `_on_node_added` hook (item 14). Built.
   12. Every replay (merge, sync, loading an unmarked file) folds an item's
       overlapping values of one head into their meet, as `put` does;
       contradicting values stay as they arrive and `odag status` lists

@@ -67,6 +67,17 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+- **`OntoDAG` declares what it keeps, and indexes every new node through
+  one hook** (review question 11, decided with Peter, 2026-10-10). Twenty
+  caches and operation flags used to appear on first use (`getattr(self,
+  "_args", None)` at 48 places), so a subclass could not see what it had
+  to keep current, and the sparse writer once skipped the index its new
+  terms needed. They are declared in `_declare_state` now, the derived
+  ones dropped together by `_drop_derived`, and the base class's
+  `add_node` calls `_on_node_added`, where `OntoDAG` indexes: a subclass
+  that adds nodes through the base `add_node` feeds the indexes without
+  knowing they exist. No answer or root changes. A new kind must now
+  retire complexity elsewhere (DIMENSIONS.md §13).
 - **`from ontodag import *` brings exactly `CONTRACT_VERSION`, `DAG`, `Item`
   and `OntoDAG`** (an `__all__`, added when CI gained a linter, review
   question 9). It also brought the submodules `dag` and `dimensions`, and
