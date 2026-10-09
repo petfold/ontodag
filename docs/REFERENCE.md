@@ -86,7 +86,8 @@ results one per line on stdout. No command = read commands from stdin
 | `list` | everything (same path as the empty `get`) |
 | `show` | the whole DAG as indented text |
 | `move NAME… --to CAT… [--from CAT…] [--dry-run]` | reclassify: assert the new categories, retract the old ones (`--from` omitted = all of them, so `--to` alone means "under this and nothing else"; `--to` omitted = unfile, becoming top-level). Reports the **contested set** — items now under both the old and new category, which subsumption cannot resolve |
-| `remove NAME… [--cone] [--dry-run]` | contract: the items go, their children reattach to their parents (order-independent, so several at once is a function of the set). `--cone` deletes instead: each item plus whatever only existed under it, sparing cone members that hang elsewhere |
+| `remove NAME… [--cone] [--with-terms] [--dry-run]` | contract: the items go, their children reattach to their parents (order-independent, so several at once is a function of the set). `--cone` deletes instead: each item plus whatever only existed under it, sparing cone members that hang elsewhere. A category a term names (`in(paris)`, `about(paris)`, `shared-with(paris)`) is refused unless the terms go too: named in the same command, or all of them with `--with-terms`. A removed term is contracted into the terms just above it (`in(paris)` → `in(city)`, `in(france)`); a share never widens, so one naming a removed person or group ends |
+| `rename OLD NEW [--dry-run]` | rename a category: what is filed under it, its own placement and every term naming it follow (`in(OLD)` → `in(NEW)`). An existing NEW absorbs OLD (the fix for a misspelled duplicate). Not for terms, values, dimension heads or registry nodes |
 | `merge PATH [--diff]` | merge another store/file into this one. `--diff` previews instead, changing nothing: the additions (`+` lines), the mechanical unit-compatibility check (a declaration conflict refuses, exit 1), and a stderr warning when a shared *category* is classified unrelatedly on the two sides (reportable, never decidable — shared leaves under unrelated parents are normal multi-parent filing and are not flagged) |
 | `import` / `export PATH` | native `.od`, or OWL/Manchester by extension (`.owl`/`.omn`) |
 | `ingest [FILE] [--drop NODE…]` | load a projection stream — JSON lines of `{"item": N, "supercategories": […]}` (PROJECTIONS.md §4) — from FILE or stdin. Idempotent; one commit; missing categories created at top level then refined, so line order cannot matter. `--drop` cone-deletes NODE first (full-rebuild semantics). Usually into a dedicated projection store read via `overlays` |
@@ -168,9 +169,12 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `overlaps(a, b)` | pairwise possibly-satisfies Boolean (terms or nodes) |
 | `meet(a, b)` | intersection of two same-head terms as one term, store units; `None` if empty |
 | `get_descendants` / `get_ancestors` | one cone, either direction |
-| `remove(name)` | remove with contraction (children keep coarser parents) |
+| `remove(name, with_terms=False)` / `remove_many(names, with_terms=False)` | remove with contraction (children keep coarser parents). Refused while a term names the category, unless the term goes too (named, or `with_terms`); a removed term is contracted into the terms just above it, and a share never widens. Everything is checked before anything moves |
+| `removal_plan(names, with_terms=False)` | what `remove_many` would do: (the names that go, {term: the terms what is under it moves to}); pure, raises as the removal would |
+| `rename(old, new)` | rename a category; what is under it and every term naming it follow. An existing `new` absorbs `old`. Returns {old term spelling: new} |
+| `clear()` | remove every node but the root, in place (what `import` does before merging) |
 | `reclassify(names, to, from_=None)` | assert new classifications, retract old ones; asserts before retracting, never orphans, and refuses any placement `put` would refuse |
-| `cone_removal_plan(names)` / `remove_cone(names)` | the *deleting* removal: the categories plus whatever only existed under them; a cone member that hangs elsewhere survives. The plan is pure, so it can be previewed |
+| `cone_removal_plan(names)` / `remove_cone(names, with_terms=False)` | the *deleting* removal: the categories plus whatever only existed under them; a cone member that hangs elsewhere survives. The plan is pure, so it can be previewed. Terms naming what goes are refused, or contracted with `with_terms` (`cone_terms_plan(names, with_terms)` previews them) |
 | `merge(other)` | commutative, idempotent union with re-reduction |
 | `copy_subdag` / `induced_subdag` / `intersection_dag` / `prune_to_common_descendants` | derived DAGs, never aliasing (`copy_subdag` closes downward, `induced_subdag` copies exactly the names given) |
 | `excerpt(queries, context=False)` / `excerpt_names(...)` | a query's answer as a standalone DAG (query terms never added; `context` also brings the categories it hangs from) |
@@ -313,7 +317,8 @@ empty `cat` = everything.
 | `/dag/query/export[/omn\|/dot\|/tex]` | GET | export of the query's **excerpt** — `?cat=` (DNF) and `?context=1`; never the picture, so it re-imports without the query terms |
 | `/dag/node` | PATCH | reclassify: `{subcategories, to, from}`; answers with `retracted` and the `contested` set |
 | `/dag/node?cone=1` | DELETE | delete the items and whatever only existed under them; answers with `deleted` and `kept` |
-| `/dag/removal?name=…&cone=1` | GET | what that delete would take, without taking it |
+| `/dag/node?with_terms=1` | DELETE | also remove the terms naming the items (with or without `cone=1`); answers with `moved`: {term: the terms what was under it moved to} |
+| `/dag/removal?name=…&cone=1&with_terms=1` | GET | what that delete would take, without taking it (`moved` included); refused, as the delete would be, while a term names an item |
 | `/dag/overlapping?term=…` | GET | candidates whose value merely overlaps the term (G6) |
 | `/dag/canon[?term=…]` | GET | what a spelling stores (`canonical` + `display`); bare: surface/registry versions |
 | `/dag/prelude` | GET / POST | preview / adopt the standard dimension declarations — **typed values need this first on this surface** |
@@ -324,7 +329,7 @@ Serving the page (all read-only except the console and the example):
 
 | endpoint | methods | does |
 |---|---|---|
-| `/dag/console` | POST `{line}` | run one `odag` command line; answers `{out, err, code}` plus the page's state. **Allow-listed** — derived from the declared effects (§4): the 16 commands that only read or write a store, so none touches a filesystem path, the network, the settings or a store's versions; `-o FILE` is refused per line |
+| `/dag/console` | POST `{line}` | run one `odag` command line; answers `{out, err, code}` plus the page's state. **Allow-listed** — derived from the declared effects (§4): the 17 commands that only read or write a store, so none touches a filesystem path, the network, the settings or a store's versions; `-o FILE` is refused per line |
 | `/dag/commands` | GET | every OntoDAG command with its description, argument shape, group and `available`/`why` — read off the argparse parser, so it cannot drift |
 | `/dag/browse?cat=` | GET | the answer plus `refine`: the categories held by *some but not all* of it, each with the count clicking it returns |
 | `/dag/node/<name>` | GET | one node: parents, children, count, rendered *and* canonical name |

@@ -137,7 +137,8 @@ refused entirely for file stores, which remain `odag`'s own). The flow is
 3. **`propose_remove` / `remove`** — same shape, and the §3 **coupling
    rule is enforced**: a removal emits signed retraction records for the
    node's existence and each parent claim. The audit trail has no silent
-   disappearances.
+   disappearances. A category that a term names (`in(paris)`) is refused
+   at the proposal, as everywhere since 2026-10-09 (DIMENSIONS.md §14).
 
 Idempotence is by design: re-confirming the same knowledge is a graph
 no-op (the root does not move) while the re-assertion is deliberately a
@@ -185,3 +186,8 @@ verified signatures.
   project has something to report.
 - **Cone-index awareness** — a `LazyOntoDAG(cone_index=...)`-backed serving
   mode for published stores; pure plumbing when someone needs it.
+- **`remove --with-terms` and `rename`** (2026-10-09), like `move` and the
+  cone deletion: each re-files or retracts claims carried by terms the
+  agent did not name, and every such retraction owes a signed record — a
+  provenance decision, not a transcription. An agent refused on a named
+  category is told why; a person with the CLI can resolve it.

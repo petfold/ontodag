@@ -370,6 +370,7 @@ class LazyOntoDAG(OntoDAG):
         )
 
     put = remove = merge = _read_only
+    remove_many = rename = _read_only
     add_edge = remove_edge = add_node = _read_only
     commit = _read_only
 
@@ -499,8 +500,21 @@ class SparseOntoDAG(LazyOntoDAG):
     def put(self, subcategory, super_categories, optimized=False):
         OntoDAG.put(self, subcategory, super_categories, optimized=optimized)
 
-    def remove(self, node_to_remove):
-        OntoDAG.remove(self, node_to_remove)        # bookkeeping in _forget
+    def remove(self, node_to_remove, with_terms=False):
+        return OntoDAG.remove(self, node_to_remove, with_terms=with_terms)
+
+    def remove_many(self, names, with_terms=False):
+        return OntoDAG.remove_many(self, names, with_terms=with_terms)
+
+    def rename(self, old, new):
+        return OntoDAG.rename(self, old, new)
+
+    def _carry_extras(self, old, new):
+        OntoDAG._carry_extras(self, old, new)
+        payload = (self._records.get(old) or {}).get("payload") \
+            or self._payloads.get(old)
+        if payload is not None and not (self._records.get(new) or {}).get("payload"):
+            self._payloads.setdefault(new, payload)
 
     def _forget(self, name):
         """A node stops existing: stage the store delete if it was persisted.

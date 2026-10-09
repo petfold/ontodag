@@ -758,11 +758,38 @@ without the graph cycling (deciding whether `offer` is in the dimension
 walks through the role star that contains `from(offer)`), so the lookup
 is re-entrancy-guarded and reads a re-entered parameter as a literal.
 
-The guards apply to roles of a value dimension only. A head that the
-graph orders (§15–§18), declared under another head (`courier ⊑
-transport`), names nodes by constraint, as its base does, so removing or
+The move and create guards apply to roles of a value dimension only. A
+head that the graph orders (§15–§18), declared under another head
+(`courier ⊑ transport`), names nodes by constraint, as its base does, so
 moving a node one of its terms names is as free as under the base. Until
 2026-10-07 the guards took such terms for roles and refused both.
+
+**Removal is guarded for every term (decided with Peter, 2026-10-09).** A
+category may not stop existing while any term names it — a role's, the graph
+kind's, a relation's — because the term would be left naming nothing: after
+`remove paris`, the Louvre (`in(paris)`) silently stopped being in France,
+and a share naming a removed contact came back by itself when the contact
+was added again. `remove` and `remove --cone` refuse, naming the terms and
+what is filed under each, unless the terms go too: named in the same
+command, or all of them with `--with-terms` (`with_terms=True`). A term that
+goes is contracted as `remove` contracts any category: what was under it
+moves to **the terms just above it**, made by replacing the removed category
+with each of its own parents (`in(paris)` → `in(city)`, `in(france)`; under
+the relations that follow containment a parent `in(Z)` gives `Z`; a
+compound keeps its other constraints, `in(museum-district paris)` →
+`in(city museum-district)`, `in(france)`), each candidate kept only where
+the order puts it above the term, and the lowest of those. The same rule
+holds for a term removed on its own. A **share never widens**:
+`shared-with(person)` is *below* `shared-with(alice)` in the reversed order,
+so no candidate survives and a share naming a removed person or group goes
+to the bare head, which reaches nobody. The other way out is `rename OLD
+NEW`, for a name that was the mistake: everything under the category, its
+placement and every term naming it follow (`in(pairs)` → `in(paris)`), and
+an existing NEW absorbs OLD. Both are local, like every removal: a peer that
+still has the category brings it back when merged. Stores written before
+this can hold terms naming nothing; they load, and nothing is inside what no
+longer exists. Tests: `tests/test_removal_terms.py`, and the three-writer
+differential in `tests/test_crosskind.py`.
 
 **The dimension itself is not a parameter (issue #17, 2026-09-12).** The
 base head is a node of its own dimension, so #15's rule would let a role

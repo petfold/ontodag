@@ -1109,10 +1109,12 @@ class OntoDAG(DAG):
         Only roles of a value dimension take a node as a value of their
         base (§14). A head the graph orders, declared under another head
         (`courier ⊑ transport`), names any node by constraint, as its base
-        does, so its terms guard nothing: removing or moving `bicycle`
+        does, so its terms keep nothing inside a dimension: moving `bicycle`
         under `courier(bicycle)` is as free as under `transport(bicycle)`.
-        Until 2026-10-07 such terms were taken for roles here, and both
-        were refused with a message about the base's dimension."""
+        Until 2026-10-07 such terms were taken for roles here, and moves
+        were refused with a message about the base's dimension. (Removal is
+        another matter: no term may be left naming nothing, whatever its
+        kind, `_refuse_if_named`.)"""
         return [self.nodes[term] for term in
                 (f"{role}({name})" for role in sorted(self._role_heads())
                  if self._dimension_kind(role) not in _dims.GRAPH_ORDERED)
@@ -3563,17 +3565,387 @@ class OntoDAG(DAG):
         self._dim_cache = None
         self._escape_cache = None
 
-    def _refuse_if_role_named(self, name, gone=()):
-        """A node named by a role term (`from(my_home)` names `my_home`) may
-        not cease to exist while the term stands: the term would silently
-        turn into a literal value spelling the same, or stop parsing at
-        all. Remove the term first."""
-        for term in self._role_terms_naming(name):
-            if term.name not in gone:
+    # ---- terms that name a category: removal and rename -------------------
+    #
+    # A term names categories (`in(paris)`, `about(paris)`,
+    # `shared-with(alice)`, `transport(bicycle)`, a role's `from(my_home)`),
+    # so a category must not stop existing while a term still names it: the
+    # term would be left naming nothing, quietly cut off from everything the
+    # category related it to (the Louvre, `in(paris)`, would no longer be in
+    # France), and a share naming a removed contact would come back by
+    # itself if the contact were ever added again. So removal refuses,
+    # naming the terms, unless the terms go too, and then each is contracted
+    # the way `remove` contracts any category: what was under it moves to
+    # the terms just above it (decided with Peter, 2026-10-09; DIMENSIONS.md
+    # §14). `rename` is the other way out, for a name that was the mistake.
+
+    def _naming_term(self, name):
+        """Is `name` a term that names a category: a term of a head the graph
+        orders, or a role term whose parameter is a place (not a value)."""
+        split = _dims.split_term(name)
+        if split is None or _dims.is_kind_node(name):
+            return False
+        found = self._heads().get(split[0])
+        if found is None:
+            return False
+        kind, base = found
+        if kind in _dims.GRAPH_ORDERED:
+            return True
+        return base != split[0] and self._param_node(split[0], split[1]) is not None
+
+    def _namers(self, name):
+        """The present terms with `name` among their constraints: terms of the
+        heads the graph orders (`in(paris)`, `in(museum paris)`,
+        `shared-with(paris)`) and role terms naming it as a place. Found in
+        the argument index on a resident graph; a partial one reads each
+        such head's list of terms instead, one record per head, since a term
+        it never loaded is in no index."""
+        found = {term.name for term in self._role_terms_naming(name)}
+        ordered = {head for head, (kind, _base) in self._heads().items()
+                   if kind in _dims.GRAPH_ORDERED}
+        if not ordered:
+            return sorted(found)
+        if self._resident:
+            candidates = list(self._args_index().get(name, ()))
+        else:
+            candidates = [child.name for head in sorted(ordered)
+                          if self.nodes.get(head) is not None
+                          for child in list(self.nodes[head].neighbors)]
+        for term in candidates:
+            split = _dims.split_term(term)
+            if split is not None and split[0] in ordered and term in self.nodes \
+                    and name in _dims.constraints(split[1]):
+                found.add(term)
+        return sorted(found)
+
+    def _names_any(self, term, names):
+        """Does `term` name one of `names`, at any depth of nesting?"""
+        split = _dims.split_term(term)
+        if split is None:
+            return False
+        return any(constraint in names or self._names_any(constraint, names)
+                   for constraint in _dims.constraints(split[1]))
+
+    def _refuse_if_named(self, name, gone=()):
+        """Refuse to let `name` stop existing while a term not in `gone`
+        names it."""
+        naming = [term for term in self._namers(name) if term not in gone]
+        if not naming:
+            return
+        def filed(term):
+            n = len(self.nodes[term].neighbors)
+            return f"{term} ({n} item{'' if n == 1 else 's'})"
+        raise ValueError(
+            f"{name} is named by {', '.join(filed(t) for t in naming)}: "
+            f"removing it would leave {'that term' if len(naming) == 1 else 'them'} "
+            f"naming nothing. Remove {'it' if len(naming) == 1 else 'them'} with it "
+            f"(--with-terms: what is under a term moves to the terms just "
+            f"above it), rename {name}, or re-file what is under "
+            f"{'it' if len(naming) == 1 else 'them'} first (DIMENSIONS.md §14)")
+
+    def _below_quiet(self, sub, sup):
+        try:
+            return self.is_below(sub, sup)
+        except (ValueError, KeyError):
+            return False
+
+    def _substitution_parents(self, constraint, gone, memo):
+        """What may stand in for `constraint` once it is gone: a removed
+        term's own replacements for a nested one, else the parents of the
+        node it names, climbing past parents that are going too."""
+        heads = self._heads()
+
+        def usable(name):
+            # A relation head stands for no class of things: `in(in)` is sound
+            # and says nothing, so a bare head never becomes a constraint.
+            found = heads.get(name)
+            return found is None or found[0] not in _dims.GRAPH_ORDERED
+
+        if constraint in gone and self._naming_term(constraint):
+            return [r for r in self._replacements(constraint, gone, memo)
+                    if usable(r)]
+        out, seen = [], {constraint}
+        stack = [constraint]
+        while stack:
+            node = self.nodes.get(stack.pop())
+            if node is None:
+                continue
+            parents = [p for p in self._live_parents(node) if p is not self.root]
+            parents += list(self._computed_parents(node))
+            for parent in parents:
+                if parent.name in seen:
+                    continue
+                seen.add(parent.name)
+                if parent.name in gone:
+                    if self._naming_term(parent.name):   # a term going too
+                        out.extend(r for r in self._replacements(
+                            parent.name, gone, memo)
+                            if usable(r) and r not in out)
+                    else:
+                        stack.append(parent.name)     # going too: its parents
+                elif usable(parent.name) and parent.name not in out:
+                    out.append(parent.name)
+        return out
+
+    def _replacements(self, term, gone, memo=None):
+        """Where what is filed under `term` goes when `term` is removed: the
+        lowest terms above it in the combined order that name nothing in
+        `gone` — what `remove` means for any category, applied to a term.
+
+        Each constraint of `term` in `gone` is replaced by each parent of the
+        node it names, or dropped (when none is gone, the term itself is
+        what goes, and its constraints are replaced one at a time). Paris
+        was a city and was in France, so `in(paris)` gives `in(city)` and
+        `in(france)`: a parent `in(Z…)` also gives `Z…` under the relations
+        that follow containment, beside the other constraints and alone. A
+        candidate is kept only where the order puts it above `term`, which
+        is also what keeps a share from widening: `shared-with(employee)` is
+        *below* `shared-with(alice)`, so a share naming a removed person goes
+        to the bare `shared-with`, where it reaches nobody. With nothing
+        left, the bare head."""
+        memo = {} if memo is None else memo
+        if term in memo:
+            return memo[term]
+        memo[term] = []                           # a cycle of names: nothing
+        head, param = _dims.split_term(term)
+        kind, base = self._heads()[head]
+        constraints = list(_dims.constraints(param))
+        removed = [c for c in constraints if c in gone]
+        plans = [removed] if removed else [[c] for c in constraints]
+        follows = set()
+        if kind in (_dims.KIND_TRANSITIVE, _dims.KIND_ENCLOSING):
+            follows = {h for h, (k, _b) in self._heads().items()
+                       if k == _dims.KIND_TRANSITIVE}
+        role_base = base if kind not in _dims.GRAPH_ORDERED and base != head else None
+
+        sets = set()
+        for plan in plans:
+            rest = [c for c in constraints if c not in plan]
+            choices = []
+            for constraint in plan:
+                options = [()]                    # dropped
+                for parent in self._substitution_parents(constraint, gone, memo):
+                    split = _dims.split_term(parent)
+                    if split is not None and split[0] in follows:
+                        # Paris in France: `in(paris)` gives `in(france)`. The
+                        # nested `in(in(france))` sits just below it in the
+                        # order, but the relation's own rule already says
+                        # whatever is in Paris is in France, so it says
+                        # nothing a reader wants and is not offered.
+                        inside = tuple(_dims.constraints(split[1]))
+                        options.append(inside)
+                        sets.add(frozenset(inside))
+                        continue
+                    options.append((parent,))
+                    if role_base is not None and split is not None \
+                            and split[0] == role_base:
+                        options.append((split[1],))   # a value of the base
+                choices.append(options)
+            combos = [()]
+            for options in choices:
+                combos = [combo + option for combo in combos for option in options]
+            for combo in combos:
+                sets.add(frozenset(rest) | frozenset(combo))
+
+        names = set()
+        for constraints_set in sets:
+            if not constraints_set:
+                continue
+            try:
+                names.add(self._canonical_name(
+                    f"{head}({' '.join(sorted(constraints_set))})"))
+            except ValueError:
+                continue
+        kept = [name for name in sorted(names - {term})
+                if not self._names_any(name, gone)
+                and self._below_quiet(term, name)]
+        lowest = [name for name in kept
+                  if not any(other != name and self._below_quiet(other, name)
+                             for other in kept)]
+        memo[term] = lowest or [head]
+        return memo[term]
+
+    def _contract_term(self, term, targets):
+        """Remove the term node `term`, filing what was under it under
+        `targets` (its `_replacements`). A target is materialized only when
+        an item needs it, so no empty term is left behind, and an item left
+        under nothing goes top-level, as everywhere."""
+        node = self.nodes[term]
+        children = sorted(node.neighbors, key=lambda n: n.name)
+        for child in children:
+            self.remove_edge(node, child)
+        for parent in list(self._live_parents(node)):
+            self.remove_edge(parent, node)
+        self._forget(term)
+        parts = []
+        for target in targets:
+            for part in self._graph_parts(target):
+                if part not in parts:
+                    parts.append(part)
+        for child in children:
+            child = self.nodes.get(child.name)
+            if child is None:
+                continue
+            for part in parts:
+                if self.is_below(child.name, part):
+                    continue
+                target = self.nodes.get(part)
+                if target is None:
+                    parsed = self._parse_parametric(part)
+                    target = self._ensure_parametric_node(part, parsed[0], parsed[1])
+                self.add_edge(target, child)
+            if not self._live_parents(child):
+                self.add_edge(self.root, child)
+
+    def removal_plan(self, names, with_terms=False):
+        """What `remove_many(names, with_terms)` would do, without doing it:
+        (the names that go, terms included, and {term: the terms what is
+        under it moves to}). Raises as the removal would — an unknown name,
+        the root, or a category still named by a term that is not going too.
+
+        A term goes when it is named here, or, with `with_terms`, when it
+        names something that goes (and so on, for a term naming such a
+        term)."""
+        resolved = self._resolve_for_removal(names)
+        gone = set(resolved)
+        frontier = list(resolved)
+        while frontier:
+            name = frontier.pop()
+            naming = [term for term in self._namers(name) if term not in gone]
+            if naming and not with_terms:
+                self._refuse_if_named(name, gone)
+            for term in naming:
+                gone.add(term)
+                frontier.append(term)
+        memo = {}
+        moves = {term: self._replacements(term, gone, memo)
+                 for term in sorted(gone) if self._naming_term(term)}
+        return sorted(gone), moves
+
+    def remove_many(self, names, with_terms=False):
+        """Remove categories by contraction: each one goes and its children
+        reattach to its parents, so nothing below it is lost. Terms are
+        contracted the same way, into the terms just above them
+        (`_replacements`). Everything is checked before anything moves, so
+        a refusal leaves the store as it was. Returns the names removed."""
+        gone, moves = self.removal_plan(names, with_terms)
+        gone_set = set(gone)
+        for term, targets in moves.items():
+            parts = [part for target in targets
+                     for part in self._graph_parts(target)]
+            for child in sorted(self.nodes[term].neighbors, key=lambda n: n.name):
+                keeping = [n for n in self._live_parent_names(child.name)
+                           if n not in gone_set and n != self.root.name]
+                self._check_parametric_placement(child.name, parts, also=keeping)
+        depth = lambda n: (-n.count("("), n)       # outer terms first
+        for term in sorted(moves, key=depth):
+            if term in self.nodes:
+                self._contract_term(term, moves[term])
+        for name in gone:
+            if name in self.nodes and name not in moves:
+                self._contract_node(name, gone_set)
+        return gone
+
+    def clear(self):
+        """Remove every node but the root, in place: what `import` does before
+        merging what it imports, so a persisted store keeps its identity and
+        its commit diffs against what it hydrated. Everything goes together,
+        so no term is left naming anything and nothing is refused."""
+        everything = set(self.nodes) - {self.root.name}
+        for name in list(self.nodes):
+            if name != self.root.name and name in self.nodes:
+                self._contract_node(name, everything)
+
+    def _carry_extras(self, old, new):
+        """What a node carries besides its edges, carried from `old` to `new`
+        when `old` is renamed (metadata here; a persisted store's payload in
+        the subclasses). What `new` already has wins."""
+        for key, value in self.nodes[old].metadata.items():
+            self.nodes[new].metadata.setdefault(key, value)
+
+    def rename(self, old, new):
+        """Give the category `old` the name `new`, for a name that was the
+        mistake. Everything filed under it, its own placement, and every term
+        naming it follow (`in(old)` becomes `in(new)`, a role's `from(old)`
+        becomes `from(new)`), and `old` is gone. When `new` already exists
+        the two become one category: the correction for a duplicate or a
+        misspelling of one. Not for a term or a value (its name follows its
+        constraints: rename the category it names) nor for a dimension head
+        or a registry node (every term of it is spelled with it).
+
+        Like every removal, a rename is local: a peer that still has `old`
+        brings it back when merged. Returns {old spelling: new spelling} of
+        the terms re-spelled."""
+        old = self._canonical_name(_name_of(old))
+        new = _name_of(new).strip()
+        if old == self.root.name or new == self.root.name:
+            raise ValueError("Cannot rename the root.")
+        if old not in self.nodes:
+            raise ValueError(f"Category {old} does not exist.")
+        heads = self._heads()
+        reserved = {_dims.DIMENSION_ROOT, _dims.UNIT_DECLARATION}
+        for name in (old, new):
+            if not name:
+                raise ValueError("A category's name cannot be empty.")
+            if _dims.split_term(name) is not None or _dims.is_kind_node(name):
                 raise ValueError(
-                    f"{name} is named by {term.name}: remove that term "
-                    f"first — a role parameter must keep naming a category "
-                    f"in its dimension (DIMENSIONS.md §14)")
+                    f"{name} is a term: its name follows its constraints, so "
+                    f"rename the category it names instead.")
+            if name in heads or name in reserved:
+                raise ValueError(
+                    f"{name} is a dimension head or a registry node: every "
+                    f"term of it is spelled with it, so it cannot be renamed.")
+        if old == new:
+            return {}
+
+        node = self.nodes[old]
+        parents = [p.name for p in self._live_parents(node) if p is not self.root]
+        children = sorted(c.name for c in node.neighbors)
+        naming, frontier = [], [old]
+        while frontier:
+            for term in self._namers(frontier.pop()):
+                if term not in naming:
+                    naming.append(term)
+                    frontier.append(term)
+
+        # Checked before anything moves. Merging into an existing `new`
+        # skips what would close a cycle: a parent of `old` already below
+        # `new`, a child of `old` already above it. And nothing may end up
+        # inside itself under a strict relation.
+        merging = new in self.nodes
+        if merging:
+            parents = [p for p in parents if p != new and not self.is_below(p, new)]
+            children = [c for c in children if c != new and not self.is_below(new, c)]
+        for term in naming:
+            split = _dims.split_term(term)
+            if self._heads().get(split[0], (None,))[0] == _dims.KIND_TRANSITIVE \
+                    and old in _dims.constraints(split[1]) \
+                    and any(child.name == new for child in self.nodes[term].neighbors):
+                raise ValueError(
+                    f"{new} is filed under {term}: as one category, {new} would "
+                    f"be inside itself, and {split[0]} is strict (DIMENSIONS.md §16)")
+
+        if merging:
+            for parent in parents:
+                self.add_edge(self.nodes[parent], self.nodes[new])
+        else:
+            self.put(Item(new, metadata=dict(node.metadata)), parents)
+        self._carry_extras(old, new)
+        for child in children:
+            self.add_edge(self.nodes[new], self.nodes[child])
+        respelled = {}
+        for term in sorted(naming, key=lambda n: (n.count("("), n)):
+            if term not in self.nodes:
+                continue
+            head, param = _dims.split_term(term)
+            parts = [respelled.get(c, new if c == old else c)
+                     for c in _dims.constraints(param)]
+            target = self._canonical_name(f"{head}({' '.join(sorted(parts))})")
+            respelled[term] = target
+            if target != term:
+                self._refile(self.nodes[term], target)
+        self._contract_node(old, {old})
+        return respelled
 
     def _check_role_reference_stays(self, name, parent_names):
         """A move must leave a role-named node inside its dimension."""
@@ -3854,17 +4226,19 @@ class OntoDAG(DAG):
         for super_cat in super_categories:
             self.add_edge(super_cat, subcategory)
 
-    def remove(self, node_to_remove):
+    def remove(self, node_to_remove, with_terms=False):
+        """Remove a category by contraction: it goes, and its children
+        reattach to its parents, so nothing below it is lost. Refused while
+        a term names it, unless `with_terms` (see `remove_many`)."""
         # Accept a name string or any Item, and resolve to this instance's
         # node: a fresh Item("X") has empty parents/neighbors, so operating
         # on the caller's object instead of ours would orphan X's children
         # and corrupt the graph. Parametric sugar canonicalizes first.
-        name = self._canonical_name(_name_of(node_to_remove))
-        if name not in self.nodes:
-            raise ValueError(f"Item {name} does not exist.")
-        if name == self.root.name:
-            raise ValueError("Cannot remove the root.")
-        self._refuse_if_role_named(name)
+        return self.remove_many([node_to_remove], with_terms=with_terms)
+
+    def _contract_node(self, name, gone=()):
+        """`remove`'s contraction of one node, its guard already passed."""
+        self._refuse_if_named(name, gone)
         node_to_remove = self.nodes[name]
 
         super_categories = {parent for parent in node_to_remove.parents
@@ -4083,7 +4457,8 @@ class OntoDAG(DAG):
                 raise ValueError("Cannot remove the root.")
             if name not in self.nodes:
                 raise ValueError(f"Item {name} does not exist.")
-            resolved.append(name)
+            if name not in resolved:
+                resolved.append(name)
         return resolved
 
     def cone_removal_plan(self, names):
@@ -4121,7 +4496,27 @@ class OntoDAG(DAG):
                     changed = True
         return cone, deleted
 
-    def remove_cone(self, names):
+    def cone_terms_plan(self, names, with_terms=False):
+        """The terms a cone deletion has to contract: {term: the terms what is
+        under it moves to}, for every term naming a node the deletion takes
+        (and every term naming such a term). Raises, as the deletion would,
+        when there are any and `with_terms` is not set."""
+        _cone, deleted = self.cone_removal_plan(names)
+        gone = set(deleted)
+        frontier = sorted(deleted)
+        while frontier:
+            name = frontier.pop()
+            naming = [term for term in self._namers(name) if term not in gone]
+            if naming and not with_terms:
+                self._refuse_if_named(name, gone)
+            for term in naming:
+                gone.add(term)
+                frontier.append(term)
+        memo = {}
+        return {term: self._replacements(term, gone, memo)
+                for term in sorted(gone - set(deleted))}
+
+    def remove_cone(self, names, with_terms=False):
         """Delete these categories and whatever only existed underneath them.
 
         The *other* removal: `remove` CONTRACTS (the node goes, its children
@@ -4140,9 +4535,24 @@ class OntoDAG(DAG):
         this is a local edit like `remove`; take an `excerpt --context` of the
         cone first if you want it back — merging that restores the exact root.
         """
+        moves = self.cone_terms_plan(names, with_terms)
+        cone, deleted = self.cone_removal_plan(names)
+        # Terms naming what goes (asked for with `with_terms`) are contracted
+        # first, as `remove` contracts them; then the cone is deleted.
+        for term, targets in moves.items():
+            parts = [part for target in targets
+                     for part in self._graph_parts(target)]
+            for child in sorted(self.nodes[term].neighbors, key=lambda n: n.name):
+                keeping = [n for n in self._live_parent_names(child.name)
+                           if n not in deleted and n not in moves
+                           and n != self.root.name]
+                self._check_parametric_placement(child.name, parts, also=keeping)
+        for term in sorted(moves, key=lambda n: (-n.count("("), n)):
+            if term in self.nodes:
+                self._contract_term(term, moves[term])
         cone, deleted = self.cone_removal_plan(names)
         for name in sorted(deleted):
-            self._refuse_if_role_named(name, gone=deleted)
+            self._refuse_if_named(name, gone=deleted)
 
         # Whose counts can move: the asserted ancestors of everything going.
         # Captured before the graph moves, recomputed after it — because the
@@ -4240,9 +4650,7 @@ class OntoDAG(DAG):
 
         # If any interesting node is missing or there's nothing to keep, remove all but root
         if not sets_of_descendants:
-            for n in list(self.nodes.values()):
-                if getattr(self, 'root', None) and n is not self.root:
-                    self.remove(n)
+            self.clear()
             return
 
         # Find the intersection of all descendant sets
@@ -4253,10 +4661,13 @@ class OntoDAG(DAG):
             if node.name in self.nodes:
                 common_descendants.add(self.nodes[node.name])
 
-        # Remove all other nodes from the DAG
-        for n in list(self.nodes.values()):
-            if n not in common_descendants and getattr(self, 'root', None) and n is not self.root:
-                self.remove(n)
+        # Remove all other nodes from the DAG (together: a term going with what
+        # it names is no reason to refuse)
+        going = {n.name for n in self.nodes.values()
+                 if n not in common_descendants and n is not self.root}
+        for name in sorted(going):
+            if name in self.nodes:
+                self._contract_node(name, going)
 
         # Remove duplicate edges between ancestors and lower level sub-categories
         for n in list(self.nodes.values()):

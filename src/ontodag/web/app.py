@@ -408,7 +408,7 @@ def _shape(parser):
 # exactly one group; `tests/test_web.py` fails if a new one is left out, so
 # the list cannot quietly fall behind the CLI.
 COMMAND_GROUPS = (
-    ("Filing things", ("put", "move", "remove")),
+    ("Filing things", ("put", "move", "rename", "remove")),
     ("Asking questions",
      ("get", "count", "list", "show", "below", "overlapping", "overlaps",
       "meet", "canon", "shared-with")),
@@ -599,20 +599,28 @@ def remove_dag_items():
     names = data.get("subcategories", [])
     cone = (request.args.get("cone", "").lower() in ("1", "true", "yes")
             or bool(data.get("cone")))
+    # A category a term names (in(paris), about(paris)) is refused unless the
+    # terms go too: what was under each moves to the terms just above it,
+    # and a share naming it ends (DIMENSIONS.md §14).
+    with_terms = (request.args.get("with_terms", "").lower() in ("1", "true", "yes")
+                  or bool(data.get("with_terms")))
     try:
         if cone:
             # The deleting removal: the categories and whatever only existed
             # under them. A cone member that also hangs elsewhere survives —
             # see GET /dag/removal to look before leaping.
+            moved = my_dag.cone_terms_plan(names, with_terms=with_terms)
             plan_cone, _ = my_dag.cone_removal_plan(names)
-            deleted = my_dag.remove_cone(names)
+            deleted = my_dag.remove_cone(names, with_terms=with_terms)
             return jsonify({"message": "Item(s) deleted.",
                             "deleted": sorted(deleted),
-                            "kept": sorted(plan_cone - deleted)}), 200
-        # remove() accepts names and canonicalizes parametric sugar itself.
-        for name in names:
-            my_dag.remove(name)
-        return jsonify({"message": "Item(s) removed."}), 200
+                            "kept": sorted(plan_cone - deleted),
+                            "moved": moved}), 200
+        # remove_many() accepts names and canonicalizes parametric sugar
+        # itself, and checks everything before anything moves.
+        _gone, moved = my_dag.removal_plan(names, with_terms=with_terms)
+        my_dag.remove_many(names, with_terms=with_terms)
+        return jsonify({"message": "Item(s) removed.", "moved": moved}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except KeyError:
@@ -823,18 +831,23 @@ def preview_removal():
     if not names:
         return jsonify({"error": "need at least one name"}), 400
     my_dag = current_dag()
+    with_terms = request.args.get("with_terms", "").lower() in ("1", "true", "yes")
     if request.args.get("cone", "").lower() not in ("1", "true", "yes"):
-        # Contraction removes exactly what you name and nothing else.
-        missing = [name for name in names if name not in my_dag.nodes]
-        if missing:
-            return jsonify({"error": f"no such item(s): {', '.join(missing)}"}), 400
-        return jsonify({"deleted": sorted(names), "kept": [], "cone": []})
+        # Contraction removes exactly what you name — and, with `with_terms`,
+        # the terms naming it, whose items move to the terms just above them
+        # (`moved`). Refused, as the DELETE would be, while a term names it.
+        try:
+            gone, moved = my_dag.removal_plan(names, with_terms=with_terms)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        return jsonify({"deleted": gone, "kept": [], "cone": [], "moved": moved})
     try:
+        moved = my_dag.cone_terms_plan(names, with_terms=with_terms)
         cone, deleted = my_dag.cone_removal_plan(names)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     return jsonify({"cone": sorted(cone), "deleted": sorted(deleted),
-                    "kept": sorted(cone - deleted)})
+                    "kept": sorted(cone - deleted), "moved": moved})
 
 
 @app.route("/dag/query", methods=["GET"])

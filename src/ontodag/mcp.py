@@ -513,6 +513,14 @@ class AgentSurface:
             raise ToolError(f"{item_c!r} is not in the store — nothing to "
                             f"remove (removals are proposed against what "
                             f"exists)")
+        try:
+            # Refused here, not only at confirm, while a term names it
+            # (in(paris), about(paris)): removing the terms with it would owe
+            # a retraction per claim they carry, which this surface does not
+            # do (AGENT_SURFACE.md §8).
+            dag.removal_plan([item_c])
+        except ValueError as exc:
+            raise ToolError(str(exc)) from None
         parents = sorted(p.name for p in node.parents
                          if p.name != dag.root.name
                          and dag.nodes.get(p.name) is p)

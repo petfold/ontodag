@@ -332,13 +332,20 @@ def org(dag=None):
 
 
 class TestARemovedConstraint(unittest.TestCase):
-    """A category may be removed while a stored relation term names it
-    (graph-ordered terms guard nothing, DIMENSIONS.md §14). The term then
-    names something that no longer exists, and nothing is inside that.
-    Until 2026-10-09 an `about` compound naming the removed category made
-    every query and write that walked it raise (the `in(c1 c4)` it derives
-    no longer parsed), while the sparse writer, which never loaded the
-    term, accepted the same writes."""
+    """A store written before removal was guarded (0.30.9) can hold terms
+    naming a category that no longer exists: `about(c1 c4)` after `remove
+    c4`. Removal now refuses that (or removes the terms with it, `TestRemoval
+    AndTheTermsNamingIt`), but such stores still load, and nothing is inside
+    what no longer exists. Until 2026-10-09 an `about` compound naming the
+    removed category made every query and write that walked it raise (the
+    `in(c1 c4)` it derives no longer parsed), while the sparse writer, which
+    never loaded the term, accepted the same writes."""
+
+    @staticmethod
+    def leave_terms(dag, name):
+        """Remove `name` the way stores before 0.30.9 did: the terms naming
+        it stay, naming nothing."""
+        dag._contract_node(name, {name, *dag._namers(name)})
 
     def check(self, remove):
         dag = declare(about=True)
@@ -355,10 +362,7 @@ class TestARemovedConstraint(unittest.TestCase):
         self.assertTrue(dag.is_below("x0", "about(c0)"))
 
     def test_after_contraction(self):
-        self.check(lambda dag: dag.remove("c4"))
-
-    def test_after_cone_removal(self):
-        self.check(lambda dag: dag.remove_cone(["c4"]))
+        self.check(lambda dag: self.leave_terms(dag, "c4"))
 
     def test_a_term_beside_one_naming_the_removed_category(self):
         # The containment check derives `in(c3 c5)` from `about(c5 c3)`
@@ -368,7 +372,7 @@ class TestARemovedConstraint(unittest.TestCase):
             dag.put(name, [])
         dag.put("x1", ["about(c1 c5)"])
         dag.put("x3", ["about(c5 c3)"])
-        dag.remove_cone(["c5"])
+        self.leave_terms(dag, "c5")
         dag.reclassify(["c1"], to=["c0"])
         dag.put("c3", ["c1"])
         self.assertTrue(dag.is_below("x3", "about(c0)"))

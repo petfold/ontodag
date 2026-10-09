@@ -35,6 +35,7 @@ from ontodag._extras import MissingExtra
 from ontodag.dag import OntoDAG, Item
 from ontodag import native as _native
 from ontodag import surface as _surface
+from ontodag import dimensions as _dims
 from ontodag.dimensions import REGISTRY_VERSION
 
 try:
@@ -961,9 +962,7 @@ class Session:
         hydrated. Works for either backend via the public API alone: clearing
         to the root then merging reproduces `incoming` exactly (remove
         reconnects children upward, never deletes siblings)."""
-        for name in list(self.dag.nodes):
-            if name != self.dag.root.name and name in self.dag.nodes:
-                self.dag.remove(name)
+        self.dag.clear()
         self.dag.merge(incoming)
         self.save()
 
@@ -1506,25 +1505,80 @@ def cmd_remove(args, session, out):
     """
     dag = session.dag
     if not args.cone:
-        names = dag._resolve_for_removal(args.items)     # all-or-nothing
+        # Planned first, raising as the removal would (an unknown name, or a
+        # category a term still names without --with-terms), so nothing
+        # moves unless everything can.
+        gone, moves = dag.removal_plan(args.items, with_terms=args.with_terms)
+        filed = {term: len(dag.nodes[term].neighbors) for term in moves}
         if args.dry_run:
-            _print_names(names, args, session, out)
+            _print_names(gone, args, session, out)
+            _terms_note(dag, moves, filed, args, session, out, dry=True)
             return 0
-        for name in names:
-            dag.remove(name)
+        dag.remove_many(args.items, with_terms=args.with_terms)
         session.save()
+        _terms_note(dag, moves, filed, args, session)
         return 0
 
+    moves = dag.cone_terms_plan(args.items, with_terms=args.with_terms)
+    filed = {term: len(dag.nodes[term].neighbors) for term in moves}
     cone, deleted = dag.cone_removal_plan(args.items)
     if args.dry_run:
         _print_names(deleted, args, session, out)
         _cone_note(len(deleted), cone - deleted, args, session,
                    "would delete", out)
+        _terms_note(dag, moves, filed, args, session, out, dry=True)
         return 0
 
-    dag.remove_cone(args.items)
+    dag.remove_cone(args.items, with_terms=args.with_terms)
     session.save()
     _cone_note(len(deleted), cone - deleted, args, session, "deleted")
+    _terms_note(dag, moves, filed, args, session)
+    return 0
+
+
+def _terms_note(dag, moves, filed, args, session, out=None, dry=False):
+    """Where what was under each removed term went (to the terms just
+    above it), and which shares ended: a share naming a removed person or
+    group never widens, so what it covered is shared with nobody."""
+    if not moves:
+        return
+    flush = getattr(out, "flush", None)
+    if flush is not None:
+        flush()                      # or the note prints above its own listing
+    fmt = _namer(args, session, _err())
+    heads = dag._heads()
+    for term, targets in sorted(moves.items()):
+        n = filed.get(term, 0)
+        items = f"{n} item{'' if n == 1 else 's'}"
+        head = _dims.split_term(term)[0]
+        if targets == [head] and heads.get(head, (None,))[0] == _dims.KIND_REVERSED:
+            what = f"{items} {'would no longer be' if dry else 'no longer'} shared with anyone"
+        else:
+            what = (f"{items} {'would move' if dry else 'moved'} to "
+                    f"{', '.join(fmt(t) for t in targets)}")
+        print(f"odag: {fmt(term)}: {what}", file=_err())
+
+
+def cmd_rename(args, session, out):
+    """Rename a category, for a name that was the mistake: everything filed
+    under it, its own placement, and every term naming it follow
+    (`in(pairs)` becomes `in(paris)`). When NEW already exists the two become
+    one category. A dry run renames a copy, so the preview cannot drift from
+    the act; it prints each term's old and new spelling."""
+    dag = session.dag
+    target = dag.deepcopy() if args.dry_run else dag
+    respelled = target.rename(args.old, args.new)
+    if args.dry_run:
+        for old, new in sorted(respelled.items()):
+            print(f"{old} -> {new}", file=out)
+        return 0
+    session.save()
+    if respelled:
+        shown = ", ".join(f"{old} -> {new}" for old, new in sorted(respelled.items())[:5])
+        more = f", +{len(respelled) - 5} more" if len(respelled) > 5 else ""
+        n = len(respelled)
+        print(f"odag: re-spelled {n} term{'' if n == 1 else 's'} naming it ({shown}{more})",
+              file=_err())
     return 0
 
 
@@ -2425,8 +2479,16 @@ Commands:
                         (the order you name them in cannot matter).
                         --cone instead DELETES each item and whatever only
                         existed under it — a member of the cone that also
-                        hangs elsewhere survives. --dry-run prints what
-                        would go and changes nothing
+                        hangs elsewhere survives. A category a term names
+                        (in(paris), about(paris)) is refused: --with-terms
+                        removes the terms with it, and what was under each
+                        moves to the terms just above it (in(city),
+                        in(france)); a share naming it ends. --dry-run
+                        prints what would go and changes nothing
+  rename OLD NEW        rename a category; what is filed under it and every
+                        term naming it follow (in(OLD) becomes in(NEW)). An
+                        existing NEW absorbs OLD: the fix for a misspelled
+                        duplicate. --dry-run prints the re-spellings
   show                  print the DAG structure
   list                  print every item name (the empty query, named)
   merge FILE            merge FILE into the store. --diff previews instead:
@@ -2647,6 +2709,7 @@ COMMAND_EFFECTS = {
     "shared-with": frozenset({"reads"}),
     "move": frozenset({"reads", "writes"}),
     "remove": frozenset({"reads", "writes"}),
+    "rename": frozenset({"reads", "writes"}),
     "pack": frozenset({"reads", "writes"}),        # listing, --show and --diff only read
     "prelude": frozenset({"reads", "writes"}),     # --show only reads
     "history": frozenset({"versions"}),
@@ -2831,12 +2894,25 @@ def build_parser():
     p.add_argument("--cone", action="store_true",
                    help="delete each item and whatever only existed under it, "
                         "instead of reattaching its children to its parents")
+    p.add_argument("--with-terms", action="store_true",
+                   help="remove the terms naming an item with it (in(paris), "
+                        "about(paris)); what was under each moves to the terms "
+                        "just above it, and a share ends")
     p.add_argument("--dry-run", action="store_true",
                    help="print what would go and change nothing")
     p.add_argument("-o", "--output")
     _add_surface_flags(p)
     _add_limit_flag(p)
     p.set_defaults(func=cmd_remove, stream_output=True)
+
+    p = sub.add_parser("rename", add_help=True,
+                       help="rename a category; what is filed under it and the "
+                            "terms naming it follow")
+    p.add_argument("old")
+    p.add_argument("new")
+    p.add_argument("--dry-run", action="store_true",
+                   help="print each term's new spelling and change nothing")
+    p.set_defaults(func=cmd_rename)
 
     p = sub.add_parser("show", add_help=True, help="print the DAG structure")
     p.add_argument("-o", "--output")

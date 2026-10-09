@@ -487,8 +487,10 @@ if __name__ == "__main__":
 class TestHeadsTheGraphOrdersAreNoRoles(unittest.TestCase):
     """A head the graph orders, declared under another head, is not a role
     of a value dimension (§14): its terms name nodes by constraint, so they
-    put no condition on the nodes they name. Until 2026-10-07 the removal
-    and move guards took them for roles and refused both."""
+    put no condition on where the nodes they name sit. Until 2026-10-07 the
+    move guard took them for roles and refused. Removal is another matter
+    since 2026-10-09: no term may be left naming nothing, whatever its kind
+    (`_refuse_if_named`), so it is refused unless the terms go too."""
 
     def build(self, kind, base, head):
         dag = OntoDAG()
@@ -501,15 +503,19 @@ class TestHeadsTheGraphOrdersAreNoRoles(unittest.TestCase):
         dag.put("job", [f"{head}(bicycle)"])
         return dag
 
-    def test_removing_or_moving_a_named_node_is_free(self):
+    def test_moving_a_named_node_is_free_and_removing_it_guarded(self):
         for kind, base, head in (("graph-dimension", "transport", "courier"),
                                  ("enclosing-dimension", "from", "departure")):
             with self.subTest(kind=kind):
                 dag = self.build(kind, base, head)
                 dag.reclassify(["bicycle"], to=["vehicle"])
                 self.assertTrue(dag.is_below("bicycle", "vehicle"))
-                dag.remove("bicycle")
+                with self.assertRaisesRegex(ValueError, "is named by"):
+                    dag.remove("bicycle")
+                dag.remove("bicycle", with_terms=True)
                 self.assertNotIn("bicycle", dag.nodes)
-                # As under the base head itself: the term stays, as stored.
-                self.assertIn(f"{head}(bicycle)", dag.nodes)
+                self.assertNotIn(f"{head}(bicycle)", dag.nodes)
+                # The job follows to the term just above: bicycles are vehicles.
+                self.assertEqual({p.name for p in dag.nodes["job"].parents},
+                                 {f"{head}(vehicle)"})
 

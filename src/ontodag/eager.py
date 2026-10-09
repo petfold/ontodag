@@ -129,10 +129,17 @@ class EagerOntoDAG(OntoDAG):
             if meta is not None:
                 self.nodes[name].metadata = dict(meta)
 
-    def remove(self, node_to_remove):
-        name = self._canonical_name(_name_of(node_to_remove))
-        super().remove(node_to_remove)
-        self._payloads.pop(name, None)
+    def remove(self, node_to_remove, with_terms=False):
+        return super().remove(node_to_remove, with_terms=with_terms)
+
+    def _forget(self, name):
+        super()._forget(name)
+        self._payloads.pop(name, None)     # whatever removed it (cone, term)
+
+    def _carry_extras(self, old, new):
+        super()._carry_extras(old, new)
+        if old in self._payloads:
+            self._payloads.setdefault(new, self._payloads[old])
 
     def merge(self, other_dag):
         super().merge(other_dag)  # carries Item.metadata (ours win per key)

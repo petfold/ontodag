@@ -298,6 +298,60 @@ class TestEveryKindAtOnce(unittest.TestCase):
                 self.assertEqual(len(set(outcomes)), 1, (seed, op, outcomes))
             self.assertEqual(len({dag.commit() for dag in writers}), 1, seed)
 
+    def test_removing_with_terms_agrees_across_writers(self):
+        """Removals that take the terms naming what goes (`with_terms`) and
+        renames, mixed with writes, over every kind at once: the three
+        writers agree on every outcome and on the root."""
+        for seed in range(40):
+            cats, places, writes, _ = world(seed)
+            rng = random.Random(seed * 17 + 3)
+            blobs = MemoryBytesStore()
+            base = declare(EagerOntoDAG(RecordStore(blobs)))
+            for c in cats:
+                base.put(c, [])
+            for p in places:
+                base.put(p, ["geo(u)"])
+            root = base.commit()
+            writers = [EagerOntoDAG(RecordStore(blobs, root=root)),
+                       EagerOntoDAG(RecordStore(blobs, root=root)),
+                       SparseOntoDAG(RecordStore(blobs, root=root))]
+            order = list(writes)
+            rng.shuffle(order)
+            items = [name for name, _ in order]
+            ops = []
+            for name, supers in order:
+                ops.append(("put", name, supers))
+                r = rng.random()
+                if r < 0.25:
+                    ops.append(("remove", rng.choice(cats[1:] + places + items)))
+                elif r < 0.35:
+                    ops.append(("cone", rng.choice(cats[1:])))
+                elif r < 0.45:
+                    ops.append(("rename", rng.choice(cats[1:] + places),
+                                f"n{len(ops)}"))
+            for op in ops:
+                if rng.random() < 0.4:
+                    drop_caches(writers[1])
+                outcomes = []
+                for dag in writers:
+                    if op[0] != "put" and op[1] not in dag.nodes:
+                        outcomes.append("absent")
+                        continue
+                    try:
+                        if op[0] == "put":
+                            dag.put(op[1], op[2])
+                        elif op[0] == "remove":
+                            dag.remove(op[1], with_terms=True)
+                        elif op[0] == "cone":
+                            dag.remove_cone([op[1]], with_terms=True)
+                        else:
+                            dag.rename(op[1], op[2])
+                        outcomes.append("ok")
+                    except (ValueError, KeyError) as exc:
+                        outcomes.append(type(exc).__name__)
+                self.assertEqual(len(set(outcomes)), 1, (seed, op, outcomes))
+            self.assertEqual(len({dag.commit() for dag in writers}), 1, seed)
+
 
 if __name__ == "__main__":
     unittest.main()

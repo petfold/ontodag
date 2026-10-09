@@ -2201,6 +2201,84 @@ class TestDiffAdditions(unittest.TestCase):
             self.assertIn("Ryokan-Kyoto", cli._load(frag).nodes)
 
 
+class TestRemoveWithTermsAndRename(unittest.TestCase):
+    """A category a term names is refused by `remove` unless the terms go
+    too (`--with-terms`), and `rename` is the way out when the name was the
+    mistake (decided 2026-10-09)."""
+
+    FILINGS = (["prelude"], ["put", "city"], ["put", "france"],
+               ["put", "person"], ["put", "paris", "city", "in(france)"],
+               ["put", "louvre", "in(paris)"], ["put", "photo", "about(paris)"],
+               ["put", "memo", "shared-with(paris)"])
+
+    def _session(self, home):
+        session = cli.Session(os.path.join(home, "s.od"))
+        for argv in self.FILINGS:
+            self.assertEqual(_run(argv, session)[0], 0, argv)
+        return session
+
+    def _run_err(self, argv, session):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.dispatch(argv, session)
+        return code, out.getvalue(), err.getvalue()
+
+    def test_removing_a_named_category_is_refused_with_the_ways_out(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            code, out, err = self._run_err(["remove", "paris"], session)
+            self.assertEqual(code, 1)
+            self.assertIn("in(paris) (1 item)", err)
+            self.assertIn("--with-terms", err)
+            self.assertIn("paris", cli.Session(session.spec).dag.nodes)
+
+    def test_with_terms_says_where_everything_went(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            code, out, err = self._run_err(
+                ["remove", "paris", "--with-terms"], session)
+            self.assertEqual(code, 0, err)
+            self.assertIn("in(paris): 1 item moved to in(city), in(france)", err)
+            self.assertIn("about(paris): 1 item moved to about(city), about(france)", err)
+            self.assertIn("shared-with(paris): 1 item no longer shared with anyone", err)
+            reread = cli.Session(session.spec).dag
+            self.assertEqual({p.name for p in reread.nodes["louvre"].parents},
+                             {"in(city)", "in(france)"})
+
+    def test_a_dry_run_lists_and_changes_nothing(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            code, out, err = self._run_err(
+                ["remove", "paris", "--with-terms", "--dry-run"], session)
+            self.assertEqual(code, 0, err)
+            self.assertEqual(out.split(), ["about(paris)", "in(paris)", "paris",
+                                           "shared-with(paris)"])
+            self.assertIn("would move to in(city), in(france)", err)
+            self.assertIn("paris", cli.Session(session.spec).dag.nodes)
+
+    def test_rename_respells_the_terms(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            code, out, err = self._run_err(
+                ["rename", "paris", "paris-fr", "--dry-run"], session)
+            self.assertEqual((code, out.split("\n")[0]), (0, "about(paris) -> about(paris-fr)"))
+            self.assertIn("paris", cli.Session(session.spec).dag.nodes)
+            code, out, err = self._run_err(["rename", "paris", "paris-fr"], session)
+            self.assertEqual(code, 0, err)
+            self.assertIn("re-spelled 3 terms naming it", err)
+            reread = cli.Session(session.spec).dag
+            self.assertNotIn("paris", reread.nodes)
+            self.assertEqual({p.name for p in reread.nodes["louvre"].parents},
+                             {"in(paris-fr)"})
+
+    def test_rename_refuses_a_term(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = self._session(home)
+            code, out, err = self._run_err(["rename", "in(paris)", "x"], session)
+            self.assertEqual(code, 1)
+            self.assertIn("is a term", err)
+
+
 class TestRemoveMany(unittest.TestCase):
     """`remove NAME...` contracts; `remove --cone` deletes.
 

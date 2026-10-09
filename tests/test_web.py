@@ -405,7 +405,7 @@ class TestConeRemovalOverRest:
         body = client.get("/dag/removal",
                           query_string={"name": "A", "cone": "1"}).get_json()
         assert body == {"cone": ["A", "C", "a1"], "deleted": ["A", "a1"],
-                        "kept": ["C"]}
+                        "kept": ["C"], "moved": {}}
         assert query_names(client, "active") == {"A", "B", "C", "a1"}  # untouched
 
     def test_the_delete_spares_what_hangs_elsewhere(self, client):

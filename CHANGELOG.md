@@ -14,6 +14,44 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Changed
+
+- **A category a term names can no longer be removed out from under it**
+  (decided with Peter, 2026-10-09; DIMENSIONS.md §14). Before, `remove
+  paris` left `in(paris)` and `about(paris)` behind naming nothing: the
+  Louvre silently stopped being in France, and a share naming a removed
+  contact came back by itself when the contact was added again. Only role
+  terms were guarded. Now `remove` and `remove --cone` refuse, naming the
+  terms and how much is filed under each, unless the terms go too: named
+  in the same command, or all of them with **`--with-terms`**
+  (`with_terms=True`, REST `with_terms=1`). Everything is checked before
+  anything moves.
+- **A removed term is contracted into the terms just above it**, as
+  `remove` contracts any category: with `paris` a city in France,
+  `in(paris)` becomes `in(city)` and `in(france)`, `about(paris)` becomes
+  `about(city)` and `about(france)`, and `in(museum-district paris)`
+  becomes `in(city museum-district)` and `in(france)`. The result is the
+  store filed that way directly. Removing a term on its own follows the
+  same rule; it used to move what was under it only to terms that
+  happened to exist already, so the outcome depended on unrelated
+  filings, and often on to the bare head (`about`). A **share never
+  widens**: one naming a removed person or group ends, and adding them
+  back brings nothing back.
+- MCP's `propose_remove` refuses a named category at the proposal.
+
+### Added
+
+- **`odag rename OLD NEW`** (`OntoDAG.rename`), for a name that was the
+  mistake: what is filed under the category, its own placement and every
+  term naming it follow (`in(pairs)` → `in(paris)`), and when NEW already
+  exists the two become one category. Metadata and a persisted payload
+  travel. Refuses terms, values, dimension heads and registry nodes.
+  `--dry-run` prints the re-spellings.
+- `OntoDAG.remove_many(names, with_terms=False)`, `removal_plan(...)` (pure:
+  what would go and where each term's items would move),
+  `cone_terms_plan(...)`, and `clear()`, which `import` uses to empty a
+  store before merging what it imports.
+
 ### Fixed
 
 - **A native (`.od`) store holding a role term that names a place could

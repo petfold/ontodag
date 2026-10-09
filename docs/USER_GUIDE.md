@@ -642,6 +642,27 @@ The walk uses asserted edges only, so deleting the cone of a typed value like
 `mass(..5kg)` takes what was filed under that spelling, not every lighter
 value in the store.
 
+A category that a term names (`in(paris)`, `about(paris)`, `shared-with(alice)`,
+§4.9) is refused by both forms, since the term would be left naming nothing.
+Name the terms in the same call, or pass `with_terms=True`: each term is then
+removed the way any category is, what was under it moving to the terms just
+above it — except a share, which ends rather than widen. `removal_plan` shows
+what would happen first, and `rename` is the fix when the name was the
+mistake:
+
+```python
+>>> dag.remove("paris")
+ValueError: paris is named by in(paris) (1 item): removing it would leave that term naming nothing. ...
+>>> dag.removal_plan(["paris"], with_terms=True)
+(['in(paris)', 'paris'], {'in(paris)': ['in(city)', 'in(france)']})
+>>> dag.remove("paris", with_terms=True)
+['in(paris)', 'paris']
+>>> sorted(p.name for p in dag.nodes["louvre"].parents)
+['in(city)', 'in(france)']
+>>> dag.rename("pairs", "paris")         # everything under it, and its terms, follow
+{'in(pairs)': 'in(paris)'}
+```
+
 ### 4.4 Combining two DAGs: `merge`
 
 ```python
@@ -2214,6 +2235,71 @@ is recorded.
 Both forms take `--dry-run`, and both resolve every name before touching
 anything — so `odag remove Flight nope` removes nothing at all rather than
 leaving the job half done.
+
+**A category that terms name.** Terms name categories: `in(paris)`,
+`about(paris)`, `shared-with(alice)` (§4.9). Removing a category such a term
+names would leave the term naming nothing, quietly cut off from what the
+category related it to, so `remove` refuses and says which terms, and how
+much is filed under each:
+
+```console
+$ odag -f places.od remove paris
+odag: paris is named by about(paris) (1 item), in(paris) (1 item): removing it would leave them naming nothing. Remove them with it (--with-terms: what is under a term moves to the terms just above it), rename paris, or re-file what is under them first (DIMENSIONS.md §14)
+```
+
+There are three ways on, depending on what the mistake was. If the category
+should go, take the terms with it. Each is removed the way `remove` removes
+anything — what was under it moves up, here to the terms just above it:
+Paris was a city in France, so what was in Paris is in a city and in France.
+
+```console
+$ odag -f places.od remove paris --with-terms --dry-run
+about(paris)
+in(paris)
+paris
+odag: about(paris): 1 item would move to about(city), about(france)
+odag: in(paris): 1 item would move to in(city), in(france)
+
+$ odag -f places.od remove paris --with-terms
+odag: about(paris): 1 item moved to about(city), about(france)
+odag: in(paris): 1 item moved to in(city), in(france)
+$ odag -f places.od get 'in(france)'
+louvre
+$ odag -f places.od get 'about(city)'
+photo
+```
+
+A share is the exception: a plan shared with Alice must not become shared with
+everyone Alice is (`shared-with(person)` would be every person). So a share
+naming a removed person or group ends, and adding her back later brings
+nothing back:
+
+```console
+$ odag -f places.od remove alice --with-terms
+odag: shared-with(alice): 1 item no longer shared with anyone
+```
+
+If the *name* was the mistake, `rename` keeps everything and re-spells every
+term that names it. When the new name already exists, the two become one —
+the fix for a misspelled duplicate:
+
+```console
+$ odag -f places.od put pairs city 'in(france)'
+$ odag -f places.od put cafe 'in(pairs)'
+$ odag -f places.od rename pairs paris --dry-run
+in(pairs) -> in(paris)
+$ odag -f places.od rename pairs paris
+odag: re-spelled 1 term naming it (in(pairs) -> in(paris))
+$ odag -f places.od get 'in(paris)'
+cafe
+```
+
+And if only some things were filed in the wrong place, `move` them first
+(§5.10); once nothing is under the terms, they can go with the category.
+Removing a term on its own (`odag remove 'about(paris)'`) follows the same
+rule as `--with-terms`: what was under it moves to the terms just above it.
+Like every removal, these are local: a peer that still has `paris` brings it
+back when you merge.
 
 ### 5.10 Moving things: `active` → `archive`
 
