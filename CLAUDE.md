@@ -394,6 +394,10 @@ Each line points to its record.
   20. loopmarket: v1/v2 offers retired (circulator's benchmark and the
       tests move to v4+ first; old records stay readable), `MockClearing`
       renamed `BookClearing` (item 12). Not built yet.
+  21. loopmarket: its phase gates rewritten for what they still guard
+      (the format freeze gates a public launch, factbond's scored Phase 0
+      gates selling insurance from a pool); factbond's plans aligned at
+      once (item 17). loopmarket's documents not rewritten yet.
 
 ## Bee integration status
 
@@ -431,22 +435,16 @@ Each line points to its record.
   (opening a store at a chosen residency) belongs on `Store`.
 - The sister repos' CI and lint changes are on their main branches, not
   released; none changes behaviour.
-- Decided and waiting to be built: questions 11 to 20. Peter's instruction
+- Decided and waiting to be built: questions 11 to 21. Peter's instruction
   (2026-10-09): from question 11 on, record each decision and build them
   all once the last question is decided.
 
 ## Open questions for Peter
 
-From the 2026-10 review (`docs/plans/REVIEW_2026-10.md` §8), not yet
-decided:
-
-- loopmarket: **17**, the build order against the README's gates.
-- Also raised by the review: untracking `mypip/` (§4), and which of the
-  remaining test suggestions to take up (§7, items 1–5, 7 and 9).
-
-They are put to Peter one at a time in that order, numbered on from the
-twenty decided: loopmarket's item 17 is question 21, then `mypip/` (22)
-and the test suggestions (23).
+From the 2026-10 review (`docs/plans/REVIEW_2026-10.md`), not yet
+decided: untracking `mypip/` (§4; question 22), and which of the
+remaining test suggestions to take up (§7, items 1–5, 7 and 9; question
+23). Every §8 item is decided.
 
 Older, not urgent: the 0.31.0 release; a publisher key for the packs on
 Swarm (published without one, so no feed yet; PACKS.md); BROWSER.md §7's
