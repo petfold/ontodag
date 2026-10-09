@@ -184,6 +184,31 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **A broad `about` query cost time in proportion to the place hierarchy,
+  not to its answer** (review question 8, decided with Peter, 2026-10-09).
+  `get about(france)` lists what is filed about anything in France; to
+  find it, the walk asked every `about` term it reached for the terms
+  inside it, so `about(louvre)` was checked against `about(france)` and
+  again against `about(paris)`. A chain of 160 nested places, a document
+  about each, took 2.2 s for 319 answers (now 27 ms). A walk now leaves a
+  term unasked once it holds every term of its head inside it: after the
+  head itself, or after a term whose hops listed them all. And the `in`
+  walk that finds a place's contents stops once it is too big to use,
+  instead of finishing first: 16,000 villages nothing was about made a
+  query about France take 61 ms (now 1.4 ms). `get about(p0)` on a random
+  hierarchy of 12,800 places: 1.9 s → 0.24 s, same answers. The empty
+  query and `get about` (the head) gain the same way: 2.3 s → 66 ms and
+  1.8 s → 5 ms.
+- **The query planner trusted a stored term's count as the size of its
+  answer.** The count covers what reaches the term by stored edges, not
+  by computed links: `about(p0)` with one document filed directly under
+  it has a count of 1 and an answer of 1,968 names. So `get about(p0)
+  review` walked all of `about(p0)` before looking at three reviews (1.9
+  s; now 4 ms), and the same held for `in(...)` (`get in(p0) museum`, 912
+  → 24 ms) and value ranges (`get mass(..5kg) fragile`, 139 → 2.3 ms). A
+  term not stored at all was listed in full just to learn its size. Such
+  terms are now sized by walking them only as far as they could matter,
+  and checked per candidate when another term is smaller.
 - **A term nested hundreds of levels deep** (review question 7, decided
   with Peter, 2026-10-09). Reading a term recursed once per level, so
   `in(in(…(a)…))` 700 levels deep ended in a RecursionError: `odag`

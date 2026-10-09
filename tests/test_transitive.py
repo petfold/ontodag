@@ -827,6 +827,67 @@ class TestAgainstTheOracle(unittest.TestCase):
             self.assertEqual(edge_set(ab), edge_set(build(nodes, asserted)), seed)
 
 
+class TestQueriesAgainstTheOracle(unittest.TestCase):
+    """`get` walks down where `is_below` climbs, and the oracle above checks
+    only the climb. Since 2026-10-09 a walk below a term leaves the terms of
+    its head further down unasked when the term listed them all, and the
+    planner sizes such terms by walking them only as far as they could
+    matter (REVIEW §8 item 13). Both against the oracle here: every term
+    the worlds can name, alone, and pairs under each planner mode."""
+
+    def test_get_matches_the_order(self):
+        for seed in range(30):
+            nodes, asserted = TestAgainstTheOracle._accepted(self, seed)
+            dag = build(nodes, asserted)
+            oracle = Oracle(nodes, asserted)
+            present = [n for n in dag.nodes if n != "*"]
+            terms = [t for t in oracle.universe if "(" in t] + nodes
+
+            def expected(query):
+                return {a for a in present if a not in query
+                        and all((a, t) in oracle.below for t in query)}
+            for term in terms:
+                self.assertEqual(names(dag.get([term])), expected([term]),
+                                 (seed, term))
+            rnd = random.Random(seed)
+            pairs = [rnd.sample(terms, 2) for _ in range(12)]
+            for estimate in (OntoDAG._PROBE_COST_ESTIMATE, 0, 10 ** 9):
+                dag._PROBE_COST_ESTIMATE = estimate
+                for query in pairs:
+                    self.assertEqual(names(dag.get(query)), expected(query),
+                                     (seed, query, estimate))
+
+
+class TestABroadTermOnALazyReader(unittest.TestCase):
+    """A lazy reader pays a fetch for every record it reads, so a broad
+    about-term beside a small category is checked per candidate there too,
+    not listed: 504 fetches before 2026-10-09, 177 after. (What remains is
+    mostly the first upward check through `about`, which fetches the head's
+    star to learn whether any term of it hangs anywhere else.)"""
+
+    def test_fetches(self):
+        rnd = random.Random(7)
+        blobs = MemoryBytesStore()
+        dag = declare(EagerOntoDAG(RecordStore(blobs)), about=True)
+        for name in ("place", "document", "review"):
+            dag.put(name, [])
+        dag.put("p0", ["place"])
+        n = 300
+        for i in range(1, n):
+            dag.put(f"p{i}", ["place", f"in(p{rnd.randrange(i)})"])
+        for j in range(200):
+            dag.put(f"doc{j}", ["document", f"about(p{rnd.randrange(n)})"]
+                    + (["review"] if j < 3 else []))
+        root = dag.commit()
+
+        def fetches(terms):
+            reader = LazyOntoDAG(RecordStore.at(root, blobs))
+            self.assertEqual(names(reader.get(terms)), names(dag.get(terms)))
+            return reader.fetches
+        self.assertLess(fetches(["about(p0)", "review"]),
+                        fetches(["about(p0)"]) / 2)
+
+
 class TestStoresAndReaders(unittest.TestCase):
     def test_roots_agree_across_orders(self):
         def root(order):

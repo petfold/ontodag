@@ -161,7 +161,13 @@ sets are shallow, with early exit.) The conjunctive planner:
   already under the trip), so it's discarded. The check walks *upward* from the more specific term, which
   is cheap — ancestor chains are short even in huge graphs.
 - *Order by size.* `descendant_count` says exactly how big each cone is, so the
-  planner starts with the smallest — the strongest filter first.
+  planner starts with the smallest — the strongest filter first. A typed term
+  is the exception: `about(paris)`'s count covers what is filed under it, not
+  what is filed about the Louvre (which reaches it through Paris, a link worked
+  out from the names), and a term nobody filed anything under has no count at
+  all. So the planner walks such a term only until it is clearly bigger than
+  the smallest category in the query, and otherwise checks the candidates
+  against it upward.
 
 **Decided during the query** — using knowledge that *only exists* at runtime:
 

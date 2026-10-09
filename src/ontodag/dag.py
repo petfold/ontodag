@@ -81,9 +81,10 @@ class Item:
         return out
 
 
-# One cone of a query plan: kind in {"node", "virtual", "overlap"}, an
-# estimated size, the canonical name (tiebreak), and the payload the walk
-# and the probe read (the node, or the list of values/anchors).
+# One cone of a query plan: kind "node" (a present term; the payload is its
+# node) or "lazy" (a virtual term, its members found only if it is walked;
+# the payload is (head, kind)), an estimated size, and the canonical name
+# (the tiebreak).
 _Cone = namedtuple("_Cone", "kind size name payload")
 
 #: What `OntoDAG.parse_term` reads a typed value as: its head (`mass`), the
@@ -99,6 +100,12 @@ def _name_of(node_or_name):
 
 
 _MISSING = object()
+
+
+class _TooCostly(Exception):
+    """A walk given a `limit` would cost more than it: the query planner
+    sizes a term the computed order runs through this way, and probes the
+    term when walking it would cost more than the alternative."""
 
 
 class DAG:
@@ -174,6 +181,11 @@ class DAG:
 
     def _computed_parents(self, node):
         return ()
+
+    def _walk_children(self, node, settled, limit=None):
+        """The computed children one walk follows from `node`. OntoDAG
+        leaves out what the walk already holds (`settled`)."""
+        return self._computed_children(node)
 
     def _canonical_name(self, name):
         return name
@@ -361,7 +373,8 @@ class DAG:
                 if self.nodes.get(parent.name) is parent:
                     frontier.append(parent)
 
-    def get_descendants(self, node, visited=None, computed=True):
+    def get_descendants(self, node, visited=None, computed=True, settled=None,
+                        limit=None):
         # Identity at the public boundary is the name (a plain string or an
         # Item): traverse this instance's node, not the caller's object,
         # whose neighbors may be empty (e.g. a fresh Item used to query a
@@ -369,6 +382,9 @@ class DAG:
         # sugar canonicalizes first (weight(3000g) -> weight(3kg)), and
         # the walk follows the combined order unless `computed=False`
         # (count maintenance is asserted-only by design).
+        # `settled` and `limit` are the query planner's: the heads whose
+        # terms below the walk it already holds (`OntoDAG._walk_children`),
+        # and a size past which the walk stops and returns None.
         if isinstance(node, str):
             node = self.nodes.get(self._canonical_name(node))
             if node is None:
@@ -380,18 +396,22 @@ class DAG:
         if node in visited:
             return set()
         visited.add(node)
+        if settled is None:
+            settled = set()
         descendants = set()  # Descendants of the current node
         frontier = [node]
         while frontier:
             current = frontier.pop()
             successors = list(current.neighbors)
             if computed:
-                successors.extend(self._computed_children(current))
+                successors.extend(self._walk_children(current, settled, limit))
             for neighbor in successors:
                 descendants.add(neighbor)
                 if neighbor not in visited:
                     visited.add(neighbor)
                     frontier.append(neighbor)
+            if limit is not None and len(descendants) > limit:
+                return None
         return descendants
 
     @staticmethod
@@ -584,7 +604,9 @@ class _Intervals:
             self.wide_los.insert(at, lo)
         return True
 
-    def hops(self, dag, canonical, head, kind, up):
+    def hops(self, dag, canonical, head, kind, up, limit=None):
+        """Below: every value inside `canonical` (stopping once there are
+        more than `limit`). Above: every value containing it."""
         bounds = self._bounds(dag, canonical, kind, None)
         if bounds is None or (self.family is not None
                               and bounds[0] != self.family):
@@ -604,6 +626,8 @@ class _Intervals:
                 break
             if ehi <= hi and name != canonical:
                 out.append(name)
+                if limit is not None and len(out) > limit:
+                    break
         return out
 
 
@@ -651,7 +675,7 @@ class _Prefixes:
                 out.append(f"{head}({other})")
         return out
 
-    def hops(self, dag, canonical, head, kind, up):
+    def hops(self, dag, canonical, head, kind, up, limit=None):
         param = _dims.split_term(canonical)[1]
         if up:
             names = (f"{head}({param[:k]})" for k in range(1, len(param)))
@@ -662,6 +686,8 @@ class _Prefixes:
                 break
             if other != param:
                 out.append(f"{head}({other})")
+                if limit is not None and len(out) > limit:
+                    break
         return out
 
 
@@ -1724,18 +1750,82 @@ class OntoDAG(DAG):
 
         Complete under closure, not necessarily at each step: a walk that
         follows these hops reaches every term below `node`, but a term may
-        be reached through another rather than listed directly (see
-        `_hops`). Every caller walks."""
+        be reached through another rather than listed directly (the
+        transitive kind's, `_terms_inside`). Every caller walks."""
         parsed = self._parse_parametric(node.name)
         if parsed is None:
             return ()
         head, kind, canonical = parsed
-        found = self._hops(canonical, head, kind, up=False)
+        return self._terms_inside(canonical, head, kind, node)[0]
+
+    def _terms_inside(self, canonical, head, kind, node=None, limit=None):
+        """The present terms of `head`, and of the heads narrower than it,
+        inside `canonical` (`node`, its own node, left out), and whether
+        they are ALL of them. The scan of the star lists them all, and so do
+        the hops of every kind but the transitive one, whose hops leave the
+        terms inside a term inside it to that term (`_graph_hops`; checked
+        against the scan by `tests/test_hops.py`). With `limit`, raises
+        `_TooCostly` once there are more than `limit`, or once finding them
+        would scan a star of more."""
+        found = self._hops(canonical, head, kind, up=False, limit=limit)
         if found is None:
-            return [sibling for sibling, _ in self._stars(self._narrower(head))
+            heads = self._narrower(head)
+            if limit is not None and self._star_size(heads) > limit:
+                raise _TooCostly
+            return [sibling for sibling, _ in self._stars(heads)
                     if sibling is not node and self._contains(
-                        canonical, sibling.name, kind)]
-        return [self.nodes[name] for name in found if name in self.nodes]
+                        canonical, sibling.name, kind)], True
+        if limit is not None and len(found) > limit:
+            raise _TooCostly
+        return ([self.nodes[name] for name in found if name in self.nodes],
+                kind != _dims.KIND_TRANSITIVE)
+
+    def _star_size(self, heads):
+        """How many terms the stars of `heads` hold, by their anchor edges."""
+        size = 0
+        for head in heads:
+            head_node = self.nodes.get(head)
+            size += len(head_node.neighbors) if head_node is not None else 0
+        return size
+
+    def _walk_children(self, node, settled, limit=None):
+        """`_computed_children` as one walk follows them, leaving out what
+        the walk already holds (the review's "share the settled set",
+        2026-10-09). A head's anchor edges list every term of it, and a term
+        whose hops list every term of its head inside it (`_terms_inside`)
+        does the same for its own cone; once the walk has met either, a term
+        of that head further down holds nothing the walk will not reach
+        anyway, and asking it listed the same terms again, a containment
+        check each. `get about(france)` checked about(louvre) against
+        about(france) and again against about(paris): a chain of n places
+        with something filed about each cost n²/2 checks for 2n answers.
+        `settled` holds those heads for one walk. A term filed under
+        something other than its head (an escape, which only a lenient
+        merge can bring) is reached outside such a cone, so a head with
+        escapes is never settled by a term."""
+        split = _dims.split_term(node.name)
+        if split is None:
+            # A lazy reader leaves this out: knowing every head costs it
+            # fetches, which a walk through plain names must never pay.
+            if self._resident and node.name in self._heads():
+                settled.update(self._narrower(node.name))
+            return ()
+        if split[0] in settled:
+            return ()
+        parsed = self._parse_parametric(node.name)
+        if parsed is None:
+            return ()
+        head, kind, canonical = parsed
+        children, complete = self._terms_inside(canonical, head, kind, node,
+                                                limit)
+        if complete:
+            self._settle(head, settled)
+        return children
+
+    def _settle(self, head, settled):
+        heads = self._narrower(head)
+        if not any(self._escapes(h) for h in heads):
+            settled.update(heads)
 
     def _computed_parents(self, node):
         parsed = self._parse_parametric(node.name)
@@ -1988,24 +2078,26 @@ class OntoDAG(DAG):
         values[head] = index
         return index
 
-    def _hops(self, canonical, head, kind, up):
+    def _hops(self, canonical, head, kind, up, limit=None):
         """Names of present terms of `head` directly above (`up`) or below
         `canonical`, which need not be present itself (a virtual query
-        term); or None when the star must be scanned instead."""
+        term); or None when the star must be scanned instead. `limit`
+        bounds the walks that find them (more than `limit` hops below, or a
+        walk past it, and the answer is too long or None)."""
         if not self._resident:
             return None
         if kind in _dims.GRAPH_ORDERED:
             # Also a head declared under another head: a narrower relation
             # (§20), or, for the graph kind, a head of its own.
-            return self._graph_hops(canonical, head, kind, up)
+            return self._graph_hops(canonical, head, kind, up, limit)
         base = self._dimension_of(head)[1]
         if base != head:
-            return self._role_hops(canonical, head, base, up)
+            return self._role_hops(canonical, head, base, up, limit)
         if kind in _dims._INTERVALISH or kind == _dims.KIND_PREFIX:
             index = self._value_index(head, kind)
             if index is None:
                 return None
-            return index.hops(self, canonical, head, kind, up)
+            return index.hops(self, canonical, head, kind, up, limit)
         return None
 
     def _ancestry(self, name):
@@ -2078,7 +2170,7 @@ class OntoDAG(DAG):
                     frontier.append(child)
         return out
 
-    def _role_hops(self, canonical, head, base, up):
+    def _role_hops(self, canonical, head, base, up, limit=None):
         """`_hops` for a role head (DIMENSIONS.md §14): `R(y) ⊑ R(x)` when y
         is below x in the base dimension, a parameter naming either a node
         (`from(my_home)`) or, spelled literally, a value of the base
@@ -2094,6 +2186,8 @@ class OntoDAG(DAG):
         start = node.name if node is not None else f"{base}({param})"
         head_node = self.nodes.get(head)
         budget = len(head_node.neighbors) if head_node is not None else 0
+        if limit is not None:
+            budget = min(budget, limit)
         walked = self._ancestry(start) if up else self._below_names(start, budget)
         if walked is None:
             return None
@@ -2154,7 +2248,7 @@ class OntoDAG(DAG):
                 else self._contains(parsed[2], value.name, parsed[1]))]
         return [self.nodes[n] for n in found if n in self.nodes]
 
-    def _graph_hops(self, canonical, head, kind, up):
+    def _graph_hops(self, canonical, head, kind, up, limit=None):
         """`_hops` for the kinds the graph orders. Candidates come from
         walking near the term's constraints, and each is then checked with
         `_contains`, so a candidate too many costs a check, never a wrong
@@ -2188,10 +2282,9 @@ class OntoDAG(DAG):
                 kind == _dims.KIND_GRAPH
                 and any(nested.get(h) for h in heads_reached)):
             return None
-        budget = 0
-        for reached in heads_reached:
-            reached_node = self.nodes.get(reached)
-            budget += len(reached_node.neighbors) if reached_node is not None else 0
+        budget = self._star_size(heads_reached)
+        if limit is not None:
+            budget = min(budget, limit)
         found, scan = set(), []
 
         def named(names, above):
@@ -2326,24 +2419,32 @@ class OntoDAG(DAG):
         return out
 
     def _located_in(self, located, budget):
-        """Everything below `in(X…)`, present or virtual, within `budget`."""
+        """Everything below `in(X…)`, present or virtual; None once that is
+        more than `budget` names. The walk stops there: until 2026-10-09 it
+        went on to the end of the cone and then dropped it, so a query about
+        France walked every village in France to learn that checking the
+        store's three terms about anything was cheaper."""
         node = self.nodes.get(located)
-        if node is not None:
-            cone = self.get_descendants(node)
-        else:
-            try:
-                parsed = self._parse_parametric(located)
-            except ValueError:
-                # `located` is derived from a stored term whose constraint
-                # has since been removed (`about(c1 c4)`, then `remove c4`):
-                # nothing is known to be inside what no longer exists.
-                # Until 2026-10-09 this raised, so every query and write
-                # that walked the term failed.
-                return []
-            if parsed is None:
-                return []
-            cone = self._virtual_cone(parsed[0], parsed[1], parsed[2])
-        if len(cone) > budget:
+        try:
+            if node is not None:
+                cone = self.get_descendants(node, limit=budget)
+            else:
+                try:
+                    parsed = self._parse_parametric(located)
+                except ValueError:
+                    # `located` is derived from a stored term whose
+                    # constraint has since been removed (`about(c1 c4)`,
+                    # then `remove c4`): nothing is known to be inside what
+                    # no longer exists. Until 2026-10-09 this raised, so
+                    # every query and write that walked the term failed.
+                    return []
+                if parsed is None:
+                    return []
+                cone = self._walk_cone(
+                    _Cone("lazy", 0, parsed[2], parsed[:2]), limit=budget)
+        except _TooCostly:
+            return None
+        if cone is None:
             return None
         return [n.name for n in cone]
 
@@ -2467,30 +2568,12 @@ class OntoDAG(DAG):
             f"place or region is involved and neither contains the other) "
             f"— query with both terms instead")
 
-    def _virtual_cone(self, head, kind, canonical):
-        """The cone of a parametric term that need not exist as a node: the
-        present values of its dimension contained in its denotation, plus
-        everything below them. Queries quantify over present nodes only —
-        this is why "all integers" can never be an answer, and why a
-        read-only client can ask any threshold without writing
-        (DIMENSIONS.md §8)."""
-        # One walk with a shared visited set, as in `_walk_cone`.
-        cone, visited = set(), set()
-        for value in self._contained_values(canonical, head, kind):
-            cone.add(value)
-            cone |= self.get_descendants(value, visited)
-        return cone
-
     def _contained_values(self, canonical, head, kind):
         """Present terms of `head` inside `canonical`, which need not be
         present: the term itself if it is, and what its hops lead to (a
         walk from these reaches the rest)."""
-        found = self._hops(canonical, head, kind, up=False)
-        if found is None:
-            return [value for value, _ in self._stars(self._narrower(head))
-                    if self._contains(canonical, value.name, kind)]
-        values = [self.nodes[name] for name in found if name in self.nodes]
         node = self.nodes.get(canonical)
+        values = self._terms_inside(canonical, head, kind, node)[0]
         if node is not None:
             values.append(node)
         return values
@@ -2720,7 +2803,9 @@ class OntoDAG(DAG):
         adaptively between steps. Every step is result-preserving.
 
         Planned in advance (the inputs — `descendant_count` — are exact,
-        maintained statistics, so this needs no runtime correction):
+        maintained statistics for categories, so this needs no runtime
+        correction; a term the computed order runs through has no such
+        statistic, see 3):
 
         1. Terms are resolved by name and deduplicated (identity at the public
            boundary is the name, never the caller's object).
@@ -2733,7 +2818,11 @@ class OntoDAG(DAG):
            graph. `descendant_count` supplies the cheap necessary condition —
            a strict ancestor always has a strictly larger count.
         3. The surviving cones are ordered smallest-count-first (name as
-           tiebreak, keeping traversal deterministic).
+           tiebreak, keeping traversal deterministic). A dimension term's
+           count leaves out what reaches it by computed links, and a
+           virtual term has none, so such a term is walked only as far as
+           it could matter: past the smallest category's size times the
+           probe cost it is left to the probe (`_size_unsized`).
 
         Decided during retrieval: after each step the running result's size
         is known exactly — something no up-front plan can estimate, since
@@ -2860,35 +2949,44 @@ class OntoDAG(DAG):
             )
         ]
 
-        # 3. One list of cones, smallest estimated first (name as tiebreak,
-        # keeping traversal deterministic). Sizes are asserted counts — the
-        # exact walk cost for present terms, a lower bound for the others.
-        cones = []
+        # 3. One list of cones, smallest first (name as tiebreak, keeping
+        # traversal deterministic). A category's size is its count, the
+        # exact size of its walk. A term the computed order runs through has
+        # no such number: its count leaves out what reaches it by computed
+        # links (about(paris) counts what is filed under it, not what is
+        # filed about the Louvre), and a virtual term has none. Such a term
+        # is sized in step 3a; a graph-kind term keeps its estimate.
+        cones, unsized = [], []
         for node in minimal:
-            size = node.descendant_count
+            cone = _Cone("node", node.descendant_count, node.name, node)
             parsed = self._parse_parametric(node.name)
-            if parsed is not None:
-                # A present graph-kind term's cone runs on through the terms
-                # inside it, which its asserted count does not see.
-                estimate = self._graph_part_estimate(node.name, *parsed[:2])
-                if estimate is not None:
-                    size = max(size, estimate)
-            cones.append(_Cone("node", size, node.name, node))
-        for name, (head, kind) in virtual.items():
-            estimate = self._graph_part_estimate(name, head, kind)
-            if estimate is not None:
-                # Found only if walked: a broad part (`transport(mass(..30kg))`
-                # beside `transport(c0)`) is cheaper probed per candidate.
-                cones.append(_Cone("lazy", estimate, name, (head, kind)))
+            if parsed is None:
+                cones.append(cone)
                 continue
-            values = self._contained_values(name, head, kind)
-            cones.append(_Cone("virtual", self._cone_size(values), name,
-                               values))
+            # A present graph-kind term's cone runs on through the terms
+            # inside it, which its asserted count does not see.
+            estimate = self._graph_part_estimate(node.name, *parsed[:2])
+            if estimate is None:
+                unsized.append(cone)
+            else:
+                cones.append(cone._replace(size=max(cone.size, estimate)))
+        for name, (head, kind) in virtual.items():
+            # Found only if walked: a broad part (`transport(mass(..30kg))`
+            # beside `transport(c0)`) is cheaper probed per candidate.
+            estimate = self._graph_part_estimate(name, head, kind)
+            cone = _Cone("lazy", 0 if estimate is None else estimate, name,
+                         (head, kind))
+            (unsized if estimate is None else cones).append(cone)
+        walked = self._size_unsized(cones, unsized)
         cones.sort(key=lambda cone: (cone.size, cone.name))
+
+        def walk(cone):
+            found = walked.get(cone.name)
+            return self._walk_cone(cone) if found is None else found
 
         # Adaptive execution: walk or probe, decided per step from the now-
         # known size of the running result.
-        result = self._walk_cone(cones[0])
+        result = walk(cones[0])
         for index, cone in enumerate(cones[1:], start=1):
             if not result:
                 break
@@ -2902,8 +3000,61 @@ class OntoDAG(DAG):
                 result = {candidate for candidate in result
                           if self._probe_cones(candidate, remaining)}
                 break
-            result &= self._walk_cone(cone)
+            result &= walk(cone)
         return finish(result)
+
+    def _size_unsized(self, cones, unsized):
+        """Step 3a of `get`: give each cone in `unsized` a size and add it
+        to `cones`; return the walks that finished, by name, for reuse.
+
+        Each is walked only as far as it could matter. Past `limit` members
+        (the smallest sized cone's size times the probe cost), walking it
+        costs more than walking that cone and checking each of its members
+        against the term upward, so it gets a size just past the limit and
+        is probed: `get about(p0) review` checks three reviews instead of
+        finding everything filed about the places inside p0 (1.9 s, now
+        about 2 ms). With no sized cone, the terms race at budgets growing
+        fourfold, and the first to finish sets the limit for the rest."""
+        walked = {}
+        if not unsized:
+            return walked
+        if not cones and len(unsized) == 1:
+            cones.append(unsized[0])        # the only cone: walked anyway
+            return walked
+        pending = list(unsized)
+        per_member = max(self._PROBE_COST_ESTIMATE, 1)
+        if cones:
+            limit = min(cone.size for cone in cones) * per_member
+        else:
+            budget = 64
+            while not walked:
+                for cone in pending:
+                    found = self._cone_within(cone, budget)
+                    if found is not None:
+                        walked[cone.name] = found
+                        pending.remove(cone)
+                        cones.append(cone._replace(size=len(found)))
+                        break
+                else:
+                    budget *= 4
+            limit = cones[-1].size * per_member
+        for cone in pending:
+            found = self._cone_within(cone, limit)
+            if found is None:
+                cones.append(cone._replace(size=limit + 1))
+                continue
+            walked[cone.name] = found
+            cones.append(cone._replace(size=len(found)))
+            limit = min(limit, len(found) * per_member)
+        return walked
+
+    def _cone_within(self, cone, limit):
+        """`_walk_cone` for step 3a: the cone, or None when it holds more
+        than `limit` members or finding them would cost more."""
+        try:
+            return self._walk_cone(cone, limit)
+        except _TooCostly:
+            return None
 
     def _graph_part_estimate(self, name, head, kind):
         """A cheap size for a graph-kind query term, whose contained terms
@@ -2933,30 +3084,37 @@ class OntoDAG(DAG):
             return [name]
         return self._graph_parts(self._canonical_name(name))
 
-    def _cone_size(self, values):
-        """Estimated size of a computed cone: the values and what is
-        asserted below them. Counts on an unexpanded lazy stub read 0, so
-        a small anchor set is resolved through `self.nodes` first (which
-        expands on the lazy reader, is a dict hit on the eager one); a large
-        one is already a large estimate by its count alone."""
-        if len(values) <= 32:
-            values[:] = [self.nodes.get(value.name, value) for value in values]
-        return sum(value.descendant_count + 1 for value in values)
-
-    def _walk_cone(self, cone):
+    def _walk_cone(self, cone, limit=None):
+        """The members of a query term's cone. With `limit`, None once there
+        are more than `limit` of them, or `_TooCostly` once finding them
+        would cost more: how step 3a of `get` sizes a term."""
         if cone.kind == "node":
-            return self.get_descendants(cone.payload)
-        if cone.kind == "lazy":
-            cone = cone._replace(payload=self._contained_values(
-                cone.name, *cone.payload))
-        # Virtual: one walk over every contained value, sharing what it
-        # has visited. The values can nest (an interval inside an
-        # interval), and a walk per value re-walked every value inside:
-        # quadratic in the nesting.
+            return self.get_descendants(cone.payload, limit=limit)
+        # Virtual: one walk over every term inside, sharing what it has
+        # visited. The values can nest (an interval inside an interval), and
+        # a walk per value re-walked every value inside: quadratic in the
+        # nesting. When they are every term of their heads inside the query
+        # term, none of them is asked again for the terms inside it
+        # (`_walk_children`).
+        head, kind = cone.payload
+        values, complete = self._terms_inside(cone.name, head, kind,
+                                              limit=limit)
+        settled = set()
+        if complete:
+            self._settle(head, settled)
         found, visited = set(), set()
-        for value in cone.payload:
+        for value in values:
             found.add(value)
-            found |= self.get_descendants(value, visited)   # combined order
+            if limit is not None and len(found) > limit:
+                return None
+            below = self.get_descendants(          # combined order
+                value, visited, settled=settled,
+                limit=None if limit is None else limit - len(found))
+            if below is None:
+                return None
+            found |= below
+            if limit is not None and len(found) > limit:
+                return None
         return found
 
     def _probe_cones(self, candidate, cones):

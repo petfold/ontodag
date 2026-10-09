@@ -228,7 +228,7 @@ class LazyOntoDAG(OntoDAG):
     # ------------------------------------------------------- dimensions
     #
     # DIMENSIONS.md §12 step 5: the inherited dimension machinery (_star,
-    # _computed_children/_parents, _virtual_cone, get, get_overlapping)
+    # _computed_children/_parents, _walk_cone, get, get_overlapping)
     # works on names and on `self.nodes.get(...)`, which loads-and-expands
     # here — the one thing it cannot do on stubs is walk *upward*, so the
     # kind lookup expands as it climbs. Records carry `up`, so the walk
@@ -249,7 +249,8 @@ class LazyOntoDAG(OntoDAG):
 
     # ------------------------------------------------------- traversals
 
-    def get_descendants(self, node, visited=None, computed=True):
+    def get_descendants(self, node, visited=None, computed=True, settled=None,
+                        limit=None):
         name = self._canonical_name(_name_of(node))
         start = self.nodes.get(name)
         if start is None:
@@ -259,7 +260,9 @@ class LazyOntoDAG(OntoDAG):
         # must not be served a combined cone, or vice versa.
         if computed and self._cone_cache is not None \
                 and name in self._cone_cache:
-            return set(self._cone_cache[name])
+            cone = self._cone_cache[name]
+            return None if limit is not None and len(cone) > limit \
+                else set(cone)
         # Published summary: one fetch instead of the enumeration. Combined-
         # order requests only — summaries state the query-path cone, and an
         # asserted-only caller (count recomputation) must never see it.
@@ -268,29 +271,34 @@ class LazyOntoDAG(OntoDAG):
             if members is not None:
                 descendants = {self._stub(member) for member in members}
                 self._cache_cone(name, descendants)
-                return descendants
+                return None if limit is not None \
+                    and len(descendants) > limit else descendants
 
         # A caller walking several cones at once shares `visited` (see
-        # `OntoDAG._walk_cone`); such a walk stops where an earlier one
-        # went, so its result is not this node's cone and is never cached
-        # as one.
-        shared = visited is not None
-        seen = visited if shared else set()
+        # `OntoDAG._walk_cone`), and with it the heads already `settled`;
+        # such a walk stops where an earlier one went, so its result is not
+        # this node's cone and is never cached as one.
+        shared = visited is not None or settled is not None
+        seen = visited if visited is not None else set()
         if start in seen:
             return set()
         seen.add(start)
+        if settled is None:
+            settled = set()
         descendants = set()
         frontier = [start]
         while frontier:
             current = self._expand(frontier.pop())
             successors = list(current.neighbors)
             if computed:
-                successors.extend(self._computed_children(current))
+                successors.extend(self._walk_children(current, settled, limit))
             for child in successors:
                 descendants.add(child)
                 if child not in seen:
                     seen.add(child)
                     frontier.append(child)
+            if limit is not None and len(descendants) > limit:
+                return None
         if computed and not shared:
             self._cache_cone(name, descendants)
         return descendants

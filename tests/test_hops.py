@@ -12,6 +12,9 @@ there, for lazy readers and as the fallback, and it is the reference:
   terms included), and requires the same stored form and the same answers.
 * `TestFilingDoesNotScan` pins the point of the work: filing an item never
   walks a star, however many terms its head has.
+* `TestTermsInsideAreAllOfThem` pins what a walk relies on to leave a term
+  unasked (`OntoDAG._walk_children`), and `TestAQueryCostsItsAnswer` what
+  that, and the planner's sizing of such terms, buys (REVIEW §8 item 13).
 """
 
 import random
@@ -361,25 +364,227 @@ class TestFilingDoesNotScan(unittest.TestCase):
 
 class TestAVirtualConeIsOneWalk(unittest.TestCase):
     """A virtual query term's cone is walked once, whatever its values'
-    nesting: each node in it is expanded once. A walk per contained value
-    re-walked every value nested inside it (quadratic in the nesting)."""
+    nesting. A walk per contained value re-walked every value nested
+    inside it (quadratic in the nesting); since 2026-10-09 the values,
+    being every value inside the term, are not asked for theirs at all."""
 
-    def test_each_node_is_expanded_once(self):
+    def test_no_value_is_asked_for_the_values_inside_it(self):
         dag = OntoDAG()
         prelude.apply(dag)
         n = 60
         for k in range(n):           # nested ranges, each with a crate
             dag.put(f"crate{k}", [f"mass({k + 1}kg..{2 * n - k}kg)"])
         counter = {"calls": 0}
-        original = dag._computed_children
+        original = dag._terms_inside
 
-        def counting(node):
+        def counting(*args, **kwargs):
             counter["calls"] += 1
-            return original(node)
-        dag._computed_children = counting
+            return original(*args, **kwargs)
+        dag._terms_inside = counting
         found = dag.get(["mass(..10000kg)"])
         self.assertEqual(len(found), 2 * n)
-        self.assertLessEqual(counter["calls"], 2 * n)
+        self.assertEqual(counter["calls"], 1)      # the query term's own
+
+
+def counting(dag, method):
+    """Count the calls `dag` makes to one of its methods."""
+    counter = {"calls": 0}
+    original = getattr(dag, method)
+
+    def counted(*args, **kwargs):
+        counter["calls"] += 1
+        return original(*args, **kwargs)
+    setattr(dag, method, counted)
+    return counter
+
+
+def play_narrower(resident, names, ops):
+    dag = declare(resident)
+    dag.put("inside", ["in"])            # narrower relations (§20)
+    dag.put("mentions", ["about"])
+    for name in names:
+        dag.put(name, [])
+    for child, parent in ops:
+        try:
+            dag.put(child, [parent])
+        except ValueError:
+            pass
+    return dag
+
+
+def narrower_operations(seed, size=8, steps=40):
+    rnd = random.Random(seed)
+    names = [f"n{i}" for i in range(size)]
+    heads = ["in", "inside", "about", "mentions", "shared-with"]
+    ops = []
+    for _ in range(steps):
+        a, b = rnd.sample(names, 2)
+        shape = rnd.random()
+        if shape < 0.25:
+            ops.append((a, b))
+        elif shape < 0.85:
+            ops.append((a, f"{rnd.choice(heads)}({b})"))
+        else:
+            ops.append((f"doc{rnd.randint(0, 9)}", f"{rnd.choice(heads)}({b})"))
+    return names, ops, []
+
+
+class TestTermsInsideAreAllOfThem(unittest.TestCase):
+    """A walk below a term leaves the terms of its head further down
+    unasked when the term's hops listed every one of them inside it
+    (`OntoDAG._walk_children`, 2026-10-09). That holds for the hops of
+    every kind but the transitive one, whose hops leave the terms inside
+    a term inside it to that term; the scan, which lists them all, is the
+    reference. A head's anchor edges list every term of it by schema."""
+
+    def check(self, by_name, by_scan, label):
+        for name in sorted(by_scan.nodes):
+            parsed = by_scan._parse_parametric(name)
+            if parsed is None or name not in by_name.nodes:
+                continue
+            head, kind, canonical = parsed
+            try:
+                listed, complete = by_name._terms_inside(
+                    canonical, head, kind, by_name.nodes[name])
+                every, scanned = by_scan._terms_inside(
+                    canonical, head, kind, by_scan.nodes[name])
+            except ValueError:
+                continue
+            self.assertTrue(scanned)
+            listed = {n.name for n in listed}
+            every = {n.name for n in every}
+            if complete:
+                self.assertEqual(listed, every, (label, name))
+            else:
+                self.assertEqual(kind, "transitive-dimension", (label, name))
+                self.assertLessEqual(listed, every, (label, name))
+
+    def test_every_kind(self):
+        for seed in range(10):
+            for operations, play_with in ((random_operations, play),
+                                          (graph_operations, play_graph),
+                                          (role_operations, play_roles),
+                                          (narrower_operations, play_narrower)):
+                names, ops, _queries = operations(seed)
+                self.check(play_with(True, names, ops),
+                           play_with(False, names, ops),
+                           (operations.__name__, seed))
+
+
+class TestAQueryCostsItsAnswer(unittest.TestCase):
+    """REVIEW §8 item 13 (2026-10-09): a query's work follows its answer,
+    not the store around it. Counted, not timed; each case cost what its
+    name says before the fix, measured in the decision record (REVIEW
+    §4)."""
+
+    @staticmethod
+    def places(n, docs, seed=7):
+        """A random tree of places, each in an earlier one, and documents
+        about random places, three of them also reviews."""
+        rnd = random.Random(seed)
+        dag = declare(True)
+        for name in ("place", "document", "review"):
+            dag.put(name, [])
+        dag.put("p0", ["place"])
+        for i in range(1, n):
+            dag.put(f"p{i}", ["place", f"in(p{rnd.randrange(i)})"])
+        for j in range(docs):
+            parents = ["document", f"about(p{rnd.randrange(n)})"]
+            dag.put(f"doc{j}", parents + (["review"] if j < 3 else []))
+        return dag
+
+    def answer(self, dag, terms):
+        """The answer by `is_below`, which climbs, for comparison."""
+        return {n for n in dag.nodes if n != "*" and n not in terms
+                and all(dag.is_below(n, t) for t in terms)}
+
+    def test_nested_terms_are_checked_once_each(self):
+        # n places each inside the last, a document about each: every
+        # about-term was checked against every one above it, n²/2 checks
+        # for 2n answers.
+        dag = declare(True)
+        dag.put("place", [])
+        n = 80
+        dag.put("level0", ["place"])
+        for i in range(1, n):
+            dag.put(f"level{i}", ["place", f"in(level{i - 1})"])
+        for i in range(n):
+            dag.put(f"doc{i}", [f"about(level{i})"])
+        dag._memo = None
+        checks = counting(dag, "_graph_contains_uncached")
+        found = {m.name for m in dag.get(["about(level0)"])}
+        self.assertEqual(len(found), 2 * n - 1)
+        self.assertEqual(found, self.answer(dag, ["about(level0)"]))
+        self.assertLess(checks["calls"], 3 * n)
+
+    def test_places_nothing_is_about_cost_nothing(self):
+        # Every village in France was walked to learn that checking the
+        # store's few about-terms was cheaper.
+        def walked(villages):
+            dag = declare(True)
+            for name, supers in (("place", []), ("france", ["place"]),
+                                 ("lyon", ["place", "in(france)"]),
+                                 ("guide", ["about(lyon)"]),
+                                 ("atlas", ["about(france)"])):
+                dag.put(name, supers)
+            for i in range(villages):
+                dag.put(f"village{i}", ["place", "in(lyon)"])
+            dag._memo = None
+            steps = counting(dag, "_walk_children")
+            found = {m.name for m in dag.get(["about(france)"])}
+            self.assertEqual(found, {"guide", "atlas", "about(lyon)"})
+            return steps["calls"]
+        self.assertLessEqual(walked(2000), walked(200))
+
+    def test_a_broad_term_beside_a_small_category_is_probed(self):
+        dag = self.places(400, 300)
+        for stored in (False, True):
+            if stored:       # its count, 1, used to make it look smallest
+                dag.put("overview", ["document", "about(p0)"])
+            dag._memo = None
+            checks = counting(dag, "_graph_contains_uncached")
+            found = {m.name for m in dag.get(["about(p0)", "review"])}
+            self.assertEqual(found, {"doc0", "doc1", "doc2"}, stored)
+            self.assertLess(checks["calls"], 40, stored)
+            del dag._graph_contains_uncached
+
+    def test_a_small_term_beside_a_broad_category_is_walked(self):
+        dag = self.places(400, 300)
+        leaf = next(f"p{i}" for i in range(399, 0, -1)
+                    if f"about(p{i})" in dag.nodes
+                    and not dag.get([f"in(p{i})"]))
+        dag._memo = None
+        probes = counting(dag, "_probe_cones")
+        found = {m.name for m in dag.get([f"about({leaf})", "document"])}
+        self.assertEqual(found, self.answer(dag, [f"about({leaf})", "document"]))
+        self.assertLessEqual(probes["calls"], len(found))
+
+    def test_a_value_range_beside_a_small_category_is_probed(self):
+        rnd = random.Random(5)
+        dag = declare(True)
+        for name in ("parcel", "fragile", "want"):
+            dag.put(name, [])
+        for i in range(1000):
+            dag.put(f"parcel{i}", ["parcel", f"mass({rnd.randint(1, 10000)}g)"]
+                    + (["fragile"] if i % 250 == 0 else []))
+        dag.put("want1", ["want", "mass(..5kg)"])      # stored, count 1
+        dag._memo = None
+        steps = counting(dag, "_walk_children")
+        found = {m.name for m in dag.get(["mass(..5kg)", "fragile"])}
+        self.assertEqual(found, self.answer(dag, ["mass(..5kg)", "fragile"]))
+        self.assertLess(steps["calls"], 40)
+
+    def test_a_head_holds_every_term_of_it(self):
+        # `get about`, and the empty query, asked every about-term for the
+        # about-terms inside it, though the head's anchors list them all.
+        dag = self.places(300, 200)
+        for terms in (["about"], []):
+            dag._memo = None
+            asked = counting(dag, "_terms_inside")
+            found = dag.get(terms)
+            self.assertEqual(asked["calls"], 0, terms)
+            self.assertTrue(found, terms)
+            del dag._terms_inside
 
 
 if __name__ == "__main__":

@@ -1411,6 +1411,40 @@ not nodes too. Neither showed in the random worlds, which never made a
 value-only constraint or a nested graph-kind term;
 `TestGraphKindAgreesWithTheScan` now makes both.
 
+**Queries, made output-sensitive too (2026-10-09, review question 8).**
+Filing followed the item, but a broad query of the enclosing kind did not
+follow its answer: `get about(p0)` on a random hierarchy of 12,800 places
+took 1.9 s for 1,968 answers. Three things, each fixed:
+
+- *A walk asked every term it reached for the terms inside it.* After
+  `about(france)` listed `about(paris)` and `about(louvre)`, the walk asked
+  `about(paris)` again and checked `about(louvre)` again: n²/2 checks for a
+  chain of n places. Now a walk leaves a term unasked once it holds every
+  term of its head inside it (`_walk_children`): after the head itself,
+  whose anchors list every term of it, or after a term whose hops listed
+  every term inside it. That is every kind but the transitive one, whose
+  hops leave the terms inside a term inside it to that term
+  (`TestTermsInsideAreAllOfThem` checks it against the scan). A head whose
+  terms escape is never settled by a term: an escaped term is reached
+  outside any cone that lists it.
+- *The `in` walk under an `about` term went to the end of the cone before
+  finding it too big to use* (`_located_in`); it now stops at its budget.
+- *The planner took a term's count as the size of its answer.* The count
+  is asserted-only by design, so it leaves out everything reaching the
+  term by a computed link: `about(p0)` with one document filed directly
+  under it counts 1 and answers 1,968, and was walked first beside a
+  category of three. A term not stored was listed in full to learn its
+  size. A dimension term is now sized by walking it only as far as it
+  could matter (`_size_unsized`): past the smallest category's size times
+  the probe cost, it is left to the probe. The graph kind keeps its
+  estimate (§15).
+
+`get about(p0)` at 12,800 places now takes 0.24 s; what remains is one
+containment check per `about` term in the answer, climbing the place
+hierarchy, so it grows with answers × depth. `get about(p0) review` takes
+4 ms (was 1.9 s), `get mass(..5kg) fragile` 2.3 ms (was 139). The decision
+record, with every measurement, is REVIEW_2026-10.md §8 item 13.
+
 **What still scans, deliberately.**
 
 - A lazy reader and the sparse writer, which pay a fetch for every name
