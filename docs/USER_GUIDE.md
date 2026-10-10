@@ -1855,7 +1855,7 @@ Run it with no command on a terminal and you get an interactive prompt instead:
 
 ```console
 $ odag
-Ontodag 0.30.8 - type help for help
+Ontodag 0.31.0 - type help for help
 > put insurance.pdf Japan
 > get Japan
 boarding-pass.png
@@ -2018,7 +2018,7 @@ $ odag canon "time(2026-08-15)"
 time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)
 $ odag canon
 surface 0.1
-registry 4.0
+registry 4.4
 ```
 
 ### 5.6 Asking for everything, and how much output you get
