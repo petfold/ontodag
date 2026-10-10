@@ -119,6 +119,13 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+- **`deepcopy` copies the descendant counts instead of recounting them.**
+  The source's counts are exact (I5) and the copy has the same edges; the
+  recount walked every node's cone, up to the square of the store, and was
+  most of a copy's time: the core pack (5,030 nodes) copied in 92 ms, now
+  30 ms. loopmarket's matching index copies the catalogue every solver
+  step, and its G3 measurement found the copy to be most of the 85 ms a
+  small step pays for having no threshold.
 - **A typed value is parsed once, however often it is compared.** A
   parameter's denotation depends on its spelling alone under the built-in
   units, so the calendar, linear, count and size parsers keep what they

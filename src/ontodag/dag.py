@@ -5395,9 +5395,13 @@ class OntoDAG(DAG):
         new_dag = OntoDAG()
         mapping = {}
 
-        # Create new items
+        # Create new items. Counts are exact in the source (I5) and the copy
+        # has the same edges, so they are copied, not recounted: a recount
+        # walked every node's cone, up to the square of the store, and was
+        # most of the time a copy took (92 ms of the core pack's).
         for original_item in self.nodes.values():
             copy_item = Item(original_item.name, metadata=original_item.metadata)
+            copy_item.descendant_count = original_item.descendant_count
             mapping[original_item] = copy_item
             new_dag.add_node(copy_item)
 
@@ -5408,12 +5412,6 @@ class OntoDAG(DAG):
 
         # Update the root reference
         new_dag.root = mapping[self.root]
-
-        # Recalculate descendant counts (asserted-only, like all counts)
-        for node in new_dag.nodes.values():
-            node.descendant_count = len(
-                new_dag.get_descendants(node, computed=False))
-
         return new_dag
 
 

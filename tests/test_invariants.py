@@ -234,6 +234,25 @@ class TestCounters(unittest.TestCase):
         dag.put(Item("Y"), [Item("C")])
         assert_counts_consistent(self, dag)
 
+    def test_a_copy_keeps_exact_counts_without_walking_a_cone(self):
+        """`deepcopy` copies the counts, which are exact in the source and
+        mean the same in a copy with the same edges; it recounted them by
+        walking every node's cone, up to the square of the store, most of a
+        copy's time (loopmarket's index copies the catalogue every step)."""
+        dag = build([("A", []), ("B", ["A"]), ("C", ["A"]), ("D", ["B", "C"]),
+                     ("E", ["D"]), ("F", ["C"])])
+        walks = []
+        real = OntoDAG.get_descendants
+        OntoDAG.get_descendants = lambda self, *a, **k: walks.append(1) or real(self, *a, **k)
+        try:
+            copy = dag.deepcopy()
+        finally:
+            OntoDAG.get_descendants = real
+        self.assertEqual(walks, [])
+        assert_counts_consistent(self, copy)
+        self.assertEqual({n: x.descendant_count for n, x in copy.nodes.items()},
+                         {n: x.descendant_count for n, x in dag.nodes.items()})
+
 
 # ----------------------------------------------------------------------------
 # I6 - traversals must survive deep graphs (no RecursionError)
