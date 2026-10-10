@@ -423,6 +423,14 @@ Each line points to its record.
       `experiments/` first (§4). Done.
   23. The review's test suggestions 1–5 and 9, each written before the
       decided item it guards (§7). Done in both repositories.
+  24. loopmarket: one key per writer for notices, cures and cases
+      (`notice/<loop>/<give>/<writer>` and the like); the fold admits a
+      key only from its writer's own book; old keys are not read, a clean
+      break (item 23, question 26). Not built yet.
+  25. loopmarket: a statement's deposit comes from whoever stands behind
+      it (the subject if self-bonded, the issuer if attested), and the
+      clearing reserves its floor per relying leg, as D1 says (item 24,
+      question 27). Not built yet.
 
 ## Bee integration status
 
@@ -475,10 +483,8 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Question 27, being put: whether a self-bonded statement may use another
-maker's deposit (found by loopmarket's hostile-record tests). Questions
-24–26 are decided (`docs/plans/REVIEW_2026-10.md` items 21–23) and not
-built yet.
+None open from the review. Questions 24–27 are decided
+(`docs/plans/REVIEW_2026-10.md` items 21–24) and not built yet.
 
 Older, not urgent: the 0.31.0 release; a publisher key for the packs on
 Swarm (published without one, so no feed yet; PACKS.md); BROWSER.md §7's
