@@ -332,11 +332,6 @@ Consumers compare majors.
 
 Each line points to its record.
 
-- No backward compatibility yet (Peter, 2026-10-10): nobody uses ontodag
-  for real, so a change may break older stores, spellings and G7's
-  fixtures without a migration path; say so in the commit and CHANGELOG.
-  This ends when there are real users.
-
 - Agents are the priority consumer, and the human interface stays decent
   (CONTRACT.md, AGENT_SURFACE.md).
 - Writers converge by the CRDT merge (I7), never by locking
@@ -386,7 +381,8 @@ Each line points to its record.
       contradicting values stay as they arrive and `odag status` lists
       them; contract 0.6, registry 4.4 (item 18). Built. It found item 21:
       question 24, decided A (a value is kept only while something is
-      filed under it, older stores included); not built yet.
+      filed under it; for this change only, older stores get no allowance
+      and G7's fixtures may be re-recorded); not built yet.
   13. A role term whose name meets a category outside its dimension reads
       as the value when stored, is refused when written or typed;
       `name_clashes()` and `odag status` list such clashes (item 19).
@@ -405,7 +401,10 @@ Each line points to its record.
       Built.
   17. loopmarket: the fold re-checks every clearing book's loops, and
       where a chain is configured only on-chain fills hide an offer
-      (item 9). Built; building it raised question 25.
+      (item 9). Built; building it raised question 25, decided A: on a
+      chain, `propose` takes only makers' records, the fold records rival
+      loops instead of failing, and `watch` hands off only after a
+      finalized beat records the fill. Not built yet.
   18. loopmarket: `cli.py` split by area, with a `Reads` object and a
       `LegRecord` type; built first among loopmarket's items (item 10).
       Built (the settings half rides loopmarket's `ontodag-0.31` branch).
@@ -476,12 +475,9 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Two, each in `docs/plans/REVIEW_2026-10.md` with options and a
+One, in `docs/plans/REVIEW_2026-10.md` with options and a
 recommendation:
 
-- Question 25 (item 22, found building loopmarket's item 9): whether,
-  under a chain, rival clearing books are recorded instead of failing
-  the fold.
 - Question 26 (item 23, found by loopmarket's hostile-record tests): how
   the fold stops a stranger's record displacing a party's.
 
