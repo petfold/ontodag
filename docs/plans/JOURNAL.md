@@ -2471,3 +2471,7 @@ does not read; still pinned, not put as a question yet.
 - A module-scoped chain fixture carries state between tests: offers with
   the same content have the same ids, and an earlier test's fills hide
   them. Give a test makers of its own.
+- A test whose fixture imports an optional dependency must skip at
+  collection (`skipif`), not in its body: loopmarket's CI, which runs
+  without the evm extra, errored on the first push. Check by hiding the
+  dependency, as CLAUDE.md says, before pushing.
