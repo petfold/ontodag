@@ -469,9 +469,10 @@ Each line points to its record.
   was removed, so the next release is a minor, 0.31.0. It waits for
   Peter's word.
 - loopmarket main carries its decided items (2, 4, 9, 10, 11, 12, 17 and
-  its half of 23) and questions 25–27 (rival clearing books recorded under
+  its half of 23) and questions 25–28 (rival clearing books recorded under
   a chain, one key per writer for notices, cures and cases, a statement's
-  deposit its backer's with its floor reserved per relying leg), a fold that is N log N in books instead of N², the
+  deposit its backer's with its floor reserved per relying leg, `watch`
+  counting a case record only from the reservation's party), a fold that is N log N in books instead of N², the
   `BookClearing` rename, and, ready for 0.31's release gate, the index
   filing older offers' bare cells under their current spelling. Its branch `ontodag-0.31`
   holds what needs ontodag 0.31 (the CLI writing cells by their own name,
@@ -490,10 +491,8 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Question 28, being put: whose case records `watch` reports (a claim,
-answer or ruling sealed to me by someone who is not the reservation's
-party; `docs/plans/REVIEW_2026-10.md` item 25). Questions 24–27 are
-decided and built (items 21–24).
+None open from the review: questions 24–28 are decided and built
+(`docs/plans/REVIEW_2026-10.md` items 21–25).
 
 Older, not urgent: the 0.31.0 release; a publisher key for the packs on
 Swarm (published without one, so no feed yet; PACKS.md); BROWSER.md §7's
@@ -505,7 +504,10 @@ the journal): the
 surface layer (and ROLES §9 step 6), bundles (BINDING), an ordinal kind and
 the top ontology (EVOLUTION), computed values, a contract clause for
 self-declared truncation, MCP reads through overlays, a query log outside
-the web app, and the postage-expiry experiment.
+the web app, the postage-expiry experiment, and how an arbitrator gets
+evidence from third parties such as witnesses and experts (Peter,
+2026-10-10, raised with question 28: probably off chain; factbond's and
+loopmarket's).
 
 ## Documentation and history
 
