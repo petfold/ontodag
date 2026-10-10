@@ -467,10 +467,10 @@ Each line points to its record.
   `ontodag>=0.31.0`), ontodag-fs 0.7.0 (ontodag's public layer;
   `>=0.31.0,<0.32.0`). Unchanged: recordstore 0.22.2 and swarmfs 0.14.0
   (their commits since are lint and docs). Nothing is unreleased on any
-  main but categor.io's.
-- categor.io main removes a contact with its shares (`with_terms=True`)
-  and pins `ontodag>=0.31.0`; the live site picks it up at the admin's
-  next update. circulator's main writes v4 offers (its CI has been red
+  main.
+- categor.io's live site runs its main (6bad379, updated 2026-10-10):
+  ontodag 0.31, and removing a contact ends its shares
+  (`with_terms=True`). circulator's main writes v4 offers (its CI has been red
   since 2026-09-21 on a test comparing its own copy of the baseline).
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.

@@ -2545,3 +2545,10 @@ The failure line now names the failed checks (befd1a9).
 **Lessons, kept.**
 - Before calling a failure a flake, read the logs of the runs that
   passed: a retry loop that went green can hold the failure itself.
+
+**categor.io live.** Peter ran `categorio-update`: one change listed
+(6bad379; 15a55e3's 0.30 move had already gone out), backup, install,
+and `Updated: 6bad379`. The one `curl: (7) Failed to connect` line was
+the updater's first poll, made before gunicorn had bound its port; the
+next poll a second later answered. https://categor.io answers 200 with
+its page.
