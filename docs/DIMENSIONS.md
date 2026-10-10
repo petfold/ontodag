@@ -1763,3 +1763,22 @@ pieces, overlap all but ends seam misses (the tree's weakness: a thing
 across a seam has no single container), and the price is depth: a query
 must not visit a thing once per piece holding it. The fineness, not the
 method, sets the border misses.
+
+**Canonical (Peter, 2026-10-10: many ways to approximate a natural shape is
+not what we want).** The greedy rectangles above are not canonical: another
+scan order gives other pieces. Where the choices lie: the boundary data is a
+choice of source and version, which ontodag cannot make canonical (pin it,
+as a pack is pinned); the area at a fineness is canonical once the rule is
+fixed (a grid square counts when wholly inside the boundary); and two ways
+of naming that area are canonical too: whole cells (the tree) and every
+maximal rectangle, one that cannot grow in any direction (the DAG). The
+second is the only cover that misses no thing on a seam: a rectangle inside
+the area grows into a maximal one, and a maximal one is held by no piece
+but itself. Measured the same way:
+
+| region, grid square | maximal rectangles | seam misses | pieces holding a point: average, most |
+|---|---|---|---|
+| Paris, 101×153 m | 142 | 0% | 34, 87 |
+| Paris, 25×19 m | 3,898 | 0% | 1,054, 2,619 |
+| France, 3.4×4.9 km | 997 | 0% | 112, 361 |
+| France, 846×611 m | 22,266 | 0% | 2,558, 8,811 |

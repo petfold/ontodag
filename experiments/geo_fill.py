@@ -153,6 +153,32 @@ def partition_pieces(m):
     return np.array(out, dtype=np.int64)
 
 
+def maximal_pieces(m):
+    """Every maximal rectangle of the inside pixels: one that cannot grow in
+    any direction. The set is unique for a given area, so it is canonical, and
+    any rectangle inside the area lies inside one of them (grow it until it
+    stops). Each is found once, at its bottom row, by the histogram stack."""
+    ny, nx = m.shape
+    h = np.zeros(nx + 1, np.int64)
+    R = np.zeros((ny + 1, nx + 1), np.int64)
+    R[:ny, 1:] = m.cumsum(1)
+    out = []
+    for y in range(ny):
+        h[:nx] = np.where(m[y], h[:nx] + 1, 0)
+        stack = []
+        for x in range(nx + 1):
+            hx = int(h[x])
+            start = x
+            while stack and stack[-1][1] > hx:
+                s0, H = stack.pop()
+                if y + 1 == ny or R[y + 1, x] - R[y + 1, s0] < x - s0:     # cannot grow down
+                    out.append((s0, x, y - H + 1, y + 1))
+                start = s0
+            if hx and not (stack and stack[-1][1] == hx):
+                stack.append((start, hx))
+    return np.array(out, dtype=np.int64)
+
+
 def squares(geom, side_m, n):
     w, s, e, nn = geom.bounds
     got = []
@@ -192,18 +218,20 @@ def region(name, geom, levels, sides, n=10_000):
         lat = (geom.bounds[1] + geom.bounds[3]) / 2
         wm, hm = pw * 111_320 * math.cos(math.radians(lat)), ph * 111_320
         cover = m.sum() * pw * ph / geom.area
-        pieces = {"cells": cell_pieces(m, meta, L), "part": partition_pieces(m), "overlap": overlap_pieces(m)}
+        pieces = {"cells": cell_pieces(m, meta, L), "part": partition_pieces(m), "overlap": overlap_pieces(m),
+                  "maximal": maximal_pieces(m)}
         print(f"\n{name}, finest pixel geohash {L} ({wm:,.0f} m x {hm:,.0f} m): {m.sum():,} pixels inside, "
               f"{100 * cover:.1f}% of the area  [{time.time() - t:.0f} s]")
         print("  pieces: " + ", ".join(f"{k} {len(v):,}" for k, v in pieces.items()))
         for k, P in pieces.items():                  # each covers exactly the inside pixels
-            paint = np.zeros(m.shape, np.int32)
-            for x0, x1, y0, y1 in P:
-                paint[y0:y1, x0:x1] += 1
+            d = np.zeros((m.shape[0] + 1, m.shape[1] + 1), np.int64)
+            for dy, dx, sign in ((2, 0, 1), (2, 1, -1), (3, 0, -1), (3, 1, 1)):
+                np.add.at(d, (P[:, dy], P[:, dx]), sign)
+            paint = d.cumsum(0).cumsum(1)[:-1, :-1]
             assert ((paint > 0) == m).all(), f"{k}: pieces do not cover exactly the inside pixels"
-            assert k == "overlap" or paint.max() == 1, f"{k}: pieces overlap"
-            if k == "overlap":
-                print(f"  overlap: a point inside lies in {paint[m].mean():.1f} pieces on average, "
+            assert k in ("overlap", "maximal") or paint.max() == 1, f"{k}: pieces overlap"
+            if k in ("overlap", "maximal"):
+                print(f"  {k}: a point inside lies in {paint[m].mean():.1f} pieces on average, "
                       f"at most {paint.max()}")
         for side in sides:
             sq = squares(geom, side, n)
@@ -222,10 +250,11 @@ if sys.argv[2:] == ["countries"]:
         if not m.any():
             continue
         total["cells"] += len(cell_pieces(m, meta, 5)); total["overlap"] += len(overlap_pieces(m))
+        total["maximal"] = total.get("maximal", 0) + len(maximal_pieces(m))
         total["pixels"] += int(m.sum())
     print(f"all {len(json.load(open(f'{D}/ne_50m_admin_0_countries.geojson'))['features'])} countries "
           f"(Natural Earth 1:50m) at geohash 5: {total['pixels']:,} pixels inside; pieces: cells "
-          f"{total['cells']:,}, overlap {total['overlap']:,}  [{time.time() - t:.0f} s]")
+          f"{total['cells']:,}, overlap {total['overlap']:,}, maximal {total['maximal']:,}  [{time.time() - t:.0f} s]")
     sys.exit(0)
 paris = shape(json.load(open(f"{D}/paris.geojson"))["features"][0]["geometry"])
 fr = next(shape(f["geometry"]) for f in json.load(open(f"{D}/ne_10m_admin_0_countries.geojson"))["features"]
