@@ -332,6 +332,11 @@ Consumers compare majors.
 
 Each line points to its record.
 
+- No backward compatibility yet (Peter, 2026-10-10): nobody uses ontodag
+  for real, so a change may break older stores, spellings and G7's
+  fixtures without a migration path; say so in the commit and CHANGELOG.
+  This ends when there are real users.
+
 - Agents are the priority consumer, and the human interface stays decent
   (CONTRACT.md, AGENT_SURFACE.md).
 - Writers converge by the CRDT merge (I7), never by locking
@@ -379,8 +384,9 @@ Each line points to its record.
   12. Every replay (merge, sync, loading an unmarked file) folds an item's
       overlapping values of one head into their meet, as `put` does;
       contradicting values stay as they arrive and `odag status` lists
-      them; contract 0.6, registry 4.4 (item 18). Built. It found item 21,
-      open as question 24.
+      them; contract 0.6, registry 4.4 (item 18). Built. It found item 21:
+      question 24, decided A (a value is kept only while something is
+      filed under it, older stores included); not built yet.
   13. A role term whose name meets a category outside its dimension reads
       as the value when stored, is refused when written or typed;
       `name_clashes()` and `odag status` list such clashes (item 19).
@@ -470,11 +476,9 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Three, each in `docs/plans/REVIEW_2026-10.md` with options and a
+Two, each in `docs/plans/REVIEW_2026-10.md` with options and a
 recommendation:
 
-- Question 24 (item 21, found building question 12): whether a value
-  nothing is filed under is kept, which decides G1's remaining gap.
 - Question 25 (item 22, found building loopmarket's item 9): whether,
   under a chain, rival clearing books are recorded instead of failing
   the fold.
