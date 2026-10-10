@@ -119,6 +119,15 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+- **A typed value is parsed once, however often it is compared.** A
+  parameter's denotation depends on its spelling alone under the built-in
+  units, so the calendar, linear, count and size parsers keep what they
+  parsed (bounded caches); with graph-declared units the vocabulary
+  matters too and nothing is cached. A containment check took 80 us for
+  `time(...)` terms, mostly `strptime`, and 45 us for `mass(...)`; it now
+  takes 11.5 and 6.8 us. Found by loopmarket: retiring its v1/v2 offers
+  moved circulator's benchmark to `time(...)` and `geo(...)` terms, and at
+  400 offers its matching took 22 s where the old fields took 0.74 s.
 - **`settings.read_config(path)` and `settings.write_config(cfg, path)`**
   read and write another file in odag's `key = value` format, owner-only
   as before, so loopmarket's config beside odag's stops being a copy of

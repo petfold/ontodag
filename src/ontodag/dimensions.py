@@ -25,6 +25,7 @@ same-head terms is containment of denotations (`contains`), i.e. the same
 extension-inclusion order the DAG's asserted edges have always meant.
 """
 
+import functools
 import re
 from calendar import monthrange
 from datetime import datetime
@@ -598,6 +599,20 @@ def _parse_end(text, side, units=None):
 
 
 def _parse_linear(param, units=None):
+    if not units:
+        return _parse_linear_builtin(param)
+    return _parse_linear_uncached(param, units)
+
+
+@functools.lru_cache(maxsize=1 << 16)
+def _parse_linear_builtin(param):
+    """`_parse_linear` under the built-in units only, cached: then the result
+    depends on the spelling alone. With graph-declared units it depends
+    on the store's vocabulary too, and is not cached."""
+    return _parse_linear_uncached(param, None)
+
+
+def _parse_linear_uncached(param, units=None):
     """-> (family, lo, hi); closed interval; None = unbounded. Numeric
     families have no negative values (the grammar admits none), so an
     unbounded lower end IS 0 and is normalized to it — `number(..0)` and
@@ -661,8 +676,12 @@ def _calendar_end(text, side):
         "YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ")
 
 
+@functools.lru_cache(maxsize=1 << 16)
 def _parse_calendar(param):
     """-> (time family, lo, hi); closed interval of instants, None = open.
+    Cached: a parameter's denotation depends on its spelling alone, and a
+    query or a matcher asks the same terms again and again, each parse
+    costing a `strptime` (80 us a containment check uncached).
 
     Same shape as `_parse_linear` so everything downstream (containment,
     meet, rendering, the space tag) is shared — only the literal grammar
@@ -707,6 +726,20 @@ def _count_value(text, units=None):
 
 
 def _parse_count(param, units=None):
+    if not units:
+        return _parse_count_builtin(param)
+    return _parse_count_uncached(param, units)
+
+
+@functools.lru_cache(maxsize=1 << 16)
+def _parse_count_builtin(param):
+    """`_parse_count` under the built-in units only, cached: then the result
+    depends on the spelling alone. With graph-declared units it depends
+    on the store's vocabulary too, and is not cached."""
+    return _parse_count_uncached(param, None)
+
+
+def _parse_count_uncached(param, units=None):
     """-> ("count", lo, hi); whole numbers, closed interval, None = no
     upper bound. The lower bound is never None: counts start at one, so
     an omitted lower end IS 1 (same normalization move as the numeric
@@ -728,6 +761,20 @@ def _parse_count(param, units=None):
 
 
 def _parse_dominance(param, units=None):
+    if not units:
+        return _parse_dominance_builtin(param)
+    return _parse_dominance_uncached(param, units)
+
+
+@functools.lru_cache(maxsize=1 << 16)
+def _parse_dominance_builtin(param):
+    """`_parse_dominance` under the built-in units only, cached: then the result
+    depends on the spelling alone. With graph-declared units it depends
+    on the store's vocabulary too, and is not cached."""
+    return _parse_dominance_uncached(param, None)
+
+
+def _parse_dominance_uncached(param, units=None):
     """-> (family, tuple sorted descending). Units propagate right-to-left
     (`390x230x190mm`: the trailing unit covers unitless components); no unit
     anywhere means the dimensionless count family."""

@@ -430,3 +430,38 @@ class TestRegistry:
         assert dims.REGISTRY_VERSION == "4.4"
         assert dims.registry_compatible("4.7")
         assert not dims.registry_compatible("3.2")
+
+
+class TestATermIsParsedOnce:
+    """A parameter's denotation depends on its spelling alone (under the
+    built-in units), so it is parsed once however often it is compared: a
+    matcher asking the same `time(...)` windows again and again re-parsed
+    each one, a `strptime` per check, and circulator's books matched 30
+    times slower on terms than on the old fields (2026-10-10)."""
+
+    def test_calendar_terms(self):
+        dims._parse_calendar.cache_clear()
+        terms = [f"time(2026-08-{d:02})" for d in range(1, 21)]
+        for _ in range(50):
+            for a in terms:
+                for b in terms[:5]:
+                    dims.contains(a, b, dims.KIND_CALENDAR)
+        assert dims._parse_calendar.cache_info().misses == 20
+
+    def test_linear_terms_under_the_built_in_units(self):
+        dims._parse_linear_builtin.cache_clear()
+        terms = [f"mass({k}kg..{k + 2}kg)" for k in range(1, 11)]
+        for _ in range(50):
+            for a in terms:
+                for b in terms:
+                    dims.contains(a, b, dims.KIND_LINEAR)
+        assert dims._parse_linear_builtin.cache_info().misses == 10
+
+    def test_declared_units_are_not_cached(self):
+        """With graph-declared units the denotation depends on the store's
+        vocabulary too, so it is computed each time."""
+        dims._parse_linear_builtin.cache_clear()
+        units = dims.resolve_declarations(["unit(stone=14lb)"])
+        assert dims.contains("mass(1stone..2stone)", "mass(20lb)",
+                             dims.KIND_LINEAR, units=units)
+        assert dims._parse_linear_builtin.cache_info().currsize == 0
