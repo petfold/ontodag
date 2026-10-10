@@ -1722,6 +1722,18 @@ whose exact bounds are `48.8232421875..48.8671875,2.28515625..2.3291015625`.
   migrate step), loopmarket's placed offers get new ids, and the geohash
   code stays for reading old stores, typed cells and the index.
 
-Recommended: 1. The size's word and unit (a square's side or half-side,
-metres or degrees) is question 30; relative times in `time(...)` become
-question 31.
+Recommended at first: 1. The size's word and unit (a square's side or
+half-side, metres or degrees) is question 30; relative times in
+`time(...)` become question 31.
+
+**Under discussion, not decided (Peter, 2026-10-10).** Backward
+compatibility weighs little while there are no real users, so renaming
+stored cells is no strong con; and nobody reads geohash names (they are
+looked up like coordinates), so their shortness is no strong pro. The
+friendly names are predefined regions (cities, countries), which are not
+rectangles. Open threads: words above geometry (a named region holding
+pieces of geometry inside it, §9, generated from boundary data); free
+rectangles, which may overlap so a thing on a seam between two pieces sits
+inside a third, against grid-aligned ones, which are canonical and index
+themselves; where the regions come from (a places pack); and how exact
+"in Paris" must be.

@@ -481,9 +481,10 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Question 29, re-put: with every `geo` value a rectangle (Peter's idea,
-replacing circles), do geohash cells keep their names (`docs/DIMENSIONS.md`
-§22)? Then question 30, the size's word and unit, and question 31,
+Question 29, under discussion (Peter, 2026-10-10: discuss, don't decide
+yet): `geo` values as rectangles (his idea, replacing circles), geohash
+possibly removed, and how named regions such as cities sit above the
+geometry (`docs/DIMENSIONS.md` §22). Then question 30, the size's word and unit, and question 31,
 relative times in `time(...)`. Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 
