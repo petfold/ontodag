@@ -406,7 +406,7 @@ Each line points to its record.
       (item 9). Built; building it raised question 25, decided A: on a
       chain, `propose` takes only makers' records, the fold records rival
       loops instead of failing, and `watch` hands off only after a
-      finalized beat records the fill. Not built yet.
+      finalized beat records the fill. Built.
   18. loopmarket: `cli.py` split by area, with a `Reads` object and a
       `LegRecord` type; built first among loopmarket's items (item 10).
       Built (the settings half rides loopmarket's `ontodag-0.31` branch).
@@ -428,11 +428,12 @@ Each line points to its record.
   24. loopmarket: one key per writer for notices, cures and cases
       (`notice/<loop>/<give>/<writer>` and the like); the fold admits a
       key only from its writer's own book; old keys are not read, a clean
-      break (item 23, question 26). Not built yet.
+      break (item 23, question 26). Built.
   25. loopmarket: a statement's deposit comes from whoever stands behind
-      it (the subject if self-bonded, the issuer if attested), and the
-      clearing reserves its floor per relying leg, as D1 says (item 24,
-      question 27). Not built yet.
+      it, its subject or its issuer (read so that a dentist may back an
+      attestation about himself, as the gate's solo form does), step 6
+      counts only what the escrow has free, and the clearing reserves the
+      floor per relying leg, as D1 says (item 24, question 27). Built.
 
 ## Bee integration status
 
@@ -461,13 +462,16 @@ Each line points to its record.
 - Released, each verified from PyPI: ontodag 0.30.8, recordstore 0.22.2,
   swarmfs 0.14.0, loopmarket 0.14.5, ontodag-fs 0.6.4.
 - On main, not released: the review's decisions 1–14 and 22–23 for
-  ontodag (CHANGELOG "Unreleased"): contract 0.6, registry 4.4 (merges
-  fold into the meet; a cell in a role of geo is written by its own
-  name), and a typed value parsed once, `is_below` memoized. Public API
+  ontodag and question 24 (CHANGELOG "Unreleased"): contract 0.6,
+  registry 4.4 (merges fold into the meet; a cell in a role of geo is
+  written by its own name; a value is kept only while something is filed
+  under it), and a typed value parsed once, `is_below` memoized. Public API
   was removed, so the next release is a minor, 0.31.0. It waits for
   Peter's word.
 - loopmarket main carries its decided items (2, 4, 9, 10, 11, 12, 17 and
-  its half of 23), a fold that is N log N in books instead of N², the
+  its half of 23) and questions 25–27 (rival clearing books recorded under
+  a chain, one key per writer for notices, cures and cases, a statement's
+  deposit its backer's with its floor reserved per relying leg), a fold that is N log N in books instead of N², the
   `BookClearing` rename, and, ready for 0.31's release gate, the index
   filing older offers' bare cells under their current spelling. Its branch `ontodag-0.31`
   holds what needs ontodag 0.31 (the CLI writing cells by their own name,
@@ -481,12 +485,13 @@ Each line points to its record.
   residency) belongs on `Store`.
 - Decided and built while Peter was away (2026-10-10): questions 11–23.
   Records in `docs/plans/REVIEW_2026-10.md` §8; the night's story in
-  `docs/plans/JOURNAL.md`.
+  `docs/plans/JOURNAL.md`. Questions 24–27, decided with Peter the same
+  day, are built in both repositories (the journal's next entry).
 
 ## Open questions for Peter
 
-None open from the review. Questions 24–27 are decided
-(`docs/plans/REVIEW_2026-10.md` items 21–24) and not built yet.
+None open from the review: questions 24–27 are decided and built
+(`docs/plans/REVIEW_2026-10.md` items 21–24).
 
 Older, not urgent: the 0.31.0 release; a publisher key for the packs on
 Swarm (published without one, so no feed yet; PACKS.md); BROWSER.md §7's

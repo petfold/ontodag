@@ -2417,3 +2417,57 @@ fold (question 26).
 - An agent writing tests under the old rules while another changes them
   collides at merge (item 9's federation tests built v2 offers the
   retirement refuses); expect it, and run the full suite on every merge.
+
+## 2026-10-10 (later): questions 24–27 decided with Peter, then built
+
+**Decided**, one at a time, the usual way. Q24: A, a value is kept only
+while something is filed under it; Peter allowed this change, and only
+this one, to take answers from older stores (not a standing rule: an
+earlier draft of this file made it one, and he corrected it). Q25: A, on
+a chain the chain decides proposals too. Q26: B, one key per writer, a
+clean break, chosen over A after comparing the two in detail and for
+resistance to attack. Q27, split out of Q26 at Peter's request: A, a
+statement's deposit is its backer's and its floor is reserved per
+relying leg.
+
+**ontodag (Q24).** A write collects the values it made or took an edge
+from or to, and forgets the unused ones when the outermost write ends; a
+bare value put is refused. Found while building: an absent value was not
+below its own head (`is_below("mass(..5kg)", "mass")` false without the
+node), so forgetting one took `is_below` answers too, against what the
+question had told Peter; now a virtual value is below its head, and G7's
+test exempts only a value leaving a `get` answer, its fixtures untouched.
+Measured: the first build cost O(values) per forgetting put (6, 22, 88 ms
+at 1,000, 4,000, 16,000 values) because removing the anchor edge dropped
+the head's whole value index and `_forget` dropped the heads cache; with
+the index updated in place and terms leaving the caches alone, 1.1 ms
+flat. Also found: the slow union test's set of tops had missed core
+v13's `group` branch since 2026-10-07 (its root was re-pinned, the set
+was not).
+
+**loopmarket (Q25–27)**, in worktrees, merged after two full runs.
+Q26 as decided. Q27 needed two things the question had not spelled out:
+"whoever stands behind the statement" read as its subject *or* its
+issuer, because the gate's own solo case is an attested statement
+backed by the subject's deposit; and step 6 reading what the escrow has
+free, not what it holds, or a reserved floor is counted again by the
+next leg. Floors go under `statement_slot`, since the escrow keeps one
+reservation per (offer, loop). Q25: the fold records rivals in its
+provenance, U11 excuses exactly their shared claims, `propose` and
+`outcome` absorb makers' records only, and `watch` seals once a
+finalized beat pinned the loop's book root and took all its offers
+(`pendingFills` survives finalize). `watch` still reports a case record
+from anyone: a ruling's author is the reservation's resolver, which it
+does not read; still pinned, not put as a question yet.
+
+**Lessons, kept.**
+- A decision about one change is not a rule for all changes: record the
+  exception where the change is, not among the standing rules.
+- Say what a question's option costs in *every* answer it touches: Q24's
+  "the arithmetic answers a term whether or not its node exists" was
+  true of other terms and false of the term's own head.
+- `pgrep -f NAME | xargs kill` kills the shell whose command names NAME,
+  as `pkill -f` does: kill by a PID read on its own.
+- A module-scoped chain fixture carries state between tests: offers with
+  the same content have the same ids, and an earlier test's fills hide
+  them. Give a test makers of its own.
