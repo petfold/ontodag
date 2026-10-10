@@ -2475,3 +2475,44 @@ does not read; still pinned, not put as a question yet.
   collection (`skipif`), not in its body: loopmarket's CI, which runs
   without the evm extra, errored on the first push. Check by hiding the
   dependency, as CLAUDE.md says, before pushing.
+
+## 2026-10-10 (afternoon): question 28, then 0.31.0 and its consumers
+
+**Question 28** decided A (`watch` checks a case record against the
+escrow reservation it names) and built in loopmarket; Peter's aside, how
+an arbitrator gets evidence from witnesses and experts, is parked.
+
+**Released**, on Peter's word, each verified from PyPI in a fresh venv:
+ontodag 0.31.0 (publish workflow green in every job, the downstream
+matrix included), ontodag-fs 0.7.0 (its 0.31 branch merged; `odag-fs`
+resolves ontodag 0.31.0) and loopmarket 0.15.0 (its 0.31 branch merged;
+the triangle example clears from the PyPI install). recordstore and
+swarmfs needed none: an unused import and docs since their tags.
+
+**Before the tag.** The guide's 38 Python blocks were run as doctests in
+one namespace, and the same harness was run on v0.30.8 with its own
+guide (with `python3 -S`: the editable install's import hook otherwise
+wins over `sys.path` and the "old" run tests today's code). Every
+difference today's guide showed was either there in 0.30.8 too (fragments
+that assume a setup, section 8's placeholders) or cosmetic (set order,
+`/home/you` paths), except one stale line, `odag canon` printing
+"registry 4.0", fixed. The full suite with the README's count, the slow
+pack tests and `release_smoke.py` passed. The Bee run: ontodag's two
+gated tests passed; loopmarket's live federation test failed because its
+aggregators had no catalogue, which review item 9 made a requirement the
+night before (live tests do not run in CI), fixed in the test and then
+passed live.
+
+**After.** One of eleven `release_smoke.py --pypi 0.31.0` runs failed one
+check, which I did not capture (its output was cut to four lines); the
+ten after it passed, as did the workflow's own verify job. If it comes
+back, keep the whole output. categor.io: removing a contact with a share
+was refused under 0.31 (the share names it); the remove now passes
+`with_terms=True` for a contact, floor `ontodag>=0.31.0`, pushed; the live
+update is the admin's step.
+
+**Lessons, kept.**
+- A live-only test is not run by any CI: when a decision changes what a
+  fold or a store requires, grep the live tests too, before the release.
+- When a check is flaky, keep the full output of every run; `tail` can
+  cut away the one line that names the failure.

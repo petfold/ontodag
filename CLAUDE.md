@@ -40,10 +40,10 @@ github.com/petfold.
   postage selection, feeds, and the shared signer `swarmfs.signer`. In the
   `swarm` extra (`swarmfs[feeds]>=0.13.0`).
 - **ontodag-fs**: an OntoDAG store as a mountable filesystem. It pins a
-  ceiling (`<0.31.0`); raise it by hand once ontodag's release job has run
+  floor and a ceiling (`>=0.31.0,<0.32.0`); raise the ceiling by hand once ontodag's release job has run
   its suite against the candidate, then release it.
 - **loopmarket**: the marketplace, and the main consumer of dimensions. It
-  pins only a floor (`>=0.30.6`), and its suite runs in ontodag's release
+  pins only a floor (`>=0.31.0`), and its suite runs in ontodag's release
   gate. Its offer ids hash canonical spellings, so stores made under
   another registry version need the `ontodag.migrate` replay before mixing.
 - **ontodag-core**: builds the `core` pack and the ten domain packs by
@@ -52,8 +52,9 @@ github.com/petfold.
   and rulings are in its `docs/UPPER.md` and `align/`.
 - **factbond**: bonded assertions and adjudication. It consumes the
   contract; ontodag never imports it.
-- **categorio** (categor.io): a website over ontodag (`>=0.30.1`), the
-  driver of `sharing` and `keyplan`.
+- **categorio** (categor.io): a website over ontodag (`>=0.31.0`), the
+  driver of `sharing` and `keyplan`. Its live site updates by the admin's
+  ssh step (its `docs/ADMIN.md`).
 
 ## Map of the code
 
@@ -198,7 +199,7 @@ Contract 0.6 (`docs/CONTRACT.md`, `tests/test_contract.py`):
   (`make_g8.py`) only together with a registry bump.
 - **G9** replays are order-free; single writes are checked as they come.
 
-Versions now: contract 0.6, registry 4.4 (both unreleased), prelude 4,
+Versions now: contract 0.6, registry 4.4 (released in 0.31.0), prelude 4,
 surface 0.1.
 Consumers compare majors.
 
@@ -453,37 +454,26 @@ Each line points to its record.
   that file up with the data directory.
 - Not yet tested on a real node: postage expiry and garbage collection
   (they need a batch nobody minds losing).
-- Last run: 2026-10-09, before the 0.30.8 release; ontodag's two gated
-  tests and loopmarket's three live tests passed. Every run since July,
+- Last run: 2026-10-10, before the 0.31.0 release; ontodag's two gated
+  tests and loopmarket's three live tests passed (the federation test once
+  its aggregators were given the catalogue that review item 9 requires). Every run since July,
   with what each taught, is in the journal under this heading.
 
 ## State (2026-10-10)
 
-- Released, each verified from PyPI: ontodag 0.30.8, recordstore 0.22.2,
-  swarmfs 0.14.0, loopmarket 0.14.5, ontodag-fs 0.6.4.
-- On main, not released: the review's decisions 1–14 and 22–23 for
-  ontodag and question 24 (CHANGELOG "Unreleased"): contract 0.6,
-  registry 4.4 (merges fold into the meet; a cell in a role of geo is
-  written by its own name; a value is kept only while something is filed
-  under it), and a typed value parsed once, `is_below` memoized. Public API
-  was removed, so the next release is a minor, 0.31.0. It waits for
-  Peter's word.
-- loopmarket main carries its decided items (2, 4, 9, 10, 11, 12, 17 and
-  its half of 23) and questions 25–28 (rival clearing books recorded under
-  a chain, one key per writer for notices, cures and cases, a statement's
-  deposit its backer's with its floor reserved per relying leg, `watch`
-  counting a case record only from the reservation's party), a fold that is N log N in books instead of N², the
-  `BookClearing` rename, and, ready for 0.31's release gate, the index
-  filing older offers' bare cells under their current spelling. Its branch `ontodag-0.31`
-  holds what needs ontodag 0.31 (the CLI writing cells by their own name,
-  `ontodag.open`/`ontodag.settings`); ontodag-fs's branch `ontodag-0.31`
-  likewise (public names, floor and ceiling). Release order: ontodag
-  0.31.0, then loopmarket and ontodag-fs with their branches merged.
-  circulator's main writes v4 offers (its CI has been red since
-  2026-09-21 on a test comparing its own copy of the baseline).
-- After 0.31.0: make categor.io's "remove contact" pass
-  `with_terms=True`. ontodag issue #13 (opening a store at a chosen
-  residency) belongs on `Store`.
+- Released 2026-10-10, each verified from PyPI: ontodag 0.31.0
+  (contract 0.6, registry 4.4, the review's decisions and questions
+  24–28), loopmarket 0.15.0 (its 0.31 branch merged; floor
+  `ontodag>=0.31.0`), ontodag-fs 0.7.0 (ontodag's public layer;
+  `>=0.31.0,<0.32.0`). Unchanged: recordstore 0.22.2 and swarmfs 0.14.0
+  (their commits since are lint and docs). Nothing is unreleased on any
+  main but categor.io's.
+- categor.io main removes a contact with its shares (`with_terms=True`)
+  and pins `ontodag>=0.31.0`; the live site picks it up at the admin's
+  next update. circulator's main writes v4 offers (its CI has been red
+  since 2026-09-21 on a test comparing its own copy of the baseline).
+- ontodag issue #13 (opening a store at a chosen residency) belongs on
+  `Store`.
 - Decided and built while Peter was away (2026-10-10): questions 11–23.
   Records in `docs/plans/REVIEW_2026-10.md` §8; the night's story in
   `docs/plans/JOURNAL.md`. Questions 24–27, decided with Peter the same
@@ -494,7 +484,7 @@ Each line points to its record.
 None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 
-Older, not urgent: the 0.31.0 release; a publisher key for the packs on
+Older, not urgent: a publisher key for the packs on
 Swarm (published without one, so no feed yet; PACKS.md); BROWSER.md §7's
 two questions about the in-browser node; ontodag-core's doubtful list
 (its UPPER.md §9).
