@@ -1670,14 +1670,15 @@ disagreement is reported at first use, as conflicting kinds are.
 Tests: `TestFamilyPins` and `TestMergeStaysTotalAcrossFamilies` in
 `tests/test_dimensions_dag.py`.
 
-## 22. Input spellings for loopmarket's launch (questions 29 and 30)
+## 22. Places and relative times for loopmarket's launch (questions 29–31)
 
 loopmarket's public launch waits, among other things, on two input
 spellings it asked ontodag for (its `docs/plans/cli.md` §11; review item
-17): coordinates for `geo` and relative times in `time(...)`. Each is
-input vocabulary only, elaborated to a term ontodag stores today, as `24C`
-is stored in kelvin; each deletes a loopmarket-only behaviour (`loop
-place`, and `loop`'s own time spellings).
+17): coordinates for `geo` and relative times in `time(...)`. Each
+deletes a loopmarket-only behaviour (`loop place`, and `loop`'s own time
+spellings). Relative times are input vocabulary only, elaborated to a term
+ontodag stores today, as `24C` is stored in kelvin; coordinates turned out
+to need a new `geo` value, the rectangle (question 29).
 
 **Question 29, first put (2026-10-10): how a circle `geo(LAT,LON,R)`
 becomes a cell.** The geohash grid has edges at every size, and a circle
