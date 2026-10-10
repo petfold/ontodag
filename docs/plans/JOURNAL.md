@@ -2391,8 +2391,9 @@ budget now compares one to ten at five (a quadratic grows ten times).
 here: the CLI split by area (item 10), items 11, 4 and 9, the v1/v2
 retirement after a golden corpus (item 12; circulator's benchmark first,
 on its main), the hostile-record and `watch` tests, the examples in CI,
-the dead code and the gates restated (item 17); item 2 (one engine) was
-still merging at the time of writing. Found and fixed here: the fold was
+the dead code and the gates restated (item 17), and item 2 (one engine,
+the solver kept apart; its G3 measurement asked for the cheaper
+`deepcopy`, 92 → 30 ms on the core pack, done here). Found and fixed here: the fold was
 quadratic in books (merging each into the growing union; now rounds of
 pairs, 400 books 10.8 s → 0.84 s), and an option on a retired offer
 could still clear. Found and put to Peter: rival clearing books under a
