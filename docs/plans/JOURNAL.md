@@ -2516,3 +2516,32 @@ update is the admin's step.
   fold or a store requires, grep the live tests too, before the release.
 - When a check is flaky, keep the full output of every run; `tail` can
   cut away the one line that names the failure.
+
+## 2026-10-10 (evening): the branches, categor.io's update, the smoke failure
+
+**Branches.** On Peter's word, `ontodag-0.31` deleted in loopmarket and
+ontodag-fs, locally and on GitHub, after checking each was wholly in main.
+
+**categor.io's update, rehearsed.** A scratch clone at 15a55e3 with
+ontodag 0.30.8, then the updater's own `pip install -e app[serve]` at
+6bad379 (no `-U`): pip raised ontodag to 0.31.0, because the new floor
+is not met by 0.30.8. The 36 site tests passed against PyPI's 0.31.0,
+and gunicorn served the front page (200, its title). The live run stays
+the admin's step.
+
+**The post-publish smoke failure, found.** Not in any of 40 repeats
+of the 26 command checks against one PyPI install (four workers at once,
+fresh home and work each), nor in eight repeats of the fresh-venv
+install check. The cause was in the publish workflow's own log: its
+verify job's first attempt (09:41:35, 28 s after the upload) failed the
+same one check, "the base install stays pure Python", because pip was
+told "No matching distribution found for ontodag==0.31.0", while the
+second install of the same run, seconds later, found it, so the other 26
+passed and the summary read "1 check(s) failed". PyPI's index answers
+inconsistently for a few minutes after an upload; the workflow's retry
+passed on its second attempt, and my run at 09:43:23 met the same lag.
+The failure line now names the failed checks (befd1a9).
+
+**Lessons, kept.**
+- Before calling a failure a flake, read the logs of the runs that
+  passed: a retry loop that went green can hold the failure itself.
