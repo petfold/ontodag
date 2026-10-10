@@ -393,8 +393,8 @@ Each line points to its record.
   14. In a role a bare word is a filed place and a cell is written by its
       name, `from(geo(u2e4x))`; `geo(...)` takes only geohash spellings;
       old terms read as before until migrated (item 20). Built in ontodag
-      (a query still reads a bare word as a cell, for G7); loopmarket's
-      half is on its branch `ontodag-0.31`, to merge with that release.
+      (a query still reads a bare word as a cell, for G7) and in
+      loopmarket 0.15.0.
   15. loopmarket: one matching engine, ontodag's index, for simple
       matches and the aggregation search, no threshold; the default
       solver kept apart from the rest of loopmarket (item 2). Built
@@ -410,7 +410,7 @@ Each line points to its record.
       finalized beat records the fill. Built.
   18. loopmarket: `cli.py` split by area, with a `Reads` object and a
       `LegRecord` type; built first among loopmarket's items (item 10).
-      Built (the settings half rides loopmarket's `ontodag-0.31` branch).
+      Built (the settings half in loopmarket 0.15.0).
   19. loopmarket: durations and relative times in ontodag's units (`min`,
       `wk`); a bare `m` or `w` is refused with the fix named (item 11).
       Built.
