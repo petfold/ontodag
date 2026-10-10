@@ -7,6 +7,7 @@ github.com/nvkelso/natural-earth-vector (geojson/), and paris.geojson from
 OpenStreetMap: nominatim.openstreetmap.org/lookup?osm_ids=R7444&format=geojson&polygon_geojson=1
 
 usage: geo_fill.py DATA_DIR              Paris and mainland France
+       geo_fill.py DATA_DIR largest      the same with largest-first covers, and stability
        geo_fill.py DATA_DIR countries    piece counts for every country
 
 Pixels are geohash cells at the finest precision L (exact grid); a pixel is
@@ -24,7 +25,6 @@ import numpy as np
 import shapely
 from shapely.geometry import shape, box
 
-D = sys.argv[1]
 rng = np.random.default_rng(1)
 
 
@@ -179,6 +179,59 @@ def maximal_pieces(m):
     return np.array(out, dtype=np.int64)
 
 
+def _largest(m):
+    """The largest rectangle of m; ties go to the lowest bottom row, then the
+    leftmost column (a fixed rule, so the result is canonical)."""
+    ny, nx = m.shape
+    h = np.zeros(nx + 1, np.int64)
+    best, key = None, None
+    for y in range(ny):
+        h[:nx] = np.where(m[y], h[:nx] + 1, 0)
+        stack = []
+        for x in range(nx + 1):
+            hx = int(h[x])
+            start = x
+            while stack and stack[-1][1] > hx:
+                s0, H = stack.pop()
+                k = (-(x - s0) * H, y, s0)
+                if key is None or k < key:
+                    key, best = k, (s0, x, y - H + 1, y + 1)
+                start = s0
+            if hx and not (stack and stack[-1][1] == hx):
+                stack.append((start, hx))
+    return best
+
+
+def largest_first_partition(m):
+    """Peter's rule: grow the largest rectangle that fits, take it out, repeat
+    on what is left (no overlap)."""
+    left = m.copy()
+    out = []
+    while left.any():
+        x0, x1, y0, y1 = _largest(left)
+        left[y0:y1, x0:x1] = False
+        out.append((x0, x1, y0, y1))
+    return np.array(out, dtype=np.int64)
+
+
+def largest_first_overlap(m, maximal):
+    """The same rule letting a rectangle grow back over earlier ones, stopping
+    only at the edge: among the maximal rectangles, take the one covering the
+    most squares not yet covered (ties as in _largest), repeat."""
+    todo = m.copy()
+    out = []
+    P = maximal
+    while todo.any():
+        S = np.zeros((m.shape[0] + 1, m.shape[1] + 1), np.int64)
+        S[1:, 1:] = todo.cumsum(0).cumsum(1)
+        gain = S[P[:, 3], P[:, 1]] - S[P[:, 2], P[:, 1]] - S[P[:, 3], P[:, 0]] + S[P[:, 2], P[:, 0]]
+        order = np.lexsort((P[:, 0], P[:, 3], -gain))
+        x0, x1, y0, y1 = P[order[0]]
+        todo[y0:y1, x0:x1] = False
+        out.append((x0, x1, y0, y1))
+    return np.array(out, dtype=np.int64)
+
+
 def squares(geom, side_m, n):
     w, s, e, nn = geom.bounds
     got = []
@@ -210,7 +263,33 @@ def test(m, meta, pieces, sq):
     return inside, found
 
 
-def region(name, geom, levels, sides, n=10_000):
+def methods(m, meta, L, coarse):
+    maximal = maximal_pieces(m)
+    pieces = {"cells": cell_pieces(m, meta, L), "maximal": maximal,
+              "largest-overlap": largest_first_overlap(m, maximal)}
+    if coarse:
+        pieces["largest-part"] = largest_first_partition(m)
+    return pieces
+
+
+def stability(name, geom, L, coarse):
+    """How many pieces change when the boundary moves a little: the boundary
+    simplified within a quarter of a grid square."""
+    m, meta = inside_mask(geom, L)
+    m2, meta2 = inside_mask(geom.simplify(min(meta[2], meta[3]) / 4), L)
+    if meta2[:2] != meta[:2]:
+        print("  (grid origins differ; skipped)"); return
+    flipped = (m != m2).sum()
+    a, b = methods(m, meta, L, coarse), methods(m2, meta, L, coarse)
+    rows = []
+    for k in a:
+        A = set(map(tuple, a[k].tolist())); B = set(map(tuple, b[k].tolist()))
+        rows.append(f"{k} {100 * len(A - B) / len(A):.0f}% of {len(A):,}")
+    print(f"  {name}: the boundary simplified flips {flipped:,} of {m.sum():,} squares "
+          f"({100 * flipped / m.sum():.2f}%); pieces that change: " + ", ".join(rows))
+
+
+def region(name, geom, levels, sides, n=10_000, largest=False):
     for L in levels:
         t = time.time()
         m, meta = inside_mask(geom, L)
@@ -218,8 +297,11 @@ def region(name, geom, levels, sides, n=10_000):
         lat = (geom.bounds[1] + geom.bounds[3]) / 2
         wm, hm = pw * 111_320 * math.cos(math.radians(lat)), ph * 111_320
         cover = m.sum() * pw * ph / geom.area
-        pieces = {"cells": cell_pieces(m, meta, L), "part": partition_pieces(m), "overlap": overlap_pieces(m),
-                  "maximal": maximal_pieces(m)}
+        if largest:
+            pieces = methods(m, meta, L, coarse=L == levels[0])
+        else:
+            pieces = {"cells": cell_pieces(m, meta, L), "part": partition_pieces(m),
+                      "overlap": overlap_pieces(m), "maximal": maximal_pieces(m)}
         print(f"\n{name}, finest pixel geohash {L} ({wm:,.0f} m x {hm:,.0f} m): {m.sum():,} pixels inside, "
               f"{100 * cover:.1f}% of the area  [{time.time() - t:.0f} s]")
         print("  pieces: " + ", ".join(f"{k} {len(v):,}" for k, v in pieces.items()))
@@ -229,8 +311,8 @@ def region(name, geom, levels, sides, n=10_000):
                 np.add.at(d, (P[:, dy], P[:, dx]), sign)
             paint = d.cumsum(0).cumsum(1)[:-1, :-1]
             assert ((paint > 0) == m).all(), f"{k}: pieces do not cover exactly the inside pixels"
-            assert k in ("overlap", "maximal") or paint.max() == 1, f"{k}: pieces overlap"
-            if k in ("overlap", "maximal"):
+            assert "overlap" in k or k == "maximal" or paint.max() == 1, f"{k}: pieces overlap"
+            if "overlap" in k or k == "maximal":
                 print(f"  {k}: a point inside lies in {paint[m].mean():.1f} pieces on average, "
                       f"at most {paint.max()}")
         for side in sides:
@@ -241,25 +323,42 @@ def region(name, geom, levels, sides, n=10_000):
             print(f"  {side:,} m squares: border misses {border:.1f}% (all three); seam misses: {seams}")
 
 
-if sys.argv[2:] == ["countries"]:
-    total = {"cells": 0, "overlap": 0, "pixels": 0}
-    t = time.time()
-    for f in json.load(open(f"{D}/ne_50m_admin_0_countries.geojson"))["features"]:
-        g = shape(f["geometry"])
-        m, meta = inside_mask(g, 5)
-        if not m.any():
-            continue
-        total["cells"] += len(cell_pieces(m, meta, 5)); total["overlap"] += len(overlap_pieces(m))
-        total["maximal"] = total.get("maximal", 0) + len(maximal_pieces(m))
-        total["pixels"] += int(m.sum())
-    print(f"all {len(json.load(open(f'{D}/ne_50m_admin_0_countries.geojson'))['features'])} countries "
-          f"(Natural Earth 1:50m) at geohash 5: {total['pixels']:,} pixels inside; pieces: cells "
-          f"{total['cells']:,}, overlap {total['overlap']:,}, maximal {total['maximal']:,}  [{time.time() - t:.0f} s]")
-    sys.exit(0)
-paris = shape(json.load(open(f"{D}/paris.geojson"))["features"][0]["geometry"])
-fr = next(shape(f["geometry"]) for f in json.load(open(f"{D}/ne_10m_admin_0_countries.geojson"))["features"]
-          if f["properties"].get("ADM0_A3") == "FRA")
-metro = shapely.union_all([p for p in fr.geoms if p.intersects(box(-6, 41, 10, 52))])
-print("Paris:", paris.geom_type, "France (mainland and Corsica):", metro.geom_type, len(metro.geoms), "polygons")
-region("Paris", paris, (7, 8), (100,))
-region("France", metro, (5, 6), (100, 1000))
+def load(D):
+    """Paris and mainland France with Corsica, as shapely geometries."""
+    paris = shape(json.load(open(f"{D}/paris.geojson"))["features"][0]["geometry"])
+    fr = next(shape(f["geometry"]) for f in json.load(open(f"{D}/ne_10m_admin_0_countries.geojson"))["features"]
+              if f["properties"].get("ADM0_A3") == "FRA")
+    return paris, shapely.union_all([p for p in fr.geoms if p.intersects(box(-6, 41, 10, 52))])
+
+
+def main():
+    D = sys.argv[1]
+    if sys.argv[2:] == ["countries"]:
+        total = {"cells": 0, "overlap": 0, "pixels": 0}
+        t = time.time()
+        for f in json.load(open(f"{D}/ne_50m_admin_0_countries.geojson"))["features"]:
+            g = shape(f["geometry"])
+            m, meta = inside_mask(g, 5)
+            if not m.any():
+                continue
+            total["cells"] += len(cell_pieces(m, meta, 5)); total["overlap"] += len(overlap_pieces(m))
+            total["maximal"] = total.get("maximal", 0) + len(maximal_pieces(m))
+            total["pixels"] += int(m.sum())
+        print(f"all {len(json.load(open(f'{D}/ne_50m_admin_0_countries.geojson'))['features'])} countries "
+              f"(Natural Earth 1:50m) at geohash 5: {total['pixels']:,} pixels inside; pieces: cells "
+              f"{total['cells']:,}, overlap {total['overlap']:,}, maximal {total['maximal']:,}  [{time.time() - t:.0f} s]")
+        return
+    LARGEST = sys.argv[2:] == ["largest"]
+    paris, metro = load(D)
+    print("Paris:", paris.geom_type, "France (mainland and Corsica):", metro.geom_type, len(metro.geoms), "polygons")
+    region("Paris", paris, (7, 8), (100,), largest=LARGEST)
+    region("France", metro, (5, 6), (100, 1000), largest=LARGEST)
+    if LARGEST:
+        print("\nstability:")
+        stability("Paris, 101x153 m", paris, 7, True)
+        stability("France, 3.4x4.9 km", metro, 5, True)
+        stability("Paris, 25x19 m", paris, 8, False)
+
+
+if __name__ == "__main__":
+    main()

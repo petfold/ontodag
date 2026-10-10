@@ -1782,3 +1782,29 @@ but itself. Measured the same way:
 | Paris, 25×19 m | 3,898 | 0% | 1,054, 2,619 |
 | France, 3.4×4.9 km | 997 | 0% | 112, 361 |
 | France, 846×611 m | 22,266 | 0% | 2,558, 8,811 |
+
+**Largest first (Peter's idea, 2026-10-10): start in the middle, grow a
+rectangle until it meets the edge, repeat for what remains.** Made precise
+as: take the largest rectangle that fits (ties to the lowest, then the
+leftmost), then the largest in what is left; canonical by that fixed rule.
+Two versions: each rectangle grows only through what is left (no overlap),
+or may grow back over earlier ones, stopping only at the edge (overlap: of
+the maximal rectangles, the one covering most squares not yet covered).
+Stability is measured as the pieces that change when the boundary is
+simplified within a quarter of a grid square (0.03–0.3% of squares flip).
+
+| region, grid square | method | pieces | holding a point (average) | seam misses | changed by the small edit |
+|---|---|---|---|---|---|
+| Paris, 101×153 m | cells / maximal | 1,417 / 142 | 1 / 34 | 33% / 0% | 1% / 28% |
+| | largest first: overlap / no overlap | 79 / 101 | 19 / 1 | 0% / 7.9% | 27% / 22% |
+| Paris, 25×19 m | cells / maximal / largest, overlap | 9,007 / 3,898 / 467 | 1 / 1,054 / 101 | 38% / 0% / 0.1% | 1% / 14% / 22% |
+| France, 3.4×4.9 km (1 km squares) | cells / maximal | 3,826 / 997 | 1 / 112 | 7.5% / 0% | 1% / 23% |
+| | largest first: overlap / no overlap | 305 / 388 | 15 / 1 | 0% / 1.5% | 29% / 22% |
+| France, 846×611 m | cells / maximal / largest, overlap | 30,113 / 22,266 / 2,031 | 1 / 2,558 / 50 | 10% / 0% / 0% | – |
+
+Largest first with overlap needs the fewest pieces of all, misses nothing on
+seams, and keeps a point under tens of pieces rather than thousands; without
+overlap it still misses far fewer things than cells, because the big pieces
+hold most of the area. Its price is stability: being a global rule, a small
+change of the boundary rewrites about a quarter of its pieces, against 1%
+for cells. Drawings: `experiments/geo_svg.py`.
