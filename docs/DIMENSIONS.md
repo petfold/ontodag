@@ -1679,16 +1679,15 @@ input vocabulary only, elaborated to a term ontodag stores today, as `24C`
 is stored in kelvin; each deletes a loopmarket-only behaviour (`loop
 place`, and `loop`'s own time spellings).
 
-**Question 29, being put (2026-10-10): what the radius in
-`geo(LAT,LON,R)` means.** The geohash grid has edges at every size, and a
-circle across an edge fits in no cell of its own size: the spelling holds
-the whole circle or keeps the circle's size, not both. Measured with
-loopmarket's geohash code: the Eiffel Tower (48.8584,2.2945) at 10 m gives
-the holding cell `u09tunq` (about 150 m) or the centred `u09tunqu` (about
-25 m, which part of the circle leaves); at 500 m both give `u09tu` (about
-4.9 km), the circle being clear of every edge; the Royal Observatory at
-Greenwich (51.4769,-0.0005) at 200 m crosses the prime meridian, the first
-split, so only the whole earth holds it. Over 20,000 random points:
+**Question 29, first put (2026-10-10): how a circle `geo(LAT,LON,R)`
+becomes a cell.** The geohash grid has edges at every size, and a circle
+across an edge fits in no cell of its own size. Measured with loopmarket's
+geohash code: the Eiffel Tower (48.8584,2.2945) at 10 m gives the holding
+cell `u09tunq` (about 150 m) or the centred `u09tunqu` (about 25 m, which
+part of the circle leaves); at 500 m both give `u09tu`; the Royal
+Observatory at Greenwich (51.4769,-0.0005) at 200 m crosses the prime
+meridian, the first split, so only the whole earth holds it. Over 20,000
+random points:
 
 | radius | holding cell, median width / circle | 90th percentile | 2+ levels coarser than centred | whole earth | centred cell misses part of the circle |
 |---|---|---|---|---|---|
@@ -1696,17 +1695,32 @@ split, so only the whole earth holds it. Over 20,000 random points:
 | 500 m | 5× | 39× | 28% | 0.04% | 81% |
 | 5 km | 16× | 96× | 14% | 0.4% | 66% |
 
-- **A**, the circle is the place: the smallest cell holding all of it
-  (`loop place` today). Never claims more than was said; coarse near
-  edges.
-- **B**, the point is the place and the radius sets the size: the cell
-  of that size holding the point (the usual geohash use). Tight; claims
-  the whole circle is in a cell it leaves.
-- **C**, by position: the holding cell when filed, the largest cell
-  inside the circle when asked (a query, a want). Never wrong either way;
-  one spelling, two cells, and far fewer matches.
+The options were the holding cell, the centred cell, either by position,
+and a set of up to four cells as one value (a 500 m circle needs one box
+60% of the time, two 35%, four 5%). Peter's answer changed the question:
+give up circles, make the size a square's (no trigonometry in the order),
+and check the exact shape after the cells find candidates. Polygons: not
+now (Peter, 2026-10-10; §9's reasons stand). Several rectangles as one
+value: not now either (it needs a fixed way of cutting an area to be
+canonical).
 
-Recommended: A, with the coarse case named on stderr. Whichever is chosen,
-it is built exactly: decimal degrees as fractions and the metres-to-degrees
-step in fixed rational constants, rounded toward the larger circle, so
-every machine picks the same cell.
+**Question 29, re-put (2026-10-10): with every `geo` value a rectangle,
+do cells keep their names?** Common to both options: a value means a
+rectangle in degrees with exact bounds, containment is two range
+comparisons, the meet of two rectangles is a rectangle, a typed size is
+converted once at input and rounded so the rectangle only grows, and cells
+are the index that finds candidates. A 400 m square on the Eiffel Tower is
+stored as `geo(48.8566..48.8602,2.2917..2.2973)`, inside `geo(u09tu)`,
+whose exact bounds are `48.8232421875..48.8671875,2.28515625..2.3291015625`.
+
+- **1**, cells keep their names, rectangles added: a rectangle that is
+  exactly a cell is written as the cell, any other in ranges. No stored
+  name changes; two spellings under one rule.
+- **2**, rectangles only: a typed cell is input vocabulary, stored in
+  ranges. One spelling; every stored cell renamed (a registry minor and a
+  migrate step), loopmarket's placed offers get new ids, and the geohash
+  code stays for reading old stores, typed cells and the index.
+
+Recommended: 1. The size's word and unit (a square's side or half-side,
+metres or degrees) is question 30; relative times in `time(...)` become
+question 31.

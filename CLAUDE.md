@@ -481,10 +481,10 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Question 29, being put: what the radius in `geo(LAT,LON,R)` means, the
-first of loopmarket's two input spellings for its launch
-(`docs/DIMENSIONS.md` §22); question 30, relative times in `time(...)`,
-follows. None open from the review: questions 24–28 are decided and built
+Question 29, re-put: with every `geo` value a rectangle (Peter's idea,
+replacing circles), do geohash cells keep their names (`docs/DIMENSIONS.md`
+§22)? Then question 30, the size's word and unit, and question 31,
+relative times in `time(...)`. Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 
 Older, not urgent: a publisher key for the packs on
