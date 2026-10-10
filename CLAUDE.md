@@ -392,8 +392,8 @@ Each line points to its record.
       half is on its branch `ontodag-0.31`, to merge with that release.
   15. loopmarket: one matching engine, ontodag's index, for simple
       matches and the aggregation search, no threshold; the default
-      solver kept apart from the rest of loopmarket (item 2). Being
-      built.
+      solver kept apart from the rest of loopmarket (item 2). Built
+      (boundary B3 in loopmarket).
   16. loopmarket: matching and clearing refuse an offer whose registry or
       contract major differs from the installed ontodag's (item 4).
       Built.
@@ -451,9 +451,10 @@ Each line points to its record.
   name), and a typed value parsed once, `is_below` memoized. Public API
   was removed, so the next release is a minor, 0.31.0. It waits for
   Peter's word.
-- loopmarket main carries its decided items (4, 9, 10, 11, 12, 17 and its
-  half of 23; item 2 is being merged), a fold that is N log N in books
-  instead of N², and the `BookClearing` rename. Its branch `ontodag-0.31`
+- loopmarket main carries its decided items (2, 4, 9, 10, 11, 12, 17 and
+  its half of 23), a fold that is N log N in books instead of N², the
+  `BookClearing` rename, and, ready for 0.31's release gate, the index
+  filing older offers' bare cells under their current spelling. Its branch `ontodag-0.31`
   holds what needs ontodag 0.31 (the CLI writing cells by their own name,
   `ontodag.open`/`ontodag.settings`); ontodag-fs's branch `ontodag-0.31`
   likewise (public names, floor and ceiling). Release order: ontodag
@@ -463,9 +464,9 @@ Each line points to its record.
 - After 0.31.0: make categor.io's "remove contact" pass
   `with_terms=True`. ontodag issue #13 (opening a store at a chosen
   residency) belongs on `Store`.
-- Decided and built while Peter was away (2026-10-10): questions 11–23,
-  except question 15's merge, in progress. Records in
-  `docs/plans/REVIEW_2026-10.md` §8.
+- Decided and built while Peter was away (2026-10-10): questions 11–23.
+  Records in `docs/plans/REVIEW_2026-10.md` §8; the night's story in
+  `docs/plans/JOURNAL.md`.
 
 ## Open questions for Peter
 
