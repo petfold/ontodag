@@ -475,11 +475,10 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-One, in `docs/plans/REVIEW_2026-10.md` with options and a
-recommendation:
-
-- Question 26 (item 23, found by loopmarket's hostile-record tests): how
-  the fold stops a stranger's record displacing a party's.
+Question 27, being put: whether a self-bonded statement may use another
+maker's deposit (found by loopmarket's hostile-record tests). Questions
+24–26 are decided (`docs/plans/REVIEW_2026-10.md` items 21–23) and not
+built yet.
 
 Older, not urgent: the 0.31.0 release; a publisher key for the packs on
 Swarm (published without one, so no feed yet; PACKS.md); BROWSER.md §7's
