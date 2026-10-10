@@ -358,7 +358,8 @@ class TestDomainPacks(unittest.TestCase):
         # and nothing but core's roots and the prelude's kind node sits at the top
         tops = {x.name for x in dag.nodes["*"].neighbors}
         self.assertEqual(tops, {"agent", "attribute", "cognition", "dimension", "event", "field-of-study",
-                                "information", "physical-object", "place", "possession", "substance"})
+                                "group", "information", "physical-object", "place", "possession",
+                                "substance"})   # group: core v13's eleventh branch
 
     def test_a_pack_alone_leaves_a_borrowed_name_at_top_level_until_its_sibling_comes(self):
         from ontodag.packs import pack_dag, describe, packs_declaring_node
