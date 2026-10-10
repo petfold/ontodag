@@ -1737,3 +1737,29 @@ rectangles, which may overlap so a thing on a seam between two pieces sits
 inside a third, against grid-aligned ones, which are canonical and index
 themselves; where the regions come from (a places pack); and how exact
 "in Paris" must be.
+
+**Measured (2026-10-10, `experiments/geo_fill.py`).** Paris (OpenStreetMap's
+city limit) and mainland France with Corsica (Natural Earth 1:10m), each
+cut on the geohash grid at a chosen fineness, keeping the grid squares
+wholly inside the boundary, and those squares grouped three ways: whole
+geohash cells (a tree), free rectangles without overlap (a greedy row-major
+cut), and free rectangles that may overlap (each grown as large as fits).
+All three cover exactly the same squares. A random square wholly inside the
+true boundary is found when one piece holds it; a border miss touches a
+grid square that is not inside (the same for all three), a seam miss lies
+inside but in no single piece.
+
+| region, grid square | area filled | pieces: cells / no overlap / overlap | squares | border misses | seam misses: cells / no overlap / overlap |
+|---|---|---|---|---|---|
+| Paris, 101×153 m | 95.8% | 1,417 / 95 / 78 | 100 m | 4.4% | 33% / 30% / 0.1% |
+| Paris, 25×19 m | 99.3% | 9,007 / 546 / 524 | 100 m | 0.7% | 38% / 89% / 0.1% |
+| France, 3.4×4.9 km | 96.9% | 3,826 / 364 / 333 | 100 m, 1 km | 3.3%, 3.0% | 1.0% / 1.2% / 0%, 7.5% / 12% / 0% |
+| France, 846×611 m | 99.4% | 30,113 / 2,261 / 2,435 | 100 m, 1 km | 0.7%, 0.5% | 1.4% / 7.4% / 0%, 10% / 65% / 0.2% |
+
+With overlap a point lies in 18 to 117 pieces on average (at most 283).
+Every country (Natural Earth 1:50m, 3–5 km squares): 762,759 cells or
+57,571 overlapping rectangles. So free rectangles need 10–17 times fewer
+pieces, overlap all but ends seam misses (the tree's weakness: a thing
+across a seam has no single container), and the price is depth: a query
+must not visit a thing once per piece holding it. The fineness, not the
+method, sets the border misses.
