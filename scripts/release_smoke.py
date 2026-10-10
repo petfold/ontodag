@@ -555,7 +555,8 @@ def main():
     failed = [name for ok, name, _ in results if not ok]
     print()
     if failed:
-        print(f"{len(failed)} check(s) failed — do not publish this build.")
+        print(f"{len(failed)} check(s) failed ({'; '.join(failed)}) — "
+              "do not publish this build.")
         return 1
     print(f"all {len(results)} checks passed on {source}.")
     return 0
