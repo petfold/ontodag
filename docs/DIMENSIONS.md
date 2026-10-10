@@ -1669,3 +1669,43 @@ disagreement is reported at first use, as conflicting kinds are.
 
 Tests: `TestFamilyPins` and `TestMergeStaysTotalAcrossFamilies` in
 `tests/test_dimensions_dag.py`.
+
+## 22. Input spellings for loopmarket's launch (questions 29 and 30)
+
+loopmarket's public launch waits, among other things, on two input
+spellings it asked ontodag for (its `docs/plans/cli.md` §11; review item
+17): coordinates for `geo` and relative times in `time(...)`. Each is
+input vocabulary only, elaborated to a term ontodag stores today, as `24C`
+is stored in kelvin; each deletes a loopmarket-only behaviour (`loop
+place`, and `loop`'s own time spellings).
+
+**Question 29, being put (2026-10-10): what the radius in
+`geo(LAT,LON,R)` means.** The geohash grid has edges at every size, and a
+circle across an edge fits in no cell of its own size: the spelling holds
+the whole circle or keeps the circle's size, not both. Measured with
+loopmarket's geohash code: cli.md's point in Ljubljana at 10 m gives the
+holding cell `u24q404` (about 150 m) or the centred `u24q4047` (about
+27 m, which part of the circle leaves); at 500 m `u24` (about 157 km) or
+`u24q4` (about 4.9 km); 200 m at Greenwich crosses the prime meridian, the
+first split, so only the whole earth holds it. Over 20,000 random points:
+
+| radius | holding cell, median width / circle | 90th percentile | 2+ levels coarser than centred | whole earth | centred cell misses part of the circle |
+|---|---|---|---|---|---|
+| 10 m | 8× | 60× | 26% | 0% | 99% |
+| 500 m | 5× | 39× | 28% | 0.04% | 81% |
+| 5 km | 16× | 96× | 14% | 0.4% | 66% |
+
+- **A**, the circle is the place: the smallest cell holding all of it
+  (`loop place` today). Never claims more than was said; coarse near
+  edges.
+- **B**, the point is the place and the radius sets the size: the cell
+  of that size holding the point (the usual geohash use). Tight; claims
+  the whole circle is in a cell it leaves.
+- **C**, by position: the holding cell when filed, the largest cell
+  inside the circle when asked (a query, a want). Never wrong either way;
+  one spelling, two cells, and far fewer matches.
+
+Recommended: A, with the coarse case named on stderr. Whichever is chosen,
+it is built exactly: decimal degrees as fractions and the metres-to-degrees
+step in fixed rational constants, rounded toward the larger circle, so
+every machine picks the same cell.
