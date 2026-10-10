@@ -125,9 +125,14 @@ the version numbers appear in commit history and docs.
   parsed (bounded caches); with graph-declared units the vocabulary
   matters too and nothing is cached. A containment check took 80 us for
   `time(...)` terms, mostly `strptime`, and 45 us for `mass(...)`; it now
-  takes 11.5 and 6.8 us. Found by loopmarket: retiring its v1/v2 offers
-  moved circulator's benchmark to `time(...)` and `geo(...)` terms, and at
-  400 offers its matching took 22 s where the old fields took 0.74 s.
+  takes 11.5 and 6.8 us. And `is_below` asked a pair it has answered at
+  this version answers before canonicalizing the names again, and a name
+  met again is not parsed again (both memoized against the graph's
+  version, outside replays, never while a guard tripped). Found by
+  loopmarket: retiring its v1/v2 offers moved circulator's benchmark to
+  `time(...)` and `geo(...)` terms: its matching asked `is_below` 234,743
+  times for 160 offers, mostly repeats, and at 400 offers took 19.6 s
+  where the old fields took 0.74 s; it now takes 5.4 s.
 - **`settings.read_config(path)` and `settings.write_config(cfg, path)`**
   read and write another file in odag's `key = value` format, owner-only
   as before, so loopmarket's config beside odag's stops being a copy of

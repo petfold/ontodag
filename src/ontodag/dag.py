@@ -1862,7 +1862,20 @@ class OntoDAG(DAG):
         """(head, kind, canonical name) when `name` is a parametric term of a
         *declared* dimension; None otherwise. This is the parse trigger:
         term-shaped names with undeclared heads stay opaque atoms, so
-        existing graphs are untouched (DIMENSIONS.md §7)."""
+        existing graphs are untouched (DIMENSIONS.md §7). Memoized against
+        the graph's version (outside replays, and never while a guard
+        tripped): every walk and comparison parses the names it meets."""
+        if self._role_lenient:
+            return self._parse_parametric_uncached(name)
+        key = ("parse", name)
+        hit = self._memo_get(key)
+        if hit is not _MISSING:
+            return hit
+        trips = self._trips()
+        return self._memo_put_unless_tripped(
+            key, self._parse_parametric_uncached(name), trips)
+
+    def _parse_parametric_uncached(self, name):
         split = _dims.split_term(name)
         if split is None:
             return None
@@ -3448,15 +3461,28 @@ class OntoDAG(DAG):
         rule with dimensions (a point value with a large asserted cone
         sits below an interval whose asserted cone is empty).
         """
-        sub = self._canonical_name(self._check_caller_term(_name_of(node)))
-        sup = self._canonical_name(self._check_caller_term(_name_of(super_category)))
+        raw_sub, raw_sup = _name_of(node), _name_of(super_category)
+        # A caller asking the same pair again (a matcher compares the same
+        # terms across many pairs) is answered before its names are
+        # canonicalized again: that took most of the time (loopmarket's
+        # matching asked is_below 234,743 times for 160 offers). Not inside
+        # a replay, where a name may read leniently.
+        as_asked = None if self._role_lenient else ("below-as-asked", raw_sub, raw_sup)
+        if as_asked is not None:
+            hit = self._memo_get(as_asked)
+            if hit is not _MISSING:
+                return hit
+        trips = self._trips()
+        sub = self._canonical_name(self._check_caller_term(raw_sub))
+        sup = self._canonical_name(self._check_caller_term(raw_sup))
         key = ("below", sub, sup)
         hit = self._memo_get(key)
-        if hit is not _MISSING:
-            return hit
-        trips = self._trips()
-        return self._memo_put_unless_tripped(
-            key, self._is_below_names(sub, sup), trips)
+        if hit is _MISSING:
+            hit = self._memo_put_unless_tripped(
+                key, self._is_below_names(sub, sup), trips)
+        if as_asked is not None:
+            self._memo_put_unless_tripped(as_asked, hit, trips)
+        return hit
 
     def _is_below_names(self, sub, sup):
         """`is_below` on canonical names, unmemoized."""

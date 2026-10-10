@@ -861,3 +861,43 @@ class TestMergeStaysTotalAcrossFamilies(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestARepeatedQuestionIsNotParsedAgain(unittest.TestCase):
+    """`is_below` asked the same pair again answers from its memo before
+    canonicalizing the names again, and a name met again is not parsed
+    again (both memoized against the graph's version). loopmarket's
+    matching asked is_below 234,743 times for 160 offers, most of them
+    repeats, and parsing the names took most of the time (2026-10-10)."""
+
+    def test_counted(self):
+        from ontodag import prelude
+        dag = OntoDAG()
+        prelude.apply(dag)
+        dag.put("crate", ["mass(3kg)", "time(2026-08-15)"])
+        calls = []
+        real = dag._parse_parametric_uncached
+        dag._parse_parametric_uncached = lambda name: calls.append(name) or real(name)
+        pairs = [("crate", "mass(..5kg)"), ("crate", "time(2026-08)"),
+                 ("mass(3kg)", "mass(1kg..4kg)")]
+        for _ in range(200):
+            for sub, sup in pairs:
+                self.assertTrue(dag.is_below(sub, sup))
+        first = len(calls)
+        checked = []
+        real_check = dag._check_caller_term
+        dag._check_caller_term = lambda name: checked.append(name) or real_check(name)
+        for _ in range(200):
+            for sub, sup in pairs:
+                dag.is_below(sub, sup)
+        self.assertEqual(len(calls), first)          # nothing parsed again
+        self.assertEqual(checked, [])                # nor canonicalized again
+        dag.get(["mass(..5kg)", "time(2026-08)"])
+        once = len(calls)
+        for _ in range(50):                          # a query parses what it
+            dag.get(["mass(..5kg)", "time(2026-08)"])    # meets: once
+        self.assertEqual(len(calls), once)
+        self.assertLess(first, 60)                   # a few per distinct name
+        dag.put("box", [])                           # a new version forgets
+        dag.is_below("crate", "mass(..5kg)")
+        self.assertGreater(len(calls), first)
