@@ -103,8 +103,8 @@ virtualenv committed by accident and untracked by question 22),
 - `python3 -m pytest` from the repo root runs everything. `conftest.py`
   puts `src/` on the path and points `$ONTODAG_HOME` at a temporary
   directory; pyproject's `python_files = ["test*.py"]` also collects
-  `testdag.py`, `testitem.py` and `testowl.py`. About 1,350 tests, about
-  5 minutes on this laptop.
+  `testdag.py`, `testitem.py` and `testowl.py`. About 1,400 tests, about
+  6 minutes on this laptop.
 - `CI=1 python3 -m pytest` also checks the test count README.md states
   (passed plus skipped). Run it before any tag.
 - Gated: `tests/test_swarm_bee.py` needs `BEE_API` and `BEE_BATCH`, and
@@ -389,34 +389,35 @@ Each line points to its record.
       name, `from(geo(u2e4x))`; `geo(...)` takes only geohash spellings;
       old terms read as before until migrated (item 20). Built in ontodag
       (a query still reads a bare word as a cell, for G7); loopmarket's
-      respelling waits on a branch for ontodag 0.31.
+      half is on its branch `ontodag-0.31`, to merge with that release.
   15. loopmarket: one matching engine, ontodag's index, for simple
       matches and the aggregation search, no threshold; the default
-      solver kept apart from the rest of loopmarket (item 2). Not built
-      yet.
+      solver kept apart from the rest of loopmarket (item 2). Being
+      built.
   16. loopmarket: matching and clearing refuse an offer whose registry or
-      contract major differs from the installed ontodag's (item 4). Not
-      built yet.
+      contract major differs from the installed ontodag's (item 4).
+      Built.
   17. loopmarket: the fold re-checks every clearing book's loops, and
       where a chain is configured only on-chain fills hide an offer
-      (item 9). Not built yet.
+      (item 9). Built; building it raised question 25.
   18. loopmarket: `cli.py` split by area, with a `Reads` object and a
       `LegRecord` type; built first among loopmarket's items (item 10).
-      Not built yet.
+      Built (the settings half rides loopmarket's `ontodag-0.31` branch).
   19. loopmarket: durations and relative times in ontodag's units (`min`,
       `wk`); a bare `m` or `w` is refused with the fix named (item 11).
-      Not built yet.
+      Built.
   20. loopmarket: v1/v2 offers retired (circulator's benchmark and the
       tests move to v4+ first; old records stay readable), `MockClearing`
-      renamed `BookClearing` (item 12). Not built yet.
+      renamed `BookClearing` (item 12). Built, circulator's benchmark
+      first.
   21. loopmarket: its phase gates rewritten for what they still guard
       (the format freeze gates a public launch, factbond's scored Phase 0
       gates selling insurance from a pool); factbond's plans aligned at
-      once (item 17). loopmarket's documents not rewritten yet.
+      once (item 17). Done.
   22. `mypip/` untracked and ignored, its prototype `cgagviz.py` moved to
       `experiments/` first (§4). Done.
   23. The review's test suggestions 1–5 and 9, each written before the
-      decided item it guards (§7). Not done yet.
+      decided item it guards (§7). Done in both repositories.
 
 ## Bee integration status
 
@@ -440,30 +441,44 @@ Each line points to its record.
   tests and loopmarket's three live tests passed. Every run since July,
   with what each taught, is in the journal under this heading.
 
-## State (2026-10-09)
+## State (2026-10-10)
 
 - Released, each verified from PyPI: ontodag 0.30.8, recordstore 0.22.2,
   swarmfs 0.14.0, loopmarket 0.14.5, ontodag-fs 0.6.4.
-- On main, not released: the review's decisions 1–9 and a fix for loading
-  role terms from a native file (CHANGELOG "Unreleased"). Two public
-  methods were removed, so the next release is a minor, 0.31.0, and needs
-  ontodag-fs's ceiling raised. It waits for Peter's word.
-- After 0.31.0: move loopmarket and ontodag-fs from the CLI aliases to the
-  public names (each needs a release with the new floor), and make
-  categor.io's "remove contact" pass `with_terms=True`. ontodag issue #13
-  (opening a store at a chosen residency) belongs on `Store`.
-- The sister repos' CI and lint changes are on their main branches, not
-  released; none changes behaviour.
-- Decided and being built (2026-10-10, Peter away): questions 11 to 23. Peter's instruction
-  (2026-10-09): from question 11 on, record each decision and build them
-  all once the last question is decided.
+- On main, not released: the review's decisions 1–14 and 22–23 for
+  ontodag (CHANGELOG "Unreleased"): contract 0.6, registry 4.4 (merges
+  fold into the meet; a cell in a role of geo is written by its own
+  name), and a typed value parsed once, `is_below` memoized. Public API
+  was removed, so the next release is a minor, 0.31.0. It waits for
+  Peter's word.
+- loopmarket main carries its decided items (4, 9, 10, 11, 12, 17 and its
+  half of 23; item 2 is being merged), a fold that is N log N in books
+  instead of N², and the `BookClearing` rename. Its branch `ontodag-0.31`
+  holds what needs ontodag 0.31 (the CLI writing cells by their own name,
+  `ontodag.open`/`ontodag.settings`); ontodag-fs's branch `ontodag-0.31`
+  likewise (public names, floor and ceiling). Release order: ontodag
+  0.31.0, then loopmarket and ontodag-fs with their branches merged.
+  circulator's main writes v4 offers (its CI has been red since
+  2026-09-21 on a test comparing its own copy of the baseline).
+- After 0.31.0: make categor.io's "remove contact" pass
+  `with_terms=True`. ontodag issue #13 (opening a store at a chosen
+  residency) belongs on `Store`.
+- Decided and built while Peter was away (2026-10-10): questions 11–23,
+  except question 15's merge, in progress. Records in
+  `docs/plans/REVIEW_2026-10.md` §8.
 
 ## Open questions for Peter
 
-Question 24 (`docs/plans/REVIEW_2026-10.md` item 21, found building
-question 12): whether a value nothing is filed under is kept, which
-decides G1's remaining gap. Every other item of the 2026-10 review is
-decided.
+Three, each in `docs/plans/REVIEW_2026-10.md` with options and a
+recommendation:
+
+- Question 24 (item 21, found building question 12): whether a value
+  nothing is filed under is kept, which decides G1's remaining gap.
+- Question 25 (item 22, found building loopmarket's item 9): whether,
+  under a chain, rival clearing books are recorded instead of failing
+  the fold.
+- Question 26 (item 23, found by loopmarket's hostile-record tests): how
+  the fold stops a stranger's record displacing a party's.
 
 Older, not urgent: the 0.31.0 release; a publisher key for the packs on
 Swarm (published without one, so no feed yet; PACKS.md); BROWSER.md §7's
