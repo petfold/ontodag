@@ -184,10 +184,11 @@ def test_losses_are_per_principal():
     before = acme()
     after = acme()
     after.reclassify(["employee-information"], to=(), from_=[sw("acme-employee")])
+    # The group's term, with nothing filed under it any more, is not kept
+    # (question 24), so it leaves each reach with what was under it.
+    lost = ["employee-information", "handbook", sw("acme-employee")]
     assert sharing.losses(before, after, [ADA, BOB, HARRY]) == {
-        ADA: ["employee-information", "handbook"],
-        BOB: ["employee-information", "handbook"],
-        HARRY: ["employee-information", "handbook"]}
+        ADA: lost, BOB: lost, HARRY: lost}
     assert sharing.losses(before, before, [ADA]) == {}
 
 

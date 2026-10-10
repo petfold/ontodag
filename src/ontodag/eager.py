@@ -28,7 +28,7 @@ nothing from `recordstore`, keeping the core↔recordstore dependency
 one-directional even here (see tests/test_boundaries.py).
 """
 
-from ontodag.dag import Item, OntoDAG, _name_of
+from ontodag.dag import Item, OntoDAG, _keeps_values_used, _name_of
 
 
 class EagerOntoDAG(OntoDAG):
@@ -212,6 +212,7 @@ class EagerOntoDAG(OntoDAG):
             return False                      # already have exactly this
         return self.merge_delta(root, bytes_store)
 
+    @_keeps_values_used
     def merge_delta(self, other_root, bytes_store=None) -> bool:
         """Fold the state at `other_root` in by walking only the DIVERGENCE.
 
@@ -298,6 +299,7 @@ class EagerOntoDAG(OntoDAG):
         self._respell_deferred(touched)   # compounds left behind (merge())
         self._respell_old_cells(touched)  # one cell, one name (merge())
         self._fold_replayed(touched)      # values left unmet (merge())
+        self._touched_values.update(touched)  # unused ones forgotten (merge())
 
         if getattr(self.store, "root", None) == other_root:
             for key, _mine, theirs in diff:

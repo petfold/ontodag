@@ -238,8 +238,7 @@ class TestStoredFormWithRoles(unittest.TestCase):
         late.put("o", ["from(cafe)"])
         late.put("o", ["from(geo(u2e4x))"])            # kept: cafe may be elsewhere
         late.put("cafe", ["geo(u2e4x)"])          # refined into that cell
-        direct = make_dag()
-        direct.put("geo(u2e)", ["geo"])           # values, once used, stay
+        direct = make_dag()                       # geo(u2e), used no more, goes
         direct.put("cafe", ["geo(u2e4x)"])
         direct.put("o", ["from(geo(u2e4x))", "from(cafe)"])
         self.assertEqual(edge_set(late), edge_set(direct))
@@ -256,7 +255,7 @@ class TestStoredFormWithRoles(unittest.TestCase):
                    ("geo(u2e6)", ["ljubljana"]),
                    ("cafe", ["geo(u2e)"]), ("o", ["from(cafe)"]),
                    ("o", ["from(geo(u2e4x))"]), ("cafe", ["geo(u2e4x)"])])
-        b = build([("geo(u2e6)", ["ljubljana"]), ("geo(u2e)", ["geo"]),
+        b = build([("geo(u2e6)", ["ljubljana"]),
                    ("cafe", ["geo(u2e4x)"]),
                    ("o", ["from(geo(u2e4x))", "from(cafe)"]),
                    ("ride", ["from(geo(u2e6))", "from(ljubljana)"])])

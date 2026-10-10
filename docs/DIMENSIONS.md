@@ -377,14 +377,20 @@ its parents, and within one dimension that intersection has a name — so
 `weight(2kg..3kg)`, in one call or across two (`reclassify` folds with
 the parents the item keeps). One denotation, one stored form, and every
 query path — a two-term `get`, a `get` on the meet, `is_below` against a
-bound only the meet is inside — finds the item where it is. Every value
-named in the put is still materialized (a value once named stays), so
-two values give the same stored form in either order. Three or more do
-not quite: each fold keeps the meet it made, so filing `1kg..6kg`,
-`3kg..9kg`, `2kg..5kg` one at a time leaves an unused `3kg..6kg` in one
-order and nothing in another — same placement, same answers about the
-item, another root (found 2026-10-10 building question 12; open, REVIEW
-item 21). The graph kind is the
+bound only the meet is inside — finds the item where it is. **A value is
+kept only while something is filed under it** (registry 4.4, review
+question 24), or while it is filed under an ordinary category
+(`mass(30kg..) ⊑ heavy`): the values a fold met, and a coarser value a
+finer one replaced, are forgotten once nothing uses them, and so is a
+value a removal or a move leaves empty. So any order of filing
+`1kg..6kg`, `3kg..9kg`, `2kg..5kg` stores the crate under `3kg..5kg` and
+nothing else, and `x` under `mass(..5kg)` and `mass(2kg..)` is the same
+store as `x` under `mass(2kg..5kg)`. A value carries no fact of its own:
+the arithmetic orders a term, and puts it below its head, whether or not
+its node exists, so forgetting one changes no `is_below`. A value `put`
+under its head alone states nothing and is refused. (Until 4.4 a value
+once named stayed, and three overlapping values left an unused meet that
+depended on the order.) The graph kind is the
 exception since 2026-10-08: its meet is a compound term whose spelling
 follows the graph, so its terms are filed as their parts instead (§15). Role terms naming nodes
 have no nameable meet and keep their several parents; a provably empty

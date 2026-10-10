@@ -991,6 +991,13 @@ What to know:
   Alice's store says `mass(..5kg)` and Bob's `mass(6kg..)`, the merged store
   keeps both, and `odag status` lists the item under `contradictions` until
   someone fixes the facts.
+- **A value is kept while something uses it.** The values a meet came
+  from, and a coarse value a finer one replaced, go once nothing is filed
+  under them, and so does a value whose last item is removed or moved. So
+  `odag put x 'mass(..5kg)'` and then `odag put x 'mass(3kg)'` store `x`
+  under `mass(3kg)` and nothing else. A value on its own states nothing, so
+  `odag put 'mass(7kg)' mass` is refused; one filed under a category of
+  yours (`mass(30kg..) ⊑ heavy`) stays.
 - **Value nodes answer queries too.** A bare `dag.get(["time(2026-08-01..)"])`
   returns the matching `time(...)` categories alongside your documents — they are
   ordinary categories and they genuinely satisfy the query. Pair the date with a

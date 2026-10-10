@@ -307,8 +307,9 @@ class TestDimensionsAcrossWriters(unittest.TestCase):
         self.assertEqual(merged_a, merged_b)
         self.assertEqual(parents(alice, "parcel"), {"weight(3kg)"})
         self.assertEqual(parents(bob, "parcel"), {"weight(3kg)"})
-        # The coarse value survives as a value node (anchored), edge-pruned.
-        self.assertIn("weight(..5kg)", alice.nodes)
+        # The coarse value, used by nothing else, goes on both (question 24).
+        self.assertNotIn("weight(..5kg)", alice.nodes)
+        self.assertNotIn("weight(..5kg)", bob.nodes)
 
     def test_conflicting_kind_declarations_surface_loudly(self):
         blobs = MemoryBytesStore()
@@ -391,24 +392,15 @@ class TestAMergeFilesAtTheMeet(unittest.TestCase):
             self.assertIn("crate", {i.name for i in merged.get([term])})
 
     @staticmethod
-    def used(dag):
-        """The stored form less the values nothing is filed under. Folding
-        keeps every meet it makes, so three overlapping values filed one at
-        a time leave one unused intermediate meet or another depending on
-        the order: a difference `put` has made since 0.26.2, found here,
-        and open (REVIEW_2026-10.md item 21, question 24)."""
-        unused = {name for name, node in dag.nodes.items()
-                  if not node.neighbors and dag.parse_term(name) is not None
-                  and {p.name for p in node.parents}
-                  == {dag.parse_term(name).head}}
-        return {(p.name, c.name) for p in dag.nodes.values()
-                for c in p.neighbors if c.name not in unused}
+    def edges(dag):
+        return {(p.name, c.name) for p in dag.nodes.values() for c in p.neighbors}
 
     def test_merges_of_consistent_values_meet_in_any_order(self):
         """Random items, each given values of one head that share a point,
         filed by three writers and merged in every order: every item where
-        one writer filing everything puts it, and the same stored form but
-        for unused intermediate meets. Two writers: the same root."""
+        one writer filing everything puts it, and the same stored form (a
+        value nothing uses is not kept, question 24). Two writers: the
+        same root."""
         import itertools
         import random
         for seed in range(12):
@@ -431,11 +423,9 @@ class TestAMergeFilesAtTheMeet(unittest.TestCase):
                 for item in items:
                     self.assertEqual(parents(merged, item), parents(one, item),
                                      (seed, order, item))
-                self.assertEqual(self.used(merged), self.used(one), (seed, order))
+                self.assertEqual(self.edges(merged), self.edges(one), (seed, order))
             for a, b in itertools.permutations(range(3), 2):
                 pair = self.store(shares[a] + shares[b])
                 merged = self.store(shares[a])
                 merged.merge(self.store(shares[b]))
-                if all(len({s[0] for n, s in shares[a] + shares[b] if n == item}) <= 2
-                       for item in items):
-                    self.assertEqual(merged.commit(), pair.commit(), (seed, a, b))
+                self.assertEqual(merged.commit(), pair.commit(), (seed, a, b))

@@ -115,21 +115,24 @@ decided at the 2026-08-01 review:
   insertion order, and spelling of equal denotations do not affect the root,
   nor does whether a fact arrived by `put` or by a merge: since 0.6 a merge,
   a sync and a load file an item left under two overlapping values of one
-  head under their meet, as `put` does.
+  head under their meet, as `put` does, and a value is kept only while
+  something is filed under it or it is filed under an ordinary category,
+  so the stored form is a function of what is filed: `x` under
+  `mass(2kg..5kg)` and `x` under `mass(..5kg)` and `mass(2kg..)` are one
+  root.
   Relativity clause: "knowledge" is read against the interpretation context —
   declarations that merge with the data, plus `REGISTRY_VERSION`. **Holds
-  today** (eager/sparse root-equality oracles; live canonical-root runs on
-  real Swarm refs), with one gap found 2026-10-10 and open (review
-  question 24): each fold keeps the meet it made, so an item given three
-  or more overlapping values of one head one at a time, or by merges in
-  different groupings, can leave an unused intermediate meet in one order
-  and not in another. The item's placement and every answer about it are
-  the same; the root is not.
+  today** (eager/sparse root-equality oracles, every order of puts and every
+  grouping of merges in `test_unused_values.py`; live canonical-root runs
+  on real Swarm refs).
 - **G2 — Monotonicity under merge.** Merge is union followed by
   re-reduction. `is_below` answers that are true stay true; `get`/`get_any`
-  results only grow. The one documented exception: a `remove` loses to a
-  concurrent re-add (the grow-only stance). **Holds today** (I7,
-  `test_multiwriter.py`).
+  results only grow. Two documented exceptions: a `remove` loses to a
+  concurrent re-add (the grow-only stance); and a value node nothing is
+  filed under any more is not kept (0.6), so it can leave a `get` answer
+  it was listed in. An item never leaves one, and no `is_below` answer
+  changes, since a value is below its head whether or not its node exists.
+  **Holds today** (I7, `test_multiwriter.py`).
   *Note (2026-08-01 review):* monotonicity is a property of **merge**, not
   of the timeline — a local `remove` may shrink answers between commits.
   Living-store answers are therefore advisory for anything that caches;
@@ -173,8 +176,11 @@ decided at the 2026-08-01 review:
   a fixed store: every `is_below` that was true stays true, and every
   `get`/`get_any` answer stays inside the new one. A newer version may add
   answers (a registry minor that recognizes a new kind computes links the
-  older one could not see), never remove them. A change that would remove
-  an answer is a major bump, and before 1.0 that means the contract goes
+  older one could not see), never remove them. The one exception is G2's:
+  a value node nothing is filed under is not kept (0.6), so it can leave a
+  `get` answer it was listed in; an item never does, and no `is_below`
+  answer changes. A change that would remove any other answer is a major
+  bump, and before 1.0 that means the contract goes
   to 1.0. This is what lets a consumer compare majors only: two offers
   pinned to the same root and to versions within one major mean the same
   thing, read by the newer interpreter (loopmarket's matcher and on-chain
@@ -609,11 +615,23 @@ head), stop folding in `put`, or document the exception.
    a stored term reads as it was stored, and a query reads a bare word as
    before; `migrate` respells stored cells, in the same registry minor.
 
-Found while building it: `put` itself keeps every meet it makes, so three
-or more overlapping values filed one at a time can leave an unused
-intermediate meet that depends on the order (G1's stated gap). Merges
-share it; the fix changes a documented rule ("a value once named stays"),
-so it went back to Peter as question 24.
+5. **A value is kept only while something is filed under it** (review
+   question 24, decided by Peter the same day: A), or while it is filed
+   under an ordinary category. Found while building item 1: each fold kept
+   the meet it made ("a value once named stays"), so three or more
+   overlapping values filed one at a time, or merged in different
+   groupings, left an unused intermediate meet that depended on the order:
+   equal knowledge, two roots. Now a fold, a move, a removal, a merge, a
+   sync or a load that leaves a value empty forgets it, and a value `put`
+   under its head alone is refused as a write with no effect. **G1** holds
+   without a gap; **G2 and G7** gain the sentence that such a value node
+   can leave a `get` answer it was listed in, an item never; and a value
+   now reads as below its head whether or not its node exists, so no
+   `is_below` answer is lost. Peter allowed this change, and only this
+   one, to take answers from older stores without a contract major (no
+   store is in real use yet); G7's test states the exception exactly. It
+   rides registry 4.4, still unreleased; `ontodag.migrate` brings an older
+   store along.
 
 ### Amendment 0.5 (2026-10-09)
 

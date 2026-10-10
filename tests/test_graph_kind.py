@@ -58,7 +58,7 @@ class TestGrammar(unittest.TestCase):
         dag.put("x", ["transport(bicycle small-item)"])
         self.assertEqual({p.name for p in dag.nodes["x"].parents},
                          {"transport(bicycle)"})
-        self.assertIn("transport(small-item)", dag.nodes)   # named, so materialized
+        self.assertNotIn("transport(small-item)", dag.nodes)   # nothing under it
         # a kind node is not a constraint; an empty argument is not a term
         with self.assertRaises(ValueError):
             dag.is_below("transport(linear-dimension)", "transport(goods)")
@@ -268,17 +268,19 @@ class TestStoredFormIsOrderFree(unittest.TestCase):
             if not fact_first:
                 dag.put("piano", ["heavy-item"])
             self.assertEqual(parents(dag, "job-18"), {"transport(piano)"})
-            self.assertEqual(sorted(graph_terms(dag)),
-                             ["transport(heavy-item)", "transport(piano)"])
+            self.assertEqual(sorted(graph_terms(dag)), ["transport(piano)"])
             self.assertTrue(dag.is_below("job-18", "transport(heavy-item piano)"))
             self.assertEqual({i.name for i in dag.get(
                 ["transport(heavy-item piano)"], items_only=True)}, {"job-18"})
 
-    def test_a_term_put_as_an_item_is_its_parts(self):
+    def test_a_term_put_alone_is_refused_part_by_part(self):
+        # Stored as its parts, each a term nothing is filed under, so each
+        # states nothing (question 24): the first part is refused, and
+        # nothing is stored.
         dag = removals()
-        dag.put("transport(heavy-item piano)", [])
-        self.assertEqual(sorted(graph_terms(dag)),
-                         ["transport(heavy-item)", "transport(piano)"])
+        with self.assertRaisesRegex(ValueError, "alone states nothing"):
+            dag.put("transport(heavy-item piano)", [])
+        self.assertEqual(graph_terms(dag), [])
 
     def test_a_nested_compound_splits_too(self):
         dag = removals()

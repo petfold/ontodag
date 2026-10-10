@@ -356,9 +356,15 @@ class TestG7MonotoneVersions(unittest.TestCase):
         self.assertGreater(len(self.record["below"]), self.least)
 
     def test_every_recorded_answer_stays_inside_the_new_one(self):
+        # The one exception G7 names: a value nothing is filed under is not
+        # kept (question 24), so it can leave an answer it was listed in.
+        # An item never leaves one, and no is_below about the value changes.
         for case in self.record["get"]:
             now = names(self.dag.get(case["terms"]))
-            self.assertLessEqual(set(case["answer"]), now, case["terms"])
+            gone = {name for name in set(case["answer"]) - now
+                    if not (self.dag.parse_term(name) is not None
+                            and name not in self.dag.nodes)}
+            self.assertEqual(gone, set(), case["terms"])
 
 
 class TestG7SecondRecord(TestG7MonotoneVersions):

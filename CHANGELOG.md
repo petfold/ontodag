@@ -56,15 +56,30 @@ the version numbers appear in commit history and docs.
   writing role cells (loopmarket) spell them the new way, so ontodag 0.31
   and the consumer release that respells go together.
 
-### Known issue
-
-- **An unused intermediate meet can depend on filing order** (found
-  building question 12; open as question 24). Each fold keeps the meet it
-  makes, a rule `put` has followed since 0.26.2 ("a value once named
-  stays"), so `1kg..6kg`, `3kg..9kg` and `2kg..5kg` filed one at a time
-  leave an empty `mass(3kg..6kg)` in one order and nothing in another.
-  The item's placement and every answer about it agree; the root does
-  not. Merges in different groupings share it.
+- **A value is kept only while something is filed under it** (review
+  question 24, decided with Peter, 2026-10-10: A; CONTRACT.md amendment
+  0.6 item 5, DIMENSIONS.md §9), or while it is filed under an ordinary
+  category. Each fold kept the meet it made ("a value once named stays",
+  since 0.26.2), so `1kg..6kg`, `3kg..9kg` and `2kg..5kg` filed one at a
+  time left an empty `mass(3kg..6kg)` in one order and nothing in
+  another, and merges in different groupings did the same: equal
+  knowledge, two roots. Now a fold, a move, a removal, a merge, a sync
+  and a load forget a value they leave empty, so any order and any
+  grouping store one root, and `x` under `mass(..5kg)` and `mass(2kg..)`
+  is the same store as `x` under `mass(2kg..5kg)`. A value put under its
+  head alone (`put 'mass(3kg)' mass`) is refused as a write with no
+  effect, unless something already uses it; `ingest` no longer creates a
+  stream's terms ahead of their items. A value now reads as below its
+  head whether or not its node exists (`is_below("mass(..5kg)", "mass")`
+  was false without the node), so forgetting one takes no `is_below`
+  away; such a value can leave a `get` answer it was listed in, and G2
+  and G7 say so. Peter allowed this one change to take answers from
+  older stores without a contract major (no store is in real use yet).
+  `sharing.losses` lists a group's `shared-with(...)` term once nothing
+  is shared with the group any more, since the term goes with it.
+  **Migrate step (G8):** a native file written before 4.4 drops its
+  unused values as it loads; `ontodag.migrate` drops them from a record
+  store.
 
 ### Contract 0.5
 

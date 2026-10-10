@@ -178,11 +178,11 @@ Only on Peter's word. Pushing a `v*` tag publishes to PyPI; never dispatch
 Contract 0.6 (`docs/CONTRACT.md`, `tests/test_contract.py`):
 
 - **G1** equal knowledge, equal root (a semantic canonical form), whether
-  it came by `put` or by a merge. Open gap: three or more overlapping
-  values of one head on one item can leave an unused meet that depends on
-  the order (question 24).
+  it came by `put` or by a merge. A value is kept only while something is
+  filed under it or it is filed under an ordinary category.
 - **G2** merge is monotone: true stays true, answers only grow (a removal
-  loses to a concurrent re-add).
+  loses to a concurrent re-add; a value nothing is filed under any more
+  leaves the `get` answers it was listed in, an item never).
 - **G3** the same root and context give the same answers on any replica.
 - **G4** `is_below` is fail-closed.
 - **G5** writers who sync each other's roots converge byte for byte,
@@ -381,8 +381,10 @@ Each line points to its record.
       contradicting values stay as they arrive and `odag status` lists
       them; contract 0.6, registry 4.4 (item 18). Built. It found item 21:
       question 24, decided A (a value is kept only while something is
-      filed under it; for this change only, older stores get no allowance
-      and G7's fixtures may be re-recorded); not built yet.
+      filed under it; for this change only, older stores get no
+      allowance). Built: a write forgets the values it leaves unused, a
+      bare value put is refused, a value is below its head whether or not
+      its node exists, and G7's test states the one exception.
   13. A role term whose name meets a category outside its dimension reads
       as the value when stored, is refused when written or typed;
       `name_clashes()` and `odag status` list such clashes (item 19).

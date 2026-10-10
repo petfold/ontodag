@@ -87,7 +87,7 @@ local to ``_expand_many``.
 """
 
 from ontodag import dimensions as _dims
-from ontodag.dag import DAG, Item, OntoDAG, _name_of
+from ontodag.dag import DAG, Item, OntoDAG, _keeps_values_used, _name_of
 
 
 class _LazyNodes(dict):
@@ -592,6 +592,7 @@ class SparseOntoDAG(LazyOntoDAG):
             self.merge_delta(other_root, bytes_store)
         return self.commit()
 
+    @_keeps_values_used
     def merge_delta(self, other_root, bytes_store=None) -> bool:
         """The diff-driven fold, partially resident (see
         ``EagerOntoDAG.merge_delta`` for the semantics — union of states,
@@ -679,4 +680,5 @@ class SparseOntoDAG(LazyOntoDAG):
         self._respell_deferred(touched)   # compounds left behind (merge())
         self._respell_old_cells(touched)  # one cell, one name (merge())
         self._fold_replayed(touched)      # values left unmet (merge())
+        self._touched_values.update(touched)  # unused ones forgotten (merge())
         return bool(touched)

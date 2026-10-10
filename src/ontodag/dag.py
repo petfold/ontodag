@@ -1,6 +1,7 @@
 from collections import namedtuple
 import bisect
 from contextlib import contextmanager
+import functools
 from itertools import combinations
 
 from ontodag import dimensions as _dims
@@ -100,6 +101,26 @@ def _name_of(node_or_name):
 
 
 _MISSING = object()
+
+
+def _keeps_values_used(method):
+    """A write that may leave a value nothing is filed under: the values it
+    touched (made, or took an edge from or to) are collected while it runs, and
+    when the outermost such write ends the unused ones are forgotten
+    (`OntoDAG._forget_unused`). A refused write forgets nothing."""
+    @functools.wraps(method)
+    def write(self, *args, **kwargs):
+        if self._touched_values is not None:
+            return method(self, *args, **kwargs)
+        self._touched_values = set()
+        try:
+            result = method(self, *args, **kwargs)
+            touched = self._touched_values
+        finally:
+            self._touched_values = None
+        self._forget_unused(touched)
+        return result
+    return write
 
 
 class _TooCostly(Exception):
@@ -615,6 +636,21 @@ class _Intervals:
             self.wide_los.insert(at, lo)
         return True
 
+    def discard(self, dag, name):
+        """Take `name` out, in place; False when it cannot be read (the
+        caller then drops the index, to be rebuilt from the star)."""
+        bounds = self._bounds(dag, name, None, None)
+        if bounds is None:
+            return False
+        entry = (bounds[1], bounds[2], name)
+        for entries, los in ((self.entries, self.los), (self.wide, self.wide_los)):
+            at = bisect.bisect_left(entries, entry)
+            if at < len(entries) and entries[at] == entry:
+                del entries[at], los[at]
+        if not self.entries:
+            self.family = None
+        return True
+
     def hops(self, dag, canonical, head, kind, up, limit=None):
         """Below: every value inside `canonical` (stopping once there are
         more than `limit`). Above: every value containing it."""
@@ -679,6 +715,31 @@ class _Prefixes:
         self.names.setdefault(value, set()).add(name)
         return True
 
+    def discard(self, dag, name):
+        """Take `name` out, in place; False when it cannot be read (the
+        caller then drops the index, to be rebuilt from the star)."""
+        split = _dims.split_term(name)
+        if split is None:
+            return False
+        try:
+            if self.literal_role is not None:
+                if split[0] != self.literal_role:
+                    return True
+                value = _dims._prefix_parts(split[0], split[1])[0]
+            else:
+                value = _dims._parse_prefix(split[1])
+        except ValueError:
+            return False
+        names = self.names.get(value)
+        if names is not None:
+            names.discard(name)
+            if not names:
+                del self.names[value]
+                at = bisect.bisect_left(self.params, value)
+                if at < len(self.params) and self.params[at] == value:
+                    del self.params[at]
+        return True
+
     def below(self, prefix, head):
         """The indexed names whose value extends `prefix`."""
         out = []
@@ -727,6 +788,7 @@ class OntoDAG(DAG):
         self._param_active = None   # re-entrancy guards of interpretation
         self._role_guard = None
         self._bounds_active = None
+        self._touched_values = None  # values a write made or took an edge from or to
 
     def _drop_derived(self):
         """Forget everything rebuilt on demand from the graph: the hop
@@ -1069,9 +1131,16 @@ class OntoDAG(DAG):
         self._maybe_invalidate_heads(from_node, to_node)
         values = self._values
         if values is not None:
-            values.pop(from_node.name, None)        # rebuilt from the star on use
+            # A value leaving its head's star leaves the index in place;
+            # anything else drops it, to be rebuilt from the star on use.
+            index = values.get(from_node.name)
+            if index is None or not index.discard(self, to_node.name):
+                values.pop(from_node.name, None)
         super().remove_edge(from_node, to_node)
         self._note_escape(from_node, to_node, added=False)
+        touched = self._touched_values
+        if touched is not None:             # either end may be a value left unused
+            touched.update(n.name for n in (from_node, to_node) if "(" in n.name)
         log = self._edge_log
         if log is not None:
             log.append((from_node, to_node))
@@ -2183,7 +2252,9 @@ class OntoDAG(DAG):
                                     _dims.split_term(constraint)[0], None)
         values = self._values
         if values is not None:
-            values.pop(split[0], None)
+            index = values.get(split[0])
+            if index is None or not index.discard(self, name):
+                values.pop(split[0], None)
 
     def _terms_naming(self, name, head):
         """Present terms of `head` with `name` among their constraints;
@@ -2860,6 +2931,8 @@ class OntoDAG(DAG):
         node = Item(canonical)
         self.add_node(node)
         self.add_edge(self.nodes[head], node)  # the anchor (schema edge)
+        if self._touched_values is not None:
+            self._touched_values.add(canonical)
         return node
 
     def add_edge(self, from_node, to_node):
@@ -3509,9 +3582,13 @@ class OntoDAG(DAG):
             if len(parts) > 1:
                 return all(self.is_below(sub, part) for part in parts)
         if sub_node is None:
-            # A virtual subject relates upward only through the present
-            # values that contain it.
+            # A virtual subject relates upward through its head, where every
+            # value hangs whether present or not (a value nothing is filed
+            # under is not kept), and through the present values that
+            # contain it.
             head, kind, _ = sub_parsed
+            if head == sup or (head in self.nodes and self.is_below(head, sup)):
+                return True
             above = self._hops(sub, head, kind, up=True)
             if above is None:
                 return any(
@@ -4080,9 +4157,49 @@ class OntoDAG(DAG):
         del self.nodes[name]
         self._changed()
         self._unindex(name)
+        if _dims.split_term(name) is not None and not _dims.is_kind_node(name):
+            return    # a term is never a head; its edges kept the caches current
         self._heads_cache = None
         self._dim_cache = None
         self._escape_cache = None
+
+    def _forget_unused(self, names):
+        """Forget each value among `names` that nothing is filed under and
+        that sits under its head alone (review question 24, decided by Peter
+        2026-10-10): a value carries no fact of its own (the arithmetic
+        answers a term whether or not its node exists), so keeping one that
+        a fold, a move or a removal left empty would make the stored form
+        depend on the order of writes. A value filed under an ordinary
+        category states a fact and stays, and so does one a term names, as
+        any named category does. Nothing cascades: a forgotten value has no
+        parent but its head."""
+        for name in sorted(names):
+            if "(" not in name:
+                continue
+            node = self.nodes.get(name)
+            if node is None or node.neighbors:
+                continue
+            parsed = self._parse_parametric(name)
+            if parsed is None or any(
+                    parent != parsed[0]
+                    for parent in self._live_parent_names(name)):
+                continue
+            if self._namers(name):
+                continue
+            self._contract_node(name)
+
+    def _refuse_bare_value(self, name, super_names):
+        """A value put under its head alone states nothing, and would be
+        forgotten as the write ends: refused as a write with no effect."""
+        parsed = self._parse_parametric(name)
+        if parsed is None or name in self.nodes or self._total():
+            return
+        if all(parent in (parsed[0], self.root.name) for parent in super_names):
+            raise ValueError(
+                f"{name} alone states nothing: a value is kept only while "
+                f"something is filed under it. File an item under it "
+                f"(put ITEM {name}), or file it under a category of yours "
+                f"(put {name} CATEGORY)")
 
     # ---- terms that name a category: removal and rename -------------------
     #
@@ -4353,6 +4470,7 @@ class OntoDAG(DAG):
                  for term in sorted(gone) if self._naming_term(term)}
         return sorted(gone), moves
 
+    @_keeps_values_used
     def remove_many(self, names, with_terms=False):
         """Remove categories by contraction: each one goes and its children
         reattach to its parents, so nothing below it is lost. Terms are
@@ -4394,6 +4512,7 @@ class OntoDAG(DAG):
         for key, value in self.nodes[old].metadata.items():
             self.nodes[new].metadata.setdefault(key, value)
 
+    @_keeps_values_used
     def rename(self, old, new):
         """Give the category `old` the name `new`, for a name that was the
         mistake. Everything filed under it, its own placement, and every term
@@ -4661,6 +4780,7 @@ class OntoDAG(DAG):
                         "an item is in the intersection of its parents; for "
                         "a union, use a region node (DIMENSIONS.md §9)")
 
+    @_keeps_values_used
     def put(self, subcategory, super_categories, optimized=False):
         # Names are the identity at the public boundary: plain strings are
         # accepted anywhere an Item is (see "Identity" in CLAUDE.md), and
@@ -4688,6 +4808,7 @@ class OntoDAG(DAG):
                 if name not in super_names:
                     super_names.append(name)
 
+        self._refuse_bare_value(subcategory.name, super_names)
         self._check_parametric_placement(
             subcategory.name, super_names,
             also=self._live_parent_names(subcategory.name))
@@ -4714,9 +4835,8 @@ class OntoDAG(DAG):
         if any(name not in self.nodes for name in super_names):
             raise ValueError("One or more super-categories do not exist.")
         # Canonical placement (DIMENSIONS.md §9): several values of one head
-        # fold to their meet — after the named values are materialized, so
-        # stored form does not depend on the order of puts (a value once
-        # named stays, whether or not an edge to it survives).
+        # fold to their meet, after the named values are materialized; the
+        # ones nothing is filed under are forgotten as the put ends.
         super_names = self._fold_same_head_values(
             subcategory.name, super_names, self._live_parent_names(subcategory.name))
         for name in super_names:
@@ -4806,8 +4926,10 @@ class OntoDAG(DAG):
         # containing terms as well, restoring exactly what reduction-modulo-
         # computed pruned. (A once-asserted parcel -> weight(..5kg) edge,
         # pruned when parcel -> weight(3kg) arrived, comes back when the
-        # point is removed.) Captured before the graph moves.
-        computed_containers = list(self._computed_parents(node_to_remove))
+        # point is removed.) Captured before the graph moves; a leaf has no
+        # children to reattach, so none are looked for.
+        computed_containers = list(self._computed_parents(node_to_remove)) \
+            if subcategories else []
 
         # The whole operation costs exactly one subtraction per ancestor:
         # contraction reconnects the removed node's children to its parents,
@@ -4849,6 +4971,7 @@ class OntoDAG(DAG):
             for subcategory in subcategories:
                 self.add_edge(container, subcategory)
 
+    @_keeps_values_used
     def reclassify(self, names, to=(), from_=None):
         """Move items: assert the new classifications, retract the old ones.
 
@@ -5076,6 +5199,7 @@ class OntoDAG(DAG):
         return {term: self._replacements(term, gone, memo)
                 for term in sorted(gone - set(deleted))}
 
+    @_keeps_values_used
     def remove_cone(self, names, with_terms=False):
         """Delete these categories and whatever only existed underneath them.
 
@@ -5210,6 +5334,7 @@ class OntoDAG(DAG):
                     out.append((term.name, param))
         return sorted(out)
 
+    @_keeps_values_used
     def merge(self, other_dag):
         """Merge another OntoDAG into this one.
 
@@ -5248,6 +5373,7 @@ class OntoDAG(DAG):
         self._respell_deferred(other_dag.nodes)
         self._respell_old_cells(other_dag.nodes)    # one cell, one name (question 14)
         self._fold_replayed(other_dag.nodes)
+        self._touched_values.update(other_dag.nodes)    # one unused there too
 
     def excerpt_names(self, queries, context=False):
         """The names an excerpt of `queries` covers.

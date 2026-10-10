@@ -85,6 +85,17 @@ class TestIsBelowDimensions(unittest.TestCase):
         dag.put("weight", ["linear-dimension"])
         return dag
 
+    def test_a_virtual_value_is_below_its_head(self):
+        # Every value of a head hangs under it, present or not, so a value
+        # nothing is filed under (and so not kept, question 24) answers as
+        # a present one does: forgetting it takes no is_below away.
+        dag = self._dag()
+        for term in ("weight(3kg)", "weight(..5kg)", "weight(1kg..2kg)"):
+            for above in ("weight", "linear-dimension", "dimension"):
+                self.assertTrue(dag.is_below(term, above), (term, above))
+        dag.put("other", [])
+        self.assertFalse(dag.is_below("weight(3kg)", "other"))
+
     def test_both_virtual_is_pure_arithmetic(self):
         dag = self._dag()
         self.assertTrue(dag.is_below("weight(3kg)", "weight(..5kg)"))
@@ -128,7 +139,7 @@ class TestIsBelowDimensions(unittest.TestCase):
         dag = self._dag()
         for i in range(20):
             dag.put(f"parcel-{i}", ["weight(3kg)"])
-        dag.put("weight(..5kg)", [])
+        dag.put("probe", ["weight(..5kg)"])      # one item: a small cone
         self.assertGreater(dag.nodes["weight(3kg)"].descendant_count,
                            dag.nodes["weight(..5kg)"].descendant_count)
         self.assertTrue(dag.is_below("weight(3kg)", "weight(..5kg)"))

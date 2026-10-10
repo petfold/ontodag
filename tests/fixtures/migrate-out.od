@@ -1,5 +1,5 @@
 # ontodag store v1
-#:canonical 4.4 4f535a1d709e70fd65d01d0002048aaa45d97df1af60b30d325c3c8ce81d055e
+#:canonical 4.4 01b98f4e06944194e46f19b34a6221ae455fbf41e451f3ed34d1b3bfa92a6348
 about enclosing-dimension
 area 'linear-dimension(area)'
 calendar-dimension dimension
@@ -32,8 +32,6 @@ linear-dimension dimension
 'linear-dimension(temperature)' linear-dimension
 'linear-dimension(volume)' linear-dimension
 mass 'linear-dimension(mass)'
-'mass(..5kg)' mass
-'mass(2kg..)' mass
 'mass(2kg..5kg)' mass
 'mass(3kg)' mass
 #:meta parcel '{"label": "Parcel 7"}'

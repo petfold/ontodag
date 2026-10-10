@@ -1103,8 +1103,8 @@ def cmd_ingest(args, session, out):
     with dag._lenient_roles(total=False):
         for lineno, item, supers in entries:
             for sup in supers:
-                if sup not in dag.nodes:
-                    _file_line(dag, lineno, sup, [])
+                if sup not in dag.nodes and not _is_term(dag, sup):
+                    _file_line(dag, lineno, sup, [])     # a term comes with its item
         for lineno, item, supers in entries:
             _file_line(dag, lineno, item, supers)
     # What a role parameter names had to wait until its place was in; now
@@ -1121,6 +1121,15 @@ def cmd_ingest(args, session, out):
     dag._respell_deferred()
     dag._respell_old_cells(created)
     session.save()
+
+
+def _is_term(dag, name):
+    """Does `name` read as a term (a value, a role or graph term)? Filing an
+    item under one materializes it; alone it would state nothing."""
+    try:
+        return dag.parse_term(name) is not None
+    except ValueError:
+        return False
 
 
 def _file_line(dag, lineno, item, supers):

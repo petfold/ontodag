@@ -251,6 +251,7 @@ def _restore(entries, metadata, lined):
                 dag.add_edge(parent, node)
     dag._respell_deferred()
     dag._fold_replayed()          # as a merge of the lines files them (§9)
+    dag._forget_unused(list(dag.nodes))   # and keeps only used values
     for name, values in metadata.items():
         for spelled in stored.get(name, ()):
             if spelled in dag.nodes:

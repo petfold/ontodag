@@ -103,8 +103,8 @@ class TestComputedOrder(unittest.TestCase):
         dag = make_dag()
         dag.put("parcel", ["weight(3kg)"])
         dag.put("flour-bag", ["weight(1.2kg)"])
-        dag.put("weight(..5kg)", [])   # materialized constraint terms
-        dag.put("weight(1kg..)", [])
+        dag.put("probe", ["weight(..5kg)"])   # present constraint terms: a
+        dag.put("probe2", ["weight(1kg..)"])  # value is kept while it is used
         below_max = names(dag.get_descendants("weight(..5kg)"))
         self.assertIn("parcel", below_max)
         self.assertIn("flour-bag", below_max)
@@ -115,16 +115,16 @@ class TestComputedOrder(unittest.TestCase):
     def test_points_are_incomparable(self):
         dag = make_dag()
         dag.put("parcel", ["weight(3kg)"])
-        dag.put("weight(5kg)", [])
+        dag.put("probe", ["weight(5kg)"])
         # A 3 kg parcel is NOT below the 5 kg point (DIMENSIONS.md §2).
         self.assertNotIn("parcel", names(dag.get_descendants("weight(5kg)")))
-        self.assertEqual(names(dag.get({"weight(5kg)"})), set())
+        self.assertEqual(names(dag.get({"weight(5kg)"})), {"probe"})
 
     def test_get_with_present_parametric_term(self):
         dag = make_dag()
         dag.put("parcel", ["weight(3kg)"])
         dag.put("heavy-parcel", ["weight(9kg)"])
-        dag.put("weight(..5kg)", [])
+        dag.put("probe", ["weight(..5kg)"])
         result = names(dag.get({"weight(..5kg)"}))
         self.assertIn("parcel", result)
         self.assertNotIn("heavy-parcel", result)
@@ -142,10 +142,10 @@ class TestComputedOrder(unittest.TestCase):
     def test_prefix_and_dominance_dimensions(self):
         dag = make_dag()
         dag.put("cafe", ["geo(u2edk)"])
-        dag.put("geo(u2)", [])
+        dag.put("probe", ["geo(u2)"])
         self.assertIn("cafe", names(dag.get_descendants("geo(u2)")))
         dag.put("bag", ["size(19x23x39cm)"])
-        dag.put("size(20x30x40cm)", [])
+        dag.put("probe2", ["size(20x30x40cm)"])
         self.assertIn("bag", names(dag.get_descendants("size(20x30x40cm)")))
         dag.put("big-box", ["size(50x60x70cm)"])
         self.assertNotIn("big-box",
@@ -158,10 +158,11 @@ class TestReductionModuloComputed(unittest.TestCase):
         dag.put("parcel", ["weight(..5kg)"])
         dag.put("parcel", ["weight(3kg)"])
         # parcel under the point implies parcel under the interval via a
-        # computed hop: the interval edge must be gone (canonical form).
+        # computed hop: the interval edge must be gone (canonical form),
+        # and with it the interval, which nothing else uses (question 24).
         self.assertEqual(names(dag.nodes["parcel"].parents),
                          {"weight(3kg)"})
-        self.assertIn("weight(..5kg)", dag.nodes)  # value stays
+        self.assertNotIn("weight(..5kg)", dag.nodes)
 
     def test_history_independence_of_stored_form(self):
         def build(order):
@@ -173,7 +174,7 @@ class TestReductionModuloComputed(unittest.TestCase):
         steps = [("parcel", ["weight(..5kg)"]),
                  ("parcel", ["weight(3kg)"]),
                  ("flour-bag", ["weight(1.2kg)"]),
-                 ("weight(1kg..)", [])]
+                 ("probe", ["weight(1kg..)"])]
         forward = build(steps)
         shuffled = build([steps[3], steps[2], steps[1], steps[0]])
         self.assertEqual(edge_set(forward), edge_set(shuffled))
@@ -200,7 +201,7 @@ class TestReductionModuloComputed(unittest.TestCase):
 
     def test_same_dimension_asserted_edge_refused(self):
         dag = make_dag()
-        dag.put("weight(..5kg)", [])
+        dag.put("probe", ["weight(..5kg)"])
         with self.assertRaises(ValueError):
             dag.put("weight(3kg)", ["weight(..5kg)"])
 
@@ -227,12 +228,13 @@ class TestPutGuards(unittest.TestCase):
         """Canonical placement (DIMENSIONS.md §9, 0.26.2): an item under two
         values of one head sits in their intersection, and the intersection
         has a name — so that is where it is filed, in one call or across
-        two, and every query path finds it there. The named values stay
-        present (a value once named stays), so stored form is history-free."""
+        two, and every query path finds it there. The named values, which
+        nothing is filed under, are not kept (question 24), so the stored
+        form is history-free."""
         dag = make_dag()
         dag.put("x", ["weight(1kg..3kg)", "weight(2kg..5kg)"])
         self.assertEqual(names(dag.nodes["x"].parents), {"weight(2kg..3kg)"})
-        self.assertIn("weight(1kg..3kg)", dag.nodes)
+        self.assertNotIn("weight(1kg..3kg)", dag.nodes)
         dag.put("y", ["weight(1kg..3kg)"])
         dag.put("y", ["weight(2kg..5kg)"])                    # across calls: refiled
         self.assertEqual(names(dag.nodes["y"].parents), {"weight(2kg..3kg)"})
@@ -282,6 +284,7 @@ class TestPutGuards(unittest.TestCase):
 class TestRemoveContraction(unittest.TestCase):
     def test_remove_restores_pruned_assertion(self):
         dag = make_dag()
+        dag.put("crate", ["weight(..5kg)"])  # keeps the interval in use
         dag.put("parcel", ["weight(..5kg)"])
         dag.put("parcel", ["weight(3kg)"])   # prunes the interval edge
         dag.remove("weight(3kg)")            # sugar accepted here too
@@ -315,7 +318,7 @@ class TestCountsStayAssertedOnly(unittest.TestCase):
         dag.put("parcel", ["weight(..5kg)"])
         dag.put("parcel", ["weight(3kg)"])       # prunes the interval edge
         dag.put("flour-bag", ["weight(1.2kg)"])
-        dag.put("weight(1kg..)", [])
+        dag.put("probe", ["weight(1kg..)"])
         dag.put("cafe", ["geo(u2edk)"])
         for node in dag.nodes.values():
             self.assertEqual(node.descendant_count, len(reach(node)),
@@ -543,7 +546,7 @@ class TestDimensionCache(unittest.TestCase):
         dag._dimension_of("from")
         dag._heads()                                   # populated: no walks on puts
         dag.put("r2", ["ride", "from(geo(u2e5))"])
-        dag.put("geo(u2f)", [])
+        dag.put("cafe", ["geo(u2f)"])
         self.assertEqual(self._walks(dag, lambda: dag._dimension_of("from")), 0)
 
     def test_head_edges_and_deletion_drop_it(self):
