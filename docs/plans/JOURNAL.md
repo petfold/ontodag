@@ -2358,3 +2358,61 @@ This is a multi-session project. At the start of each session:
 1. Run the full test suite (`testdag.py`, `testitem.py`, `test_invariants.py`, `test_boundaries.py`, `test_eager.py`, `test_cli.py` — the first two must be named explicitly, see "Running tests"; the recordstore tests live in the recordstore repo since its `v0.1.1`) to confirm the starting state matches what this file claims.
 2. Check which of the two current-task sections above is still open, and update this file's "Definition of done" / "What does not exist yet" sections as work completes — this file should always reflect actual repo state, not a stale plan.
 3. Prefer small, focused commits over large multi-concern ones; each should be reviewable against one invariant or one design-doc section.
+
+## 2026-10-10: the review's decisions 11–23 built, Peter away
+
+Peter decided questions 11 to 23 on 2026-10-09/10 and left the building
+to this session. Records: `REVIEW_2026-10.md` §8; what each release will
+change: the CHANGELOGs.
+
+**ontodag.** Q11 (`_declare_state`, `_on_node_added`), Q13 (a role term
+meeting a category outside its dimension reads as the value), Q12
+(replays fold into the meet; contract 0.6, registry 4.4), Q14 (a cell in
+a role of geo by its own name; `geo(...)` geohash-only; queries still
+read a bare word as a cell, because G7's second record asks
+`below delivery from(u2ed)` of a store that never filed it), Q22
+(`mypip/` untracked), the web move canonicalizing, and
+`settings.read_config(path)`. Then two performance fixes found by
+loopmarket: a typed value parsed once (calendar containment 80 → 11.5 us,
+linear 45 → 6.8 us) and `is_below` answering a repeated pair before
+canonicalizing (circulator's 400-offer matching on v4 terms 19.6 s →
+5.4 s; it was 0.74 s on the v2 fields, the rest being term semantics).
+
+**Found.** Building Q12 showed `put` itself keeps every meet it makes, so
+three overlapping values filed one at a time leave an unused intermediate
+meet that depends on the order: G1's open gap, question 24 (measured: the
+core pack holds no unused value; G7's second record holds four, so option
+A would take answers away within registry 4). `tests/test_scale.py`
+failed on GitHub's runners one run in two: their hydrate grew 2.8–3.3×
+per record at four times the size where this laptop's grew 1.3×, so the
+budget now compares one to ten at five (a quadratic grows ten times).
+
+**loopmarket**, by four agents in worktrees, each verified and merged
+here: the CLI split by area (item 10), items 11, 4 and 9, the v1/v2
+retirement after a golden corpus (item 12; circulator's benchmark first,
+on its main), the hostile-record and `watch` tests, the examples in CI,
+the dead code and the gates restated (item 17); item 2 (one engine) was
+still merging at the time of writing. Found and fixed here: the fold was
+quadratic in books (merging each into the growing union; now rounds of
+pairs, 400 books 10.8 s → 0.84 s), and an option on a retired offer
+could still clear. Found and put to Peter: rival clearing books under a
+chain (question 25) and a stranger displacing a party's record in the
+fold (question 26).
+
+**Lessons, kept.**
+- A merge can be clean in git and wrong in Python: one branch removed
+  `TimeWindow.from_iso` and the `datetime` import with it while another
+  added a use of `datetime`. pyflakes caught it; run lint on every merge.
+- A rename by `sed` rewrote a sentence about the rename ("`MockClearing`
+  renamed `BookClearing`" became "`BookClearing` renamed `BookClearing`").
+  Grep the result for the new name twice on a line.
+- A copied venv keeps its editable install's old path; reinstall it in
+  each worktree, or a suite tests another branch's code. And `pkill -f`
+  on a pattern in its own command line killed the shell again: kill by
+  PID.
+- A respelling regex cannot tell a place from a cell: `to(venue)` and
+  `from(hub)` are spelled with geohash letters. Fix what the suite shows,
+  checking each word against its catalogue.
+- An agent writing tests under the old rules while another changes them
+  collides at merge (item 9's federation tests built v2 offers the
+  retirement refuses); expect it, and run the full suite on every merge.
