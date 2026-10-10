@@ -490,8 +490,10 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-None open from the review: questions 24–27 are decided and built
-(`docs/plans/REVIEW_2026-10.md` items 21–24).
+Question 28, being put: whose case records `watch` reports (a claim,
+answer or ruling sealed to me by someone who is not the reservation's
+party; `docs/plans/REVIEW_2026-10.md` item 25). Questions 24–27 are
+decided and built (items 21–24).
 
 Older, not urgent: the 0.31.0 release; a publisher key for the packs on
 Swarm (published without one, so no feed yet; PACKS.md); BROWSER.md §7's
