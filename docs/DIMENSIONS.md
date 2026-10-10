@@ -1683,11 +1683,12 @@ place`, and `loop`'s own time spellings).
 `geo(LAT,LON,R)` means.** The geohash grid has edges at every size, and a
 circle across an edge fits in no cell of its own size: the spelling holds
 the whole circle or keeps the circle's size, not both. Measured with
-loopmarket's geohash code: cli.md's point in Ljubljana at 10 m gives the
-holding cell `u24q404` (about 150 m) or the centred `u24q4047` (about
-27 m, which part of the circle leaves); at 500 m `u24` (about 157 km) or
-`u24q4` (about 4.9 km); 200 m at Greenwich crosses the prime meridian, the
-first split, so only the whole earth holds it. Over 20,000 random points:
+loopmarket's geohash code: the Eiffel Tower (48.8584,2.2945) at 10 m gives
+the holding cell `u09tunq` (about 150 m) or the centred `u09tunqu` (about
+25 m, which part of the circle leaves); at 500 m both give `u09tu` (about
+4.9 km), the circle being clear of every edge; the Royal Observatory at
+Greenwich (51.4769,-0.0005) at 200 m crosses the prime meridian, the first
+split, so only the whole earth holds it. Over 20,000 random points:
 
 | radius | holding cell, median width / circle | 90th percentile | 2+ levels coarser than centred | whole earth | centred cell misses part of the circle |
 |---|---|---|---|---|---|
