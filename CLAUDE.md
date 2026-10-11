@@ -504,8 +504,11 @@ Each line points to its record.
   (Bee integration status).
 - categor.io's live site runs its main (6bad379, updated 2026-10-10):
   ontodag 0.31, and removing a contact ends its shares
-  (`with_terms=True`). Its 36 tests pass against ontodag 0.32 and its floor
-  allows it; moving the live site is the admin's step. circulator's main writes v4 offers (its CI has been red
+  (`with_terms=True`). Its main (floor `ontodag>=0.32.0`) moves the site
+  to 0.32 at the next `categorio-update`: sharing from a store made before
+  0.30 now declares the audience head alone, since merging prelude 5 into
+  a store whose `geo` is a prefix head is refused; rehearsed from 0.31.0,
+  37 tests pass. circulator's main writes v4 offers (its CI has been red
   since 2026-09-21 on a test comparing its own copy of the baseline).
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.
