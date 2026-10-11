@@ -1976,3 +1976,40 @@ Recommended: A, the smallest change that keeps magnitudes protected and
 gives positions both signs; its declaration only admits more writes, never
 changes a stored name's meaning, so a store may adopt it by merge. It can
 ship in question 29's registry major.
+
+**Checked before deciding (Peter, 2026-10-11: prefers A, but first check
+that negatives keep the principles).** A throwaway copy with the grammar's
+refusal removed (and `..-100m` refused, an empty range once the open end
+is zero), against brute force:
+
+- One name per meaning: `-430m`, `-0.43km`, `-43000cm` and `-860/2m` are
+  all `altitude(-430m)`; `-0m` is `0m`; `-100ft` is `-762/25m`, exactly;
+  every name reads back as itself; `..120m` is still `0m..120m`.
+- 300 random queries over 400 items of both signs: `get`, `is_below`,
+  `get_overlapping` and meets agree with brute force; the interval index
+  sorts by bounds and assumes no sign.
+- Another filing order, a merge of two halves and the native text's round
+  trip give the same store.
+- The suite: 1,407 passed, 3 failed, each a test that a negative is refused.
+  Two of them found what the build must keep: the count kind and the size
+  kind relied on the general refusal, so `count(-2)` and `size(2x-1m)`
+  went through; under A each keeps its own refusal, and only a linear head
+  may be declared a position. Celsius and Fahrenheit still refuse below
+  absolute zero.
+
+**Floors (Peter, 2026-10-11: `level` too general, `floor` better; local
+conventions; non-numeric names such as Mezzanine and P3).** `floor` is
+core's word for the thing itself, a level of a building (`basement` and
+`loft` below it). As a head it would make whatever is on a floor a floor:
+`café ⊑ floor(4) ⊑ floor ⊑ structure`, the trap CONTRACT O6 names. That
+concept suggests what needs no number at all: a floor is a named part of
+its building, named by its local label, and a thing is in it. With
+`eiffel-tower-2nd ⊑ floor, in(eiffel-tower)` and
+`eiffel-tower-ground ⊑ ground-floor, in(eiffel-tower)`, a café in the
+second and a shop in the ground floor, `get in(eiffel-tower)` finds both
+and `get in(ground-floor) in(paris)` finds the shop (checked). A number
+would add ranges typed on the spot, but only under one convention:
+OpenStreetMap keeps the number (`level`, ground 0) and the label people see
+(`level:ref`) apart for that reason. `altitude` is core's word too
+(`altitude ⊑ distance`), in the sense a head wants, so it would be pinned in
+core as `force`, `current` and `frequency` are.
