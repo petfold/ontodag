@@ -2155,3 +2155,33 @@ belongs to the union and to neither piece, so the form is computed on the
 grid of coordinates and the gaps between them. A single rectangle is a
 union of one and spelled the same, so unions can come later without
 changing a stored name.
+
+**Decided (Peter, 2026-10-11): unions later, the half-circle rule now, and
+A for question 30.** A stored value's longitude arc is less than half the
+circle or all of it; `±` widens a wider one to every longitude, typed bounds
+wider than half are refused, and a query may be any width. A square around
+a point is typed `geo(48.8584,2.2945±500m)` (`+-` in ASCII, any length
+unit), half the side, turned into bounds once by the fixed rule above and
+rounded outwards. Unions come when a need does, spelled so that a single
+rectangle keeps its name.
+
+**Question 33, put (2026-10-11): how is a body other than the Earth
+given?** Every option keeps `geo(...)` the Earth's, so the build of
+questions 29 and 30 does not wait for it. Curiosity's landing site on Mars
+is at 4.5895°S, 137.4417°E.
+
+- **A**, one head per body, `±` on `geo` only for now: a pack declares
+  `mars-geo` (any name) under the rectangle kind, as anyone may declare a
+  head of any kind, and it takes bounds and positions,
+  `mars-geo(-4.5895,137.4417)`. Nothing to build; each body's conventions
+  (Mars longitudes are often 0–360° east) live with its head.
+- **B**, as A, and a head declares its body's radius, so `±` works on Mars
+  too (`mars-geo(-4.5895,137.4417±1km)`, 59.2 km to a degree): a small new
+  declaration, of the kind units already have.
+- **C**, the body inside the value, `geo(mars:-4.5895,137.4417)`, no body
+  meaning the Earth: one head for every body, but every `geo` value's
+  grammar grows, and a list of bodies and radii enters the registry, which
+  changes as bodies are added (UNITS.md §7 sends such lists to packs).
+
+Recommended: A, which costs nothing and leaves B to add, without changing a
+stored name, when someone needs `±` on another body.

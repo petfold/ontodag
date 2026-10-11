@@ -436,12 +436,14 @@ Each line points to its record.
       counts only what the escrow has free, and the clearing reserves the
       floor per relying leg, as D1 says (item 24, question 27). Built.
 
-- Places (question 29, decided A on 2026-10-11): a named place is declared
-  (`in(paris)`) and gets no geometry in the core; a `geo` value is a
-  rectangle in degrees with exact bounds, a position the rectangle its
-  written precision covers; geohash names go, a registry major
-  (DIMENSIONS.md §22). Not built: it waits for question 30 and the
-  discussion of other bodies.
+- Places (questions 29 and 30, decided 2026-10-11): a named place is
+  declared (`in(paris)`) and gets no geometry in the core; a `geo` value is
+  a rectangle in degrees with exact bounds, its longitude arc less than
+  half the circle or all of it (a query may be any width); a position is
+  the rectangle its written precision covers; `geo(48.8584,2.2945±500m)` is
+  500 m either way, turned into bounds once by a fixed rule and rounded
+  outwards; geohash names go, a registry major; unions of rectangles later
+  (DIMENSIONS.md §22). Not built.
 - Negative values (question 32, decided A on 2026-10-11): a linear head
   declared a position (by a marker node, as a head is pinned to a family)
   takes negative values, as `altitude` will in core; a value's meaning
@@ -496,12 +498,11 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Question 30, put 2026-10-11 (`docs/DIMENSIONS.md` §22): how a square
-around a point is typed. A, `geo(48.8584,2.2945±500m)`, half the side in
-any length unit (recommended); B, a keyword and the whole side; C, `±` in
-degrees; D, no centre and size, bounds only. Under discussion with it: an
-optional celestial body, Earth by default (one head per body, leaning).
-Then question 31, relative times in `time(...)`. Polygons and unions
+Question 33, put 2026-10-11 (`docs/DIMENSIONS.md` §22): how a body other
+than the Earth is given. A, one head per body, `±` on `geo` only for now
+(recommended); B, as A with a declared radius per head; C, the body inside
+the value. It does not hold up the build of questions 29 and 30. Then
+question 31, relative times in `time(...)`. Polygons and unions
 of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 
