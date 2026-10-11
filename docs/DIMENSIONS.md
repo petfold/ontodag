@@ -2013,3 +2013,12 @@ OpenStreetMap keeps the number (`level`, ground 0) and the label people see
 (`level:ref`) apart for that reason. `altitude` is core's word too
 (`altitude ⊑ distance`), in the sense a head wants, so it would be pinned in
 core as `force`, `current` and `frequency` are.
+
+**Decided: A, and named floors only for now (Peter, 2026-10-11).** A
+range wholly below zero is written with both ends (`altitude(-400m..-120m)`)
+or open above (`altitude(-120m..)`); only an open lower end with a negative
+upper end (`..-120m`, which would mean 0 down to -120 m) is refused as
+empty. `level`, proposed earlier for floors, is core's word too, in
+WordNet's abstract sense ("communicates on several levels", under
+`cognition`), so as a head it would have made a car park a cognition; named
+floors need neither word as a head.

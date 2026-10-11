@@ -441,7 +441,14 @@ Each line points to its record.
   rectangle in degrees with exact bounds, a position the rectangle its
   written precision covers; geohash names go, a registry major
   (DIMENSIONS.md §22). Not built: it waits for question 30 and the
-  discussion of height and other bodies.
+  discussion of other bodies.
+- Negative values (question 32, decided A on 2026-10-11): a linear head
+  declared a position (by a marker node, as a head is pinned to a family)
+  takes negative values, as `altitude` will in core; a value's meaning
+  stays computable from its name, an open lower end stays zero (so
+  `..-120m` is refused as empty), and counts and sizes keep their own
+  refusals (DIMENSIONS.md §22). Floors are named parts of their building
+  (core's `floor`, local labels), with no number head for now. Not built.
 
 ## Bee integration status
 
@@ -488,11 +495,9 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Question 32, put 2026-10-11 (`docs/DIMENSIONS.md` §22): may a value be
-negative (heights below sea level, floors below ground)? A, for heads
-declared as positions (recommended); B, for every head; C, never. Under
-discussion with it: an optional celestial body, Earth by default (one
-head per body, leaning). Then question 30, the size's word and
+Under discussion (Peter, 2026-10-11, raised with question 29): an
+optional celestial body, Earth by default (one head per body, leaning;
+`docs/DIMENSIONS.md` §22). Then question 30, the size's word and
 unit, and question 31, relative times in `time(...)`. Polygons and unions
 of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
