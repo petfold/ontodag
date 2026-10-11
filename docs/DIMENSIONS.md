@@ -2101,3 +2101,24 @@ A rule that removes it: a stored value's arc is less than half the circle
 or all of it; `±` widens a wider one to the full circle (it only grows),
 typed bounds wider than half are refused, and a query, which never folds,
 may be any width.
+
+**Why a meet in two pieces matters, and scattered regions (Peter,
+2026-10-11).** An item's values of one head fold to their meet so that one
+fact has one stored form (G1). When the meet is two pieces there is nothing
+single to fold to: filing the item under both pieces would say it is in
+both, which two disjoint pieces make nowhere; keeping the two values as
+given breaks G1, since `geo(-10..10,170..-170)` with `geo(-5..20,-175..175)`
+and `geo(-5..10,170..-170)` with `geo(-10..15,-175..175)` share the same two
+pieces yet store differently; a value made of several rectangles is the
+union deferred above. Refusing such a pair when written and keeping it when
+merged, as contradictions are kept, would work, at the price of another
+exception in the contract for rectangles wider than half the earth.
+
+Scattered regions are named places under question 29's decision, so their
+shape never enters the store (Natural Earth 1:10m, bounding rectangle
+against land): the Federated States of Micronesia, 20 polygons, 637 km² of
+land in 2.7 million km² (0.023%); Kiribati, 35 polygons across 180°
+(`169.52..-151.78`, 38.7°), 954 km² in 7.7 million km² (0.012%); France with
+its overseas departments, 21 polygons, 0.6% of a rectangle that covers a
+fifth of the earth. A rectangle is for a position, an area around a point
+or a map view, not for these.
