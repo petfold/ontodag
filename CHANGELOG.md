@@ -12,7 +12,18 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
-## [Unreleased]
+## [0.32.0] — 2026-10-11
+
+Places, signed values and relative times, the three spellings loopmarket's
+launch waited on (questions 29–33, decided by Peter 2026-10-11): `geo` is
+a rectangle head with exact bounds and a square around a point,
+`geo(48.8584,2.2945+-500m)`, which retires geohash cells (registry 5.0, a
+major: `python3 -m ontodag.migrate STORE` moves a store); a head declared
+a position takes negative values (`altitude(-430m)`); and `today`, `now`
+and `+7d` are read in `time(...)` where a person or an agent types,
+never by the core or a replay. Contract 0.7, prelude 5, surface 0.2.
+Removing `old_cell_spellings()` and the geohash helpers makes this a
+minor, so ontodag-fs's ceiling rises with it.
 
 ### Relative times where someone types (question 31); surface 0.2
 

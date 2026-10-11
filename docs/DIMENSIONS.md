@@ -32,7 +32,7 @@ fired 2026-07-30 by loopmarket.
 
 The design adds **parametric items**: names of the form `head(param)` —
 `weight(3000g)`, `weight(..5000g)`, `time(2026-08-10T00:00:00Z..
-2026-08-20T23:59:59Z)`, `geo(u2ed)`, `size(390x230x190mm)` — whose order
+2026-08-20T23:59:59Z)`, `geo(48.85..48.87,2.28..2.30)`, `size(390x230x190mm)` — whose order
 relative to each other is *computed* from the name rather than stored as
 edges.
 
@@ -195,7 +195,8 @@ compatibility rule, affine temperatures, graph-declared units and packs.
 | kind node             | denotations                          | contains / intersect                    | covers |
 |-----------------------|--------------------------------------|-----------------------------------------|--------|
 | `linear-dimension`    | intervals over integers-with-unit or ISO-UTC timestamps; points degenerate; open ends | two comparisons each | weight, quantity-vs-capacity, prices, time windows |
-| `prefix-dimension`    | identifier subtrees                  | string prefix test                       | geohash cells; generated hierarchies |
+| `prefix-dimension`    | identifier subtrees                  | string prefix test                       | codes that nest by prefix (postcodes, classification numbers); generated hierarchies; `geo`'s geohash cells until registry 5.0 |
+| `rectangle-dimension` | a latitude range and a longitude arc in degrees, exact; a position is its written precision, `±` a square around it (§22) | interval containment, the longitude on the circle | `geo` since registry 5.0; another body is another head |
 | `dominance-dimension` | boxes (componentwise intervals), components canonically sorted descending | componentwise | parcels/luggage ("fits in"), `size(390x230x190mm)` |
 | `calendar-dimension`  | the same interval denotations as linear over the time family, but every literal is a calendar period: `2026` the year, `2026-08` the month, `2026-08-15` the day, a timestamp the instant | identical to linear (shared code path) | dates on documents, "last summer", "everything from 2026" |
 | `count-dimension`     | whole numbers ≥ 1 of discrete things; ranges with floor 1 | interval containment | multiplicities (§ UNITS.md 11) |
