@@ -1808,3 +1808,47 @@ overlap it still misses far fewer things than cells, because the big pieces
 hold most of the area. Its price is stability: being a global rule, a small
 change of the boundary rewrites about a quarter of its pieces, against 1%
 for cells. Drawings: `experiments/geo_svg.py`.
+
+**Inner and outer covers, and what overlap costs (Peter, 2026-10-11: the
+inner cover leaves out coastal places; an outer cover would take in places
+just across a border; which is worse?).** Measured with
+`experiments/geo_bounds.py` against GeoNames' towns of 1,000 people or more
+in a box round mainland France (8,941 French, 15,243 not), each town tested
+with its own grid square against Natural Earth's polygon:
+
+| grid square | inner cover leaves out French towns | outer cover takes in foreign towns |
+|---|---|---|
+| 3.4×4.9 km | 5.9% (8.3% of their people): Nice, Le Havre, Brest, Roubaix, Dunkirk | 114: Basel, Mouscron, Kehl, Monaco |
+| 842×611 m | 1.0%: Le Havre, Juan-les-Pins | 14: Puigcerdà, Chêne-Bourg, two quarters of Monaco |
+| 105×153 m | 0.1% | 2 |
+| 26×19 m | 3 towns | 0 |
+
+The polygon itself puts 1.2% of the French towns outside France (Toulon,
+Ajaccio and Menton about a kilometre out to sea; median 0.5 km) and Irun
+and Hondarribia inside it, so below a grid of about a kilometre the boundary
+data is the larger error, not the grid. Since below is inclusion, only the
+inner cover's pieces are true when filed under the place itself (the outer
+cover's say that some sea is France, and merge never takes a statement
+back); an upper bound would be a category of its own above the place.
+
+What overlap costs against a tiling, for things a grid square in size or
+larger (a query that walks every piece reaches a thing once per piece
+holding it); "margin" grows each piece of a tiling by up to one square into
+its neighbours, as far as it stays inside:
+
+| region, grid square | cover | pieces | area of the pieces / region | pieces holding a thing found | missed: a square / larger | changed by the small edit |
+|---|---|---|---|---|---|---|
+| Paris, 101×153 m (100 m, 300 m things) | cells / largest first, tiling | 1,417 / 101 | 1.00 / 1.00 | 1.00 / 1.00 | 33% / 60%, 7.9% / 17% | 1% / 22% |
+| | largest first, overlapping | 79 | 18.7 | 18.5 | 0% / 0% | 27% |
+| | cells + margin / tiling + margin | 1,417 / 101 | 2.86 / 1.13 | 1.91 / 1.03 | 0% / 21%, 0% / 12% | 3% / 23% |
+| France, 3.4×4.9 km (1 km, 5 km things) | cells / largest first, tiling | 3,826 / 388 | 1.00 / 1.00 | 1.00 / 1.00 | 7.9% / 26%, 1.8% / 6.8% | 1% / 22% |
+| | largest first, overlapping | 305 | 14.8 | 14.6 | 0% / 0.1% | 29% |
+| | cells + margin / tiling + margin | 3,826 / 388 | 2.04 / 1.08 | 1.88 / 1.06 | 0% / 0%, 0% / 1.4% | 4% / 23% |
+
+The outer covers need about as many pieces as the inner (Paris 1,238 cells
+or 102 rectangles, France 4,135 or 379). A point never lies across a seam,
+so seam misses concern only things that are areas. A margin of one square
+finds every thing up to a square in size at a few percent of extra work,
+where full overlap costs 15–19 times the answer; cells with a margin keep
+their stability (3–4% changed) at ten times the pieces, a tiling with a
+margin keeps largest first's quarter.
