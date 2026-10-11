@@ -1,7 +1,9 @@
 """The read-only page's Swarm layer (demo/freedom/swarm.js), run under node
 against chunk trees made by swarmfs's splitter: addresses, trees from 0 to
-600 KB, a tampered or missing chunk refused, one read per chunk. Skips
-without node or without swarmfs (the splitter makes the trees)."""
+600 KB, a tampered or missing chunk refused, one read per chunk. Without
+swarmfs, make_vectors.py's splitter on pycryptodome (the `act` extra, so
+CI) makes them, checked against swarmfs's where both are present. Skips
+without node, or with neither splitter."""
 
 import importlib.util
 import os
@@ -15,7 +17,8 @@ PAGE = os.path.join(os.path.dirname(HERE), "demo", "freedom")
 
 
 @unittest.skipUnless(shutil.which("node"), "needs node")
-@unittest.skipUnless(importlib.util.find_spec("swarmfs"), "needs swarmfs for the splitter")
+@unittest.skipUnless(importlib.util.find_spec("swarmfs") or importlib.util.find_spec("Crypto"),
+                     "needs swarmfs or pycryptodome for the splitter")
 class TestSwarmJs(unittest.TestCase):
     def test_swarm_js_joins_and_checks_chunk_trees(self):
         import tempfile
