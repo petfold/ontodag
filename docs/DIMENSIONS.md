@@ -2189,3 +2189,28 @@ stored name, when someone needs `±` on another body.
 **Decided: A (Peter, 2026-10-11).** Another body is another head of the
 rectangle kind, declared by whoever needs it; `±` works on `geo` only, until
 a head can declare its body's radius.
+
+**Built (2026-10-11): contract 0.7, registry 5.0, prelude 5.** The
+sections above that speak of geohash cells (§9's regions above cells, §14's
+roles, question 14's spellings) describe registry 4; their rules carry over
+with a rectangle where they say a cell. As built:
+
+- `rectangle-dimension` (dimensions.py): exact Fraction bounds, the
+  denotation (south, north, west, width); the `±` rule in Decimal at 50
+  digits, a cosine by its series at the rectangle's poleward edge, so it
+  holds the true square; `SPLIT_MEET` for two arcs that share two pieces.
+- The index (dag.py `_Rectangles`): each value keyed by the smallest cell
+  of a binary grid holding it, sorted; the values inside a query are those
+  under at most 64 cells covering it and those held above them on a seam,
+  the values containing it those held along its key. Checked against the
+  scan in random worlds across 180°; on 3,000 points a compact query checks
+  about as many values as it finds, a 1° by 120° one about eight times as
+  many, a band around every longitude about nine.
+- Roles of a rectangle head write a value by the base's name; a bare word
+  must be a filed place (a stored one naming none reads as an opaque name).
+  The old-spelling machinery of question 14 is gone.
+- `ontodag.migrate` rewrites a pre-5.0 store's cells as their exact
+  rectangles, nested and bare role terms too, and re-declares `geo`; until
+  then such a store reads geo as a prefix head, and merging the new
+  prelude into it fails, naming the migration, as any head given two kinds
+  does.

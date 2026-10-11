@@ -923,23 +923,58 @@ What to know:
   $ odag put rock 'mass(-3kg)'
   odag: mass(-3kg): 'mass' takes no negative values — it is a magnitude unless declared a position on an axis, as an altitude is (put 'mass' 'signed-dimension')
   ```
-- **Three more kinds**: `prefix-dimension` for hierarchical codes
-  (`geo(u2ed)` is inside `geo(u2)` — geohash cells, handy for "near Tokyo"),
+- **Places are rectangles.** The prelude's `geo` head holds a latitude
+  range and a longitude range in degrees, `geo(48.85..48.87,2.28..2.30)`.
+  A position is written as two numbers and means the rectangle its
+  written precision covers, as a measured value does: `geo(48.8584,2.2945)`
+  is the Eiffel Tower to about 11 by 7 metres, and a more precise position
+  sits inside it. `geo(48.8584,2.2945±500m)` is the square 500 m either way
+  (`+-` in plain ASCII, any length unit), turned into bounds once by a
+  fixed rule and rounded outwards. A rectangle may cross the 180th
+  meridian (`179.7..-179.9` runs east from 179.7°); one spanning half the
+  globe's longitude or more, but not all of it, is refused when filed,
+  and may still be asked about. A named place such as a city is an
+  ordinary category (`in(paris)`), never a shape.
+
+  ```console
+  $ odag put eiffel-tower 'geo(48.8584,2.2945)'
+  $ odag put louvre 'geo(48.8606,2.3376)'
+  $ odag put atoll 'geo(-9.38,179.89±20km)'
+  $ odag get 'geo(48.8..48.9,2.2..2.4)'
+  eiffel-tower
+  geo(48.85835..48.85845,2.29445..2.29455)
+  geo(48.86055..48.86065,2.33755..2.33765)
+  louvre
+  $ odag get 'geo(48.8584,2.2945±500m)'
+  eiffel-tower
+  geo(48.85835..48.85845,2.29445..2.29455)
+  $ odag get 'geo(-10..-9,179.5..-179.5)'
+  atoll
+  geo(-9.559865..-9.200135,179.707602..-179.927602)
+  ```
+
+  Before registry 5.0 a geo value was a geohash cell (`geo(u09tunq)`); such
+  a name is refused now, a store holding them reads as it did, and
+  `python3 -m ontodag.migrate STORE.od` turns each cell into its rectangle,
+  exactly.
+- **Three more kinds**: `prefix-dimension` for codes that nest by prefix
+  (`from(EU-UK-London)` is inside `from(EU-UK)`, §6's travel example),
   `dominance-dimension` for does-it-fit tuples
   (`size(19x23x39cm)` fits `size(20x30x40cm)` — cabin baggage, rotation free),
   and `count-dimension` for whole numbers of discrete things
   (`count(3)` is below `count(2..)` — "at least two"; the prelude's `count`
   head uses it). `linear-dimension` is the fifth: numbers with units, which
-  is what `mass(3kg)` above uses.
-- **What a kind is, and the sixth one.** Everything in OntoDAG is a
+  is what `mass(3kg)` above uses; `rectangle-dimension`, `geo`'s, the sixth.
+- **What a kind is, and the seventh one.** Everything in OntoDAG is a
   category, and every typed value narrows a query, so a kind is neither
   "a kind of node" nor "a kind of constraint". A kind says **how the
   values in a head's parentheses are ordered**: `mass(3kg)` is inside
-  `mass(..5kg)` by interval arithmetic (linear), `geo(u2ed)` inside
-  `geo(u2)` by string prefix, `size(19x23x39cm)` inside `size(20x30x40cm)`
-  componentwise, `time(2026-08)` inside `time(2026)` by calendar periods,
-  `count(3)` inside `count(2..)` by whole numbers. Five orderings, five
-  kinds, each computed from the two names alone. The sixth,
+  `mass(..5kg)` by interval arithmetic (linear), `geo(48.8584,2.2945)`
+  inside `geo(48..49,2..3)` by containment on the globe, `from(EU-UK-London)`
+  inside `from(EU-UK)` by string prefix, `size(19x23x39cm)` inside
+  `size(20x30x40cm)` componentwise, `time(2026-08)` inside `time(2026)` by
+  calendar periods, `count(3)` inside `count(2..)` by whole numbers. Six
+  orderings, six kinds, each computed from the two names alone. The seventh,
   **`graph-dimension`**, is the kind whose values are ordered **by the
   graph itself**: the parenthesised value is a list of categories and
   terms — `transport(mass(..8kg) small-item)`, sorted — and
@@ -1098,29 +1133,30 @@ knowledge queryable (the graph then prunes both originals).
 *from* and a *to*; a delivery has a *where* and a *when*. Declare a head
 under an existing one and it becomes a **role** of that dimension — same
 kind, same values — and, unlike the base head, it also accepts the
-dimension's *nodes* as parameters: a place you filed under a cell, a
-region you filed above cells, a floor you filed under a building. In a
-role of `geo` the two are told apart by how they are written: a bare word
-is a **place**, and a cell is written by **its own name**,
-`from(geo(u2e4x))`.
+dimension's *nodes* as parameters: a place you filed under a rectangle, a
+region you filed above rectangles, a floor you filed under a building. In
+a role of `geo` the two are told apart by how they are written: a bare
+word is a **place**, and a rectangle is written by **geo's own name**,
+`from(geo(48.85..48.87,2.28..2.32))`.
 
 ```python
 dag = OntoDAG(); prelude.apply(dag)
-dag.put("ljubljana", [])                          # a region: above its cells
-dag.put("geo(u2e4)", ["ljubljana"]); dag.put("geo(u2e5)", ["ljubljana"])
-dag.put("my_home", ["geo(u2e4x)"])                # a place: under one cell
+dag.put("paris-centre", [])                       # a region: above its rectangles
+dag.put("geo(48.85..48.87,2.28..2.32)", ["paris-centre"])
+dag.put("geo(48.85..48.87,2.33..2.37)", ["paris-centre"])
+dag.put("my_home", ["geo(48.8584,2.2945)"])       # a place: at its position
 dag.put("from", ["geo"])                          # `from` is a role of geo
 
 dag.put("offer", ["from(my_home)"])               # the place, by name
-dag.put("ride",  ["from(ljubljana)"])             # the region, by name
-dag.put("van",   ["from(geo(u2e5y))"])            # a cell, by the cell's name
+dag.put("ride",  ["from(paris-centre)"])          # the region, by name
+dag.put("van",   ["from(geo(48.86,2.35±200m))"])  # a rectangle, by geo's name
 
-dag.is_below("offer", "from(geo(u2e4))")     # True  — my_home is in u2e4
-dag.is_below("offer", "from(ljubljana)")     # True  — and u2e4 is in the region
-dag.is_below("van", "from(ljubljana)")       # True  — u2e5y is in u2e5
-dag.is_below("from(ljubljana)", "from(geo(u2))")  # False — nothing filed it under u2
-dag.get(["from(geo(u2e))"])                  # offer, van (and the values above them)
-dag.get(["from(ljubljana)"])                 # offer, ride, van
+dag.is_below("offer", "from(geo(48.85..48.87,2.28..2.32))")   # True — my_home is in it
+dag.is_below("offer", "from(paris-centre)")       # True  — and it is in the region
+dag.is_below("van", "from(paris-centre)")         # True  — the van's square is in the other
+dag.is_below("from(paris-centre)", "from(geo(48..49,2..3))")  # False — nothing filed it there
+dag.get(["from(geo(48.8..48.9,2.2..2.4))"])       # offer, van (and the terms above them)
+dag.get(["from(paris-centre)"])                   # offer, ride, van
 
 dag.put("my_home_4th", ["my_home"])          # a floor: a sub-place node
 dag.put("want", ["from(my_home_4th)"])
@@ -1128,50 +1164,51 @@ dag.is_below("want", "from(my_home)")        # True  — the floor is in the bui
 dag.is_below("offer", "from(my_home_4th)")   # False — the building is not the floor
 dag.get_overlapping("from(my_home_4th)")     # includes offer: a give to the whole
                                              # building may serve the fourth floor
-dag.put("x", ["from(ljubljna)"])             # ValueError: no place filed as
-                                             # 'ljubljna' (a typo, caught)
-dag.put("x", ["from(sydney)"])               # ValueError: no place 'sydney' is
-                                             # filed; for the geohash cell, write
-                                             # from(geo(sydney)) — in Turkey
-dag.put("x", ["geo(london)"])                # ValueError: a cell is a geohash,
-                                             # and 'london' is none
+dag.put("x", ["from(paris-centr)"])          # ValueError: no place filed as
+                                             # 'paris-centr' (a typo, caught)
+dag.put("x", ["geo(u09tunq)"])               # ValueError: a geohash cell is no
+                                             # geo value since registry 5.0
+dag.put("x", ["geo(-1..1,-170..170)"])       # ValueError: a stored rectangle spans
+                                             # less than half the circle, or all of it
 dag.put("Flight", [])
 dag.put("x", ["from(Flight)"])               # ValueError: Flight is a category
                                              # outside the geo dimension
 ```
 
-Before registry 4.4 a role read any word it could not find as a cell, so
-`from(sydney)` filed a parcel in a block of southern Turkey (`sydney` is
-spelled with geohash letters) and a mistyped place landed somewhere else
-in silence. A store written before keeps reading as it did — its
-`from(u2e4x)` is still the cell while no place has that name, and a query
-may still ask `from(u2e)` — `odag status` lists such terms, and `python3
--m ontodag.migrate STORE.od` respells them `from(geo(u2e4x))`.
+Before registry 4.4 a role read any word it could not find as a geohash
+cell, so `from(sydney)` filed a parcel in a block of southern Turkey;
+since 5.0 there are no cells, a bare word must name a filed place, and a
+store from before is brought along by `python3 -m ontodag.migrate
+STORE.od` (`odag status` says when it needs it).
 
 **The pairwise question: `overlaps`, and the one-term meet.** `get_overlapping`
 lists candidates for a term; `overlaps(a, b)` answers it for a *pair*, and
 either side may be a typed term or a named place or region. Values decide
-by arithmetic, named things by the graph — a place is possibly in any cell
-that overlaps the cell it sits in, a region overlaps whatever meets one of
-its cells, and two distinct places under one cell are two places. `meet`
-gives the intersection of two same-head terms as one term, using the
-store's units, so you can reduce before you ask:
+by arithmetic, named things by the graph — a place is possibly in any
+rectangle that overlaps the one it sits in, a region overlaps whatever
+meets one of its rectangles, and two distinct places under one rectangle
+are two places. `meet` gives the intersection of two same-head terms as
+one term, using the store's units, so you can reduce before you ask:
 
 ```python
-dag.overlaps("from(ljubljana)", "from(geo(u2e))")    # True  — u2e4 is in both
-dag.overlaps("from(my_home)", "from(geo(u2e4xz))")   # True  — possibly: my_home
-                                                     #         is somewhere in u2e4x
-dag.overlaps("from(my_home)", "from(geo(u2f))")      # False — provably elsewhere
-dag.overlaps("ljubljana", "my_home")                 # True  — nodes both sides
-dag.overlaps("offer", "from(geo(u2e4))")             # True  — an item and a term
-dag.meet("from(geo(u2e))", "from(geo(u2e4x))")       # 'from(geo(u2e4x))'
-dag.meet("from(geo(u2e4))", "from(geo(u2e5))")       # None  — provably empty
-dag.meet("from(ljubljana)", "from(geo(u2e4x))")      # 'from(geo(u2e4x))' — contained
+dag.overlaps("from(paris-centre)", "from(geo(48.8..48.9,2.2..2.4))")  # True
+dag.overlaps("from(my_home)", "from(geo(48.8584..48.8585,2.2945..2.2946))")
+                                                     # True  — possibly: my_home
+                                                     #         is somewhere in its position
+dag.overlaps("from(my_home)", "from(geo(51..52,-1..0))")  # False — provably elsewhere
+dag.overlaps("paris-centre", "my_home")              # True  — nodes both sides
+dag.overlaps("offer", "from(geo(48.85..48.87,2.28..2.32))")  # True — an item and a term
+dag.meet("from(geo(48.8..48.9,2.2..2.4))", "from(geo(48.85..48.87,2.28..2.32))")
+                                                     # 'from(geo(48.85..48.87,2.28..2.32))'
+dag.meet("from(geo(48.85..48.87,2.28..2.32))", "from(geo(48.85..48.87,2.33..2.37))")
+                                                     # None  — provably empty
+dag.meet("from(paris-centre)", "from(geo(48.8584,2.2945))")
+                                                     # 'from(geo(48.85835..48.85845,2.29445..2.29455))'
 ```
 
 **Saying nothing.** An item that states nothing under `from` is in no
-`from` cone: `get(["ride", "from(geo(u2f))"])` does not return it, and
-there is no "from anywhere" term to write — `from(geo)`, the dimension
+`from` cone: `get(["ride", "from(geo(51..52,-1..0))"])` does not return it,
+and there is no "from anywhere" term to write — `from(geo)`, the dimension
 itself, is refused with that reason (the overlap of everything with A is
 just A). A *query* that does not name `from` does not constrain it; that
 is the only unconstrained side there is.
@@ -1185,15 +1222,14 @@ dag.put("when", ["time"])                    # a role of time
 dag.put("ride", [])
 dag.put("r1", ["ride", "from(my_home)",
                "when(2026-08-15T10:00:00Z..2026-08-15T10:30:00Z)"])
-dag.put("r2", ["ride", "from(geo(u2e5))",
+dag.put("r2", ["ride", "from(geo(48.85..48.87,2.33..2.37))",
                "when(2026-08-15T18:00:00Z..2026-08-15T20:00:00Z)"])
 morning = "when(2026-08-15T08:00:00Z..2026-08-15T12:00:00Z)"
 
 dag.get(["ride", morning])                   # {r1}
-dag.get(["ride", morning, "from(geo(u2e4))"])  # {r1} — three cones, one plan
-dag.get(["from(geo(u2e))"])                  # r1, r2 and the offer, van and want
-                                             # filed above, with their terms
-dag.get(["from(geo(u2e))"], items_only=True)  # offer, r1, r2, van, want
+dag.get(["ride", morning, "from(geo(48.85..48.87,2.28..2.32))"])  # {r1} — three cones
+dag.get(["from(geo(48.8..48.9,2.2..2.4))"], items_only=True)
+                                             # offer, r1, r2, van, want
 ```
 
 A time role keeps its values bare (`when(2026-08-15)`): only a role of
@@ -1205,15 +1241,14 @@ operator — see DIMENSIONS.md §8). `get_overlapping` remains the separate
 *candidate* question for a consumer with its own exact check.
 
 The order between role terms is the graph's own order in the base
-dimension, so it follows your catalogue: refine `my_home` into a finer
-cell and every `from(my_home)` claim moves with it, with no stored name
-changing. Two consequences worth knowing: a region's cells are what it is
-*known* to cover (a lower bound — file the region under a coarser cell
-yourself if that is true), and a node named by a role term cannot be
-removed or moved out of its dimension while the term stands (remove the
-term first). Only role heads look names up, so a category that merely
-happens to be called `u2e4` never becomes the cell, and the base head's
-own values are always cells (`geo(u2e4)`).
+dimension, so it follows your catalogue: give `my_home` a more precise
+position and every `from(my_home)` claim moves with it, with no stored name
+changing. Two consequences worth knowing: a region's rectangles are what it
+is *known* to cover (a lower bound — file the region under a larger
+rectangle yourself if that is true), and a node named by a role term
+cannot be removed or moved out of its dimension while the term stands
+(remove the term first). Only role heads look names up, and the base
+head's own values are always rectangles.
 
 The full design (why the order is computed rather than stored, and what that
 preserves) is in [DIMENSIONS.md](DIMENSIONS.md); roles are its §14.

@@ -183,8 +183,7 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `excerpt(queries, context=False)` / `excerpt_names(...)` | a query's answer as a standalone DAG (query terms never added; `context` also brings the categories it hangs from) |
 | `contested(a, b)` | items below both — the two-states-at-once list; empty when one entails the other |
 | `contradictions()` | items under values of one head that cannot all hold, as (item, [values]) pairs; only a merge makes one (a single write is refused it), every query finds the item under each value (`odag status` lists them) |
-| `name_clashes()` | role terms whose word is also a category outside the role's dimension, as (term, category) pairs; only a merge makes one, the term reads as the value it spells, `rename` ends it (`odag status` lists them) |
-| `old_cell_spellings()` | terms of a role of `geo` stored before registry 4.4 with a cell as a bare word (`from(u2e4x)`), read as the cell while no place has that name; `migrate` respells them `from(geo(u2e4x))` (`odag status` lists them) |
+| `name_clashes()` | role terms whose word is also a category outside the role's dimension, as (term, category) pairs; only a merge makes one, the term reads as the value it spells (in a role of `geo`, where a word is never a value, as an opaque name), `rename` ends it (`odag status` lists them) |
 
 Opening a store as `odag` does (`import ontodag` — standard library only,
 until a store needs recordstore or the `swarm` extra):
@@ -287,8 +286,8 @@ stored as edges. Registry `4.3`; same major = same arithmetic.
 | `linear-dimension` | exact rationals of the family anchor; ranges `lo..hi`, either end open | interval containment | `mass(..5kg)` contains `mass(3kg)` |
 | `calendar-dimension` | `2026`, `2026-08`, `2026-08-15`, timestamps; ranges | period containment | `time(2026)` contains `time(2026-08)` |
 | `count-dimension` | whole numbers ≥ 1; ranges (floor 1) | interval containment | `count(2..)` contains `count(24)` |
-| `prefix-dimension` | path strings | prefix | `geo(u2)` contains `geo(u2ed)` |
-| `rectangle-dimension` | a latitude range and a longitude arc in degrees, exact decimals, `S..N,W..E`; an axis typed as one number is its written precision (`48.8584`); `LAT,LON±SIZE` is the square SIZE either way, rounded outwards to millionths of a degree; the arc wraps across 180° when W > E, and `-180..180` is every longitude; a stored arc is under half the circle or all of it | containment, on the circle for longitude | `site(48.8..48.9,2.2..2.4)` contains `site(48.8584,2.2945)` |
+| `prefix-dimension` | path strings | prefix | `from(EU-UK)` contains `from(EU-UK-London)` |
+| `rectangle-dimension` | a latitude range and a longitude arc in degrees, exact decimals, `S..N,W..E`; an axis typed as one number is its written precision (`48.8584`); `LAT,LON±SIZE` is the square SIZE either way, rounded outwards to millionths of a degree; the arc wraps across 180° when W > E, and `-180..180` is every longitude; a stored arc is under half the circle or all of it | containment, on the circle for longitude | `geo(48.8..48.9,2.2..2.4)` contains `geo(48.8584,2.2945)` |
 | `dominance-dimension` | sorted tuples `AxBxC` + unit | componentwise ≥ | `size(20x30x40cm)` contains `size(19x23x39cm)` |
 | `graph-dimension` | a conjunction of constraints on the graph — category names and terms of other dimensions, sorted, each present or parseable, a redundant one dropped (issue #19); filed as one term per constraint (DIMENSIONS.md §15) | by the graph: every outer constraint above some inner one | `transport(mass(..8kg) small-item)` contains `transport(bicycle mass(5kg))` when `bicycle ⊑ small-item` |
 | `transitive-dimension` | constraints on the graph, as for `graph-dimension`, but kept whole (one thing meeting them all); a stored compound is re-filed under its current spelling when the graph makes a constraint redundant (DIMENSIONS.md §16, §16) | by the graph, and chaining: `R(X) ⊑ R(Y)` also when some `x` in `X` is itself below `R(Y)`; strict — nothing is `R` of itself | `in(tokyo)` is inside `in(japan)` when `tokyo ⊑ in(japan)` |
@@ -297,7 +296,10 @@ stored as edges. Registry `4.3`; same major = same arithmetic.
 
 Several values of one head on one item fold to their meet (`put(x, ["mass(1kg..3kg)", "mass(2kg..5kg)"])` files `x` under `mass(2kg..3kg)`; DIMENSIONS.md §9), and so do merges, syncs and loads of a file whose canonical mark does not vouch for it (registry 4.4; values that cannot all hold stay, listed by `odag status`), except a transitive, enclosing or reversed head's terms, which stay separate (Zermatt can be `in(switzerland)` and `in(alps)`, a photo `about(mars)` and `about(earth)`, a budget `shared-with(sales-employee)` and `shared-with(finance-employee)`). Rules that refuse, with teaching errors: cycles, including one that only a computed link the new edge creates would close; a term of a kind the graph orders (graph, transitive, enclosing, reversed) under anything but its head (`in(japan) ⊑ japanese` would state a rule, CONTRACT.md §5.1); anything that would put a thing inside itself under a transitive head (`japan ⊑ in(japan)`); a point filed under two
 provably disjoint values of one head; a role of `geo` naming a word that
-is no filed place, or a `geo(...)` cell outside the geohash alphabet;
+is no filed place; a geohash cell as a `geo(...)` value (registry 5.0:
+`python3 -m ontodag.migrate STORE` turns a store's cells into
+rectangles); a new rectangle spanning half the circle of longitude or
+more without spanning it all;
 `count(0)` (an absence claim);
 fractional counts; a new negative value under a head not declared a
 position on an axis (`altitude ⊑ signed-dimension` declares one, as a
@@ -317,19 +319,17 @@ travel with the store.
 Roles (DIMENSIONS.md §14): a head declared under another head —
 `from` under `geo`, `when` under `time` — inherits its kind and value
 space and may take the base dimension's *nodes* as parameters:
-`from(my_home)` (a place under a cell), `from(ljubljana)` (a region above
-cells), `where(my_home_4th)` (a floor under a building). Stored as
+`from(my_home)` (a place under a rectangle), `from(paris-centre)` (a
+region above rectangles), `where(my_home_4th)` (a floor under a building). Stored as
 spelled; ordered by the graph (`from(x) ⊑ from(y)` iff `x ⊑ y` under
 `geo`); a parameter naming a present node outside the dimension is
 refused. A node named by a role term cannot be removed or moved out of
-its dimension while the term stands. In a role of `geo` (registry 4.4) a
-bare word is a place and a cell is written by its own name,
-`from(geo(u2e4x))`: a write naming no filed place is refused, as is a
-`geo(...)` cell outside the geohash alphabet (digits and lowercase letters
-but a, i, l, o). A term stored before 4.4 with a bare cell
-(`from(u2e4x)`) reads as the cell while no place has that name, as does a
-bare word in a query; `migrate` respells it. A time role keeps bare
-values (`when(2026-08-15)`).
+its dimension while the term stands. In a role of `geo` a bare word is a
+place and a rectangle is written by geo's own name,
+`from(geo(48.85..48.87,2.28..2.32))`: a write or a query naming no filed
+place is refused, and a stored term naming none (only a replay leaves one)
+reads as an opaque name. A time role keeps bare values
+(`when(2026-08-15)`).
 
 Narrower relations (DIMENSIONS.md §20, contract 0.3): a head of a
 transitive, enclosing or reversed kind declared under another head of
@@ -342,10 +342,11 @@ re-reduces them, and one that would put something inside itself under
 a strict relation is refused. Value roles (above) and the graph kind
 keep their meaning.
 
-Prelude v4 declares: all nine kind nodes; the heads `mass`, `length`,
+Prelude v5 declares: all ten kind nodes; the heads `mass`, `length`,
 `duration`, `area`, `volume`, `speed`, `pressure`, `temperature` and
 `energy`, each pinned to the unit family of its name
-(`mass ⊑ linear-dimension(mass)`; the nine family nodes are `linear-dimension(mass)`, `linear-dimension(length)`, `linear-dimension(duration)`, `linear-dimension(area)`, `linear-dimension(volume)`, `linear-dimension(speed)`, `linear-dimension(pressure)`, `linear-dimension(temperature)`, `linear-dimension(energy)`); `count`, `time`, `geo`, `size`; and the
+(`mass ⊑ linear-dimension(mass)`; the nine family nodes are `linear-dimension(mass)`, `linear-dimension(length)`, `linear-dimension(duration)`, `linear-dimension(area)`, `linear-dimension(volume)`, `linear-dimension(speed)`, `linear-dimension(pressure)`, `linear-dimension(temperature)`, `linear-dimension(energy)`); `count`, `time`, `geo` (the rectangle head;
+v4's `geo` was a prefix head of geohash cells), `size`; and the
 relations `in` (transitive), `about` (enclosing) and `shared-with`
 (reversed). There is no `weight` head: weight is a force. `from` and `to`
 are not in the prelude (loopmarket declares them as roles of `geo`).

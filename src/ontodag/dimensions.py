@@ -1016,8 +1016,9 @@ def _parse_rect_uncached(param, units=None):
         hint = ""
         if _GEOHASH_LIKE.match(param):
             hint = (f" — {param!r} looks like a geohash cell; since registry "
-                    f"5.0 a geo value is a rectangle, and `odag migrate` "
-                    f"turns a store's cells into rectangles")
+                    f"5.0 a geo value is a rectangle, and `python3 -m "
+                    f"ontodag.migrate STORE` turns a store's cells into "
+                    f"rectangles")
         raise ValueError(
             f"{param!r} is no rectangle: a geo value is written "
             f"lat..lat,lon..lon, lat,lon or lat,lon±size, as "

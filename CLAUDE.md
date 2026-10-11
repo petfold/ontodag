@@ -20,7 +20,7 @@ stored form is canonical. That is what makes a store content-addressable
 of the project, not polish.
 
 Typed values extend the order without adding reasoning: `mass(3kg)`,
-`time(2026)`, `geo(u2e4)`, `in(paris)`, `about(x)` and
+`time(2026)`, `geo(48.85..48.87,2.28..2.30)`, `in(paris)`, `about(x)` and
 `shared-with(alice)` are categories ordered by computation on their names,
 under a fixed set of kinds (`docs/DIMENSIONS.md`). Agents are the priority
 consumer (`docs/CONTRACT.md`, `docs/AGENT_SURFACE.md`). One store is
@@ -199,8 +199,8 @@ Contract 0.6 (`docs/CONTRACT.md`, `tests/test_contract.py`):
   (`make_g8.py`) only together with a registry bump.
 - **G9** replays are order-free; single writes are checked as they come.
 
-Versions now: contract 0.6, registry 4.5 on main (4.4 released in
-0.31.0), prelude 4, surface 0.1.
+Versions now: contract 0.7, registry 5.0, prelude 5 on main (released in
+0.31.0: contract 0.6, registry 4.4, prelude 4), surface 0.1.
 Consumers compare majors.
 
 ## Standing rules
@@ -390,11 +390,10 @@ Each line points to its record.
       as the value when stored, is refused when written or typed;
       `name_clashes()` and `odag status` list such clashes (item 19).
       Built.
-  14. In a role a bare word is a filed place and a cell is written by its
-      name, `from(geo(u2e4x))`; `geo(...)` takes only geohash spellings;
-      old terms read as before until migrated (item 20). Built in ontodag
-      (a query still reads a bare word as a cell, for G7) and in
-      loopmarket 0.15.0.
+  14. In a role a bare word is a filed place and a value is written by
+      its base's name, `from(geo(...))` (item 20). Built in ontodag and in
+      loopmarket 0.15.0; since registry 5.0 the value is a rectangle and a
+      bare word is never read as a cell, in a query either.
   15. loopmarket: one matching engine, ontodag's index, for simple
       matches and the aggregation search, no threshold; the default
       solver kept apart from the rest of loopmarket (item 2). Built
@@ -444,7 +443,8 @@ Each line points to its record.
   500 m either way, turned into bounds once by a fixed rule and rounded
   outwards; geohash names go, a registry major; unions of rectangles later
   (DIMENSIONS.md §22). Another body is another head of the rectangle kind,
-  `±` on `geo` only for now (question 33, decided A). Being built.
+  `±` on `geo` only for now (question 33, decided A). Built on main
+  (contract 0.7, registry 5.0, prelude 5); loopmarket's side next.
 - Negative values (question 32, decided A on 2026-10-11): a linear head
   declared a position (by a marker node, as a head is pinned to a family)
   takes negative values, as `altitude` will in core; a value's meaning
@@ -485,7 +485,9 @@ Each line points to its record.
   `ontodag>=0.31.0`), ontodag-fs 0.7.0 (ontodag's public layer;
   `>=0.31.0,<0.32.0`). Unchanged: recordstore 0.22.2 and swarmfs 0.14.0
   (their commits since are lint and docs). Unreleased on ontodag's main:
-  question 32, negative values for signed heads (registry 4.5).
+  question 32, negative values for signed heads (registry 4.5), and
+  questions 29, 30 and 33, `geo` as a rectangle head (registry 5.0,
+  contract 0.7, prelude 5). loopmarket's main still writes geohash cells.
 - categor.io's live site runs its main (6bad379, updated 2026-10-10):
   ontodag 0.31, and removing a contact ends its shares
   (`with_terms=True`). circulator's main writes v4 offers (its CI has been red

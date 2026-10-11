@@ -14,6 +14,41 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Contract 0.7, registry 5.0, prelude 5
+
+- **`geo` is a rectangle head** (questions 29, 30 and 33, decided by Peter
+  2026-10-11; DIMENSIONS.md §22, CONTRACT.md amendment 0.7). A value is a
+  latitude range and a longitude range in degrees with exact decimal
+  bounds, `geo(48.85..48.87,2.28..2.30)`, in a new kind,
+  `rectangle-dimension`. A position, `geo(48.8584,2.2945)`, is the
+  rectangle its written precision covers; `geo(48.8584,2.2945±500m)` (`+-`
+  in ASCII, any length unit) is the square 500 m either way, turned into
+  bounds once by a fixed Decimal rule and rounded outwards to millionths of
+  a degree. A rectangle may cross the 180th meridian (`170..-170`); one
+  spanning half the circle of longitude or more without spanning it all
+  is refused when written and may be queried. Another body is another head
+  of the kind. A named place stays an ordinary category (`in(paris)`).
+- **Geohash cells are gone**, so this is a registry **major**: every
+  stored geo name changes. **Migrate step (G8):** `python3 -m
+  ontodag.migrate STORE.od` (or `migrate_record_store`) turns each cell
+  into its exact rectangle, in `geo(...)` values and in role terms, nested
+  (`from(geo(u2e4))`) or bare (`from(u2e4)`, as before 4.4), and declares
+  `geo` under the new kind; `odag status` says when a store needs it, and
+  until then a store reads geo as the prefix head it declares. loopmarket's
+  placed offers get new ids through the same replay. The prefix kind stays,
+  for codes that nest by prefix; no prelude head uses it.
+- **In a role of `geo` a bare word names a place** and nothing else (the
+  bare-cell reading of registry 4.4 and `old_cell_spellings()` are gone):
+  a write or a query naming no filed place is refused, and a stored term
+  naming none, which only a replay leaves, reads as an opaque name.
+- A rectangle head's values are found through an index of the smallest cell
+  of a fixed grid that holds each (never a name), so a query checks about
+  as many values as it finds; roles of a rectangle head use it too.
+- `odag` renders a rectangle whose axes are written precisions as the
+  position (`geo(48.8584,2.2945)`), which elaborates back to it.
+- G7's two records are taken again under the new major; the golden roots of
+  the prelude, the packs (sha256 and Swarm) and their union are re-pinned.
+
 ### Registry 4.5
 
 - **A position on an axis can be negative** (question 32, decided by
