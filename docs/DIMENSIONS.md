@@ -2073,3 +2073,31 @@ requests get equal names. Coupled with the celestial body: a size in metres
 needs the body's radius, so a head for Mars or the Moon would carry its own
 (degree of latitude: 111.2 km on Earth, 59.2 km on Mars, 30.3 km on the
 Moon), or take sizes only in degrees until someone needs more.
+
+**Across the 180th meridian (Peter, 2026-10-11: check it with Nukulaelae,
+where 179 turns into -179).** Checked with a prototype of the arithmetic,
+`experiments/geo_rect.py`: a longitude is kept in (-180, 180], an arc runs
+east from its west bound and wraps when that bound is the larger, and the
+full circle is `-180..180`. Nukulaelae (Tuvalu) lies at 179.87–179.91°E;
+`geo(-9.38,179.89±20km)` is
+`geo(-9.559865..-9.200135,179.707602..-179.927602)`, an arc of 0.365°. A
+point 10 km east of the atoll, at -179.99, is inside; one 30 km east and one
+at Greenwich are not; a ±5 km square straddling 180 is inside; its meet with
+`geo(-10..-9,179..180)` is `geo(-9.559865..-9.200135,179.707602..180)`.
+`179.9..180` and `179.9..-180` are one name, as are `180..-179.9` and
+`-180..-179.9`. Taveuni (Fiji), which Natural Earth cuts in two at 180, is
+one value, `geo(-16.97..-16.67,179.89..-179.81)`. Against brute force (4,000
+random pairs of arcs on a half-degree grid, many wrapping), containment and
+meets disagree nowhere.
+
+One thing does not hold on a circle that holds on a line: two arcs can
+share two separate pieces. `geo(-10..10,170..-170)` and
+`geo(-10..10,-175..175)` share `170..175` and `-175..-170`, so an item
+filed under both has no single meet to fold to (52 of the 4,000 pairs).
+It happens only when the two arcs between them cover the circle, so only
+when one is wider than half of it. The `±` form makes such arcs near a
+pole (a ±2 km square at 89.97° is 172° wide, at 89.98° every longitude).
+A rule that removes it: a stored value's arc is less than half the circle
+or all of it; `±` widens a wider one to the full circle (it only grows),
+typed bounds wider than half are refused, and a query, which never folds,
+may be any width.
