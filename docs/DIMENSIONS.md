@@ -2122,3 +2122,36 @@ land in 2.7 million km² (0.023%); Kiribati, 35 polygons across 180°
 its overseas departments, 21 polygons, 0.6% of a rectangle that covers a
 fifth of the earth. A rectangle is for a position, an area around a point
 or a map view, not for these.
+
+**Several rectangles in one value (Peter, 2026-10-11).** A list in one
+term is a union, "in this area or that one", the reverse of an item under
+several values, which is "in all of them"; so it needs a separator that
+reads as "or" (`geo(A|B)`), not the space that means "and" in a graph-kind
+term. It can be canonical: an area's maximal rectangles are fixed by the
+area alone, so they are one stored form however the union was listed (the
+objection that put unions off above), and since any rectangle inside the
+area lies inside one of them, one union is inside another exactly when each
+of its pieces is inside one piece of the other; the meet of two unions is
+the canonical form of their pieces' intersections, so the meet across 180°
+is a value and the half-circle rule is not needed. Measured with
+`experiments/geo_union.py` (random unions of k rectangles, 200 each; 1,000
+pairs against brute force, no disagreement):
+
+| rectangles listed | pieces stored: median, most | pieces holding a point: mean, most |
+|---|---|---|
+| 1 | 1, 1 | 1.00, 1 |
+| 2 | 2, 4 | 1.11, 4 |
+| 3 | 3, 9 | 1.22, 9 |
+| 5 | 5, 14 | 1.44, 10 |
+| 10 | 14, 25 | 2.37, 17 |
+| 20 | 33, 52 | 3.97, 28 |
+| 50 | 54, 85 | 8.48, 45 |
+
+Two overlapping squares are stored as four pieces (the squares and the two
+strips through their overlap). A query reaches a thing once per piece
+holding it, and a stored union is below a query only when all its pieces
+are found. Where two pieces touch along an edge, the line between them
+belongs to the union and to neither piece, so the form is computed on the
+grid of coordinates and the gaps between them. A single rectangle is a
+union of one and spelled the same, so unions can come later without
+changing a stored name.
