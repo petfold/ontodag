@@ -906,7 +906,7 @@ def _geo_number(text, param):
         raise ValueError(
             f"{text!r} in {param!r} is no decimal number of degrees — a "
             f"geo value is written lat..lat,lon..lon, lat,lon or "
-            f"lat,lon±size: geo(48.85..48.87,2.28..2.30)")
+            f"lat,lon+-size: geo(48.85..48.87,2.28..2.30)")
     return Fraction(text)
 
 
@@ -968,8 +968,8 @@ def _geo_around(lat_text, lon_text, size_text, param, units):
     family, metres = _parse_scalar(size_text, units)
     if family != "length" or metres < 0:
         raise ValueError(
-            f"{param!r}: the size after ± is a length, as much either way "
-            f"(geo(48.8584,2.2945±500m))")
+            f"{param!r}: the size after +- is a length, as much either way "
+            f"(geo(48.8584,2.2945+-500m))")
     floor = lambda d: d.quantize(GEO_GRID, rounding=decimal.ROUND_FLOOR, context=_GEO_CTX)
     ceil = lambda d: d.quantize(GEO_GRID, rounding=decimal.ROUND_CEILING, context=_GEO_CTX)
     dlat = _GEO_CTX.divide(_geo_decimal(metres), EARTH_M_PER_DEGREE)
@@ -1008,8 +1008,8 @@ def _parse_rect_uncached(param, units=None):
             parts = centre.split(",")
             if len(parts) != 2 or ".." in centre:
                 raise ValueError(
-                    f"{param!r}: ± follows a position, lat,lon±size "
-                    f"(geo(48.8584,2.2945±500m))")
+                    f"{param!r}: {sign} follows a position, lat,lon+-size "
+                    f"(geo(48.8584,2.2945+-500m))")
             return _geo_around(parts[0], parts[1], size, param, units)
     parts = param.split(",")
     if len(parts) != 2:
@@ -1021,7 +1021,7 @@ def _parse_rect_uncached(param, units=None):
                     f"rectangles")
         raise ValueError(
             f"{param!r} is no rectangle: a geo value is written "
-            f"lat..lat,lon..lon, lat,lon or lat,lon±size, as "
+            f"lat..lat,lon..lon, lat,lon or lat,lon+-size, as "
             f"geo(48.85..48.87,2.28..2.30){hint}")
     south, north = _geo_axis(parts[0], param)
     typed = ".." in parts[0]

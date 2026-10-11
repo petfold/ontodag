@@ -928,8 +928,8 @@ What to know:
   A position is written as two numbers and means the rectangle its
   written precision covers, as a measured value does: `geo(48.8584,2.2945)`
   is the Eiffel Tower to about 11 by 7 metres, and a more precise position
-  sits inside it. `geo(48.8584,2.2945±500m)` is the square 500 m either way
-  (`+-` in plain ASCII, any length unit), turned into bounds once by a
+  sits inside it. `geo(48.8584,2.2945+-500m)` is the square 500 m either way
+  (any length unit; `±` works too), turned into bounds once by a
   fixed rule and rounded outwards; a size that reaches round the planet
   gives all of it, `geo(-90..90,-180..180)`, which says somewhere on
   Earth. A rectangle may cross the 180th
@@ -941,13 +941,13 @@ What to know:
   ```console
   $ odag put eiffel-tower 'geo(48.8584,2.2945)'
   $ odag put louvre 'geo(48.8606,2.3376)'
-  $ odag put atoll 'geo(-9.38,179.89±20km)'
+  $ odag put atoll 'geo(-9.38,179.89+-20km)'
   $ odag get 'geo(48.8..48.9,2.2..2.4)'
   eiffel-tower
   geo(48.85835..48.85845,2.29445..2.29455)
   geo(48.86055..48.86065,2.33755..2.33765)
   louvre
-  $ odag get 'geo(48.8584,2.2945±500m)'
+  $ odag get 'geo(48.8584,2.2945+-500m)'
   eiffel-tower
   geo(48.85835..48.85845,2.29445..2.29455)
   $ odag get 'geo(-10..-9,179.5..-179.5)'
@@ -1151,7 +1151,7 @@ dag.put("from", ["geo"])                          # `from` is a role of geo
 
 dag.put("offer", ["from(my_home)"])               # the place, by name
 dag.put("ride",  ["from(paris-centre)"])          # the region, by name
-dag.put("van",   ["from(geo(48.86,2.35±200m))"])  # a rectangle, by geo's name
+dag.put("van",   ["from(geo(48.86,2.35+-200m))"])  # a rectangle, by geo's name
 
 dag.is_below("offer", "from(geo(48.85..48.87,2.28..2.32))")   # True — my_home is in it
 dag.is_below("offer", "from(paris-centre)")       # True  — and it is in the region

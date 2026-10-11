@@ -47,6 +47,7 @@ def test_one_name_per_rectangle(raw, canonical):
     ("geo(1..0,0..1)", "empty latitude range"),
     ("geo(48,2±5kg)", "a length"),
     ("geo(48..49,2±5km)", "± follows a position"),
+    ("geo(48..49,2+-5km)", "+- follows a position"),
     ("geo(48.8584,2.2945e1)", "no decimal number"),
     ("geo(0..1,2..)", "needs both ends"),
     ("geo(0..1,500..-500)", "runs east"),
