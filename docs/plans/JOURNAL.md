@@ -2698,3 +2698,14 @@ loopmarket's journal has the run. The default catalogue (prelude, core,
 handover and the roles) leaves out loopmarket's operators, options and
 items packs, whose names core already takes as everyday words; that is
 for later.
+
+**The v5-gate clearing announcement retracted** (Peter: "retract it"):
+the chain key `0xE9d6…17aE` called `retract()` on the LoopBookRegistry
+(tx `41b3c97d74760e9be6d5d15c3ae3ed1d83315e2a30e6cd4b33b817d6b22d4c6a`,
+block 48705510, gas 2.5e-13 xDAI), after a check that its one standing
+announcement was `swarm:loop-v5-gate-1789734484` as clearing. Every fresh
+fold had printed that book's old loops as rejected. Now only the test
+maker's book stands (`swarm:loop-twonode-1791730596`), and a fresh fold
+from the PyPI install reads one offer, book root `950aaa44…`, with no
+rejected lines. There is no `loop retract` verb; the client's `retract()`
+was called directly.
