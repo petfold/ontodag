@@ -488,9 +488,11 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Under discussion (Peter, 2026-10-11, raised with question 29): height
-and depth, floors included, and an optional celestial body, Earth by
-default (`docs/DIMENSIONS.md` §22). Then question 30, the size's word and
+Question 32, put 2026-10-11 (`docs/DIMENSIONS.md` §22): may a value be
+negative (heights below sea level, floors below ground)? A, for heads
+declared as positions (recommended); B, for every head; C, never. Under
+discussion with it: an optional celestial body, Earth by default (one
+head per body, leaning). Then question 30, the size's word and
 unit, and question 31, relative times in `time(...)`. Polygons and unions
 of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).

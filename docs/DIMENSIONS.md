@@ -1943,3 +1943,36 @@ decision, either of which could change the value's form:
   or one head per body of the same kind (`geo` is Earth by its definition).
   A size typed in metres needs the body's radius (a degree of latitude is
   111.3 km on Earth, 59.2 km on Mars, 30.3 km on the Moon).
+
+**Question 32, put (2026-10-11): may a value be negative?** Heights below
+sea level and floors below ground need it; today the grammar refuses every
+negative number except a Celsius or Fahrenheit spelling (stored in kelvin,
+so never negative). The Dead Sea shore, `altitude(-430m)`, and a car park
+two floors down, `level(-2)`, are refused; `level(0)`, `level(1/2)` and
+`altitude(80m..120m)` already work, with `level` and `altitude` declared as
+linear heads (`linear-dimension(count)`, `linear-dimension(length)`).
+Common to A and B: a value's meaning stays computable from its name alone,
+and an open lower end keeps meaning zero (`altitude(..120m)` is the same
+name as `altitude(0m..120m)`), so "120 m or lower" below sea level needs a
+written bound. Making the open end unbounded for some heads would let a
+declaration arriving by merge change what a stored name means, and
+`altitude(..120m) ⊑ altitude(0m..200m)` would turn false, which merge must
+never do (G2).
+
+- **A**, negative values for heads declared as positions: a head is filed
+  under a marker node, as it is pinned to a unit family today, and a write
+  of a negative value under any other head is refused. `mass(-3kg)` stays
+  an error, and a magnitude keeps one name per meaning.
+- **B**, negative values for every head, nothing declared: the least to
+  build, but `mass(-3kg)` goes through, and a magnitude can gain a second
+  name for the same things (`mass(-1kg..5kg)` beside `mass(..5kg)`).
+- **C**, no negative values: depth as its own head counted downwards, floors
+  as named sub-places (§9) or counted from the lowest. Nothing to build;
+  a range across zero (a building from its second basement to its roof, a
+  cliff from the seabed up) cannot be one value, and altitude and depth
+  have no order between them.
+
+Recommended: A, the smallest change that keeps magnitudes protected and
+gives positions both signs; its declaration only admits more writes, never
+changes a stored name's meaning, so a store may adopt it by merge. It can
+ship in question 29's registry major.
