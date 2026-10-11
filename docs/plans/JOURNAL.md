@@ -2673,3 +2673,9 @@ clearing book on the registry (one per owner).
 book re-announced (the registry as before the run), and loopmarket's
 missing-extra traceback fixed (`MissingExtra`, one line from `loop`).
 
+**loopmarket 0.16.1**, on Peter's word: the missing-extra fix released
+(CI green with the count check, publish green with the chain tests);
+from PyPI it installs with ontodag 0.32.0 and recordstore 0.22.3, prints
+the missing `chain` extra as one line (exit 1), and both examples clear.
+Peter has started a second Bee node on another laptop, unfunded.
+
