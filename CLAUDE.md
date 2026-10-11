@@ -446,6 +446,14 @@ Each line points to its record.
   another head of the rectangle kind, `±` on `geo` only for now (question
   33, decided A). Built on main (contract 0.7, registry 5.0, prelude 5),
   and in loopmarket on its branch `ontodag-0.32`.
+- Relative times (question 31, decided A on 2026-10-11, without a
+  refusal step): `today`, `tomorrow`, `now` and `+N`/`-N` in ontodag's
+  duration units are taken in `time(...)` only where a person or an agent
+  types (the `odag` command, the agent tool, the web console,
+  `surface.elaborate(..., now=)`), turned into absolute UTC with the clock
+  or the `now` setting; the core and every replay never see them; `today`
+  is the UTC day; `..` keeps ontodag's open end, and `loop` takes that
+  meaning (DIMENSIONS.md §22).
 - Negative values (question 32, decided A on 2026-10-11): a linear head
   declared a position (by a marker node, as a head is pinned to a family)
   takes negative values, as `altitude` will in core; a value's meaning
@@ -507,8 +515,7 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Question 31, relative times in `time(...)`, is put (DIMENSIONS.md §22;
-loopmarket's other launch spelling). Polygons and unions
+None open now: question 31 (relative times) is decided. Polygons and unions
 of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 

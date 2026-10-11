@@ -2297,3 +2297,10 @@ stored value once, at input; with a clock involved, that belongs where
 someone is typing, not in names that replays read. UTC keeps `today`
 holding `now` and matches how ontodag reads a typed date, and `loop`
 already shows the local time beside UTC before anything is published.
+
+**Decided: A, without the refusal step (Peter, 2026-10-11).** Relative
+times are taken where a person or an agent types (the `odag` command, the
+agent tool, the web console, `surface.elaborate(..., now=)`), never by the
+core or a replay; `today` is the UTC day; `..` keeps ontodag's open end,
+and `loop` takes ontodag's meaning at once (its `..+90d` meant "from now";
+backward compatibility does not weigh yet), so `now..+90d` says from now.
