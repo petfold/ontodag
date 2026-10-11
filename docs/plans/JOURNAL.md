@@ -2640,3 +2640,22 @@ triangle on a Swarm book, the federated book, a register at its feed
 tip) passed in 5 min 9 s, their places built as rectangles for the first
 time against real Swarm; batch `c931c8a5…` usable afterwards. loopmarket's
 `ontodag-0.32` branch, wholly in main, deleted locally and on GitHub.
+
+**Folding through the public gateway (Peter: "try the gateway first").**
+The two-node read of loopmarket's announced books had never run: on
+2026-09-14 the reader was a clean session on this laptop's own node, which
+already held every block it read. With the reader's `bee_api` at
+`https://api.gateway.ethswarm.org` and nothing else but the registry
+setting, `announced` worked at once and `fold` failed on `/stamps`:
+recordstore's `BeeBytesStore` resolved `postage_batch_id="auto"` when it
+was made, so even a follower of someone else's feed asked for a batch,
+and a gateway serves none. Fixed in recordstore (d6d2802, unreleased):
+`"auto"` resolves on the first write, as swarmfs's `BeeRemote` already
+did, and a follower's feed pointer gets no batch; its tests fail on the
+old code, and ontodag's (1488 + 4 skipped) and loopmarket's (433 + 4)
+suites pass against it. With it, a clean reader found the one announced
+book on chain (a clearing book, `swarm:loop-v5-gate-1789734484`), read
+its feed and its 41 records through the gateway and folded them (root
+`d7e1eaf9…`) in about 6 s. What it does not yet show: a maker's offer
+folded by a reader elsewhere; that needs a maker book announced on chain
+(a transaction) or the second-machine run.

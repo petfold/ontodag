@@ -488,8 +488,11 @@ Each line points to its record.
   every root equal to its pinned `SWARM_GOLDEN_ROOTS` entry, retrievable,
   and read back by its root alone to the identical root; then ontodag's
   two gated tests (48 s) and loopmarket's three live tests (5 min, places
-  as rectangles for the first time on a real node) passed. Every run since
-  July, with what each taught, is in the journal.
+  as rectangles for the first time on a real node) passed. A clean reader
+  folded the announced books through `api.gateway.ethswarm.org` once
+  recordstore stopped asking a reader for a batch (its main, d6d2802,
+  unreleased). Every run since July, with what each taught, is in the
+  journal.
 
 ## State (2026-10-11)
 
