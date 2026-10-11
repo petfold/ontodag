@@ -182,3 +182,94 @@ class TestAWholeDagOnTopOfThem(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FakePageBee(FakeBee):
+    """The read-only page's JS store (demo/freedom/swarm.js BlobStore):
+    `download`, `downloadMany`, and a missing blob is a rejection."""
+
+    def __init__(self, blobs=None, many=True):
+        super().__init__()
+        self.blobs = dict(blobs or {})
+        self.calls = 0
+        if not many:
+            self.downloadMany = None
+
+    def download(self, ref):
+        self.calls += 1
+        if str(ref) not in self.blobs:
+            raise RuntimeError(f"chunk {ref} is not retrievable")   # a rejected promise
+        return FakePromise(self.blobs[str(ref)])
+
+    def downloadMany(self, refs):
+        self.calls += 1
+        missing = [r for r in refs if r not in self.blobs]
+        if missing:
+            raise RuntimeError(f"chunk {missing[0]} is not retrievable")
+        return FakePromise([self.blobs[r] for r in refs])
+
+
+def _published(puts):
+    from recordstore import MemoryBytesStore, RecordStore
+    from ontodag.eager import EagerOntoDAG
+    blobs = MemoryBytesStore()
+    dag = EagerOntoDAG(RecordStore(blobs))
+    for name, supers in puts:
+        dag.put(name, supers)
+    return dag.commit(), blobs
+
+
+FRUIT = [("food", []), ("fruit", ["food"]), ("apple", ["fruit"]),
+         ("pear", ["fruit"]), ("bread", ["food"]), ("tool", [])]
+
+
+class TestTheReadOnlyPage(unittest.TestCase):
+    """What demo/freedom's page runs: a published store read lazily
+    through the page's JavaScript."""
+
+    def setUp(self):
+        self.root, blobs = _published(FRUIT)
+        self.blobs = blobs.blobs
+
+    def test_get_many_is_one_call_when_the_page_offers_it(self):
+        js = FakePageBee(self.blobs)
+        refs = list(self.blobs)[:4]
+        got = JsBytesStore(js, bridge).get_many(refs)
+        self.assertEqual(got, {r: self.blobs[r] for r in refs})
+        self.assertEqual(js.calls, 1)
+        one_by_one = FakePageBee(self.blobs, many=False)
+        JsBytesStore(one_by_one, bridge).get_many(refs)
+        self.assertEqual(one_by_one.calls, 4)
+
+    def test_an_unreachable_blob_is_an_error_never_absence(self):
+        from ontodag.browser import BlobUnreachable
+        js = FakePageBee({})
+        with self.assertRaises(BlobUnreachable) as caught:
+            JsBytesStore(js, bridge).get("ab" * 32)
+        self.assertNotIsInstance(caught.exception, KeyError)
+        # a lazy reader over a store whose blobs are gone fails loudly
+        from ontodag.browser import open_published
+        dag = open_published(self.root, FakePageBee({}), bridge=bridge)
+        with self.assertRaises(Exception) as failed:
+            dag.get(["fruit"])
+        self.assertNotIsInstance(failed.exception, KeyError)
+
+    def test_the_page_reader_answers_as_the_store_does(self):
+        import json
+        from ontodag.browser import PageReader, open_published
+        reader = PageReader(open_published(self.root, FakePageBee(self.blobs), bridge=bridge))
+        top = json.loads(reader.node())
+        self.assertTrue(top["top"])
+        self.assertEqual([n for n, _ in top["below"]], ["food", "tool"])
+        fruit = json.loads(reader.node("fruit"))
+        self.assertEqual(fruit["above"], ["food"])
+        self.assertEqual(fruit["below"], [["apple", 0], ["pear", 0]])
+        self.assertEqual(fruit["count"], 2)
+        food = json.loads(reader.node("food"))
+        self.assertEqual(dict(food["below"])["fruit"], 2)
+        self.assertFalse(json.loads(reader.node("durian"))["found"])
+        got = json.loads(reader.get("food"))
+        self.assertEqual(got["names"], ["apple", "bread", "fruit", "pear"])
+        self.assertTrue(json.loads(reader.below("apple", "food"))["below"])
+        self.assertFalse(json.loads(reader.below("apple", "tool"))["below"])
+        self.assertGreater(got["records"], 0)

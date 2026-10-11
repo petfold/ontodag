@@ -12,6 +12,32 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Added
+
+- **`LazyOntoDAG(..., prefetch=True)`**: with a record store that reads
+  many records at once (`get_many`, recordstore 0.23), a walk goes
+  breadth-first and reads each level's records in one batch: one round
+  trip per level of the graph instead of one per node (a 258-node cone,
+  266 round trips down to 9). The answers are the same; without
+  `prefetch` nothing changes (BROWSER.md §4b).
+- **A read-only page for Freedom Browser** (`demo/freedom/`, BROWSER.md
+  §8, §10): Pyodide runs ontodag and recordstore, and the page reads a
+  published pack from Swarm through Freedom's `window.swarm`, or a node or
+  gateway over HTTP. Chunk trees are joined and every chunk is checked
+  against its address in the page (`swarm.js`). Python's synchronous
+  store calls wait on the page's Swarm reads through JSPI
+  (`pyodide.ffi.run_sync`). Everything loads from one Swarm upload
+  (`build.py --publish`). `check.py` runs it in Chromium against a real
+  node and compares every answer with Python reading the same root.
+- **`ontodag.browser`**: `open_published(root, js_store)` (a lazy reader
+  over the page's blob store), `PageReader` (the page's questions,
+  answered as JSON), `JsBytesStore.get_many`, and `BlobUnreachable`: a
+  blob the page could not fetch, or one whose chunks do not match their
+  addresses, is an `OSError`, never a `KeyError`. So a reader fails loudly
+  instead of taking a category for absent.
+
 ## [0.32.0] — 2026-10-11
 
 Places, signed values and relative times, the three spellings loopmarket's

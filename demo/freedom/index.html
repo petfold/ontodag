@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OntoDAG on Swarm</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --fg: #1d1d1b; --muted: #6b6a66; --line: #dedbd3;
+    --card: #ffffff; --accent: #2f6f4f; --accent-fg: #ffffff; --warn: #9a5b00;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161614; --fg: #ecebe6; --muted: #a3a29c; --line: #34332f;
+      --card: #1f1f1c; --accent: #7cc49c; --accent-fg: #10170f; --warn: #e3a64a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 1.35rem; margin: 0 0 2px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 12px 0; }
+  select, input, button { font: inherit; color: inherit; background: var(--card);
+         border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+  input { min-width: 0; flex: 1 1 220px; font-family: var(--mono); font-size: 0.9rem; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  #status { color: var(--muted); min-height: 1.5em; }
+  #status.warn { color: var(--warn); }
+  .name { font-family: var(--mono); font-size: 1.05rem; font-weight: 600; word-break: break-all; }
+  .count { color: var(--muted); }
+  .links { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 6px 0 0; padding: 0; list-style: none; }
+  .links a, .result a { color: var(--accent); text-decoration: none; font-family: var(--mono); font-size: 0.9rem; cursor: pointer; }
+  .links a:hover, .result a:hover { text-decoration: underline; }
+  .label { color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 10px; }
+  .result { margin-top: 8px; }
+  #stats { color: var(--muted); font-size: 0.85rem; font-family: var(--mono); }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>OntoDAG on Swarm</h1>
+  <p class="sub">A published ontology, read straight from Swarm in your browser: nothing installed, nothing downloaded whole. Read-only.</p>
+
+  <div class="bar">
+    <span id="source">Starting…</span>
+    <button id="connect" class="hidden" title="A connected site may read more of Swarm per minute">Connect to Freedom</button>
+  </div>
+  <div id="status">Loading Python (Pyodide, about 14 MB the first time; cached after that)…</div>
+
+  <div class="card">
+    <div class="bar">
+      <label for="store">Store</label>
+      <select id="store" disabled></select>
+      <input id="root" placeholder="or a store's Swarm root (64 hex)" disabled>
+      <button id="open" disabled>Open</button>
+    </div>
+  </div>
+
+  <div class="card" id="nodecard">
+    <div><span class="name" id="nodename">—</span> <span class="count" id="nodecount"></span></div>
+    <div class="label">Above</div>
+    <ul class="links" id="above"></ul>
+    <div class="label">Below</div>
+    <ul class="links" id="below"></ul>
+    <div class="bar">
+      <input id="goto" placeholder="go to a category, e.g. fruit" disabled>
+      <button id="gobutton" disabled>Go</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="bar">
+      <input id="query" placeholder="get: everything below all of these, e.g. fruit tropical" disabled>
+      <button id="getbutton" class="primary" disabled>Get</button>
+    </div>
+    <div class="result" id="getresult"></div>
+    <div class="bar">
+      <input id="belowa" placeholder="is this" disabled>
+      <input id="belowb" placeholder="below this?" disabled>
+      <button id="belowbutton" disabled>Below?</button>
+    </div>
+    <div class="result" id="belowresult"></div>
+  </div>
+
+  <div id="stats"></div>
+</main>
+<script src="pyodide/pyodide.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

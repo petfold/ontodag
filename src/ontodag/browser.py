@@ -1,10 +1,11 @@
 """Running OntoDAG in a browser, against Swarm.
 
-**Status: written, not yet run in a browser.** The logic below is covered by
-tests using a fake bridge, and the packaging constraints it depends on are
-checked in `tests/test_boundaries.py`, but nobody has loaded this into
-Pyodide against a live Bee node. Treat it as a design that compiles, not as
-a verified path.
+**Status (2026-10-11):** the read-only page in `demo/freedom/` runs this
+under Pyodide in Chromium, reading a published pack from a Swarm node
+through the page's JavaScript (`demo/freedom/swarm.js`), with `run_sync`
+(JSPI) as the bridge. The adapters' logic is also covered by tests with a
+fake bridge; the packaging constraints are checked in
+`tests/test_boundaries.py`.
 
 ## Why this can work at all
 
@@ -50,6 +51,13 @@ story is moving; the adapter should not have to move with it.
 """
 
 
+class BlobUnreachable(OSError):
+    """A blob the JavaScript side could not produce: not retrievable, or
+    refused because its chunks did not match their addresses. An `OSError`,
+    never a `KeyError`: recordstore turns it into `RecordUnavailable`, so a
+    lazy reader fails loudly instead of taking a category for absent."""
+
+
 class JsBytesStore:
     """A `recordstore` BytesStore backed by a JavaScript object.
 
@@ -78,7 +86,24 @@ class JsBytesStore:
         return str(ref)
 
     def get(self, ref: str) -> bytes:
-        return self._to_bytes(self._bridge(self._js.download(str(ref))))
+        try:
+            return self._to_bytes(self._bridge(self._js.download(str(ref))))
+        except Exception as e:
+            raise BlobUnreachable(f"blob {str(ref)[:16]}…: {e}") from e
+
+    def get_many(self, refs):
+        """Several blobs in one call, read concurrently on the JS side when
+        it offers `downloadMany(refs)`; one at a time otherwise."""
+        refs = [str(r) for r in refs]
+        many = getattr(self._js, "downloadMany", None)
+        if many is None:
+            return {r: self.get(r) for r in refs}
+        try:
+            values = self._bridge(many(self._to_js(refs)))
+        except Exception as e:
+            raise BlobUnreachable(f"{len(refs)} blobs: {e}") from e
+        values = list(values.to_py() if hasattr(values, "to_py") else values)
+        return {r: self._to_bytes(v) for r, v in zip(refs, values)}
 
     # -- the JS <-> Python edge, kept in one place -------------------------- #
 
@@ -162,3 +187,81 @@ class LocalStorageBytesStore:
         if value is None:
             raise KeyError(ref)
         return base64.b64decode(value)
+
+
+def open_published(root, js_store, bridge=None, prefetch=True):
+    """A read-only `LazyOntoDAG` over the store published at `root`, its
+    blobs read through `js_store` (`download`, `downloadMany`). `bridge`
+    defaults to Pyodide's `run_sync`, which needs JSPI and a call that
+    entered Python asynchronously (`runPythonAsync`, `callPromising`).
+    With `prefetch`, a walk reads each level's records in one batch when
+    recordstore can (`RecordStore.get_many`)."""
+    from recordstore import RecordStore
+    from ontodag.lazy import LazyOntoDAG
+    if bridge is None:
+        from pyodide.ffi import run_sync        # type: ignore
+        bridge = run_sync
+    store = RecordStore.at(root, JsBytesStore(js_store, bridge))
+    return LazyOntoDAG(store, prefetch=prefetch)
+
+
+class PageReader:
+    """What the read-only page asks of a published store, answered as JSON
+    text, so nothing but strings crosses into JavaScript.
+
+    `node(name)` is a category with what lies above and below it, each child
+    with how many categories are under it (their records read in one batch);
+    `get(query)` is a query's answer; `below(a, b)` is `is_below`. Names are
+    the store's canonical names. Every answer carries the reader's running
+    counts: records read and round trips taken."""
+
+    def __init__(self, dag, limit=100):
+        self.dag = dag
+        self.limit = limit
+
+    def _answer(self, **fields):
+        import json
+        fields["records"] = self.dag.fetches
+        fields["round_trips"] = getattr(self.dag, "rounds", self.dag.fetches)
+        return json.dumps(fields)
+
+    def node(self, name=None):
+        dag = self.dag
+        root = dag.root.name
+        name = root if not name else name
+        node = dag.nodes.get(name)
+        if node is None:
+            return self._answer(name=name, found=False)
+        children = sorted(node.neighbors, key=lambda c: c.name)
+        shown = children[:self.limit]
+        expand_many = getattr(dag, "_expand_many", None)
+        if expand_many is not None:
+            expand_many(shown)
+        above = sorted(p.name for p in node.parents
+                       if dag.nodes.get(p.name) is p and p.name != root)
+        return self._answer(
+            name=name, found=True, top=name == root,
+            count=node.descendant_count, above=above,
+            below=[[c.name, c.descendant_count] for c in shown],
+            more=len(children) - len(shown))
+
+    def get(self, query):
+        import shlex
+        try:
+            terms = shlex.split(query)
+        except ValueError as e:
+            return self._answer(query=query, error=str(e))
+        try:
+            answer = sorted(item.name for item in self.dag.get(terms))
+        except ValueError as e:
+            return self._answer(query=query, error=str(e))
+        return self._answer(query=query, count=len(answer),
+                            names=answer[:self.limit],
+                            more=max(0, len(answer) - self.limit))
+
+    def below(self, a, b):
+        try:
+            return self._answer(a=a, b=b, below=bool(self.dag.is_below(a, b)))
+        except ValueError as e:
+            return self._answer(a=a, b=b, error=str(e))
+
