@@ -1852,3 +1852,27 @@ finds every thing up to a square in size at a few percent of extra work,
 where full overlap costs 15–19 times the answer; cells with a margin keep
 their stability (3–4% changed) at ten times the pieces, a tiling with a
 margin keeps largest first's quarter.
+
+**Stability in absolute numbers (Peter, 2026-10-11: for which way of
+connecting places to rectangles does it matter, and how much?).** It matters
+only where pieces are stored under the place and merged (a places pack);
+where places are declared and never given pieces, or where a cover is made
+for one query and thrown away, there is nothing to keep stable. And the
+percentages above overstate it: they divide by piece counts that differ
+tenfold. Counted as pieces rewritten (removed plus added), which is what a
+new version of a pack changes (`experiments/geo_stability.py`):
+
+| region, grid square | edit | cells | largest first: tiling / overlapping | cells + margin | tiling + margin |
+|---|---|---|---|---|---|
+| Paris, 101×153 m | whole boundary simplified (19 squares flip) | 19 | 44 / 44 | 93 | 46 |
+| | 3×3 squares at one point of the edge, median / most of 20 | 6 / 36 | 6 / 74, 6 / 30 | 15 / 38 | 6 / 74 |
+| France, 3.4×4.9 km | whole boundary simplified (85 squares flip) | 85 | 187 / 184 | 341 | 191 |
+| | 3×3 squares at one point of the edge, median / most of 20 | 6 / 35 | 4 / 18, 6 / 23 | 14 / 45 | 5 / 18 |
+
+A local correction rewrites about as many pieces under largest first as
+under cells, and a change along the whole boundary about twice as many;
+largest first's ripple shows only in the worst case (74 of Paris's 101
+pieces once). Whatever the cover, a stored cover has a larger difficulty:
+merge only adds, so a store holding the old version of a pack keeps the old
+pieces, and where a boundary moved inwards they go on claiming land the
+region has lost, as a pack's sense correction never propagates by merge.
