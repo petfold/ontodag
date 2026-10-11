@@ -105,6 +105,13 @@ dappdata has the pieces, but not yet the answer (S1):
   key. A phishing site can declare it too (dappdata T14). The wallet's line
   showing which site asks is then the only defence.
 
+**Decided in part (Peter, 2026-10-11, option A in BROWSER.md §11):** the
+sharing identity is one key derived from one wallet signature, the same in
+every client. In a browser the page holds it, signs with it (feed updates,
+and loopmarket's offers) and does the ECDH of grantee entries with it. The
+alternative was the wallet itself, which can't do ECDH. Which message the
+wallet signs, personas and devices remain S1.
+
 Around it:
 
 - **Personas** are separate sharing keys, unlinkable unless the user links
@@ -581,6 +588,9 @@ Each has options and a leaning; none is decided.
   - *Leaning:* one key per persona, under a reserved protocol identity,
     held by each of the user's devices. Phishing resistance then rests on
     the wallet showing which site asks, as dappdata T14 accepts.
+  - *Decided in part (2026-10-11, BROWSER.md §11):* one key derived from
+    one wallet signature, the same in every client; not the wallet, and not
+    a key per app. The message, personas and devices stay open.
 - **S2 — Principals on Swarm** (SHARING Q1, from Swarm's side). A
   principal must be bound to a public key. So the author's store has to say
   which names are principals, and with which key: Q1's option (b), a

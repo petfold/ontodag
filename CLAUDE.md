@@ -353,6 +353,13 @@ Each line points to its record.
 - A graph-kind compound is stored as its parts; a relation-kind compound
   keeps its current spelling (DIMENSIONS.md §15–§16).
 - Sharing: one model, the cone of `shared-with(person)` (SHARING.md).
+- Identity in the browser (option A, Peter, 2026-10-11): one key derived
+  from one wallet signature, the same in every client. It owns the user's
+  feeds, signs, and does the sharing ECDH. ontodag keeps its own access
+  control (`keyplan`), not the node's ACT. A page reaches Swarm through
+  four calls on chunks, with one adapter per client: Freedom, Weeb-3, an
+  HTTP node, a gateway (BROWSER.md §10–§12, SHARING_ON_SWARM.md §2).
+  Freedom requests #647 and #648 are filed.
 - Provenance: signed claim records in a sibling store (PROVENANCE.md).
 - Web: one page, browsing plus a console, where every click writes its
   command (WEB_UI.md). Its DAG lives in the server's memory per session.
@@ -544,8 +551,9 @@ of rectangles: not now. None open from the review: questions 24–28 are decided
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 
 Older, not urgent: a publisher key for the packs on
-Swarm (published without one, so no feed yet; PACKS.md); BROWSER.md §7's
-two questions about the in-browser node; ontodag-core's doubtful list
+Swarm (published without one, so no feed yet; PACKS.md); the browser's
+open points (BROWSER.md §11: which message the wallet signs, dappdata as
+the shared layer, which clients first); ontodag-core's doubtful list
 (its UPPER.md §9).
 
 Parked behind a discussion or a tripwire (in `docs/plans/`, some only in

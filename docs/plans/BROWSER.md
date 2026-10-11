@@ -28,6 +28,17 @@ reader can't open the next post. That takes 0.5 s after a 7 s install.
 Reading a friend's shares in a browser therefore needs no TypeScript port of
 the crypto; the Swarm half, as above, still hasn't run.
 
+**2026-10-11: the Swarm half has its clients, and identity is decided.**
+§7's two questions are answered for Freedom Browser (§7), and the other
+in-browser clients are surveyed (§10). The adapter moves down from whole
+blobs to four calls on chunks (§10.1), so every client gives the same roots
+as a laptop. Identity is decided: one key derived from one wallet
+signature, used in every client (§11, Peter's option A). ontodag keeps its
+own access control rather than the node's ACT (§12). Nothing of the Swarm
+half is built yet. Two requests are filed with Freedom: #647 (publish a
+single-owner chunk the page signed) and #648 (open ACT shares made to the
+user's node).
+
 **The short version.** A shared ontology on Swarm is too large to download,
 so the browser fetches only the fragment each query touches. Measured on a
 3,221-node store, a session costs **~12 sequential round trips for the first
@@ -206,25 +217,47 @@ What the store must provide, beyond `ontodag.browser.JsBytesStore`:
 
 ## 6. Feeds and signing
 
-The mutable "latest root" is what makes a store followable. Options in the
-browser, in preference order:
+The mutable "latest root" is what makes a store followable. A store's feed
+is a standard Bee sequence feed: the topic is keccak256 of the name, an
+update is a single-owner chunk at keccak256(identifier ‖ owner) with the
+identifier keccak256(topic ‖ 8-byte big-endian index), and the payload is
+the writer's timestamp and the root (`recordstore`'s `SwarmFeedPointer` and
+its feed-update format). Anything that can write a signed chunk can
+therefore continue a feed a laptop started, and the other way round.
 
-1. **The node signs** — if the in-browser node exposes feed writing, use
-   `JsFeedPointer` and the store is followable by anyone.
-2. **JS-side signing** — bee-js or a wallet extension signs; same adapter.
-3. **localStorage** — a private root, not publishable. Fine for a first
-   demo; state it as a limitation rather than shipping it silently.
+Who signs, in the browser (answered 2026-10-11):
 
-Python-side signing is **not an option** (see §1).
+- **The key that owns the feed is the user's key from §11**, derived from
+  one wallet signature and held by the page. Signing in the page works
+  with a JavaScript library or with the pure-Python secp256k1 that
+  `ontodag.act` already falls back to under Pyodide. The objection §1
+  raised was to the compiled Swarm stack, not to signing itself.
+- **Bee signs a single-owner chunk with the Ethereum message prefix** over
+  keccak256(identifier ‖ chunk address) (`bee/pkg/crypto/signer.go:84-91`,
+  `pkg/soc/soc.go:128-134`), exactly what a wallet's `personal_sign`
+  produces. So a wallet could sign a feed update too, at one approval per
+  update; under §11 it doesn't have to.
+- **Freedom signs only with its own identities today** (§10): a page can
+  write our feed format through `swarm_writeSingleOwnerChunk` with our
+  identifier, but the owner is then a Freedom identity, not the user's key.
+  Publishing a chunk the page signed is request #647.
+- **localStorage** stays what it was: a private root, not publishable.
 
-## 7. Open questions — answer before writing the page
+## 7. Open questions — answered for Freedom (2026-10-11)
 
-1. **What does the in-browser node expose to page JavaScript?** A bee-js
-   style object with `upload`/`download`, a local HTTP endpoint the page can
-   `fetch`, or something else? This decides whether `JsBytesStore` is used
-   as-is or wants a thin `fetch` wrapper.
-2. **Can it sign feeds in-browser?** Decides §6, and therefore whether the
-   first demo can publish a followable root or only a private one.
+1. **What does the in-browser node expose to page JavaScript?** In
+   Freedom, a permissioned `window.swarm` provider, and nothing else: a
+   page's requests to the node's HTTP API are blocked. It reads chunks,
+   signed chunks and feed entries without permission, publishes one chunk
+   at a time paid from the node's postage, and writes signed chunks as one
+   of Freedom's identities (§10). `JsBytesStore` and `JsFeedPointer`
+   therefore get an adapter over these calls, in the four-call shape of
+   §10.1. Other clients answer differently (§10), which is why the seam is
+   that narrow.
+2. **Can it sign feeds in-browser?** Yes, but only as a Freedom identity
+   (§6). With the user's own key (§11), a Freedom page can follow feeds
+   today and continue them once #647 is accepted. Until then a Freedom page
+   is read-only for the user's own stores.
 
 ## 8. What a first page should demonstrate
 
@@ -250,6 +283,19 @@ note at the top; 4–5 wait on the Swarm half):
 Step 3 is the one worth doing first: if the roots disagree, something about
 the encoding differs under wasm and everything else is built on sand.
 
+The Swarm half, in order (2026-10-11):
+
+1. **Read-only, in Freedom:** step 4 against the published core pack, over
+   `swarm_readChunk` and `swarm_readFeedEntry`, giving the real round-trip
+   counts that §4 only simulates. This needs no key, no postage and no
+   request upstream. loopmarket's first page is the same kind of thing:
+   its own BROWSER.md.
+2. **The same page over a public gateway**, read-only, through the same
+   four calls (§10.1).
+3. **Writing the user's own store** under the §11 key: Weeb-3 or an HTTP
+   node today, Freedom once #647 lands.
+4. Step 5, certificates, then sharing (`keyplan` as reader and author).
+
 ## 9. Known unknowns
 
 - ~~Nothing here has run in Pyodide.~~ The offline half has (node harness
@@ -269,3 +315,172 @@ the encoding differs under wasm and everything else is built on sand.
   implemented in `lazy.py`. Landing it there needs the traversals to go
   level-order, and `_expand_many` to become a real batched store call —
   `recordstore` has `get_many`, so the plumbing exists on both sides.
+
+## 10. The in-browser Swarm clients (surveyed 2026-10-11)
+
+Peter asked for one solution that works with any in-browser Swarm client,
+adapting to Freedom where it does things its own way. What each client
+lets a page do, read from their source on 2026-10-11 (external projects
+move fast; check again before relying on a line):
+
+| | Freedom Browser | Weeb-3 | Bee or Ant over HTTP | public gateway |
+|---|---|---|---|---|
+| what the page needs | nothing: the browser injects `window.swarm` | a wasm library, a SharedWorker and a service worker, over HTTPS | a node that allows the page's origin (CORS) | nothing |
+| read a chunk | yes, no permission; Freedom checks the address | yes; a signed chunk comes back without its signature; failures come back as empty results | yes | yes |
+| write a chunk | yes, one at a time (≤4096 bytes), paid from the node's batch | yes, with a stamp the caller makes | yes, from the node's batch or with a stamp the caller makes | no |
+| write a signed chunk | yes, any identifier, but always signed by a Freedom identity (per-site key, node key or Freedom's wallet) | yes, a chunk the caller signed | yes, a chunk the caller signed (`POST /soc/{owner}/{id}?sig=`) | no |
+| ACT | the node (Ant v0.5.64) has it; pages can't use it | planned | yes, with the node's key | no |
+| status | released browser | experimental, one author, no releases | stable | stable |
+
+Sources:
+
+- **Freedom** (solardev-xyz/freedom-browser at fb540328):
+  - the provider is `src/main/swarm/swarm-provider-ipc.js` (spec 1.0, documented only in source; their #179);
+  - the chunk calls are in `chunk-service.js` (reads checked against the requested address, `:128-159`);
+  - the node's HTTP API is blocked to pages, and `bzz://` forwards only allowlisted headers, dropping `Swarm-Act*` (`bzz-protocol.js:88-105`, their #429).
+- **Ant** (freedom-hq/ant v0.5.64, the version Freedom pins):
+  - ACT matches Bee's, always with the node's key (`crates/ant-gateway/src/act.rs:31-33`, their PR #30);
+  - it accepts caller-signed chunks and caller-made stamps over HTTP;
+  - there is no WebAssembly build and no browser transport, so Ant runs only as `antd` or embedded through `ant-ffi`.
+- **Weeb-3** (lat-murmeldjur/weeb-3 at 728ff33):
+  - a Rust node compiled to WebAssembly that reaches Bee peers over secure WebSockets;
+  - `postPushChunk(data, soc, address, stamp)` takes a chunk and stamp the caller built (`src/library.rs:778-799`);
+  - its own uploads are stamped by a vault on another origin;
+  - its feeds wrap a manifest;
+  - ACT is listed as planned (README:307), and the README calls the project experimental.
+- **dappdata** (petfold/dappdata) recorded Weeb-3 as retrieval-only at first, then claiming uploads (`spikes/s3/RESULTS.md`), and showed that a Bee node with CORS set accepts chunks a page stamped itself.
+
+### 10.1 The seam: four calls
+
+Every client reads chunks, and all but a gateway write chunks and signed
+chunks. So the adapter is four calls:
+
+- read a chunk;
+- read a signed chunk;
+- write a chunk;
+- write a signed chunk.
+
+Two shortcuts are optional: a feed's latest entry (Freedom's
+`swarm_readFeedEntry`, Bee's `/feeds`) and reading a whole blob in one call
+(Weeb-3's `retrieveBytes`, Bee's `/bytes`).
+
+Everything above the four calls is ours and the same in every client:
+
+- **Chunking and addresses:** splitting blobs into chunks and computing
+  their addresses (recordstore's Swarm addressing), so roots are
+  byte-identical to a laptop's.
+- **Checking:** verifying every chunk against its address and every
+  signature against its owner, so a gateway or an experimental client can't
+  hand us wrong data. Weeb-3's signed-chunk reads drop the signature, so
+  there we rely on its own check.
+- **Feeds** in recordstore's format (§6), written as signed chunks. We use
+  neither Freedom's named feeds, whose topic is the origin plus the name
+  (`feed-service.js:74-76`), nor Weeb-3's feeds, which wrap a manifest.
+- **The rest:** lazy reads with miss-and-replay (§4–§5), and the sharing
+  cryptography (§12).
+
+`ontodag.browser`'s `JsBytesStore` and `JsFeedPointer` work at the blob
+level today and would move down to these four calls. Who pays and who
+signs is each adapter's business:
+
+- **Freedom:** the client holds the keys and the postage.
+- **Weeb-3 and HTTP nodes:** the page brings them, a stamper for a batch the
+  user owns (dappdata's client-side stamper) and the user's key from §11.
+
+Whether the adapters live in dappdata, whose `Transport` interface is
+already this idea in TypeScript, or in a thin layer of our own, is open.
+
+### 10.2 Where Freedom stays different
+
+- No access to the node except through `window.swarm`, with a permission
+  prompt per site. The node pays for every chunk.
+- Freedom's keys never leave it: there is no ECDH call, and no call takes a
+  chunk the page signed (#647).
+- Identities, permissions and stored data belong to the page's origin. A
+  page under a `bzz://` hash gets a new origin with every version, so it
+  should be served under a stable ENS name.
+- No ACT for pages (§12, #648), and nothing at all in private windows.
+- One chunk of at most 4096 bytes per call, and at most 10 MB per upload.
+
+### 10.3 What no page can do
+
+- **Work after it is closed:** there is no background process.
+- **Run the compiled Swarm extras:** the Python Swarm stack and coincurve
+  don't run there (§1).
+- **Graphviz, OWL export, the stdio MCP server or the terminal CLI.**
+- **Download a large shared store whole** (§4).
+
+## 11. Identity: one key from one wallet signature (decided A, Peter, 2026-10-11)
+
+**The decision.** The user's identity in the browser is one secp256k1 key,
+derived from one wallet signature (dappdata's `entropy.wallet`; a mnemonic
+or a passkey also derive it), and the same key in every client. It signs
+feed updates, so it owns the user's stores and books. It signs whatever
+the protocols sign, loopmarket's offers included, as they are signed now.
+It is the sharing key whose ECDH opens what others grant (§12;
+SHARING_ON_SWARM.md §2). The page holds it in memory; nothing is stored.
+
+**Why.**
+
+- One identity across Freedom, Weeb-3, HTTP nodes and the command line,
+  with no protocol change: loopmarket's raw-hash offer signatures stay as
+  they are.
+- Sharing works, since the page can do the ECDH.
+- No wallet approval per write.
+
+**The alternative, B, not taken:** the wallet itself in every client. It
+works in Freedom today, but costs a wallet approval per feed update, needs
+loopmarket to accept `personal_sign`-form offer signatures, and still needs
+a derived key for sharing, since no wallet does ECDH.
+
+**Consequences.**
+
+- **Freedom** can read the user's stores now and write them once #647 is
+  accepted. Until then a Freedom page doesn't write under a Freedom
+  identity, because that would be a different person.
+- **The key lives in page memory**, so the page's code is part of the trust
+  base. A `bzz://` page is immutable, but its ENS name can be pointed
+  elsewhere by whoever owns it.
+- **The address needs a little xDAI** wherever the protocol sends
+  transactions (loopmarket's announcements); the wallet funds it with one
+  transaction.
+- **The command line has the same identity** only if it derives or imports
+  that key; how is open.
+
+**Still open:**
+
+- the rest of S1 (SHARING_ON_SWARM.md §11): which message the wallet signs,
+  meaning a reserved protocol identity that a phishing site can also ask
+  for, as dappdata T14 accepts, and personas and devices;
+- dappdata as the shared layer (§10.1);
+- which clients come first (§8 orders Freedom read-only first).
+
+## 12. Access control and the node's ACT (2026-10-11)
+
+ontodag keeps its own access control, `keyplan` over `ontodag.act`'s
+primitives, and doesn't use the node's ACT. The two share one building
+block: the grantee entry (ECDH lookup and wrap, Bee's stream cipher),
+which `ontodag.act` writes byte for byte as Bee does, pinned against
+Bee's vectors (`tests/test_act.py`). Beyond it they differ in kind:
+
+- **Categories, not lists.** One grant reaches a whole category cone
+  (`act-categories/DESIGN.md` §1).
+- **Keys no node holds.** Category keys belong to no node, and readers
+  often have no node of their own (a page, an offline store). Bee's and
+  Ant's ACT always use the node's key (DESIGN §4; `act.rs:31-33`).
+- **The content is sealed,** not only its reference.
+- **Every store tier.** It works on every tier and under Pyodide.
+- **Canonical tokens.** They are deterministic, so they have a canonical
+  root.
+
+Using the node's ACT as well would be a second way to grant access, which
+ROLES.md §9 retired.
+
+**One correction to DESIGN's Phase 2.** A caller-supplied access key (a
+`Swarm-Act-Access-Key` header) gives a page nothing: holding the access
+key, a page decrypts the reference itself and reads the chunks. The header
+helps only clients without cryptography, such as curl. What a page can't
+do is open a share made to the user's node key; that is Freedom request
+#648, filed for the ecosystem rather than for ontodag. SHARING_ON_SWARM.md
+S18 stands: grantee entries live in ontodag's store, in Bee's format, so a
+Bee-native path stays open.
