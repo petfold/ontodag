@@ -488,11 +488,13 @@ Each line points to its record.
   every root equal to its pinned `SWARM_GOLDEN_ROOTS` entry, retrievable,
   and read back by its root alone to the identical root; then ontodag's
   two gated tests (48 s) and loopmarket's three live tests (5 min, places
-  as rectangles for the first time on a real node) passed. A clean reader
-  folded the announced books through `api.gateway.ethswarm.org` once
-  recordstore stopped asking a reader for a batch (its main, d6d2802,
-  unreleased). Every run since July, with what each taught, is in the
-  journal.
+  as rectangles for the first time on a real node) passed. Then, through
+  `api.gateway.ethswarm.org`, a clean reader with only released packages
+  (recordstore 0.22.3 no longer asks a reader for a batch) folded a
+  maker's offer announced on Gnosis from the chain key; that announcement
+  replaced the same key's v5-gate clearing book (one standing
+  announcement per owner). Every run since July, with what each taught,
+  is in the journal.
 
 ## State (2026-10-11)
 
@@ -502,8 +504,9 @@ Each line points to its record.
   job green, the downstream gate included; `release_smoke.py --pypi`
   27/27), loopmarket 0.16.0 (its `ontodag-0.32` branch merged before
   ontodag's tag; floor `ontodag>=0.32.0`; both examples clear from the
-  PyPI install), ontodag-fs 0.8.0 (`>=0.32.0,<0.33.0`). Unchanged:
-  recordstore 0.22.2 and swarmfs 0.14.0. The packs whose Swarm roots
+  PyPI install), ontodag-fs 0.8.0 (`>=0.32.0,<0.33.0`), then recordstore
+  0.22.3 (a store that only reads never asks for a postage batch, found
+  reading through the public gateway). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   prelude 5 re-pinned (core and the ten domain packs) are republished
   (Bee integration status).
 - categor.io's live site runs its main (ba92cf9, updated 2026-10-11):

@@ -2659,3 +2659,13 @@ its feed and its 41 records through the gateway and folded them (root
 `d7e1eaf9…`) in about 6 s. What it does not yet show: a maker's offer
 folded by a reader elsewhere; that needs a maker book announced on chain
 (a transaction) or the second-machine run.
+
+**recordstore 0.22.3, and the full gateway run.** On Peter's word ("do
+both"): recordstore 0.22.3 released (CI green with the count check; live
+suite 214 passed + 1 skipped of 215; publish green; installed from PyPI
+it round-trips and resolves its batch lazily). Then a maker's offer was
+announced on Gnosis and folded through the gateway by a reader holding
+only released packages; loopmarket's journal has the run. The
+announcement, from the chain key, replaced that key's standing v5-gate
+clearing book on the registry (one per owner).
+
