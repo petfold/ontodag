@@ -3219,6 +3219,35 @@ divergence in at the same touch-what-it-needs cost. Use `EagerOntoDAG`
 when you are editing most of a graph anyway, `SparseOntoDAG` for surgical
 edits to big published ones, `LazyOntoDAG` to only ask questions.
 
+Over a network every record read is a wait, so read a level of the graph
+at a time: with a record store that reads many records at once
+(recordstore's `RecordStore.get_many`), `LazyOntoDAG(store, prefetch=True)`
+walks breadth-first and fetches each level's records in one batch: a
+258-category cone in 9 round trips instead of 266, with the same answers.
+
+### In a browser, with nothing installed
+
+A published store can also be read in a browser. The page in
+`demo/freedom/` runs ontodag under Pyodide (Python compiled to
+WebAssembly) and reads the store from Swarm lazily, as above:
+
+- in **Freedom Browser** through its own Swarm node: open
+  `bzz://e0f26cbbcf0985f518fc6ffcdcad9d6ff121b1a5bd10deea6be430e83be7926a/`;
+- in **any browser** through a public gateway: serve the page's folder and
+  add `?gateway=https://api.gateway.ethswarm.org`.
+
+It offers the published packs by their pinned roots: browse a category
+with what lies above and below it, `get`, `below`. Every chunk is checked
+against its address in the page, so neither a gateway nor a client can
+hand it wrong data. The packs' published cone summaries (`ontodag.cones`)
+make a broad category one read. A first visit to core reads a few hundred
+chunks; a second reads none, since the chunks are kept in the browser.
+Freedom limits how much a site that has not connected may read a minute,
+so the page asks you to connect when it runs into that.
+
+The page is read-only. How it is built, and what it measured, is in
+`docs/plans/BROWSER.md` §13.
+
 Once a store lives on Swarm, it can also be **browsed as a filesystem** with
 [ontodag-fs](https://github.com/petfold/ontodag-fs): directory paths are
 category queries (`/Travel/Japan` = everything filed under both), files are
