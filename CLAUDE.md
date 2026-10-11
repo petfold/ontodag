@@ -442,9 +442,10 @@ Each line points to its record.
   the rectangle its written precision covers; `geo(48.8584,2.2945±500m)` is
   500 m either way, turned into bounds once by a fixed rule and rounded
   outwards; geohash names go, a registry major; unions of rectangles later
-  (DIMENSIONS.md §22). Another body is another head of the rectangle kind,
-  `±` on `geo` only for now (question 33, decided A). Built on main
-  (contract 0.7, registry 5.0, prelude 5); loopmarket's side next.
+  (DIMENSIONS.md §22; the poles are a known limit there). Another body is
+  another head of the rectangle kind, `±` on `geo` only for now (question
+  33, decided A). Built on main (contract 0.7, registry 5.0, prelude 5);
+  loopmarket's side next.
 - Negative values (question 32, decided A on 2026-10-11): a linear head
   declared a position (by a marker node, as a head is pinned to a family)
   takes negative values, as `altitude` will in core; a value's meaning

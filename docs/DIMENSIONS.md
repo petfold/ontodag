@@ -2227,3 +2227,26 @@ the Eiffel Tower finds it and not the other. It cannot become the head
 either, since an item filed under `geo` itself is one of its roles, as
 `from` and `to` are. No size is refused as implausible, as no other value
 is; a typo of `km` for `m` stays the writer's to see.
+
+**At the poles (Peter, 2026-10-11: do boxes in metres work there?).** A
+`±` box that reaches a pole is a cap, every longitude: `geo(90,0±10km)`,
+`geo(90,100±10km)` and `geo(90,-45±10km)` are all
+`geo(89.910067..90,-180..180)`, the true circle of 10 km around the pole
+rounded outwards; one centred near the pole that reaches over it is a cap
+around the pole holding its box (`geo(89.95,0±10km)` is
+`geo(89.860067..90,-180..180)`, about 15.6 km round the pole). Caps
+contain, meet and overlap other values as they do on the ground.
+
+**A known limit, the poles (Peter, 2026-10-11: recorded, not fixed).** A
+value is a rectangle in degrees, and at a pole every longitude is one point
+on the ground, which the degrees do not know. Two rectangles typed in
+degrees that touch a pole with longitude arcs that do not overlap
+(`geo(85..90,0..20)` and `geo(85..90,100..120)`, or the slivers that bare
+positions at 90° make, `geo(90,0)` and `geo(90,100)`) share the pole on the
+ground and nothing in the store: their meet is empty and neither overlaps
+the other. An exact pole point has as many names as arcs
+(`geo(90..90,0..10)`, `geo(90..90,0..20)`, `geo(90..90,-180..180)`), and
+only the last, which `±` makes, holds the others. `±` never makes such a
+pair, so "around the pole" is written with it. Closing the gap would take a
+pole case in containment, meets, overlap and the index, for pairs that
+share one point.
