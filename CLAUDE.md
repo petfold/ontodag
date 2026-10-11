@@ -444,8 +444,8 @@ Each line points to its record.
   outwards; geohash names go, a registry major; unions of rectangles later
   (DIMENSIONS.md §22; the poles are a known limit there). Another body is
   another head of the rectangle kind, `±` on `geo` only for now (question
-  33, decided A). Built on main (contract 0.7, registry 5.0, prelude 5);
-  loopmarket's side next.
+  33, decided A). Built on main (contract 0.7, registry 5.0, prelude 5),
+  and in loopmarket on its branch `ontodag-0.32`.
 - Negative values (question 32, decided A on 2026-10-11): a linear head
   declared a position (by a marker node, as a head is pinned to a family)
   takes negative values, as `altitude` will in core; a value's meaning
@@ -488,7 +488,12 @@ Each line points to its record.
   (their commits since are lint and docs). Unreleased on ontodag's main:
   question 32, negative values for signed heads (registry 4.5), and
   questions 29, 30 and 33, `geo` as a rectangle head (registry 5.0,
-  contract 0.7, prelude 5). loopmarket's main still writes geohash cells.
+  contract 0.7, prelude 5). loopmarket's side is on its branch
+  `ontodag-0.32` (green against this main; its own CI is red until 0.32
+  is on PyPI): merge it into loopmarket's main just before tagging 0.32,
+  since the release gate runs that main, then raise its floor.
+  ontodag-fs's docs still describe geo by geohash prefixes; fix them with
+  its ceiling raise.
 - categor.io's live site runs its main (6bad379, updated 2026-10-10):
   ontodag 0.31, and removing a contact ends its shares
   (`with_terms=True`). circulator's main writes v4 offers (its CI has been red
