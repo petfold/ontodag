@@ -63,6 +63,14 @@ def bee(path):
         return e.code, b"", e.headers
 
 
+def _span(raw):
+    """A span as Freedom hands it over: a number, or for one past 2^53 (an
+    erasure-coded chunk's level byte) a BigInt, here its decimal string,
+    which BigInt() in swarm.js reads the same."""
+    value = int.from_bytes(raw, "little")
+    return value if value <= 2**53 - 1 else str(value)
+
+
 def standin(calls, method, params):
     """Freedom's provider, answered from the node: the same results and the
     same error reasons (swarm-provider-ipc.js, chunk-service.js)."""
@@ -73,8 +81,7 @@ def standin(calls, method, params):
         status, wire, _ = bee(f"/chunks/{params['reference']}")
         if status == 404:
             return {"error": {"code": -32602, "message": "Chunk not found", "data": {"reason": "chunk_not_found"}}}
-        span = int.from_bytes(wire[:8], "little")
-        return {"result": {"data": base64.b64encode(wire[8:]).decode(), "encoding": "base64", "span": span}}
+        return {"result": {"data": base64.b64encode(wire[8:]).decode(), "encoding": "base64", "span": _span(wire[:8])}}
     return {"error": {"code": 4200, "message": f"{method} is not in this stand-in"}}
 
 
@@ -100,13 +107,14 @@ def native(root, queries):
         node = dag.nodes.get(name)
         out[("node", name)] = sorted(c.name for c in node.neighbors) if node else None
     for q in queries["get"]:
-        out[("get", q)] = sorted(i.name for i in dag.get(q.split()))
+        found = sorted(i.name for i in dag.get(q.split()))
+        out[("get", q)] = (len(found), found[:100])
     for a, b in queries["below"]:
         out[("below", a, b)] = dag.is_below(a, b)
     return out
 
 
-async def check_page(url, root, queries, freedom, gateway=None):
+async def check_page(url, root, queries, freedom, gateway=None, index=None):
     from playwright.async_api import async_playwright
     calls = {}
     async with async_playwright() as p:
@@ -120,7 +128,8 @@ async def check_page(url, root, queries, freedom, gateway=None):
             await page.expose_function("__standin", answer)
             await page.add_init_script(FREEDOM_STANDIN)
         started = time.time()
-        await page.goto(f"{url}?root={root}" + (f"&gateway={gateway}" if gateway else ""))
+        await page.goto(f"{url}?root={root}" + (f"&gateway={gateway}" if gateway else "")
+                        + (f"&index={index}" if index else ""))
         ok = await page.evaluate("window.ontodagPage.ready")
         print(f"  page ready: {ok} after {time.time() - started:.1f} s; source: {await page.inner_text('#source')}")
         if not ok:
@@ -136,8 +145,8 @@ async def check_page(url, root, queries, freedom, gateway=None):
         for q in queries["get"]:
             t = time.time()
             a = await page.evaluate("(q) => window.ontodagPage.call('get', q)", q)
-            got[("get", q)] = sorted(a["names"]) if a["count"] <= 100 else None
-            print(f"  get {q}: {a['count']} found, {time.time() - t:.2f} s")
+            got[("get", q)] = (a["count"], sorted(a["names"]))
+            print(f"  get {q}: {a['count']} found, {a['records']} records read so far, {time.time() - t:.2f} s")
         for a_, b_ in queries["below"]:
             a = await page.evaluate("([a, b]) => window.ontodagPage.call('below', a, b)", [a_, b_])
             got[("below", a_, b_)] = a["below"]
@@ -150,8 +159,6 @@ async def check_page(url, root, queries, freedom, gateway=None):
 def compare(got, want):
     bad = 0
     for key, value in want.items():
-        if key[0] == "get" and got.get(key) is None:
-            continue          # more than the page lists; counted above
         if got.get(key) != value:
             bad += 1
             print(f"  MISMATCH {key}: page {got.get(key)!r}, native {value!r}")
@@ -163,9 +170,10 @@ def main():
     ap.add_argument("--root", default=CORE)
     ap.add_argument("--url", help="the page as a node serves it (http://localhost:1633/bzz/REF/)")
     ap.add_argument("--gateway", help="read every chunk through this gateway")
+    ap.add_argument("--index", help="the page's ?index= (none: walk every cone)")
     args = ap.parse_args()
     queries = {"node": ["fruit", "food", "apple", "piano-lesson", "durian-not-a-category"],
-               "get": ["fruit", "berry", "fruit produce", "lesson"],
+               "get": ["fruit", "berry", "fruit produce", "lesson", "physical-object", "event food"],
                "below": [("apple", "food"), ("apple", "tool"), ("piano-lesson", "teaching")]}
     want = native(args.root, queries)
     bad = 0
@@ -184,7 +192,7 @@ def main():
         server = serve(os.path.join(HERE, "dist"))
         url = f"http://127.0.0.1:{server.server_port}/index.html"
         print(f"Freedom's path (stand-in window.swarm over {API}): {url}")
-        got, calls = asyncio.run(check_page(url, args.root, queries, freedom=True))
+        got, calls = asyncio.run(check_page(url, args.root, queries, freedom=True, index=args.index))
         print(f"  window.swarm calls: {calls}")
         bad += 1 if got is None else compare(got, want)
         server.shutdown()

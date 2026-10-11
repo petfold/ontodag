@@ -22,6 +22,15 @@ const PACKS = {
   space: "feaea1dfc1b923c4fc74b0372900fe5cda8983ff88bdffc52a599d59689100b0",
 };
 
+// Their published cone summaries (demo/freedom/publish_index.py): a broad
+// category's cone in one record instead of a walk. An index for another
+// root is ignored by the reader. ?index=none turns them off; ?index=ROOT
+// names another.
+const CONE_INDEXES = {
+  "720d44c649379c4508549200a344771a8fa29c64880744dc2372d9f57863ceb8":
+    "1593dbb3dafca6fc2093a7e1fa848ce157125ab155bbe772395c4117cee9dd26",
+};
+
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 let py, reader, page;
@@ -116,8 +125,14 @@ async function goto(name) {
   if (answer) showNode(answer);
 }
 
+function indexFor(root) {
+  const named = params.get("index");
+  if (named === "none") return "";
+  return named || CONE_INDEXES[root] || "";
+}
+
 async function openStore(root) {
-  const answer = await run("Opening the store…", () => call("open_store", root));
+  const answer = await run("Opening the store…", () => call("open_store", root, indexFor(root)));
   if (!answer) return;
   showNode(answer);
   const start = decodeURIComponent(location.hash.slice(1));
@@ -165,9 +180,9 @@ from ontodag.browser import PageReader, open_published
 
 page = None
 
-def open_store(root):
+def open_store(root, index_root):
     global page
-    page = PageReader(open_published(root, ontodagBlobs))
+    page = PageReader(open_published(root, ontodagBlobs, index_root=index_root or None))
     return page.node()
 
 def node(name):
@@ -221,6 +236,6 @@ def below(a, b):
 }
 
 // For tests and the console: the page's own calls.
-globalThis.ontodagPage = { call, openStore, goto, stats: () => reader && reader.stats, ready: null,
+globalThis.ontodagPage = { call, openStore, goto, stats: () => reader && reader.stats, ready: null, python: () => py,
   connect: () => document.getElementById("connect").click() };
 globalThis.ontodagPage.ready = boot().then(() => true, (e) => { status(`Could not start: ${e.message || e}`, true); console.error(e); return false; });

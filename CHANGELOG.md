@@ -34,6 +34,16 @@ the version numbers appear in commit history and docs.
   `freedom_check.cjs` runs it in real Freedom Browser (connected, a
   category with 35 children in 1.0 s; a second visit reads nothing, its
   chunks kept in IndexedDB).
+- **Published cone summaries for the page** (`demo/freedom/publish_index.py`,
+  `open_published(..., index_root=)`): core's index is on Swarm, and the page
+  opens it beside the pack. `get physical-object` (2,509 found) then reads
+  no records instead of 2,443, and the session's chunk reads drop from
+  6,753 to 414. The index is a cache: one for another root, or one the page
+  cannot fetch, is ignored and the cone is walked.
+- **The page reads erasure-coded trees**, which Bee 2.8 writes by default
+  for `/bytes` without a level (`swarm.js`, the data references of each
+  coded chunk, after bee's own tables), checked against trees the node
+  coded at every level.
 - **`ontodag.browser`**: `open_published(root, js_store)` (a lazy reader
   over the page's blob store), `PageReader` (the page's questions,
   answered as JSON), `JsBytesStore.get_many`, and `BlobUnreachable`: a

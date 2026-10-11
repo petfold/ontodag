@@ -189,20 +189,56 @@ class LocalStorageBytesStore:
         return base64.b64decode(value)
 
 
-def open_published(root, js_store, bridge=None, prefetch=True):
+def open_published(root, js_store, bridge=None, prefetch=True, index_root=None):
     """A read-only `LazyOntoDAG` over the store published at `root`, its
     blobs read through `js_store` (`download`, `downloadMany`). `bridge`
     defaults to Pyodide's `run_sync`, which needs JSPI and a call that
     entered Python asynchronously (`runPythonAsync`, `callPromising`).
     With `prefetch`, a walk reads each level's records in one batch when
-    recordstore can (`RecordStore.get_many`)."""
+    recordstore can (`RecordStore.get_many`). `index_root` names the store's
+    published cone summaries (`ontodag.cones`): a broad category's cone is
+    then one record instead of a walk; an index for another root, or from
+    another registry version, is ignored."""
     from recordstore import RecordStore
     from ontodag.lazy import LazyOntoDAG
     if bridge is None:
         from pyodide.ffi import run_sync        # type: ignore
         bridge = run_sync
-    store = RecordStore.at(root, JsBytesStore(js_store, bridge))
-    return LazyOntoDAG(store, prefetch=prefetch)
+    blobs = JsBytesStore(js_store, bridge)
+    cone_index = None
+    if index_root:
+        cone_index = _CacheOnly(lambda: _cone_index(RecordStore.at(index_root, blobs), root))
+    return LazyOntoDAG(RecordStore.at(root, blobs), prefetch=prefetch,
+                       cone_index=cone_index)
+
+
+def _cone_index(store, root):
+    from ontodag.cones import ConeIndex
+    return ConeIndex(store, root)
+
+
+class _CacheOnly:
+    """A cone index read as the cache it is: one that cannot be fetched
+    answers "not summarized", and the reader walks the cone instead (exact,
+    and failing loudly itself if the data cannot be fetched either)."""
+
+    def __init__(self, open_index):
+        self._open = open_index
+        self._index = None
+        self._dead = False
+        self.error = None           # why the index went unused, if it did
+
+    def cone(self, name):
+        if self._dead:
+            return None
+        try:
+            if self._index is None:
+                self._index = self._open()
+            return self._index.cone(name)
+        except Exception as e:
+            self._dead = True
+            self.error = f"{type(e).__name__}: {e}"
+            return None
 
 
 class PageReader:

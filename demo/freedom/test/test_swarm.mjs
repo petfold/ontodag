@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { keccak_256 } from "../vendor/noble-hashes/sha3.js";
-import { hex, unhex, spanValue, chunkAddress, ChunkReader, Forged, Unreachable, topicOf } from "../swarm.js";
+import { hex, unhex, spanValue, chunkAddress, ChunkReader, Forged, Unreachable, topicOf, HttpSwarm } from "../swarm.js";
 
 let failures = 0;
 const check = (ok, what) => { console.log(`${ok ? "ok  " : "FAIL"} ${what}`); if (!ok) failures++; };
@@ -52,4 +52,16 @@ await Promise.all([reader.bytes(big.root), reader.bytes(big.root)]);
 check(src.reads === Object.keys(big.chunks).length, `each chunk read once (${src.reads} reads for ${Object.keys(big.chunks).length} chunks)`);
 
 check(topicOf("pack-core") === hex(keccak_256(new TextEncoder().encode("pack-core"))), "topic of a name");
+
+// Live, optional: trees a Bee node erasure-coded itself (test/make_coded.py),
+// read from that node and joined here.
+if (process.argv[3]) {
+  const { base, cases: coded } = JSON.parse(readFileSync(process.argv[3], "utf8"));
+  const reader = new ChunkReader(new HttpSwarm(base));
+  for (const c of coded) {
+    const data = await reader.bytes(c.ref);
+    const sha = createHash("sha256").update(data).digest("hex");
+    check(sha === c.sha256, `join ${c.size} bytes coded at level ${c.level} by the node`);
+  }
+}
 process.exit(failures ? 1 : 0);

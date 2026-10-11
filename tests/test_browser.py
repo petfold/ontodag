@@ -273,3 +273,36 @@ class TestTheReadOnlyPage(unittest.TestCase):
         self.assertTrue(json.loads(reader.below("apple", "food"))["below"])
         self.assertFalse(json.loads(reader.below("apple", "tool"))["below"])
         self.assertGreater(got["records"], 0)
+
+    def test_a_published_cone_index_answers_a_broad_category_in_one_read(self):
+        import json
+        from recordstore import MemoryBytesStore, RecordStore
+        from ontodag.browser import PageReader, open_published
+        from ontodag.cones import build_index
+        from ontodag.eager import EagerOntoDAG
+        puts = [("thing", [])] + [(f"t{i}", ["thing"]) for i in range(40)] + \
+               [(f"t{i}.{j}", [f"t{i}"]) for i in range(40) for j in range(3)]
+        blobs = MemoryBytesStore()
+        dag = EagerOntoDAG(RecordStore(blobs))
+        for name, supers in puts:
+            dag.put(name, supers)
+        root = dag.commit()
+        index_root = build_index(dag, RecordStore(blobs), root, threshold=50)
+        stale_root = build_index(dag, RecordStore(blobs), "another-root", threshold=50)
+        js = FakePageBee(blobs.blobs)
+
+        def get(index):
+            reader = PageReader(open_published(root, js, bridge=bridge, index_root=index))
+            return json.loads(reader.get("thing"))
+        walked, indexed = get(None), get(index_root)
+        self.assertEqual((walked["count"], walked["names"]), (indexed["count"], indexed["names"]))
+        self.assertEqual(walked["count"], 160)
+        self.assertGreater(walked["records"], 150)
+        self.assertLess(indexed["records"], 10)
+        # an index for another root is ignored, never trusted: the reader walks
+        stale = get(stale_root)
+        self.assertEqual(stale["names"], walked["names"])
+        self.assertGreater(stale["records"], 150)
+        # an index the page cannot fetch is a cache miss, not a failure
+        unreachable = get("ab" * 32)
+        self.assertEqual(unreachable["names"], walked["names"])

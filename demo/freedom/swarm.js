@@ -67,6 +67,45 @@ export function spanValue(bytes) {
   return v;
 }
 
+// ---------------------------------------------------------------- erasure coding
+
+// Bee erasure-codes uploads on request, and some nodes by default (Bee 2.8
+// does for /bytes without a level): an intermediate chunk then carries its
+// level in the span's top byte (0x80 | level) and lists its data references
+// first, its parity references after them. Joining reads the data
+// references only; how many there are follows from the span and the level's
+// table (bee pkg/file/redundancy/level.go, pkg/file/utils.go ReferenceCount).
+const ERASURE_TABLES = {
+  1: [[95, 69, 47, 29, 15, 6, 2, 1], [9, 8, 7, 6, 5, 4, 3, 2]],
+  2: [[105, 96, 87, 78, 70, 62, 54, 47, 40, 33, 27, 21, 16, 11, 7, 4, 2, 1],
+      [21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4]],
+  3: [[93, 88, 83, 78, 74, 69, 64, 60, 55, 51, 46, 42, 38, 34, 30, 27, 23, 20, 17, 14, 11, 9, 6, 4, 3, 2, 1],
+      [31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5]],
+  4: [[37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18,
+       17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1],
+      [89, 87, 86, 84, 83, 81, 80, 78, 76, 75, 73, 71, 70, 68, 66, 65, 63, 61, 59, 58,
+       56, 54, 52, 50, 48, 47, 45, 43, 40, 38, 36, 34, 31, 29, 26, 23, 19]],
+};
+
+function parities(level, shards) {
+  const [shardSteps, parityCounts] = ERASURE_TABLES[level];
+  for (let k = 0; k < shardSteps.length; k++) if (shards >= shardSteps[k]) return parityCounts[k];
+  return 0;
+}
+
+// How many data references an intermediate chunk of `span` bytes holds at
+// `level` (unencrypted references).
+export function dataReferenceCount(span, level) {
+  const branching = BigInt(128 - parities(level, 128));
+  let branchSize = BigInt(CHUNK_SIZE), branchLevel = 1;
+  while (branchSize < span) { branchSize *= branching; branchLevel++; }
+  let referenceSize = BigInt(CHUNK_SIZE);
+  for (let i = 1; i < branchLevel - 1; i++) referenceSize *= branching;
+  let count = 1;
+  for (let at = referenceSize; at < span; at += referenceSize) count++;
+  return count;
+}
+
 // ---------------------------------------------------------------- addresses
 
 // The binary Merkle tree root of a chunk's payload, zero-padded to 4096 bytes.
@@ -348,16 +387,20 @@ export class ChunkReader {
     }
   }
 
-  // The bytes of a blob: its chunk tree joined, every chunk checked.
+  // The bytes of a blob: its chunk tree joined, every chunk checked (an
+  // erasure-coded tree's parity chunks are not read).
   async bytes(ref) {
-    const { span, payload } = await this.chunk(ref);
-    if (span > 0xffffffffffffffn) {
-      throw new Error(`${ref.slice(0, 16)}… is erasure-coded, which this page does not read`);
-    }
+    const { span: wire, payload } = await this.chunk(ref);
+    const coded = (wire >> 63n) === 1n;
+    const level = coded ? Number((wire >> 56n) & 0x7fn) : 0;
+    const span = wire & 0x00ffffffffffffffn;
+    if (coded && !ERASURE_TABLES[level]) throw new Error(`${ref.slice(0, 16)}… has unknown redundancy level ${level}`);
     if (span <= BigInt(CHUNK_SIZE)) return payload.slice(0, Number(span));
     if (payload.length % 32) throw new Error(`intermediate chunk ${ref.slice(0, 16)}… of ${payload.length} bytes`);
+    const count = coded ? dataReferenceCount(span, level) : payload.length / 32;
+    if (count * 32 > payload.length) throw new Error(`${ref.slice(0, 16)}… holds fewer references than its span needs`);
     const children = [];
-    for (let i = 0; i < payload.length; i += 32) children.push(hex(payload.subarray(i, i + 32)));
+    for (let i = 0; i < count; i++) children.push(hex(payload.subarray(32 * i, 32 * i + 32)));
     const data = concat(await Promise.all(children.map((c) => this.bytes(c))));
     if (BigInt(data.length) !== span) throw new Error(`${ref.slice(0, 16)}… joined to ${data.length} bytes, not ${span}`);
     return data;
