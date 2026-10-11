@@ -2620,3 +2620,16 @@ categories) and recommitted under Swarm addressing to the identical root.
   be re-run); keep whole output, or filter by pattern.
 - `isRetrievable` right after an upload means little; check again
   minutes later, and prove completeness by reading the store back.
+
+**categor.io live on 0.32.** Its first `categorio-update` said "Already up
+to date": the updater reinstalls only when the site's main moves, and the
+installed 0.31 met the floor. Raising the floor first found a fault: when
+a store made before 0.30 shares something, the site merged the whole
+current prelude into it to get `shared-with`, and prelude 5 would give
+such a store's `geo` (a prefix head) a second kind, which is refused. Now
+the audience head is declared alone (4d3fd1b, its test failing on the old
+code), then the floor rose (ba92cf9); rehearsed from an installed 0.31.0
+(pip raised it to 0.32.0, 37 tests pass). Peter ran the update: two
+commits listed, backup, `Updated: ba92cf9`; the one `curl: (7)` line was
+the first poll before gunicorn bound its port, as on 2026-10-10.
+https://categor.io answers 200.

@@ -502,13 +502,11 @@ Each line points to its record.
   recordstore 0.22.2 and swarmfs 0.14.0. The packs whose Swarm roots
   prelude 5 re-pinned (core and the ten domain packs) are republished
   (Bee integration status).
-- categor.io's live site runs its main (6bad379, updated 2026-10-10):
-  ontodag 0.31, and removing a contact ends its shares
-  (`with_terms=True`). Its main (floor `ontodag>=0.32.0`) moves the site
-  to 0.32 at the next `categorio-update`: sharing from a store made before
-  0.30 now declares the audience head alone, since merging prelude 5 into
-  a store whose `geo` is a prefix head is refused; rehearsed from 0.31.0,
-  37 tests pass. circulator's main writes v4 offers (its CI has been red
+- categor.io's live site runs its main (ba92cf9, updated 2026-10-11):
+  ontodag 0.32 (floor `ontodag>=0.32.0`). Sharing from a store made
+  before 0.30 declares the audience head alone, since merging prelude 5
+  into a store whose `geo` is a prefix head is refused; old stores keep
+  their own vocabulary, new ones get prelude 5. circulator's main writes v4 offers (its CI has been red
   since 2026-09-21 on a test comparing its own copy of the baseline).
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.
