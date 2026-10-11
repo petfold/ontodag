@@ -554,6 +554,43 @@ it, with chunks read in parallel:
   3.0 s, all answers equal to the native reader's. That is the network's
   latency per level of the trie, paid once per session.
 
+**Cone summaries, published (later the same night).** A broad query
+still walked its cone: `get physical-object` read 2,443 records (6,753
+chunk reads for the check's session). `publish_index.py` rebuilds each
+pack under Swarm addressing (its root must equal the pinned one) and
+publishes its summaries (`ontodag.cones`; 46 to 68 categories per pack,
+about 30 s each). The page pins the eleven index roots and
+`open_published(..., index_root=)` hands them to the reader.
+
+| | without the index | with it |
+|---|---|---|
+| `get physical-object` (2,509 found) | 2,443 records read | none |
+| the check's session | 6,753 chunk reads | 414 |
+| real Freedom, connected | not measured | 155 ms (first visit), 65 ms (second) |
+
+The index is a cache in the page: one for another root is ignored, and
+one the page cannot fetch is a miss (`_CacheOnly` keeps the reason), so
+the reader walks, exact either way.
+
+**Erasure coding, found by the index.** Bee 2.8 erasure-codes `/bytes`
+uploads without a `swarm-redundancy-level` header: a 10 KB upload's root
+chunk carried `0x81` in its span's top byte, against the plain content
+address with level 0. recordstore's `BeeBytesStore` sends no level
+(swarmfs's `redundancy=None`, the node's default). So every store written
+through it, loopmarket's books and the first index among them, has coded
+trees for its blobs over 4 KB. Those references are not recordstore's
+Swarm addressing, and the page's joiner refused them. The packs went up
+through the local-first path, which requires level 0, so their roots are
+the pinned ones.
+
+`swarm.js` now joins coded trees: it reads a coded chunk's data
+references only, their count from the span and the level's table, after
+bee's `ReferenceCount`. It was checked against trees the node coded at
+levels 0 to 4 (`test/make_coded.py`). Whether `BeeBytesStore` should
+upload plain by default (references equal to Swarm addressing, and
+checkable offline) or keep the node's coding (durability) is Peter's
+question.
+
 Next, as §8 orders them: writing under the §11 key (Weeb-3 or an HTTP
 node first, Freedom after #647). The gateway step is done (above).
 
