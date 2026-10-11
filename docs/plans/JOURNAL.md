@@ -2552,3 +2552,71 @@ and `Updated: 6bad379`. The one `curl: (7) Failed to connect` line was
 the updater's first poll, made before gunicorn had bound its port; the
 next poll a second later answered. https://categor.io answers 200 with
 its page.
+
+## 2026-10-11: questions 29–33 decided and built, then 0.32.0 and its consumers
+
+**Decided with Peter, one at a time:** 29 A (`geo` a rectangle head,
+geohash gone), 30 A (`geo(LAT,LON±SIZE)`, half the side), 32 A (negative
+values only under `signed-dimension`; named floors only), 33 A (another
+body is another head), 31 A without the refusal step (relative times
+where someone types; `today` the UTC day; `..` an open end, which `loop`
+takes at once). Smaller rulings the same day, each recorded in
+DIMENSIONS.md §22: a `±` past the planet is the whole planet, kept as
+"on Earth" (neither dropped nor folded into the head, which would make
+the item a role); the poles are a known limit of rectangles in degrees,
+not fixed; and anything a reader types shows `+-`, prose keeps `±`.
+
+**Built in ontodag:** the rectangle kind with its grid index (steps 1–4),
+signed heads (registry 4.5), and relative times in `ontodag.surface`
+(surface 0.2, the `now` setting). Found on the way and fixed in its own
+commit: since 0.30.0 an open end of time (`time(..2027)`) crashed the
+interval index once a store held a time, its open-end sentinel being a
+float that does not compare with a timestamp. Noted, not changed: a
+store migrated from cells has sibling cells that now touch, and touching
+rectangles meet in their shared edge.
+
+**Built in loopmarket** (branch `ontodag-0.32`, merged before the tag):
+its geohash code went; the prompt's literal is ontodag's `geo` parameter
+typed bare; `loop place` stayed, computing nothing, because it also keeps
+the door address a handoff seals (an adaptation of the plan, reported to
+Peter). Exact squares match less often than cells did (cells rounded
+nearby places together), so the triangle example's shop moved from 4 km
+to 3 km to lie inside the flat's square; published places are long
+(`geo(46.005033..46.094967,14.435157..14.564843)` for `geo(u24)`). The
+chain tests named registry `"4.2"` and now follow the installed major.
+The user guide was re-executed (its blocks still said registry 4.2).
+
+**ontodag-fs's tripwire did its job:** its upstream-contract test pins the
+registry major and the contract minors it was reviewed against, and
+failed on 5.0 and 0.7; reviewed (rectangle paths list and resolve,
+`+-` included), it accepted majors 4 and 5 while its main was gated
+against the candidate yet still installed 0.31, then 5 alone at 0.8.0.
+
+**Released on Peter's word** ("if all documentations are up to date, make
+the releases"), after the docs sweep (two DIMENSIONS spots, the guide's
+prompt banner and `canon` output, ontodag-fs's stale Unreleased section):
+ontodag 0.32.0 (CI=1 1489 + 3 skipped; smoke 27/27 on the wheel; every
+workflow job green, both downstream legs included; `--pypi` 27/27 after
+one index-lag retry), loopmarket 0.16.0 (floor `>=0.32.0`; both examples
+clear from the PyPI install, the old spelling refused with its fix),
+ontodag-fs 0.8.0 (`>=0.32.0,<0.33.0`; a rectangle directory resolves from
+the PyPI install). categor.io's 36 tests pass against 0.32; its live site
+stays on 0.31 until the admin moves it.
+
+**Bee run 13 — 0.32's packs published.** Bee 2.8.2, batch `c931c8a5…`
+(31.6 days TTL, utilization 24, usable), keyless. Prelude 5 re-pinned
+the Swarm roots of core and the ten domain packs (the four unit packs
+are unchanged); each was pushed from a fresh home
+(`odag -f swarm:pack-NAME pack NAME`, 130–171 s each): every root equal to
+its pinned `SWARM_GOLDEN_ROOTS` entry; `isRetrievable` false for most
+right after their 60 s sync window and true for all eleven minutes
+later; and each read back from Bee by its root alone (5,031–6,415
+categories) and recommitted under Swarm addressing to the identical root.
+
+**Lessons, kept.**
+- A wait loop that `pgrep -f`s a pattern also matches its own shell's
+  command line and never ends; wait on a file or a task instead.
+- `| tail` cut a result list again (the hydration of five packs had to
+  be re-run); keep whole output, or filter by pattern.
+- `isRetrievable` right after an upload means little; check again
+  minutes later, and prove completeness by reading the store back.

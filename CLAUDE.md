@@ -469,7 +469,8 @@ Each line points to its record.
 - The node: Swarm Desktop's bee 2.8.2 light node at `localhost:1633`, on
   Gnosis mainnet. Another node manager can hold the same port, so `curl
   /health` and `/stamps` before believing anything about a batch.
-- The batch: `c931c8a5…`, depth 22, paid until 2026-11-15 12:00 UTC. Buy,
+- The batch: `c931c8a5…`, depth 22, TTL 31.6 days on 2026-10-11 (about
+  2026-11-12; the date moves with the storage price). Buy,
   top up or dilute only on Peter's word. The amount per chunk is price ×
   17,280 blocks a day × days, the cost that amount × 2^depth PLUR (1 xBZZ
   = 10^16 PLUR), and diluting one depth halves the time left.
@@ -482,30 +483,29 @@ Each line points to its record.
   that file up with the data directory.
 - Not yet tested on a real node: postage expiry and garbage collection
   (they need a batch nobody minds losing).
-- Last run: 2026-10-10, before the 0.31.0 release; ontodag's two gated
-  tests and loopmarket's three live tests passed (the federation test once
-  its aggregators were given the catalogue that review item 9 requires). Every run since July,
-  with what each taught, is in the journal under this heading.
+- Last run: 2026-10-11, after the 0.32.0 release: core and the ten
+  domain packs republished keyless (prelude 5 re-pinned their roots),
+  every root equal to its pinned `SWARM_GOLDEN_ROOTS` entry, retrievable,
+  and read back by its root alone to the identical root. The gated tests
+  last ran on 2026-10-10 (ontodag's two, loopmarket's three). Every run
+  since July, with what each taught, is in the journal.
 
-## State (2026-10-10)
+## State (2026-10-11)
 
-- Released 2026-10-10, each verified from PyPI: ontodag 0.31.0
-  (contract 0.6, registry 4.4, the review's decisions and questions
-  24–28), loopmarket 0.15.0 (its 0.31 branch merged; floor
-  `ontodag>=0.31.0`), ontodag-fs 0.7.0 (ontodag's public layer;
-  `>=0.31.0,<0.32.0`). Unchanged: recordstore 0.22.2 and swarmfs 0.14.0
-  (their commits since are lint and docs). Unreleased on ontodag's main:
-  question 32, negative values for signed heads (registry 4.5), and
-  questions 29, 30 and 33, `geo` as a rectangle head (registry 5.0,
-  contract 0.7, prelude 5). loopmarket's side is on its branch
-  `ontodag-0.32` (green against this main; its own CI is red until 0.32
-  is on PyPI): merge it into loopmarket's main just before tagging 0.32,
-  since the release gate runs that main, then raise its floor.
-  ontodag-fs's docs still describe geo by geohash prefixes; fix them with
-  its ceiling raise.
+- Released 2026-10-11 on Peter's word, each verified from PyPI: ontodag
+  0.32.0 (contract 0.7, registry 5.0, prelude 5, surface 0.2: questions
+  29–33, geo as rectangles, signed values, relative times; every workflow
+  job green, the downstream gate included; `release_smoke.py --pypi`
+  27/27), loopmarket 0.16.0 (its `ontodag-0.32` branch merged before
+  ontodag's tag; floor `ontodag>=0.32.0`; both examples clear from the
+  PyPI install), ontodag-fs 0.8.0 (`>=0.32.0,<0.33.0`). Unchanged:
+  recordstore 0.22.2 and swarmfs 0.14.0. The packs whose Swarm roots
+  prelude 5 re-pinned (core and the ten domain packs) are republished
+  (Bee integration status).
 - categor.io's live site runs its main (6bad379, updated 2026-10-10):
   ontodag 0.31, and removing a contact ends its shares
-  (`with_terms=True`). circulator's main writes v4 offers (its CI has been red
+  (`with_terms=True`). Its 36 tests pass against ontodag 0.32 and its floor
+  allows it; moving the live site is the admin's step. circulator's main writes v4 offers (its CI has been red
   since 2026-09-21 on a test comparing its own copy of the baseline).
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.
