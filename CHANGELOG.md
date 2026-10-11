@@ -30,7 +30,10 @@ the version numbers appear in commit history and docs.
   store calls wait on the page's Swarm reads through JSPI
   (`pyodide.ffi.run_sync`). Everything loads from one Swarm upload
   (`build.py --publish`). `check.py` runs it in Chromium against a real
-  node and compares every answer with Python reading the same root.
+  node and compares every answer with Python reading the same root;
+  `freedom_check.cjs` runs it in real Freedom Browser (connected, a
+  category with 35 children in 1.0 s; a second visit reads nothing, its
+  chunks kept in IndexedDB).
 - **`ontodag.browser`**: `open_published(root, js_store)` (a lazy reader
   over the page's blob store), `PageReader` (the page's questions,
   answered as JSON), `JsBytesStore.get_many`, and `BlobUnreachable`: a

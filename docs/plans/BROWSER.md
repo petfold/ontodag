@@ -34,10 +34,18 @@ in-browser clients are surveyed (§10). The adapter moves down from whole
 blobs to four calls on chunks (§10.1), so every client gives the same roots
 as a laptop. Identity is decided: one key derived from one wallet
 signature, used in every client (§11, Peter's option A). ontodag keeps its
-own access control rather than the node's ACT (§12). Nothing of the Swarm
-half is built yet. Two requests are filed with Freedom: #647 (publish a
-single-owner chunk the page signed) and #648 (open ACT shares made to the
-user's node).
+own access control rather than the node's ACT (§12). Two requests are
+filed with Freedom: #647 (publish a single-owner chunk the page signed) and
+#648 (open ACT shares made to the user's node).
+
+**2026-10-12: the read-only page runs in Freedom Browser** (§13).
+`demo/freedom/` reads a published pack from Swarm through Freedom's
+`window.swarm`, with every answer equal to Python reading the same root
+natively. JSPI carries it, not miss-and-replay: Chromium has shipped JSPI
+on by default since version 137, and Freedom is Electron 44, so Python's
+synchronous store calls simply wait on the page's Swarm reads (§3, §5).
+loopmarket's read-only market page runs on the same layer (its
+BROWSER.md §5a).
 
 **The short version.** A shared ontology on Swarm is too large to download,
 so the browser fetches only the fragment each query touches. Measured on a
@@ -484,3 +492,65 @@ do is open a share made to the user's node key; that is Freedom request
 #648, filed for the ecosystem rather than for ontodag. SHARING_ON_SWARM.md
 S18 stands: grantee entries live in ontodag's store, in Bee's format, so a
 Bee-native path stays open.
+
+## 13. The read-only page, built (2026-10-12)
+
+`demo/freedom/` (BROWSER.md §8, step 1 of the Swarm half):
+
+- **`swarm.js`** is the page's whole Swarm layer:
+  - **Sources:** `FreedomSwarm` over `window.swarm` and `HttpSwarm` over a
+    node or gateway.
+  - **`ChunkReader`:** joins chunk trees and checks every chunk against
+    its address (vendored noble-hashes keccak). It caps reads in flight,
+    waits out a client's read budget, and keeps checked chunks for the
+    session and, in IndexedDB, across visits.
+  - **`feedRoot`:** a recordstore feed's newest root.
+  - **`BlobStore`:** what Python calls.
+
+  `test/` checks it against swarmfs's splitter: addresses, trees from 0 to
+  600 KB, tampered and missing chunks, one read per chunk.
+- **Python:** `ontodag.browser.open_published(root, js_store)` gives a
+  `LazyOntoDAG` with `prefetch=True` over `RecordStore.at(root, ...)`, its
+  blobs read through `JsBytesStore` with `run_sync` as the bridge.
+  `PageReader` answers the page as JSON. A blob the page could not fetch
+  or check is a `BlobUnreachable` (an `OSError`), so a reader fails
+  instead of taking a category for absent.
+- **recordstore, two changes on its main:**
+  - `RecordStore.get_many` reads many records with one batch per trie
+    level;
+  - an unreachable trie node is `RecordUnavailable`, no longer a
+    `KeyError` (it was a fail-open path for every lazy reader).
+
+  The page bundles recordstore's main until a release.
+- **`build.py`** assembles one Swarm upload (Pyodide's core, the wheels,
+  13.7 MB) and publishes it, its tar deterministic.
+- **`check.py`** runs it in Chromium, through a stand-in for Freedom's
+  provider and through a node over HTTP.
+- **`freedom_check.cjs`** runs it in real Freedom Browser from its
+  checkout: a throwaway profile, the Bee node as Freedom's external node,
+  `bzz://REF/` through the address bar.
+
+Measured on the core pack (5,030 categories), served by a node that holds
+it, with chunks read in parallel:
+
+| | first visit, connected | first visit, not connected | second visit |
+|---|---|---|---|
+| page ready (Python started, store opened) | 5.1 s | 6.8 s | 4.8 s |
+| `fruit` with its 35 children | 1.0 s | 61 s | 0.4 s |
+| `food` with its 25 children | 0.6 s | 61 s | 0.2 s |
+| `get fruit produce` (63 found) | 0.5 s | 61 s | 0.1 s |
+| chunk reads for the session | 376 | 376 | 0 |
+
+- **Not connected:** Freedom lets a site that has not connected read 120
+  chunks and 512 KB a minute, so the same 376 reads wait out the budget.
+  The page then says so and points to Connect, which gives 600 a minute.
+- **Second visit:** the chunks kept in IndexedDB make it free.
+- **Record reads:** the session read 107 records in 15 round trips at
+  Python's level. Without prefetch, a 258-node cone costs 266 round trips;
+  with it, 9.
+- **A node fetching from the network** will be slower per chunk; how much
+  slower is still to be measured.
+
+Next, as §8 orders them: the same page over a public gateway, then writing
+under the §11 key (Weeb-3 or an HTTP node first, Freedom after #647).
+

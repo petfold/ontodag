@@ -359,7 +359,13 @@ Each line points to its record.
   control (`keyplan`), not the node's ACT. A page reaches Swarm through
   four calls on chunks, with one adapter per client: Freedom, Weeb-3, an
   HTTP node, a gateway (BROWSER.md §10–§12, SHARING_ON_SWARM.md §2).
-  Freedom requests #647 and #648 are filed.
+  Freedom requests #647 and #648 are filed. The read-only page
+  (`demo/freedom/`) runs in Freedom Browser (BROWSER.md §13). JSPI
+  (`run_sync`) carries Python's store calls in Chromium-based browsers, so
+  recordstore and `LazyOntoDAG` run unchanged; `swarm.js` joins and checks
+  chunks in the page; `LazyOntoDAG(prefetch=True)` reads a level per round
+  trip. It needs recordstore's `get_many`, unreleased: the page bundles
+  recordstore's main.
 - Provenance: signed claim records in a sibling store (PROVENANCE.md).
 - Web: one page, browsing plus a console, where every click writes its
   command (WEB_UI.md). Its DAG lives in the server's memory per session.
