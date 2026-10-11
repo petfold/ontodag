@@ -65,6 +65,14 @@ the version numbers appear in commit history and docs.
   reader before 4.5 refuses the new names. `odag put` makes the marker as
   it makes a family node.
 
+### Fixed
+
+- A query or a value with an open end of time (`time(..2027)`,
+  `time(2026-10-01..)`) raised `TypeError` once the store held a time
+  value, since 0.30.0: the interval index stood in for an open end with a
+  float infinity, which does not compare with a timestamp. It now uses a
+  bound below or above every other.
+
 ## [0.31.0] — 2026-10-10
 
 ### Contract 0.6, registry 4.4

@@ -588,7 +588,30 @@ class DAG:
         return stack[::-1]
 
 
-_NEG, _POS = float("-inf"), float("inf")
+@functools.total_ordering
+class _OpenEnd:
+    """An open end of an interval in the index, below or above every bound:
+    a bound is a Fraction for a linear or count value and a timestamp for a
+    calendar one, and no float infinity compares with a timestamp."""
+
+    __slots__ = ("above",)
+
+    def __init__(self, above):
+        self.above = above
+
+    def __eq__(self, other):
+        return isinstance(other, _OpenEnd) and other.above == self.above
+
+    def __lt__(self, other):
+        if isinstance(other, _OpenEnd):
+            return not self.above and other.above
+        return not self.above
+
+    def __hash__(self):
+        return hash(self.above)
+
+
+_NEG, _POS = _OpenEnd(False), _OpenEnd(True)
 
 
 class _Intervals:

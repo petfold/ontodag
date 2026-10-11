@@ -652,3 +652,23 @@ class TestALoadedStoreAnswersAsItDidLive(unittest.TestCase):
                       ["shared-with(alice)"], ["transport(small-item)"]):
             self.assertEqual({n.name for n in indexed.get(query)},
                              {n.name for n in scanned.get(query)}, query)
+
+
+class TestOpenEndedTimes(unittest.TestCase):
+    """The interval index keeps a calendar value's bounds as timestamps and
+    an open end as a bound below or above every other: a float infinity,
+    used until 2026-10-11, cannot be compared with a timestamp, and any
+    query or value with an open end raised TypeError once the index held a
+    time."""
+
+    def test_open_ended_values_and_queries(self):
+        d = OntoDAG()
+        prelude.apply(d)
+        d.put("concert", ["time(2026-10-11..2026-10-18)"])
+        d.put("forever", ["time(2026-10-01..)"])
+        d.put("past", ["time(..2026-01-01)"])
+        names = lambda terms: {i.name for i in d.get(terms, items_only=True)}  # noqa: E731
+        self.assertEqual(names(["time(..2027-01-09)"]), {"concert", "past"})
+        self.assertEqual(names(["time(2026..)"]), {"concert", "forever"})
+        self.assertTrue(d.is_below("forever", "time(2026..)"))
+        self.assertEqual(names(["mass(..5kg)"]), set())
