@@ -2679,3 +2679,10 @@ from PyPI it installs with ontodag 0.32.0 and recordstore 0.22.3, prints
 the missing `chain` extra as one line (exit 1), and both examples clear.
 Peter has started a second Bee node on another laptop, unfunded.
 
+**Two machines.** Peter's second laptop (its own Bee light node, Ubuntu
+26.04, `loop` 0.16.1 through uv on Python 3.12) folded a maker's offer
+announced from this laptop by a separate test maker key, from fresh homes
+with nothing but the registry setting, to book root `d24ec279…`, the same
+as a reader here: loopmarket's last P1 launch item passes (its journal has
+the run).
+

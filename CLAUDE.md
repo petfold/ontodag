@@ -494,7 +494,10 @@ Each line points to its record.
   maker's offer announced on Gnosis from the chain key (one standing
   announcement per owner: afterwards the offer was withdrawn and the
   key's v5-gate clearing book re-announced, so the registry stands as
-  before). Every run since July, with what each taught, is in the
+  before). Then two machines: Peter's second laptop, with its own Bee
+  node (`74f7e74f…`), folded a test maker's announced offer to the same
+  book root as this laptop's reader, byte for byte; loopmarket's P1 launch
+  item passes. Every run since July, with what each taught, is in the
   journal.
 
 ## State (2026-10-11)
