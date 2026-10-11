@@ -2778,3 +2778,25 @@ needed there.
   never reused the external node.
 
 loopmarket's market page runs on the same layer (its journal).
+
+**Later the same night: cone summaries, and erasure coding.**
+- **The index.** `publish_index.py` published the eleven packs' cone
+  summaries, each pack rebuilt to its pinned root first. With them, `get
+  physical-object` reads no records instead of 2,443, and in real Freedom,
+  connected, answers in 155 ms (65 ms on a second visit).
+- **Erasure coding.** Building the index found that Bee 2.8 erasure-codes
+  `/bytes` uploads sent without a level, which `BeeBytesStore` does. The
+  first index went up coded and the page's joiner refused it.
+- **The stand-in.** It also lost the coded span's precision by sending it
+  as a JSON number; it now sends a span past 2^53 as a string, as Freedom
+  sends a BigInt.
+- **The joiner.** `swarm.js` now joins coded trees (data references only,
+  counted by bee's tables), checked against trees the node coded at every
+  level. The plain-or-coded default for `BeeBytesStore` is a question for
+  Peter (BROWSER.md §13).
+- **Republished:** ontodag's page at `bzz://e0f26cbbcf0985f518fc6ffcdcad9d6ff121b1a5bd10deea6be430e83be7926a/`,
+  loopmarket's at `bzz://151f5739ec1d707c09bfc538606d709d6cec8dc71d04f6f8653f45586724f2e0/`.
+- **A slip:** commit c6f7feb's message names the README, CLAUDE.md and
+  journal updates, but a script stopped before writing them (the README
+  held the old reference twice). They came in the next commit.
+
