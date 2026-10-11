@@ -496,10 +496,12 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Under discussion (Peter, 2026-10-11, raised with question 29): an
-optional celestial body, Earth by default (one head per body, leaning;
-`docs/DIMENSIONS.md` §22). Then question 30, the size's word and
-unit, and question 31, relative times in `time(...)`. Polygons and unions
+Question 30, put 2026-10-11 (`docs/DIMENSIONS.md` §22): how a square
+around a point is typed. A, `geo(48.8584,2.2945±500m)`, half the side in
+any length unit (recommended); B, a keyword and the whole side; C, `±` in
+degrees; D, no centre and size, bounds only. Under discussion with it: an
+optional celestial body, Earth by default (one head per body, leaning).
+Then question 31, relative times in `time(...)`. Polygons and unions
 of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 

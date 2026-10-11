@@ -2033,3 +2033,43 @@ negatives themselves; a kelvin value below zero is refused in any spelling.
 The G8 record gained a signed head and four spellings under 4.5; no stored
 spelling changed. `altitude` becomes a head in core (ontodag-core), not
 here.
+
+**Question 30, put (2026-10-11): how is a square around a point typed?**
+Question 29 settled what is stored: a rectangle in degrees, typed as its
+bounds (`geo(48.8539..48.8629,2.2877..2.3013)`) or as a position whose
+written precision is its extent. What is left is the everyday case, "500 m
+around the Eiffel Tower", which loopmarket's `loop place` does today with
+its own code. Common to the options that take a centre and a size: the
+size is input vocabulary, turned into bounds once, when the term is read,
+and never stored; the rectangle is the square's bounds rounded outwards to
+whole millionths of a degree (about 11 cm), so it only grows; the rule is
+fixed (the Earth's mean radius, 111.2 km to a degree of latitude, and a
+fixed cosine, never the machine's floating point), so every writer gets the same name; near a pole the rectangle
+widens in longitude and is cut at 90°, and across 180° it wraps. Around the
+Eiffel Tower (48.8584,2.2945), 500 m either way is
+`geo(48.853903..48.862897,2.287665..2.301335)`; around the Greenwich
+observatory (51.4769,-0.0005) it is one value across the meridian,
+`geo(51.472403..51.481397,-0.00772..0.00672)`.
+
+- **A**, `±` and a length, half the side: `geo(48.8584,2.2945±500m)`, 500 m
+  either way (`+-` typed in ASCII). Any length unit (`±0.5km`, `±1500ft`).
+  Peter's half-side, with no word to choose: `±` already says "this much
+  either way", as `20.271±0.0005 K` does for a measurement.
+- **B**, a word and the whole side: `geo(48.8584,2.2945,side=1km)`, a 1 km
+  square. Reads as "a 1 km square", but adds a keyword to the grammar, and
+  the side is twice the distance anyone asks about ("within 500 m").
+- **C**, `±` in degrees: `geo(48.8584,2.2945±0.0045)`. Exact, nothing to
+  convert, no radius for other bodies; but nobody thinks in degrees, and a
+  degree of longitude is 111 km at the equator and 73 km in Paris, so the
+  "square" is not one.
+- **D**, no centre and size at all: bounds and positions only, and an
+  application turns "500 m around" into bounds itself. The least in
+  ontodag; but `loop place` stays, and two applications rounding
+  differently give the same request two names.
+
+Recommended: A. Metres are what people ask in; `±` is Peter's half-side
+without a new word; the conversion is done once, by one rule, so equal
+requests get equal names. Coupled with the celestial body: a size in metres
+needs the body's radius, so a head for Mars or the Moon would carry its own
+(degree of latitude: 111.2 km on Earth, 59.2 km on Mars, 30.3 km on the
+Moon), or take sizes only in degrees until someone needs more.
