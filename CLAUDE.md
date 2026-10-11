@@ -539,6 +539,13 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   into a store whose `geo` is a prefix head is refused; old stores keep
   their own vocabulary, new ones get prelude 5. circulator's main writes v4 offers (its CI has been red
   since 2026-09-21 on a test comparing its own copy of the baseline).
+- Unreleased on the mains (2026-10-12): recordstore's `RecordStore.get_many`
+  and its fix (an unreachable trie node is `RecordUnavailable`, no longer
+  read as absent); ontodag's `LazyOntoDAG(prefetch=True)` and the read-only
+  Freedom page (`demo/freedom/`, published at `bzz://7705429f…`); loopmarket's
+  market page (`browser/`, `bzz://b25a77e3…`). Both pages run in real Freedom
+  Browser and through the public gateway (BROWSER.md §13). Releasing needs
+  recordstore first, on Peter's word.
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.
 - Watch coincurve on Python 3.14 (loopmarket's CLAUDE.md, "Upstream to

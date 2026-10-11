@@ -2717,3 +2717,64 @@ journal has the run. Then two issues filed on Freedom Browser as `petfold`
 (drafts in `~/projects/canopy-issues`, 09 and 10): #647, publishing a
 single-owner chunk the page signed, and #648, opening ACT content shared
 with the user's node with consent per publisher.
+
+## 2026-10-12 (night): the read-only pages run in Freedom Browser
+
+Peter, before leaving for the night: "start both browser implementations
+mainly for Freedom browser, starting with the read-only Freedom page. The
+sharing parts can be postponed … When you need to stop, push everything and
+shut down the laptop."
+
+**Bridging.** A probe in Chromium 151 showed JSPI working: a synchronous
+Python function waited on a JS promise through `pyodide.ffi.run_sync`
+(Pyodide 0.27.7). Freedom is Electron 44, so recordstore and LazyOntoDAG
+run in the page unchanged, and miss-and-replay (BROWSER.md §5) is not
+needed there.
+
+**What Freedom gives a page**, read in its source:
+- `window.swarm.readChunk({reference})` returns `{data (base64), span}`;
+  rejections carry `err.data.reason` (`chunk_not_found`, `rate_limited`).
+- A site that has not connected may read 120 chunks and 512 KB a minute;
+  connected, 600 and 5 MB.
+
+**Built:**
+- **`demo/freedom/swarm.js`:** sources for Freedom and HTTP; chunk trees
+  joined and every chunk checked (vendored noble-hashes keccak); an
+  in-flight cap, budget waits, an IndexedDB cache; feed roots. Its tests
+  run against swarmfs's splitter; 16 checks passed on the first run.
+- **`ontodag.browser`:** `open_published`, `PageReader`,
+  `JsBytesStore.get_many`, `BlobUnreachable`.
+- **`LazyOntoDAG(prefetch=True)`:** depth-first walks first took 44 round
+  trips for a 258-node cone, one batch per node with children. Walking
+  breadth-first when prefetching gives one batch per level: 266 round
+  trips down to 9, with the order unchanged without prefetch.
+- **recordstore's main:** `RecordStore.get_many`, and a fix. A trie node
+  the bytes store could not fetch escaped as `KeyError`, so a lazy reader
+  took the record for absent; it now raises `RecordUnavailable`, with
+  tests that fail on the old code. Both are unreleased, and the page
+  bundles recordstore's main.
+- **The page** (`index.html`, `app.js`), `build.py` (one deterministic
+  Swarm upload of 13.7 MB), `check.py` and `freedom_check.cjs`.
+
+**Checked; every answer equal to Python reading the same root:**
+- **Chromium,** through a stand-in for Freedom's provider answered from
+  the Bee node (the first stand-in answered one call at a time; made
+  concurrent, a category with 35 children took 0.7 s).
+- **The node over HTTP.**
+- **The public gateway:** network latency, `fruit` 6.5 s.
+- **Real Freedom Browser,** from its checkout with the Bee node as its
+  external node, through the address bar:
+  - **Connected:** `fruit` in 1.0 s.
+  - **Not connected:** each step waited out the read budget, about 60 s,
+    so the page now says so and points to Connect.
+  - **Second visit:** 0 reads, from IndexedDB.
+- **Published:** the page at `bzz://7705429fda26f6165d245683d4dcbe376741e73ee9a277815b2c6bb54ecc072e/`.
+
+**Mistakes, kept:**
+- `build.py` printed the reference only after the retrievability check,
+  and my 20-minute timeout killed it. It now prints first, bounds the
+  wait, and makes the tar deterministic.
+- In the first Freedom run my settings turned Freedom's node off, so it
+  never reused the external node.
+
+loopmarket's market page runs on the same layer (its journal).
