@@ -2022,3 +2022,14 @@ empty. `level`, proposed earlier for floors, is core's word too, in
 WordNet's abstract sense ("communicates on several levels", under
 `cognition`), so as a head it would have made a car park a cognition; named
 floors need neither word as a head.
+
+**Built (2026-10-11), registry 4.5.** `signed-dimension` is made under
+`dimension` the first time a head is filed under it, as a family node is
+(`odag put` too), and is reserved from renaming. A linear head filed
+directly under it, or a role of one, takes new negative values; any other
+refuses them where it refuses a value of another family, typed or written,
+and a merge, a sync or a load never refuses one. Counts and sizes refuse
+negatives themselves; a kelvin value below zero is refused in any spelling.
+The G8 record gained a signed head and four spellings under 4.5; no stored
+spelling changed. `altitude` becomes a head in core (ontodag-core), not
+here.

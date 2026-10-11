@@ -82,11 +82,26 @@ class TestLinearCanonicalization:
         "weight(1kg..2s)",        # mixed families in one range
         "time(2026-13-40)",       # not a real date
         "time(2026-02-30T00:00:00Z)",  # not a real timestamp
-        "weight(-3kg)",           # no negative quantities in the grammar
+        "weight(..-3kg)",         # an open lower end is 0: an empty range
+        "temperature(-5K)",       # below absolute zero
     ])
     def test_malformed_raise(self, raw):
         with pytest.raises(ValueError):
             canonicalize(raw, KIND_LINEAR)
+
+    @pytest.mark.parametrize("raw,canonical", [
+        ("altitude(-430m)", "altitude(-430m)"),
+        ("altitude(-0.43km)", "altitude(-430m)"),
+        ("altitude(-0m)", "altitude(0m)"),
+        ("altitude(-100ft)", "altitude(-762/25m)"),
+        ("altitude(-500m..120m)", "altitude(-500m..120m)"),
+        ("altitude(0m..120m)", "altitude(..120m)"),
+        ("altitude(-120m..)", "altitude(-120m..)"),
+    ])
+    def test_a_negative_value_parses_to_one_name(self, raw, canonical):
+        # whether a head may take one is the graph's to say (signed-dimension)
+        assert canonicalize(raw, KIND_LINEAR) == canonical
+        assert canonicalize(canonical, KIND_LINEAR) == canonical
 
 
 class TestDominanceCanonicalization:
@@ -425,9 +440,10 @@ class TestRegistry:
                               "transitive-dimension", "enclosing-dimension",
                               "reversed-dimension"}
         assert dims.DIMENSION_ROOT == "dimension"
+        assert dims.SIGNED_DIMENSION == "signed-dimension"
         # MAJOR.MINOR since v3 (UNITS.md D10): same major = same
         # canonical-name arithmetic; minors add vocabulary only.
-        assert dims.REGISTRY_VERSION == "4.4"
+        assert dims.REGISTRY_VERSION == "4.5"
         assert dims.registry_compatible("4.7")
         assert not dims.registry_compatible("3.2")
 

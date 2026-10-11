@@ -3566,6 +3566,25 @@ class TestNotATerm(unittest.TestCase):
         self.assertNotIn("not a term", err)
 
 
+class TestSignedMarkerFromTheCli(unittest.TestCase):
+    """`put altitude 'linear-dimension(length)' signed-dimension` makes the
+    marker as put makes a family pin, instead of asking for it to be
+    created first (question 32)."""
+
+    def test_a_signed_head_takes_a_negative_value_and_mass_refuses_one(self):
+        with tempfile.TemporaryDirectory() as home:
+            session = cli.Session(os.path.join(home, "s.od"))
+            for argv in (["prelude"],
+                         ["put", "altitude", "linear-dimension(length)", "signed-dimension"],
+                         ["put", "dead-sea-shore", "altitude(-430m)"]):
+                code, _out, err = _run3(argv, session)
+                self.assertEqual(code, 0, err)
+            self.assertTrue(session.dag.is_below("dead-sea-shore", "altitude(-1km..0m)"))
+            code, _out, err = _run3(["put", "rock", "mass(-3kg)"], session)
+            self.assertEqual(code, 1)
+            self.assertIn("'mass' takes no negative values", err)
+
+
 @unittest.skipUnless(HAVE_CRYPTO, 'needs the crypto extra: pip install "ontodag[crypto]"')
 class TestEncryptedStore(unittest.TestCase):
     """The single-audience encrypted rs: store (PACKS.md §14 item 3):

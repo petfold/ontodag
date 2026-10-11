@@ -41,6 +41,8 @@ FILINGS = [
     ("located-at", ["in"]), ("statue", ["located-at(tokyo)"]),
     ("from", ["geo"]), ("delivery", ["from(geo(u2ed))"]),
     ("ring", ["in(in(japan))"]),
+    ("altitude", ["linear-dimension(length)", "signed-dimension"]),
+    ("dead-sea-shore", ["altitude(-430m)"]),
 ]
 
 INPUTS = [
@@ -63,6 +65,8 @@ INPUTS = [
     "about(tokyo japan)", "shared-with(sales-employee employee)",
     "shared-with(person)", "located-at(tokyo)", "from(u2ed)",
     "from(geo(u2ed))", "from(geo(u2e))",
+    "altitude(-0.43km)", "altitude(-500m..120m)", "altitude(-120m..)",
+    "altitude(0m..120m)",
 ]
 
 

@@ -68,7 +68,9 @@ rendered units; canonical spellings are for machines).
   stays refused as ever. So `24C`, `-40F`, `0C..100C` parse exactly onto
   the kelvin scale, which stays canonical (`t(24C)` ≡ `t(5943/20K)`);
   negatives are admitted for affine spellings only, and below-absolute-
-  zero refuses with the limit in the message. Bare `C` and `F` mean the
+  zero refuses with the limit in the message. (Registry 4.5, 2026-10-11:
+  a head declared a position on an axis, `altitude ⊑ signed-dimension`,
+  takes negative values of any family but temperature; DIMENSIONS.md §22.) Bare `C` and `F` mean the
   temperatures, **context-free** (Peter's rule: "if I type 24C it should
   be Celsius rather than Coulomb") — which is why the bare coulomb and
   farad are spelled out (`coulomb`, `farad`, now those families' anchors;

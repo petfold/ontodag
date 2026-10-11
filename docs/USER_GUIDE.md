@@ -905,6 +905,24 @@ What to know:
   $ odag put shove 'load(2kg)'
   odag: load(2kg): dimension 'load' holds force values, and this one is mass
   ```
+- **A position on an axis can be negative.** A mass or a length is a
+  magnitude and refuses a negative value; an altitude is a position, and
+  takes one once its head is filed under `signed-dimension`. A range with
+  no lower end still starts at zero, so a range below zero needs both ends.
+
+  ```console
+  $ odag put altitude 'linear-dimension(length)' signed-dimension
+  $ odag put dead-sea-shore 'altitude(-430m)'
+  $ odag put lake-geneva 'altitude(372m)'
+  $ odag put mariana-trench 'altitude(-11km..-10km)'
+  $ odag get 'altitude(-1km..0m)'
+  altitude(-430m)
+  dead-sea-shore
+  $ odag put mine 'altitude(..-120m)'
+  odag: empty range '..-120m' — an open lower end is 0; write both ends of a range below zero (-400m..-120m)
+  $ odag put rock 'mass(-3kg)'
+  odag: mass(-3kg): 'mass' takes no negative values — it is a magnitude unless declared a position on an axis, as an altitude is (put 'mass' 'signed-dimension')
+  ```
 - **Three more kinds**: `prefix-dimension` for hierarchical codes
   (`geo(u2ed)` is inside `geo(u2)` — geohash cells, handy for "near Tokyo"),
   `dominance-dimension` for does-it-fit tuples

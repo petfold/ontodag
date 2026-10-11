@@ -844,6 +844,126 @@ class TestFamilyPins(unittest.TestCase):
         self.assertTrue(dag.is_below("box", "eggs(12)"))
 
 
+def signed(**extra):
+    """`pinned()` with `altitude`, a length head declared a position."""
+    dag = pinned()
+    dag.put("altitude", ["linear-dimension(length)", "signed-dimension"])
+    return dag
+
+
+class TestSignedHeads(unittest.TestCase):
+    """A linear head filed under `signed-dimension` is a position on an axis
+    and takes negative values; any other head is a magnitude and refuses a
+    new one. What a name means never depends on the marker (question 32,
+    DIMENSIONS.md §22)."""
+
+    def test_a_signed_head_takes_negative_values_under_one_name(self):
+        dag = signed()
+        self.assertEqual(names(dag.nodes["signed-dimension"].parents), {"dimension"})
+        dag.put("dead-sea-shore", ["altitude(-0.43km)"])
+        dag.put("trench", ["altitude(-11000m..-10900m)"])
+        dag.put("cliff", ["altitude(-50m..100m)"])
+        self.assertEqual(names(dag.nodes["dead-sea-shore"].parents), {"altitude(-430m)"})
+        for spelling in ("altitude(-430m)", "altitude(-43000cm)", "altitude(-860/2m)"):
+            self.assertTrue(dag.is_below("dead-sea-shore", spelling))
+        self.assertEqual({n for n in names(dag.get(["altitude(-12km..0m)"])) if "(" not in n},
+                         {"dead-sea-shore", "trench"})
+        self.assertEqual({n for n in names(dag.get(["altitude(-120m..)"])) if "(" not in n},
+                         {"cliff"})
+        self.assertFalse(dag.is_below("cliff", "altitude(..100m)"))   # an open lower end is 0
+
+    def test_an_open_lower_end_below_zero_is_an_empty_range(self):
+        dag = signed()
+        with self.assertRaisesRegex(ValueError, "an open lower end is 0"):
+            dag.put("x", ["altitude(..-120m)"])
+        dag.put("x", ["altitude(-400m..-120m)"])
+
+    def test_a_magnitude_refuses_a_new_negative_value(self):
+        dag = signed()
+        before = edge_set(dag)
+        with self.assertRaisesRegex(ValueError, "'mass' takes no negative values"):
+            dag.put("rock", ["mass(-3kg)"])
+        self.assertEqual(edge_set(dag), before)
+        with self.assertRaisesRegex(ValueError, "takes no negative values"):
+            dag.get(["mass(-1kg..5kg)"])                 # a query term too
+        dag.put("depth", ["linear-dimension(length)"])
+        with self.assertRaisesRegex(ValueError, "put 'depth' 'signed-dimension'"):
+            dag.put("mine", ["depth(-300m)"])
+        dag.put("depth", ["signed-dimension"])            # declared later: takes them
+        dag.put("mine", ["depth(-300m)"])
+        self.assertTrue(dag.is_below("mine", "depth(-1km..0m)"))
+
+    def test_a_role_follows_its_base(self):
+        dag = signed()
+        dag.put("start-altitude", ["altitude"])
+        dag.put("dive", ["start-altitude(-30m)"])
+        self.assertTrue(dag.is_below("dive", "start-altitude(-40m..-20m)"))
+
+    def test_counts_sizes_and_kelvin_keep_their_own_refusals(self):
+        dag = signed()
+        dag.put("eggs", ["count-dimension(count)"])
+        dag.put("count-dimension(count)", ["signed-dimension"])   # no effect on a count
+        for bad, teaching in (("eggs(-2)", "negative count"),
+                              ("temp(-5K)", "below absolute zero")):
+            if bad.startswith("temp"):
+                dag.put("temp", ["linear-dimension(temperature)", "signed-dimension"])
+            with self.assertRaisesRegex(ValueError, teaching):
+                dag.put("x", [bad])
+        dag.put("temp", ["linear-dimension(temperature)"])
+        dag.put("winter", ["temp(-40C)"])                  # Celsius stays affine
+        self.assertTrue(dag.is_below("winter", "temp(-40F)"))
+
+    def test_replays_never_refuse_and_read_as_stored(self):
+        from ontodag import native
+        source = signed()
+        source.put("shore", ["altitude(-430m)"])
+        target = pinned()
+        target.put("altitude", ["linear-dimension(length)"])   # not signed here
+        text = native.dumps(source).replace(" signed-dimension", "")
+        text = "\n".join(line for line in text.splitlines()
+                         if not line.startswith(("#:", "signed-dimension", "'signed-dimension'")))
+        loaded = native.loads(text)
+        self.assertFalse(loaded._head_signed("altitude"))
+        self.assertEqual(names(loaded.nodes["shore"].parents), {"altitude(-430m)"})
+        self.assertEqual(names(loaded.get(["altitude(-430m)"])), {"shore"})
+        target.merge(source)                                # the marker comes along
+        self.assertTrue(target.is_below("shore", "altitude(-1km..0m)"))
+
+    def test_order_free_and_mergeable_against_brute_force(self):
+        import random
+        from fractions import Fraction
+        from ontodag import native
+        rng = random.Random(32)
+        facts = {}
+        for i in range(120):
+            lo = Fraction(rng.randint(-2000, 2000), rng.choice([1, 2, 10]))
+            hi = lo if rng.random() < 0.3 else lo + rng.randint(1, 1500)
+            facts[f"x{i}"] = (lo, hi)
+        spell = lambda v: (f"altitude({v[0]}m)" if v[0] == v[1]
+                           else f"altitude({v[0]}m..{v[1]}m)")
+
+        def build(order):
+            dag = signed()
+            for item in order:
+                dag.put(item, [spell(facts[item])])
+            return dag
+        order = list(facts)
+        dag = build(order)
+        for _ in range(60):
+            lo = Fraction(rng.randint(-2500, 2500)); q = (lo, lo + rng.randint(0, 2500))
+            want = {x for x, (a, b) in facts.items() if q[0] <= a and b <= q[1]}
+            self.assertEqual(names(dag.get([spell(q)])) & set(facts), want, spell(q))
+        shuffled = order[:]; rng.shuffle(shuffled)
+        self.assertEqual(native.dumps(build(shuffled)), native.dumps(dag))
+        half = build(order[:60]); half.merge(build(order[60:]))
+        self.assertEqual(native.dumps(half), native.dumps(dag))
+
+    def test_the_marker_cannot_be_renamed(self):
+        dag = signed()
+        with self.assertRaisesRegex(ValueError, "registry node"):
+            dag.rename("signed-dimension", "position")
+
+
 class TestMergeStaysTotalAcrossFamilies(unittest.TestCase):
     """Released bug (found 2026-10-07): two stores whose unpinned head took
     different families crashed inside `merge` (I7). Merge goes through, in

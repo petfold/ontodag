@@ -66,8 +66,13 @@ from fractions import Fraction
 #      geo a bare word names a place and a cell is written by its own name,
 #      `from(geo(u2e4x))`, while `geo(...)` takes geohashes only. Stores
 #      from 4.3 come along with `ontodag.migrate`, which also respells a
-#      role's bare cells; until then they read as they were stored).
-REGISTRY_VERSION = "4.4"
+#      role's bare cells; until then they read as they were stored),
+# 4.5 (2026-10-11, question 32: a negative value parses, and a linear head
+#      declared signed, `altitude ⊑ signed-dimension`, takes one; an open
+#      lower end is still 0, so `..-120m` is refused as empty. No stored
+#      name changes, so no migrate step; an older reader refuses the new
+#      names).
+REGISTRY_VERSION = "4.5"
 
 
 def registry_compatible(version, other=None):
@@ -81,6 +86,12 @@ def registry_compatible(version, other=None):
 # one kind node (directly or via ancestors): mass -> linear-dimension(mass) -> linear-dimension.
 DIMENSION_ROOT = "dimension"
 UNIT_DECLARATION = "unit-declaration"  # unit(...)/unit-family(...) parent
+# A linear head filed directly under this marker is a position on an axis
+# (`altitude ⊑ signed-dimension`) and takes negative values; any other head
+# is a magnitude and refuses a new one (question 32, DIMENSIONS.md §22). A
+# value's meaning never depends on it: a negative value parses everywhere,
+# and the marker only lets one be written. A role follows its base.
+SIGNED_DIMENSION = "signed-dimension"
 KIND_LINEAR = "linear-dimension"
 KIND_PREFIX = "prefix-dimension"
 KIND_DOMINANCE = "dominance-dimension"
@@ -214,6 +225,15 @@ def known_families(units=None):
     families |= {family for family, *_ in _AFFINE.values()}
     families |= {value[0] for value in (units or {}).values()}
     return families
+
+
+def is_negative(name, kind, units=None):
+    """Does a canonical value of `kind` reach below zero? Only a linear
+    value can (the count and size kinds refuse negatives themselves)."""
+    if kind != KIND_LINEAR:
+        return False
+    family, lo, _hi = _denotation(split_term(name)[1], kind, units)
+    return family != _TIME and lo < 0
 
 
 def family_of(name, kind, units=None):
@@ -577,10 +597,10 @@ def _parse_scalar(text, units=None):
         value = Fraction(number) * factor
     except ZeroDivisionError:
         raise ValueError(f"zero denominator in {text!r}") from None
-    if value < 0:
+    if value < 0 and family == "temperature":
         raise ValueError(
-            f"negative quantity {text!r} — the grammar admits negatives "
-            f"only for affine temperature spellings (C/degC, F/degF)")
+            f"{text!r} is below absolute zero — kelvin values are never "
+            f"negative")
     return family, value
 
 
@@ -613,11 +633,14 @@ def _parse_linear_builtin(param):
 
 
 def _parse_linear_uncached(param, units=None):
-    """-> (family, lo, hi); closed interval; None = unbounded. Numeric
-    families have no negative values (the grammar admits none), so an
-    unbounded lower end IS 0 and is normalized to it — `number(..0)` and
-    `number(0)` must be one canonical name (one denotation, one identity).
-    Only the time family is genuinely unbounded below."""
+    """-> (family, lo, hi); closed interval; None = unbounded. A numeric
+    family's unbounded lower end IS 0 and is normalized to it — `number(..0)`
+    and `number(0)` must be one canonical name (one denotation, one
+    identity) — for a signed head too, since what a name means may not
+    depend on a declaration that can arrive by merge; so `..-120m` is an
+    empty range. A negative value parses (whether a head may take one is
+    the graph's to say: `SIGNED_DIMENSION`). Only the time family is
+    genuinely unbounded below."""
     if ".." in param:
         parts = param.split("..")
         if len(parts) != 2:
@@ -635,6 +658,10 @@ def _parse_linear_uncached(param, units=None):
                 raise ValueError(f"empty range {param!r} (lo > hi)")
         family = (lo or hi)[0]
         lo_value = lo[1] if lo else (None if family == _TIME else Fraction(0))
+        if lo is None and family != _TIME and hi[1] < 0:
+            raise ValueError(
+                f"empty range {param!r} — an open lower end is 0; write "
+                f"both ends of a range below zero (-400m..-120m)")
         return family, lo_value, hi[1] if hi else None
     if _DATE_RE.match(param):  # bare date = the whole day, as an interval
         lo = _parse_end(param, "lo", units)
@@ -704,13 +731,17 @@ def _parse_calendar(param):
 
 def _count_value(text, units=None):
     """One count end -> a whole Fraction >= 1, with teaching refusals for
-    the three ways a count can go wrong (unit, fraction, zero)."""
+    the four ways a count can go wrong (unit, sign, fraction, zero)."""
     family, value = _parse_scalar(text, units)
     if family != "count":
         raise ValueError(
             f"{text!r} carries the {family!r} unit family — a count is a "
             f"bare whole number of discrete things; for a quantity of "
             f"stuff use that family's own head")
+    if value < 0:
+        raise ValueError(
+            f"{text!r} is a negative count — counts are whole numbers of "
+            f"discrete things, from one up")
     if value == 0:
         raise ValueError(
             f"{text!r} is a zero count — an absence claim ('there are "
@@ -792,6 +823,10 @@ def _parse_dominance_uncached(param, units=None):
         if unit:
             carried_unit = unit
         families[i], values[i] = _parse_scalar(number + carried_unit, units)
+        if values[i] < 0:
+            raise ValueError(
+                f"negative component {parts[i]!r} in {param!r} — a size "
+                f"is a magnitude")
     if len(set(families)) != 1:
         raise ValueError(f"components of {param!r} mix unit families")
     return families[0], tuple(sorted(values, reverse=True))

@@ -44,7 +44,7 @@ class TestTable(unittest.TestCase):
             self.assertEqual(once, expected, suffix)
 
     def test_registry_version_and_compatibility(self):
-        self.assertEqual(REGISTRY_VERSION, "4.4")
+        self.assertEqual(REGISTRY_VERSION, "4.5")
         self.assertTrue(registry_compatible("4.9"))
         self.assertFalse(registry_compatible("3.2"))
         self.assertFalse(registry_compatible("5.0"))
@@ -130,11 +130,11 @@ class TestFlagshipExactness(unittest.TestCase):
         self.assertEqual(canonicalize("t(0C..100C)", KIND_LINEAR),
                          "t(5463/20K..7463/20K)")
         self.assertTrue(contains("t(0C..30C)", "t(75F)", KIND_LINEAR))
-        # below absolute zero refuses; negatives stay refused elsewhere
+        # below absolute zero refuses, in any spelling
         with self.assertRaises(ValueError):
             canonicalize("t(-300C)", KIND_LINEAR)
         with self.assertRaises(ValueError):
-            canonicalize("w(-3kg)", KIND_LINEAR)
+            canonicalize("t(-5K)", KIND_LINEAR)
         # the bare SI coulomb/farad are spelled out; prefixes untouched
         self.assertEqual(canonicalize("q(5000mC)", KIND_LINEAR),
                          "q(5coulomb)")

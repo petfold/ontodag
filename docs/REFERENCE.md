@@ -6,7 +6,7 @@ the normative guarantees in [CONTRACT.md](CONTRACT.md). Tables here are
 pinned against the code by `tests/test_reference.py` — if a name in this
 file and the code disagree, the suite fails.
 
-Versions this file describes: contract `0.6` · registry `4.4` ·
+Versions this file describes: contract `0.6` · registry `4.5` ·
 prelude `4` · surface `0.1` · core `13`.
 
 ## 1. Vocabulary
@@ -298,8 +298,11 @@ Several values of one head on one item fold to their meet (`put(x, ["mass(1kg..3
 provably disjoint values of one head; a role of `geo` naming a word that
 is no filed place, or a `geo(...)` cell outside the geohash alphabet;
 `count(0)` (an absence claim);
-fractional counts; negatives (except affine `C`/`F` spellings); values
-below absolute zero; unknown units (the error names the pack or
+fractional counts; a new negative value under a head not declared a
+position on an axis (`altitude ⊑ signed-dimension` declares one, as a
+role's base; registry 4.5), a negative count or size component, and
+`..-120m` (an open lower end is 0, so the range is empty: write
+`-400m..-120m`); values below absolute zero, in any spelling; unknown units (the error names the pack or
 declaration that would define them); a head inheriting two kinds; a new
 term nested more than 32 levels (`dimensions.MAX_NESTING`; real names
 use two).
@@ -345,6 +348,8 @@ Prelude v4 declares: all nine kind nodes; the heads `mass`, `length`,
 relations `in` (transitive), `about` (enclosing) and `shared-with`
 (reversed). There is no `weight` head: weight is a force. `from` and `to`
 are not in the prelude (loopmarket declares them as roles of `geo`).
+`signed-dimension` is not in the prelude either: like a family node, it is
+made under `dimension` the first time a head is filed under it.
 
 ## 7. REST API (`web/`, needs the `web` extra)
 

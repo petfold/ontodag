@@ -1,6 +1,6 @@
 {
  "contract": "0.6",
- "registry": "4.4",
+ "registry": "4.5",
  "filings": [
   [
    "document",
@@ -170,6 +170,19 @@
    "ring",
    [
     "in(in(japan))"
+   ]
+  ],
+  [
+   "altitude",
+   [
+    "linear-dimension(length)",
+    "signed-dimension"
+   ]
+  ],
+  [
+   "dead-sea-shore",
+   [
+    "altitude(-430m)"
    ]
   ]
  ],
@@ -365,16 +378,35 @@
   [
    "from(geo(u2e))",
    "from(geo(u2e))"
+  ],
+  [
+   "altitude(-0.43km)",
+   "altitude(-430m)"
+  ],
+  [
+   "altitude(-500m..120m)",
+   "altitude(-500m..120m)"
+  ],
+  [
+   "altitude(-120m..)",
+   "altitude(-120m..)"
+  ],
+  [
+   "altitude(0m..120m)",
+   "altitude(..120m)"
   ]
  ],
  "stored": [
   "'about(japan)' about",
   "'about(tokyo)' about",
+  "altitude 'linear-dimension(length)' signed-dimension",
+  "'altitude(-430m)' altitude",
   "bicycle small-item",
   "bouquet 'count(24)'",
   "box 'mass(2kg..5kg)'",
   "'count(24)' count",
   "courier 'transport(mass(..8kg))' 'transport(small-item)'",
+  "dead-sea-shore 'altitude(-430m)'",
   "delivery 'from(geo(u2ed))'",
   "document '*'",
   "employee person",
@@ -402,6 +434,7 @@
   "ring 'in(in(japan))'",
   "sales-employee employee",
   "'shared-with(sales-employee)' shared-with",
+  "signed-dimension dimension",
   "'size(2/5x3/10x1/5m)' size",
   "small-item '*'",
   "statue 'located-at(tokyo)'",

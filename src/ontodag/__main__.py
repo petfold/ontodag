@@ -240,12 +240,15 @@ def cmd_put(args, session, out):
     # Name the missing parents (the core's error does not), and say when a
     # shipped pack would supply one — the name-level twin of the pack-aware
     # unknown-unit errors. Parametric parents are exempt: put materializes
-    # a declared head's values itself, and a family pin under its kind.
+    # a declared head's values itself, a family pin under its kind, and the
+    # signed marker under the registry's root.
     from ontodag import dimensions as dims
 
     def made_by_put(name):
         if session.dag.is_term(name):
             return True
+        if name == dims.SIGNED_DIMENSION:
+            return dims.DIMENSION_ROOT in session.dag.nodes
         pin = dims.kind_node(name)
         return pin is not None and pin[1] is not None \
             and pin[0] in session.dag.nodes

@@ -199,8 +199,8 @@ Contract 0.6 (`docs/CONTRACT.md`, `tests/test_contract.py`):
   (`make_g8.py`) only together with a registry bump.
 - **G9** replays are order-free; single writes are checked as they come.
 
-Versions now: contract 0.6, registry 4.4 (released in 0.31.0), prelude 4,
-surface 0.1.
+Versions now: contract 0.6, registry 4.5 on main (4.4 released in
+0.31.0), prelude 4, surface 0.1.
 Consumers compare majors.
 
 ## Standing rules
@@ -448,7 +448,8 @@ Each line points to its record.
   stays computable from its name, an open lower end stays zero (so
   `..-120m` is refused as empty), and counts and sizes keep their own
   refusals (DIMENSIONS.md §22). Floors are named parts of their building
-  (core's `floor`, local labels), with no number head for now. Not built.
+  (core's `floor`, local labels), with no number head for now. Built
+  on main (registry 4.5); `altitude` as a head is ontodag-core's.
 
 ## Bee integration status
 
@@ -480,8 +481,8 @@ Each line points to its record.
   24–28), loopmarket 0.15.0 (its 0.31 branch merged; floor
   `ontodag>=0.31.0`), ontodag-fs 0.7.0 (ontodag's public layer;
   `>=0.31.0,<0.32.0`). Unchanged: recordstore 0.22.2 and swarmfs 0.14.0
-  (their commits since are lint and docs). Nothing is unreleased on any
-  main.
+  (their commits since are lint and docs). Unreleased on ontodag's main:
+  question 32, negative values for signed heads (registry 4.5).
 - categor.io's live site runs its main (6bad379, updated 2026-10-10):
   ontodag 0.31, and removing a contact ends its shares
   (`with_terms=True`). circulator's main writes v4 offers (its CI has been red

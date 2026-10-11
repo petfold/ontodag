@@ -925,15 +925,32 @@ class OntoDAG(DAG):
                         f"cannot pin {head_name!r} to {family}: it already "
                         f"holds {value.name}, which is {other}")
 
-    def _ensure_family_node(self, name):
+    def _ensure_declaration_node(self, name):
         """Materialize a family pin (`linear-dimension(mass)`) on first use,
-        under its kind node, as a value is materialized under its head."""
-        found = _dims.kind_node(name)
-        if found is None or found[1] is None or found[0] not in self.nodes:
+        under its kind node, as a value is materialized under its head; and
+        the signed marker, under the registry's root."""
+        if name == _dims.SIGNED_DIMENSION:
+            parent = _dims.DIMENSION_ROOT
+        else:
+            found = _dims.kind_node(name)
+            if found is None or found[1] is None:
+                return
+            parent = found[0]
+        if parent not in self.nodes:
             return
         node = Item(name)
         self.add_node(node)
-        self.add_edge(self.nodes[found[0]], node)
+        self.add_edge(self.nodes[parent], node)
+
+    def _head_signed(self, head_name):
+        """Is this head's dimension a position on an axis, taking negative
+        values? Its base is filed directly under the signed marker (a role
+        follows its base, as it follows its base's pin)."""
+        base = self._dimension_of(head_name)[1]
+        node = self.nodes.get(base) if base is not None else None
+        return node is not None and any(
+            parent.name == _dims.SIGNED_DIMENSION
+            for parent in self._kind_walk_parents(node))
 
     def _head_family(self, head_name):
         """The unit family a head is pinned to (`mass ⊑
@@ -1985,6 +2002,13 @@ class OntoDAG(DAG):
                     raise ValueError(
                         f"{name}: dimension {split[0]!r} holds {family} "
                         f"values, and this one is {found}")
+            if _dims.is_negative(canonical, kind, units=self._declared_units()) \
+                    and not self._head_signed(split[0]):
+                base = self._dimension_of(split[0])[1]
+                raise ValueError(
+                    f"{name}: {base!r} takes no negative values — it is a "
+                    f"magnitude unless declared a position on an axis, as an "
+                    f"altitude is (put '{base}' '{_dims.SIGNED_DIMENSION}')")
         return split[0], kind, canonical
 
     def _canonical_name(self, name):
@@ -4533,7 +4557,8 @@ class OntoDAG(DAG):
         if old not in self.nodes:
             raise ValueError(f"Category {old} does not exist.")
         heads = self._heads()
-        reserved = {_dims.DIMENSION_ROOT, _dims.UNIT_DECLARATION}
+        reserved = {_dims.DIMENSION_ROOT, _dims.UNIT_DECLARATION,
+                    _dims.SIGNED_DIMENSION}
         for name in (old, new):
             if not name:
                 raise ValueError("A category's name cannot be empty.")
@@ -4830,7 +4855,7 @@ class OntoDAG(DAG):
                 if parsed is not None:
                     self._ensure_parametric_node(name, parsed[0], parsed[1])
                 else:
-                    self._ensure_family_node(name)
+                    self._ensure_declaration_node(name)
 
         if any(name not in self.nodes for name in super_names):
             raise ValueError("One or more super-categories do not exist.")
@@ -5094,7 +5119,7 @@ class OntoDAG(DAG):
 
         for name, head, kind in pending:
             if head is None:
-                self._ensure_family_node(name)
+                self._ensure_declaration_node(name)
             else:
                 self._ensure_parametric_node(name, head, kind)
 

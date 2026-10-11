@@ -12,6 +12,24 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Registry 4.5
+
+- **A position on an axis can be negative** (question 32, decided by
+  Peter 2026-10-11; DIMENSIONS.md §22). A linear head filed under the new
+  marker `signed-dimension` (`altitude ⊑ signed-dimension`, made on first
+  use like a family node) takes negative values: `altitude(-430m)`,
+  `altitude(-11km..-10km)`. Any other head is a magnitude and refuses a new
+  negative value, typed or written, with the declaration named; a merge, a
+  sync or a load never refuses one, and what a name means never depends on
+  the marker (a negative value parses everywhere). An open lower end is
+  still 0, so `..-120m` is refused as an empty range. Counts and sizes
+  refuse negatives themselves, and a kelvin value below zero is refused in
+  any spelling. No stored name changes, so there is no migrate step; a
+  reader before 4.5 refuses the new names. `odag put` makes the marker as
+  it makes a family node.
+
 ## [0.31.0] — 2026-10-10
 
 ### Contract 0.6, registry 4.4
