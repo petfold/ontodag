@@ -65,16 +65,22 @@ def assemble(dist, recordstore, extra=()):
 
 
 def tar_of(dist):
+    """dist/ as a tar whose bytes depend only on the files: sorted, with no
+    times or owners, so the same files publish to the same reference."""
+    paths = sorted(os.path.relpath(os.path.join(base, f), dist)
+                   for base, _dirs, files in os.walk(dist) for f in files)
     buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w") as tar:
-        for base, _dirs, files in os.walk(dist):
-            for f in sorted(files):
-                path = os.path.join(base, f)
-                tar.add(path, arcname=os.path.relpath(path, dist))
+    with tarfile.open(fileobj=buf, mode="w", format=tarfile.USTAR_FORMAT) as tar:
+        for rel in paths:
+            info = tarfile.TarInfo(rel)
+            with open(os.path.join(dist, rel), "rb") as fh:
+                data = fh.read()
+            info.size, info.mode = len(data), 0o644
+            tar.addfile(info, io.BytesIO(data))
     return buf.getvalue()
 
 
-def publish(dist, api, batch):
+def upload(dist, api, batch):
     req = urllib.request.Request(
         f"{api}/bzz", data=tar_of(dist), method="POST",
         headers={"Content-Type": "application/x-tar",
@@ -83,16 +89,23 @@ def publish(dist, api, batch):
                  "Swarm-Postage-Batch-Id": batch,
                  "Swarm-Deferred-Upload": "true"})
     with urllib.request.urlopen(req, timeout=600) as res:
-        ref = json.load(res)["reference"]
-    for _ in range(40):
+        return json.load(res)["reference"]
+
+
+def retrievable(api, ref, minutes):
+    """Ask the node, until `minutes` have passed, whether the network serves
+    `ref` (GET /stewardship re-reads it from the network: slow for a page)."""
+    deadline = time.time() + 60 * minutes
+    while time.time() < deadline:
         try:
-            with urllib.request.urlopen(f"{api}/stewardship/{ref}", timeout=120) as res:
+            with urllib.request.urlopen(f"{api}/stewardship/{ref}", timeout=300) as res:
                 if json.load(res).get("isRetrievable"):
-                    return ref, True
-        except OSError:
-            pass
-        time.sleep(15)
-    return ref, False
+                    return True
+            print("  not retrievable yet", flush=True)
+        except OSError as e:
+            print(f"  stewardship: {e}", flush=True)
+        time.sleep(30)
+    return False
 
 
 def main():
@@ -102,16 +115,23 @@ def main():
     ap.add_argument("--publish", action="store_true")
     ap.add_argument("--api", default=os.environ.get("BEE_API", "http://localhost:1633"))
     ap.add_argument("--batch", default=os.environ.get("BEE_BATCH"))
+    ap.add_argument("--no-build", action="store_true", help="publish dist/ as it is")
+    ap.add_argument("--wait", type=float, default=20,
+                    help="minutes to wait for the network to serve the upload")
     args = ap.parse_args()
-    wheels = assemble(args.dist, args.recordstore)
+    if not args.no_build:
+        wheels = assemble(args.dist, args.recordstore)
+        print(f"wheels: {', '.join(wheels)}")
     size = sum(os.path.getsize(os.path.join(b, f)) for b, _, fs in os.walk(args.dist) for f in fs)
-    print(f"dist: {args.dist} ({size / 2**20:.1f} MB; wheels {', '.join(wheels)})")
+    print(f"dist: {args.dist} ({size / 2**20:.1f} MB)", flush=True)
     if args.publish:
         if not args.batch:
             sys.exit("publishing needs a postage batch: --batch ID or BEE_BATCH")
-        ref, ok = publish(args.dist, args.api.rstrip("/"), args.batch)
-        print(f"published: bzz://{ref}/  ({args.api}/bzz/{ref}/)")
-        print("retrievable" if ok else "NOT yet retrievable: check GET /stewardship and upload again")
+        api = args.api.rstrip("/")
+        ref = upload(args.dist, api, args.batch)
+        print(f"published: bzz://{ref}/  ({api}/bzz/{ref}/)", flush=True)
+        ok = retrievable(api, ref, args.wait)
+        print("retrievable" if ok else "NOT yet retrievable: check GET /stewardship later, and upload again if it stays so")
 
 
 if __name__ == "__main__":

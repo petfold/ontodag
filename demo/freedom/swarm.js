@@ -247,15 +247,58 @@ class Gate {
 
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Checked chunks kept in the browser's own database (IndexedDB) across
+// visits: a chunk never changes, so a second visit reads from here instead of
+// spending the client's read budget. Every failure here is a cache miss.
+export class StoredChunks {
+  static async open(name = "ontodag-swarm-chunks") {
+    try {
+      const db = await new Promise((resolve, reject) => {
+        const req = indexedDB.open(name, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore("chunks");
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      return new StoredChunks(db);
+    } catch {
+      return null;
+    }
+  }
+
+  constructor(db) { this.db = db; }
+
+  get(ref) {
+    return new Promise((resolve) => {
+      try {
+        const req = this.db.transaction("chunks").objectStore("chunks").get(ref);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
+  put(ref, chunk) {
+    try {
+      this.db.transaction("chunks", "readwrite").objectStore("chunks")
+        .put({ span: chunk.span.toString(), payload: chunk.payload }, ref);
+    } catch {
+      // full, or closed: the next visit reads the network again
+    }
+  }
+}
+
 // Checked chunks, cached for the session (a chunk never changes), with a cap
 // on reads in flight and a wait-and-retry when a client says "too many".
 export class ChunkReader {
-  constructor(source, { inFlight = 16, onRateLimit = () => {} } = {}) {
+  constructor(source, { inFlight = 16, onRateLimit = () => {}, stored = null } = {}) {
     this.source = source;
     this.cache = new Map();
+    this.stored = stored;
     this.gate = new Gate(inFlight);
     this.onRateLimit = onRateLimit;
-    this.stats = { reads: 0, cached: 0, bytes: 0, waits: 0 };
+    this.stats = { reads: 0, cached: 0, stored: 0, bytes: 0, waits: 0 };
   }
 
   chunk(ref) {
@@ -269,6 +312,16 @@ export class ChunkReader {
   }
 
   async _fetch(ref) {
+    if (this.stored) {
+      const kept = await this.stored.get(ref);
+      if (kept) {
+        const chunk = { span: BigInt(kept.span), payload: new Uint8Array(kept.payload) };
+        if (chunkAddress(chunk.span, chunk.payload) === ref) {
+          this.stats.stored++;
+          return chunk;
+        }
+      }
+    }
     await this.gate.enter();
     try {
       for (let wait = 2000; ; wait = Math.min(wait * 2, 30000)) {
@@ -287,6 +340,7 @@ export class ChunkReader {
         if (address !== ref) throw new Forged(ref, address);
         this.stats.reads++;
         this.stats.bytes += got.payload.length;
+        if (this.stored) this.stored.put(ref, got);
         return got;
       }
     } finally {

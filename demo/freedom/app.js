@@ -3,7 +3,7 @@
 // asynchronous Swarm reads through JSPI (pyodide.ffi.run_sync), so every
 // call into Python goes through callPromising.
 
-import { ChunkReader, BlobStore, FreedomSwarm, HttpSwarm } from "./swarm.js";
+import { ChunkReader, BlobStore, FreedomSwarm, HttpSwarm, StoredChunks } from "./swarm.js";
 
 // The published packs, by the roots ontodag pins for them (tests/test_packs.py
 // SWARM_GOLDEN_ROOTS): equal knowledge, equal root, so a root is the whole
@@ -47,7 +47,7 @@ function showStats(answer) {
   const kb = (s.bytes / 1024).toFixed(0);
   $("stats").textContent =
     `records read ${answer.records} in ${answer.round_trips} round trips · ` +
-    `chunks fetched ${s.reads} (${kb} KB), reused ${s.cached}` +
+    `chunks fetched ${s.reads} (${kb} KB), kept from earlier visits ${s.stored}, reused ${s.cached}` +
     (s.waits ? ` · waited for the read budget ${s.waits}×` : "");
 }
 
@@ -132,14 +132,29 @@ async function boot() {
 
   const source = chooseSource();
   $("source").textContent = `Reading Swarm through ${source.kind}`;
+  const connected = { yes: false };
   reader = new ChunkReader(source, {
-    onRateLimit: (ms) => status(`The browser's read budget is spent; waiting ${ms / 1000} s…`, true),
+    stored: await StoredChunks.open(),
+    onRateLimit: (ms) => {
+      if (source instanceof FreedomSwarm && !connected.yes) {
+        status(`Freedom lets a site that has not connected read only so much of Swarm a minute; waiting ${ms / 1000} s. Connect to Freedom to read five times as much.`, true);
+        $("connect").classList.add("primary");
+      } else {
+        status(`The read budget is spent; waiting ${ms / 1000} s…`, true);
+      }
+    },
   });
   globalThis.ontodagBlobs = new BlobStore(reader);
   if (source instanceof FreedomSwarm) {
     $("connect").classList.remove("hidden");
     $("connect").onclick = async () => {
-      try { await source.connect(); $("connect").disabled = true; $("connect").textContent = "Connected"; }
+      try {
+        await source.connect();
+        connected.yes = true;
+        $("connect").disabled = true;
+        $("connect").classList.remove("primary");
+        $("connect").textContent = "Connected";
+      }
       catch (e) { status(`Freedom did not connect: ${e.message}`, true); }
     };
   }
@@ -206,5 +221,6 @@ def below(a, b):
 }
 
 // For tests and the console: the page's own calls.
-globalThis.ontodagPage = { call, openStore, goto, stats: () => reader && reader.stats, ready: null };
+globalThis.ontodagPage = { call, openStore, goto, stats: () => reader && reader.stats, ready: null,
+  connect: () => document.getElementById("connect").click() };
 globalThis.ontodagPage.ready = boot().then(() => true, (e) => { status(`Could not start: ${e.message || e}`, true); console.error(e); return false; });
