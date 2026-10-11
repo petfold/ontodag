@@ -491,10 +491,11 @@ Each line points to its record.
   as rectangles for the first time on a real node) passed. Then, through
   `api.gateway.ethswarm.org`, a clean reader with only released packages
   (recordstore 0.22.3 no longer asks a reader for a batch) folded a
-  maker's offer announced on Gnosis from the chain key; that announcement
-  replaced the same key's v5-gate clearing book (one standing
-  announcement per owner). Every run since July, with what each taught,
-  is in the journal.
+  maker's offer announced on Gnosis from the chain key (one standing
+  announcement per owner: afterwards the offer was withdrawn and the
+  key's v5-gate clearing book re-announced, so the registry stands as
+  before). Every run since July, with what each taught, is in the
+  journal.
 
 ## State (2026-10-11)
 

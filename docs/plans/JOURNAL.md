@@ -2669,3 +2669,7 @@ only released packages; loopmarket's journal has the run. The
 announcement, from the chain key, replaced that key's standing v5-gate
 clearing book on the registry (one per owner).
 
+**Tidied, on Peter's word:** the test offer withdrawn, the v5-gate clearing
+book re-announced (the registry as before the run), and loopmarket's
+missing-extra traceback fixed (`MissingExtra`, one line from `loop`).
+
