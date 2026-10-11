@@ -507,8 +507,8 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Question 31, relative times in `time(...)`, is next (loopmarket's other
-launch spelling). Polygons and unions
+Question 31, relative times in `time(...)`, is put (DIMENSIONS.md §22;
+loopmarket's other launch spelling). Polygons and unions
 of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 

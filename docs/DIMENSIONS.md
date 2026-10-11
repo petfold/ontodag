@@ -2250,3 +2250,50 @@ only the last, which `±` makes, holds the others. `±` never makes such a
 pair, so "around the pole" is written with it. Closing the gap would take a
 pole case in containment, meets, overlap and the index, for pairs that
 share one point.
+
+**Question 31, put (2026-10-11): relative times in `time(...)`.** May
+`odag` take `today` or `+7d` inside `time(...)`, and where are they turned
+into dates? At 2026-10-11 09:46:05 UTC, `odag put concert
+'time(today..+7d)'` would store `time(2026-10-11T00:00:00Z..2026-10-18T09:46:04Z)`
+and `odag get 'time(tomorrow)'` would ask for
+`time(2026-10-12T00:00:00Z..2026-10-12T23:59:59Z)`. Today `odag` refuses
+both (invalid calendar value), and `loop` takes them with its own code.
+
+Common to A, B and C: the words are loopmarket's (`now`, the current
+second; `today`; `tomorrow`; `+N` and `-N` in ontodag's duration units, an
+offset counted from now), at either end of a range; the stored value is
+absolute, so what is stored never changes meaning; `..` keeps ontodag's
+meaning, an open end, so `time(..+90d)` is everything up to 90 days from
+now; the clock is the machine's, and a `now` setting (flag, environment or
+config, as loopmarket's `set now`) fixes it for scripts and tests.
+
+- **A. Only where a person or an agent types**: the `odag` command, the
+  agent tool, the web console and `surface.elaborate(..., now=)`. The core
+  (`put` and `get` from Python, merges, loads, ingest) never sees them, and
+  a file holding `time(today)` is refused, as now. `today` is the UTC day,
+  as in loopmarket. Pros: no clock in the core, so a store and every
+  replay stay a function of their content; an agent, which often does not
+  know the date, can say `today` and read the dates in the answer;
+  loopmarket drops its own time words; no registry bump (the surface
+  layer's minor). Cons: a Python caller elaborates first; east of UTC early
+  in the morning (Tokyo before 09:00) `today` is yesterday's date; `loop`'s
+  `..+90d`, which means "from now" today, takes ontodag's open start, so
+  `loop` would refuse it for a release with the fix named (`now..+90d`).
+- **B. As A, with `today` the date in the machine's time zone**, read as a
+  typed date (a UTC day). Pros: `today` is the date the person sees. Cons:
+  the zone is a second hidden input; at 08:00 in Tokyo `today` (12 October
+  in UTC) does not contain `now` (11 October, 23:00 UTC).
+- **C. In the core**: the calendar grammar reads relative times for every
+  reader. Pros: Python callers get them as they are. Cons: a name's meaning
+  would depend on when it is read; a file or a merge would build a
+  different store each day, so loads and replays would have to refuse them
+  anyway, which is A with more machinery.
+- **D. Nothing in ontodag.** Pros: no work. Cons: two grammars; `odag` and
+  its agents type absolute dates; what `loop` takes cannot be pasted into
+  `odag`, which the launch asked for.
+
+Recommendation: A. It is the device `±` uses, a spelling turned into a
+stored value once, at input; with a clock involved, that belongs where
+someone is typing, not in names that replays read. UTC keeps `today`
+holding `now` and matches how ontodag reads a typed date, and `loop`
+already shows the local time beside UTC before anything is published.
