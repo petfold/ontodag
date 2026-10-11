@@ -253,6 +253,9 @@ def family_of(name, kind, units=None):
 
 _LINEARISH = frozenset({KIND_LINEAR, KIND_CALENDAR})
 _INTERVALISH = _LINEARISH | {KIND_COUNT}
+# The kinds whose values are ordered by arithmetic on their names and kept
+# in a value index, so a walk finds a value's computed hops by lookup.
+VALUE_KINDS = _INTERVALISH | {KIND_PREFIX, KIND_RECT}
 
 
 # --------------------------------------------------------------------------- #

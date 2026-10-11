@@ -1,6 +1,7 @@
 from collections import namedtuple
 import bisect
 from contextlib import contextmanager
+from fractions import Fraction
 import functools
 from itertools import combinations
 
@@ -766,6 +767,181 @@ class _Prefixes:
         return out
 
 
+class _Rectangles:
+    """The values of one rectangle head, each keyed by the smallest cell of
+    a fixed binary grid that holds it (longitude and latitude halved in
+    turn, as geohash cells are made, but never named), sorted by key. A
+    value inside a rectangle holds a cell inside one of the few cells of
+    the rectangle's own size that cover it, so the values below are those
+    keyed under the cover, and those held above it on a seam; a value
+    containing a rectangle holds a cell that contains the rectangle's own,
+    so the values above are those held along its key. A value across 180°,
+    or around every longitude, is held by the whole grid. For a role head
+    (`literal_role`), the values its terms write by the base's name,
+    `from(geo(...))`."""
+
+    DEPTH = 52            # bits: about a metre, the cell of a point
+
+    def __init__(self, units, literal_role=None):
+        self.units = units
+        self.literal_role = literal_role
+        self.keys = []            # distinct keys, sorted
+        self.held = {}            # key -> {name: denotation}
+        self.key_of = {}          # name -> key
+
+    @classmethod
+    def _key(cls, d):
+        south, north, west, width = d
+        if width == 360 or west + width > 180:
+            return ""
+        east = west + width
+        lon0, lon1, lat0, lat1 = Fraction(-180), Fraction(180), Fraction(-90), Fraction(90)
+        bits = []
+        for i in range(cls.DEPTH):
+            if i % 2 == 0:
+                mid = (lon0 + lon1) / 2
+                if east <= mid:
+                    bits.append("0"); lon1 = mid
+                elif west >= mid:
+                    bits.append("1"); lon0 = mid
+                else:
+                    break
+            else:
+                mid = (lat0 + lat1) / 2
+                if north <= mid:
+                    bits.append("0"); lat1 = mid
+                elif south >= mid:
+                    bits.append("1"); lat0 = mid
+                else:
+                    break
+        return "".join(bits)
+
+    COVER = 64            # cells a query may be covered by, per side of 180°
+
+    @classmethod
+    def _cover(cls, d):
+        """Keys of the cells, at the finest level where at most `COVER` of
+        them do, whose closed extent meets the rectangle."""
+        south, north, west, width = d
+        if width == 360:
+            parts = [(Fraction(-180), Fraction(180))]
+        elif west + width <= 180:
+            parts = [(west, west + width)]
+        else:
+            parts = [(west, Fraction(180)), (Fraction(-180), west + width - 360)]
+
+        def span(a, b, origin, size, bits):
+            first = int((a - origin) // size)
+            last = int((b - origin) // size)
+            if (a - origin) % size == 0:
+                first -= 1                       # the cell ending at a touches it
+            return range(max(first, 0), min(last, 2 ** bits - 1) + 1)
+        out = []
+        for lo, hi in parts:
+            for level in range(cls.DEPTH, -1, -1):
+                lon_bits, lat_bits = (level + 1) // 2, level // 2
+                xs = span(lo, hi, -180, Fraction(360, 2 ** lon_bits), lon_bits)
+                ys = span(south, north, -90, Fraction(180, 2 ** lat_bits), lat_bits)
+                if len(xs) * len(ys) <= cls.COVER:
+                    break
+            if level == 0:
+                return [""]
+            for ix in xs:
+                for iy in ys:
+                    key = []
+                    for i in range(level):
+                        if i % 2 == 0:
+                            key.append(str((ix >> (lon_bits - 1 - i // 2)) & 1))
+                        else:
+                            key.append(str((iy >> (lat_bits - 1 - i // 2)) & 1))
+                    out.append("".join(key))
+        return out
+
+    def _read(self, dag, name):
+        """The denotation a name stands for here; None to leave it out (a
+        role term naming a place, found by the walk); raises ValueError
+        when it cannot be read."""
+        split = _dims.split_term(name)
+        if split is None:
+            raise ValueError(name)
+        if self.literal_role is not None:
+            if split[0] != self.literal_role:
+                return None
+            if _dims.split_term(split[1]) is None:
+                return None
+        return _dims.rect_bounds(name)
+
+    def add(self, dag, name, units=None, kind=None):
+        try:
+            d = self._read(dag, name)
+        except ValueError:
+            return self.literal_role is not None
+        if d is None:
+            return True
+        key = self._key(d)
+        if name in self.key_of:
+            return True
+        bucket = self.held.get(key)
+        if bucket is None:
+            bucket = self.held[key] = {}
+            bisect.insort(self.keys, key)
+        bucket[name] = d
+        self.key_of[name] = key
+        return True
+
+    def discard(self, dag, name):
+        key = self.key_of.pop(name, None)
+        if key is not None:
+            bucket = self.held[key]
+            bucket.pop(name, None)
+            if not bucket:
+                del self.held[key]
+                del self.keys[bisect.bisect_left(self.keys, key)]
+        return True
+
+    def related(self, d, up, limit=None, skip=None):
+        """Names of the indexed values containing `d` (`up`) or inside it."""
+        out = []
+        if up:
+            key = self._key(d)
+            seen = (self.held.get(key[:k], {}) for k in range(len(key) + 1))
+            for bucket in seen:
+                for name, other in bucket.items():
+                    if name != skip and _dims._rect_contains(other, d):
+                        out.append(name)
+            return out
+        cells, buckets = self._cover(d), set()
+        for cell in cells:
+            for k in range(len(cell)):
+                buckets.add(cell[:k])           # held above, across a seam
+            at = bisect.bisect_left(self.keys, cell)
+            while at < len(self.keys) and self.keys[at].startswith(cell):
+                buckets.add(self.keys[at])
+                at += 1
+        for key in sorted(buckets):
+            for name, other in self.held.get(key, {}).items():
+                if name != skip and _dims._rect_contains(d, other):
+                    out.append(name)
+                    if limit is not None and len(out) > limit:
+                        return out
+        return out
+
+    def hops(self, dag, canonical, head, kind, up, limit=None):
+        try:
+            d = _dims.rect_bounds(canonical)
+        except ValueError:
+            return None
+        return self.related(d, up, limit, skip=canonical)
+
+
+def _value_index_class(kind):
+    if kind == _dims.KIND_PREFIX:
+        return _Prefixes
+    if kind == _dims.KIND_RECT:
+        return _Rectangles
+    return _Intervals
+
+
 class OntoDAG(DAG):
     def __init__(self):
         super().__init__()
@@ -1224,13 +1400,18 @@ class OntoDAG(DAG):
         return node
 
     def _cell_param(self, head, param):
-        """Is `param` a geo cell written by its own name (`geo(u2e4x)`) in
-        a term of `head`, a role of geo? The one nested parameter a flat
-        kind takes (review question 14)."""
+        """Is `param` a value of `head`'s base written by the base's own
+        name in a term of a role: a geo cell (`from(geo(u2e4x))`, review
+        question 14) or a rectangle (`from(geo(48..49,2..3))`, question
+        29)? The one nested parameter a flat kind takes."""
         inner = _dims.split_term(param)
-        if inner is None or inner[0] != _dims.GEO_HEAD:
+        if inner is None:
             return False
         kind, base = self._dimension_of(head)
+        if kind == _dims.KIND_RECT:
+            return inner[0] == base != head
+        if inner[0] != _dims.GEO_HEAD:
+            return False
         return kind == _dims.KIND_PREFIX and base == _dims.GEO_HEAD != head
 
     @staticmethod
@@ -1244,9 +1425,12 @@ class OntoDAG(DAG):
 
     def _role_value(self, head, param):
         """A literal role parameter's value: `u2e4` for `u2e4` and for
-        `geo(u2e4)`."""
-        return _dims._prefix_parts(head, param)[0] \
-            if self._cell_param(head, param) else param
+        `geo(u2e4)`; a rectangle's own parameter for `geo(48..49,2..3)`."""
+        if not self._cell_param(head, param):
+            return param
+        if self._dimension_of(head)[0] == _dims.KIND_RECT:
+            return _dims.split_term(param)[1]
+        return _dims._prefix_parts(head, param)[0]
 
     def _cell_spellings(self, head, value):
         """Both ways a role of geo can spell the cell `value`: as written
@@ -1332,6 +1516,27 @@ class OntoDAG(DAG):
                 f"and o, and {cell!r} is none — a named place is a category "
                 f"filed under its cell: put {cell} "
                 f"'{_dims.GEO_HEAD}(<geohash>)'")
+
+    def _refuse_wide_rectangle(self, name):
+        """A new rectangle whose arc is half the circle or wider, but not
+        all of it, is refused when written (question 29): two such values
+        could share two separate pieces, which no one value names, so an
+        item under both would have nothing to fold to. A query may be any
+        width; a replay keeps what it is given."""
+        parsed = self._parse_parametric(name)
+        if parsed is None or parsed[1] != _dims.KIND_RECT:
+            return
+        split = _dims.split_term(parsed[2])
+        if self._param_node(split[0], split[1]) is not None:
+            return
+        if _dims.rect_too_wide(parsed[2]):
+            raise ValueError(
+                f"{parsed[2]}: a stored rectangle spans less than half the "
+                f"circle of longitude, or all of it (-180..180) — this one "
+                f"spans {float(_dims.rect_bounds(parsed[2])[3]):g}°; a "
+                f"longitude range runs east from its first bound, so the "
+                f"narrow way across 180° is written west..east with west the "
+                f"larger (170..-170)")
 
     def _old_cell_value(self, name):
         """The cell a role of geo's term spells the old way (`from(u2e4x)`
@@ -1546,7 +1751,9 @@ class OntoDAG(DAG):
         if head not in upper:
             upper[head] = value
         elif upper[head] is not None:
-            upper[head] = self._intersect(upper[head], value, kind)
+            met = self._intersect(upper[head], value, kind)
+            if met is not _dims.SPLIT_MEET:       # two pieces: keep the wider bound
+                upper[head] = met
 
     def _bounds(self, name):
         """What a term or node is known to lie within and known to cover:
@@ -1989,6 +2196,14 @@ class OntoDAG(DAG):
             # parameter's identity (its position may move with the
             # catalogue, which is the point — DIMENSIONS.md §14).
             return split[0], kind, name
+        if kind == _dims.KIND_RECT:
+            base = self._dimension_of(split[0])[1]
+            if base != split[0]:
+                raise ValueError(
+                    f"{name}: {split[1]!r} is no place filed in the {base!r} "
+                    f"dimension — a role of {base!r} takes a place by its name "
+                    f"or a rectangle by the base's, {split[0]}({base}(...)): "
+                    f"file the place first (put {split[1]} '{base}(...)')")
         canonical = _dims.canonicalize(name, kind, units=self._declared_units())
         if kind in _dims.FAMILY_KINDS and canonical not in self.nodes:
             # A stored value parses as stored (a pin added later, or a
@@ -2303,8 +2518,7 @@ class OntoDAG(DAG):
             return None
         if kind in _dims.GRAPH_ORDERED:
             return "nested"
-        if (kind in _dims._INTERVALISH or kind == _dims.KIND_PREFIX) \
-                and base == split[0]:
+        if kind in _dims.VALUE_KINDS and base == split[0]:
             return None
         return "odd"
 
@@ -2356,7 +2570,7 @@ class OntoDAG(DAG):
         index = indexes[1].get(head)
         if index is not None:
             return index
-        index = (_Prefixes if kind == _dims.KIND_PREFIX else _Intervals)(units_key)
+        index = _value_index_class(kind)(units_key)
         for key in self._nested_keys:
             if _dims.split_term(key)[0] == head \
                     and not index.add(self, key, units=units, kind=kind):
@@ -2374,7 +2588,7 @@ class OntoDAG(DAG):
             if split is None:
                 continue
             kind, base = self._heads().get(split[0], (None, None))
-            if kind not in _dims._INTERVALISH and kind != _dims.KIND_PREFIX:
+            if kind not in _dims.VALUE_KINDS:
                 continue
             if base != split[0]:
                 continue
@@ -2412,8 +2626,7 @@ class OntoDAG(DAG):
         index = values.get(head)
         if index is not None and index.units is (self._unit_cache or (None,))[0]:
             return index
-        cls = _Prefixes if kind == _dims.KIND_PREFIX else _Intervals
-        index = cls((self._unit_cache or (None,))[0])
+        index = _value_index_class(kind)((self._unit_cache or (None,))[0])
         for value, _ in self._star(head):
             if not index.add(self, value.name, units=units, kind=kind):
                 values.pop(head, None)
@@ -2436,7 +2649,7 @@ class OntoDAG(DAG):
         base = self._dimension_of(head)[1]
         if base != head:
             return self._role_hops(canonical, head, base, up, limit)
-        if kind in _dims._INTERVALISH or kind == _dims.KIND_PREFIX:
+        if kind in _dims.VALUE_KINDS:
             index = self._value_index(head, kind)
             if index is None:
                 return None
@@ -2469,7 +2682,7 @@ class OntoDAG(DAG):
             parsed = _dims.split_term(current.name)
             if parsed is not None:
                 kind = self._dimension_kind(parsed[0])
-                if kind in _dims._INTERVALISH or kind == _dims.KIND_PREFIX:
+                if kind in _dims.VALUE_KINDS:
                     parents.extend(self._computed_parents(current))
             for parent in parents:
                 if parent.name not in seen:
@@ -2502,7 +2715,7 @@ class OntoDAG(DAG):
             parsed = _dims.split_term(current.name)
             if parsed is not None:
                 kind = self._dimension_kind(parsed[0])
-                if kind in _dims._INTERVALISH or kind == _dims.KIND_PREFIX:
+                if kind in _dims.VALUE_KINDS:
                     children.extend(self._computed_children(current))
             for child in children:
                 if child.name not in seen:
@@ -2521,7 +2734,10 @@ class OntoDAG(DAG):
         (`from(u2e4)`). So the base dimension is walked from the parameter
         and every spelling is looked up; terms of a value are also found
         through a sorted index of the role's literal parameters, by prefix.
-        Only a prefix base is covered; any other falls back to the scan."""
+        Only a prefix or a rectangle base is covered; any other falls back
+        to the scan."""
+        if self._dimension_of(base)[0] == _dims.KIND_RECT:
+            return self._role_hops_rect(canonical, head, base, up, limit)
         if self._dimension_of(base)[0] != _dims.KIND_PREFIX:
             return None
         param = _dims.split_term(canonical)[1]
@@ -2566,9 +2782,52 @@ class OntoDAG(DAG):
             return [t for t in found if self._contains(t, canonical, kind)]
         return [t for t in found if self._contains(canonical, t, kind)]
 
+    def _role_hops_rect(self, canonical, head, base, up, limit=None):
+        """`_role_hops` for a role of a rectangle head: the base dimension
+        walked from the parameter (a place, or the value the term writes),
+        each base value met spelled as the role's term, and the terms whose
+        written values contain it or lie inside it found by the role's
+        rectangle index."""
+        param = _dims.split_term(canonical)[1]
+        node = self._param_node(head, param)
+        start = node.name if node is not None else param
+        head_node = self.nodes.get(head)
+        budget = len(head_node.neighbors) if head_node is not None else 0
+        if limit is not None:
+            budget = min(budget, limit)
+        walked = self._ancestry(start) if up else self._below_names(start, budget)
+        if walked is None:
+            return None
+        literals = self._role_literals(head)
+        found = set()
+        for name in walked:
+            split = _dims.split_term(name)
+            found.add(f"{head}({name})")
+            if split is not None and split[0] == base:
+                found.update(literals.related(_dims.rect_bounds(name), up))
+        found.discard(canonical)
+        found = [t for t in found if t in self.nodes]
+        kind = self._dimension_of(head)[0]
+        if up:
+            return [t for t in found if self._contains(t, canonical, kind)]
+        return [t for t in found if self._contains(canonical, t, kind)]
+
     def _role_literals(self, head):
         """The role's literal parameters, sorted (a `_Prefixes` index kept
-        with the value indexes)."""
+        with the value indexes), or for a role of a rectangle head the
+        values its terms write (a `_Rectangles` index)."""
+        if self._dimension_of(head)[0] == _dims.KIND_RECT:
+            values = self._values
+            if values is None:
+                values = self._values = {}
+            index = values.get(head)
+            if isinstance(index, _Rectangles) and index.literal_role == head:
+                return index
+            index = _Rectangles(None, literal_role=head)
+            for term, _ in self._star(head):
+                index.add(self, term.name)
+            values[head] = index
+            return index
         values = self._values
         if values is None:
             values = self._values = {}
@@ -2585,8 +2844,7 @@ class OntoDAG(DAG):
         """The present values directly above (`up`) or below a value term
         that is not present itself, or [] when `name` is no such term."""
         parsed = self._parse_parametric(name)
-        if parsed is None or (parsed[1] not in _dims._INTERVALISH
-                              and parsed[1] != _dims.KIND_PREFIX):
+        if parsed is None or parsed[1] not in _dims.VALUE_KINDS:
             return []
         found = self._hops(parsed[2], parsed[0], parsed[1], up)
         if found is None:
@@ -2903,7 +3161,13 @@ class OntoDAG(DAG):
                 f"terms instead")
         if self._param_node(head, _dims.split_term(a)[1]) is None and \
                 self._param_node(head, _dims.split_term(b)[1]) is None:
-            return self._intersect(a, b, kind)
+            met = self._intersect(a, b, kind)
+            if met is _dims.SPLIT_MEET:
+                raise ValueError(
+                    f"no single term names the meet of {a!r} and {b!r}: they "
+                    f"share two separate pieces (one spans half the circle or "
+                    f"more) — query with both terms instead")
+            return met
         if self._contains(a, b, kind):
             return b
         if self._contains(b, a, kind):
@@ -3658,9 +3922,11 @@ class OntoDAG(DAG):
                 # fallback, and went exponential).
                 upper = same[0]
                 for other in same[1:]:
-                    upper = self._intersect(upper, other, kind)
-                    if upper is None:
+                    met = self._intersect(upper, other, kind)
+                    if met is None:
                         return False
+                    if met is not _dims.SPLIT_MEET:   # two pieces: the wider bound stays
+                        upper = met
             return upper is not None and upper != sub \
                 and self._contains(sup, upper, kind)
         return self._has_ancestors(sub_node, (sup_node,), computed=self._lean)
@@ -4712,6 +4978,14 @@ class OntoDAG(DAG):
             meet = distinct[0]
             for other in distinct[1:]:
                 met = self._intersect(meet, other, kind)
+                if met is _dims.SPLIT_MEET:
+                    if self._total():
+                        break      # no one value to fold to: kept as given
+                    raise ValueError(
+                        f"{sub_name} cannot sit under both {meet} and {other}: "
+                        f"they share two separate pieces, and no one value "
+                        f"names that — a stored rectangle spans less than half "
+                        f"the circle of longitude, or all of it")
                 if met is None:
                     if self._total():
                         break      # kept as a merge keeps it, unfolded
@@ -4765,6 +5039,7 @@ class OntoDAG(DAG):
             for name in (*super_names, sub_name):
                 if name not in self.nodes:
                     self._refuse_new_cell_spelling(name)
+                    self._refuse_wide_rectangle(name)
         parametric_supers = {}  # head -> [(canonical name, kind), ...]
         for name in super_names:
             parsed = self._parse_parametric(name)
@@ -5341,6 +5616,8 @@ class OntoDAG(DAG):
                     if meet is None:
                         out.append((name, sorted(values)))
                         break
+                    if meet is _dims.SPLIT_MEET:
+                        break          # they can all hold, in either piece
         return out
 
     def name_clashes(self):
