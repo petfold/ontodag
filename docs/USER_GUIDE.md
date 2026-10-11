@@ -930,7 +930,9 @@ What to know:
   is the Eiffel Tower to about 11 by 7 metres, and a more precise position
   sits inside it. `geo(48.8584,2.2945±500m)` is the square 500 m either way
   (`+-` in plain ASCII, any length unit), turned into bounds once by a
-  fixed rule and rounded outwards. A rectangle may cross the 180th
+  fixed rule and rounded outwards; a size that reaches round the planet
+  gives all of it, `geo(-90..90,-180..180)`, which says somewhere on
+  Earth. A rectangle may cross the 180th
   meridian (`179.7..-179.9` runs east from 179.7°); one spanning half the
   globe's longitude or more, but not all of it, is refused when filed,
   and may still be asked about. A named place such as a city is an

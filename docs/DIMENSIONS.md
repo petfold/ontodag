@@ -2214,3 +2214,16 @@ with a rectangle where they say a cell. As built:
   then such a store reads geo as a prefix head, and merging the new
   prelude into it fails, naming the migration, as any head given two kinds
   does.
+
+**A size past the planet (Peter, 2026-10-11: is `±50000km` allowed, and
+since a whole-planet constraint is no constraint, could it be dropped?).**
+Kept, meaning "on Earth". A `±` that reaches round the planet gives all of
+it, `geo(-90..90,-180..180)`, one name for every centre and size that gets
+there (from the Eiffel Tower about 15,440 km, from anywhere past 20,015 km,
+half a meridian), so the form stays canonical. Dropping it would lose a
+fact: an item with no `geo` value is one nobody has placed, or no place at
+all, while this one is somewhere on Earth, and a query for what overlaps
+the Eiffel Tower finds it and not the other. It cannot become the head
+either, since an item filed under `geo` itself is one of its roles, as
+`from` and `to` are. No size is refused as implausible, as no other value
+is; a typo of `km` for `m` stays the writer's to see.
