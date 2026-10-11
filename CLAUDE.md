@@ -519,6 +519,10 @@ Each line points to its record.
   since 2026-09-21 on a test comparing its own copy of the baseline).
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.
+- Watch coincurve on Python 3.14 (loopmarket's CLAUDE.md, "Upstream to
+  watch"): until a release supports 3.14, the `swarm` extra here and
+  loopmarket's `swarm`/`sig` do not install on Ubuntu 26.04's Python;
+  `uv tool install --python 3.12` is the workaround, and we keep coincurve.
 - Decided and built while Peter was away (2026-10-10): questions 11–23.
   Records in `docs/plans/REVIEW_2026-10.md` §8; the night's story in
   `docs/plans/JOURNAL.md`. Questions 24–27, decided with Peter the same
