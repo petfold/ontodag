@@ -436,6 +436,13 @@ Each line points to its record.
       counts only what the escrow has free, and the clearing reserves the
       floor per relying leg, as D1 says (item 24, question 27). Built.
 
+- Places (question 29, decided A on 2026-10-11): a named place is declared
+  (`in(paris)`) and gets no geometry in the core; a `geo` value is a
+  rectangle in degrees with exact bounds, a position the rectangle its
+  written precision covers; geohash names go, a registry major
+  (DIMENSIONS.md §22). Not built: it waits for question 30 and the
+  discussion of height and other bodies.
+
 ## Bee integration status
 
 - The node: Swarm Desktop's bee 2.8.2 light node at `localhost:1633`, on
@@ -481,13 +488,11 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Question 29, put 2026-10-11 (`docs/DIMENSIONS.md` §22): what a `geo`
-value is, within Peter's choice that places are declared (a thing carries
-`in(paris)` and, if it has one, a position; no region geometry in the
-core). A, rectangles only, geohash gone (recommended); B, rectangles, a
-cell name accepted as input; C, cells keep their names, rectangles added.
-Then question 30, the size's word and unit, and question 31,
-relative times in `time(...)`. Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
+Under discussion (Peter, 2026-10-11, raised with question 29): height
+and depth, floors included, and an optional celestial body, Earth by
+default (`docs/DIMENSIONS.md` §22). Then question 30, the size's word and
+unit, and question 31, relative times in `time(...)`. Polygons and unions
+of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 
 Older, not urgent: a publisher key for the packs on

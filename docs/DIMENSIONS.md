@@ -1923,3 +1923,23 @@ The options:
 Recommended: A, for simplicity: geohash names serve no reader, its code is
 what the new kind retires, and compatibility weighs little while there are
 no users.
+
+**Decided: A (Peter, 2026-10-11).** Rectangles only; geohash names go.
+Building waits for question 30 and for two matters Peter raised with the
+decision, either of which could change the value's form:
+
+- **Height and depth, floors included.** A box is inside another exactly
+  when its rectangle and its height range each are, so a separate height
+  head answers as a third range in `geo` would, and keeps each zero point
+  (sea level, the ground, GPS's ellipsoid, a building's ground floor) its
+  own head, since converting between them needs a terrain or geoid model,
+  not arithmetic on names. A length head works today
+  (`altitude(80m..120m)` is below `altitude(0m..150m)`, and feet convert
+  exactly), but the grammar refuses negative values except Celsius and
+  Fahrenheit (`altitude(-430m)`, `level(-1)`), and the count kind refuses
+  `level(0)`; positions on an axis are signed. Floors are named sub-places
+  today (§9).
+- **An optional celestial body, Earth by default.** Either inside the value
+  or one head per body of the same kind (`geo` is Earth by its definition).
+  A size typed in metres needs the body's radius (a degree of latitude is
+  111.3 km on Earth, 59.2 km on Mars, 30.3 km on the Moon).
