@@ -1876,3 +1876,50 @@ pieces once). Whatever the cover, a stored cover has a larger difficulty:
 merge only adds, so a store holding the old version of a pack keeps the old
 pieces, and where a boundary moved inwards they go on claiming land the
 region has lost, as a pack's sense correction never propagates by merge.
+
+**Question 29, put (2026-10-11), within Peter's choice that places are
+declared.** Peter chose the first of three ways to connect named places to
+geometry: a thing carries a declared place (`in(paris)`, an ordinary
+category as now) and, if it has one, a position; whatever turns
+coordinates into a place runs before filing, outside ontodag; no region has
+pieces in the core. (The others were pieces stored under the place, and a
+cover made from a boundary for each query and thrown away.) What is left is
+what a `geo` value is. Common to all three options:
+
+- A value is a rectangle in degrees with exact bounds, stored in ranges,
+  latitude first: `geo(48.8566..48.8602,2.2917..2.2973)`. Containment is
+  four comparisons, the meet of two values their intersection (disjoint
+  values on one item contradict, as in other kinds), and a rectangle may
+  cross the antimeridian (west bound east of the east bound).
+- A position is the rectangle its written precision covers, as a measured
+  value is an interval (UNITS.md §12) and `time(2026-10)` is below
+  `time(2026)`: `geo(48.8584,2.2945)` is
+  `geo(48.85835..48.85845,2.29445..2.29455)`, about 11 by 7 metres, and a
+  more precise position sits below it.
+- A rectangle kind replaces the prefix kind for `geo`; it retires the
+  geohash code (§13) and brings a brute-force oracle and count-based tests
+  for its index, which finds the values inside a query rectangle at a cost
+  that grows with the answer, stores nothing and has no names.
+- In a role a bare word stays a filed place and a rectangle is written by
+  its name (decision 14, with ranges for cells). loopmarket's `loop place`
+  and circle-to-cell code go. How a size is typed is question 30.
+
+The options:
+
+- **A**, rectangles only, geohash gone: a cell name is refused, and the
+  geohash code leaves the registry and loopmarket. The prefix kind stays,
+  headless in the prelude, for codes that nest by prefix (postcodes,
+  classification numbers). A registry major (5.0): old stores and
+  loopmarket's placed offers go through the `ontodag.migrate` replay, which
+  turns each cell into its rectangle exactly (a cell's bounds are dyadic,
+  so finite decimals).
+- **B**, rectangles only, a cell name still accepted as input and stored as
+  its rectangle: old terms and commands keep working; a registry minor and
+  the same replay. The geohash decoder stays for an input nobody types.
+- **C**, cells keep their names and rectangles are added (the re-put's
+  option 1): no stored name changes; two spellings under one rule, and the
+  geohash code and the seams stay for whoever uses cells.
+
+Recommended: A, for simplicity: geohash names serve no reader, its code is
+what the new kind retires, and compatibility weighs little while there are
+no users.

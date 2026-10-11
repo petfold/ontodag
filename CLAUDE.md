@@ -481,10 +481,12 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Question 29, under discussion (Peter, 2026-10-10: discuss, don't decide
-yet): `geo` values as rectangles (his idea, replacing circles), geohash
-possibly removed, and how named regions such as cities sit above the
-geometry (`docs/DIMENSIONS.md` §22). Then question 30, the size's word and unit, and question 31,
+Question 29, put 2026-10-11 (`docs/DIMENSIONS.md` §22): what a `geo`
+value is, within Peter's choice that places are declared (a thing carries
+`in(paris)` and, if it has one, a position; no region geometry in the
+core). A, rectangles only, geohash gone (recommended); B, rectangles, a
+cell name accepted as input; C, cells keep their names, rectangles added.
+Then question 30, the size's word and unit, and question 31,
 relative times in `time(...)`. Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 
