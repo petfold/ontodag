@@ -2686,3 +2686,15 @@ with nothing but the registry setting, to book root `d24ec279…`, the same
 as a reader here: loopmarket's last P1 launch item passes (its journal has
 the run).
 
+**loopmarket 0.17.0** (Peter: "B, then release 0.17.0"): one line installs
+loop (`install.sh`: uv if missing, the Swarm version when a Bee node
+answers, a Python already installed when one can run it), then `loop
+setup` (questions 34 and 35), and `loop categories` with an unknown-word
+hint that names loop's catalogue (question 36: after the setup, odag's
+own store holds only private places, so the old hint's `odag put` led
+nowhere). From PyPI, in fresh homes, both paths work; the first run with
+the extras met a lagging index, so the script now asks for `>=0.17.0`.
+loopmarket's journal has the run. The default catalogue (prelude, core,
+handover and the roles) leaves out loopmarket's operators, options and
+items packs, whose names core already takes as everyday words; that is
+for later.

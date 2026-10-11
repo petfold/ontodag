@@ -511,7 +511,10 @@ Each line points to its record.
   PyPI install), ontodag-fs 0.8.0 (`>=0.32.0,<0.33.0`), then recordstore
   0.22.3 (a store that only reads never asks for a postage batch, found
   reading through the public gateway) and loopmarket 0.16.1 (a missing
-  extra is one line, not a traceback). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
+  extra is one line, not a traceback), then loopmarket 0.17.0 (one-line
+  install script, `loop setup`, `loop categories`, the registry on Gnosis
+  read by default; its questions 34–36; installed from PyPI by the script
+  in fresh homes, with and without a node). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   prelude 5 re-pinned (core and the ten domain packs) are republished
   (Bee integration status).
 - categor.io's live site runs its main (ba92cf9, updated 2026-10-11):
