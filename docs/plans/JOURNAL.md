@@ -2709,3 +2709,11 @@ maker's book stands (`swarm:loop-twonode-1791730596`), and a fresh fold
 from the PyPI install reads one offer, book root `950aaa44…`, with no
 rejected lines. There is no `loop retract` verb; the client's `retract()`
 was called directly.
+
+**loopmarket 0.17.1** (Peter's word): `loop retract`, verified from PyPI
+with the install script in a fresh home. uv resolved the previous release
+for a few minutes after PyPI's index pages listed the new one; loopmarket's
+journal has the run. Then two issues filed on Freedom Browser as `petfold`
+(drafts in `~/projects/canopy-issues`, 09 and 10): #647, publishing a
+single-owner chunk the page signed, and #648, opening ACT content shared
+with the user's node with consent per publisher.

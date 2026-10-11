@@ -516,7 +516,8 @@ Each line points to its record.
   extra is one line, not a traceback), then loopmarket 0.17.0 (one-line
   install script, `loop setup`, `loop categories`, the registry on Gnosis
   read by default; its questions 34–36; installed from PyPI by the script
-  in fresh homes, with and without a node). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
+  in fresh homes, with and without a node), and loopmarket 0.17.1 (`loop
+retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   prelude 5 re-pinned (core and the ten domain packs) are republished
   (Bee integration status).
 - categor.io's live site runs its main (ba92cf9, updated 2026-10-11):
