@@ -483,12 +483,13 @@ Each line points to its record.
   that file up with the data directory.
 - Not yet tested on a real node: postage expiry and garbage collection
   (they need a batch nobody minds losing).
-- Last run: 2026-10-11, after the 0.32.0 release: core and the ten
+- Last run: 2026-10-11, after the 0.32.0 releases: core and the ten
   domain packs republished keyless (prelude 5 re-pinned their roots),
   every root equal to its pinned `SWARM_GOLDEN_ROOTS` entry, retrievable,
-  and read back by its root alone to the identical root. The gated tests
-  last ran on 2026-10-10 (ontodag's two, loopmarket's three). Every run
-  since July, with what each taught, is in the journal.
+  and read back by its root alone to the identical root; then ontodag's
+  two gated tests (48 s) and loopmarket's three live tests (5 min, places
+  as rectangles for the first time on a real node) passed. Every run since
+  July, with what each taught, is in the journal.
 
 ## State (2026-10-11)
 

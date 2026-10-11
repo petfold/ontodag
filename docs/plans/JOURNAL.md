@@ -2633,3 +2633,10 @@ code), then the floor rose (ba92cf9); rehearsed from an installed 0.31.0
 commits listed, backup, `Updated: ba92cf9`; the one `curl: (7)` line was
 the first poll before gunicorn bound its port, as on 2026-10-10.
 https://categor.io answers 200.
+
+**The live tests, and the branch.** On Peter's word: ontodag's two gated
+tests passed on the node (48 s), and loopmarket's three live tests (the
+triangle on a Swarm book, the federated book, a register at its feed
+tip) passed in 5 min 9 s, their places built as rectangles for the first
+time against real Swarm; batch `c931c8a5…` usable afterwards. loopmarket's
+`ontodag-0.32` branch, wholly in main, deleted locally and on GitHub.
