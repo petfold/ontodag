@@ -15,6 +15,9 @@ Two ways in, both checked against the same pack read natively in Python
 - **Over HTTP** (`--url http://localhost:1633/bzz/REF/`, after
   `build.py --publish`): the page served by the node itself reads through
   `HttpSwarm` on its own origin.
+- **Through a gateway** (`--gateway https://api.gateway.ethswarm.org`): the
+  page served from dist/ reads every chunk from the gateway, which fetches
+  from the network: the case of a browser with no Swarm of its own.
 
 Needs a Bee node with the pack's chunks (BEE_API, default localhost:1633)
 and `playwright` with Chromium.
@@ -103,7 +106,7 @@ def native(root, queries):
     return out
 
 
-async def check_page(url, root, queries, freedom):
+async def check_page(url, root, queries, freedom, gateway=None):
     from playwright.async_api import async_playwright
     calls = {}
     async with async_playwright() as p:
@@ -117,7 +120,7 @@ async def check_page(url, root, queries, freedom):
             await page.expose_function("__standin", answer)
             await page.add_init_script(FREEDOM_STANDIN)
         started = time.time()
-        await page.goto(f"{url}?root={root}")
+        await page.goto(f"{url}?root={root}" + (f"&gateway={gateway}" if gateway else ""))
         ok = await page.evaluate("window.ontodagPage.ready")
         print(f"  page ready: {ok} after {time.time() - started:.1f} s; source: {await page.inner_text('#source')}")
         if not ok:
@@ -159,6 +162,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--root", default=CORE)
     ap.add_argument("--url", help="the page as a node serves it (http://localhost:1633/bzz/REF/)")
+    ap.add_argument("--gateway", help="read every chunk through this gateway")
     args = ap.parse_args()
     queries = {"node": ["fruit", "food", "apple", "piano-lesson", "durian-not-a-category"],
                "get": ["fruit", "berry", "fruit produce", "lesson"],
@@ -169,6 +173,13 @@ def main():
         print(f"over HTTP: {args.url}")
         got, _ = asyncio.run(check_page(args.url, args.root, queries, freedom=False))
         bad += 1 if got is None else compare(got, want)
+    elif args.gateway:
+        server = serve(os.path.join(HERE, "dist"))
+        url = f"http://127.0.0.1:{server.server_port}/index.html"
+        print(f"through the gateway {args.gateway}: {url}")
+        got, _ = asyncio.run(check_page(url, args.root, queries, freedom=False, gateway=args.gateway))
+        bad += 1 if got is None else compare(got, want)
+        server.shutdown()
     else:
         server = serve(os.path.join(HERE, "dist"))
         url = f"http://127.0.0.1:{server.server_port}/index.html"

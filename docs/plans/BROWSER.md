@@ -548,9 +548,12 @@ it, with chunks read in parallel:
 - **Record reads:** the session read 107 records in 15 round trips at
   Python's level. Without prefetch, a 258-node cone costs 266 round trips;
   with it, 9.
-- **A node fetching from the network** will be slower per chunk; how much
-  slower is still to be measured.
+- **Through the public gateway** (`check.py --gateway
+  https://api.gateway.ethswarm.org`, any browser, every chunk fetched from
+  the network): ready in 7.5 s, `fruit` 6.5 s, `food` 2.9 s, `get fruit`
+  3.0 s, all answers equal to the native reader's. That is the network's
+  latency per level of the trie, paid once per session.
 
-Next, as §8 orders them: the same page over a public gateway, then writing
-under the §11 key (Weeb-3 or an HTTP node first, Freedom after #647).
+Next, as §8 orders them: writing under the §11 key (Weeb-3 or an HTTP
+node first, Freedom after #647). The gateway step is done (above).
 
