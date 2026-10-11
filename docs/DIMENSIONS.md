@@ -2047,9 +2047,9 @@ fixed (the Earth's mean radius, 111.2 km to a degree of latitude, and a
 fixed cosine, never the machine's floating point), so every writer gets the same name; near a pole the rectangle
 widens in longitude and is cut at 90°, and across 180° it wraps. Around the
 Eiffel Tower (48.8584,2.2945), 500 m either way is
-`geo(48.853903..48.862897,2.287665..2.301335)`; around the Greenwich
+`geo(48.853903..48.862897,2.287664..2.301336)`; around the Greenwich
 observatory (51.4769,-0.0005) it is one value across the meridian,
-`geo(51.472403..51.481397,-0.00772..0.00672)`.
+`geo(51.472403..51.481397,-0.007721..0.006721)`.
 
 - **A**, `±` and a length, half the side: `geo(48.8584,2.2945±500m)`, 500 m
   either way (`+-` typed in ASCII). Any length unit (`±0.5km`, `±1500ft`).

@@ -438,7 +438,7 @@ class TestRegistry:
                               "dominance-dimension", "calendar-dimension",
                               "count-dimension", "graph-dimension",
                               "transitive-dimension", "enclosing-dimension",
-                              "reversed-dimension"}
+                              "reversed-dimension", "rectangle-dimension"}
         assert dims.DIMENSION_ROOT == "dimension"
         assert dims.SIGNED_DIMENSION == "signed-dimension"
         # MAJOR.MINOR since v3 (UNITS.md D10): same major = same

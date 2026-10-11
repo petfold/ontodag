@@ -25,6 +25,7 @@ same-head terms is containment of denotations (`contains`), i.e. the same
 extension-inclusion order the DAG's asserted edges have always meant.
 """
 
+import decimal
 import functools
 import re
 from calendar import monthrange
@@ -159,9 +160,18 @@ KIND_ENCLOSING = "enclosing-dimension"
 # folds or meets, since a plan can be for sales and for finance, and the
 # union of two audiences has no single name (DIMENSIONS.md §18).
 KIND_REVERSED = "reversed-dimension"
+# Rectangle is the kind for places on a sphere (question 29, DIMENSIONS.md
+# §22): a value is a latitude interval and a longitude arc in degrees with
+# exact decimal bounds, `geo(48.85..48.87,2.28..2.30)`, ordered by
+# containment. The arc wraps across 180° when its west bound is the larger,
+# so one value holds Taveuni; a stored arc is less than half the circle or
+# all of it, so two values meet in one rectangle (the DAG keeps that rule on
+# writes; a query may be any width). Another body is another head of this
+# kind (question 33).
+KIND_RECT = "rectangle-dimension"
 KINDS = frozenset({KIND_LINEAR, KIND_PREFIX, KIND_DOMINANCE, KIND_CALENDAR,
                    KIND_COUNT, KIND_GRAPH, KIND_TRANSITIVE, KIND_ENCLOSING,
-                   KIND_REVERSED})
+                   KIND_REVERSED, KIND_RECT})
 # Kinds whose parameters are constraints on the graph, ordered by the DAG
 # rather than by arithmetic on the name. Their terms go only under their
 # own head: filed under anything else, a term states a rule ("whatever is
@@ -865,6 +875,256 @@ def cell_value(name):
     return None
 
 
+# ---- rectangles on the sphere (KIND_RECT) -----------------------------------
+#
+# Each axis is written as a range (`48.85..48.87`) or as one number, whose
+# written precision is its extent: `48.8584` is `48.85835..48.85845`, as a
+# measured value is an interval (UNITS.md §12) and `time(2026-10)` is a
+# month. `LAT,LON±SIZE` (`+-` in ASCII) is the square SIZE either way, SIZE a
+# length: turned into bounds once, on the Earth's mean radius with Decimal
+# arithmetic at a fixed precision (never the machine's floating point, so
+# every writer gets the same name), rounded outwards to millionths of a
+# degree so the rectangle only grows, and widened to every longitude when it
+# reaches a pole or half the circle. A denotation is (south, north, west,
+# width): latitudes in [-90, 90], the west bound in (-180, 180], the arc's
+# width in [0, 360), and every longitude (-180, 360). In a role the value is
+# written by its base's own name, `from(geo(...))`; the DAG checks the base.
+
+_GEO_NUM_RE = re.compile(r"^-?\d+(?:\.\d+)?$")
+_GEOHASH_LIKE = re.compile(r"^[0-9b-hjkmnp-z]*[b-hjkmnp-z][0-9b-hjkmnp-z]*$")
+_GEO_CTX = decimal.Context(prec=50)
+_GEO_PI = decimal.Decimal("3.14159265358979323846264338327950288419716939937510")
+EARTH_M_PER_DEGREE = _GEO_CTX.divide(
+    _GEO_CTX.multiply(decimal.Decimal("6371008.8"), _GEO_PI), decimal.Decimal(180))
+GEO_GRID = decimal.Decimal("0.000001")
+_FULL_ARC = (Fraction(-180), Fraction(360))
+
+
+class _SplitMeet:
+    """What `intersect` returns for two rectangles that share two separate
+    pieces (arcs that between them cover the circle): not empty, and no
+    single value. Only a value wider than half the circle can cause it."""
+
+    def __repr__(self):
+        return "SPLIT_MEET"
+
+
+SPLIT_MEET = _SplitMeet()
+
+
+def _rect_parts(head, param):
+    """(param, nested head) of a rectangle-kind parameter: a role writes its
+    base's value by the base's name, `from(geo(48..49,2..3))`; which head
+    may be nested is the graph's to say."""
+    split = split_term(param)
+    if split is not None and split[0] != head:
+        return split[1], split[0]
+    return param, None
+
+
+def _geo_number(text, param):
+    if not _GEO_NUM_RE.match(text):
+        raise ValueError(
+            f"{text!r} in {param!r} is no decimal number of degrees — a "
+            f"geo value is written lat..lat,lon..lon, lat,lon or "
+            f"lat,lon±size: geo(48.85..48.87,2.28..2.30)")
+    return Fraction(text)
+
+
+def _geo_axis(text, param):
+    """(lo, hi) of one axis: a range, or a number and its precision."""
+    if ".." in text:
+        ends = text.split("..")
+        if len(ends) != 2 or not ends[0] or not ends[1]:
+            raise ValueError(f"{text!r} in {param!r}: a range needs both ends")
+        return _geo_number(ends[0], param), _geo_number(ends[1], param)
+    value = _geo_number(text, param)
+    places = len(text.split(".")[1]) if "." in text else 0
+    half = Fraction(1, 2 * 10 ** places)
+    return value - half, value + half
+
+
+def _norm_longitude(value):
+    value = (value + 180) % 360 - 180
+    return Fraction(180) if value == -180 else value
+
+
+def _geo_arc(west, east, param):
+    """The arc running east from `west` to `east`, as (west, width)."""
+    width = east - west
+    if width >= 360:
+        return _FULL_ARC
+    if width < 0:
+        width += 360
+        if width < 0:
+            raise ValueError(
+                f"{param!r}: a longitude range runs east from its first "
+                f"bound and spans at most the whole circle")
+    return _norm_longitude(west), width
+
+
+def _geo_decimal(value):
+    return _GEO_CTX.divide(decimal.Decimal(value.numerator),
+                           decimal.Decimal(value.denominator))
+
+
+def _cos_degrees(x):
+    """cos of x degrees by its series at 50 digits: the same everywhere."""
+    r = _GEO_CTX.divide(_GEO_CTX.multiply(x, _GEO_PI), decimal.Decimal(180))
+    r2 = _GEO_CTX.multiply(r, r)
+    term = total = decimal.Decimal(1)
+    k = 0
+    while True:
+        k += 2
+        term = _GEO_CTX.divide(_GEO_CTX.multiply(-term, r2), decimal.Decimal(k * (k - 1)))
+        if abs(term) < decimal.Decimal("1e-48"):
+            return total
+        total = _GEO_CTX.add(total, term)
+
+
+def _geo_around(lat_text, lon_text, size_text, param, units):
+    lat, lon = _geo_number(lat_text, param), _geo_number(lon_text, param)
+    if not -90 <= lat <= 90:
+        raise ValueError(f"{param!r}: latitude {lat_text} is outside -90..90")
+    family, metres = _parse_scalar(size_text, units)
+    if family != "length" or metres < 0:
+        raise ValueError(
+            f"{param!r}: the size after ± is a length, as much either way "
+            f"(geo(48.8584,2.2945±500m))")
+    floor = lambda d: d.quantize(GEO_GRID, rounding=decimal.ROUND_FLOOR, context=_GEO_CTX)
+    ceil = lambda d: d.quantize(GEO_GRID, rounding=decimal.ROUND_CEILING, context=_GEO_CTX)
+    dlat = _GEO_CTX.divide(_geo_decimal(metres), EARTH_M_PER_DEGREE)
+    south = max(floor(_GEO_CTX.subtract(_geo_decimal(lat), dlat)), decimal.Decimal(-90))
+    north = min(ceil(_GEO_CTX.add(_geo_decimal(lat), dlat)), decimal.Decimal(90))
+    edge = max(abs(south), abs(north))
+    if edge >= 90:
+        return Fraction(south), Fraction(north), *_FULL_ARC
+    dlon = _GEO_CTX.divide(dlat, _cos_degrees(edge))     # the wider edge's
+    if dlon >= 90:
+        return Fraction(south), Fraction(north), *_FULL_ARC
+    west = floor(_GEO_CTX.subtract(_geo_decimal(lon), dlon))
+    east = ceil(_GEO_CTX.add(_geo_decimal(lon), dlon))
+    return (Fraction(south), Fraction(north),
+            *_geo_arc(Fraction(west), Fraction(east), param))
+
+
+def _parse_rect(param, units=None):
+    """-> (south, north, west, width), exact."""
+    if not units:
+        return _parse_rect_builtin(param)
+    return _parse_rect_uncached(param, units)
+
+
+@functools.lru_cache(maxsize=1 << 16)
+def _parse_rect_builtin(param):
+    """`_parse_rect` under the built-in units only (the size after ± is the
+    one place units enter), cached."""
+    return _parse_rect_uncached(param, None)
+
+
+def _parse_rect_uncached(param, units=None):
+    for sign in ("±", "+-"):
+        if sign in param:
+            centre, size = param.split(sign, 1)
+            parts = centre.split(",")
+            if len(parts) != 2 or ".." in centre:
+                raise ValueError(
+                    f"{param!r}: ± follows a position, lat,lon±size "
+                    f"(geo(48.8584,2.2945±500m))")
+            return _geo_around(parts[0], parts[1], size, param, units)
+    parts = param.split(",")
+    if len(parts) != 2:
+        hint = ""
+        if _GEOHASH_LIKE.match(param):
+            hint = (f" — {param!r} looks like a geohash cell; since registry "
+                    f"5.0 a geo value is a rectangle, and `odag migrate` "
+                    f"turns a store's cells into rectangles")
+        raise ValueError(
+            f"{param!r} is no rectangle: a geo value is written "
+            f"lat..lat,lon..lon, lat,lon or lat,lon±size, as "
+            f"geo(48.85..48.87,2.28..2.30){hint}")
+    south, north = _geo_axis(parts[0], param)
+    typed = ".." in parts[0]
+    if south > north:
+        raise ValueError(f"{param!r}: an empty latitude range (south > north)")
+    if typed and not (-90 <= south and north <= 90):
+        raise ValueError(f"{param!r}: latitudes lie in -90..90")
+    if not typed:
+        if not -90 <= (south + north) / 2 <= 90:
+            raise ValueError(f"{param!r}: latitudes lie in -90..90")
+        south, north = max(south, Fraction(-90)), min(north, Fraction(90))
+    west, east = _geo_axis(parts[1], param)
+    return (south, north, *_geo_arc(west, east, param))
+
+
+def _decimal_text(value):
+    """The exact decimal spelling of a Fraction whose expansion ends."""
+    if value.denominator == 1:
+        return str(value.numerator)
+    places = 0
+    while (value * 10 ** places).denominator != 1:
+        places += 1
+        if places > 400:
+            raise ValueError(f"{value} has no finite decimal expansion")
+    digits = str(abs(value.numerator * 10 ** places // value.denominator))
+    digits = digits.rjust(places + 1, "0")
+    text = (digits[:-places] + "." + digits[-places:]).rstrip("0").rstrip(".")
+    return ("-" if value < 0 else "") + text
+
+
+def _render_rect(denotation):
+    south, north, west, width = denotation
+    if width == 360:
+        lon = "-180..180"
+    else:
+        lon = f"{_decimal_text(west)}..{_decimal_text(_norm_longitude(west + width))}"
+    return f"{_decimal_text(south)}..{_decimal_text(north)},{lon}"
+
+
+def _rect_contains(outer, inner):
+    if not (outer[0] <= inner[0] and inner[1] <= outer[1]):
+        return False
+    if outer[3] == 360:
+        return True
+    if inner[3] == 360:
+        return False
+    return (inner[2] - outer[2]) % 360 + inner[3] <= outer[3]
+
+
+def _rect_meet(a, b):
+    """The rectangles two rectangles share: none, one, or two."""
+    south, north = max(a[0], b[0]), min(a[1], b[1])
+    if south > north:
+        return []
+    if a[3] == 360:
+        arcs = [(b[2], b[3])]
+    elif b[3] == 360:
+        arcs = [(a[2], a[3])]
+    else:
+        d = (b[2] - a[2]) % 360
+        arcs = set()
+        for lo, hi in ((d, d + b[3]), (d - 360, d + b[3] - 360)):
+            lo, hi = max(lo, Fraction(0)), min(hi, a[3])
+            if lo <= hi:
+                arcs.add((_norm_longitude(a[2] + lo), hi - lo))
+        arcs = sorted(arcs)
+    return [(south, north, west, width) for west, width in arcs]
+
+
+def rect_bounds(name):
+    """(south, north, west, width) of a rectangle term, nested or not."""
+    head, param = split_term(name)
+    return _parse_rect(_rect_parts(head, param)[0])
+
+
+def rect_too_wide(name):
+    """Is a rectangle term's arc half the circle or wider, yet not all of
+    it? Such a value is refused when written (two of them could meet in two
+    pieces), and may be queried."""
+    width = rect_bounds(name)[3]
+    return 180 <= width < 360
+
+
 # ---- rendering (the canonical form; names are the identity) ----------------
 
 def _fraction_text(value):
@@ -926,6 +1186,9 @@ def _denotation(param, kind, units=None):
         return _parse_dominance(param, units)
     if kind == KIND_PREFIX:
         return _parse_prefix(param)
+    if kind == KIND_RECT:
+        split = split_term(param)
+        return _parse_rect(split[1] if split is not None else param, units)
     raise ValueError(f"unknown dimension kind {kind!r}")
 
 
@@ -940,6 +1203,8 @@ def _render(denotation, kind):
         family, values = denotation
         suffix = _ANCHOR.get(family, family)
         return "x".join(_fraction_text(v) for v in values) + suffix
+    if kind == KIND_RECT:
+        return _render_rect(denotation)
     return denotation  # prefix: the validated string is canonical
 
 
@@ -955,6 +1220,10 @@ def canonicalize(name, kind, units=None):
     if kind == KIND_PREFIX:
         value, nested = _prefix_parts(head, param)
         return f"{head}({GEO_HEAD}({value}))" if nested else f"{head}({value})"
+    if kind == KIND_RECT:
+        inner, nested = _rect_parts(head, param)
+        text = _render_rect(_parse_rect(inner, units))
+        return f"{head}({nested}({text}))" if nested else f"{head}({text})"
     return f"{head}({_render(_denotation(param, kind, units), kind)})"
 
 
@@ -977,6 +1246,8 @@ def space_of(name, kind, units=None):
         return f"dominance:{denotation[0]}:{len(denotation[1])}"
     if kind in GRAPH_ORDERED:
         return "graph"
+    if kind == KIND_RECT:
+        return "rect"
     return "prefix"
 
 
@@ -1035,6 +1306,9 @@ def contains(outer, inner, kind, units=None):
     if kind == KIND_PREFIX:
         return _prefix_parts(head, param_inner)[0].startswith(
             _prefix_parts(head, param_outer)[0])
+    if kind == KIND_RECT:
+        return _rect_contains(_denotation(param_outer, kind, units),
+                              _denotation(param_inner, kind, units))
     if kind in GRAPH_ORDERED:
         raise ValueError(
             f"{outer!r} vs {inner!r}: a category term is ordered by the "
@@ -1046,7 +1320,9 @@ def intersect(a, b, kind, units=None):
     """Canonical name of denotation(a) ∩ denotation(b), or None when the
     intersection is provably empty. Within a dimension meets are exact —
     the planner pre-intersects same-head query terms with this, and the
-    disjoint-parents guard raises on None (DIMENSIONS.md §8, §9)."""
+    disjoint-parents guard raises on None (DIMENSIONS.md §8, §9). Two
+    rectangles sharing two separate pieces give SPLIT_MEET: not empty, and
+    no one value."""
     head, param_a, param_b = _same_head(a, b)
     if kind in _INTERVALISH:
         fam_a, lo_a, hi_a = _denotation(param_a, kind, units)
@@ -1066,6 +1342,16 @@ def intersect(a, b, kind, units=None):
                 f"incompatible dominance spaces: {a!r} vs {b!r}")
         meet = tuple(min(x, y) for x, y in zip(values_a, values_b))
         return f"{head}({_render((fam_a, meet), kind)})"
+    if kind == KIND_RECT:
+        pieces = _rect_meet(_denotation(param_a, kind, units),
+                            _denotation(param_b, kind, units))
+        if not pieces:
+            return None
+        if len(pieces) > 1:
+            return SPLIT_MEET
+        nested = _rect_parts(head, param_a)[1]
+        text = _render_rect(pieces[0])
+        return f"{head}({nested}({text}))" if nested else f"{head}({text})"
     if kind == KIND_PREFIX:
         # The meet of two cells is the finer one, or nothing: returned as
         # spelled, so a role of geo keeps the spelling it was given.
