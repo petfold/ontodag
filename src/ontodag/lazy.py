@@ -86,6 +86,8 @@ layer for ``items()``); the traversals below are written so that change is
 local to ``_expand_many``.
 """
 
+from collections import deque
+
 from ontodag import dimensions as _dims
 from ontodag.dag import DAG, Item, OntoDAG, _keeps_values_used, _name_of
 
@@ -147,10 +149,19 @@ class LazyOntoDAG(OntoDAG):
     _resident = False
 
     def __init__(self, record_store, cache_cones=True, max_cached_cones=64,
-                 cone_index=None):
+                 cone_index=None, prefetch=False):
         super().__init__()
         self.store = record_store
-        self.fetches = 0            # store.get calls; the point of all this
+        self.fetches = 0            # records read; the point of all this
+        # With `prefetch` and a store that reads many records together
+        # (`get_many`, recordstore 0.23+), a walk that reaches an unread
+        # node first reads every unread node waiting in its frontier in one
+        # batch: about one round trip per level of the graph instead of one
+        # per node, for a reader whose every round trip is a network wait
+        # (BROWSER.md §4b). The walks are unchanged, so are their answers.
+        get_many = getattr(record_store, "get_many", None)
+        self._get_many = get_many if prefetch and callable(get_many) else None
+        self.rounds = 0             # store calls: get, or get_many
         self._records = {}          # name -> record (or None: known absent)
         self._expanded = set()      # names whose edges are filled in
         self._cone_cache = {} if cache_cones else None
@@ -176,8 +187,38 @@ class LazyOntoDAG(OntoDAG):
         except KeyError:
             record = None
         self.fetches += 1
+        self.rounds += 1
         self._records[name] = record
         return record
+
+    def _prefetch(self, frontier):
+        """Read, in one batch, the records of the unread nodes in `frontier`
+        (only with `prefetch`; see `__init__`). Absent names are recorded as
+        absent, as `_load` would; an unreachable record raises."""
+        if self._get_many is None:
+            return
+        wanted = sorted({node.name for node in frontier
+                         if node.name not in self._records})
+        if len(wanted) < 2:
+            return                      # one record is just a get
+        found = self._get_many(wanted)
+        self.fetches += len(wanted)
+        self.rounds += 1
+        for name in wanted:
+            self._records[name] = found.get(name)
+
+    def _next(self, frontier):
+        """Take the walk's next node from `frontier` (a deque), expanded.
+        A prefetching reader walks breadth-first and, on reaching an unread
+        node, reads the frontier's unread records together: by then the
+        frontier holds the whole next level, so a walk costs one batch per
+        level. Otherwise the walk is depth-first, one record at a time, as
+        it always was."""
+        if self._get_many is None:
+            return self._expand(frontier.pop())
+        if frontier[0].name not in self._records:
+            self._prefetch(frontier)
+        return self._expand(frontier.popleft())
 
     def _stub(self, name):
         """The `Item` for `name`, created (edgeless) and registered if new."""
@@ -209,7 +250,10 @@ class LazyOntoDAG(OntoDAG):
         return node
 
     def _expand_many(self, nodes):
-        """Expand a whole frontier — the seam for a future batched store get."""
+        """Expand several nodes, their records read in one batch when the
+        reader prefetches."""
+        nodes = list(nodes)
+        self._prefetch(nodes)
         return [self._expand(node) for node in nodes]
 
     def load_all(self):
@@ -289,9 +333,9 @@ class LazyOntoDAG(OntoDAG):
         if settled is None:
             settled = set()
         descendants = set()
-        frontier = [start]
+        frontier = deque([start])
         while frontier:
-            current = self._expand(frontier.pop())
+            current = self._next(frontier)
             successors = list(current.neighbors)
             if computed:
                 successors.extend(self._walk_children(current, settled, limit))
@@ -317,9 +361,9 @@ class LazyOntoDAG(OntoDAG):
     def _has_ancestors(self, node, targets, computed=True):
         missing = set(targets)
         seen = set()
-        stack = [node]
+        stack = deque([node])
         while stack and missing:
-            current = self._expand(stack.pop())
+            current = self._next(stack)
             predecessors = [p for p in current.parents
                             if dict.get(self.nodes, p.name) is p]
             if self._expands(computed, current):
@@ -337,9 +381,9 @@ class LazyOntoDAG(OntoDAG):
         # the virtual-bound test needs only their names, so an early
         # return costs the records climbed through, not the ones seen.
         seen = set()
-        frontier = [node]
+        frontier = deque([node])
         while frontier:
-            current = self._expand(frontier.pop())
+            current = self._next(frontier)
             predecessors = [p for p in current.parents
                             if dict.get(self.nodes, p.name) is p]
             if self._expands(computed, current):
@@ -357,9 +401,9 @@ class LazyOntoDAG(OntoDAG):
             raise ValueError(f"Node {name} does not exist in the graph.")
 
         ancestors = set()
-        frontier = [start]
+        frontier = deque([start])
         while frontier:
-            current = self._expand(frontier.pop())
+            current = self._next(frontier)
             predecessors = [p for p in current.parents
                             if dict.get(self.nodes, p.name) is p]
             if self._expands(computed, current):

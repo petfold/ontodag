@@ -278,3 +278,86 @@ class TestLazyDimensions(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class _BatchingRecords:
+    """A record store that reads many records at once (`get_many`), counting
+    round trips: each `get` or `get_many` call is one."""
+
+    def __init__(self, store):
+        self.store = store
+        self.calls = 0
+
+    def get(self, key):
+        self.calls += 1
+        return self.store.get(key)
+
+    def get_many(self, keys):
+        self.calls += 1
+        found = {}
+        for key in keys:
+            try:
+                found[key] = self.store.get(key)
+            except KeyError:
+                pass
+        return found
+
+
+def wide_tree(levels=4, fanout=6):
+    """`levels` levels below one top, `fanout` children per node, plus a
+    second parent for every leaf so cones overlap."""
+    puts = [("top", []), ("other", [])]
+    level = ["top"]
+    for depth in range(1, levels + 1):
+        nxt = []
+        for parent in level:
+            for i in range(fanout):
+                name = f"{parent}.{i}"
+                supers = [parent] if depth < levels else [parent, "other"]
+                puts.append((name, supers))
+                nxt.append(name)
+        level = nxt
+    return puts
+
+
+class TestPrefetch(unittest.TestCase):
+    """`prefetch=True` reads a walk's waiting frontier in one batch when the
+    store can: the same answers, a round trip per level instead of per node
+    (BROWSER.md §4b)."""
+
+    def setUp(self):
+        self.root, self.blobs = publish(wide_tree())   # 1 + 6 + 36 + 216 + 1296 nodes
+
+    def reader(self, prefetch):
+        records = _BatchingRecords(RecordStore.at(self.root, self.blobs))
+        return LazyOntoDAG(records, prefetch=prefetch), records
+
+    def test_same_answers(self):
+        plain, _ = self.reader(False)
+        batched, _ = self.reader(True)
+        oracle = eager(self.root, self.blobs)
+        for query in (["top"], ["top.3"], ["top.1.2", "other"], ["other"], ["top.5.5.5"]):
+            self.assertEqual(names(plain.get(query)), names(oracle.get(query)), query)
+            self.assertEqual(names(batched.get(query)), names(oracle.get(query)), query)
+        self.assertEqual(names(batched.get_ancestors("top.0.1.2.3")),
+                         names(oracle.get_ancestors("top.0.1.2.3")))
+        self.assertTrue(batched.is_below("top.4.4.4.4", "top"))
+
+    def test_a_broad_cone_costs_rounds_per_level_not_per_node(self):
+        batched, records = self.reader(True)
+        cone = batched.get_descendants("top.2")        # 6 + 36 + 216 nodes
+        self.assertEqual(len(cone), 258)
+        self.assertLessEqual(records.calls, 20)
+        # switched off: one round trip per record read
+        plain, plain_records = self.reader(False)
+        plain.get_descendants("top.2")
+        self.assertGreater(plain_records.calls, 250)
+        self.assertEqual(plain.fetches, plain_records.calls)
+
+    def test_without_get_many_it_reads_one_by_one(self):
+        store = RecordStore.at(self.root, self.blobs)
+        if hasattr(store, "get_many"):
+            self.skipTest("this recordstore reads many records at once")
+        reader = LazyOntoDAG(store, prefetch=True)
+        reader.get_descendants("top.2")
+        self.assertEqual(reader.rounds, reader.fetches)
