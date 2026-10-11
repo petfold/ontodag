@@ -46,5 +46,9 @@ volume 'linear-dimension(volume)'
 'mass(2kg..)' mass
 crate 'mass(..5kg)' 'mass(2kg..)'
 courier 'transport(small-item mass(..8kg))'
+'geo(u2ed4)' geo
+photo 'geo(u2ed4)'
+'from(geo(u2ed))' from
+drone 'from(geo(u2ed))'
 'from(u2ed4)' from
 delivery 'from(u2ed4)'

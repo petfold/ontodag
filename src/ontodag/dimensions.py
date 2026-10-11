@@ -72,8 +72,16 @@ from fractions import Fraction
 #      declared signed, `altitude ⊑ signed-dimension`, takes one; an open
 #      lower end is still 0, so `..-120m` is refused as empty. No stored
 #      name changes, so no migrate step; an older reader refuses the new
-#      names).
-REGISTRY_VERSION = "4.5"
+#      names),
+# 5.0 (2026-10-11, questions 29, 30 and 33: `geo` is a rectangle head,
+#      `geo(48.85..48.87,2.28..2.30)`, a position the rectangle its written
+#      precision covers, `geo(48.8584,2.2945±500m)` a square 500 m either
+#      way; a geohash cell is no longer a geo value. MAJOR: every stored geo
+#      name changes. `ontodag.migrate` turns each cell into its rectangle,
+#      exactly (a cell's bounds are dyadic, so finite decimals), and a role's
+#      cells with it; until then a store reads geo as the prefix head it was
+#      declared, and its roles' nested cells as opaque names).
+REGISTRY_VERSION = "5.0"
 
 
 def registry_compatible(version, other=None):
@@ -189,16 +197,11 @@ RELATION_KINDS = frozenset({KIND_TRANSITIVE, KIND_ENCLOSING, KIND_REVERSED})
 MULTI_VALUED = RELATION_KINDS
 # The transitive head an enclosing-kind head follows (ROLES.md §5).
 CONTAINMENT_HEAD = "in"
-# The geo dimension's head, reserved in code like `in` (review question 14,
-# decided by Peter 2026-10-10). A geo cell is a geohash, so `geo(...)` is
-# written with the geohash alphabet alone (digits and lowercase letters
-# without a, i, l, o); a word outside it is no cell. A role of geo
-# (`from`, `to`, `where`) writes a cell by the cell's own name,
-# `from(geo(u2e4x))`, and a bare word in it names a place: before, any
-# word in a role term not naming a place was read as a cell, so
-# `from(sydney)` landed in southern Turkey without a word.
+# The geo dimension's head, the prelude's rectangle head (question 29). A
+# role of geo (`from`, `to`, `where`) writes a rectangle by geo's own name,
+# `from(geo(48..49,2..3))`, and a bare word in it names a place filed in
+# the dimension (review question 14).
 GEO_HEAD = "geo"
-GEOHASH_RE = re.compile(r"^[0-9b-hjkmnp-z]+$")
 # A head is pinned to one unit family by filing it under a family-narrowed
 # kind node: `mass ⊑ linear-dimension(mass) ⊑ linear-dimension` (ROLES.md
 # §8 item 21). Stating a family is subsumption, so "which heads hold mass"
@@ -851,33 +854,6 @@ def _parse_prefix(param):
     return param
 
 
-def _prefix_parts(head, param):
-    """(value, nested) of a prefix-kind parameter. A head other than `geo`
-    may write a geo cell by its own name, `from(geo(u2e4x))`, whose value
-    is `u2e4x` (review question 14); which heads may is the graph's to say
-    (a role of geo), so the DAG checks that before asking here. Any other
-    parameter is its own value."""
-    if head != GEO_HEAD:
-        split = split_term(param)
-        if split is not None and split[0] == GEO_HEAD:
-            return _parse_prefix(split[1]), True
-    return _parse_prefix(param), False
-
-
-def cell_value(name):
-    """The geohash a geo cell or a role of geo's cell term names — `u2e4x`
-    for `geo(u2e4x)` and for `from(geo(u2e4x))` — or None."""
-    split = split_term(name)
-    if split is None:
-        return None
-    if split[0] == GEO_HEAD:
-        return split[1]
-    inner = split_term(split[1])
-    if inner is not None and inner[0] == GEO_HEAD:
-        return inner[1]
-    return None
-
-
 # ---- rectangles on the sphere (KIND_RECT) -----------------------------------
 #
 # Each axis is written as a range (`48.85..48.87`) or as one number, whose
@@ -1221,8 +1197,7 @@ def canonicalize(name, kind, units=None):
         raise ValueError(f"{name!r} is not a parametric term")
     head, param = split
     if kind == KIND_PREFIX:
-        value, nested = _prefix_parts(head, param)
-        return f"{head}({GEO_HEAD}({value}))" if nested else f"{head}({value})"
+        return f"{head}({_parse_prefix(param)})"
     if kind == KIND_RECT:
         inner, nested = _rect_parts(head, param)
         text = _render_rect(_parse_rect(inner, units))
@@ -1234,7 +1209,7 @@ def space_of(name, kind, units=None):
     """Value-space tag for put-time consistency checks: every value of one
     head must share it (one family, one arity)."""
     if kind == KIND_PREFIX:
-        _prefix_parts(*split_term(name))       # validates
+        _parse_prefix(split_term(name)[1])     # validates
         return "prefix"
     denotation = _denotation(split_term(name)[1], kind, units)
     if kind in _INTERVALISH:
@@ -1307,8 +1282,7 @@ def contains(outer, inner, kind, units=None):
                 f"incompatible dominance spaces: {outer!r} vs {inner!r}")
         return all(o >= i for o, i in zip(values_o, values_i))
     if kind == KIND_PREFIX:
-        return _prefix_parts(head, param_inner)[0].startswith(
-            _prefix_parts(head, param_outer)[0])
+        return _parse_prefix(param_inner).startswith(_parse_prefix(param_outer))
     if kind == KIND_RECT:
         return _rect_contains(_denotation(param_outer, kind, units),
                               _denotation(param_inner, kind, units))
@@ -1356,10 +1330,9 @@ def intersect(a, b, kind, units=None):
         text = _render_rect(pieces[0])
         return f"{head}({nested}({text}))" if nested else f"{head}({text})"
     if kind == KIND_PREFIX:
-        # The meet of two cells is the finer one, or nothing: returned as
-        # spelled, so a role of geo keeps the spelling it was given.
-        value_a = _prefix_parts(head, param_a)[0]
-        value_b = _prefix_parts(head, param_b)[0]
+        # The meet of two codes is the longer one, or nothing.
+        value_a = _parse_prefix(param_a)
+        value_b = _parse_prefix(param_b)
         if value_a.startswith(value_b):
             return a
         if value_b.startswith(value_a):

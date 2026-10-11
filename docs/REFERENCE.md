@@ -6,8 +6,8 @@ the normative guarantees in [CONTRACT.md](CONTRACT.md). Tables here are
 pinned against the code by `tests/test_reference.py` — if a name in this
 file and the code disagree, the suite fails.
 
-Versions this file describes: contract `0.6` · registry `4.5` ·
-prelude `4` · surface `0.1` · core `13`.
+Versions this file describes: contract `0.7` · registry `5.0` ·
+prelude `5` · surface `0.1` · core `13`.
 
 ## 1. Vocabulary
 

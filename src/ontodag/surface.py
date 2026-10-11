@@ -156,9 +156,41 @@ def _friendly_dominance(denotation, units=None):
     return "x".join(str(int(v / best[0])) for v in values) + best[1]
 
 
+def _friendly_rect(param):
+    """A rectangle with an axis whose extent is exactly a written precision
+    shows that axis as the position: `48.85835..48.85845` reads `48.8584`,
+    which elaborates back to it."""
+    split = _dims.split_term(param)
+    if split is not None:
+        return f"{split[0]}({_friendly_rect(split[1])})"
+    south, north, west, width = _dims._parse_rect(param)
+    lat, lon = param.split(",")
+
+    def position(centre, extent):
+        if not 0 < extent <= 1:
+            return None
+        places = 0
+        while extent * 10 ** places < 1:
+            places += 1
+        if extent * 10 ** places != 1 or (centre * 10 ** places).denominator != 1:
+            return None
+        text = _dims._decimal_text(centre)
+        if places:
+            whole, _, frac = text.partition(".")
+            text = f"{whole}.{frac.ljust(places, '0')}"
+        return text
+    lat_text = position((south + north) / 2, north - south) or lat
+    lon_text = None
+    if width < 360:
+        lon_text = position(_dims._norm_longitude(west + width / 2), width)
+    return f"{lat_text},{lon_text or lon}"
+
+
 def _friendly_param(param, kind, units=None):
     if kind == _dims.KIND_PREFIX or kind in _dims.GRAPH_ORDERED:
         return param  # already the friendliest admissible spelling
+    if kind == _dims.KIND_RECT:
+        return _friendly_rect(param)
     if kind == _dims.KIND_COUNT:
         # Bare whole numbers are already the friendliest spelling — never
         # `2dz` for 24: dozens are an input courtesy, not a display unit.

@@ -76,7 +76,7 @@ class TestTheGuard(unittest.TestCase):
         dag.put("bicycle", [])
         dag.put("courier-job", ["transport(bicycle)"])
         dag.put("from", ["geo"])
-        dag.put("home", ["geo(u09t)"])
+        dag.put("home", ["geo(41..42,2..3)"])
         dag.put("parcel", ["from(home)"])
         for name, term in (("bicycle", "transport(bicycle)"),
                            ("home", "from(home)"),
@@ -206,7 +206,7 @@ class TestRemovingTheTermsToo(unittest.TestCase):
     def test_a_role_term_follows_its_place_up(self):
         dag = world()
         dag.put("from", ["geo"])
-        dag.put("ljubljana", ["geo(u2e4)"])
+        dag.put("ljubljana", ["geo(47..48,13..14)"])
         dag.put("home", ["ljubljana"])
         dag.put("parcel", ["from(home)"])
         dag.remove("home", with_terms=True)
@@ -250,7 +250,7 @@ class TestRemovingTheTermsToo(unittest.TestCase):
 
 
 TYPO = (("city", []), ("france", []), ("from", ["geo"]),
-        ("NAME", ["city", "in(france)", "geo(u09t)"]),
+        ("NAME", ["city", "in(france)", "geo(41..42,2..3)"]),
         ("louvre", ["in(NAME)"]), ("photo", ["about(NAME)"]),
         ("parcel", ["from(NAME)"]), ("notre-dame", ["NAME"]),
         ("ring", ["in(in(NAME))"]))

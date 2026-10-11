@@ -352,21 +352,25 @@ class TestWriteSurface(WritableHarness):
         a cell is written by its own name. An agent learns it when it
         proposes, not when it confirms."""
         for item, supers in [("dimension", []),
-                             ("prefix-dimension", ["dimension"]),
-                             ("geo", ["prefix-dimension"]), ("from", ["geo"])]:
+                             ("rectangle-dimension", ["dimension"]),
+                             ("geo", ["rectangle-dimension"]), ("from", ["geo"])]:
             self.write(item, supers)
         text = self.call("propose_put", {"item": "parcel",
                                          "supers": ["from(sydney)"]},
                          expect_error=True)
         self.assertIn("no place filed", text)
-        self.assertIn("from(geo(sydney))", text)
+        self.assertIn("from(geo(...))", text)
         text = self.call("propose_put", {"item": "parcel",
-                                         "supers": ["geo(london)"]},
+                                         "supers": ["geo(u2e4)"]},
                          expect_error=True)
-        self.assertIn("geohash", text)
-        answer, _ = self.write("parcel", ["from(geo(r3gx2))"])
+        self.assertIn("geohash cell", text)
+        text = self.call("propose_put", {"item": "parcel",
+                                         "supers": ["geo(-1..1,-170..170)"]},
+                         expect_error=True)
+        self.assertIn("less than half the circle", text)
+        answer, _ = self.write("parcel", ["from(geo(-34..-33,151..152))"])
         self.assertEqual(self.surface.dag.parents_of("parcel"),
-                         ["from(geo(r3gx2))"])
+                         ["from(geo(-34..-33,151..152))"])
 
     def test_a_compound_graph_claim_is_claimed_per_part(self):
         # A compound graph-kind term is filed as its parts (DIMENSIONS.md

@@ -227,10 +227,11 @@ def test_a_parent_never_given_a_line_is_top_level():
 
 
 def test_an_older_release_s_store_loads_as_it_was():
-    # g7.od was written by 0.30.1, before the marker, and holds a compound
-    # that release folded: loading reads it, it does not migrate it (G7).
+    # written by 0.30.1 (G7's first record until registry 5.0), before the
+    # marker, with a compound that release folded and geo a prefix head:
+    # loading reads it, it does not migrate it.
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                        "fixtures", "g7.od")
+                        "fixtures", "written-by-0.30.1.od")
     with open(path, encoding="utf-8") as fh:
         text = fh.read()
     assert native.CANONICAL_LINE not in text

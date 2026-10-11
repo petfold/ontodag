@@ -32,7 +32,7 @@ def declare_weight(dag):
 
 class TestContractVersion(unittest.TestCase):
     def test_version_constant_matches_document(self):
-        self.assertEqual(ontodag.CONTRACT_VERSION, "0.6")
+        self.assertEqual(ontodag.CONTRACT_VERSION, "0.7")
 
 
 class TestG1CanonicalRoot(unittest.TestCase):
@@ -323,8 +323,9 @@ class TestG7MonotoneVersions(unittest.TestCase):
     """G7: within one major contract version and one major registry
     version, a newer ontodag never takes away an answer about a fixed
     store. `tests/fixtures/g7.od` is a fixed store over every kind, and
-    `g7-answers.json` what it answered when recorded (contract 0.3,
-    registry 4.3). Every recorded true `is_below` stays true and every
+    `g7-answers.json` what it answered when recorded (contract 0.7,
+    registry 5.0; first recorded under 0.3 / 4.3, and again at the
+    registry major that made geo a rectangle head). Every recorded true `is_below` stays true and every
     recorded `get` answer stays inside the new one; recorded falses may
     become true, since gaining answers is allowed. A failure here means a
     release removes an answer: that is a major bump, and only then is the
@@ -368,11 +369,12 @@ class TestG7MonotoneVersions(unittest.TestCase):
 
 
 class TestG7SecondRecord(TestG7MonotoneVersions):
-    """G7's second record (tests/fixtures/make_g7b.py), taken under contract
-    0.5 / registry 4.3 before the 2026-10 review's decided changes were
-    built: graph-kind compounds filed as their parts, relation compounds,
-    role terms naming cells and places, and an item a merge left under two
-    overlapping values of one head. The same rule: never regenerated to
+    """G7's second record (tests/fixtures/make_g7b.py), first taken under
+    contract 0.5 / registry 4.3 before the 2026-10 review's decided changes
+    were built, and again at registry 5.0: graph-kind compounds filed as
+    their parts, relation compounds, role terms naming rectangles and
+    places, and an item a merge left under two overlapping values of one
+    head. The same rule: never regenerated to
     make a failure pass."""
 
     fixture, answers, least = "g7b.od", "g7b-answers.json", 300
@@ -456,14 +458,14 @@ class TestG9WritesAndReplays(unittest.TestCase):
         # not file the second's term, a merge takes both in either order.
         a = self.peer([("home", ["city"]), ("paris", ["city", "in(france)"]),
                        ("louvre", ["in(paris)"])])
-        b = self.peer([("home", ["geo(u09t)"]), ("parcel", ["from(home)"])])
+        b = self.peer([("home", ["geo(41..42,2..3)"]), ("parcel", ["from(home)"])])
         stores = set()
         for first, second in itertools.permutations((a, b)):
             dag = self.base()
             dag.merge(first)
             dag.merge(second)
             stores.add(native.dumps(dag))
-            self.assertTrue(dag.is_below("parcel", "from(u09)"))
+            self.assertTrue(dag.is_below("parcel", "from(geo(40..43,1..4))"))
             self.assertTrue(dag.is_below("louvre", "in(france)"))
         self.assertEqual(len(stores), 1)
         # Loading a stored file is a replay too: it reads back what it wrote.
@@ -495,7 +497,7 @@ class TestG9WritesAndReplays(unittest.TestCase):
 
     def test_in_the_other_order_the_same_writes_are_accepted(self):
         for writes in ([("animal", []), ("dog", ["animal"])],
-                       [("home", ["geo(u09t)"]), ("parcel", ["from(home)"]),
+                       [("home", ["geo(41..42,2..3)"]), ("parcel", ["from(home)"]),
                         ("home", ["city"])]):
             with self.subTest(writes=writes):
                 dag = self.base()

@@ -34,7 +34,7 @@ from ontodag.dag import OntoDAG
 # heads). The kind can later gain an `integer-valued-dimension` parent
 # additively when the math reflection lands (kind resolution stops at
 # kind nodes, so structure above them is invisible to it).
-PRELUDE_VERSION = 4
+PRELUDE_VERSION = 5
 
 # v4 (2026-10-07, ROLES.md §8 items 15, 17, 21): the four kind nodes the
 # registry gained since v3, the three relations the interpreter knows by
@@ -43,6 +43,9 @@ PRELUDE_VERSION = 4
 # family in its kind. The mass head is `mass`: v3's `weight` is gone, since
 # weight is a force; a surface layer may map the everyday word. `from` and
 # `to` stay out (loopmarket declares them as roles of `geo`).
+# v5 (2026-10-11, questions 29, 30 and 33): the rectangle kind, and `geo`
+# under it in place of the prefix kind, which stays for codes that nest by
+# prefix but no prelude head uses.
 DECLARATIONS = (
     # the kind registry (names dimensions.py recognizes)
     ("dimension", ()),
@@ -55,6 +58,7 @@ DECLARATIONS = (
     ("transitive-dimension", ("dimension",)),
     ("enclosing-dimension", ("dimension",)),
     ("reversed-dimension", ("dimension",)),
+    ("rectangle-dimension", ("dimension",)),
     # the unit families the everyday heads are pinned to (DIMENSIONS.md §21)
     ("linear-dimension(mass)", ("linear-dimension",)),
     ("linear-dimension(length)", ("linear-dimension",)),
@@ -77,7 +81,7 @@ DECLARATIONS = (
     ("energy", ("linear-dimension(energy)",)),           # anchored at J
     ("count", ("count-dimension",)),        # whole numbers of things, >= 1
     ("time", ("calendar-dimension",)),      # 2026 means the year
-    ("geo", ("prefix-dimension",)),         # geohash-style cells
+    ("geo", ("rectangle-dimension",)),      # rectangles on the earth
     ("size", ("dominance-dimension",)),     # does-it-fit tuples
     # relations to entities (ROLES.md; DIMENSIONS.md §16-§18)
     ("in", ("transitive-dimension",)),      # places and parts

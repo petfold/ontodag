@@ -1117,12 +1117,11 @@ def cmd_ingest(args, session, out):
             try:
                 dag._check_role_parameters(dag.canonical(name))
                 if dag.canonical(name) in created:
-                    dag._refuse_new_cell_spelling(dag.canonical(name))
+                    dag._refuse_wide_rectangle(dag.canonical(name))
             except ValueError as exc:
                 raise ValueError(f"line {lineno}: {item} cannot be filed, so "
                                  f"nothing was ingested: {exc}") from exc
     dag._respell_deferred()
-    dag._respell_old_cells(created)
     session.save()
 
 
@@ -1443,19 +1442,11 @@ def _report_merge_leftovers(dag, out):
         for term, category in clashes:
             print(f"  {term}: the category {category} is outside the dimension",
                   file=out)
-    old = dag.old_cell_spellings()
-    if old:
-        print(f"old cell spellings = {len(old)} (a role of geo's cell stored "
-              f"as a bare word before registry 4.4; each reads as the cell "
-              f"while no place has that name, and `python3 -m "
-              f"ontodag.migrate STORE` respells it by the cell's own name)",
-              file=out)
-        for term in old[:20]:
-            split = term.index("(")
-            print(f"  {term} -> {term[:split]}(geo({term[split + 1:-1]}))",
-                  file=out)
-        if len(old) > 20:
-            print(f"  ... and {len(old) - 20} more", file=out)
+    from ontodag import dimensions as dims
+    if dag._dimension_kind(dims.GEO_HEAD) == dims.KIND_PREFIX:
+        print("geo cells = a store from before registry 5.0: geo is declared "
+              "a prefix head and its values are geohash cells; `python3 -m "
+              "ontodag.migrate STORE` turns them into rectangles", file=out)
 
 
 def _image_base(spec):

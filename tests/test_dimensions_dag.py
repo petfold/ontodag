@@ -43,9 +43,10 @@ def make_dag():
     dag.put("dimension", [])
     dag.put("linear-dimension", ["dimension"])
     dag.put("prefix-dimension", ["dimension"])
+    dag.put("rectangle-dimension", ["dimension"])
     dag.put("dominance-dimension", ["dimension"])
     dag.put("weight", ["linear-dimension"])
-    dag.put("geo", ["prefix-dimension"])
+    dag.put("geo", ["rectangle-dimension"])
     dag.put("size", ["dominance-dimension"])
     return dag
 
@@ -141,9 +142,9 @@ class TestComputedOrder(unittest.TestCase):
 
     def test_prefix_and_dominance_dimensions(self):
         dag = make_dag()
-        dag.put("cafe", ["geo(u2edk)"])
-        dag.put("probe", ["geo(u2)"])
-        self.assertIn("cafe", names(dag.get_descendants("geo(u2)")))
+        dag.put("cafe", ["geo(46.3..46.4,17.5..18)"])
+        dag.put("probe", ["geo(45..55,10..30)"])
+        self.assertIn("cafe", names(dag.get_descendants("geo(45..55,10..30)")))
         dag.put("bag", ["size(19x23x39cm)"])
         dag.put("probe2", ["size(20x30x40cm)"])
         self.assertIn("bag", names(dag.get_descendants("size(20x30x40cm)")))
@@ -319,7 +320,7 @@ class TestCountsStayAssertedOnly(unittest.TestCase):
         dag.put("parcel", ["weight(3kg)"])       # prunes the interval edge
         dag.put("flour-bag", ["weight(1.2kg)"])
         dag.put("probe", ["weight(1kg..)"])
-        dag.put("cafe", ["geo(u2edk)"])
+        dag.put("cafe", ["geo(46.3..46.4,17.5..18)"])
         for node in dag.nodes.values():
             self.assertEqual(node.descendant_count, len(reach(node)),
                              f"count drift on {node.name}")
@@ -373,9 +374,9 @@ class TestVirtualQueryTerms(unittest.TestCase):
 
     def test_geo_prefix_query(self):
         dag = make_dag()
-        dag.put("cafe", ["geo(u2edk)"])
-        dag.put("far-cafe", ["geo(u3x)"])
-        result = names(dag.get({"geo(u2)"}))
+        dag.put("cafe", ["geo(46.3..46.4,17.5..18)"])
+        dag.put("far-cafe", ["geo(57..58,34..36)"])
+        result = names(dag.get({"geo(45..55,10..30)"}))
         self.assertIn("cafe", result)
         self.assertNotIn("far-cafe", result)
 
@@ -456,11 +457,11 @@ class TestItemsOnly(unittest.TestCase):
         dag.put("from", ["geo"])
         dag.put("ride", [])
         dag.put("bike", ["ride"])
-        dag.put("r1", ["ride", "from(geo(u2e4x))", self.W1])
-        dag.put("r2", ["ride", "from(geo(u2e5))", self.W2])
-        dag.put("r3", ["bike", "from(geo(u2f))", self.W3])
-        dag.put("r4", ["bike", "from(geo(u2e4))", self.W2])
-        dag.put("parcel", ["from(geo(u2e4x))", self.W1, "weight(3kg)"])
+        dag.put("r1", ["ride", "from(geo(47.4..47.6,13.4..13.6))", self.W1])
+        dag.put("r2", ["ride", "from(geo(47..48,15..16))", self.W2])
+        dag.put("r3", ["bike", "from(geo(51..54,22..28))", self.W3])
+        dag.put("r4", ["bike", "from(geo(47..48,13..14))", self.W2])
+        dag.put("parcel", ["from(geo(47.4..47.6,13.4..13.6))", self.W1, "weight(3kg)"])
         return dag
 
     @staticmethod
@@ -475,11 +476,11 @@ class TestItemsOnly(unittest.TestCase):
 
     def test_items_only(self):
         dag = self._dag()
-        full = dag.get(["from(geo(u2e))"])
+        full = dag.get(["from(geo(46..50,12..20))"])
         expected = {item for item in full
                     if dag._parse_parametric(item.name) is None
                     and not item.neighbors}
-        self.assertEqual(dag.get(["from(geo(u2e))"], items_only=True), expected)
+        self.assertEqual(dag.get(["from(geo(46..50,12..20))"], items_only=True), expected)
         self.assertTrue(any("(" in item.name for item in full))
         self.assertEqual(names(dag.get(["ride"], items_only=True)),
                          {"r1", "r2", "r3", "r4"})            # not `bike`
@@ -498,7 +499,7 @@ class TestItemsOnly(unittest.TestCase):
         hour = "when(2026-08-15T10:00:00Z..2026-08-15T13:00:00Z)"
         self.assertEqual(names(dag.get(["ride", hour], items_only=True)),
                          {"r1", "r3"})
-        self.assertEqual(names(dag.get(["ride", hour, "from(geo(u2e))"], items_only=True)),
+        self.assertEqual(names(dag.get(["ride", hour, "from(geo(46..50,12..20))"], items_only=True)),
                          {"r1"})
         self.assertEqual(names(dag.get(["ride", self.Q])), set())   # narrower
         self.assertEqual(names(dag.get([hour], items_only=True)), {"r1", "r3", "parcel"})
@@ -515,7 +516,7 @@ class TestDimensionCache(unittest.TestCase):
         dag = make_dag()
         dag.put("from", ["geo"])
         dag.put("ride", [])
-        dag.put("r1", ["ride", "from(geo(u2e4x))"])
+        dag.put("r1", ["ride", "from(geo(47.4..47.6,13.4..13.6))"])
         return dag
 
     def _walks(self, dag, thunk):
@@ -538,15 +539,15 @@ class TestDimensionCache(unittest.TestCase):
         for name in ("from", "ride"):
             self.assertGreater(self._walks(dag, lambda: dag._dimension_of(name)), 0)
             self.assertEqual(self._walks(dag, lambda: dag._dimension_of(name)), 0)
-        self.assertEqual(dag._dimension_of("from"), ("prefix-dimension", "geo"))
+        self.assertEqual(dag._dimension_of("from"), ("rectangle-dimension", "geo"))
         self.assertEqual(dag._dimension_of("ride"), (None, None))
 
     def test_filing_items_and_values_keeps_the_cache(self):
         dag = self._dag()
         dag._dimension_of("from")
         dag._heads()                                   # populated: no walks on puts
-        dag.put("r2", ["ride", "from(geo(u2e5))"])
-        dag.put("cafe", ["geo(u2f)"])
+        dag.put("r2", ["ride", "from(geo(47..48,15..16))"])
+        dag.put("cafe", ["geo(51..54,22..28)"])
         self.assertEqual(self._walks(dag, lambda: dag._dimension_of("from")), 0)
 
     def test_head_edges_and_deletion_drop_it(self):
@@ -554,7 +555,7 @@ class TestDimensionCache(unittest.TestCase):
         dag.put("to", [])                              # plain, not yet a head
         self.assertEqual(dag._dimension_of("to"), (None, None))
         dag.put("to", ["geo"])                         # an edge from a head
-        self.assertEqual(dag._dimension_of("to"), ("prefix-dimension", "geo"))
+        self.assertEqual(dag._dimension_of("to"), ("rectangle-dimension", "geo"))
         dag.put("colour", ["prefix-dimension"])        # an edge from a kind
         self.assertEqual(dag._dimension_of("colour"), ("prefix-dimension", "colour"))
         dag.remove(dag.nodes["colour"])                # the node stops existing
@@ -566,7 +567,7 @@ class TestDimensionCache(unittest.TestCase):
         dag = self._dag()
         self.assertEqual(dag._dimension_of("later"), (None, None))
         dag.put("later", ["geo"])
-        self.assertEqual(dag._dimension_of("later"), ("prefix-dimension", "geo"))
+        self.assertEqual(dag._dimension_of("later"), ("rectangle-dimension", "geo"))
 
     def test_an_ambiguous_declaration_stays_loud(self):
         dag = self._dag()
@@ -586,11 +587,11 @@ class TestDimensionCache(unittest.TestCase):
         b._dimension_of("geo"); b._heads()             # warm before the puts
         for dag, order in ((a, ("r", "s")), (b, ("s", "r"))):
             dag.put("from", ["geo"])
-            values = {"r": "from(geo(u2e4x))", "s": "from(geo(u2e4))"}
+            values = {"r": "from(geo(47.4..47.6,13.4..13.6))", "s": "from(geo(47..48,13..14))"}
             for name in order:
                 dag.put(name, [values[name]])
         self.assertEqual(a.commit(), b.commit())
-        self.assertEqual({p.name for p in a.nodes["r"].parents}, {"from(geo(u2e4x))"})
+        self.assertEqual({p.name for p in a.nodes["r"].parents}, {"from(geo(47.4..47.6,13.4..13.6))"})
 
     def test_a_term_shaped_name_is_no_link_in_a_head_chain(self):
         """`z` under `x(y)` under `weight`: `_heads` never lists `z` (a

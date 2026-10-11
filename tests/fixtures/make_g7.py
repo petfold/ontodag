@@ -1,8 +1,9 @@
 """Build tests/fixtures/g7.od and g7-answers.json (CONTRACT.md G7).
 
-The answers are a record of what this store answered under contract 0.3 /
-registry 4.3, and G7 promises every true answer stays true within the same
-majors. So NEVER rerun this to make a failing test pass: a failure means a
+The answers are a record of what this store answered under contract 0.7 /
+registry 5.0 (first recorded under 0.3 / 4.3; re-recorded at registry 5.0,
+a major, when geo became a rectangle head), and G7 promises every true
+answer stays true within the same majors. So NEVER rerun this to make a failing test pass: a failure means a
 release takes an answer away, which is a major bump. Rerun it only after a
 major bump, deliberately, and say so in the commit.
 """
@@ -26,26 +27,26 @@ for name, parents in [
     ("handbook", ["document", "shared-with(employee)"]),
     ("trip.pdf", ["plane-ticket", "about(tokyo)", "time(2026-08-15)"]),
     ("crate", ["mass(3kg)", "size(20x30x40cm)"]), ("bouquet", ["count(5)"]),
-    ("photo.jpg", ["geo(u2ed4)", "about(japan)"]),
+    ("photo.jpg", ["geo(46.6..46.7,18.2..18.6)", "about(japan)"]),
     ("small-item", []), ("bicycle", ["small-item"]),
     ("graph-dimension", ["dimension"]), ("transport", ["graph-dimension"]),
     ("courier", ["transport(small-item mass(..8kg))"]),
     ("located-at", ["in"]), ("statue", ["located-at(louvre)"]),
-    ("from", ["geo"]), ("delivery", ["from(u2ed)"]),
+    ("from", ["geo"]), ("delivery", ["from(geo(46.2..46.8,17..19))"]),
 ]:
     d.put(name, parents)
 
 names = sorted(n for n in d.nodes if n != "*")
 probes = sorted(set(names) | {
-    "mass(..5kg)", "time(2026)", "geo(u2e)", "count(2..)", "size(25x35x45cm)",
+    "mass(..5kg)", "time(2026)", "geo(46..50,12..20)", "count(2..)", "size(25x35x45cm)",
     "in(japan)", "in(louvre)", "about(japan)", "shared-with(alice)",
-    "transport(bicycle mass(5kg))", "from(u2e)", "located-at(louvre)"})
+    "transport(bicycle mass(5kg))", "from(geo(46..50,12..20))", "located-at(louvre)"})
 below = sorted([a, b] for a in names for b in probes
                if a != b and d.is_below(a, b))
 queries = [[], ["document"], ["in(japan)"], ["in(louvre)"], ["about(japan)"],
-           ["shared-with(alice)"], ["mass(..5kg)"], ["time(2026)"], ["geo(u2e)"],
+           ["shared-with(alice)"], ["mass(..5kg)"], ["time(2026)"], ["geo(46..50,12..20)"],
            ["count(2..)"], ["size(25x35x45cm)"], ["document", "about(japan)"],
-           ["from(u2e)"], ["transport(small-item)"]]
+           ["from(geo(46..50,12..20))"], ["transport(small-item)"]]
 gets = [{"terms": q, "answer": sorted(n.name for n in d.get(q))} for q in queries]
 native.save(d, os.path.join(HERE, "g7.od"))
 lines = ['{', f' "contract": "{CONTRACT_VERSION}",', f' "registry": "{REGISTRY_VERSION}",', ' "below": [']

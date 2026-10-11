@@ -18,13 +18,79 @@ verifiable by recomputation.
 What a node carries travels with it: native `#:meta` lines, and a record's
 `meta` and `payload` (until 2026-10-09 both were dropped).
 
+Registry 5.0 made `geo` a rectangle head (questions 29, 30 and 33): before
+the replay, a store that declares `geo` a prefix head has every geohash cell
+rewritten as its rectangle, exactly (a cell's bounds are dyadic, so finite
+decimals), in `geo(...)` values and in its roles' terms, nested
+(`from(geo(u2e4))`) or bare as stored before registry 4.4 (`from(u2e4)`,
+no place being named so), and `geo` re-declared under the rectangle kind.
+
     python3 -m ontodag.migrate STORE.od        # native file, in place
     migrate_record_store(old_rs, new_rs)       # record stores, programmatic
 """
 
+import re
 import sys
+from fractions import Fraction
 
+from ontodag import dimensions as dims
 from ontodag.native import _parse, _replay, _stored_as
+
+_GEOHASH = re.compile(r"^[0-9b-hjkmnp-z]+$")
+_BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz"
+
+
+def cell_rectangle(cell):
+    """The exact rectangle of a geohash cell, `S..N,W..E`."""
+    lon, lat, even = [Fraction(-180), Fraction(180)], [Fraction(-90), Fraction(90)], True
+    for char in cell:
+        bits = _BASE32.index(char)
+        for shift in range(4, -1, -1):
+            half = lon if even else lat
+            mid = (half[0] + half[1]) / 2
+            half[0 if bits >> shift & 1 else 1] = mid
+            even = not even
+    return dims._render_rect((lat[0], lat[1], *dims._geo_arc(lon[0], lon[1], cell)))
+
+
+def rewrite_geohash_cells(entries):
+    """`entries` ({name: [parents]}) with a pre-5.0 store's geo cells as
+    rectangles (see the module's docstring); unchanged when `geo` is not
+    declared a prefix head."""
+    if dims.KIND_PREFIX not in entries.get(dims.GEO_HEAD, ()):
+        return entries
+    roles, grew = set(), True
+    while grew:                       # heads whose base is geo
+        grew = False
+        for name, parents in entries.items():
+            if name not in roles and dims.split_term(name) is None and \
+                    any(p == dims.GEO_HEAD or p in roles for p in parents):
+                roles.add(name)
+                grew = True
+
+    def renamed(name):
+        split = dims.split_term(name)
+        if split is None:
+            return name
+        head, param = split
+        if head == dims.GEO_HEAD and _GEOHASH.match(param):
+            return f"geo({cell_rectangle(param)})"
+        if head in roles:
+            inner = dims.split_term(param)
+            if inner is not None and inner[0] == dims.GEO_HEAD and _GEOHASH.match(inner[1]):
+                return f"{head}(geo({cell_rectangle(inner[1])}))"
+            if inner is None and _GEOHASH.match(param) and param not in entries:
+                return f"{head}(geo({cell_rectangle(param)}))"
+        return name
+    out = {}
+    for name, parents in entries.items():
+        if name == dims.GEO_HEAD:
+            parents = [dims.KIND_RECT if p == dims.KIND_PREFIX else p for p in parents]
+        new = renamed(name)
+        merged = out.setdefault(new, [])
+        merged.extend(p for p in map(renamed, parents) if p not in merged)
+    out.setdefault(dims.KIND_RECT, [dims.DIMENSION_ROOT])
+    return out
 
 
 def _native_entries(path):
@@ -40,7 +106,7 @@ def migrate_native(path) -> None:
     """Re-canonicalize a native text store in place. Idempotent."""
     from ontodag import native
     entries, metadata = _native_entries(path)
-    native.save(_replay(entries, metadata), path)
+    native.save(_replay(rewrite_geohash_cells(entries), metadata), path)
 
 
 def migrate_record_store(old_store, new_store):
@@ -60,7 +126,7 @@ def migrate_record_store(old_store, new_store):
         if record.get("payload") is not None:
             payloads[key] = record["payload"]
     new = EagerOntoDAG(new_store)
-    new.merge(_replay(entries, metadata))
+    new.merge(_replay(rewrite_geohash_cells(entries), metadata))
     for key, payload in payloads.items():
         for stored in _stored_as(new, key):
             new._payloads[stored] = payload

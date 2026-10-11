@@ -4,7 +4,8 @@ writes, byte for byte, for one hand-shaped legacy store.
 migrate-in.od is a store as an older release or a hand edit leaves it: no
 canonical mark, values in old spellings (`mass(3000g)`), node metadata, an
 item under two overlapping values of one head, a graph-kind compound
-stored folded, a role term naming a cell by a bare word (before 4.4). migrate-out.od is what
+stored folded, geo a prefix head with a cell and role terms naming cells
+by their own name and by a bare word (before 5.0 and 4.4). migrate-out.od is what
 `migrate_native` makes of it. tests/test_migrate.py checks the bytes.
 
 Rerun this only together with a deliberate change to what `migrate`
@@ -44,8 +45,15 @@ def legacy_text():
               "crate 'mass(..5kg)' 'mass(2kg..)'"]
     # a graph-kind compound as releases before 0.30.6 stored it, folded
     lines.append("courier 'transport(small-item mass(..8kg))'")
-    # a role of geo's cell as a bare word, as before registry 4.4
-    lines += ["'from(u2ed4)' from", "delivery 'from(u2ed4)'"]
+    # geo a prefix head with geohash cells, as before registry 5.0: a cell,
+    # a role term naming one by its own name, and one as a bare word, as
+    # before registry 4.4
+    lines = [line for line in lines if line != "rectangle-dimension dimension"]
+    lines = ["geo prefix-dimension" if line == "geo rectangle-dimension" else line
+             for line in lines]
+    lines += ["'geo(u2ed4)' geo", "photo 'geo(u2ed4)'",
+              "'from(geo(u2ed))' from", "drone 'from(geo(u2ed))'",
+              "'from(u2ed4)' from", "delivery 'from(u2ed4)'"]
     text = "\n".join(lines) + "\n"
     for canonical, old in LEGACY:
         assert canonical in text, canonical

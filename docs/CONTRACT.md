@@ -11,9 +11,9 @@ narrower relations between their heads. The individual clauses are
 marked **holds today** (a restatement of a tested guarantee) or **committed**
 (agreed direction, not yet built).
 
-**Contract version: 0.6 — amended 2026-10-10** (0.1 was reviewed and agreed
+**Contract version: 0.7 — amended 2026-10-11** (0.1 was reviewed and agreed
 2026-08-01, 0.2 on 2026-10-06, 0.3 and 0.4 on 2026-10-07, 0.5 on
-2026-10-09). 0.2 states what an arrow means (§2), admits
+2026-10-09, 0.6 on 2026-10-10). 0.2 states what an arrow means (§2), admits
 dimensions over nodes as the scoped exception (§5.1), and adds the writer's
 obligation that goes with them (O6); 0.3 admits narrower relations between
 their heads (§5.1); 0.4 promises that versions within a major only add
@@ -21,8 +21,10 @@ answers (G7); 0.5 promises that a spelling or a stored form changes only
 with the registry minor (G8), and that a replay does not depend on the
 order of what it replays (G9); 0.6 files what a merge brings as a single
 write files it, so equal knowledge has one root however it arrived (G1),
-with one stated exception for contradictions (G5). The record of every
-version is §8. All open questions
+with one stated exception for contradictions (G5); 0.7 adds the rectangle
+kind, makes `geo` a rectangle head and refuses a write of a rectangle
+spanning half the circle or more without spanning it all (G9). The record
+of every version is §8. All open questions
 from the 0.1 draft were resolved in the same-day review and folded into the
 clauses. The version is exposed as
 `ontodag.CONTRACT_VERSION`, will be carried by the discoverability record
@@ -235,9 +237,13 @@ decided at the 2026-08-01 review:
   2. **A role term's place must already be in its dimension**, and a
      category a role term names must be placed inside it (DIMENSIONS.md §14).
      Since 0.6, in a role of `geo` a bare word must name a place already
-     filed there, a cell being written by its own name (`from(geo(u2e4x))`):
-     `put parcel from(home)` before `home` is placed is refused at once,
-     where it used to read `home` as a cell and refuse the place later.
+     filed there, a rectangle being written by geo's own name
+     (`from(geo(48.85..48.87,2.28..2.30))`): `put parcel from(home)` before
+     `home` is placed is refused at once, where it used to read `home` as a
+     cell and refuse the place later. Since 0.7 a new rectangle whose
+     longitude arc spans half the circle or more, but not all of it, is
+     refused too: two such values can share two separate pieces, which no
+     one value names (a query may be any width; a replay keeps one).
   3. **Of two writes that contradict, the later is refused**: two values of
      one head that cannot both hold, a cycle, something inside itself under
      a strict relation.
@@ -584,6 +590,35 @@ means), and accepted the same day:
 3. **Why the arbitrary-relations wall still stands** → the "Still outside"
    paragraph of §5.1, and `DATABASE_DIRECTION.md`. The exception admits
    fixed rules over declared names, not rules that users write.
+
+### Amendment 0.7 (2026-10-11)
+
+Prompted by loopmarket's launch spelling for places, and decided by Peter
+as questions 29, 30, 32 and 33 (DIMENSIONS.md §22): a named place is
+declared (`in(paris)`) and gets no geometry in the core, and a position is
+a rectangle in degrees.
+
+1. **A new kind, the rectangle** (§5.1: a new kind is a contract change):
+   a latitude interval and a longitude arc with exact decimal bounds,
+   ordered by containment on the circle; an axis typed as one number is its
+   written precision, and `lat,lon±size` a square that much either way,
+   turned into bounds once by a fixed rule. It retires the geohash code.
+2. **`geo` is a rectangle head** (prelude 5), so every stored geo name
+   changes: `REGISTRY_VERSION` goes to 5.0, a major, outside G7's promise;
+   G7's two records are taken again under 0.7 / 5.0, and `ontodag.migrate`
+   turns a store's cells into their rectangles, exactly, in its roles' terms
+   too. Until then an older store reads geo as the prefix head it declares.
+3. **G9's case 2 gains the half-circle guard** (above): a write of a
+   rectangle wider than half the circle and narrower than all of it is
+   refused, so two values of one item always meet in one rectangle and
+   fold to it (G1).
+4. **G1 gains a stated exception**, as narrow as G5's: two such wide values
+   on one item, which only a replay can bring, share two pieces and stay
+   unfolded, so a store holding them can differ from another holding a
+   different pair with the same two pieces.
+5. **A negative value** (question 32, registry 4.5, no clause changed): a
+   linear head filed under `signed-dimension` takes one; any other refuses
+   a new one, typed or written, and a replay keeps one.
 
 ### Amendment 0.6 (2026-10-10)
 

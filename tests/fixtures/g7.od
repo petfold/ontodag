@@ -1,4 +1,5 @@
 # ontodag store v1
+#:canonical 5.0 2993f29b6e2e240e70876649c3a8200dff83784bee08e051ce20891a5badaa4b
 about enclosing-dimension
 'about(japan)' about
 'about(tokyo)' about
@@ -10,9 +11,9 @@ calendar-dimension dimension
 count count-dimension
 'count(5)' count
 count-dimension dimension
-courier 'transport(mass(..8kg) small-item)'
+courier 'transport(mass(..8kg))' 'transport(small-item)'
 crate 'mass(3kg)' 'size(2/5x3/10x1/5m)'
-delivery 'from(u2ed)'
+delivery 'from(geo(46.2..46.8,17..19))'
 denon-wing 'in(louvre)' place
 dimension '*'
 document '*'
@@ -22,9 +23,9 @@ employee person
 enclosing-dimension dimension
 energy 'linear-dimension(energy)'
 from geo
-'from(u2ed)' from
-geo prefix-dimension
-'geo(u2ed4)' geo
+'from(geo(46.2..46.8,17..19))' from
+geo rectangle-dimension
+'geo(46.6..46.7,18.2..18.6)' geo
 graph-dimension dimension
 handbook document 'shared-with(employee)'
 in transitive-dimension
@@ -50,11 +51,12 @@ mass 'linear-dimension(mass)'
 'mass(3kg)' mass
 mona-lisa 'in(denon-wing)'
 person '*'
-photo.jpg 'about(japan)' 'geo(u2ed4)'
+photo.jpg 'about(japan)' 'geo(46.6..46.7,18.2..18.6)'
 place '*'
 plane-ticket ticket
 prefix-dimension dimension
 pressure 'linear-dimension(pressure)'
+rectangle-dimension dimension
 reversed-dimension dimension
 sales-employee employee
 shared-with reversed-dimension
@@ -71,6 +73,7 @@ time calendar-dimension
 tokyo 'in(japan)' place
 transitive-dimension dimension
 transport graph-dimension
-'transport(mass(..8kg) small-item)' transport
+'transport(mass(..8kg))' transport
+'transport(small-item)' transport
 trip.pdf 'about(tokyo)' plane-ticket 'time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)'
 volume 'linear-dimension(volume)'

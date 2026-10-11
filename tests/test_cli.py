@@ -3267,7 +3267,7 @@ class TestIngest(unittest.TestCase):
 
     STREAM = [
         '{"item": "parcel", "supercategories": ["from(home)", "mass(500g)"]}',
-        '{"item": "home", "supercategories": ["city", "geo(u09t)"]}',
+        '{"item": "home", "supercategories": ["city", "geo(41..42,2..3)"]}',
         '{"item": "louvre", "supercategories": ["in(paris)"]}',
         '{"item": "paris", "supercategories": ["city", "in(france)"]}',
         '{"item": "job", "supercategories": ["transport(bicycle fragile)"]}',
@@ -3305,7 +3305,7 @@ class TestIngest(unittest.TestCase):
                 with open(path, encoding="utf-8") as fh:
                     stored.add(fh.read())
             self.assertEqual(len(stored), 1)
-            self.assertTrue(session.dag.is_below("parcel", "from(u09)"))
+            self.assertTrue(session.dag.is_below("parcel", "from(geo(40..43,1..4))"))
             self.assertTrue(session.dag.is_below("louvre", "in(france)"))
 
     def test_a_contradiction_refuses_the_whole_stream(self):
@@ -3804,28 +3804,26 @@ def test_status_lists_a_contradiction_a_merge_made(tmp_path):
     assert "contradictions" not in out.getvalue()
 
 
-def test_status_lists_old_cell_spellings(tmp_path):
-    """A store written before registry 4.4 may hold a role of geo's cell as
-    a bare word (`from(u2ed4)`); `odag status` names each with the spelling
-    `migrate` gives it (review question 14), and says nothing otherwise."""
+def test_status_says_a_store_from_before_5_0_needs_migrating(tmp_path):
+    """A store written before registry 5.0 declares geo a prefix head and
+    holds geohash cells; `odag status` says so and names the migration,
+    and says nothing for a store of today."""
     import io
     from ontodag import OntoDAG, native, prelude
     from ontodag.__main__ import Session, dispatch
 
-    base = OntoDAG()
-    prelude.apply(base)
-    base.put("from", ["geo"])
-    old = "\n".join(line for line in native.dumps(base).splitlines()
-                    if not line.startswith("#:canonical"))
     path = tmp_path / "store.od"
-    path.write_text(old + "\n'from(u2ed4)' from\ndelivery 'from(u2ed4)'\n")
+    path.write_text("dimension\nprefix-dimension dimension\ngeo prefix-dimension\n"
+                    "'geo(u2ed4)' geo\ndelivery 'geo(u2ed4)'\n")
     out = io.StringIO()
     assert dispatch(["status"], Session(str(path)), out=out) == 0
-    text = out.getvalue()
-    assert "old cell spellings = 1" in text
-    assert "  from(u2ed4) -> from(geo(u2ed4))" in text
-    base.put("delivery", ["from(geo(u2ed4))"])
+    assert "a store from before registry 5.0" in out.getvalue()
+    assert "ontodag.migrate" in out.getvalue()
+    base = OntoDAG()
+    prelude.apply(base)
+    base.put("delivery", ["geo(46.6..46.7,18.2..18.6)"])
     native.save(base, str(path))
     out = io.StringIO()
     assert dispatch(["status"], Session(str(path)), out=out) == 0
-    assert "old cell spellings" not in out.getvalue()
+    assert "registry 5.0" not in out.getvalue()
+

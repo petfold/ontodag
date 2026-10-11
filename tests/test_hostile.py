@@ -34,7 +34,7 @@ HOSTILE = ["", " ", "'", '"', "(", ")", "((", "))", "\\", "#", "#:meta", "#:cano
            "mass(5kg..1kg)", "mass(1e999999kg)", "mass(1/0kg)", "geo()", "geo(london)",
            "in(in(in(x)))", "in(" * 40 + "x" + ")" * 40, "time(2026-13)", "about()",
            "shared-with( )", "é", "😀", "\x00", "a" * 5000, "-1", "0", "1e309",
-           "None", "null", "[]", "{}", "from(u2e)", "from(geo(u2e))", "transport(a b)"]
+           "None", "null", "[]", "{}", "from(u2e)", "from(geo(46..50,12..20))", "transport(a b)"]
 
 
 def store_text():
@@ -44,7 +44,7 @@ def store_text():
         ("document", []), ("ticket", ["document"]), ("place", []), ("paris", ["place"]),
         ("louvre", ["place"]), ("louvre", ["in(paris)"]), ("guide", ["document", "about(louvre)"]),
         ("crate", ["mass(3kg)"]), ("trip", ["time(2026-08-15)"]), ("from", ["geo"]),
-        ("parcel", ["from(geo(u2ed4))"]), ("graph-dimension", ["dimension"]),
+        ("parcel", ["from(geo(46.6..46.7,18.2..18.6))"]), ("graph-dimension", ["dimension"]),
         ("transport", ["graph-dimension"]), ("courier", ["transport(ticket)"]),
     ]:
         d.put(name, parents)

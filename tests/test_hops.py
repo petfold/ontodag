@@ -258,13 +258,13 @@ class TestACompoundQueryWalksItsNarrowPart(unittest.TestCase):
         self.assertTrue(expected)
 
 def role_operations(seed, places=7, steps=40):
-    """Places in cells, regions above cells, and offers under `from(...)`
-    in both spellings: a place (`from(p3)`) and a cell by its own name
-    (`from(geo(u2e4))`, review question 14). `from` is a role of `geo`
-    (DIMENSIONS.md §14). Queries also ask by the older bare spelling
-    (`from(u2e4)`), which a query still reads as the cell."""
+    """Places in rectangles, regions above rectangles, and offers under
+    `from(...)` in both spellings: a place (`from(p3)`) and a rectangle by
+    geo's own name (`from(geo(47..48,13..14))`, review question 14). `from`
+    is a role of `geo` (DIMENSIONS.md §14)."""
     rnd = random.Random(seed)
-    cells = ["u2", "u2e", "u2e4", "u2e4x", "u2e5", "u2e5y", "u3", "u3b"]
+    cells = ["45..55,10..30", "46..50,12..20", "47..48,13..14", "47.4..47.6,13.4..13.6",
+             "47..48,15..16", "47.4..47.6,15.4..15.6", "56..59,32..38", "56.5..57.5,32.5..33.5"]
     names = [f"p{i}" for i in range(places)] + ["r0", "r1"]
     ops = []
     for _ in range(steps):
@@ -280,7 +280,7 @@ def role_operations(seed, places=7, steps=40):
         else:
             ops.append((f"offer{rnd.randint(0, 9)}",
                         f"from(geo({rnd.choice(cells)}))"))
-    queries = [[f"from({rnd.choice(names + cells + [f'geo({c})' for c in cells])})"]
+    queries = [[f"from({rnd.choice(names + [f'geo({c})' for c in cells])})"]
                for _ in range(10)]
     return names, ops, queries
 
@@ -301,9 +301,9 @@ def play_roles(resident, names, ops):
 
 
 def old_store(dag, seed):
-    """`dag` as a store from before registry 4.4 would hold it: some
-    offers under a cell spelled as a bare word (`from(u2e4)`), loaded from
-    text, so nothing respells them."""
+    """`dag` with offers under role terms whose bare word names no place
+    (`from(u2e4)`), as only a replay can leave them: loaded from text, they
+    read as opaque names."""
     from ontodag import native
     rnd = random.Random(seed)
     text = "\n".join(line for line in native.dumps(dag).splitlines()
@@ -635,7 +635,7 @@ class TestALoadedStoreAnswersAsItDidLive(unittest.TestCase):
     """Found by CONTRACT.md G7's fixture (2026-10-07): a value index was
     kept up to date when a value node was created, not when its anchor
     edge arrived, and a load creates every node before filing any. A head
-    whose index was built mid-load then missed its values: `get geo(u2e)`
+    whose index was built mid-load then missed its values: `get geo(46..50,12..20)`
     answered nothing after a load, while `is_below` (which needs no index)
     still answered true. The oracle is the scan, which uses no index."""
 
@@ -646,7 +646,7 @@ class TestALoadedStoreAnswersAsItDidLive(unittest.TestCase):
                             "fixtures", "g7.od")
         indexed, scanned = native.load(path), native.load(path)
         scanned._resident = False
-        for query in (["geo(u2e)"], ["geo(u2ed)"], ["from(u2e)"], ["time(2026)"],
+        for query in (["geo(46..50,12..20)"], ["geo(46.2..46.8,17..19)"], ["from(geo(46..50,12..20))"], ["time(2026)"],
                       ["mass(..5kg)"], ["count(2..)"], ["size(25x35x45cm)"],
                       ["in(japan)"], ["in(louvre)"], ["about(japan)"],
                       ["shared-with(alice)"], ["transport(small-item)"]):

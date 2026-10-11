@@ -19,7 +19,7 @@ import ontodag
 from ontodag.__main__ import Session, dispatch
 from ontodag.prelude import PRELUDE_VERSION, apply, prelude_dag
 
-# The canonical fingerprint of prelude v4 — the "well-known root" the
+# The canonical fingerprint of prelude v5 — the "well-known root" the
 # adoption story rests on: everyone merging this version contributes the
 # byte-identical subgraph. If this test fails, either the prelude changed
 # (bump PRELUDE_VERSION and re-pin, deliberately) or canonicalization
@@ -28,17 +28,19 @@ from ontodag.prelude import PRELUDE_VERSION, apply, prelude_dag
 # 2d0f77b6; v3 (2026-08-03) added the count kind and head (registry 4.1):
 # 9a732928d5c43a8155f33bd6fd4774813a1385cafec219284051ba882d925a3b; v4
 # (2026-10-07) added the four relation-era kinds, family pins, `mass` for
-# `weight`, and `in`/`about`/`shared-with` (ROLES.md §8 items 15, 17, 21).
-GOLDEN_ROOT_V4 = \
-    "ad8b1a0955acbe0fbaef06424fb5f31ccd3a16dee7df0789a62b4fa2c1a85e90"
+# `weight`, and `in`/`about`/`shared-with` (ROLES.md §8 items 15, 17, 21):
+# ad8b1a0955acbe0fbaef06424fb5f31ccd3a16dee7df0789a62b4fa2c1a85e90; v5
+# (2026-10-11) added the rectangle kind and put `geo` under it (question 29).
+GOLDEN_ROOT_V5 = \
+    "8296c0b9c77f0df59ebc8e467d206449ff4821618fb62d0699d885323f011db7"
 
 
 class TestPrelude(unittest.TestCase):
     def test_golden_root_pins_the_version(self):
-        self.assertEqual(PRELUDE_VERSION, 4)
+        self.assertEqual(PRELUDE_VERSION, 5)
         dag = ontodag.EagerOntoDAG(RecordStore(MemoryBytesStore()))
         apply(dag)
-        self.assertEqual(dag.commit(), GOLDEN_ROOT_V4)
+        self.assertEqual(dag.commit(), GOLDEN_ROOT_V5)
 
     def test_typed_values_work_immediately_after_adoption(self):
         dag = prelude_dag()
@@ -53,7 +55,7 @@ class TestPrelude(unittest.TestCase):
         self.assertFalse(dag.is_below("bouquet", "count(6..)"))
         with self.assertRaises(ValueError):
             dag.is_below("bouquet", "count(0)")   # absence claim, refused
-        self.assertTrue(dag.is_below("geo(u2ed)", "geo(u2)"))
+        self.assertTrue(dag.is_below("geo(46.2..46.8,17..19)", "geo(45..55,10..30)"))
         self.assertTrue(dag.is_below("size(19x23x39cm)",
                                      "size(20x30x40cm)"))
 

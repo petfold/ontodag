@@ -1,13 +1,12 @@
 """Build tests/fixtures/g7b.od and g7b-answers.json, G7's second record.
 
-Recorded under contract 0.5 / registry 4.3, before the 2026-10 review's
-decided changes were built (a merge that folds overlapping values, a cell
-in a role written `geo(...)`, a same-named category outside a role's
-dimension), to hold those changes to G7: within one major, a newer ontodag
-never takes away an answer about a fixed store. It holds what g7.od lacks:
-graph-kind compounds filed as their parts, relation compounds, role terms
-naming cells and places, and an item a merge left under two overlapping
-values of one head.
+First recorded under contract 0.5 / registry 4.3, before the 2026-10
+review's decided changes were built, to hold them to G7: within one major,
+a newer ontodag never takes away an answer about a fixed store; re-recorded
+under contract 0.7 / registry 5.0, a major, when geo became a rectangle
+head. It holds what g7.od lacks: graph-kind compounds filed as their parts,
+relation compounds, role terms naming rectangles and places, and an item a
+merge left under two overlapping values of one head.
 
 The same rule as make_g7.py: NEVER rerun this to make a failing test pass.
 A failure means a release takes an answer away, which is a major bump;
@@ -40,8 +39,8 @@ FILINGS = [
     ("graph-dimension", ["dimension"]), ("transport", ["graph-dimension"]),
     ("courier", ["transport(small-item mass(..8kg))"]),
     ("mover", ["transport(bicycle fragile)"]),
-    ("from", ["geo"]), ("to", ["geo"]), ("home", ["geo(u2ed4x)"]),
-    ("delivery", ["from(u2ed4)", "to(home)"]), ("parcel", ["from(u2e)"]),
+    ("from", ["geo"]), ("to", ["geo"]), ("home", ["geo(46.64..46.66,18.4..18.45)"]),
+    ("delivery", ["from(geo(46.6..46.7,18.2..18.6))", "to(home)"]), ("parcel", ["from(geo(46..50,12..20))"]),
     ("bouquet", ["count(5)"]), ("trip", ["time(2026-08-15)"]),
 ]
 
@@ -57,8 +56,8 @@ PROBES = {
     "in(france)", "in(europe)", "in(paris)", "in(louvre)", "in(garden)",
     "about(louvre)", "about(tokyo)", "about(france)", "shared-with(alice)",
     "shared-with(bob)", "transport(bicycle)", "transport(small-item)",
-    "transport(mass(5kg))", "from(u2e)", "from(u2ed)", "to(u2ed4x)",
-    "to(u2e)", "geo(u2ed)", "time(2026)", "time(2026-08)",
+    "transport(mass(5kg))", "from(geo(46..50,12..20))", "from(geo(46.2..46.8,17..19))", "to(geo(46.64..46.66,18.4..18.45))",
+    "to(geo(46..50,12..20))", "geo(46.2..46.8,17..19)", "time(2026)", "time(2026-08)",
     "time(2026-08-15..2026-08-20)", "count(2..)",
 }
 
@@ -66,7 +65,7 @@ QUERIES = [
     [], ["document"], ["in(france)"], ["in(europe)"], ["in(louvre)"],
     ["about(tokyo)"], ["about(france)"], ["shared-with(alice)"],
     ["transport(bicycle)"], ["transport(small-item)"], ["mass(..5kg)"],
-    ["mass(2kg..5kg)"], ["from(u2e)"], ["to(u2ed4x)"],
+    ["mass(2kg..5kg)"], ["from(geo(46..50,12..20))"], ["to(geo(46.64..46.66,18.4..18.45))"],
     ["document", "about(louvre)"], ["time(2026)"],
     ["time(2026-08-15..2026-08-20)"],
 ]

@@ -1,5 +1,5 @@
 # ontodag store v1
-#:canonical 4.3 e5213580036178e1260b908dcdfab88b3524ce72144312cd65f97b04984e0a8f
+#:canonical 5.0 e00eb2d99ee0a49dfe534c32d02c1f4a8575ad610932bd29ec851828de9cc6a1
 about enclosing-dimension
 'about(louvre tokyo)' about
 'about(paris)' about
@@ -13,8 +13,8 @@ count count-dimension
 'count(5)' count
 count-dimension dimension
 courier 'transport(mass(..8kg))' 'transport(small-item)'
-crate 'mass(..5kg)' 'mass(2kg..)'
-delivery 'from(u2ed4)' 'to(home)'
+crate 'mass(2kg..5kg)'
+delivery 'from(geo(46.6..46.7,18.2..18.6))' 'to(home)'
 dimension '*'
 document '*'
 dominance-dimension dimension
@@ -23,19 +23,19 @@ employee person
 enclosing-dimension dimension
 energy 'linear-dimension(energy)'
 europe place
-festival 'time(2026-08-01T00:00:00Z..2026-08-31T23:59:59Z)' 'time(2026-08-10T00:00:00Z..2026-09-20T23:59:59Z)'
+festival 'time(2026-08-10T00:00:00Z..2026-08-31T23:59:59Z)'
 fragile '*'
 france 'in(europe)' place
 from geo
-'from(u2e)' from
-'from(u2ed4)' from
+'from(geo(46..50,12..20))' from
+'from(geo(46.6..46.7,18.2..18.6))' from
 garden place
-geo prefix-dimension
-'geo(u2ed4x)' geo
+geo rectangle-dimension
+'geo(46.64..46.66,18.4..18.45)' geo
 graph-dimension dimension
 guide 'about(louvre tokyo)' document
 handbook document 'shared-with(employee)'
-home 'geo(u2ed4x)'
+home 'geo(46.64..46.66,18.4..18.45)'
 in transitive-dimension
 'in(europe)' in
 'in(france)' in
@@ -57,18 +57,18 @@ linear-dimension dimension
 'linear-dimension(volume)' linear-dimension
 louvre 'in(paris)' place
 mass 'linear-dimension(mass)'
-'mass(..5kg)' mass
-'mass(2kg..)' mass
+'mass(2kg..5kg)' mass
 memo document 'shared-with(alice bob)'
 mona-lisa 'in(louvre)'
 mover 'transport(bicycle)' 'transport(fragile)'
-parcel 'from(u2e)'
+parcel 'from(geo(46..50,12..20))'
 paris 'in(france)' place
 person '*'
 place '*'
 plan 'about(paris)' document
 prefix-dimension dimension
 pressure 'linear-dimension(pressure)'
+rectangle-dimension dimension
 reversed-dimension dimension
 sales-employee employee
 shared-with reversed-dimension
@@ -80,8 +80,7 @@ speed 'linear-dimension(speed)'
 statue 'in(garden louvre)'
 temperature 'linear-dimension(temperature)'
 time calendar-dimension
-'time(2026-08-01T00:00:00Z..2026-08-31T23:59:59Z)' time
-'time(2026-08-10T00:00:00Z..2026-09-20T23:59:59Z)' time
+'time(2026-08-10T00:00:00Z..2026-08-31T23:59:59Z)' time
 'time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)' time
 to geo
 'to(home)' to

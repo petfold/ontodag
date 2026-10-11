@@ -1,6 +1,6 @@
 {
- "contract": "0.6",
- "registry": "4.5",
+ "contract": "0.7",
+ "registry": "5.0",
  "filings": [
   [
    "document",
@@ -100,7 +100,7 @@
   [
    "photo.jpg",
    [
-    "geo(u2ed4)",
+    "geo(46.6..46.7,18.2..18.6)",
     "about(japan)"
    ]
   ],
@@ -163,7 +163,7 @@
   [
    "delivery",
    [
-    "from(geo(u2ed))"
+    "from(geo(46.2..46.8,17..19))"
    ]
   ],
   [
@@ -316,12 +316,12 @@
    "count(3..)"
   ],
   [
-   "geo(u2e4)",
-   "geo(u2e4)"
+   "geo(47..48,13..14)",
+   "geo(47..48,13..14)"
   ],
   [
-   "geo(u2ed4)",
-   "geo(u2ed4)"
+   "geo(46.6..46.7,18.2..18.6)",
+   "geo(46.6..46.7,18.2..18.6)"
   ],
   [
    "size(20x30x40cm)",
@@ -368,16 +368,12 @@
    "located-at(tokyo)"
   ],
   [
-   "from(u2ed)",
-   "from(u2ed)"
+   "from(geo(46.2..46.8,17..19))",
+   "from(geo(46.2..46.8,17..19))"
   ],
   [
-   "from(geo(u2ed))",
-   "from(geo(u2ed))"
-  ],
-  [
-   "from(geo(u2e))",
-   "from(geo(u2e))"
+   "from(geo(46..50,12..20))",
+   "from(geo(46..50,12..20))"
   ],
   [
    "altitude(-0.43km)",
@@ -394,6 +390,18 @@
   [
    "altitude(0m..120m)",
    "altitude(..120m)"
+  ],
+  [
+   "geo(48.8584,2.2945)",
+   "geo(48.85835..48.85845,2.29445..2.29455)"
+  ],
+  [
+   "geo(48.8584,2.2945±500m)",
+   "geo(48.853903..48.862897,2.287664..2.301336)"
+  ],
+  [
+   "geo(-10..10,170..190)",
+   "geo(-10..10,170..-170)"
   ]
  ],
  "stored": [
@@ -407,14 +415,14 @@
   "'count(24)' count",
   "courier 'transport(mass(..8kg))' 'transport(small-item)'",
   "dead-sea-shore 'altitude(-430m)'",
-  "delivery 'from(geo(u2ed))'",
+  "delivery 'from(geo(46.2..46.8,17..19))'",
   "document '*'",
   "employee person",
   "fragile '*'",
   "from geo",
-  "'from(geo(u2ed))' from",
+  "'from(geo(46.2..46.8,17..19))' from",
   "gallery 'in(museum-district paris)'",
-  "'geo(u2ed4)' geo",
+  "'geo(46.6..46.7,18.2..18.6)' geo",
   "'in(in(japan))' in",
   "'in(japan)' in",
   "'in(museum-district paris)' in",
@@ -428,7 +436,7 @@
   "parcel 'mass(1/2kg)' 'size(2/5x3/10x1/5m)'",
   "paris place",
   "person '*'",
-  "photo.jpg 'about(japan)' 'geo(u2ed4)'",
+  "photo.jpg 'about(japan)' 'geo(46.6..46.7,18.2..18.6)'",
   "place '*'",
   "plan 'shared-with(sales-employee)'",
   "ring 'in(in(japan))'",

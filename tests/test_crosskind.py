@@ -134,7 +134,7 @@ def build(cats, places, writes, order, blobs=None):
     for c in cats:
         dag.put(c, [])
     for p in places:
-        dag.put(p, ["geo(u)"])      # a place is in geo before a role names it
+        dag.put(p, ["geo(40..60,0..40)"])      # a place is in geo before a role names it
     shuffled = list(writes)
     random.Random(order).shuffle(shuffled)
     refused = []
@@ -188,7 +188,7 @@ class TestEveryKindAtOnce(unittest.TestCase):
             for c in cats:
                 base.put(c, [])
             for p in places:
-                base.put(p, ["geo(u)"])
+                base.put(p, ["geo(40..60,0..40)"])
             root = base.commit()
             roots = set()
             order = list(writes)
@@ -219,7 +219,7 @@ class TestEveryKindAtOnce(unittest.TestCase):
                 for c in cats:
                     dag.put(c, [])
                 for p in places:
-                    dag.put(p, ["geo(u)"])
+                    dag.put(p, ["geo(40..60,0..40)"])
             order = list(writes)
             rng.shuffle(order)
             for name, supers in order:
@@ -263,7 +263,7 @@ class TestEveryKindAtOnce(unittest.TestCase):
                 for c in cats:
                     dag.put(c, [])
                 for p in places:
-                    dag.put(p, ["geo(u)"])
+                    dag.put(p, ["geo(40..60,0..40)"])
                 dag.put("warm-up", [cats[0]])      # builds the indexes first
                 for name, supers in writes:
                     try:
@@ -286,7 +286,7 @@ class TestEveryKindAtOnce(unittest.TestCase):
             for c in cats:
                 base.put(c, [])
             for p in places:
-                base.put(p, ["geo(u)"])
+                base.put(p, ["geo(40..60,0..40)"])
             root = base.commit()
             rng = random.Random(seed * 11 + 3)
             order = list(writes)
@@ -359,7 +359,7 @@ class TestEveryKindAtOnce(unittest.TestCase):
             for c in cats:
                 base.put(c, [])
             for p in places:
-                base.put(p, ["geo(u)"])
+                base.put(p, ["geo(40..60,0..40)"])
             root = base.commit()
             writers = [EagerOntoDAG(RecordStore(blobs, root=root)),
                        EagerOntoDAG(RecordStore(blobs, root=root)),
@@ -417,7 +417,7 @@ class TestEveryKindAtOnce(unittest.TestCase):
             for c in cats:
                 base.put(c, [])
             for p in places:
-                base.put(p, ["geo(u)"])
+                base.put(p, ["geo(40..60,0..40)"])
             root = base.commit()
             writers = [EagerOntoDAG(RecordStore(blobs, root=root)),
                        EagerOntoDAG(RecordStore(blobs, root=root)),

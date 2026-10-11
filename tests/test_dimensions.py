@@ -128,9 +128,9 @@ class TestDominanceCanonicalization:
 
 class TestPrefixCanonicalization:
     def test_passthrough(self):
-        assert canonicalize("geo(u2ed)", KIND_PREFIX) == "geo(u2ed)"
+        assert canonicalize("code(u2ed)", KIND_PREFIX) == "code(u2ed)"
 
-    @pytest.mark.parametrize("raw", ["geo(a..b)", "geo(a b)", "geo(.x)"])
+    @pytest.mark.parametrize("raw", ["code(a..b)", "code(a b)", "code(.x)"])
     def test_malformed_raise(self, raw):
         with pytest.raises(ValueError):
             canonicalize(raw, KIND_PREFIX)
@@ -173,9 +173,9 @@ class TestContains:
                         KIND_DOMINANCE)
 
     def test_prefix(self):
-        assert contains("geo(u2)", "geo(u2ed)", KIND_PREFIX)
-        assert not contains("geo(u2ed)", "geo(u2)", KIND_PREFIX)
-        assert not contains("geo(u2ed)", "geo(u3)", KIND_PREFIX)
+        assert contains("code(u2)", "code(u2ed)", KIND_PREFIX)
+        assert not contains("code(u2ed)", "code(u2)", KIND_PREFIX)
+        assert not contains("code(u2ed)", "code(u3)", KIND_PREFIX)
 
     def test_cross_head_and_family_mismatch_raise(self):
         with pytest.raises(ValueError):
@@ -202,9 +202,9 @@ class TestIntersect:
                          KIND_DOMINANCE) == "size(2/5x3/10x1/10m)"
 
     def test_prefix(self):
-        assert intersect("geo(u2)", "geo(u2ed)", KIND_PREFIX) == "geo(u2ed)"
-        assert intersect("geo(u2ed)", "geo(u2)", KIND_PREFIX) == "geo(u2ed)"
-        assert intersect("geo(u2)", "geo(u3)", KIND_PREFIX) is None
+        assert intersect("code(u2)", "code(u2ed)", KIND_PREFIX) == "code(u2ed)"
+        assert intersect("code(u2ed)", "code(u2)", KIND_PREFIX) == "code(u2ed)"
+        assert intersect("code(u2)", "code(u3)", KIND_PREFIX) is None
 
 
 class TestSpaceOf:
@@ -213,7 +213,7 @@ class TestSpaceOf:
         assert space_of("time(2026-08-15)", KIND_LINEAR) == "linear:time"
         assert space_of("size(3x4x5cm)", KIND_DOMINANCE) == \
             "dominance:length:3"
-        assert space_of("geo(u2)", KIND_PREFIX) == "prefix"
+        assert space_of("code(u2)", KIND_PREFIX) == "prefix"
 
 
 class TestAgainstDenotationOracle:
@@ -443,9 +443,9 @@ class TestRegistry:
         assert dims.SIGNED_DIMENSION == "signed-dimension"
         # MAJOR.MINOR since v3 (UNITS.md D10): same major = same
         # canonical-name arithmetic; minors add vocabulary only.
-        assert dims.REGISTRY_VERSION == "4.5"
-        assert dims.registry_compatible("4.7")
-        assert not dims.registry_compatible("3.2")
+        assert dims.REGISTRY_VERSION == "5.0"
+        assert dims.registry_compatible("5.7")
+        assert not dims.registry_compatible("4.5")
 
 
 class TestATermIsParsedOnce:

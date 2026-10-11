@@ -1087,7 +1087,7 @@ class TestOverlapsAndMeetOverRest:
                               query_string={"a": "parcel", "b": "mass(5kg..)"})
         assert response.get_json() == {"overlaps": False}
         response = client.get("/dag/overlaps",
-                              query_string={"a": "mass(1kg)", "b": "geo(u2)"})
+                              query_string={"a": "mass(1kg)", "b": "geo(45..55,10..30)"})
         assert response.status_code == 400
 
     def test_meet(self, client):

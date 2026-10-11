@@ -50,7 +50,8 @@ def declared_dag():
     dag.put("weight", ["linear-dimension"])
     dag.put("logged", ["linear-dimension"])      # legacy linear time
     dag.put("time", ["calendar-dimension"])
-    dag.put("geo", ["prefix-dimension"])
+    dag.put("rectangle-dimension", ["dimension"])
+    dag.put("geo", ["rectangle-dimension"])
     dag.put("size", ["dominance-dimension"])
     return dag
 
@@ -99,7 +100,7 @@ class TestRenderingTable(unittest.TestCase):
 
     def test_dominance_and_prefix(self):
         self.assertEqual(self.r("size(390x230x190mm)"), "size(39x23x19cm)")
-        self.assertEqual(self.r("geo(u2ed)"), "geo(u2ed)")
+        self.assertEqual(self.r("geo(46.2..46.8,17..19)"), "geo(46.2..46.8,17..19)")
 
     def test_linear_time_collapses_days_but_never_years(self):
         # Bare dates are admissible in the linear grammar; bare years are a
@@ -203,16 +204,23 @@ class TestRoundTripFuzz(unittest.TestCase):
                 raw = f"time({lo}..)"
             self.check(raw)
 
-    def test_dominance_and_prefix_terms(self):
+    def test_dominance_and_rectangle_terms(self):
         for _ in range(60):
             parts = [str(self.rnd.randint(0, 400) *
                          self.rnd.choice([1, 10, 1000]))
                      for _ in range(self.rnd.randint(2, 4))]
             self.check(f"size({'x'.join(parts)}mm)")
-        for _ in range(20):
-            cell = "".join(self.rnd.choice("0123456789bcdefghjkmnpqrstuvwxyz")
-                           for _ in range(self.rnd.randint(1, 8)))
-            self.check(f"geo({cell})")
+        for _ in range(60):
+            places = self.rnd.randint(0, 5)
+            lat = f"{self.rnd.uniform(-89, 89):.{places}f}"
+            lon = f"{self.rnd.uniform(-180, 180):.{places}f}"
+            shape = self.rnd.random()
+            if shape < 0.4:
+                self.check(f"geo({lat},{lon})")          # a position: its precision
+            elif shape < 0.7:
+                self.check(f"geo({lat},{lon}±{self.rnd.randint(1, 50000)}m)")
+            else:
+                self.check(f"geo({lat}..{float(lat) + 0.5},{lon}..{float(lon) + 1})")
 
 
 class TestSurfaceCLI(unittest.TestCase):
