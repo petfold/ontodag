@@ -2185,3 +2185,7 @@ is at 4.5895°S, 137.4417°E.
 
 Recommended: A, which costs nothing and leaves B to add, without changing a
 stored name, when someone needs `±` on another body.
+
+**Decided: A (Peter, 2026-10-11).** Another body is another head of the
+rectangle kind, declared by whoever needs it; `±` works on `geo` only, until
+a head can declare its body's radius.

@@ -443,7 +443,8 @@ Each line points to its record.
   the rectangle its written precision covers; `geo(48.8584,2.2945±500m)` is
   500 m either way, turned into bounds once by a fixed rule and rounded
   outwards; geohash names go, a registry major; unions of rectangles later
-  (DIMENSIONS.md §22). Not built.
+  (DIMENSIONS.md §22). Another body is another head of the rectangle kind,
+  `±` on `geo` only for now (question 33, decided A). Being built.
 - Negative values (question 32, decided A on 2026-10-11): a linear head
   declared a position (by a marker node, as a head is pinned to a family)
   takes negative values, as `altitude` will in core; a value's meaning
@@ -498,11 +499,8 @@ Each line points to its record.
 
 ## Open questions for Peter
 
-Question 33, put 2026-10-11 (`docs/DIMENSIONS.md` §22): how a body other
-than the Earth is given. A, one head per body, `±` on `geo` only for now
-(recommended); B, as A with a declared radius per head; C, the body inside
-the value. It does not hold up the build of questions 29 and 30. Then
-question 31, relative times in `time(...)`. Polygons and unions
+Question 31, relative times in `time(...)`, is next (loopmarket's other
+launch spelling). Polygons and unions
 of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 
