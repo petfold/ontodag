@@ -2304,3 +2304,15 @@ agent tool, the web console, `surface.elaborate(..., now=)`), never by the
 core or a replay; `today` is the UTC day; `..` keeps ontodag's open end,
 and `loop` takes ontodag's meaning at once (its `..+90d` meant "from now";
 backward compatibility does not weigh yet), so `now..+90d` says from now.
+
+**Built (2026-10-11), surface 0.2.** `ontodag.surface` reads relative
+times (`relative_calendar`, `absolute`, and `elaborate(..., now=)`); the
+`odag` dispatcher converts the term arguments a person types and says on
+stderr what it stored; the agent tool converts a call's term arguments
+before any tool runs; the web console goes through the dispatcher. The
+clock is `settings.clock()`: the `now` setting, else the machine's. The
+registry only names, in its refusal, where a relative time is read.
+Building it found an older fault, fixed first: the interval index's open
+end was a float infinity, which does not compare with a timestamp, so any
+open-ended time query or value raised once a store held a time (since
+0.30.0).

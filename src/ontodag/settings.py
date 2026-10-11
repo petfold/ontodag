@@ -173,6 +173,11 @@ SETTINGS = {
     "limit": Setting(
         "ONTODAG_LIMIT", "auto", "-n N",
         "max result lines (auto = 50 at a terminal, all in a pipe; 0 = all)"),
+    "now": Setting(
+        "ONTODAG_NOW", "", "--now TIME",
+        "the clock relative times are read against (time(today), +7d): a "
+        "time like 2026-10-11T09:00:00Z or unix seconds; unset, this "
+        "machine's clock"),
 }
 
 # Settings given as flags on this invocation. odag's main() records its
@@ -201,6 +206,39 @@ def configured(key, flag=None):
     if cfg.get(key):
         return cfg[key]
     return SETTINGS[key].default
+
+
+def parse_clock(text):
+    """The `now` setting's value as unix seconds: whole seconds, or an
+    absolute ontodag time (its first second). Raises ValueError, naming the
+    forms, for anything else."""
+    text = text.strip()
+    if text.isdigit() and len(text) >= 9:
+        return int(text)
+    from datetime import datetime, timezone
+    from ontodag import dimensions as _dims
+    try:
+        canonical = _dims.canonicalize(f"time({text})", _dims.KIND_CALENDAR)
+    except ValueError:
+        canonical = None
+    start = _dims.split_term(canonical)[1].split("..")[0] if canonical else ""
+    if not start:
+        raise ValueError(f"now = {text!r}: a time such as "
+                         f"2026-10-11T09:00:00Z or 2026-10-11, or unix "
+                         f"seconds")
+    return int(datetime.strptime(start, "%Y-%m-%dT%H:%M:%SZ")
+               .replace(tzinfo=timezone.utc).timestamp())
+
+
+def clock():
+    """The instant relative times are read against (question 31), in unix
+    seconds: the `now` setting by the precedence rule, else this machine's
+    clock."""
+    value = configured("now")
+    if value:
+        return parse_clock(value)
+    import time
+    return int(time.time())
 
 
 def resolve_store(spec=None):

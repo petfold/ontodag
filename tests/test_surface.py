@@ -138,7 +138,7 @@ class TestRenderingTable(unittest.TestCase):
         self.assertEqual(rendered, {"weight(3kg)"})
 
     def test_version_constant(self):
-        self.assertEqual(surface.SURFACE_VERSION, "0.1")
+        self.assertEqual(surface.SURFACE_VERSION, "0.2")
 
 
 class TestRoundTripFuzz(unittest.TestCase):

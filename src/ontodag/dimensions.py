@@ -714,9 +714,23 @@ def _calendar_end(text, side):
     if _YEAR_RE.match(text):
         return f"{text}-01-01T00:00:00Z" if side == "lo" \
             else f"{text}-12-31T23:59:59Z"
+    if _RELATIVE_TIME_RE.match(text):
+        raise ValueError(
+            f"invalid calendar value {text!r} — a relative time is read "
+            f"only where it is typed: the odag command, the agent tool and "
+            f"the web console turn it into a date (in Python, "
+            f"ontodag.surface.elaborate(term, dag, now=...)); a stored name "
+            f"is always absolute, YYYY, YYYY-MM, YYYY-MM-DD or "
+            f"YYYY-MM-DDTHH:MM:SSZ")
     raise ValueError(
         f"invalid calendar value {text!r} — expected YYYY, YYYY-MM, "
         "YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ")
+
+
+#: The relative times the input surfaces read (question 31): `now`,
+#: `today`, `tomorrow` and offsets from now (`+7d`). The registry never reads
+#: them; it names where they are read when one reaches it.
+_RELATIVE_TIME_RE = re.compile(r"^(?:now|today|tomorrow|[+-]\d[\w./]*)$")
 
 
 @functools.lru_cache(maxsize=1 << 16)

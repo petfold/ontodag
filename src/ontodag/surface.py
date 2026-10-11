@@ -1,4 +1,5 @@
-"""The surface layer, output half: readable rendering of canonical names.
+"""The surface layer: readable rendering of canonical names, and the
+relative times a person or an agent types (question 31).
 
 Design record: docs/plans/SURFACE_LAYER.md (§4 the round-trip law, §6 rendering,
 §7 who sees which layer). This module is the opt-in `ontodag.surface` of §7:
@@ -32,7 +33,9 @@ Pass the DAG (any OntoDAG), or pass the kind directly when you already
 know it.
 """
 
+import re
 from calendar import monthrange
+from datetime import datetime, timezone
 
 from ontodag import dimensions as _dims
 
@@ -40,7 +43,7 @@ from ontodag import dimensions as _dims
 # a rendering change is harmless (canonical data never moves), but it should
 # be visible where humans compare outputs. Purely informational (§9.5) —
 # never stored, never merged; `odag canon` prints it.
-SURFACE_VERSION = "0.1"
+SURFACE_VERSION = "0.2"
 
 
 # --------------------------------------------------------------------------- #
@@ -203,6 +206,112 @@ def _friendly_param(param, kind, units=None):
 
 
 # --------------------------------------------------------------------------- #
+# Relative times: the input half (question 31)
+# --------------------------------------------------------------------------- #
+
+# `now`, `today`, `tomorrow` or an offset from now in ontodag's duration
+# units, at either end of a calendar value. They are read here, where a
+# person or an agent types, against a clock the caller passes; the core and
+# every replay never see one, so a stored name, a file and a merge stay a
+# function of their content.
+_RELATIVE_SIDE = _dims._RELATIVE_TIME_RE
+_RELATIVE_ANYWHERE = re.compile(
+    r"(?<![\w-])(?:now|today|tomorrow)(?![\w-])|(?:\(|\.\.)[+-]\d")
+# A term whose parameter holds no term: a calendar value never does.
+_INNERMOST = re.compile(r"([^\s()]+)\(([^()]*)\)")
+_DAY = 86_400
+
+
+def _timestamp(ts):
+    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ")
+
+
+def _offset(text):
+    """Whole seconds of the offset `+7d` or `-90min`, read by the duration
+    arithmetic in ontodag's units."""
+    body = text[1:]
+    try:
+        family, value = _dims._parse_scalar(body)
+    except ValueError:
+        family, value = None, None
+    if family == "length" and body.endswith("m"):
+        raise ValueError(f"{text} is metres in ontodag; an offset from now "
+                         f"is a duration: write {text}in")
+    if family is None and body.endswith("w"):
+        raise ValueError(f"{text}: ontodag has no unit w (W is watts); a "
+                         f"week is wk: write {text}k")
+    if family != "duration":
+        raise ValueError(f"{text}: an offset from now is a duration in "
+                         f"ontodag's units s, min, h, d or wk "
+                         f"(+7d, -2h, +90min, +1wk)")
+    if value.denominator != 1:
+        raise ValueError(f"{text}: time is kept to the second, and this "
+                         f"offset is not a whole number of seconds")
+    return int(value)
+
+
+def _relative_side(text, now, side):
+    """One end of a calendar value at the clock `now`, in unix seconds:
+    `today` and `tomorrow` are UTC dates, `now` and an offset an instant;
+    an instant closing a range is the second before it, so `now..+2h` is
+    two hours of seconds. Any other text is returned as it is."""
+    if text in ("today", "tomorrow"):
+        day = now - now % _DAY + (_DAY if text == "tomorrow" else 0)
+        return _timestamp(day)[:10]
+    if text == "now":
+        at = now
+    elif text[:1] in "+-" and _RELATIVE_SIDE.match(text):
+        at = now + _offset(text) * (1 if text[0] == "+" else -1)
+    else:
+        return text
+    return _timestamp(at - 1 if side == "hi" else at)
+
+
+def has_relative(name):
+    """Could `name` hold a relative time? A cheap test on the spelling."""
+    return bool(_RELATIVE_ANYWHERE.search(name))
+
+
+def relative_calendar(param, now):
+    """The absolute calendar parameter the relative one `param` spells at
+    `now` (unix seconds): `today..+7d` at 2026-10-11T09:46:05Z is
+    `2026-10-11..2026-10-18T09:46:04Z`. `..` keeps its meaning, an open end:
+    `..+90d` is everything up to 90 days from now."""
+    if ".." not in param:
+        return _relative_side(param, now, "at")
+    lo, _, hi = param.partition("..")
+    return (f"{_relative_side(lo, now, 'lo') if lo else ''}.."
+            f"{_relative_side(hi, now, 'hi') if hi else ''}")
+
+
+def absolute(name, dag=None, now=None, kind=None):
+    """`name` with each relative time in a calendar value replaced by the
+    absolute value it spells at `now` (unix seconds). A calendar value is the
+    parameter of a head of the calendar kind in `dag` — a role of `time`
+    included — or of the outermost head when `kind` says it is one. Without
+    a clock, or with nothing relative in it, `name` is returned as it is."""
+    if now is None or not has_relative(name):
+        return name
+    outer = _dims.split_term(name)
+
+    def calendar(head):
+        if kind is not None:
+            return kind == _dims.KIND_CALENDAR and outer is not None \
+                and head == outer[0]
+        return dag is not None and \
+            dag._dimension_of(head)[0] == _dims.KIND_CALENDAR
+
+    def one(match):
+        head, param = match.group(1), match.group(2)
+        if not any(_RELATIVE_SIDE.match(side) for side in param.split("..")) \
+                or not calendar(head):
+            return match.group(0)
+        return f"{head}({relative_calendar(param, now)})"
+    return _INNERMOST.sub(one, name)
+
+
+# --------------------------------------------------------------------------- #
 # The public pair
 # --------------------------------------------------------------------------- #
 
@@ -218,12 +327,15 @@ def _resolve(name, dag, kind):
     return dag.parse_term(name)
 
 
-def elaborate(name, dag=None, kind=None):
+def elaborate(name, dag=None, kind=None, now=None):
     """The canonical name of a surface term, under the given context (a DAG
     whose declarations resolve the head's kind, or an explicit kind). Names
     that are not parametric terms in that context are their own canonical
     form. Raises ValueError for a malformed parameter of a declared head —
-    the same teaching error the core would raise at put/get time."""
+    the same teaching error the core would raise at put/get time. With a
+    clock, `now` in unix seconds, relative times in calendar values are read
+    first (`absolute`); without one they are refused, as the core does."""
+    name = absolute(name, dag, now, kind)
     resolved = _resolve(name, dag, kind)
     return resolved[2] if resolved else name
 

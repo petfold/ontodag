@@ -199,8 +199,8 @@ Contract 0.6 (`docs/CONTRACT.md`, `tests/test_contract.py`):
   (`make_g8.py`) only together with a registry bump.
 - **G9** replays are order-free; single writes are checked as they come.
 
-Versions now: contract 0.7, registry 5.0, prelude 5 on main (released in
-0.31.0: contract 0.6, registry 4.4, prelude 4), surface 0.1.
+Versions now: contract 0.7, registry 5.0, prelude 5, surface 0.2 on main
+(released in 0.31.0: contract 0.6, registry 4.4, prelude 4, surface 0.1).
 Consumers compare majors.
 
 ## Standing rules
@@ -453,7 +453,8 @@ Each line points to its record.
   `surface.elaborate(..., now=)`), turned into absolute UTC with the clock
   or the `now` setting; the core and every replay never see them; `today`
   is the UTC day; `..` keeps ontodag's open end, and `loop` takes that
-  meaning (DIMENSIONS.md §22).
+  meaning (DIMENSIONS.md §22). Built on main (surface 0.2, the `now`
+  setting).
 - Negative values (question 32, decided A on 2026-10-11): a linear head
   declared a position (by a marker node, as a head is pinned to a family)
   takes negative values, as `altitude` will in core; a value's meaning

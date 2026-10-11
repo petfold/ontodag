@@ -14,6 +14,22 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Relative times where someone types (question 31); surface 0.2
+
+- `now`, `today`, `tomorrow` and offsets from now in duration units
+  (`+7d`, `-90min`, `+1wk`) are taken inside `time(...)` and its roles by
+  the `odag` command, the agent tool and the web console, and by
+  `ontodag.surface.elaborate(term, dag, now=...)`, and turned into absolute
+  UTC at once: `today` is the UTC day, an instant closing a range is the
+  second before it, `..` stays an open end. `odag` says on stderr what it
+  stored; the agent tool's canonical echo carries the dates.
+- The clock is the machine's; the new `now` setting (`--now`,
+  `ONTODAG_NOW`, `odag set now`) fixes it, and is checked when set.
+- The core and every replay never read a relative time: `put` from Python,
+  merges, loads and ingest refuse one, naming where it is read.
+- `surface.absolute`, `surface.relative_calendar` and `surface.has_relative`
+  are the pieces; `SURFACE_VERSION` is 0.2.
+
 ### Contract 0.7, registry 5.0, prelude 5
 
 - **`geo` is a rectangle head** (questions 29, 30 and 33, decided by Peter

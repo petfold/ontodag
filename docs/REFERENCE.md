@@ -7,7 +7,7 @@ pinned against the code by `tests/test_reference.py` — if a name in this
 file and the code disagree, the suite fails.
 
 Versions this file describes: contract `0.7` · registry `5.0` ·
-prelude `5` · surface `0.1` · core `13`.
+prelude `5` · surface `0.2` · core `13`.
 
 ## 1. Vocabulary
 
@@ -132,6 +132,7 @@ reads and writes the same table through `ontodag.settings` (§5).
 | `store_key` | `ONTODAG_STORE_KEY` | `--store-key SECRET` | (unset; secret — never echoed) — encryption secret for `rs:` stores, any string. **The marker in the store decides; the setting only supplies key material**: a NEW store is created encrypted iff this is set, an encrypted store refuses to open without the right key (never serves garbage), a plaintext store stays plaintext even with a key configured (so a public overlay sits beside an encrypted primary). Records AND trie structure are ciphertext at rest; the index/provenance siblings inherit the audience. Needs the `crypto` extra. Sizes, counts and record-equality remain visible (deterministic encryption is what keeps two devices converging); certificates don't cross the audience boundary |
 | `render` | `ONTODAG_SURFACE` | `--render` / `--raw` | `auto` |
 | `limit` | `ONTODAG_LIMIT` | `-n N` | `auto` (50 at a tty, all in a pipe, 0 = all) |
+| `now` | `ONTODAG_NOW` | `--now TIME` | (unset: this machine's clock) — the instant relative times are read against: a time such as `2026-10-11T09:00:00Z` or `2026-10-11` (its first second), or unix seconds; checked when set |
 
 **Two pre-command flags are not settings.** `-m MESSAGE` labels whatever state
 this invocation commits, readable back with `odag history`; the label lives in
@@ -284,7 +285,7 @@ stored as edges. Registry `4.3`; same major = same arithmetic.
 | kind node | values | order | example |
 |---|---|---|---|
 | `linear-dimension` | exact rationals of the family anchor; ranges `lo..hi`, either end open | interval containment | `mass(..5kg)` contains `mass(3kg)` |
-| `calendar-dimension` | `2026`, `2026-08`, `2026-08-15`, timestamps; ranges | period containment | `time(2026)` contains `time(2026-08)` |
+| `calendar-dimension` | `2026`, `2026-08`, `2026-08-15`, timestamps; ranges; where a person or an agent types (the `odag` command, the agent tool, the web console, `surface.elaborate(..., now=)`), also `now`, `today`, `tomorrow` and offsets from now in duration units (`+7d`, `-90min`), turned into absolute UTC at once (`today` is the UTC day; an instant closing a range is the second before it; `..` stays an open end); the core and replays refuse them | period containment | `time(2026)` contains `time(2026-08)` |
 | `count-dimension` | whole numbers ≥ 1; ranges (floor 1) | interval containment | `count(2..)` contains `count(24)` |
 | `prefix-dimension` | path strings | prefix | `from(EU-UK)` contains `from(EU-UK-London)` |
 | `rectangle-dimension` | a latitude range and a longitude arc in degrees, exact decimals, `S..N,W..E`; an axis typed as one number is its written precision (`48.8584`); `LAT,LON+-SIZE` (or `±`) is the square SIZE either way, rounded outwards to millionths of a degree; the arc wraps across 180° when W > E, and `-180..180` is every longitude; a stored arc is under half the circle or all of it | containment, on the circle for longitude | `geo(48.8..48.9,2.2..2.4)` contains `geo(48.8584,2.2945)` |

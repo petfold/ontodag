@@ -867,6 +867,28 @@ What to know:
   2026, because there a bare integer is a count. If you declared a time dimension
   that way, the error message says so and names the fix; re-declaring the head
   under `calendar-dimension` changes no stored value.
+- **Relative times are typed, never stored.** Where you type — `odag`, the
+  agent tool, the web console — `now`, `today`, `tomorrow` and offsets from
+  now in duration units (`+7d`, `-2h`, `+90min`, `+1wk`) are turned into
+  absolute UTC at once, and `odag` says what it stored. `today` is the UTC
+  day, an instant closing a range is the second before it, and `..` is still
+  an open end, so `..+90d` is everything up to 90 days from now (write
+  `now..+90d` for the next 90 days). The clock is this machine's; `--now`,
+  `ONTODAG_NOW` or `odag set now` fix it for a script. A stored name, a file
+  and a merge never hold a relative time, so a store never changes meaning
+  with the date it is read; in Python, `ontodag.surface.elaborate(term, dag,
+  now=...)` does what `odag` does.
+
+  ```console
+  $ odag --now 2026-10-11T09:46:05Z put concert 'time(today..+7d)'
+  odag: time(today..+7d) → time(2026-10-11..2026-10-18T09:46:04Z)
+  $ odag --now 2026-10-11T09:46:05Z get 'time(..+90d)'
+  odag: time(..+90d) → time(..2027-01-09T09:46:04Z)
+  concert
+  time(2026-10-11T00:00:00Z..2026-10-18T09:46:04Z)
+  $ odag get 'time(+90m)'
+  odag: +90m is metres in ontodag; an offset from now is a duration: write +90min
+  ```
 - **Other dimensions work the same way.** Values are stored as exact rationals
   of the SI anchor unit — `mass(3000g)` is stored as `mass(3kg)`, `500g` as
   `mass(1/2kg)` — so `3kg`, `3000g` and `3.0kg` are one identity, nothing is
@@ -2072,8 +2094,8 @@ versions:
 $ odag canon "time(2026-08-15)"
 time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)
 $ odag canon
-surface 0.1
-registry 4.4
+surface 0.2
+registry 5.0
 ```
 
 ### 5.6 Asking for everything, and how much output you get

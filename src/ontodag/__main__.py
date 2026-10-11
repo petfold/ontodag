@@ -1637,6 +1637,8 @@ def cmd_set(args, session, out):
         # only fails later is a setting you debug in the wrong place.
         if args.key == "limit":
             _want_limit(argparse.Namespace(limit=args.value), out)
+        if args.key == "now" and args.value:
+            _settings.parse_clock(args.value)
         if args.key == "overlays":
             # Each spec must at least parse as a backend (no I/O here —
             # backends construct lazily). A typo'd overlay would otherwise
@@ -1853,6 +1855,8 @@ Options (before the command; they apply to every command in a batch):
   --bee-api URL         Bee node endpoint, for swarm: stores
   --bee-batch ID        postage batch to pay for Swarm writes
   --bee-signer KEY      publish the latest root to a signed Swarm feed
+  --now TIME            the clock relative times are read against
+                        (time(today), time(now..+7d)); default: this machine's
 
 Per command:
   -o, --output FILE     write output to FILE instead of stdout (get/show/list)
@@ -2290,6 +2294,31 @@ def dispatch(argv, session, out=None, err=None):
             token.var.reset(token)
 
 
+# The arguments that carry the terms a person types. A relative time in one
+# (`time(today..+7d)`) is read against the clock here, once, before the
+# store sees it, and the stored value is said on stderr (question 31).
+_TERM_ARGS = ("item", "parents", "categories", "term", "sub", "sup", "a", "b")
+
+
+def _absolute_terms(args, session):
+    now = view = None
+    for attr in _TERM_ARGS:
+        value = getattr(args, attr, None)
+        values = value if isinstance(value, list) else [value]
+        if not any(isinstance(v, str) and _surface.has_relative(v)
+                   for v in values):
+            continue
+        if now is None:
+            now, view = _settings.clock(), session.view()
+        new = [_surface.absolute(v, view, now) if isinstance(v, str) else v
+               for v in values]
+        for typed, absolute in zip(values, new):
+            if absolute != typed:
+                print(f"odag: {typed} → {_surface.render(absolute, view)}",
+                      file=_err())
+        setattr(args, attr, new if isinstance(value, list) else new[0])
+
+
 def _dispatch(argv, session):
     try:
         args = PARSER.parse_args(argv)
@@ -2307,6 +2336,7 @@ def _dispatch(argv, session):
     handle = None
     outpath = getattr(args, "output", None)
     try:
+        _absolute_terms(args, session)
         if outpath and getattr(args, "stream_output", False):
             handle = open(outpath, "w", encoding="utf-8")
             out = handle
@@ -2379,6 +2409,7 @@ def main(argv=None):
               "--store-key": "store_key",
               "--bee-api": "bee_api", "--bee-batch": "bee_batch",
               "--bee-signer": "bee_signer", "-n": "limit", "--limit": "limit",
+              "--now": "now",
               # Not settings — a label for whatever state this invocation
               # commits, and the version it reads from. Both belong where the
               # other pre-command flags are, since both apply to every command

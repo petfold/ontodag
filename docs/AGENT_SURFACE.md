@@ -74,6 +74,14 @@ Decisions embedded there:
   constraints. It is the natural "what is in this store" follow-up to
   `about`, and refusing it would only push agents into inventing a
   root-term convention.
+- **Relative times are read at the door** (question 31, 2026-10-11). A
+  time in any term argument may be relative — `time(today)`,
+  `time(now..+7d)`, `time(..+90d)`, `depart(tomorrow)` — and is turned into
+  absolute UTC against the server's clock (its `now` setting, else the
+  machine's) before any tool sees it, so the canonical echo carries the
+  dates: an agent, which often does not know the date, learns it from the
+  answer. On the write surface, confirm `put` with the item and supers that
+  `propose_put` echoed: re-sending `time(now)` would read the clock again.
 - **Unknown names fail closed** (empty results, `false`), exactly like the
   core; *malformed* parametric terms raise the core's teaching errors,
   passed through verbatim as tool errors (`isError: true`), never protocol

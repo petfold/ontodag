@@ -217,7 +217,7 @@ class TestTools(SurfaceHarness):
         answer = self.call("canon", {"term": "time(2026)"})
         self.assertEqual(answer["canonical"], self.CANONICAL_2026)
         self.assertEqual(answer["display"], "time(2026)")
-        self.assertEqual(answer["surface_version"], "0.1")
+        self.assertEqual(answer["surface_version"], "0.2")
 
     def test_errors_teach_and_query_certify_is_reserved(self):
         text = self.call("query", {"terms": ["weight(3zz)"]},

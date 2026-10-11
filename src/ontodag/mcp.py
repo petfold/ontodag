@@ -48,7 +48,7 @@ from ontodag import CONTRACT_VERSION
 from ontodag import surface as _surface
 from ontodag.dimensions import KINDS, REGISTRY_VERSION
 from ontodag.__main__ import __version__
-from ontodag.settings import configured, resolve_store
+from ontodag.settings import clock, configured, resolve_store
 from ontodag.stores import make_backend
 
 
@@ -681,7 +681,29 @@ class AgentSurface:
                 + (sorted(WRITE_TOOL_HANDLERS) if self.writable else [])
             raise ToolError(f"unknown tool {name!r} "
                             f"(available: {', '.join(available)})")
-        return handler(self, arguments or {})
+        return handler(self, self._absolute(arguments or {}))
+
+    # The arguments that carry terms. A relative time in one (`time(today)`,
+    # `time(now..+7d)`) is read against the clock here, before any tool sees
+    # it; every answer echoes the canonical terms, so the agent reads the
+    # dates it was given (question 31).
+    _TERM_ARGUMENTS = ("terms", "any_of", "sub", "sup", "term", "a", "b",
+                       "item", "supers")
+
+    def _absolute(self, arguments):
+        now = None
+
+        def convert(value):
+            nonlocal now
+            if isinstance(value, list):
+                return [convert(v) for v in value]
+            if not isinstance(value, str) or not _surface.has_relative(value):
+                return value
+            if now is None:
+                now = clock()
+            return _surface.absolute(value, self.dag, now)
+        return {key: convert(value) if key in self._TERM_ARGUMENTS else value
+                for key, value in arguments.items()}
 
 
 TOOL_HANDLERS = {
@@ -725,7 +747,10 @@ TOOL_SPECS = [
     {"name": "query",
      "description": "Items below ALL given terms (`terms`), or below any of "
                     "several conjunctions (`any_of`). Terms may be virtual "
-                    "parametric values like weight(..5kg). Unknown names "
+                    "parametric values like weight(..5kg); a time may be "
+                    "relative, time(today), time(now..+7d) or time(..+90d), "
+                    "read against the server's clock in UTC and echoed as "
+                    "dates. Unknown names "
                     "fail closed to an empty result. With no terms at all "
                     "the query is unconstrained and returns every item. "
                     "Echoes the canonical terms it answered. `count` is "
