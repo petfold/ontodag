@@ -32,7 +32,7 @@ const { _electron: electron } = createRequire(path.join(freedomDir, "package.jso
 
 const QUERIES = [
   ["node", "fruit"], ["node", "food"], ["node", "durian-not-a-category"],
-  ["get", "berry"], ["get", "fruit produce"], ["below", "apple", "food"], ["below", "apple", "tool"],
+  ["get", "berry"], ["get", "fruit produce"], ["get", "physical-object"], ["below", "apple", "food"], ["below", "apple", "tool"],
 ];
 
 function inPage(window, code) {
