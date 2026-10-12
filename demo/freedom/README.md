@@ -12,7 +12,9 @@ always opens the current version): `bzz://eaaa79002b255222218984bc54a73131adcf72
 committed); `ontodag/demo/freedom/page_feed.py` makes and moves the feed.
 
 Names: `bzz://ontodag.gwei/` in Freedom Browser, `https://ontodag.gwei.domains/`
-in any browser (both resolve the feed; `../DOMAINS.md` beside the repos).
+in any browser, and `http://localhost:1633/bzz/ontodag.eth/` with a local Bee
+node such as Swarm Desktop, no gateway (all resolve the feed; `../DOMAINS.md`
+beside the repos).
 
 Published: `bzz://cc4c99b615eb886c6c8c5ccf8217a26ed8aa41f8452fdd4b2c1061496ad91468/`
 (2026-10-12; Pyodide loaded from the shared folder `PYODIDE` in `app.js`;

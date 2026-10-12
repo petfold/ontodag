@@ -3233,6 +3233,8 @@ WebAssembly) and reads the store from Swarm lazily, as above:
 
 - in **Freedom Browser** through its own Swarm node: open
   `bzz://ontodag.gwei/`;
+- in **any browser** with a local Bee node (Swarm Desktop, say): open
+  `http://localhost:1633/bzz/ontodag.eth/`, read through your own node;
 - in **any browser** through a public gateway: open
   `https://ontodag.gwei.domains/`, or serve the page's folder and add
   `?gateway=https://api.gateway.ethswarm.org`.
