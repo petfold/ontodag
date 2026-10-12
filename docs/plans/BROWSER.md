@@ -635,10 +635,10 @@ button per case) tried them in real Freedom from its checkout (Electron
   Freedom's handler (`src/main/permissions/permissions-manager.js`)
   refuses any permission it does not list. Supporting it would be a Freedom
   change: a per-site prompt for `fileSystem`, as it has for the camera.
-- **Brave** reportedly ships with File System Access turned off
-  (`brave://flags`); to be checked with the same probe through a node,
-  `http://localhost:1633/bzz/65964c7d…/`. Firefox and Safari have no
-  pickers at all.
+- **Brave** turned File System Access off on purpose (brave-browser#11407)
+  and offers only a global flag (`brave://flags/#file-system-access-api`).
+  Peter ran the probe through a node (`http://localhost:1633/bzz/65964c7d…/`):
+  no picker opens at all. Firefox and Safari have no pickers either.
 - **Private storage is shared under a node's origin.** Every page opened
   through `http://localhost:1633/bzz/…` is the same origin, so anything one
   keeps in IndexedDB or OPFS is readable by every other Swarm page opened
@@ -654,6 +654,42 @@ What it means for the pages:
   and file them under categories; only the store is written.
 - **loopmarket:** drafting offers into a local book file works the same
   way; publishing them is a Swarm write (14.2) under the §11 key.
+
+**Built (2026-10-12):** the ontodag page keeps your own store in a local
+file (`ontodag.browser.LocalStore`, a whole `OntoDAG` in memory):
+- **Writes:** New or Open file, Put, Remove (contraction, as `odag
+  remove`), the prelude, and browsing and `get` as with a pack. Typed
+  relative times are read with the clock.
+- **Save:** writes `.od` text, the format `odag` reads (`check.py`
+  compares it byte for byte). It goes back to the same file where the
+  pickers work (Chrome), and is a download where they are refused
+  (Freedom, detected and remembered) or missing (Brave, Firefox, Safari);
+  Open then uses a file input.
+- The page warns before leaving with unsaved changes, and `check.py`
+  drives the whole path through the page's buttons in Chromium.
+
+**Requests drafted, not filed** (`../canopy-issues/11` and `12`):
+- **Freedom:** treat `fileSystem` like the camera. Grant reading what was
+  picked, prompt per site for writing, and keep Electron's restricted
+  locations blocked.
+- **Brave:** make File System Access a per-site permission instead of a
+  global flag. Its tracker has the removal (#11407), the flag (#18979,
+  #44411) and the TypeError (#29411), but no per-site request.
+
+**A local file as a buffer for Swarm writes.** It fits a store:
+- **Why:** merge is a CRDT (I7), so edits made offline, saved locally and
+  published later converge with what others published meanwhile. Nothing is
+  lost or ordered wrongly by the delay, and the file is the copy the person
+  owns.
+- **Publishing:** writes its root under the person's feed (§11).
+
+It does not fit an offer, or anything that is a commitment to others:
+- **Why:** an offer means something only from when it is published, and
+  only while its terms (prices, times, places) still hold. A draft offer
+  in a file is a note to oneself, not an offer.
+- **Publishing:** `loop` signs and announces it directly. A page should
+  say so, rather than queue offers behind a later sync.
+- Withdrawals and fills are the same: they must reach the book when made.
 
 ### 14.2 Writing to Swarm: who pays for the stamps
 
@@ -720,8 +756,8 @@ Gateway test references (2026-10-12), to recheck for lifetime:
 | 11 MB random | `639f4be84af945a3119eeb673805b5cb8c0f63c8c615ca6879309c442858ab0b` | bzz.limo |
 
 **Open, for Peter:**
-- whether to ask Freedom for a `fileSystem` prompt, which would let a page
-  save your store in place there too;
+- filing the two drafted requests (Freedom, Brave);
 - which route a page should write to Swarm by first (Freedom's provider,
-  a node over HTTP, or a gateway for small, short-lived things);
-- whether the page should offer local files at all before writing to Swarm.
+  a node over HTTP, or a gateway for small, short-lived things).
+
+Decided (Peter, 2026-10-12): local files first, built above.
