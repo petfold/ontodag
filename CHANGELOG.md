@@ -34,6 +34,19 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
+- **The browser page publishes your own store** (BROWSER.md §16), as
+  `odag -f swarm:NAME` does: a random key in a file you keep owns the
+  store's feed (`0x` and 64 hex digits, the value `odag` takes as
+  `bee_signer`), and the node that served the page pays from the batch
+  you choose. In Python, `LocalStore.publish` commits the store onto the
+  root it descends from, or folds the feed in first when it moved on, as
+  `odag`'s save folds a moved head. `LocalStore.fetch` brings a published
+  store in. `StagedBlobs` hands what a commit writes to the page, which
+  addresses it itself, so writing needs no bridge. `needing` keeps a store
+  unchanged until a retry-mode call has every blob it reads. In the page,
+  `publish.js` uploads the blobs plain, checks each is retrievable, then
+  writes the feed update, which is signed in the page byte for byte as
+  swarmfs signs it.
 - **`LazyOntoDAG(..., prefetch=True)`**: with a record store that reads
   many records at once (`get_many`, recordstore 0.23), a walk goes
   breadth-first and reads each level's records in one batch: one round

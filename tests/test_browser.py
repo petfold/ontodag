@@ -461,3 +461,215 @@ class TestRetryMode(unittest.TestCase):
         _direct, page, retrying = self.readers(unreachable=list(self.blobs))
         with self.assertRaises(BlobUnreachable):
             until_answered(page, retrying, "get", "c0")
+
+
+class Stage:
+    """The page's stage (publish.js `Stage`): `put` computes a blob's
+    reference and keeps the bytes until they are uploaded; `get` hands kept
+    bytes back. Swarm addressing where swarmfs is installed, as in the page;
+    sha256 otherwise, which the logic does not care about."""
+
+    def __init__(self, swarm=None):
+        import importlib.util
+        if swarm is None:
+            swarm = importlib.util.find_spec("swarmfs") is not None
+        self.swarm = swarm
+        self.kept = {}
+
+    def address(self, data):
+        if self.swarm:
+            from swarmfs.splitter import content_address
+            return content_address(data).hex()
+        import hashlib
+        return hashlib.sha256(data).hexdigest()
+
+    def put(self, data):
+        data = bytes(data)
+        ref = self.address(data)
+        self.kept[ref] = data
+        return ref
+
+    def get(self, ref):
+        return self.kept.get(ref)
+
+
+class Device:
+    """One browser with your store open: its stage, and the published blobs
+    as its page reads them. `upload()` is the page's upload of everything
+    staged; the feed is a root the test passes along."""
+
+    def __init__(self, network, store=None):
+        from ontodag.browser import LocalStore
+        self.network = network
+        self.stage = Stage()
+        self.store = store if store is not None else LocalStore()
+
+    def blobs(self):
+        from ontodag.browser import StagedBlobs
+        return StagedBlobs(self.stage, JsBytesStore(FakePageBee(self.network), bridge))
+
+    def publish(self, feed_root):
+        import json
+        answer = json.loads(self.store.publish(feed_root or "", self.blobs()))
+        self.network.update(self.stage.kept)
+        return answer
+
+    def fetch(self, feed_root):
+        import json
+        return json.loads(self.store.fetch(feed_root, self.blobs()))
+
+    def names(self):
+        return sorted(n for n in self.store.dag.nodes if n != "*")
+
+
+def _built(puts, blobs):
+    """The root `odag -f swarm:NAME` commits for the same puts."""
+    from recordstore import RecordStore
+    from ontodag.eager import EagerOntoDAG
+    dag = EagerOntoDAG(RecordStore(blobs))
+    for name, supers in puts:
+        dag.put(name, supers)
+    return dag.commit()
+
+
+class TestPublishingYourStore(unittest.TestCase):
+    """Your own store written to Swarm from the page, as `odag -f
+    swarm:NAME` saves it (BROWSER.md §16): the same root for the same
+    knowledge, committed as it is onto the root it descends from, folded
+    with the feed when the feed moved on."""
+
+    def test_the_root_is_the_one_odag_commits_and_every_blob_was_staged(self):
+        import importlib.util
+        import tempfile
+        from recordstore import DirBytesStore, MemoryBytesStore, RecordStore
+        from ontodag import native
+        from ontodag.eager import EagerOntoDAG
+        network = {}
+        device = Device(network)
+        for name, supers in FRUIT:
+            device.store.put(name, " ".join(supers))
+        root = device.publish(None)["root"]
+        if importlib.util.find_spec("swarmfs"):
+            with tempfile.TemporaryDirectory() as d:
+                self.assertEqual(root, _built(FRUIT, DirBytesStore(d, addressing="swarm")))
+        else:
+            self.assertEqual(root, _built(FRUIT, Stage(swarm=False)))
+        # Read back from what was uploaded alone, nothing from the page.
+        published = MemoryBytesStore()
+        published.blobs = dict(network)
+        again = EagerOntoDAG(RecordStore.at(root, published))
+        self.assertEqual(native.dumps(again), device.store.text())
+
+    def test_an_unmoved_feed_takes_the_store_as_it_is_removals_included(self):
+        network = {}
+        device = Device(network)
+        for name, supers in FRUIT:
+            device.store.put(name, " ".join(supers))
+        first = device.publish(None)
+        device.store.remove("pear")
+        second = device.publish(first["root"])
+        self.assertFalse(second["merged"])
+        self.assertEqual(second["root"], _built([p for p in FRUIT if p[0] != "pear"], Stage()))
+        # nothing changed: the same root, and nothing new to upload
+        staged = len(device.stage.kept)
+        self.assertEqual(device.publish(second["root"])["root"], second["root"])
+        self.assertEqual(len(device.stage.kept), staged)
+
+    def test_a_feed_written_elsewhere_is_folded_in(self):
+        network = {}
+        laptop, phone = Device(network), Device(network)
+        laptop.store.put("fruit")
+        laptop.store.put("apple", "fruit")
+        first = laptop.publish(None)["root"]
+        fetched = phone.fetch(first)
+        self.assertEqual(fetched["came_in"], ["apple", "fruit"])
+        self.assertEqual(phone.store.text(), laptop.store.text())
+        phone.store.put("pear", "fruit")
+        second = phone.publish(first)
+        self.assertFalse(second["merged"])
+        laptop.store.put("plum", "fruit")
+        third = laptop.publish(second["root"])
+        self.assertTrue(third["merged"])
+        self.assertEqual(third["came_in"], ["pear"])
+        self.assertTrue(third["changed"])           # its file lacks the pear
+        self.assertEqual(laptop.names(), ["apple", "fruit", "pear", "plum"])
+        union = [("fruit", []), ("apple", ["fruit"]), ("pear", ["fruit"]), ("plum", ["fruit"])]
+        self.assertEqual(third["root"], _built(union, Stage()))
+
+    def test_a_removal_comes_back_when_the_feed_still_has_it(self):
+        # odag's save folds a moved head the same way: a removal is local
+        # (CLAUDE.md, "The core's semantics").
+        network = {}
+        laptop, phone = Device(network), Device(network)
+        for name, supers in FRUIT:
+            laptop.store.put(name, " ".join(supers))
+        first = laptop.publish(None)["root"]
+        phone.fetch(first)
+        phone.store.put("kiwi", "fruit")
+        second = phone.publish(first)["root"]
+        laptop.store.remove("pear")
+        laptop.publish(second)
+        self.assertIn("pear", laptop.names())
+        self.assertIn("kiwi", laptop.names())
+
+    def test_a_store_from_a_file_is_folded_with_the_feed(self):
+        from ontodag.browser import LocalStore
+        network = {}
+        laptop = Device(network)
+        laptop.store.put("fruit")
+        laptop.store.put("apple", "fruit")
+        first = laptop.publish(None)["root"]
+        old = LocalStore()
+        old.put("fruit")
+        old.put("pear", "fruit")
+        opened = LocalStore.from_text(old.text(), "old.od")
+        later = Device(network, opened).publish(first)
+        self.assertTrue(later["merged"])
+        self.assertEqual(later["came_in"], ["apple"])
+        self.assertEqual(sorted(n for n in opened.dag.nodes if n != "*"), ["apple", "fruit", "pear"])
+
+    def test_fetching_into_a_new_store_gives_the_published_one(self):
+        network = {}
+        laptop, phone = Device(network), Device(network)
+        for name, supers in FRUIT:
+            laptop.store.put(name, " ".join(supers))
+        root = laptop.publish(None)["root"]
+        phone.fetch(root)
+        self.assertEqual(phone.store.text(), laptop.store.text())
+        self.assertEqual(phone.publish(root)["root"], root)
+        self.assertEqual(phone.fetch(root)["came_in"], [])
+
+    def test_an_empty_store_is_not_published(self):
+        network = {}
+        answer = Device(network).publish(None)
+        self.assertIn("empty", answer["error"])
+        self.assertEqual(network, {})
+
+    def test_in_retry_mode_nothing_changes_until_every_blob_is_fetched(self):
+        import json
+        from ontodag.browser import RETRY, LocalStore, StagedBlobs, needing
+        network = {}
+        laptop = Device(network)
+        for name, supers in FRUIT:
+            laptop.store.put(name, " ".join(supers))
+        root = laptop.publish(None)["root"]
+        tools = LocalStore()
+        tools.put("tool")
+        tools.put("hammer", "tool")
+        text = tools.text()
+        wanted = Device(dict(network), LocalStore.from_text(text)).publish(root)
+        page = RetryPage(network)
+        stage = Stage()
+        store = LocalStore.from_text(text)
+        before = store.text()
+        for runs in range(1, 50):
+            blobs = StagedBlobs(stage, JsBytesStore(page, RETRY))
+            answer = json.loads(needing(store.publish, root, blobs))
+            if "need" not in answer:
+                break
+            self.assertEqual(store.text(), before)    # nothing changed yet
+            self.assertEqual(stage.kept, {})          # nothing staged yet
+            page.fetch(answer["need"])
+        self.assertGreater(runs, 1)
+        self.assertEqual(answer["root"], wanted["root"])
+        self.assertEqual(answer["came_in"], wanted["came_in"])

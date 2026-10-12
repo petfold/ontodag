@@ -1,11 +1,13 @@
 """Running OntoDAG in a browser, against Swarm.
 
-**Status (2026-10-11):** the read-only page in `demo/freedom/` runs this
-under Pyodide in Chromium, reading a published pack from a Swarm node
-through the page's JavaScript (`demo/freedom/swarm.js`), with `run_sync`
-(JSPI) as the bridge. The adapters' logic is also covered by tests with a
-fake bridge; the packaging constraints are checked in
-`tests/test_boundaries.py`.
+**Status (2026-10-13):** the page in `demo/freedom/` runs this under
+Pyodide, reading published packs from Swarm through the page's JavaScript
+(`demo/freedom/swarm.js`), with `run_sync` (JSPI) as the bridge or by
+retrying where JSPI cannot suspend Python. Your own store (`LocalStore`)
+lives in a local file and is published through a node (`StagedBlobs`,
+`demo/freedom/publish.js`; docs/plans/BROWSER.md §16). The adapters' logic
+is also covered by tests with a fake bridge; the packaging constraints
+are checked in `tests/test_boundaries.py`.
 
 ## Why this can work at all
 
@@ -193,6 +195,43 @@ class JsFeedPointer:
         self._bridge(self._js.write(str(root)))
 
 
+class StagedBlobs:
+    """The blobs a publish writes, held by the page until it uploads them,
+    over the blobs it reads from Swarm.
+
+    `stage` is the page's object (publish.js `Stage`): `put(data)` computes
+    the blob's Swarm reference for a plain upload, keeps the bytes and
+    returns the reference; `get(ref)` hands kept bytes back, or nothing.
+    Both answer at once, so writing needs no bridge, in retry mode either.
+    Reads of anything not kept go to `reader` (a `JsBytesStore`)."""
+
+    def __init__(self, stage, reader):
+        self._stage = stage
+        self._reader = reader
+
+    def put(self, data: bytes) -> str:
+        return str(self._stage.put(JsBytesStore._to_js(bytes(data))))
+
+    def _kept(self, ref):
+        value = self._stage.get(ref)
+        return None if value is None else JsBytesStore._to_bytes(value)
+
+    def get(self, ref: str) -> bytes:
+        ref = str(ref)
+        kept = self._kept(ref)
+        return kept if kept is not None else self._reader.get(ref)
+
+    def get_many(self, refs):
+        refs = [str(r) for r in refs]
+        out = {r: self._kept(r) for r in refs}
+        missing = [r for r, v in out.items() if v is None]
+        if missing:
+            many = getattr(self._reader, "get_many", None)
+            fetched = many(missing) if many else {r: self._reader.get(r) for r in missing}
+            out.update(fetched)
+        return out
+
+
 class LocalStorageBytesStore:
     """A BytesStore over `window.localStorage` (or any dict-like JS object).
 
@@ -310,6 +349,18 @@ class RetryingPage:
             return json.dumps({"need": need.refs})
 
 
+def needing(method, *args):
+    """`method(*args)`'s answer, or in retry mode `{"need": [refs]}` when it
+    stopped for blobs the page has not fetched: for calls on an object that
+    must be kept (your own store), which change nothing before their last
+    read, so the page fetches and simply calls again."""
+    import json
+    try:
+        return method(*args)
+    except NeedBlobs as need:
+        return json.dumps({"need": need.refs})
+
+
 class PageReader:
     """What the read-only page asks of a published store, answered as JSON
     text, so nothing but strings crosses into JavaScript.
@@ -376,8 +427,9 @@ class PageReader:
 class LocalStore(PageReader):
     """The page's own store: a whole `OntoDAG` in memory, read from and saved
     to a `.od` file on the person's computer (the page's JavaScript does the
-    file handling), never written to Swarm. The text is the native format,
-    so the same file works with `odag`.
+    file handling). The text is the native format, so the same file works
+    with `odag`. `publish` writes it to Swarm as `odag -f swarm:NAME` would,
+    and `fetch` brings in what a feed holds.
 
     It answers like `PageReader` (`node`, `get`, `below`) and adds the
     writes, each answered as JSON with `changed` (unsaved changes) and
@@ -474,3 +526,114 @@ class LocalStore(PageReader):
             self.name = name
         self.changed = False
         return self.summary()
+
+    # -- on Swarm ----------------------------------------------------------- #
+    #
+    # `blobs` is a `StagedBlobs`: what a commit writes is staged for the page
+    # to upload, and what a fold reads comes from Swarm. A store published or
+    # fetched in this session is an `EagerOntoDAG` whose `base_root` is the
+    # root it descends from; one from a file, or a new one, descends from
+    # nothing published.
+
+    def _lineage(self):
+        from ontodag.eager import EagerOntoDAG
+        return self.dag.base_root if isinstance(self.dag, EagerOntoDAG) else None
+
+    def _read_first(self, feed_root, blobs):
+        """Read everything folding `feed_root` in will read, before anything
+        changes. In retry mode a blob the page lacks stops the call here
+        (`NeedBlobs`) with the store as it was, and the run after the fetch
+        finds every blob it needs."""
+        from recordstore import RecordStore
+        base = self._lineage()
+        if base is None:
+            for _ in RecordStore.at(feed_root, blobs).items():
+                pass
+        else:
+            for _ in RecordStore.at(base, blobs).diff(feed_root):
+                pass
+
+    def _folded(self, feed_root, blobs):
+        """This store with what `feed_root` holds folded in, as `odag`'s save
+        folds a moved head: the union of both sides (so a removal made here
+        comes back if the feed still has it), read from the divergence when
+        this store descends from a published root. The result is an
+        `EagerOntoDAG` whose store is at `feed_root`, so a commit lands on
+        it."""
+        from recordstore import RecordStore
+        from ontodag.eager import EagerOntoDAG
+        if self._lineage() is None:
+            dag = EagerOntoDAG(RecordStore(blobs, root=feed_root))
+            dag.merge(self.dag)
+            return dag
+        dag = self.dag
+        dag.store = RecordStore(blobs, root=feed_root)
+        dag.merge_published(feed_root, bytes_store=blobs)
+        return dag
+
+    def _took(self, dag, names, text):
+        """The names a fold brought in; a fold that changed the store at all
+        leaves its file out of date (`changed`)."""
+        from ontodag import native
+        came_in = sorted(set(dag.nodes) - names)
+        if native.dumps(dag) != text:
+            self.changed = True
+        return came_in
+
+    def publish(self, feed_root, blobs):
+        """Commit this store for its feed, as `odag -f swarm:NAME` saves it.
+        `feed_root` is the feed's newest root ("" for an empty feed). When the
+        feed holds what this store descends from, or nothing, the store is
+        committed as it is, removals included; when the feed moved on (written
+        elsewhere, or this store came from a file), it is folded in first.
+
+        Answers the new `root`, whether the feed was folded in (`merged`) and
+        the names that came from it (`came_in`). The page then uploads what
+        `blobs` staged and points the feed at `root`."""
+        from recordstore import RecordStore
+        from ontodag import native
+        from ontodag.eager import EagerOntoDAG
+        if len(self.dag.nodes) <= 1:
+            return self._answer(error="the store is empty: put something in it first",
+                                changed=self.changed, count=0)
+        feed_root = feed_root or None
+        base = self._lineage()
+        moved = feed_root is not None and feed_root != base
+        came_in = []
+        if moved:
+            self._read_first(feed_root, blobs)
+            names, text = set(self.dag.nodes), native.dumps(self.dag)
+            dag = self._folded(feed_root, blobs)
+            came_in = self._took(dag, names, text)
+        elif base is not None:
+            dag = self.dag
+            dag.store = RecordStore(blobs, root=base)
+        else:
+            dag = EagerOntoDAG(RecordStore(blobs))
+            dag.merge(self.dag)
+        root = dag.commit()
+        self.dag = dag
+        return self._answer(root=root, merged=moved, came_in=came_in[:self.limit],
+                            more=max(0, len(came_in) - self.limit),
+                            changed=self.changed, count=len(dag.nodes) - 1)
+
+    def fetch(self, feed_root, blobs):
+        """Bring in what the feed's newest root holds, folded as `publish`
+        folds it, writing nothing: a store published from another device
+        or from `odag`, into this one. A new store becomes exactly the
+        published one."""
+        if not feed_root:
+            return self._answer(error="nothing is published under this name and key yet",
+                                changed=self.changed, count=len(self.dag.nodes) - 1)
+        from ontodag import native
+        came_in = []
+        if feed_root != self._lineage():
+            self._read_first(feed_root, blobs)
+            names, text = set(self.dag.nodes), native.dumps(self.dag)
+            dag = self._folded(feed_root, blobs)
+            dag.base_root = feed_root     # its records now describe feed_root
+            came_in = self._took(dag, names, text)
+            self.dag = dag
+        return self._answer(fetched=feed_root, came_in=came_in[:self.limit],
+                            more=max(0, len(came_in) - self.limit),
+                            changed=self.changed, count=len(self.dag.nodes) - 1)

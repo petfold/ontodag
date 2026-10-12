@@ -45,13 +45,14 @@
   .hidden { display: none; }
   .muted { color: var(--muted); font-size: 0.9rem; }
   .nomargin { margin: 0; }
-  #localresult.warn { color: var(--warn); }
+  #localresult.warn, #swarmresult.warn { color: var(--warn); }
+  #swarmresult { word-break: break-all; }
 </style>
 </head>
 <body>
 <main>
   <h1>OntoDAG on Swarm</h1>
-  <p class="sub">A published ontology, read straight from Swarm in your browser: nothing installed, nothing downloaded whole. Or your own store, kept in a file on this computer and never written to Swarm.</p>
+  <p class="sub">A published ontology, read straight from Swarm in your browser: nothing installed, nothing downloaded whole. Or your own store, kept in a file on this computer, and published to Swarm when you choose.</p>
   <p class="guide"><a href="https://github.com/petfold/ontodag/blob/main/docs/USER_GUIDE.md#in-a-browser-with-nothing-installed" target="_blank" rel="noopener">User Guide: this page</a> · <a href="https://github.com/petfold/ontodag/blob/main/docs/USER_GUIDE.md" target="_blank" rel="noopener">the whole guide</a></p>
 
   <div class="bar">
@@ -78,7 +79,7 @@
       <button id="localprelude" class="hidden" title="Adopt the standard declarations for typed values (mass, time, geo and the rest), as odag prelude does">Add typed values (prelude)</button>
       <input type="file" id="localfile" accept=".od,text/plain" class="hidden">
     </div>
-    <div class="muted" id="localstate">A store of your own, as an .od file (the same file odag reads). Nothing goes to Swarm.</div>
+    <div class="muted" id="localstate">A store of your own, as an .od file (the same file odag reads). Nothing goes to Swarm unless you publish it.</div>
     <div id="localedit" class="hidden">
       <div class="bar">
         <input id="putitem" placeholder="put: a name, e.g. apple">
@@ -90,6 +91,23 @@
         <button id="removebutton">Remove</button>
       </div>
       <div class="result" id="localresult"></div>
+    </div>
+    <div id="swarmedit" class="hidden">
+      <div class="bar">
+        <span class="label nomargin">On Swarm</span>
+        <button id="keynew" title="Make a key that owns your stores on Swarm, and save it as a file">New key</button>
+        <button id="keyopen" title="Open the key file you saved">Open key file…</button>
+        <span class="muted" id="keystate">No key yet: publishing needs one.</span>
+        <input type="file" id="keyfile" accept=".txt,.key,text/plain" class="hidden">
+      </div>
+      <div class="bar">
+        <input id="swarmname" placeholder="its name on Swarm, as in odag -f swarm:NAME" title="The store's name on Swarm. With the same key, odag -f swarm:NAME is the same store.">
+        <select id="swarmbatch" class="hidden" title="The postage batch that pays for the upload"></select>
+        <button id="publish" class="primary" disabled>Publish</button>
+        <button id="fetch" disabled title="Bring in what is published under this name and key (from another device, or from odag)">Get from Swarm</button>
+      </div>
+      <div class="muted" id="swarmnote"></div>
+      <div class="result" id="swarmresult"></div>
     </div>
   </div>
 

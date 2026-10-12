@@ -3253,7 +3253,8 @@ wait on Swarm, so the page fetches what a step needed and runs it again,
 with the same answers (BROWSER.md §15).
 
 **Your own store, in a file.** The same page keeps a store of your own
-as an `.od` file on your computer, and never writes it to Swarm: **New**
+as an `.od` file on your computer, written to Swarm only when you publish
+it (below): **New**
 or **Open file…**, then **Put** (a name, and the categories it goes
 under) and **Remove** (what was below moves up, as `odag remove` does),
 browsing and `get` as with a pack, and **Save**. **Add typed values**
@@ -3285,9 +3286,41 @@ apple fruit
 fruit '*'
 ```
 
+**Publishing it to Swarm.** Opened through your own Bee node (with Swarm
+Desktop: `http://localhost:1633/bzz/ontodag.eth/`), the page also writes
+your store to Swarm, as `odag -f swarm:NAME` does:
+
+1. **New key** makes the key that owns your stores on Swarm and saves it
+   as a file (`ontodag-key-….txt`). Keep that file: whoever has it can
+   change what you publish, and without it you cannot. Next time,
+   **Open key file…** reads it back. The page never stores the key.
+2. Give the store **a name on Swarm** and pick the **batch** that pays
+   (your node's).
+3. **Publish** uploads what changed, waits until the network serves it,
+   and points the store's feed at the new root.
+
+**Get from Swarm**, with the same key file and name, brings the
+published store into the one you have: that is how you open it on another
+computer, and it works in Freedom and through a gateway too. If the feed
+changed elsewhere since you last published or fetched (another computer,
+or `odag` with the same key), Publish folds those changes in first, as
+`odag` does, and tells you what came in. A removal made here comes back
+if the other side still has it.
+
+The key file holds the key as plain text, the same value `odag` takes as
+its signer, so the command line can be the same writer:
+
+```console
+$ BEE_SIGNER="$(cat ontodag-key-19e7e3.txt)" odag -f swarm:my-store get fruit
+apple
+```
+
+From Freedom, publishing waits for Freedom to accept a chunk the page
+signed (freedom-browser#647).
+
 How the page is built, and what it measured, is in
 `docs/plans/BROWSER.md` §13; local files, and why they behave differently
-in each browser, in §14.
+in each browser, in §14; publishing in §16.
 
 Once a store lives on Swarm, it can also be **browsed as a filesystem** with
 [ontodag-fs](https://github.com/petfold/ontodag-fs): directory paths are

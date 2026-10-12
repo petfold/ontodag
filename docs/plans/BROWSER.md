@@ -921,3 +921,105 @@ read first), with a test that failed before.
 
 Not yet seen on a real iPhone: Meinhard's next visit is the test. Playwright's
 WebKit needs a system library here (`libavif16`).
+
+## 16. Publishing your store, the installed way (2026-10-13)
+
+Built on questions 37 and 38 (§14.3): the ontodag page writes your own
+store to Swarm as `odag -f swarm:NAME` does. A random key in a plain file
+owns the store's feed, and the node that served the page pays from its
+batches.
+
+**In the page** (`demo/freedom/publish.js`, the "On Swarm" row under your
+own store):
+- **The key.** New key makes one and downloads it (`0x` and 64 hex
+  digits, the `bee_signer` value `odag` keeps), and Open key file reads it
+  back. The page holds it in memory and shows only its address. Signing
+  is noble-curves 1.9.7 (vendored beside noble-hashes): a feed update the
+  page signs is byte for byte the one swarmfs signs with libsecp256k1
+  (`test/feed_vector.json`, made by `test/make_feed_vector.py`).
+- **The blobs.** Python commits the store through `StagedBlobs`: each blob
+  it writes goes to the page's `Stage`, which computes its Swarm reference
+  for a plain upload (`swarm.js` `contentAddress`, checked against the
+  splitter's trees from 0 to 600 KB) and keeps it. Writing needs no
+  bridge, so it works in retry mode too.
+- **The commit**, as `odag`'s save makes it (`LocalStore.publish`):
+  - **onto the root the store descends from** when the feed still holds
+    that root, or nothing: the store goes up as it is, removals included;
+  - **folded first** when the feed moved on (another device, or `odag`
+    with the same key) or when the store came from a file: the union, as
+    `EagerOntoDAG.sync` folds a moved head. A removal made here comes back
+    if the feed still has it, as on the command line. The page names what
+    came in and marks the file out of date.
+
+  Same knowledge, same root as `odag`'s (tests).
+- **Upload, then the feed.** Every staged blob not yet confirmed goes to
+  the node's `POST /bytes`:
+  - plain (`Swarm-Redundancy-Level: 0`) and pushed before the answer
+    (`Swarm-Deferred-Upload: false`);
+  - the node's reference must equal the page's;
+  - each must then be retrievable (`/stewardship`) before the feed moves.
+
+  Then the feed update in recordstore's format (time and root, signed by
+  the key) goes to `POST /soc` at the next index. The page finds the
+  newest index by probing the updates themselves, as `SwarmFeedPointer`
+  does, checks that its signature recovers to the owner, and reads the
+  new root back.
+- **Get from Swarm** folds the feed's newest root into the store you have
+  (`LocalStore.fetch`). A new store becomes exactly the published one:
+  that is opening your store on another device. It needs only the key
+  file (for the address), and works wherever the page reads Swarm,
+  Freedom and gateways included.
+- **Retry mode:** `publish` and `fetch` read everything a fold needs
+  before changing anything (`_read_first`), so a run that stops for
+  missing blobs (`needing`) leaves the store as it was.
+
+**Checked:**
+- **Tests** (`TestPublishingYourStore`, 8):
+  - the root is the one `odag` commits under Swarm addressing, and the
+    blobs uploaded alone read back to the same store;
+  - an unmoved feed takes the store as it is, removals included, and an
+    unchanged store stages nothing;
+  - a feed written elsewhere is folded in, and a removal comes back when
+    the feed still has it;
+  - a store from a file is folded with the feed, and a new store fetched
+    is the published one;
+  - an empty store is not published;
+  - in retry mode nothing changes, and nothing is staged, until every blob
+    is fetched, and the root is then the waiting bridge's.
+- **`test_publish.mjs`:**
+  - a feed update byte for byte swarmfs's, its signature libsecp256k1's,
+    recovering to the owner;
+  - blob addresses from 0 to 600 KB equal to the splitter's.
+- **`check.py --publish`** (2026-10-13). Chromium ran the page through the
+  stand-in for Freedom's provider, writing through this laptop's node
+  (`?node=`), with a throwaway key on `c931c8a5…`:
+  - the page published a store (`fruit`, `apple`) in 10 s (root
+    `a366e5a9…`), read back natively, feed and store;
+  - `odag -f swarm:NAME put pear fruit`, in its own home with the same
+    key, moved the feed (22 s);
+  - the page, not told, put `plum` and published again: it folded the
+    pear in (root `39a16628…`, feed update 3) in 18 s;
+  - `odag` in a fresh home read `apple pear plum` from the feed (40 s);
+  - a new store in the page got the same from Swarm.
+
+  With `--bridge retry` (the iPhone path) the same, to the same roots.
+
+**Where it publishes:**
+- a page opened through a node (`http://localhost:1633/bzz/ontodag.eth/`
+  with Swarm Desktop), or one told `?node=URL`;
+- the batch is chosen in the page from the node's usable ones, longest
+  life first.
+
+Freedom waits for #647; until then the page says so, and Get from Swarm
+works there. A gateway has no batches to choose.
+
+**Not yet:**
+- a password-protected key file (question 38's later step);
+- the identity that carries the key (question 37);
+- Freedom (#647);
+- loopmarket's maker page, which needs the same key, stage and writer
+  (its BROWSER.md §5).
+
+A first publish of a store from a file rebuilds it whole, and a fold from
+a file reads the whole published store: fine for a person's store, and
+the next publish from the same session commits only what changed.

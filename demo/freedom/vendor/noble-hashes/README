@@ -1,2 +1,4 @@
-noble-hashes 1.8.0 (MIT), the ES modules keccak_256 needs, copied unchanged except that
-utils.js imports ./crypto.js instead of the bare specifier @noble/hashes/crypto.
+noble-hashes 1.8.0 (MIT), the ES modules keccak_256 needs (sha3.js) and the ones
+noble-curves' secp256k1 needs beside it (sha2.js, hmac.js, _md.js), copied
+unchanged except that utils.js imports ./crypto.js instead of the bare specifier
+@noble/hashes/crypto, and the source-map comments are dropped.

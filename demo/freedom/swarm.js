@@ -13,8 +13,9 @@
 //                 API is closed to pages there.
 //   HttpSwarm     a Bee or Ant node, or a gateway, over HTTP (GET /chunks).
 //
-// Read-only for now: writing waits for the page-signed chunk Freedom has been
-// asked for (freedom-browser#647) and for the user's key (BROWSER.md §11).
+// Reading is here; writing (a node's batches, a feed signed by the person's
+// key) is publish.js, which builds on the addresses computed here. Freedom
+// writes once it publishes a chunk the page signed (freedom-browser#647).
 
 import { keccak_256 } from "./vendor/noble-hashes/sha3.js";
 
@@ -126,6 +127,30 @@ export function bmtRoot(payload) {
 // A content-addressed chunk's address: keccak256(span || BMT root).
 export function chunkAddress(span, payload) {
   return hex(keccak_256(concat([spanBytes(span), bmtRoot(payload)])));
+}
+
+// A blob's Swarm reference for a plain upload (no erasure coding), as Bee's
+// splitter and recordstore's Swarm addressing compute it: leaves of 4096
+// bytes, intermediate chunks of up to 128 references, and a group of one
+// promoted a level rather than wrapped.
+export function contentAddress(data) {
+  if (data.length === 0) return chunkAddress(0, data);
+  let level = [];
+  for (let at = 0; at < data.length; at += CHUNK_SIZE) {
+    const leaf = data.subarray(at, at + CHUNK_SIZE);
+    level.push({ address: unhex(chunkAddress(leaf.length, leaf)), span: leaf.length });
+  }
+  while (level.length > 1) {
+    const upper = [];
+    for (let i = 0; i < level.length; i += 128) {
+      const group = level.slice(i, i + 128);
+      if (group.length === 1) { upper.push(group[0]); continue; }
+      const span = group.reduce((n, c) => n + c.span, 0);
+      upper.push({ address: unhex(chunkAddress(span, concat(group.map((c) => c.address)))), span });
+    }
+    level = upper;
+  }
+  return hex(level[0].address);
 }
 
 // A single-owner chunk's address: keccak256(identifier || owner).

@@ -35,6 +35,8 @@ import base64
 import functools
 import http.server
 import os
+import re
+import subprocess
 import sys
 import threading
 import time
@@ -136,7 +138,7 @@ def native(root, queries):
 IPHONE = "Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'iPhone' })"
 
 
-async def check_page(url, root, queries, freedom, gateway=None, index=None, mode=None, iphone=False):
+async def check_page(url, root, queries, freedom, gateway=None, index=None, mode=None, iphone=False, publish=None):
     from playwright.async_api import async_playwright
     calls = {}
     async with async_playwright() as p:
@@ -155,7 +157,8 @@ async def check_page(url, root, queries, freedom, gateway=None, index=None, mode
         local = url.startswith("http://127.0.0.1")
         await page.goto(f"{url}?root={root}" + (f"&gateway={gateway}" if gateway else "")
                         + (f"&index={index}" if index else "") + ("&pyodide=/pyodide/" if local else "")
-                        + (f"&bridge={mode}" if mode else ""))
+                        + (f"&bridge={mode}" if mode else "")
+                        + (f"&node={API}" if publish and local else ""))
         ok = await page.evaluate("window.ontodagPage.ready")
         print(f"  page ready: {ok} after {time.time() - started:.1f} s; source: {await page.inner_text('#source')}")
         print(f"  bridge: {await page.evaluate('window.ontodagPage.bridge()')}")
@@ -180,6 +183,8 @@ async def check_page(url, root, queries, freedom, gateway=None, index=None, mode
         stats = await page.evaluate("window.ontodagPage.stats()")
         print(f"  chunks fetched {stats['reads']} ({stats['bytes'] // 1024} KB), reused {stats['cached']}")
         got["local"] = await check_local(page)
+        if publish:
+            got["local"] += await check_publish(page, publish)
         await browser.close()
     return got, calls
 
@@ -243,6 +248,136 @@ async def check_local(page):
     return problems
 
 
+async def _publish(page):
+    """Press Publish; the root it published, or the page's complaint."""
+    await page.click("#publish")
+    await page.wait_for_function(
+        "() => { const r = document.getElementById('swarmresult');"
+        " return /^(Published|.* is already published)/.test(r.textContent) || r.classList.contains('warn'); }",
+        timeout=600_000)
+    text = await page.inner_text("#swarmresult")
+    found = re.search(r"root ([0-9a-f]{64})", text)
+    return (found.group(1) if found and not text.startswith("Not") else None), text
+
+
+def _odag(home, secret, batch, *args):
+    """`odag -f swarm:NAME ...` in its own home, with the page's key."""
+    env = dict(os.environ, ONTODAG_HOME=home, BEE_API=API, BEE_BATCH=batch, BEE_SIGNER=secret)
+    run = subprocess.run(["odag", *args], env=env, capture_output=True, text=True, timeout=600)
+    if run.returncode:
+        raise RuntimeError(f"odag {' '.join(args[2:])}: {run.stderr.strip()[-300:]}")
+    return run.stdout
+
+
+def _feed(name, owner, other_than=None, minutes=5):
+    """The feed's newest root, read natively; waiting for one other than
+    `other_than` (odag points its feed once the network has the commit)."""
+    from recordstore import SwarmFeedPointer
+    deadline = time.time() + 60 * minutes
+    while True:
+        root = SwarmFeedPointer(API, name, owner=owner).get()
+        if root != other_than or time.time() > deadline:
+            return root
+        time.sleep(10)
+
+
+def _native_text(root):
+    from recordstore import BeeBytesStore, RecordStore
+    from ontodag import native
+    from ontodag.eager import EagerOntoDAG
+    return native.dumps(EagerOntoDAG(RecordStore.at(root, BeeBytesStore(API))))
+
+
+async def check_publish(page, batch):
+    """Your own store published through the node (BROWSER.md §16), and the
+    same store written by odag with the same key: the problems found.
+
+    A throwaway key (never printed) in a key file, opened by the page; a
+    store published under a fresh name; read back natively (feed and
+    store); then odag, in its own home with that key, adds to it; the
+    page, not told, adds too and publishes, folding odag's change in; a
+    fresh odag home reads the union from the feed; and the page, starting
+    a new store, gets it from Swarm."""
+    import secrets
+    import tempfile
+    from swarmfs.signer import Signer
+    problems = []
+    if not await page.evaluate("window.ontodagPage.writing()"):
+        return [f"the page has no node to publish through: {await page.inner_text('#swarmnote')}"]
+    secret = "0x" + secrets.token_hex(32)
+    owner = Signer(secret).address_hex
+    name = f"check-publish-{secrets.token_hex(4)}"
+    with tempfile.TemporaryDirectory() as tmp:
+        keyfile = os.path.join(tmp, "key.txt")
+        with open(keyfile, "w") as fh:
+            fh.write(secret + "\n")
+
+        async def put(item, under=""):
+            await page.fill("#putitem", item)
+            await page.fill("#putunder", under)
+            await page.click("#putbutton")
+            await page.wait_for_function("(i) => document.getElementById('localresult').textContent.includes(i)", arg=item)
+
+        await page.click("#localnew")
+        await page.wait_for_selector("#swarmedit:not(.hidden)")
+        await put("fruit")
+        await put("apple", "fruit")
+        async with page.expect_file_chooser() as chooser:
+            await page.click("#keyopen")
+        await (await chooser.value).set_files(keyfile)
+        await page.wait_for_function("document.getElementById('keystate').textContent.startsWith('Key 0x')")
+        if await page.evaluate("window.ontodagPage.owner()") != owner:
+            problems.append("the page read another address from the key file")
+        await page.fill("#swarmname", name)
+        await page.select_option("#swarmbatch", batch)
+
+        t = time.time()
+        first, said = await _publish(page)
+        print(f"  publish {name}: {said[:90]}… ({time.time() - t:.0f} s)")
+        if not first:
+            return problems + [f"publishing failed: {said}"]
+        page_text = (await page.evaluate("window.ontodagPage.call('local_text')"))["text"]
+        if await asyncio.to_thread(_feed, name, owner) != first:
+            problems.append("the feed, read natively, does not name the published root")
+        if await asyncio.to_thread(_native_text, first) != page_text:
+            problems.append("the published store, read natively, differs from the page's")
+
+        t = time.time()
+        await asyncio.to_thread(_odag, os.path.join(tmp, "laptop"), secret, batch, "-f", f"swarm:{name}", "put", "pear", "fruit")
+        second = await asyncio.to_thread(_feed, name, owner, first)
+        print(f"  odag put pear with the same key: feed {second[:12]}… ({time.time() - t:.0f} s)")
+        if second == first:
+            return problems + ["odag's change never reached the feed"]
+
+        await put("plum", "fruit")
+        t = time.time()
+        third, said = await _publish(page)
+        print(f"  publish again: {said[:120]}… ({time.time() - t:.0f} s)")
+        if not third or "folded in" not in said or "pear" not in said:
+            problems.append(f"publishing onto odag's change did not fold it in: {said}")
+        if third and await asyncio.to_thread(_feed, name, owner) != third:
+            problems.append("the feed does not name the folded root")
+
+        t = time.time()
+        got = (await asyncio.to_thread(_odag, os.path.join(tmp, "fresh"), secret, batch,
+                                       "-f", f"swarm:{name}", "get", "fruit")).split()
+        print(f"  odag in a fresh home: get fruit: {' '.join(got)} ({time.time() - t:.0f} s)")
+        if sorted(got) != ["apple", "pear", "plum"]:
+            problems.append(f"odag read {got} from the feed, not apple, pear and plum")
+
+        await page.click("#localnew")
+        await page.click("#fetch")
+        await page.wait_for_function("document.getElementById('swarmresult').textContent.startsWith('From ')"
+                                     " || document.getElementById('swarmresult').classList.contains('warn')",
+                                     timeout=300_000)
+        fetched = (await page.evaluate("window.ontodagPage.call('local_text')"))["text"]
+        if third and fetched != await asyncio.to_thread(_native_text, third):
+            problems.append(f"a new store got from Swarm differs: {await page.inner_text('#swarmresult')}")
+    print(f"  publishing: page, odag with the same key, page again, fresh odag, get from Swarm: "
+          f"{'ok' if not problems else problems}")
+    return problems
+
+
 def compare(got, want):
     bad = len(got.get("local") or [])
     for key, value in want.items():
@@ -264,7 +399,16 @@ def main():
     ap.add_argument("--iphone", action="store_true",
                     help="report an iPhone's platform, as Freedom on iOS does (Pyodide then takes its "
                          "JavaScript trampoline, and the page must read by retrying)")
+    ap.add_argument("--publish", action="store_true",
+                    help="also publish your own store through the node and check it against odag "
+                         "(writes a few chunks with BEE_BATCH or --batch)")
+    ap.add_argument("--batch", default=os.environ.get("BEE_BATCH"))
     args = ap.parse_args()
+    publish = None
+    if args.publish:
+        if not args.batch:
+            sys.exit("--publish writes to Swarm: name the batch with --batch ID or BEE_BATCH")
+        publish = args.batch
     queries = {"node": ["fruit", "food", "apple", "piano-lesson", "durian-not-a-category"],
                "get": ["fruit", "berry", "fruit produce", "lesson", "physical-object", "event food"],
                "below": [("apple", "food"), ("apple", "tool"), ("piano-lesson", "teaching")]}
@@ -272,20 +416,23 @@ def main():
     bad = 0
     if args.url:
         print(f"over HTTP: {args.url}")
-        got, _ = asyncio.run(check_page(args.url, args.root, queries, freedom=False, mode=args.bridge, iphone=args.iphone))
+        got, _ = asyncio.run(check_page(args.url, args.root, queries, freedom=False, mode=args.bridge, iphone=args.iphone,
+                                        publish=publish))
         bad += 1 if got is None else compare(got, want)
     elif args.gateway:
         server = serve(os.path.join(HERE, "dist"))
         url = f"http://127.0.0.1:{server.server_port}/index.html"
         print(f"through the gateway {args.gateway}: {url}")
-        got, _ = asyncio.run(check_page(url, args.root, queries, freedom=False, gateway=args.gateway, mode=args.bridge, iphone=args.iphone))
+        got, _ = asyncio.run(check_page(url, args.root, queries, freedom=False, gateway=args.gateway, mode=args.bridge,
+                                        iphone=args.iphone, publish=publish))
         bad += 1 if got is None else compare(got, want)
         server.shutdown()
     else:
         server = serve(os.path.join(HERE, "dist"))
         url = f"http://127.0.0.1:{server.server_port}/index.html"
         print(f"Freedom's path (stand-in window.swarm over {API}): {url}")
-        got, calls = asyncio.run(check_page(url, args.root, queries, freedom=True, index=args.index, mode=args.bridge, iphone=args.iphone))
+        got, calls = asyncio.run(check_page(url, args.root, queries, freedom=True, index=args.index, mode=args.bridge,
+                                               iphone=args.iphone, publish=publish))
         print(f"  window.swarm calls: {calls}")
         bad += 1 if got is None else compare(got, want)
         server.shutdown()

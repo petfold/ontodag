@@ -2,6 +2,7 @@
 
     python3 demo/freedom/build.py                      # dist/ only
     python3 demo/freedom/build.py --publish --batch ID # and upload it to Swarm
+    ... --publish --no-feed                            # without moving ontodag.gwei/.eth to it
 
 dist/ holds the page and wheels built from this checkout and from
 recordstore's beside it (the page needs `RecordStore.get_many`, newer than
@@ -37,7 +38,7 @@ REPO = os.path.dirname(os.path.dirname(HERE))
 PYODIDE = os.path.join(REPO, "demo", "pyodide", "node_modules", "pyodide")
 PYODIDE_FILES = ("pyodide.js", "pyodide.asm.js", "pyodide.asm.wasm",
                  "python_stdlib.zip", "pyodide-lock.json")
-PAGE_FILES = ("index.html", "app.js", "swarm.js", "localfile.js", "pycall.js")
+PAGE_FILES = ("index.html", "app.js", "swarm.js", "localfile.js", "pycall.js", "publish.js")
 
 
 def wheel(project, out):
@@ -177,6 +178,8 @@ def main():
                     help="put Pyodide in dist/ instead of loading the shared folder")
     ap.add_argument("--pyodide-only", action="store_true",
                     help="assemble (and with --publish, publish) the shared Pyodide folder alone")
+    ap.add_argument("--no-feed", action="store_true",
+                    help="publish without pointing the page's feed (ontodag.gwei, ontodag.eth) at it")
     ap.add_argument("--wait", type=float, default=20,
                     help="minutes to wait for the network to serve the upload")
     args = ap.parse_args()
@@ -196,7 +199,7 @@ def main():
         api = args.api.rstrip("/")
         ref = upload(args.dist, api, args.batch)
         print(f"published: bzz://{ref}/  ({api}/bzz/{ref}/)", flush=True)
-        if not args.pyodide_only:
+        if not args.pyodide_only and not args.no_feed:
             advance_feed("ontodag", api, ref, args.batch)
         ok = retrievable(api, ref, args.wait)
         print("retrievable" if ok else "NOT yet retrievable: check GET /stewardship later, and upload again if it stays so")

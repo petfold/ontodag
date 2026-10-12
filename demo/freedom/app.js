@@ -1,11 +1,13 @@
-// The read-only page: Python (ontodag, recordstore) under Pyodide, Swarm
-// through swarm.js. Python's synchronous store calls wait on the page's
-// asynchronous Swarm reads through JSPI (pyodide.ffi.run_sync), so every
-// call into Python goes through callPromising.
+// The page: Python (ontodag, recordstore) under Pyodide, Swarm through
+// swarm.js. Python's synchronous store calls wait on the page's asynchronous
+// Swarm reads through JSPI (pyodide.ffi.run_sync), or read by retrying where
+// JSPI cannot suspend Python (pycall.js). Your own store is a local file, and
+// publish.js writes it to Swarm through the node that served the page.
 
-import { ChunkReader, BlobStore, FreedomSwarm, HttpSwarm, StoredChunks } from "./swarm.js";
-import { LocalFile } from "./localfile.js";
+import { ChunkReader, BlobStore, FreedomSwarm, HttpSwarm, StoredChunks, topicOf } from "./swarm.js";
+import { LocalFile, download } from "./localfile.js";
 import { PythonCalls } from "./pycall.js";
+import { Key, NodeWriter, Stage, feedUpdate, uploadStaged } from "./publish.js";
 
 // The published packs, by the roots ontodag pins for them (tests/test_packs.py
 // SWARM_GOLDEN_ROOTS): equal knowledge, equal root, so a root is the whole
@@ -206,6 +208,8 @@ const OD_TYPES = [{ description: "OntoDAG store", accept: { "text/plain": [".od"
 let files = null;
 
 function showLocal(summary, note = "") {
+  $("swarmedit").classList.remove("hidden");
+  if (!$("swarmname").value) $("swarmname").value = summary.name.replace(/\.od$/, "") || "store";
   const how = files.inPlace ? "Save writes back to the file" : "Save downloads the file";
   $("localstate").textContent = `${summary.name} · ${summary.count} categor${summary.count === 1 ? "y" : "ies"}` +
     (summary.changed ? " · unsaved changes" : " · saved") + ` · ${how}.` + (note ? ` ${note}` : "");
@@ -288,6 +292,152 @@ async function localPrelude() {
   showLocal(await call("local_saved_state"));
 }
 
+// Your store on Swarm (publish.js): a key the person keeps in a file, the
+// node that served this page and its batches, and the store's name.
+let key = null;
+let writer = null;          // a NodeWriter, when the page came from a node
+const stage = new Stage();
+globalThis.ontodagStage = stage;
+
+function swarmResult(text, warn = false) {
+  $("swarmresult").textContent = text;
+  $("swarmresult").classList.toggle("warn", warn);
+}
+
+const short = (ref) => `${ref.slice(0, 8)}…`;
+
+function showKey(note = "") {
+  $("keystate").textContent = key ? `Key ${key.checksummed}.${note ? ` ${note}` : ""}` : "No key yet: publishing needs one.";
+  $("publish").disabled = !(key && writer && $("swarmbatch").value);
+  $("fetch").disabled = !key;
+}
+
+function keyNew() {
+  if (key && !confirm("Make a new key? What you published under the key you have stays under it; keep its file.")) return;
+  key = Key.generate();
+  const file = `ontodag-key-${key.address.slice(0, 6)}.txt`;
+  download(key.text(), file);
+  showKey(`Saved as ${file} in your downloads. Keep that file: whoever has it can change what you publish, and without it you cannot.`);
+}
+
+function keyOpen() {
+  const input = $("keyfile");
+  input.value = "";
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    try {
+      key = Key.fromText(await file.text());
+      showKey(`From ${file.name}.`);
+    } catch (e) {
+      swarmResult(`${file.name}: ${e.message}`, true);
+    }
+  };
+  input.click();
+}
+
+function swarmName() {
+  const name = $("swarmname").value.trim();
+  if (!name || name.includes("/") || name === "..") {
+    swarmResult("Give the store a name on Swarm (no slashes), as in odag -f swarm:NAME.", true);
+    return null;
+  }
+  return name;
+}
+
+// The newest root under this name and key: through the node when the page
+// has one (the update checked against the key's address), or through what
+// reads Swarm here.
+async function feedNow(name) {
+  return writer ? writer.feedRoot(key.address, topicOf(name)) : reader.feedRoot(key.address, topicOf(name));
+}
+
+async function swarmPublish() {
+  const name = swarmName();
+  if (!name || !key || !writer) return;
+  const batch = $("swarmbatch").value;
+  const answer = await run(`Publishing ${name}…`, async () => {
+    swarmResult("Reading the feed…");
+    const feed = await feedNow(name);
+    const answer = await call("local_publish", feed ? feed.root : "");
+    if (answer.error) return answer;
+    await uploadStaged(stage, writer, batch, { progress: (t) => swarmResult(`${t}…`) });
+    if (feed && feed.root === answer.root) {
+      answer.index = feed.index;
+      answer.unchanged = true;
+      return answer;
+    }
+    answer.index = feed ? feed.index + 1 : 0;
+    swarmResult("Pointing the feed at the new root…");
+    const update = feedUpdate(key, topicOf(name), answer.index, answer.root, Math.floor(Date.now() / 1000));
+    await writer.writeFeed(update, batch);
+    const now = await writer.feedRoot(key.address, topicOf(name));
+    if (!now || now.root !== answer.root) throw new Error("the feed did not read back the new root; publish again");
+    return answer;
+  });
+  if (!answer) return swarmResult(`Not published: ${$("status").textContent}`, true);
+  if (answer.error) return swarmResult(answer.error, true);
+  const merged = answer.merged
+    ? ` The feed had changes made elsewhere, folded in first${answer.came_in.length ? `: ${answer.came_in.join(", ")}${answer.more ? ` and ${answer.more} more` : ""}` : ""}. Save your file to keep them.`
+    : "";
+  swarmResult(answer.unchanged
+    ? `${name} is already published as it is: root ${answer.root} (feed update ${answer.index}).`
+    : `Published ${name}: root ${answer.root}, feed update ${answer.index}, owner ${key.checksummed}.${merged}`);
+  showLocal(await call("local_saved_state"));
+  await useLocal();
+}
+
+async function swarmFetch() {
+  const name = swarmName();
+  if (!name || !key) return;
+  const answer = await run(`Getting ${name} from Swarm…`, async () => {
+    const feed = await feedNow(name);
+    return call("local_fetch", feed ? feed.root : "");
+  });
+  if (!answer) return swarmResult(`Not fetched: ${$("status").textContent}`, true);
+  if (answer.error) return swarmResult(answer.error, true);
+  swarmResult(answer.came_in.length || answer.more
+    ? `From ${name} (root ${short(answer.fetched)}): ${answer.came_in.join(", ")}${answer.more ? ` and ${answer.more} more` : ""}. Save to keep it in your file.`
+    : `Nothing new in ${name} (root ${short(answer.fetched)}).`);
+  showLocal(await call("local_saved_state"));
+  await useLocal();
+}
+
+// Writing goes through a Bee node: the one that served this page (opened as
+// http://localhost:1633/bzz/…), or one named with ?node=URL.
+async function setUpWriting() {
+  const named = params.get("node");
+  const served = /^https?:$/.test(location.protocol) && location.pathname.startsWith("/bzz/") ? location.origin : null;
+  const base = named || served;
+  const via = "To publish, open this page through your own node (with Swarm Desktop: http://localhost:1633/bzz/ontodag.eth/).";
+  if (!base) {
+    $("swarmnote").textContent = FreedomSwarm.present()
+      ? `Publishing from Freedom waits for it to accept a chunk the page signed (freedom-browser#647). ${via} Get from Swarm works here.`
+      : `Publishing needs your own Bee node, which pays for it. ${via} Get from Swarm works here.`;
+    return;
+  }
+  const node = new NodeWriter(base);
+  const batches = await node.batches();
+  if (batches === null) {
+    $("swarmnote").textContent = `${base} is not a node with postage batches, so this page cannot publish through it. ${via}`;
+    return;
+  }
+  if (!batches.length) {
+    $("swarmnote").textContent = `The node at ${base} has no usable postage batch. Buy one in Swarm Desktop, then reload this page.`;
+    return;
+  }
+  writer = node;
+  const select = $("swarmbatch");
+  select.replaceChildren(...batches.map((b) => {
+    const o = document.createElement("option");
+    o.value = b.id;
+    o.textContent = `${b.label || short(b.id)} · ${(b.ttl / 86400).toFixed(0)} days · ${Math.round(100 * b.full)}% full`;
+    return o;
+  }));
+  select.classList.remove("hidden");
+  $("swarmnote").textContent = `Publishing goes through the node at ${base}, paid from the batch chosen. Your key signs the store's feed; the page never stores it.`;
+}
+
 async function boot() {
   const base = pyodideBase();
   await loadScript(`${base}pyodide.js`);
@@ -326,8 +476,9 @@ async function boot() {
   }
 
   await py.runPythonAsync(`
-from js import ontodagBlobs
-from ontodag.browser import RETRY, LocalStore, PageReader, RetryingPage, open_published
+from js import ontodagBlobs, ontodagStage
+from ontodag.browser import (RETRY, JsBytesStore, LocalStore, PageReader, RetryingPage,
+                             StagedBlobs, needing, open_published)
 
 page = None
 mine = None
@@ -394,6 +545,21 @@ def local_saved(name):
 def local_saved_state():
     return mine.summary()
 
+def _staged():
+    # what a publish writes, staged for the page, over what it reads
+    if retry:
+        reader = JsBytesStore(ontodagBlobs, RETRY)
+    else:
+        from pyodide.ffi import run_sync
+        reader = JsBytesStore(ontodagBlobs, run_sync)
+    return StagedBlobs(ontodagStage, reader)
+
+def local_publish(feed_root):
+    return needing(mine.publish, feed_root, _staged())
+
+def local_fetch(feed_root):
+    return needing(mine.fetch, feed_root, _staged())
+
 def reopen():
     """The published store open again, in the bridge mode now set."""
     import json
@@ -421,6 +587,13 @@ def below(a, b):
     o.value = root; o.textContent = name;
     $("store").append(o);
   }
+  $("keynew").onclick = keyNew;
+  $("keyopen").onclick = keyOpen;
+  $("publish").onclick = swarmPublish;
+  $("fetch").onclick = swarmFetch;
+  $("swarmbatch").onchange = () => showKey();
+  await setUpWriting();
+  showKey();
   for (const id of ["store", "root", "open", "goto", "gobutton", "query", "getbutton", "belowa", "belowb", "belowbutton", "localnew", "localopen"]) {
     $(id).disabled = false;
   }
@@ -470,5 +643,6 @@ def below(a, b):
 
 // For tests and the console: the page's own calls.
 globalThis.ontodagPage = { call, openStore, goto, stats: () => reader && reader.stats, ready: null, python: () => py,
-  connect: () => document.getElementById("connect").click(), files: null, bridge: () => calls && calls.mode };
+  connect: () => document.getElementById("connect").click(), files: null, bridge: () => calls && calls.mode,
+  owner: () => key && key.address, writing: () => Boolean(writer) };
 globalThis.ontodagPage.ready = boot().then(() => true, (e) => { status(`Could not start: ${e.message || e}`, true); console.error(e); return false; });
