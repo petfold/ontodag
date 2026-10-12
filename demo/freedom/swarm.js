@@ -427,8 +427,37 @@ export class ChunkReader {
 // raises it as an error, never as "absent" (a wrong answer would be worse
 // than none).
 export class BlobStore {
-  constructor(reader) { this.reader = reader; }
+  constructor(reader) { this.reader = reader; this.held = new Map(); }
   download(ref) { return this.reader.bytes(String(ref)); }
   downloadMany(refs) { return Promise.all(Array.from(refs, (r) => this.download(r))); }
   async upload() { throw new Error("this page reads Swarm; it does not write"); }
+
+  // Retry mode (ontodag.browser.RETRY), where Python cannot wait on a
+  // promise (Pyodide on iOS): Python reads synchronously what the page has
+  // fetched, and a call that needs more names it; the page fetches those
+  // and runs the call again. `cached` is the blob, undefined if not
+  // fetched, or a throw if fetching it failed.
+  cached(ref) {
+    const value = this.held.get(String(ref));
+    if (value instanceof Error) throw value;
+    return value;
+  }
+
+  async fetch(refs) {
+    await Promise.all(Array.from(refs, async (ref) => {
+      ref = String(ref);
+      if (this.held.has(ref)) return;
+      try {
+        this.held.set(ref, await this.download(ref));
+      } catch (e) {
+        this.held.set(ref, e instanceof Error ? e : new Error(String(e)));
+      }
+    }));
+  }
+
+  // Failed fetches are kept for the call that met them (so it fails rather
+  // than taking a blob for absent); a new action tries them again.
+  forgetFailures() {
+    for (const [ref, value] of this.held) if (value instanceof Error) this.held.delete(ref);
+  }
 }

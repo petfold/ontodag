@@ -14,6 +14,24 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`LazyOntoDAG`: a node whose read failed is read again.** `_expand`
+  marked a node expanded before reading its record, so after a failed
+  read (an unreachable blob) the next query took the edgeless stub for a
+  node with nothing below it. The record is now read first.
+- **The browser pages work on iPhones** (BROWSER.md §15). On iOS Pyodide
+  calls function pointers through a JavaScript trampoline, and JSPI cannot
+  suspend Python across it ("JavaScript frames found between
+  WebAssembly.Suspending and WebAssembly.promising"). There the pages now
+  read by retrying (`ontodag.browser.RETRY`, `NeedBlobs`, `RetryingPage`,
+  the page's `pycall.js`): Python reads only blobs already fetched, a call
+  that needs more names them, and the page fetches them and runs the call
+  again on a fresh reader, with the same network round trips. The page
+  chooses the mode from Pyodide's own trampoline choice, never by trying a
+  suspension (a failed one is fatal). `check.py --iphone` runs the page as
+  an iPhone does.
+
 ### Added
 
 - **`LazyOntoDAG(..., prefetch=True)`**: with a record store that reads

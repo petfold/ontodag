@@ -3247,7 +3247,10 @@ hand it wrong data. The packs' published cone summaries (`ontodag.cones`)
 make a broad category one read. A first visit to core reads a few hundred
 chunks; a second reads none, since the chunks are kept in the browser.
 Freedom limits how much a site that has not connected may read a minute,
-so the page asks you to connect when it runs into that.
+so the page asks you to connect when it runs into that. On an iPhone the
+page reads by retrying (it says so under the title): Python there cannot
+wait on Swarm, so the page fetches what a step needed and runs it again,
+with the same answers (BROWSER.md §15).
 
 **Your own store, in a file.** The same page keeps a store of your own
 as an `.od` file on your computer, and never writes it to Swarm: **New**

@@ -42,6 +42,14 @@ Rather than choose, this module takes a **bridge**: any callable that runs a
 JS async function and returns its result synchronously. Supply the one your
 deployment can support. `run_sync` from `pyodide.ffi` satisfies it directly.
 
+3. **Retry** (`bridge=RETRY`). Where neither works, Python never waits: it
+   reads only blobs the page already holds (`js_store.cached(ref)`), and a
+   missing one stops the call with `NeedBlobs`, naming every blob it lacked.
+   The page fetches them and runs the call again (`RetryingPage`), on a
+   fresh reader, so a run cut short leaves nothing behind. Pyodide on iOS
+   needs this: there CPython calls function pointers through a JavaScript
+   trampoline, and JSPI cannot suspend across a JavaScript frame.
+
 ## Deliberately not bee-js specific
 
 The store talks to a small duck-typed JS object with `upload` and `download`,
@@ -58,6 +66,21 @@ class BlobUnreachable(OSError):
     lazy reader fails loudly instead of taking a category for absent."""
 
 
+RETRY = "retry"
+"""The bridge that never waits: see `NeedBlobs` and `RetryingPage`."""
+
+
+class NeedBlobs(BaseException):
+    """A call in retry mode reached blobs the page does not hold yet. A
+    BaseException, so no `except Exception` on the way out (recordstore's,
+    the reader's) mistakes it for a failure: it is an instruction to fetch
+    `refs` and run the call again."""
+
+    def __init__(self, refs):
+        self.refs = list(refs)
+        super().__init__(f"{len(self.refs)} blob(s) to fetch")
+
+
 class JsBytesStore:
     """A `recordstore` BytesStore backed by a JavaScript object.
 
@@ -67,7 +90,10 @@ class JsBytesStore:
         download(ref: string)    -> Promise<Uint8Array>
 
     `bridge` turns a returned promise into a value synchronously; see the
-    module docstring for what can implement it.
+    module docstring for what can implement it. With `bridge=RETRY` the
+    store reads `js_store.cached(ref)` instead (the blob, `undefined` if the
+    page has not fetched it, or a throw if fetching it failed), and raises
+    `NeedBlobs` for what is missing.
 
     Nothing here imports `recordstore` — the protocol is structural, which is
     the same one-directional boundary the rest of the package keeps (B2).
@@ -86,15 +112,33 @@ class JsBytesStore:
         return str(ref)
 
     def get(self, ref: str) -> bytes:
+        if self._bridge == RETRY:
+            value = self._cached(str(ref))
+            if value is None:
+                raise NeedBlobs([str(ref)])
+            return value
         try:
             return self._to_bytes(self._bridge(self._js.download(str(ref))))
         except Exception as e:
             raise BlobUnreachable(f"blob {str(ref)[:16]}…: {e}") from e
 
+    def _cached(self, ref):
+        try:
+            value = self._js.cached(ref)
+        except Exception as e:
+            raise BlobUnreachable(f"blob {ref[:16]}…: {e}") from e
+        return None if value is None else self._to_bytes(value)
+
     def get_many(self, refs):
         """Several blobs in one call, read concurrently on the JS side when
         it offers `downloadMany(refs)`; one at a time otherwise."""
         refs = [str(r) for r in refs]
+        if self._bridge == RETRY:
+            values = {r: self._cached(r) for r in refs}
+            missing = [r for r, v in values.items() if v is None]
+            if missing:
+                raise NeedBlobs(missing)
+            return values
         many = getattr(self._js, "downloadMany", None)
         if many is None:
             return {r: self.get(r) for r in refs}
@@ -193,7 +237,8 @@ def open_published(root, js_store, bridge=None, prefetch=True, index_root=None):
     """A read-only `LazyOntoDAG` over the store published at `root`, its
     blobs read through `js_store` (`download`, `downloadMany`). `bridge`
     defaults to Pyodide's `run_sync`, which needs JSPI and a call that
-    entered Python asynchronously (`runPythonAsync`, `callPromising`).
+    entered Python asynchronously (`runPythonAsync`, `callPromising`);
+    `RETRY` reads only what the page holds (see `RetryingPage`).
     With `prefetch`, a walk reads each level's records in one batch when
     recordstore can (`RecordStore.get_many`). `index_root` names the store's
     published cone summaries (`ontodag.cones`): a broad category's cone is
@@ -239,6 +284,30 @@ class _CacheOnly:
             self._dead = True
             self.error = f"{type(e).__name__}: {e}"
             return None
+
+
+class RetryingPage:
+    """The page's calls in retry mode. `make()` builds the answering object
+    (a `PageReader` over `open_published(..., bridge=RETRY)`, say);
+    `call(method, *args)` answers as that method does, or, when the run
+    reached blobs the page has not fetched, `{"need": [refs]}`: the page
+    fetches them and calls again. A run cut short discards the object, so
+    the next one starts fresh and no half-read state survives (the fetched
+    blobs stay with the page, so it is read again without the network)."""
+
+    def __init__(self, make):
+        self._make = make
+        self._target = None
+
+    def call(self, method, *args):
+        import json
+        try:
+            if self._target is None:
+                self._target = self._make()
+            return getattr(self._target, method)(*args)
+        except NeedBlobs as need:
+            self._target = None
+            return json.dumps({"need": need.refs})
 
 
 class PageReader:

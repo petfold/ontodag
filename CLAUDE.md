@@ -366,7 +366,10 @@ Each line points to its record.
   recordstore and `LazyOntoDAG` run unchanged; `swarm.js` joins and checks
   chunks in the page; `LazyOntoDAG(prefetch=True)` reads a level per round
   trip. It needs recordstore's `get_many`, unreleased: the page bundles
-  recordstore's main.
+  recordstore's main. Where JSPI cannot suspend Python (Pyodide on iOS,
+  whose function-pointer trampoline is JavaScript), the pages read by
+  retrying: Python reads only fetched blobs, and the page fetches what a
+  call needed and runs it again (BROWSER.md §15).
 - Provenance: signed claim records in a sibling store (PROVENANCE.md).
 - Web: one page, browsing plus a console, where every click writes its
   command (WEB_UI.md). Its DAG lives in the server's memory per session.

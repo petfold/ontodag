@@ -130,13 +130,21 @@ def native(root, queries):
     return out
 
 
-async def check_page(url, root, queries, freedom, gateway=None, index=None):
+#: What Pyodide reads to choose its JavaScript trampoline (and so no JSPI):
+#: an iPhone's navigator.platform. `--iphone` reports it, so Chromium runs the
+#: page as Freedom on iOS does.
+IPHONE = "Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'iPhone' })"
+
+
+async def check_page(url, root, queries, freedom, gateway=None, index=None, mode=None, iphone=False):
     from playwright.async_api import async_playwright
     calls = {}
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         page = await browser.new_page()
         page.on("console", lambda m: m.type == "error" and print("  page console:", m.text))
+        if iphone:
+            await page.add_init_script(IPHONE)
         if freedom:
             async def answer(method, params):
                 # concurrent, as Freedom's provider is: each call in a thread
@@ -146,9 +154,11 @@ async def check_page(url, root, queries, freedom, gateway=None, index=None):
         started = time.time()
         local = url.startswith("http://127.0.0.1")
         await page.goto(f"{url}?root={root}" + (f"&gateway={gateway}" if gateway else "")
-                        + (f"&index={index}" if index else "") + ("&pyodide=/pyodide/" if local else ""))
+                        + (f"&index={index}" if index else "") + ("&pyodide=/pyodide/" if local else "")
+                        + (f"&bridge={mode}" if mode else ""))
         ok = await page.evaluate("window.ontodagPage.ready")
         print(f"  page ready: {ok} after {time.time() - started:.1f} s; source: {await page.inner_text('#source')}")
+        print(f"  bridge: {await page.evaluate('window.ontodagPage.bridge()')}")
         if not ok:
             print("  status:", await page.inner_text("#status"))
             await browser.close()
@@ -248,6 +258,12 @@ def main():
     ap.add_argument("--url", help="the page as a node serves it (http://localhost:1633/bzz/REF/)")
     ap.add_argument("--gateway", help="read every chunk through this gateway")
     ap.add_argument("--index", help="the page's ?index= (none: walk every cone)")
+    ap.add_argument("--bridge", choices=("jspi", "retry"),
+                    help="how Python waits for Swarm (default: the page decides); "
+                         "retry is what Pyodide on iOS needs")
+    ap.add_argument("--iphone", action="store_true",
+                    help="report an iPhone's platform, as Freedom on iOS does (Pyodide then takes its "
+                         "JavaScript trampoline, and the page must read by retrying)")
     args = ap.parse_args()
     queries = {"node": ["fruit", "food", "apple", "piano-lesson", "durian-not-a-category"],
                "get": ["fruit", "berry", "fruit produce", "lesson", "physical-object", "event food"],
@@ -256,20 +272,20 @@ def main():
     bad = 0
     if args.url:
         print(f"over HTTP: {args.url}")
-        got, _ = asyncio.run(check_page(args.url, args.root, queries, freedom=False))
+        got, _ = asyncio.run(check_page(args.url, args.root, queries, freedom=False, mode=args.bridge, iphone=args.iphone))
         bad += 1 if got is None else compare(got, want)
     elif args.gateway:
         server = serve(os.path.join(HERE, "dist"))
         url = f"http://127.0.0.1:{server.server_port}/index.html"
         print(f"through the gateway {args.gateway}: {url}")
-        got, _ = asyncio.run(check_page(url, args.root, queries, freedom=False, gateway=args.gateway))
+        got, _ = asyncio.run(check_page(url, args.root, queries, freedom=False, gateway=args.gateway, mode=args.bridge, iphone=args.iphone))
         bad += 1 if got is None else compare(got, want)
         server.shutdown()
     else:
         server = serve(os.path.join(HERE, "dist"))
         url = f"http://127.0.0.1:{server.server_port}/index.html"
         print(f"Freedom's path (stand-in window.swarm over {API}): {url}")
-        got, calls = asyncio.run(check_page(url, args.root, queries, freedom=True, index=args.index))
+        got, calls = asyncio.run(check_page(url, args.root, queries, freedom=True, index=args.index, mode=args.bridge, iphone=args.iphone))
         print(f"  window.swarm calls: {calls}")
         bad += 1 if got is None else compare(got, want)
         server.shutdown()

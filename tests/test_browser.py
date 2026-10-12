@@ -366,3 +366,98 @@ class TestTheLocalStore(unittest.TestCase):
         answer = self.answer(store.put("harvest", "'time(today)'"))
         self.assertEqual(answer["under"], ["time(2026-10-12)"])
         self.assertIn("harvest", self.answer(store.get("'time(2026-10)'"))["names"])
+
+
+class RetryPage:
+    """The page in retry mode (demo/freedom/swarm.js BlobStore): `cached`
+    answers synchronously from what was fetched (None if not yet; a throw
+    if fetching it failed), and `fetch` is the page's await between runs."""
+
+    def __init__(self, blobs, unreachable=()):
+        self.blobs = dict(blobs)
+        self.held = {}
+        self.unreachable = set(unreachable)
+        self.fetches = 0
+
+    def cached(self, ref):
+        value = self.held.get(str(ref))
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    def fetch(self, refs):
+        self.fetches += 1
+        for r in refs:
+            if r in self.unreachable or r not in self.blobs:
+                self.held[r] = RuntimeError(f"chunk {r} is not retrievable")
+            else:
+                self.held[r] = self.blobs[r]
+
+
+def until_answered(page, retrying, method, *args, limit=50):
+    """What app.js's call() does in retry mode: run, fetch what was needed,
+    run again; the answer and how many runs it took."""
+    import json
+    for runs in range(1, limit + 1):
+        answer = json.loads(retrying.call(method, *args))
+        if "need" not in answer:
+            return answer, runs
+        page.fetch(answer["need"])
+    raise AssertionError(f"{method}{args} still needed blobs after {limit} runs")
+
+
+class TestRetryMode(unittest.TestCase):
+    """Where JSPI cannot suspend Python (Pyodide on iOS), the page runs each
+    call again after fetching what it lacked (BROWSER.md §15); the answers
+    must be exactly those of the waiting bridge."""
+
+    def setUp(self):
+        import random
+        rng = random.Random(7)
+        puts = [(f"c{i}", sorted({f"c{j}" for j in rng.sample(range(i), min(i, rng.choice([1, 1, 2, 3])))}))
+                for i in range(60)]
+        self.puts = puts
+        self.root, blobs = _published(puts)
+        self.blobs = blobs.blobs
+
+    def readers(self, **kwargs):
+        from ontodag.browser import RETRY, PageReader, RetryingPage, open_published
+        direct = PageReader(open_published(self.root, FakePageBee(self.blobs), bridge=bridge))
+        page = RetryPage(self.blobs, **kwargs)
+        retrying = RetryingPage(lambda: PageReader(open_published(self.root, page, bridge=RETRY)))
+        return direct, page, retrying
+
+    def test_every_answer_equals_the_waiting_bridge(self):
+        import json
+        import random
+        direct, page, retrying = self.readers()
+        names = [n for n, _ in self.puts]
+        rng = random.Random(11)
+        calls = [("node", n) for n in names[::5]] + [("node", "missing-name")]
+        calls += [("get", f"{a} {b}") for a, b in (rng.sample(names, 2) for _ in range(12))]
+        calls += [("below", *rng.sample(names, 2)) for _ in range(12)]
+        for method, *args in calls:
+            got, runs = until_answered(page, retrying, method, *args)
+            want = json.loads(getattr(direct, method)(*args))
+            for counts in ("records", "round_trips"):
+                got.pop(counts), want.pop(counts)
+            self.assertEqual(got, want, (method, args))
+
+    def test_round_trips_are_the_waiting_bridges_plus_one(self):
+        from ontodag.browser import PageReader, open_published
+        for query in ("c0", "c5", "c30"):
+            waiting = FakePageBee(self.blobs)
+            PageReader(open_published(self.root, waiting, bridge=bridge)).get(query)
+            _direct, page, retrying = self.readers()
+            _answer, runs = until_answered(page, retrying, "get", query, limit=1000)
+            self.assertEqual(page.fetches, runs - 1)
+            self.assertLessEqual(page.fetches, waiting.calls, query)
+        # asked again, everything is held: one run, no fetch
+        _answer, again = until_answered(page, retrying, "get", "c30")
+        self.assertEqual(again, 1)
+
+    def test_a_blob_that_could_not_be_fetched_is_an_error(self):
+        from ontodag.browser import BlobUnreachable
+        _direct, page, retrying = self.readers(unreachable=list(self.blobs))
+        with self.assertRaises(BlobUnreachable):
+            until_answered(page, retrying, "get", "c0")

@@ -5,6 +5,7 @@
 
 import { ChunkReader, BlobStore, FreedomSwarm, HttpSwarm, StoredChunks } from "./swarm.js";
 import { LocalFile } from "./localfile.js";
+import { PythonCalls } from "./pycall.js";
 
 // The published packs, by the roots ontodag pins for them (tests/test_packs.py
 // SWARM_GOLDEN_ROOTS): equal knowledge, equal root, so a root is the whole
@@ -117,14 +118,16 @@ function showStats(answer) {
     (s.waits ? ` · waited for the read budget ${s.waits}×` : "");
 }
 
-async function call(name, ...args) {
-  // Python's store calls block on swarm.js's promises (run_sync), which
-  // works only for a call that entered Python asynchronously.
-  const fn = py.globals.get(name);
-  try {
-    return JSON.parse(await fn.callPromising(...args));
-  } finally {
-    fn.destroy();
+// How Python waits for Swarm, "jspi" or "retry": pycall.js.
+let calls = null;
+
+function call(name, ...args) {
+  return calls.call(name, ...args);
+}
+
+function showRetrying() {
+  if (!$("source").textContent.includes("retrying")) {
+    $("source").textContent += "; Python reads by retrying (it cannot wait on Swarm in this browser)";
   }
 }
 
@@ -324,30 +327,53 @@ async function boot() {
 
   await py.runPythonAsync(`
 from js import ontodagBlobs
-from ontodag.browser import LocalStore, PageReader, open_published
+from ontodag.browser import RETRY, LocalStore, PageReader, RetryingPage, open_published
 
 page = None
 mine = None
+retry = False          # set by the page: Python cannot wait on a promise here
+
+
+class Direct:
+    """The same call(method, ...) shape as RetryingPage, for objects that
+    answer at once: a reader over the waiting bridge, or your own store."""
+
+    def __init__(self, target):
+        self.target = target
+
+    def call(self, method, *args):
+        return getattr(self.target, method)(*args)
+
+
+opened = None
+
 
 def open_store(root, index_root):
-    global page
-    page = PageReader(open_published(root, ontodagBlobs, index_root=index_root or None))
-    return page.node()
+    global page, opened
+    opened = (root, index_root)
+    index = index_root or None
+    if retry:
+        page = RetryingPage(lambda: PageReader(open_published(root, ontodagBlobs, bridge=RETRY, index_root=index)))
+    else:
+        page = Direct(PageReader(open_published(root, ontodagBlobs, index_root=index)))
+    return page.call("node")
 
 def local_new():
     global page, mine
-    page = mine = LocalStore()
+    mine = LocalStore()
+    page = Direct(mine)
     return mine.summary()
 
 def local_open(text, name):
     global page, mine
-    page = mine = LocalStore.from_text(text, name)
+    mine = LocalStore.from_text(text, name)
+    page = Direct(mine)
     return mine.summary()
 
 def local_use():
     global page
-    page = mine
-    return page.node()
+    page = Direct(mine)
+    return page.call("node")
 
 def local_put(item, under):
     return mine.put(item, under)
@@ -368,15 +394,27 @@ def local_saved(name):
 def local_saved_state():
     return mine.summary()
 
+def reopen():
+    """The published store open again, in the bridge mode now set."""
+    import json
+    if opened is None or isinstance(page, Direct) and page.target is mine:
+        return json.dumps({})
+    return open_store(*opened)
+
 def node(name):
-    return page.node(name)
+    return page.call("node", name)
 
 def get(query):
-    return page.get(query)
+    return page.call("get", query)
 
 def below(a, b):
-    return page.below(a, b)
+    return page.call("below", a, b)
 `);
+  calls = new PythonCalls(py, globalThis.ontodagBlobs, {
+    onRetry: async () => { py.globals.set("retry", true); showRetrying(); await calls.call("reopen"); },
+  });
+  py.globals.set("retry", calls.choose(params.get("bridge")) === "retry");
+  if (calls.mode === "retry") showRetrying();
 
   for (const [name, root] of Object.entries(PACKS)) {
     const o = document.createElement("option");
@@ -432,5 +470,5 @@ def below(a, b):
 
 // For tests and the console: the page's own calls.
 globalThis.ontodagPage = { call, openStore, goto, stats: () => reader && reader.stats, ready: null, python: () => py,
-  connect: () => document.getElementById("connect").click(), files: null };
+  connect: () => document.getElementById("connect").click(), files: null, bridge: () => calls && calls.mode };
 globalThis.ontodagPage.ready = boot().then(() => true, (e) => { status(`Could not start: ${e.message || e}`, true); console.error(e); return false; });
