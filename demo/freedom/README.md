@@ -11,9 +11,12 @@ always opens the current version): `bzz://eaaa79002b255222218984bc54a73131adcf72
 `~/.ontodag/page-feeds/ontodag.key` on the publishing machine (never
 committed); `ontodag/demo/freedom/page_feed.py` makes and moves the feed.
 
-Published: `bzz://e0f26cbbcf0985f518fc6ffcdcad9d6ff121b1a5bd10deea6be430e83be7926a/`
-(open it in Freedom Browser; through a node:
-`http://localhost:1633/bzz/e0f26cbbcf0985f518fc6ffcdcad9d6ff121b1a5bd10deea6be430e83be7926a/`;
+Names: `bzz://ontodag.gwei/` in Freedom Browser, `https://ontodag.gwei.domains/`
+in any browser (both resolve the feed; `../DOMAINS.md` beside the repos).
+
+Published: `bzz://cc4c99b615eb886c6c8c5ccf8217a26ed8aa41f8452fdd4b2c1061496ad91468/`
+(2026-10-12; Pyodide loaded from the shared folder `PYODIDE` in `app.js`;
+through a node: `http://localhost:1633/bzz/cc4c99b615eb886c6c8c5ccf8217a26ed8aa41f8452fdd4b2c1061496ad91468/`;
 in any browser, through the public gateway, serve `dist/` and add
 `?gateway=https://api.gateway.ethswarm.org`).
 

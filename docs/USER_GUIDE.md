@@ -3232,9 +3232,10 @@ A published store can also be read in a browser. The page in
 WebAssembly) and reads the store from Swarm lazily, as above:
 
 - in **Freedom Browser** through its own Swarm node: open
-  `bzz://e0f26cbbcf0985f518fc6ffcdcad9d6ff121b1a5bd10deea6be430e83be7926a/`;
-- in **any browser** through a public gateway: serve the page's folder and
-  add `?gateway=https://api.gateway.ethswarm.org`.
+  `bzz://ontodag.gwei/`;
+- in **any browser** through a public gateway: open
+  `https://ontodag.gwei.domains/`, or serve the page's folder and add
+  `?gateway=https://api.gateway.ethswarm.org`.
 
 It offers the published packs by their pinned roots: browse a category
 with what lies above and below it, `get`, `below`. Every chunk is checked
