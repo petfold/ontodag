@@ -519,6 +519,12 @@ Each line points to its record.
 
 ## State (2026-10-11)
 
+- **Reminder for Peter, due before 2026-11-01:** the batch `c931c8a5…`
+  expires around 2026-11-11 and takes with it the packs, their cone
+  summaries, both read-only pages and the shared Pyodide. Decide what to
+  keep and on which batch (`../STAMPS.md`; Pyodide alone was decided D on
+  2026-10-12: no batch of its own for now). Raise it at the start of any
+  session from 2026-10-25 on.
 - Released 2026-10-11 on Peter's word, each verified from PyPI: ontodag
   0.32.0 (contract 0.7, registry 5.0, prelude 5, surface 0.2: questions
   29–33, geo as rectangles, signed values, relative times; every workflow
