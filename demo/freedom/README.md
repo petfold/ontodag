@@ -19,9 +19,9 @@ in any browser, and `http://localhost:1633/bzz/ontodag.eth/` with a local Bee
 node such as Swarm Desktop, no gateway (all resolve the feed; `../DOMAINS.md`
 beside the repos).
 
-Published: `bzz://c42c70d012a7753cdd75d8d7c13ab4d26818320e4e6929f93e6894f76466fd5d/`
+Published: `bzz://5e8b2869107971ed8d747c2564fe69ecf257ccdb31fc6fe42bf6f7974a1f9f27/`
 (2026-10-12; Pyodide loaded from the shared folder `PYODIDE` in `app.js`;
-through a node: `http://localhost:1633/bzz/c42c70d012a7753cdd75d8d7c13ab4d26818320e4e6929f93e6894f76466fd5d/`;
+through a node: `http://localhost:1633/bzz/5e8b2869107971ed8d747c2564fe69ecf257ccdb31fc6fe42bf6f7974a1f9f27/`;
 in any browser, through the public gateway, serve `dist/` and add
 `?gateway=https://api.gateway.ethswarm.org`).
 
