@@ -3,11 +3,13 @@
     python3 demo/freedom/build.py                      # dist/ only
     python3 demo/freedom/build.py --publish --batch ID # and upload it to Swarm
 
-dist/ holds the page, Pyodide's core files (from demo/pyodide's npm copy),
-and wheels built from this checkout and from recordstore's beside it (the
-page needs `RecordStore.get_many`, newer than recordstore's last release).
-Everything the page loads comes from the same Swarm upload: no CDN, no
-PyPI at run time.
+dist/ holds the page and wheels built from this checkout and from
+recordstore's beside it (the page needs `RecordStore.get_many`, newer than
+recordstore's last release). Pyodide is not in it: the pages load Pyodide
+from its own folder on Swarm (app.js, PYODIDE), published once with
+`--pyodide-only`, so a page publish never stamps Pyodide again.
+`--bundle-pyodide` puts a copy in dist/ instead, for a page that must
+stand alone. No CDN, no PyPI at run time either way.
 
 Publishing posts dist/ to a Bee node's /bzz as one collection, prints its
 reference (open it in Freedom as bzz://REF/, or through a node as
@@ -46,16 +48,21 @@ def wheel(project, out):
         return name
 
 
-def assemble(dist, recordstore, extra=()):
+def copy_pyodide(folder):
+    os.makedirs(folder, exist_ok=True)
+    for f in PYODIDE_FILES:
+        shutil.copy(os.path.join(PYODIDE, f), os.path.join(folder, f))
+
+
+def assemble(dist, recordstore, extra=(), bundle_pyodide=False):
     if os.path.isdir(dist):
         shutil.rmtree(dist)
-    os.makedirs(os.path.join(dist, "pyodide"))
     os.makedirs(os.path.join(dist, "wheels"))
     for f in PAGE_FILES:
         shutil.copy(os.path.join(HERE, f), os.path.join(dist, f))
     shutil.copytree(os.path.join(HERE, "vendor"), os.path.join(dist, "vendor"))
-    for f in PYODIDE_FILES:
-        shutil.copy(os.path.join(PYODIDE, f), os.path.join(dist, "pyodide", f))
+    if bundle_pyodide:
+        copy_pyodide(os.path.join(dist, "pyodide"))
     wheels = [wheel(recordstore, os.path.join(dist, "wheels")),
               wheel(REPO, os.path.join(dist, "wheels"))]
     wheels += [wheel(p, os.path.join(dist, "wheels")) for p in extra]
@@ -86,6 +93,7 @@ def upload(dist, api, batch):
         headers={"Content-Type": "application/x-tar",
                  "Swarm-Collection": "true",
                  "Swarm-Index-Document": "index.html",
+                 "Swarm-Redundancy-Level": "0",
                  "Swarm-Postage-Batch-Id": batch,
                  "Swarm-Deferred-Upload": "true"})
     with urllib.request.urlopen(req, timeout=600) as res:
@@ -116,11 +124,20 @@ def main():
     ap.add_argument("--api", default=os.environ.get("BEE_API", "http://localhost:1633"))
     ap.add_argument("--batch", default=os.environ.get("BEE_BATCH"))
     ap.add_argument("--no-build", action="store_true", help="publish dist/ as it is")
+    ap.add_argument("--bundle-pyodide", action="store_true",
+                    help="put Pyodide in dist/ instead of loading the shared folder")
+    ap.add_argument("--pyodide-only", action="store_true",
+                    help="assemble (and with --publish, publish) the shared Pyodide folder alone")
     ap.add_argument("--wait", type=float, default=20,
                     help="minutes to wait for the network to serve the upload")
     args = ap.parse_args()
-    if not args.no_build:
-        wheels = assemble(args.dist, args.recordstore)
+    if args.pyodide_only:
+        args.dist = os.path.join(HERE, "dist-pyodide")
+        if os.path.isdir(args.dist):
+            shutil.rmtree(args.dist)
+        copy_pyodide(args.dist)
+    elif not args.no_build:
+        wheels = assemble(args.dist, args.recordstore, bundle_pyodide=args.bundle_pyodide)
         print(f"wheels: {', '.join(wheels)}")
     size = sum(os.path.getsize(os.path.join(b, f)) for b, _, fs in os.walk(args.dist) for f in fs)
     print(f"dist: {args.dist} ({size / 2**20:.1f} MB)", flush=True)

@@ -17,7 +17,7 @@ in any browser, through the public gateway, serve `dist/` and add
 | `index.html`, `app.js` | the page: a store (the published packs by their pinned roots), a category with what is above and below it, `get`, `below` |
 | `swarm.js` | the Swarm layer: `FreedomSwarm`, `HttpSwarm`, `ChunkReader` (chunk trees joined, every chunk checked against its address, an IndexedDB cache), `BlobStore` for Python |
 | `vendor/noble-hashes/` | keccak-256 (MIT), as `swarm.js` imports it |
-| `build.py` | assembles `dist/` (the page, Pyodide's core, wheels built from this checkout and recordstore's); `--publish --batch ID` uploads it to a Bee node |
+| `build.py` | assembles `dist/` (the page and wheels built from this checkout and recordstore's, about 0.5 MB); `--publish --batch ID` uploads it to a Bee node. Pyodide is not in it: the pages load it from its own folder on Swarm (`app.js`, `PYODIDE`), published once with `--pyodide-only`; `--bundle-pyodide` puts a copy in instead |
 | `check.py` | runs `dist/` in Chromium against a Bee node and compares every answer with Python reading the same root: through a stand-in for Freedom's provider (default), the node over HTTP (`--url`), or a gateway (`--gateway`) |
 | `freedom_check.cjs` | runs the published page in real Freedom Browser from a Freedom checkout (`node freedom_check.cjs REF [--connect]`) |
 | `publish_index.py` | publishes packs' cone summaries (`ontodag.cones`) for the page to pin: a broad category in one record instead of a walk |

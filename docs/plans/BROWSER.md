@@ -594,3 +594,19 @@ question.
 Next, as §8 orders them: writing under the §11 key (Weeb-3 or an HTTP
 node first, Freedom after #647). The gateway step is done (above).
 
+**Pyodide in a shared folder (2026-10-12).** Pyodide's core is 3,279 of a
+page's roughly 3,400 chunks, and every page publish stamped it again. A
+page at one `bzz://` address loads Pyodide from another, as a test in real
+Freedom showed (Python 3.12.7 running in 3.6 s from
+`bzz://e0f26cbb…/pyodide/`). So both pages now load Pyodide from one
+shared folder:
+- in Freedom, at `bzz://PYODIDE/`;
+- served by a node, at its own `/bzz/PYODIDE/`;
+- otherwise, through the gateway.
+
+A page publish is then its own files and wheels, about 0.5 MB, and a
+browser caches Pyodide once for both pages and every version.
+`build.py --pyodide-only` publishes the folder; until it has its own
+address, `PYODIDE` names the copy inside the published ontodag page.
+Which batch carries it is Peter's question.
+

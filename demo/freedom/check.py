@@ -36,6 +36,7 @@ import urllib.error
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+PYODIDE_DIR = os.path.join(os.path.dirname(os.path.dirname(HERE)), "demo", "pyodide", "node_modules", "pyodide")
 API = os.environ.get("BEE_API", "http://localhost:1633").rstrip("/")
 CORE = "720d44c649379c4508549200a344771a8fa29c64880744dc2372d9f57863ceb8"
 
@@ -86,8 +87,17 @@ def standin(calls, method, params):
 
 
 class _Quiet(http.server.SimpleHTTPRequestHandler):
+    """dist/, with /pyodide/ answered from demo/pyodide's npm copy: the page
+    is told ?pyodide=/pyodide/ instead of fetching the shared folder."""
+
     def log_message(self, *args):
         pass
+
+    def translate_path(self, path):
+        clean = path.split("?", 1)[0]
+        if clean.startswith("/pyodide/"):
+            return os.path.join(PYODIDE_DIR, clean[len("/pyodide/"):])
+        return super().translate_path(path)
 
 
 def serve(directory):
@@ -128,8 +138,9 @@ async def check_page(url, root, queries, freedom, gateway=None, index=None):
             await page.expose_function("__standin", answer)
             await page.add_init_script(FREEDOM_STANDIN)
         started = time.time()
+        local = url.startswith("http://127.0.0.1")
         await page.goto(f"{url}?root={root}" + (f"&gateway={gateway}" if gateway else "")
-                        + (f"&index={index}" if index else ""))
+                        + (f"&index={index}" if index else "") + ("&pyodide=/pyodide/" if local else ""))
         ok = await page.evaluate("window.ontodagPage.ready")
         print(f"  page ready: {ok} after {time.time() - started:.1f} s; source: {await page.inner_text('#source')}")
         if not ok:
