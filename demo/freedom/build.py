@@ -116,6 +116,15 @@ def retrievable(api, ref, minutes):
     return False
 
 
+def advance_feed(name, api, ref, batch):
+    """Point the page's feed (page_feed.py) at the new upload, so its stable
+    address and its name (ontodag.gwei) open this version, no transaction."""
+    sys.path.insert(0, HERE)
+    import page_feed
+    owner, manifest = page_feed.point(api, name, ref, batch)
+    print(f"feed advanced: bzz://{manifest}/ now opens this version", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--dist", default=os.path.join(HERE, "dist"))
@@ -147,6 +156,8 @@ def main():
         api = args.api.rstrip("/")
         ref = upload(args.dist, api, args.batch)
         print(f"published: bzz://{ref}/  ({api}/bzz/{ref}/)", flush=True)
+        if not args.pyodide_only:
+            advance_feed("ontodag", api, ref, args.batch)
         ok = retrievable(api, ref, args.wait)
         print("retrievable" if ok else "NOT yet retrievable: check GET /stewardship later, and upload again if it stays so")
 

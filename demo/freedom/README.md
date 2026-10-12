@@ -6,6 +6,11 @@ Freedom Browser's `window.swarm`, or through a Swarm node or gateway over
 HTTP. Nothing is installed and nothing is downloaded whole. Design and
 measurements: `docs/plans/BROWSER.md` §10–§13.
 
+Stable address (a feed manifest; every publish advances the feed, so it
+always opens the current version): `bzz://eaaa79002b255222218984bc54a73131adcf720180f06542c1c8e176973a2a23/`. The publisher key is
+`~/.ontodag/page-feeds/ontodag.key` on the publishing machine (never
+committed); `ontodag/demo/freedom/page_feed.py` makes and moves the feed.
+
 Published: `bzz://e0f26cbbcf0985f518fc6ffcdcad9d6ff121b1a5bd10deea6be430e83be7926a/`
 (open it in Freedom Browser; through a node:
 `http://localhost:1633/bzz/e0f26cbbcf0985f518fc6ffcdcad9d6ff121b1a5bd10deea6be430e83be7926a/`;
