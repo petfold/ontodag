@@ -257,8 +257,9 @@ class PageReader:
 
     def _answer(self, **fields):
         import json
-        fields["records"] = self.dag.fetches
-        fields["round_trips"] = getattr(self.dag, "rounds", self.dag.fetches)
+        fetches = getattr(self.dag, "fetches", 0)
+        fields["records"] = fetches
+        fields["round_trips"] = getattr(self.dag, "rounds", fetches)
         return json.dumps(fields)
 
     def node(self, name=None):
@@ -301,3 +302,106 @@ class PageReader:
         except ValueError as e:
             return self._answer(a=a, b=b, error=str(e))
 
+
+
+class LocalStore(PageReader):
+    """The page's own store: a whole `OntoDAG` in memory, read from and saved
+    to a `.od` file on the person's computer (the page's JavaScript does the
+    file handling), never written to Swarm. The text is the native format,
+    so the same file works with `odag`.
+
+    It answers like `PageReader` (`node`, `get`, `below`) and adds the
+    writes, each answered as JSON with `changed` (unsaved changes) and
+    `count` (categories in the store): `put` and `remove` as `odag put` and
+    `odag remove` do them, and `prelude` as `odag prelude`. Typed input is
+    the person's: relative times are read with the clock (`now`, unix
+    seconds), as at the `odag` command; the core canonicalizes the rest."""
+
+    def __init__(self, dag=None, name="store.od", now=None):
+        from ontodag import OntoDAG
+        super().__init__(dag if dag is not None else OntoDAG())
+        self.name = name
+        self.changed = False
+        self._now = now
+
+    @classmethod
+    def from_text(cls, text, name="store.od", now=None):
+        """A store from a `.od` file's text (`ontodag.native.loads`)."""
+        from ontodag import native
+        return cls(native.loads(text, source=name), name=name, now=now)
+
+    def _clock(self):
+        if self._now is not None:
+            return self._now
+        import time
+        return time.time()
+
+    def _typed(self, name):
+        from ontodag import surface
+        return surface.absolute(name, self.dag, self._clock())
+
+    def summary(self):
+        return self._answer(name=self.name, changed=self.changed,
+                            count=len(self.dag.nodes) - 1)
+
+    def put(self, item, parents=""):
+        """File `item` under the categories named in `parents` (space
+        separated, quoted as in a shell), or at the top with none."""
+        import shlex
+        try:
+            names = [self._typed(p) for p in shlex.split(parents)]
+            item = self._typed(item.strip())
+            if not item:
+                raise ValueError("name what to put")
+            missing = [p for p in names
+                       if p not in self.dag.nodes and not self.dag.is_term(p)]
+            if missing:
+                raise ValueError(
+                    f"unknown super-categor{'y' if len(missing) == 1 else 'ies'}: "
+                    f"{', '.join(missing)} (put {'it' if len(missing) == 1 else 'them'} first)")
+            self.dag.put(item, names)
+        except ValueError as e:
+            return self._answer(error=str(e), changed=self.changed,
+                                count=len(self.dag.nodes) - 1)
+        self.changed = True
+        return self._answer(put=item, under=names, changed=True,
+                            count=len(self.dag.nodes) - 1)
+
+    def remove(self, names):
+        """Remove categories by contraction, as `odag remove` does: what is
+        below each one moves up to its parents, so nothing below is lost."""
+        import shlex
+        try:
+            items = shlex.split(names)
+            if not items:
+                raise ValueError("name what to remove")
+            gone, _moves = self.dag.removal_plan(items)
+            self.dag.remove_many(items)
+        except (ValueError, KeyError) as e:
+            return self._answer(error=str(e).strip("'\""), changed=self.changed,
+                                count=len(self.dag.nodes) - 1)
+        self.changed = True
+        return self._answer(removed=sorted(gone), changed=True,
+                            count=len(self.dag.nodes) - 1)
+
+    def prelude(self):
+        """Adopt the standard declarations (typed values), `odag prelude`."""
+        from ontodag import prelude
+        before = len(self.dag.nodes)
+        prelude.apply(self.dag)
+        added = len(self.dag.nodes) - before
+        self.changed = self.changed or added > 0
+        return self._answer(added=added, changed=self.changed,
+                            count=len(self.dag.nodes) - 1)
+
+    def text(self):
+        """The store as `.od` text, to save."""
+        from ontodag import native
+        return native.dumps(self.dag)
+
+    def saved(self, name=None):
+        """The page wrote `text()` to a file (named `name`, if it changed)."""
+        if name:
+            self.name = name
+        self.changed = False
+        return self.summary()

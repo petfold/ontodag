@@ -19,6 +19,12 @@ Two ways in, both checked against the same pack read natively in Python
   page served from dist/ reads every chunk from the gateway, which fetches
   from the network: the case of a browser with no Swarm of its own.
 
+Each way also checks your own store (BROWSER.md §14) through the page's
+buttons: New, Put, Save (a download, compared with `ontodag.native` for the
+same writes), then Open by the file input, Put, Remove and Get. Saving back
+in place through File System Access needs a native dialog, so it is not
+checked here; the page falls back to the download where it is refused.
+
 Needs a Bee node with the pack's chunks (BEE_API, default localhost:1633)
 and `playwright` with Chromium.
 """
@@ -163,12 +169,72 @@ async def check_page(url, root, queries, freedom, gateway=None, index=None):
             got[("below", a_, b_)] = a["below"]
         stats = await page.evaluate("window.ontodagPage.stats()")
         print(f"  chunks fetched {stats['reads']} ({stats['bytes'] // 1024} KB), reused {stats['cached']}")
+        got["local"] = await check_local(page)
         await browser.close()
     return got, calls
 
 
+async def check_local(page):
+    """Your own store through the page's buttons; the problems found."""
+    import tempfile
+    from ontodag import OntoDAG, native
+    problems = []
+    page.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
+    # Downloads and the file input, as in Freedom and Brave.
+    await page.evaluate("window.ontodagPage.files.pickers = false")
+
+    async def put(item, under=""):
+        await page.fill("#putitem", item)
+        await page.fill("#putunder", under)
+        await page.click("#putbutton")
+        await page.wait_for_function("(i) => document.getElementById('localresult').textContent.includes(i)", arg=item)
+
+    await page.click("#localnew")
+    await page.wait_for_selector("#localedit:not(.hidden)")
+    await put("fruit")
+    await put("apple", "fruit")
+    async with page.expect_download() as info:
+        await page.click("#localsave")
+    saved = open(await (await info.value).path()).read()
+    want = OntoDAG()
+    want.put("fruit", [])
+    want.put("apple", ["fruit"])
+    if saved != native.dumps(want):
+        problems.append(f"saved text differs from native.dumps: {saved!r}")
+    state = await page.inner_text("#localstate")
+    if "· saved" not in state:
+        problems.append(f"after saving, the page says: {state!r}")
+
+    with tempfile.NamedTemporaryFile("w", suffix=".od", delete=False) as fh:
+        fh.write(saved)
+    async with page.expect_file_chooser() as chooser:
+        await page.click("#localopen")
+    await (await chooser.value).set_files(fh.name)
+    await page.wait_for_function("document.getElementById('localstate').textContent.includes('.od')")
+    await put("pear", "fruit")
+    await put("food")
+    await put("produce", "food")
+    await page.fill("#putitem", "plum")
+    await page.fill("#putunder", "fruit orchard")
+    await page.click("#putbutton")
+    await page.wait_for_function("document.getElementById('localresult').textContent.includes('orchard')")
+    await page.fill("#removenames", "pear")
+    await page.click("#removebutton")
+    await page.wait_for_function("document.getElementById('localresult').textContent.includes('removed')")
+    answer = await page.evaluate("window.ontodagPage.call('get', 'fruit')")
+    if answer.get("names") != ["apple"]:
+        problems.append(f"get fruit after the edits: {answer!r}")
+    state = await page.inner_text("#localstate")
+    if "unsaved changes" not in state:
+        problems.append(f"after edits, the page says: {state!r}")
+    os.unlink(fh.name)
+    print(f"  your own store: new, put, save (download), open (file input), put, remove, get: "
+          f"{'ok' if not problems else problems}")
+    return problems
+
+
 def compare(got, want):
-    bad = 0
+    bad = len(got.get("local") or [])
     for key, value in want.items():
         if got.get(key) != value:
             bad += 1

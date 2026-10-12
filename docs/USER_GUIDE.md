@@ -3227,7 +3227,8 @@ walks breadth-first and fetches each level's records in one batch: a
 
 ### In a browser, with nothing installed
 
-A published store can also be read in a browser. The page in
+A published store can also be read in a browser, and a store of your own
+kept there in a file. The page in
 `demo/freedom/` runs ontodag under Pyodide (Python compiled to
 WebAssembly) and reads the store from Swarm lazily, as above:
 
@@ -3248,8 +3249,42 @@ chunks; a second reads none, since the chunks are kept in the browser.
 Freedom limits how much a site that has not connected may read a minute,
 so the page asks you to connect when it runs into that.
 
-The page is read-only. How it is built, and what it measured, is in
-`docs/plans/BROWSER.md` §13.
+**Your own store, in a file.** The same page keeps a store of your own
+as an `.od` file on your computer, and never writes it to Swarm: **New**
+or **Open file…**, then **Put** (a name, and the categories it goes
+under) and **Remove** (what was below moves up, as `odag remove` does),
+browsing and `get` as with a pack, and **Save**. **Add typed values**
+adopts the prelude, as `odag prelude` does. The file is the format `odag`
+reads, so the same store works on the command line:
+
+```console
+$ odag -f mine.od get fruit
+apple
+```
+
+Where the browser lets a page keep a file you gave it (Chrome), Save
+writes back to that file. Freedom refuses that access and Brave has no
+file pickers, so there Open uses an ordinary file dialog and Save
+downloads the file; keep it where you like and open it next time. The
+page warns before you leave it with unsaved changes. In Python the same
+store is `ontodag.browser.LocalStore`:
+
+```python
+>>> from ontodag.browser import LocalStore
+>>> store = LocalStore(name="mine.od")
+>>> store.put("apple", "fruit")
+'{"error": "unknown super-category: fruit (put it first)", ...}'
+>>> _ = store.put("fruit"); _ = store.put("apple", "fruit")
+>>> print(store.text(), end="")
+# ontodag store v1
+#:canonical 5.0 312a686a9bf5599899749659a578bcee0d622d42dde6f78e66f3281d3691dba1
+apple fruit
+fruit '*'
+```
+
+How the page is built, and what it measured, is in
+`docs/plans/BROWSER.md` §13; local files, and why they behave differently
+in each browser, in §14.
 
 Once a store lives on Swarm, it can also be **browsed as a filesystem** with
 [ontodag-fs](https://github.com/petfold/ontodag-fs): directory paths are

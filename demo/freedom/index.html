@@ -41,12 +41,15 @@
   .result { margin-top: 8px; }
   #stats { color: var(--muted); font-size: 0.85rem; font-family: var(--mono); }
   .hidden { display: none; }
+  .muted { color: var(--muted); font-size: 0.9rem; }
+  .nomargin { margin: 0; }
+  #localresult.warn { color: var(--warn); }
 </style>
 </head>
 <body>
 <main>
   <h1>OntoDAG on Swarm</h1>
-  <p class="sub">A published ontology, read straight from Swarm in your browser: nothing installed, nothing downloaded whole. Read-only.</p>
+  <p class="sub">A published ontology, read straight from Swarm in your browser: nothing installed, nothing downloaded whole. Or your own store, kept in a file on this computer and never written to Swarm.</p>
 
   <div class="bar">
     <span id="source">Starting…</span>
@@ -60,6 +63,30 @@
       <select id="store" disabled></select>
       <input id="root" placeholder="or a store's Swarm root (64 hex)" disabled>
       <button id="open" disabled>Open</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="bar">
+      <span class="label nomargin">Your own store</span>
+      <button id="localnew" disabled>New</button>
+      <button id="localopen" disabled>Open file…</button>
+      <button id="localsave" disabled>Save</button>
+      <button id="localprelude" class="hidden" title="Adopt the standard declarations for typed values (mass, time, geo and the rest), as odag prelude does">Add typed values (prelude)</button>
+      <input type="file" id="localfile" accept=".od,text/plain" class="hidden">
+    </div>
+    <div class="muted" id="localstate">A store of your own, as an .od file (the same file odag reads). Nothing goes to Swarm.</div>
+    <div id="localedit" class="hidden">
+      <div class="bar">
+        <input id="putitem" placeholder="put: a name, e.g. apple">
+        <input id="putunder" placeholder="under these (space separated), e.g. fruit; empty for the top">
+        <button id="putbutton" class="primary">Put</button>
+      </div>
+      <div class="bar">
+        <input id="removenames" placeholder="remove (what was below each moves up to its parents)">
+        <button id="removebutton">Remove</button>
+      </div>
+      <div class="result" id="localresult"></div>
     </div>
   </div>
 

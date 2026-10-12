@@ -34,6 +34,16 @@ the version numbers appear in commit history and docs.
   `freedom_check.cjs` runs it in real Freedom Browser (connected, a
   category with 35 children in 1.0 s; a second visit reads nothing, its
   chunks kept in IndexedDB).
+- **Your own store in the page, in a local file** (`ontodag.browser.LocalStore`,
+  BROWSER.md §14): New or Open file, Put, Remove, the prelude, browsing and
+  `get`, and Save, as an `.od` file in the format `odag` reads; nothing goes
+  to Swarm. Save writes back to the file where the browser allows it
+  (File System Access, Chrome), and downloads it where it does not
+  (Freedom refuses the access, Brave has no pickers). `check.py` drives it
+  through the page's buttons.
+- **The page's scripts are named by content hash** (`build.py`'s
+  `fingerprint`), so a name's gateway that caches scripts but not the page
+  never serves a new page with old scripts.
 - **Published cone summaries for the page** (`demo/freedom/publish_index.py`,
   `open_published(..., index_root=)`): core's index is on Swarm, and the page
   opens it beside the pack. `get physical-object` (2,509 found) then reads

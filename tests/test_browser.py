@@ -306,3 +306,63 @@ class TestTheReadOnlyPage(unittest.TestCase):
         # an index the page cannot fetch is a cache miss, not a failure
         unreachable = get("ab" * 32)
         self.assertEqual(unreachable["names"], walked["names"])
+
+
+class TestTheLocalStore(unittest.TestCase):
+    """The page's own store, kept in a local `.od` file (BROWSER.md §14):
+    the same text `odag` reads and writes, and the CLI's rules for writes."""
+
+    def answer(self, text):
+        import json
+        return json.loads(text)
+
+    def test_a_saved_store_is_the_native_format_both_ways(self):
+        from ontodag import native
+        from ontodag.browser import LocalStore
+        store = LocalStore(name="mine.od")
+        store.put("fruit")
+        store.put("apple", "fruit")
+        text = store.text()
+        self.assertEqual(text, native.dumps(native.loads(text)))
+        again = LocalStore.from_text(text, "mine.od")
+        self.assertEqual(self.answer(again.get("fruit"))["names"], ["apple"])
+        self.assertEqual(native.dumps(again.dag), text)
+
+    def test_changed_until_saved(self):
+        from ontodag.browser import LocalStore
+        store = LocalStore()
+        self.assertFalse(self.answer(store.summary())["changed"])
+        self.assertTrue(self.answer(store.put("fruit"))["changed"])
+        store.text()   # a save that failed or was cancelled
+        self.assertTrue(self.answer(store.summary())["changed"])
+        self.assertEqual(self.answer(store.saved("mine.od"))["name"], "mine.od")
+        self.assertFalse(self.answer(store.summary())["changed"])
+
+    def test_an_unknown_parent_is_named_and_nothing_changes(self):
+        from ontodag.browser import LocalStore
+        store = LocalStore()
+        store.put("fruit")
+        before = sorted(store.dag.nodes)
+        answer = self.answer(store.put("pear", "fruit orchard"))
+        self.assertIn("orchard", answer["error"])
+        self.assertNotIn("fruit,", answer["error"])
+        self.assertEqual(sorted(store.dag.nodes), before)
+
+    def test_remove_contracts_as_odag_remove_does(self):
+        from ontodag.browser import LocalStore
+        store = LocalStore()
+        store.put("food")
+        store.put("fruit", "food")
+        store.put("apple", "fruit")
+        self.assertEqual(self.answer(store.remove("fruit"))["removed"], ["fruit"])
+        self.assertEqual(self.answer(store.get("food"))["names"], ["apple"])
+        self.assertIn("error", self.answer(store.remove("durian")))
+
+    def test_typed_values_and_relative_times_need_the_prelude_and_the_clock(self):
+        from ontodag.browser import LocalStore
+        # 2026-10-12 12:00 UTC
+        store = LocalStore(now=1791806400)
+        self.assertGreater(self.answer(store.prelude())["added"], 0)
+        answer = self.answer(store.put("harvest", "'time(today)'"))
+        self.assertEqual(answer["under"], ["time(2026-10-12)"])
+        self.assertIn("harvest", self.answer(store.get("'time(2026-10)'"))["names"])

@@ -195,6 +195,169 @@ async function openStore(root) {
   if (start) await goto(start);
 }
 
+// Your own store, in a file on this computer. Where the browser lets a page
+// keep a file it was given (File System Access, in Chrome), Save writes back
+// to that file; Freedom refuses that access after the pick and Brave has no
+// pickers (BROWSER.md §14), so there a file input opens and a download saves.
+const LOCAL = "local";
+const files = { handle: null, pickers: false };
+
+function pickersUsable() {
+  if (typeof showOpenFilePicker !== "function" || FreedomSwarm.present()) return false;
+  try { return localStorage.getItem("ontodag-pickers-refused") !== "1"; } catch { return true; }
+}
+
+function pickersRefused(e) {
+  console.warn("file pickers refused; opening and saving by file input and download instead", e);
+  files.pickers = false;
+  files.handle = null;
+  try { localStorage.setItem("ontodag-pickers-refused", "1"); } catch { /* storage off */ }
+}
+
+const OD_TYPES = [{ description: "OntoDAG store", accept: { "text/plain": [".od"] } }];
+
+function chooseByInput() {
+  return new Promise((resolve) => {
+    const input = $("localfile");
+    input.value = "";
+    input.onchange = () => resolve(input.files[0] || null);
+    input.click();
+  });
+}
+
+async function pickFile() {
+  if (files.pickers) {
+    try {
+      const [handle] = await showOpenFilePicker({ types: OD_TYPES });
+      const file = await handle.getFile();
+      files.handle = handle;
+      return file;
+    } catch (e) {
+      if (e.name === "AbortError") return null;
+      pickersRefused(e);
+    }
+  }
+  files.handle = null;
+  return chooseByInput();
+}
+
+function download(text, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  a.download = name;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+}
+
+// Where the text went: "file" (written back in place), "download", or null
+// (the person cancelled).
+async function writeFile(text, name) {
+  if (files.pickers) {
+    try {
+      if (!files.handle) files.handle = await showSaveFilePicker({ suggestedName: name, types: OD_TYPES });
+      const mode = { mode: "readwrite" };
+      if (await files.handle.queryPermission(mode) !== "granted"
+          && await files.handle.requestPermission(mode) !== "granted") {
+        throw new DOMException("write permission not granted", "NotAllowedError");
+      }
+      const w = await files.handle.createWritable();
+      await w.write(text);
+      await w.close();
+      return { how: "file", name: files.handle.name };
+    } catch (e) {
+      if (e.name === "AbortError") return null;
+      pickersRefused(e);
+    }
+  }
+  download(text, name);
+  return { how: "download", name };
+}
+
+function showLocal(summary, note = "") {
+  const how = files.handle ? "Save writes back to the file" : "Save downloads the file";
+  $("localstate").textContent = `${summary.name} · ${summary.count} categor${summary.count === 1 ? "y" : "ies"}` +
+    (summary.changed ? " · unsaved changes" : " · saved") + ` · ${how}.` + (note ? ` ${note}` : "");
+  $("localsave").disabled = false;
+  $("localprelude").classList.remove("hidden");
+  $("localedit").classList.remove("hidden");
+  localChanged = summary.changed;
+  if (![...$("store").options].some((o) => o.value === LOCAL)) {
+    const o = document.createElement("option");
+    o.value = LOCAL; o.textContent = "your own store";
+    $("store").prepend(o);
+  }
+  $("store").value = LOCAL;
+}
+
+let localChanged = false;
+addEventListener("beforeunload", (e) => { if (localChanged) { e.preventDefault(); e.returnValue = ""; } });
+
+function localResult(text, warn = false) {
+  $("localresult").textContent = text;
+  $("localresult").classList.toggle("warn", warn);
+}
+
+async function useLocal() {
+  const answer = await run("Your own store…", () => call("local_use"));
+  if (answer) showNode(answer);
+}
+
+async function localNew() {
+  if (localChanged && !confirm("Your store has unsaved changes. Start a new one anyway?")) return;
+  files.handle = null;
+  const summary = await call("local_new");
+  showLocal(summary);
+  await useLocal();
+}
+
+async function localOpen() {
+  if (localChanged && !confirm("Your store has unsaved changes. Open another anyway?")) return;
+  const file = await pickFile();
+  if (!file) return;
+  const summary = await run(`Opening ${file.name}…`, async () => call("local_open", await file.text(), file.name));
+  if (!summary) return;
+  showLocal(summary);
+  await useLocal();
+}
+
+async function localSave() {
+  const { text, name } = await call("local_text");
+  const where = await writeFile(text, name);
+  if (!where) return;
+  const summary = await call("local_saved", where.name);
+  showLocal(summary, where.how === "download" ? "Downloaded; keep it where you like and open it next time." : "");
+}
+
+async function localPut() {
+  const item = $("putitem").value.trim();
+  if (!item) return;
+  const answer = await call("local_put", item, $("putunder").value.trim());
+  if (answer.error) return localResult(answer.error, true);
+  localResult(`put ${answer.put}${answer.under.length ? ` under ${answer.under.join(", ")}` : " at the top"}`);
+  $("putitem").value = "";
+  showLocal(await call("local_saved_state"));
+  await goto(answer.put);
+}
+
+async function localRemove() {
+  const names = $("removenames").value.trim();
+  if (!names) return;
+  const answer = await call("local_remove", names);
+  if (answer.error) return localResult(answer.error, true);
+  localResult(`removed ${answer.removed.join(", ")}`);
+  $("removenames").value = "";
+  showLocal(await call("local_saved_state"));
+  await useLocal();
+}
+
+async function localPrelude() {
+  const answer = await call("local_prelude");
+  localResult(answer.added ? `added ${answer.added} declarations for typed values` : "the prelude is already here");
+  showLocal(await call("local_saved_state"));
+}
+
 async function boot() {
   const base = pyodideBase();
   await loadScript(`${base}pyodide.js`);
@@ -234,14 +397,49 @@ async function boot() {
 
   await py.runPythonAsync(`
 from js import ontodagBlobs
-from ontodag.browser import PageReader, open_published
+from ontodag.browser import LocalStore, PageReader, open_published
 
 page = None
+mine = None
 
 def open_store(root, index_root):
     global page
     page = PageReader(open_published(root, ontodagBlobs, index_root=index_root or None))
     return page.node()
+
+def local_new():
+    global page, mine
+    page = mine = LocalStore()
+    return mine.summary()
+
+def local_open(text, name):
+    global page, mine
+    page = mine = LocalStore.from_text(text, name)
+    return mine.summary()
+
+def local_use():
+    global page
+    page = mine
+    return page.node()
+
+def local_put(item, under):
+    return mine.put(item, under)
+
+def local_remove(names):
+    return mine.remove(names)
+
+def local_prelude():
+    return mine.prelude()
+
+def local_text():
+    import json
+    return json.dumps({"text": mine.text(), "name": mine.name})
+
+def local_saved(name):
+    return mine.saved(name)
+
+def local_saved_state():
+    return mine.summary()
 
 def node(name):
     return page.node(name)
@@ -258,10 +456,20 @@ def below(a, b):
     o.value = root; o.textContent = name;
     $("store").append(o);
   }
-  for (const id of ["store", "root", "open", "goto", "gobutton", "query", "getbutton", "belowa", "belowb", "belowbutton"]) {
+  for (const id of ["store", "root", "open", "goto", "gobutton", "query", "getbutton", "belowa", "belowb", "belowbutton", "localnew", "localopen"]) {
     $(id).disabled = false;
   }
-  $("store").onchange = () => openStore($("store").value);
+  files.pickers = pickersUsable();
+  $("store").onchange = () => ($("store").value === LOCAL ? useLocal() : openStore($("store").value));
+  $("localnew").onclick = localNew;
+  $("localopen").onclick = localOpen;
+  $("localsave").onclick = localSave;
+  $("localprelude").onclick = localPrelude;
+  $("putbutton").onclick = localPut;
+  $("putunder").onkeydown = (e) => { if (e.key === "Enter") localPut(); };
+  $("putitem").onkeydown = (e) => { if (e.key === "Enter") localPut(); };
+  $("removebutton").onclick = localRemove;
+  $("removenames").onkeydown = (e) => { if (e.key === "Enter") localRemove(); };
   $("open").onclick = () => {
     const root = $("root").value.trim().toLowerCase();
     if (/^[0-9a-f]{64}$/.test(root)) openStore(root);
@@ -295,5 +503,5 @@ def below(a, b):
 
 // For tests and the console: the page's own calls.
 globalThis.ontodagPage = { call, openStore, goto, stats: () => reader && reader.stats, ready: null, python: () => py,
-  connect: () => document.getElementById("connect").click() };
+  connect: () => document.getElementById("connect").click(), files };
 globalThis.ontodagPage.ready = boot().then(() => true, (e) => { status(`Could not start: ${e.message || e}`, true); console.error(e); return false; });
