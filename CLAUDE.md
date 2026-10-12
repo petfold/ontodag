@@ -482,6 +482,8 @@ Each line points to its record.
 - The node: Swarm Desktop's bee 2.8.2 light node at `localhost:1633`, on
   Gnosis mainnet. Another node manager can hold the same port, so `curl
   /health` and `/stamps` before believing anything about a batch.
+- Every batch, its size, duration and contents: `../STAMPS.md` (keep it
+  current with each purchase and each upload worth keeping).
 - The batch: `c931c8a5…`, depth 22, TTL 31.6 days on 2026-10-11 (about
   2026-11-12; the date moves with the storage price). Buy,
   top up or dilute only on Peter's word. The amount per chunk is price ×
