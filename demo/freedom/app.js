@@ -183,7 +183,7 @@ async function boot() {
     stored: await StoredChunks.open(),
     onRateLimit: (ms) => {
       if (source instanceof FreedomSwarm && !connected.yes) {
-        status(`Freedom lets a site that has not connected read only so much of Swarm a minute; waiting ${ms / 1000} s. Connect to Freedom to read five times as much.`, true);
+        status(`Freedom lets a site that has not connected read only so much of Swarm a minute; waiting ${ms / 1000} s. Press "Read faster (connect)" to read five times as much.`, true);
         $("connect").classList.add("primary");
       } else {
         status(`The read budget is spent; waiting ${ms / 1000} s…`, true);
