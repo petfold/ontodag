@@ -19,9 +19,11 @@ landed (CLAUDE.md, Bee integration status).
 """
 
 import argparse
+import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -68,7 +70,45 @@ def assemble(dist, recordstore, extra=(), bundle_pyodide=False):
     wheels += [wheel(p, os.path.join(dist, "wheels")) for p in extra]
     with open(os.path.join(dist, "wheels", "manifest.json"), "w") as fh:
         json.dump({"wheels": wheels}, fh, indent=1)
+    fingerprint(dist)
     return wheels
+
+
+# A script reference the page makes itself: `src="app.js"` in HTML, or
+# `from "./swarm.js"` / `import("./x.js")` in a module.
+_SCRIPT_REF = re.compile(r"""(\bsrc=|\bfrom\s*|\bimport\s*\(\s*)(["'])((?:\./|\.\./)?[\w./-]+\.js)\2""")
+
+
+def fingerprint(dist):
+    """Give every local script reference a `?v=` of its file's content hash.
+    A name's gateway caches scripts by URL (gwei.domains keeps one for as
+    long as it is asked for) but not the HTML, so after a republish a
+    browser could get the new page with the old scripts. Hashes are taken
+    leaves first, so a change in swarm.js changes app.js's URL too."""
+    done = {}
+
+    def visit(path):
+        if path in done:
+            return done[path]
+        done[path] = None  # an import cycle keeps the reference as it is
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+
+        def tag(m):
+            target = os.path.normpath(os.path.join(os.path.dirname(path), m.group(3)))
+            if not os.path.isfile(target):
+                return m.group(0)
+            digest = visit(target)
+            return m.group(0) if digest is None else \
+                f"{m.group(1)}{m.group(2)}{m.group(3)}?v={digest}{m.group(2)}"
+
+        text = _SCRIPT_REF.sub(tag, text)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        done[path] = hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+        return done[path]
+
+    visit(os.path.join(dist, "index.html"))
 
 
 def tar_of(dist):
