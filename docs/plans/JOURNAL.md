@@ -969,13 +969,13 @@ disagreement. `tests/test_transitive.py` now holds 27 tests.
 (1) `in` is for places and parts only; membership goes under kinds
 (`alice ⊑ sales-employee ⊑ employee`), because membership by `in` chained
 into location (checked: Alice `in(sales)` and sales
-`in(ljubljana-office)` made Alice located in the office). The code can't
+`in(rome-office)` made Alice located in the office). The code can't
 enforce it; it is a modeling rule. The test fixture's Acme staff became
 the Louvre (Mona Lisa in the Denon wing, the pyramid directly in the
 Louvre: the `in(in(Z))` case) and Zermatt (in Switzerland and in the
 Alps: the multi-valued case). (2) `geo` and `in`: (a) now, apart and
-linked by assertion (`geo(u2e4) ⊑ in(ljubljana)` puts everything in the
-cell `in(ljubljana)`, checked; the reverse isn't derived), (b) the bridge
+linked by assertion (`geo(u2e4) ⊑ in(rome)` puts everything in the
+cell `in(rome)`, checked; the reverse isn't derived), (b) the bridge
 rule as the target, sound only now that `in` is spatial. (3) The kind's
 name, `enclosing-dimension`. Consequence for 3.4: `for` is the plain
 order reversed and follows kinds only, since following `in` would turn a
@@ -1367,7 +1367,7 @@ under the old spelling is not found under the new one.
 Peter's order for the session: #15, then #16, then #14 (loopmarket's three
 GitHub issues). **#15 shipped:** a head declared under another head (`from`
 under `geo`) is a *role* of that dimension and takes the base dimension's
-**nodes** as parameters — `from(my_home)`, `from(ljubljana)`,
+**nodes** as parameters — `from(my_home)`, `from(rome)`,
 `where(my_home_4th)` — stored as spelled, ordered by the graph
 (`from(x) ⊑ from(y)` iff `x ⊑ y` under `geo`), one combined order for
 `is_below`/`get`/reduction/lazy/certificates. Design record: DIMENSIONS.md

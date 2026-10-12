@@ -175,7 +175,7 @@ minor, so ontodag-fs's ceiling rises with it.
   from(sydney)` filed the parcel in a block of southern Turkey (`sydney`
   is spelled with geohash letters, as are 14 of 481 time-zone city names),
   `from(nyc)` in the Southern Ocean, and a mistyped `from(ljubljna)`
-  somewhere other than Ljubljana, with no word. A write naming a word
+  somewhere other than Rome, with no word. A write naming a word
   that is no filed place is now refused with a teaching error (file the
   place under its cell, or write the cell), and so is a `geo(...)` cell
   outside the geohash alphabet (`geo(london)`), on every surface:
@@ -1015,7 +1015,7 @@ Found and fixed during the 2026-10-09 review (docs/plans/REVIEW_2026-10.md).
   `weight` 0.8, 0.8 and 0.9 ms (0.28.0: 31 ms at 200, 156 ms at 800);
   `in` 0.6 ms and `shared-with` 0.3 ms throughout; loopmarket-shaped offers
   1.8 ms from 300 to 2,400. Queries cost in proportion to their answers:
-  `get from(ljubljana)` takes 115 ms for 1,200 results where it took 100
+  `get from(rome)` takes 115 ms for 1,200 results where it took 100
   s. Lazy readers keep scanning (a name lookup costs them a fetch), as
   does the dominance kind.
 - **A term of any kind the graph orders goes only under its head**
@@ -1344,7 +1344,7 @@ Design record: `docs/DIMENSIONS.md` §8 and §14.
   (issue #15, `docs/DIMENSIONS.md` §14). A head declared under another
   head (`from` under `geo`, `when` under `time`) is a *role* of that
   dimension; `from(my_home)` names the place filed under a cell,
-  `from(ljubljana)` the region filed above cells, `where(my_home_4th)` a
+  `from(rome)` the region filed above cells, `where(my_home_4th)` a
   floor under a building. Stored as spelled; ordered by the graph
   (`from(x) ⊑ from(y)` iff `x ⊑ y` under `geo`) in `is_below`, `get`,
   reduction, the lazy reader and certificates alike. A parameter naming a

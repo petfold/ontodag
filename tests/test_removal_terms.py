@@ -206,11 +206,11 @@ class TestRemovingTheTermsToo(unittest.TestCase):
     def test_a_role_term_follows_its_place_up(self):
         dag = world()
         dag.put("from", ["geo"])
-        dag.put("ljubljana", ["geo(47..48,13..14)"])
-        dag.put("home", ["ljubljana"])
+        dag.put("rome", ["geo(47..48,13..14)"])
+        dag.put("home", ["rome"])
         dag.put("parcel", ["from(home)"])
         dag.remove("home", with_terms=True)
-        self.assertEqual(parents(dag, "parcel"), {"from(ljubljana)"})
+        self.assertEqual(parents(dag, "parcel"), {"from(rome)"})
 
     def test_counts_and_reduction_hold(self):
         for seed in range(12):

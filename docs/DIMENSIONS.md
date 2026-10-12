@@ -367,7 +367,7 @@ normalized before names are formed.
 - **Role heads and node parameters** (issue #15, shipped 2026-09-12):
   a head declared under another head is a *role* of that dimension and
   may take the base dimension's *nodes* as parameters — `from(my_home)`,
-  `where(ljubljana)`. The order is then the graph's own order in the
+  `where(rome)`. The order is then the graph's own order in the
   base dimension, and it follows the catalogue. §14 is the record.
 
 ## 9. Regions and generated sets (agreed 2026-07-30)
@@ -704,8 +704,8 @@ that it inherits the value space and the kind: `put("from", ["geo"])`,
 `put("when", ["time"])`. Values work at once — `from(geo(u2e4x)) ⊑
 from(geo(u2e4))` computes (a cell is written by its own name since
 registry 4.4, below). But places are *nodes*, not values: `my_home` sits under
-`geo(u2e4x)`, `ljubljana` sits above `geo(u2e4)` and `geo(u2e5)`. Before
-this, `from(ljubljana)` parsed as the literal cell `ljubljana` — a
+`geo(u2e4x)`, `rome` sits above `geo(u2e4)` and `geo(u2e5)`. Before
+this, `from(rome)` parsed as the literal cell `rome` — a
 parameter that *is* a node was silently read as a value that happened to
 spell the same, and a region has no single value a consumer could
 substitute (loopmarket's `_value_of` workaround covered places only).
@@ -774,7 +774,7 @@ reduction, `remove`'s contraction, the lazy reader, certificates.
 Two rules that fall out of monotonicity (CONTRACT G2):
 
 - **A region's covering is a lower bound only.** Its cells are what it is
-  *known* to cover; `from(ljubljana) ⊑ from(u2)` is False until someone
+  *known* to cover; `from(rome) ⊑ from(u2)` is False until someone
   files the region under `geo(u2)`. Reading the covering as an upper
   bound would let a later cell flip a True answer to False.
 - **Same-head role terms never pre-intersect as meets.** No single term
@@ -804,7 +804,7 @@ Completeness for possibility (G6) is kept; the walk stopped inventing it.
 
 **Stored form stays canonical (I3, I7).** The order of role terms follows
 the catalogue, so filing a place or growing a region can make an asserted
-edge redundant *after the fact*: `ride ⊑ from(ljubljana)` and
+edge redundant *after the fact*: `ride ⊑ from(rome)` and
 `ride ⊑ from(geo(u2e6))` are both kept while `u2e6` is outside the region;
 adding the cell makes the first redundant, and no rectangle around the
 new edge sees it (the computed hop is a wormhole between the role's star
@@ -1039,7 +1039,7 @@ is in Japan. The graph kind orders `in(tokyo) ⊑ in(japan)` only when
 a car in a garage is in the garage. Membership is not `in` (decided
 2026-10-06, ROLES.md §5), because chained with location it gives wrong
 answers: with Alice `in(sales)` and the sales department
-`in(ljubljana-office)`, Alice is located in the Ljubljana office, though
+`in(rome-office)`, Alice is located in the Rome office, though
 she may work from home. People go under kinds instead,
 `alice ⊑ sales-employee ⊑ employee`, and the department (an entity, with
 a location) is a different name from its staff (a kind, with members).
@@ -1254,11 +1254,11 @@ loopmarket's model (§14) is consistent with the one meaning when read as
 location classes: `geo(u2e4)` is the things located in that cell, a
 place under a cell is located there, and a region above cells is the
 class of things located in the region. What it must not do is also file
-a region as an entity (`ljubljana ⊑ city`). The two meet by assertion:
-filing a cell under a named place, `geo(u2e4) ⊑ in(ljubljana)`, puts
-whatever is located in the cell, at any precision, `in(ljubljana)`, and
-Ljubljana stays a city. The reverse is not derived: something
-`in(ljubljana)` is not thereby in any cell. The target, once a consumer
+a region as an entity (`rome ⊑ city`). The two meet by assertion:
+filing a cell under a named place, `geo(u2e4) ⊑ in(rome)`, puts
+whatever is located in the cell, at any precision, `in(rome)`, and
+Rome stays a city. The reverse is not derived: something
+`in(rome)` is not thereby in any cell. The target, once a consumer
 needs named places and cells in one query, is a rule that lets `in`
 follow cells. That rule became sound only when membership left `in`
 (§16): a member of a department is nowhere on the map.
@@ -1457,7 +1457,7 @@ role over geo, dates) file in 1.8 ms from 300 to 2,400 offers. A chain of
 places filed top-down costs 0.22 ms per put at depths 100 to 1,600 (the
 day before, 136 ms at 1,600; before that, a RecursionError). Queries
 whose answers stay small cost the same at 400 and 6,400 items, and
-`get from(ljubljana)` grows with its answer: 8, 34 and 115 ms for 75, 300
+`get from(rome)` grows with its answer: 8, 34 and 115 ms for 75, 300
 and 1,200 (before, 100 s at 6,400). Merging two stores costs 0.28 ms per
 merged node at every size.
 

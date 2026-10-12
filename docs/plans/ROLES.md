@@ -292,15 +292,15 @@ would give users two names to choose between.
 
 **Membership is not `in`** (settled, §8). The first draft had a third
 case, Alice in sales in Acme, but membership chains wrongly with the
-other two. If the sales department is in the Ljubljana office and Alice
-is "in" sales, then `in` puts Alice in the Ljubljana office, though she
+other two. If the sales department is in the Rome office and Alice
+is "in" sales, then `in` puts Alice in the Rome office, though she
 may work from home (checked on the 3.3 code: `alice ⊑ in(sales)` and
-`sales ⊑ in(ljubljana-office)` give `alice ⊑ in(ljubljana-office)`).
+`sales ⊑ in(rome-office)` give `alice ⊑ in(rome-office)`).
 Membership is said by kinds instead: `alice ⊑ sales-employee ⊑ employee`.
 That passes §2's test, since whatever is true of every sales employee is
 true of Alice. It also separates two things that membership by `in` ran
 together: the department, an entity with a location
-(`sales-department ⊑ in(ljubljana-office)`), and its staff, a kind with
+(`sales-department ⊑ in(rome-office)`), and its staff, a kind with
 members (`sales-employee`). The code can't enforce this, since it can't
 tell a person from a place, so it is a modeling rule for the docs and
 the surface layer to teach.
@@ -448,8 +448,8 @@ Settled later the same day, after step 3.3:
    location.
 10. **`geo` and `in`: (a) now, (b) as the target.** They stay apart, and
     meet by assertion: filing a cell under a named place,
-    `geo(u2e4) ⊑ in(ljubljana)`, puts whatever is located in the cell, at
-    any precision, `in(ljubljana)`, while Ljubljana stays a city
+    `geo(u2e4) ⊑ in(rome)`, puts whatever is located in the cell, at
+    any precision, `in(rome)`, while Rome stays a city
     (checked). The reverse is not derived. The bridge (b) comes when a
     consumer needs named places and cells in one query. It became sound
     only with item 9, because a member of a department is nowhere on the
