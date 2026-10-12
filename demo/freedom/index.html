@@ -21,7 +21,9 @@
          font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
   main { max-width: 980px; margin: 0 auto; padding: 20px 16px 48px; }
   h1 { font-size: 1.35rem; margin: 0 0 2px; }
-  .sub { color: var(--muted); margin: 0 0 16px; }
+  .sub { color: var(--muted); margin: 0 0 4px; }
+  .guide { margin: 0 0 16px; font-size: 0.9rem; }
+  .guide a { color: var(--accent); }
   .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 12px 0; }
   select, input, button { font: inherit; color: inherit; background: var(--card);
@@ -50,6 +52,7 @@
 <main>
   <h1>OntoDAG on Swarm</h1>
   <p class="sub">A published ontology, read straight from Swarm in your browser: nothing installed, nothing downloaded whole. Or your own store, kept in a file on this computer and never written to Swarm.</p>
+  <p class="guide"><a href="https://github.com/petfold/ontodag/blob/main/docs/USER_GUIDE.md#in-a-browser-with-nothing-installed" target="_blank" rel="noopener">User Guide: this page</a> · <a href="https://github.com/petfold/ontodag/blob/main/docs/USER_GUIDE.md" target="_blank" rel="noopener">the whole guide</a></p>
 
   <div class="bar">
     <span id="source">Starting…</span>
