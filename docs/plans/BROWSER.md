@@ -701,7 +701,7 @@ Three routes, each with its own way of paying:
   - **Equal bytes, equal reference:** the same test text gave
     `cca8a06d…` at both.
   - **It lands:** the text was retrievable through this laptop's node at
-    once.
+    once, and the 1 MB upload through api.gateway within minutes.
   - **Not yet known:** whether the 11 MB uploads land (not retrievable
     within 5 minutes), and how long gateway-stamped data lives ("short
     term"). Recheck the references below a day and a week later.
