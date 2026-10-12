@@ -610,3 +610,118 @@ browser caches Pyodide once for both pages and every version.
 address, `PYODIDE` names the copy inside the published ontodag page.
 Which batch carries it is Peter's question.
 
+## 14. Local files, and writing to Swarm (2026-10-12)
+
+Both pages are read-only. They read published stores from Swarm and write
+nothing but their cache of checked chunks. Two kinds of writing were looked
+at: a store kept in a local file (organising your own things without
+Swarm), and writes to Swarm, which need stamps.
+
+### 14.1 Local files
+
+A page never reaches files on its own; the person grants each file or
+folder. There are three ways, and a probe page (`bzz://65964c7d…`, one
+button per case) tried them in real Freedom from its checkout (Electron
+44.7):
+
+| way | in Chromium (Chrome) | in Freedom (2026-10-12) |
+|---|---|---|
+| **file pickers that save back in place** (File System Access: `showOpenFilePicker`, `showSaveFilePicker`, `showDirectoryPicker`) | yes | the APIs exist and the dialogs open, but **every access after the pick is refused**: reading a picked file `NotAllowedError`, writing back "denied", writing a new file `NotAllowedError` |
+| **open by a file input, save by a download** | yes | a download of a generated `.od` went silently to the profile's downloads folder; the file input not yet tried |
+| **the browser's private storage** (OPFS, IndexedDB) | yes | yes: a file written and read back in OPFS, about 117 GB of quota, not persistent unless granted |
+
+- **Why Freedom refuses:** Electron raises a `fileSystem` permission
+  request after a pick (with the path and `readable` or `writable`), and
+  Freedom's handler (`src/main/permissions/permissions-manager.js`)
+  refuses any permission it does not list. Supporting it would be a Freedom
+  change: a per-site prompt for `fileSystem`, as it has for the camera.
+- **Brave** reportedly ships with File System Access turned off
+  (`brave://flags`); to be checked with the same probe through a node,
+  `http://localhost:1633/bzz/65964c7d…/`. Firefox and Safari have no
+  pickers at all.
+- **Private storage is shared under a node's origin.** Every page opened
+  through `http://localhost:1633/bzz/…` is the same origin, so anything one
+  keeps in IndexedDB or OPFS is readable by every other Swarm page opened
+  through that node. Under Freedom (`bzz://NAME/`) or `NAME.gwei.domains`
+  each name is its own origin. Anything private belongs in real files.
+
+What it means for the pages:
+- **ontodag:** your own store as an `.od` file, with ontodag running whole
+  under Pyodide (`put`, `get`, `rename`, merge) and the packs still read
+  from Swarm; adopting a pack is the merge it already is. Saved in place
+  where the pickers work (Chrome), and by open and download elsewhere,
+  Freedom included. With a folder picked, the page could list its files
+  and file them under categories; only the store is written.
+- **loopmarket:** drafting offers into a local book file works the same
+  way; publishing them is a Swarm write (14.2) under the §11 key.
+
+### 14.2 Writing to Swarm: who pays for the stamps
+
+Three routes, each with its own way of paying:
+
+- **Freedom's `window.swarm`** (read from its source, not yet exercised by
+  a page of ours):
+  - **The methods:**
+    - `swarm_publishData` (up to 10 MB), `swarm_publishFiles` (up to 100
+      files, 50 MB) and `swarm_publishChunk` (4 KB);
+    - `swarm_writeSingleOwnerChunk`;
+    - `swarm_createFeed`, `swarm_updateFeed` and `swarm_writeFeedEntry`;
+    - `swarm_sendPss` and `swarm_sendGsoc`.
+  - **Permission:** each needs `swarm_requestAccess` and a prompt per call
+    unless the site was given "Always allow". The provider is on only with
+    the `enableIdentityWallet` setting.
+  - **Stamps: the page never sees a batch.** Freedom's main process picks
+    one of the node's usable batches (enough room with a 1.5× margin, the
+    longest TTL first).
+  - **Buying:** with its own node (Ant), the user sends xDAI to the node's
+    wallet and Freedom swaps it to xBZZ and buys an immutable batch. The
+    plans are depth 20 for 30 days, 21 for 180 and 22 for 365. With a
+    reused or external node, Swarm Desktop for instance, Freedom does not
+    buy: pages publish with that node's batches, bought in that node's
+    own tooling.
+  - **Feeds:** the topic is per origin (`origin/name`). The signer is
+    chosen when feed access is granted: a key for the site (the
+    default), the node's wallet, or one of the user's Ethereum accounts.
+  - **Budgets:** writes have none per minute, unlike reads; only the size
+    caps, the prompts and the room left in the batch.
+- **Swarm Desktop (a Bee node over HTTP).** Its dashboard buys batches
+  with the node's wallet, and anything that talks to the node's API chooses
+  a batch by its id (`Swarm-Postage-Batch-Id`), as our scripts do. A page
+  opened through the node (`http://localhost:1633/bzz/…`) is the same
+  origin as that API, so it can list the node's batches and upload with
+  them, with no prompt at all (checked: the probe page, opened that way in
+  Chromium, listed both of this node's batches with `fetch("/stamps")`). That is the route for a page today without
+  Freedom, and the hazard of 14.1 again: any Swarm page opened that way can
+  spend the node's stamps.
+- **Public gateways, with no stamp of one's own** (Andras's point,
+  confirmed 2026-10-12): `https://api.gateway.ethswarm.org` and
+  `https://bzz.limo` both accepted `POST /bytes` with no batch:
+  - **Size:** 40 bytes, 1 MB, 5 MB and 11 MB were all `201`.
+  - **Pages may use them:** `Access-Control-Allow-Origin: *` on both.
+  - **Equal bytes, equal reference:** the same test text gave
+    `cca8a06d…` at both.
+  - **It lands:** the text was retrievable through this laptop's node at
+    once.
+  - **Not yet known:** whether the 11 MB uploads land (not retrievable
+    within 5 minutes), and how long gateway-stamped data lives ("short
+    term"). Recheck the references below a day and a week later.
+
+  For a page with no node and no stamps, that is a way to write something
+  small for a while (a draft, a share link), but not to keep a store.
+
+Gateway test references (2026-10-12), to recheck for lifetime:
+
+| what | reference | through |
+|---|---|---|
+| 40-byte text | `cca8a06d04f8be1d548efc3ecc6682c3003dbd2ab064d4a5c3e07979f8d46826` | both |
+| 1 MB random | `8f1debd0d582ee58f2540c9fb363e049d6489e806e841ba8b0139d29b2afbe51` | api.gateway |
+| 11 MB random | `d49a090f872576de6290b1ef6df21f2edad925b5f02299ca08266732bf1df689` | api.gateway |
+| 1 MB random | `731cfda96ec268b8a041ae8e0890a128fcab6323b21f360acd9e4acc1fabd169` | bzz.limo |
+| 11 MB random | `639f4be84af945a3119eeb673805b5cb8c0f63c8c615ca6879309c442858ab0b` | bzz.limo |
+
+**Open, for Peter:**
+- whether to ask Freedom for a `fileSystem` prompt, which would let a page
+  save your store in place there too;
+- which route a page should write to Swarm by first (Freedom's provider,
+  a node over HTTP, or a gateway for small, short-lived things);
+- whether the page should offer local files at all before writing to Swarm.
