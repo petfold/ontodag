@@ -27,6 +27,11 @@ through a node: `http://localhost:1633/bzz/22d1e16bebfd0afccdddb2060b5669f68c26b
 in any browser, through the public gateway, serve `dist/` and add
 `?gateway=https://api.gateway.ethswarm.org`).
 
+Next version, with Publish (BROWSER.md §16), not behind the names yet:
+`bzz://4c2b71261310d7056b9ee559e1491052ed987e9f50ca98ced47f934ed8a07c4f/`
+(2026-10-13; to publish, open it through your node:
+`http://localhost:1633/bzz/4c2b71261310d7056b9ee559e1491052ed987e9f50ca98ced47f934ed8a07c4f/`).
+
 | file | what it is |
 |---|---|
 | `index.html`, `app.js` | the page: a store (the published packs by their pinned roots, or your own in a local file), a category with what is above and below it, `get`, `below`; for your own store, put, remove, the prelude and save, and on Swarm a key file, Publish and Get from Swarm |

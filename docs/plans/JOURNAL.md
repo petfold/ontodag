@@ -2800,3 +2800,85 @@ loopmarket's market page runs on the same layer (its journal).
   journal updates, but a script stopped before writing them (the README
   held the old reference twice). They came in the next commit.
 
+## 2026-10-13 (night): writing, decided and begun; the page publishes your store
+
+**Decided with Peter, in the evening:**
+- **Question 37: the installed way first, identity later.** A page writes
+  as `odag` and `loop` do: a random key owns the feeds and signs, and the
+  node's batches pay. An identity comes later as the way that same key is
+  carried to a new device (dappdata's wallet signature, or Swarm ID), so
+  nothing changes owner. That leaves the convergence talk with the Swarm
+  ID people (dappdata D24) without a deadline. Peter answered "option A";
+  in the question as first put, A was Swarm ID, but the answer came after
+  the question was restated as the installed way, and his answer to 38
+  (the key file) only fits that reading. Recorded so; worth a word in the
+  morning.
+- **Question 38: the key file is plain for now**, a password-protected
+  keystore later, once the pages are more than a demo.
+
+**Found while answering where writing stood** (BROWSER.md §14.2–14.3):
+- **The node answers every website.** Swarm Desktop sets
+  `cors-allowed-origins: '*'`, without `restricted`: a request sent as from
+  `https://example.com` got both batch ids back.
+- **Gateway uploads, a day later:** all five references still served by
+  api.gateway. The text and both 1 MB uploads are retrievable from the
+  network. The two 11 MB checks gave no answer within 9 minutes, which
+  settles nothing either way.
+- **Swarm ID 0.7.0** (released 2026-10-12) covers identity and paying:
+  batches owned by the account, stamping in the page, writing through the
+  gateway. Its keys are per origin, which our pages' several addresses
+  make awkward. Recorded in §14.3.
+
+**Built overnight** (BROWSER.md §16):
+- **The page publishes your own store, as `odag -f swarm:NAME` does.**
+  - **The key:** New key makes one and downloads it as a file, and Open
+    key file reads it back.
+  - **Publish:** name the store, pick a batch of the node that served the
+    page, press Publish.
+  - **Get from Swarm:** brings a published store into the one open, so a
+    new store on another computer becomes yours.
+- **The parts:**
+  - `LocalStore.publish` and `fetch`, folding a moved feed as `odag`'s
+    save does;
+  - `StagedBlobs`, where the page computes every blob's address itself,
+    so writing needs no bridge;
+  - `needing`: in retry mode nothing changes before the last read;
+  - `publish.js`: `Key`, `Stage`, `NodeWriter`, `uploadStaged`;
+  - vendored noble-curves 1.9.7 for signing.
+
+  Commit `80ec0a5`.
+- **Published, not behind the names:**
+  `bzz://4c2b71261310d7056b9ee559e1491052ed987e9f50ca98ced47f934ed8a07c4f/`.
+  Peter's republish question stayed unanswered, so `ontodag.gwei` and
+  `ontodag.eth` still open `22d1e16b…` (feed index 5). To try it:
+  `http://localhost:1633/bzz/4c2b71261310d7056b9ee559e1491052ed987e9f50ca98ced47f934ed8a07c4f/`
+  in Brave with Swarm Desktop running.
+
+**Checked:**
+- **The suite:** 1516 passed, 4 skipped (1520; README updated), lint
+  clean.
+- **`test_publish.mjs`:** a feed update the page signs is byte for byte
+  the one swarmfs signs with libsecp256k1, and blob addresses from 0 to
+  600 KB equal the splitter's.
+- **`check.py --publish`, three times against this laptop's node,** with a
+  throwaway key and a fresh name each time, on `c931c8a5…`. The runs: the
+  Freedom stand-in, the same in retry mode, and the published page served
+  by the node.
+  - **Publish:** the page published `fruit` and `apple` in 10–12 s, and
+    the feed and the store read back natively.
+  - **`odag` with the same key** added `pear` from its own home (about
+    22 s until the feed moved).
+  - **Publish again:** the page, not told, added `plum` and published,
+    folding the pear in (16–18 s).
+  - **A fresh `odag` home** read `apple pear plum` from the feed (about
+    40 s).
+  - **Get from Swarm:** a new store in the page got the same.
+
+  The roots were the same in every run (`a366e5a9…`, then `39a16628…`):
+  equal knowledge, equal root, whichever writer.
+
+**Open for the morning:**
+- republish behind the names (Peter's call);
+- loopmarket's maker page on the same key and writer, after drafts and
+  the ledger;
+- Freedom after #647.

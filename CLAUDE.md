@@ -563,7 +563,9 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   read as absent); ontodag's `LazyOntoDAG(prefetch=True)` and the read-only
   Freedom page (`demo/freedom/`, `bzz://22d1e16b…` behind `ontodag.gwei` and `ontodag.eth`,
   with the packs' cone summaries, and your own store in a local `.od`
-  file, BROWSER.md §14); loopmarket's market page (`browser/`,
+  file, BROWSER.md §14); its next version, which publishes your store
+  through a node under a key file (BROWSER.md §16), is `bzz://4c2b7126…`,
+  not behind the names until Peter has tried it; loopmarket's market page (`browser/`,
   `bzz://56f9ce1b…` behind `loopmarket.gwei` and `loopmarket.eth`; both load one shared Pyodide).
   Open for Peter: recordstore's `BeeBytesStore`
   sends no redundancy level, so Bee 2.8 erasure-codes its blobs over 4 KB
