@@ -751,8 +751,9 @@ Four routes, each with its own way of paying:
     term"). Recheck the references below a day and a week later.
   - **A day later** (2026-10-13): api.gateway served all five whole.
     This laptop's node found the text and both 1 MB uploads retrievable
-    from the network (`/stewardship`). The table below has the 11 MB
-    ones.
+    from the network (`/stewardship`). For the 11 MB ones, the check gave
+    no answer within 9 minutes. It walks every one of their roughly 2,800
+    chunks, so that settles nothing either way; recheck in a week.
 
   For a page with no node and no stamps, that is a way to write something
   small for a while (a draft, a share link), but not to keep a store.
@@ -775,9 +776,9 @@ Gateway test references (2026-10-12), to recheck for lifetime:
 |---|---|---|---|
 | 40-byte text | `cca8a06d04f8be1d548efc3ecc6682c3003dbd2ab064d4a5c3e07979f8d46826` | both | served / retrievable |
 | 1 MB random | `8f1debd0d582ee58f2540c9fb363e049d6489e806e841ba8b0139d29b2afbe51` | api.gateway | served / retrievable |
-| 11 MB random | `d49a090f872576de6290b1ef6df21f2edad925b5f02299ca08266732bf1df689` | api.gateway | served / no answer in 2 min |
+| 11 MB random | `d49a090f872576de6290b1ef6df21f2edad925b5f02299ca08266732bf1df689` | api.gateway | served / no answer in 9 min |
 | 1 MB random | `731cfda96ec268b8a041ae8e0890a128fcab6323b21f360acd9e4acc1fabd169` | bzz.limo | served / retrievable |
-| 11 MB random | `639f4be84af945a3119eeb673805b5cb8c0f63c8c615ca6879309c442858ab0b` | bzz.limo | served / no answer in 2 min |
+| 11 MB random | `639f4be84af945a3119eeb673805b5cb8c0f63c8c615ca6879309c442858ab0b` | bzz.limo | served / no answer in 9 min |
 
 **Open, for Peter:** question 37 (14.3), where a page's writing identity
 and its stamps come from. The route follows from it.
