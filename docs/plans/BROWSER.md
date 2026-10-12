@@ -455,6 +455,12 @@ a derived key for sharing, since no wallet does ECDH.
 - **The command line has the same identity** only if it derives or imports
   that key; how is open.
 
+**For now: the key is a file (questions 37 and 38, decided 2026-10-13, §14.3).**
+Until the identity is settled, the page writes as `odag` and `loop` do: with
+a random key kept in a file, and the node's batches. Derivation from a wallet
+signature comes later as the way that same key is carried to a new device,
+so nothing changes owner.
+
 **Still open:**
 
 - the rest of S1 (SHARING_ON_SWARM.md §11): which message the wallet signs,
@@ -780,8 +786,8 @@ Gateway test references (2026-10-12), to recheck for lifetime:
 | 1 MB random | `731cfda96ec268b8a041ae8e0890a128fcab6323b21f360acd9e4acc1fabd169` | bzz.limo | served / retrievable |
 | 11 MB random | `639f4be84af945a3119eeb673805b5cb8c0f63c8c615ca6879309c442858ab0b` | bzz.limo | served / no answer in 9 min |
 
-**Open, for Peter:** question 37 (14.3), where a page's writing identity
-and its stamps come from. The route follows from it.
+Decided (Peter, 2026-10-13): question 37, writing the installed way first
+(14.3).
 
 Decided (Peter, 2026-10-12): local files first, built above.
 
@@ -833,6 +839,29 @@ writing needs:
 
 What it would save us is the hard part of 14.2: buying a batch, stamping
 in the page, devices sharing a batch, and writing with no node.
+
+**Decided (Peter, 2026-10-13):**
+- **Question 37: the installed way first, identity later.**
+  - **The way:** a page writes as `odag` and `loop` do. A random key owns
+    the feeds and signs, and the node's batches pay: Swarm Desktop over
+    HTTP now, Freedom's once #647 lands.
+  - **The rule that avoids lock-in:** the key that owns a store or a book
+    stays the same. Identity, from a wallet signature (dappdata) or from
+    Swarm ID, comes later as the way that key is carried and recovered on
+    a new device, not as a new key.
+  - **So the convergence talk (dappdata D24) is not urgent.** A later
+    derivation changes how the key is found, not who owns anything. Paying
+    with a batch the person owns, for writing without a node, waits on the
+    same talk.
+- **Question 38: the key file is plain for now.** It holds the key as hex,
+  the `bee_signer` value `odag` keeps in its config. A password-protected
+  file in the Ethereum keystore format (the one Bee keeps its own key in)
+  comes later, once the pages are more than a demo. Whoever holds the
+  plain file can write that person's feeds.
+
+The page never stores the key. It is opened from the file when needed and
+held in memory, so it does not land in the storage that every page opened
+through `localhost:1633` shares (14.1).
 
 ## 15. iPhones: reading by retrying (2026-10-12)
 

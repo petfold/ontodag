@@ -353,9 +353,13 @@ Each line points to its record.
 - A graph-kind compound is stored as its parts; a relation-kind compound
   keeps its current spelling (DIMENSIONS.md §15–§16).
 - Sharing: one model, the cone of `shared-with(person)` (SHARING.md).
-- Identity in the browser (option A, Peter, 2026-10-11): one key derived
-  from one wallet signature, the same in every client. It owns the user's
-  feeds, signs, and does the sharing ECDH. ontodag keeps its own access
+- Identity in the browser (option A, Peter, 2026-10-11): one key, the
+  same in every client. It owns the user's feeds, signs, and does the
+  sharing ECDH. For now it is a random key in a plain file, and the node's
+  batches pay, as with `odag` and `loop`. A wallet signature (dappdata) or
+  Swarm ID will later carry that same key to new devices, so nothing
+  changes owner (questions 37 and 38, 2026-10-13, BROWSER.md §14.3); a
+  password-protected key file comes later too. ontodag keeps its own access
   control (`keyplan`), not the node's ACT. A page reaches Swarm through
   four calls on chunks, with one adapter per client: Freedom, Weeb-3, an
   HTTP node, a gateway (BROWSER.md §10–§12, SHARING_ON_SWARM.md §2).
@@ -580,9 +584,8 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 
 ## Open questions for Peter
 
-Question 37 (BROWSER.md §14.3): where a page's writing identity and its
-stamps come from (Swarm ID, our own key as decided in §11, or both); the
-write route follows from it. Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
+None open now: questions 37 and 38 (writing from a page) are decided.
+Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 
 Older, not urgent: a publisher key for the packs on
