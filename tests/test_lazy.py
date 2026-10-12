@@ -361,3 +361,33 @@ class TestPrefetch(unittest.TestCase):
         reader = LazyOntoDAG(store, prefetch=True)
         reader.get_descendants("top.2")
         self.assertEqual(reader.rounds, reader.fetches)
+
+
+class _FailingOnce:
+    """A record store whose first read of each name in `failing` raises (an
+    unreachable blob), and which answers every later read."""
+
+    def __init__(self, store, failing):
+        self.store = store
+        self.failing = set(failing)
+
+    def get(self, key):
+        if key in self.failing:
+            self.failing.discard(key)
+            raise OSError(f"blob for {key} unreachable")
+        return self.store.get(key)
+
+
+class TestAFailedReadLeavesNothingBehind(unittest.TestCase):
+    """A read that fails part-way (an unreachable blob, or the page's retry
+    mode stopping to fetch) must not leave a node that later reads as
+    having nothing below it: the next query reads it again (fail-closed)."""
+
+    def test_a_node_whose_read_failed_is_read_again(self):
+        root, blobs = publish(VEHICLES)
+        want = names(eager(root, blobs).get(["vehicle"]))
+        dag = LazyOntoDAG(_FailingOnce(RecordStore.at(root, blobs), {"car"}))
+        with self.assertRaises(OSError):
+            dag.get(["vehicle"])
+        self.assertEqual(names(dag.get(["vehicle"])), want)
+        self.assertTrue(dag.is_below("ev", "vehicle"))

@@ -233,8 +233,11 @@ class LazyOntoDAG(OntoDAG):
         """Fill in `node`'s count, metadata and both edge directions."""
         if node.name in self._expanded:
             return node
-        self._expanded.add(node.name)
+        # Read before marking: a read that fails must leave the node
+        # unexpanded, so the next query reads it again instead of taking
+        # an edgeless stub for a node with nothing below it.
         record = self._load(node.name)
+        self._expanded.add(node.name)
         if record is None:
             return node
         node.descendant_count = record["count"]
