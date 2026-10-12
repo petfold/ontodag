@@ -500,6 +500,9 @@ Each line points to its record.
   not retrievable (ethersphere/bee#5400).
 - Bee's keys are encrypted with the password in its `config.yaml`; back
   that file up with the data directory.
+- Swarm Desktop sets `cors-allowed-origins: '*'` without `restricted`, so
+  any website open on this laptop can reach the node's API and its
+  batches (BROWSER.md §14.2).
 - Not yet tested on a real node: postage expiry and garbage collection
   (they need a batch nobody minds losing).
 - Last run: 2026-10-11, after the 0.32.0 releases: core and the ten
@@ -577,8 +580,9 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 
 ## Open questions for Peter
 
-None open now: question 31 (relative times) is decided. Polygons and unions
-of rectangles: not now. None open from the review: questions 24–28 are decided and built
+Question 37 (BROWSER.md §14.3): where a page's writing identity and its
+stamps come from (Swarm ID, our own key as decided in §11, or both); the
+write route follows from it. Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 
 Older, not urgent: a publisher key for the packs on

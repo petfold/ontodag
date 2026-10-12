@@ -693,7 +693,7 @@ It does not fit an offer, or anything that is a commitment to others:
 
 ### 14.2 Writing to Swarm: who pays for the stamps
 
-Three routes, each with its own way of paying:
+Four routes, each with its own way of paying:
 
 - **Freedom's `window.swarm`** (read from its source, not yet exercised by
   a page of ours):
@@ -729,6 +729,14 @@ Three routes, each with its own way of paying:
   Chromium, listed both of this node's batches with `fetch("/stamps")`). That is the route for a page today without
   Freedom, and the hazard of 14.1 again: any Swarm page opened that way can
   spend the node's stamps.
+
+  The hazard is wider than Swarm pages (checked 2026-10-13). Swarm Desktop
+  configures its node with `cors-allowed-origins: '*'` and no `restricted`
+  mode. The node answers every origin: a request sent as from
+  `https://example.com` got both batches back, the origin echoed. So any
+  website open in a browser on the same computer can read the node's API
+  and upload with its batches, unless the browser refuses to let public
+  sites reach localhost.
 - **Public gateways, with no stamp of one's own** (Andras's point,
   confirmed 2026-10-12): `https://api.gateway.ethswarm.org` and
   `https://bzz.limo` both accepted `POST /bytes` with no batch:
@@ -741,25 +749,89 @@ Three routes, each with its own way of paying:
   - **Not yet known:** whether the 11 MB uploads land (not retrievable
     within 5 minutes), and how long gateway-stamped data lives ("short
     term"). Recheck the references below a day and a week later.
+  - **A day later** (2026-10-13): api.gateway served all five whole.
+    This laptop's node found the text and both 1 MB uploads retrievable
+    from the network (`/stewardship`). The table below has the 11 MB
+    ones.
 
   For a page with no node and no stamps, that is a way to write something
   small for a while (a draft, a share link), but not to keep a store.
+- **Your own batch, through a gateway.** According to Swarm ID's notes
+  (measured 2026-09-15, not by us), api.gateway does three different
+  things with a stamp:
+  - a `POST /chunks` carrying a stamp the caller made is accepted and
+    spends the caller's batch;
+  - `POST /bytes` ignores a batch id and spends the gateway's own batch;
+  - `POST /bytes` refuses a caller's stamp.
+
+  So a page with no node can keep a store: it chunks the blobs itself,
+  stamps them with a batch the person owns, and sends them chunk by chunk.
+  That is how Swarm ID uploads, and dappdata's stamper (whose own spike
+  sent such chunks to a node) would work the same way.
 
 Gateway test references (2026-10-12), to recheck for lifetime:
 
-| what | reference | through |
-|---|---|---|
-| 40-byte text | `cca8a06d04f8be1d548efc3ecc6682c3003dbd2ab064d4a5c3e07979f8d46826` | both |
-| 1 MB random | `8f1debd0d582ee58f2540c9fb363e049d6489e806e841ba8b0139d29b2afbe51` | api.gateway |
-| 11 MB random | `d49a090f872576de6290b1ef6df21f2edad925b5f02299ca08266732bf1df689` | api.gateway |
-| 1 MB random | `731cfda96ec268b8a041ae8e0890a128fcab6323b21f360acd9e4acc1fabd169` | bzz.limo |
-| 11 MB random | `639f4be84af945a3119eeb673805b5cb8c0f63c8c615ca6879309c442858ab0b` | bzz.limo |
+| what | reference | through | a day later: api.gateway / the network |
+|---|---|---|---|
+| 40-byte text | `cca8a06d04f8be1d548efc3ecc6682c3003dbd2ab064d4a5c3e07979f8d46826` | both | served / retrievable |
+| 1 MB random | `8f1debd0d582ee58f2540c9fb363e049d6489e806e841ba8b0139d29b2afbe51` | api.gateway | served / retrievable |
+| 11 MB random | `d49a090f872576de6290b1ef6df21f2edad925b5f02299ca08266732bf1df689` | api.gateway | served / no answer in 2 min |
+| 1 MB random | `731cfda96ec268b8a041ae8e0890a128fcab6323b21f360acd9e4acc1fabd169` | bzz.limo | served / retrievable |
+| 11 MB random | `639f4be84af945a3119eeb673805b5cb8c0f63c8c615ca6879309c442858ab0b` | bzz.limo | served / no answer in 2 min |
 
-**Open, for Peter:**
-- which route a page should write to Swarm by first (Freedom's provider,
-  a node over HTTP, or a gateway for small, short-lived things).
+**Open, for Peter:** question 37 (14.3), where a page's writing identity
+and its stamps come from. The route follows from it.
 
 Decided (Peter, 2026-10-12): local files first, built above.
+
+### 14.3 Swarm ID (2026-10-13)
+
+Peter: "others are working on swarmID". Swarm ID (snaha/swarm-id, 0.7.0
+released 2026-10-12, read from its docs that day) covers much of what
+writing needs:
+- **The account:** a recovery phrase on the identity site
+  (`swarm-id.snaha.net`), which a page reaches through a hidden iframe and
+  a connect popup. A wallet, a passkey or a password unlocks it on each
+  device. The wallet does not derive the key; it unlocks a random seed
+  kept on the device.
+- **Keys:**
+  - each app gets a secret derived from its origin (`HMAC(master,
+    origin)`), with an app key that signs its feeds and single-owner
+    chunks by default;
+  - `deriveAppSecret(label)` gives an app further key material;
+  - one account-wide sharing key, of which apps see the public half; Bee's
+    ACT uses it inside Swarm ID.
+- **Stamps:**
+  - batches owned by the account's postage signer, bought on the identity
+    site (with xDAI, or by card through a shop);
+  - one batch shared across devices without reusing a slot;
+  - uploads go through the public gateway (14.2) or the person's own node,
+    or through a gateway that pays for the app.
+- **Writes:** chunks, single-owner chunks, sequential and epoch feeds
+  (the writers take another signer's private key too), ACT, files.
+- **Where it runs:** the authors tested Safari on iOS, uploads included.
+  Freedom is not mentioned anywhere in its repository.
+
+**How it fits §11 (decision A) and the pages:**
+- **The owner depends on the address.** Every origin is another app, so
+  the same person opening `bzz://ontodag.eth` in Freedom,
+  `ontodag.gwei.domains` and `localhost:1633/bzz/…` gets three app keys,
+  and so three owners of "your store". Writing would have to be pinned to
+  one address. loopmarket's maker (offer signer, book owner and registry
+  announcer in one) has the same problem.
+- **The sharing key is out of reach.** It works only through Swarm ID's
+  own ACT, and the page sees only its public half. ontodag's sharing
+  (`keyplan`, §12) needs the page to do the ECDH itself.
+- **The desktop:** `odag` and `loop` are the same person only through a
+  port of its derivation from the recovery phrase. Its docs give the
+  recipe.
+- **Trust:** the identity site is a hosted service. dappdata stayed
+  independent of it for that reason (its D8). Its D24 proposed one
+  derivation spec for both, sent in September, unanswered when last
+  checked.
+
+What it would save us is the hard part of 14.2: buying a batch, stamping
+in the page, devices sharing a batch, and writing with no node.
 
 ## 15. iPhones: reading by retrying (2026-10-12)
 
