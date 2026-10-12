@@ -668,7 +668,7 @@ file (`ontodag.browser.LocalStore`, a whole `OntoDAG` in memory):
 - The page warns before leaving with unsaved changes, and `check.py`
   drives the whole path through the page's buttons in Chromium.
 
-**Requests drafted, not filed** (`../canopy-issues/11` and `12`):
+**Requests drafted, not filed** (`../upstream-issues/`, beside the repos):
 - **Freedom:** treat `fileSystem` like the camera. Grant reading what was
   picked, prompt per site for writing, and keep Electron's restricted
   locations blocked.
