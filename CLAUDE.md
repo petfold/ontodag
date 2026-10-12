@@ -359,7 +359,8 @@ Each line points to its record.
   control (`keyplan`), not the node's ACT. A page reaches Swarm through
   four calls on chunks, with one adapter per client: Freedom, Weeb-3, an
   HTTP node, a gateway (BROWSER.md §10–§12, SHARING_ON_SWARM.md §2).
-  Freedom requests #647 and #648 are filed. The read-only page
+  Freedom requests #647 and #648 are filed; for local files, Freedom #671
+  and Brave #59862 (BROWSER.md §14). The read-only page
   (`demo/freedom/`) runs in Freedom Browser (BROWSER.md §13). JSPI
   (`run_sync`) carries Python's store calls in Chromium-based browsers, so
   recordstore and `LazyOntoDAG` run unchanged; `swarm.js` joins and checks

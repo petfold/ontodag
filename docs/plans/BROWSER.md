@@ -668,11 +668,11 @@ file (`ontodag.browser.LocalStore`, a whole `OntoDAG` in memory):
 - The page warns before leaving with unsaved changes, and `check.py`
   drives the whole path through the page's buttons in Chromium.
 
-**Requests drafted, not filed** (`../upstream-issues/`, beside the repos):
-- **Freedom:** treat `fileSystem` like the camera. Grant reading what was
+**Requests filed** (2026-10-12; drafts in `../upstream-issues/`):
+- **Freedom #671:** treat `fileSystem` like the camera. Grant reading what was
   picked, prompt per site for writing, and keep Electron's restricted
   locations blocked.
-- **Brave:** make File System Access a per-site permission instead of a
+- **Brave #59862:** make File System Access a per-site permission instead of a
   global flag. Its tracker has the removal (#11407), the flag (#18979,
   #44411) and the TypeError (#29411), but no per-site request.
 
@@ -756,7 +756,6 @@ Gateway test references (2026-10-12), to recheck for lifetime:
 | 11 MB random | `639f4be84af945a3119eeb673805b5cb8c0f63c8c615ca6879309c442858ab0b` | bzz.limo |
 
 **Open, for Peter:**
-- filing the two drafted requests (Freedom, Brave);
 - which route a page should write to Swarm by first (Freedom's provider,
   a node over HTTP, or a gateway for small, short-lived things).
 
