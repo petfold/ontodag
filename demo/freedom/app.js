@@ -4,6 +4,7 @@
 // call into Python goes through callPromising.
 
 import { ChunkReader, BlobStore, FreedomSwarm, HttpSwarm, StoredChunks } from "./swarm.js";
+import { LocalFile } from "./localfile.js";
 
 // The published packs, by the roots ontodag pins for them (tests/test_packs.py
 // SWARM_GOLDEN_ROOTS): equal knowledge, equal root, so a root is the whole
@@ -195,88 +196,14 @@ async function openStore(root) {
   if (start) await goto(start);
 }
 
-// Your own store, in a file on this computer. Where the browser lets a page
-// keep a file it was given (File System Access, in Chrome), Save writes back
-// to that file; Freedom refuses that access after the pick and Brave has no
-// pickers (BROWSER.md §14), so there a file input opens and a download saves.
+// Your own store, in a file on this computer (localfile.js: saved back in
+// place where the browser allows it, downloaded where it does not).
 const LOCAL = "local";
-const files = { handle: null, pickers: false };
-
-function pickersUsable() {
-  if (typeof showOpenFilePicker !== "function" || FreedomSwarm.present()) return false;
-  try { return localStorage.getItem("ontodag-pickers-refused") !== "1"; } catch { return true; }
-}
-
-function pickersRefused(e) {
-  console.warn("file pickers refused; opening and saving by file input and download instead", e);
-  files.pickers = false;
-  files.handle = null;
-  try { localStorage.setItem("ontodag-pickers-refused", "1"); } catch { /* storage off */ }
-}
-
 const OD_TYPES = [{ description: "OntoDAG store", accept: { "text/plain": [".od"] } }];
-
-function chooseByInput() {
-  return new Promise((resolve) => {
-    const input = $("localfile");
-    input.value = "";
-    input.onchange = () => resolve(input.files[0] || null);
-    input.click();
-  });
-}
-
-async function pickFile() {
-  if (files.pickers) {
-    try {
-      const [handle] = await showOpenFilePicker({ types: OD_TYPES });
-      const file = await handle.getFile();
-      files.handle = handle;
-      return file;
-    } catch (e) {
-      if (e.name === "AbortError") return null;
-      pickersRefused(e);
-    }
-  }
-  files.handle = null;
-  return chooseByInput();
-}
-
-function download(text, name) {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
-  a.download = name;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-}
-
-// Where the text went: "file" (written back in place), "download", or null
-// (the person cancelled).
-async function writeFile(text, name) {
-  if (files.pickers) {
-    try {
-      if (!files.handle) files.handle = await showSaveFilePicker({ suggestedName: name, types: OD_TYPES });
-      const mode = { mode: "readwrite" };
-      if (await files.handle.queryPermission(mode) !== "granted"
-          && await files.handle.requestPermission(mode) !== "granted") {
-        throw new DOMException("write permission not granted", "NotAllowedError");
-      }
-      const w = await files.handle.createWritable();
-      await w.write(text);
-      await w.close();
-      return { how: "file", name: files.handle.name };
-    } catch (e) {
-      if (e.name === "AbortError") return null;
-      pickersRefused(e);
-    }
-  }
-  download(text, name);
-  return { how: "download", name };
-}
+let files = null;
 
 function showLocal(summary, note = "") {
-  const how = files.handle ? "Save writes back to the file" : "Save downloads the file";
+  const how = files.inPlace ? "Save writes back to the file" : "Save downloads the file";
   $("localstate").textContent = `${summary.name} · ${summary.count} categor${summary.count === 1 ? "y" : "ies"}` +
     (summary.changed ? " · unsaved changes" : " · saved") + ` · ${how}.` + (note ? ` ${note}` : "");
   $("localsave").disabled = false;
@@ -306,7 +233,7 @@ async function useLocal() {
 
 async function localNew() {
   if (localChanged && !confirm("Your store has unsaved changes. Start a new one anyway?")) return;
-  files.handle = null;
+  files.forget();
   const summary = await call("local_new");
   showLocal(summary);
   await useLocal();
@@ -314,7 +241,7 @@ async function localNew() {
 
 async function localOpen() {
   if (localChanged && !confirm("Your store has unsaved changes. Open another anyway?")) return;
-  const file = await pickFile();
+  const file = await files.open();
   if (!file) return;
   const summary = await run(`Opening ${file.name}…`, async () => call("local_open", await file.text(), file.name));
   if (!summary) return;
@@ -324,7 +251,7 @@ async function localOpen() {
 
 async function localSave() {
   const { text, name } = await call("local_text");
-  const where = await writeFile(text, name);
+  const where = await files.save(text, name);
   if (!where) return;
   const summary = await call("local_saved", where.name);
   showLocal(summary, where.how === "download" ? "Downloaded; keep it where you like and open it next time." : "");
@@ -459,7 +386,9 @@ def below(a, b):
   for (const id of ["store", "root", "open", "goto", "gobutton", "query", "getbutton", "belowa", "belowb", "belowbutton", "localnew", "localopen"]) {
     $(id).disabled = false;
   }
-  files.pickers = pickersUsable();
+  files = new LocalFile({ input: $("localfile"), types: OD_TYPES,
+    pickers: !FreedomSwarm.present(), refusedKey: "ontodag-pickers-refused" });
+  globalThis.ontodagPage.files = files;
   $("store").onchange = () => ($("store").value === LOCAL ? useLocal() : openStore($("store").value));
   $("localnew").onclick = localNew;
   $("localopen").onclick = localOpen;
@@ -503,5 +432,5 @@ def below(a, b):
 
 // For tests and the console: the page's own calls.
 globalThis.ontodagPage = { call, openStore, goto, stats: () => reader && reader.stats, ready: null, python: () => py,
-  connect: () => document.getElementById("connect").click(), files };
+  connect: () => document.getElementById("connect").click(), files: null };
 globalThis.ontodagPage.ready = boot().then(() => true, (e) => { status(`Could not start: ${e.message || e}`, true); console.error(e); return false; });

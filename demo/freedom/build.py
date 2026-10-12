@@ -37,7 +37,7 @@ REPO = os.path.dirname(os.path.dirname(HERE))
 PYODIDE = os.path.join(REPO, "demo", "pyodide", "node_modules", "pyodide")
 PYODIDE_FILES = ("pyodide.js", "pyodide.asm.js", "pyodide.asm.wasm",
                  "python_stdlib.zip", "pyodide-lock.json")
-PAGE_FILES = ("index.html", "app.js", "swarm.js")
+PAGE_FILES = ("index.html", "app.js", "swarm.js", "localfile.js")
 
 
 def wheel(project, out):
