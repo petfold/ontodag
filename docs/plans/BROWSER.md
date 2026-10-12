@@ -760,3 +760,62 @@ Gateway test references (2026-10-12), to recheck for lifetime:
   a node over HTTP, or a gateway for small, short-lived things).
 
 Decided (Peter, 2026-10-12): local files first, built above.
+
+## 15. iPhones: reading by retrying (2026-10-12)
+
+**The failure.** Meinhard opened the market page in Freedom on an iPhone
+and got "JavaScript frames found between WebAssembly.Suspending and
+WebAssembly.promising" instead of the market. JSPI suspends only a stack
+of WebAssembly frames, and on iOS Pyodide (0.27.7) puts a JavaScript frame
+on it. CPython calls C function pointers through a trampoline, and
+Pyodide's start-up (`getPyEMCountArgsPtr`) takes the JavaScript trampoline
+when `navigator.platform` names an iPhone, iPad or iPod, or when wasm-gc is
+missing. Pyodide's blog (2025-08-14) says wasm-gc crashes on iOS, so a
+newer Pyodide is unlikely to change it. Chromium reporting an iPhone's
+platform reproduces it exactly, and in V8 the failed suspension is fatal
+to Pyodide ("Pyodide already fatally failed"), so a page cannot try JSPI
+and fall back.
+
+**Reading by retrying** (`ontodag.browser.RETRY`, `NeedBlobs`,
+`RetryingPage`; the page's `pycall.js`):
+- Python never waits on a promise. It reads only blobs the page has
+  already fetched (`BlobStore.cached`).
+- A call that reaches a missing blob stops with `NeedBlobs` (a
+  `BaseException`, so no `except Exception` on the way out mistakes it for
+  a failure), naming every blob it lacked at that point.
+- The page fetches them (`BlobStore.fetch`) and runs the call again, on a
+  fresh reader, so a run cut short leaves no half-read state behind.
+- A blob whose fetch failed stays an error, never "absent", until the next
+  action tries it again.
+
+**Which mode** (`PythonCalls.choose`, never by trying a suspension):
+- `?bridge=jspi` or `?bridge=retry` names one;
+- without `WebAssembly.Suspending`, retry;
+- where Pyodide's count-args helper is 0 (`Module._PyEM_CountArgsPtr`:
+  the JavaScript trampoline), retry;
+- otherwise JSPI, as before.
+
+**Cost.** Retrying makes the same network round trips as waiting, plus one
+final run (tests: 117 runs for a cone the waiting bridge read in 119
+calls), because each run stops at the first level it lacks, as the waiting
+bridge would have fetched it. What retrying adds is computation: each run
+walks again from the start over blobs already held. Measured in Chromium
+on core, emulating an iPhone: `fruit` with its 35 children in 1.0 s
+against 0.8 s waiting. A loopmarket book absorbs record by record, so its
+fold needs about one run per blob; today's books are a few chunks.
+
+**Found on the way.** `LazyOntoDAG._expand` marked a node expanded before
+reading its record, so a read that failed left an edgeless stub that the
+next query took for a node with nothing below it. That was fail-open with
+an unreachable blob too, before retry mode existed. Fixed (the record is
+read first), with a test that failed before.
+
+**Checked:**
+- both pages' `check.py --iphone`: Chromium reporting an iPhone's
+  platform, so Pyodide takes the JavaScript trampoline;
+- the page chooses retry, and every answer equals the native reader's,
+  your own store and saved searches included;
+- without `--iphone` the page keeps JSPI.
+
+Not yet seen on a real iPhone: Meinhard's next visit is the test. Playwright's
+WebKit needs a system library here (`libavif16`).
