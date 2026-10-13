@@ -245,7 +245,15 @@ async def check_local(page):
     await page.click("#localnew")
     await page.wait_for_selector("#localedit:not(.hidden)")
     await put("fruit")
+    # A pack opened in between: what is put goes to your store, and the page
+    # shows it there, not looked up in the pack.
+    core = await page.evaluate("[...document.getElementById('store').options].find((o) => o.textContent === 'core').value")
+    await page.evaluate("(r) => window.ontodagPage.openStore(r)", core)
     await put("apple", "fruit")
+    shown = await page.evaluate("window.ontodagPage.call('node', 'fruit')")
+    if [n for n, _c in shown.get("below", [])] != ["apple"]:
+        problems.append(f"after putting apple with core open, the page shows another store's fruit: "
+                        f"{len(shown.get('below', []))} below it")
     async with page.expect_download() as info:
         await page.click("#localsave")
     saved = open(await (await info.value).path()).read()

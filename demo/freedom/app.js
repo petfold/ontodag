@@ -276,6 +276,8 @@ async function localPut() {
   localResult(`put ${answer.put}${answer.under.length ? ` under ${answer.under.join(", ")}` : " at the top"}`);
   $("putitem").value = "";
   showLocal(await call("local_saved_state"));
+  // Show it in your store, even if a pack was being browsed.
+  await call("local_use");
   await goto(answer.put);
 }
 

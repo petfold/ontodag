@@ -16,6 +16,10 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **The page shows what you put into your own store even while a pack is
+  open.** It looked the new name up in the pack being browsed, said it was
+  not in the store, and left the store menu saying "your own store".
+  Found by Peter in Brave.
 - **`LazyOntoDAG`: a node whose read failed is read again.** `_expand`
   marked a node expanded before reading its record, so after a failed
   read (an unreachable blob) the next query took the edgeless stub for a
