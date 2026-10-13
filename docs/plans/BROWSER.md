@@ -1261,5 +1261,37 @@ What the installed side brings, and how the pieces fit:
 - **Holdings** stays separate.
 - **loopmarket** is unaffected: the module is optional (B1).
 
-**Open:** question 43 (whether the installed version gets the file
-organising too, and in which order).
+**Question 43 (decided A, Peter, 2026-10-13): the installed version
+gets the file organising too.**
+- **Build order:** the Python core and `odag` commands first, then the
+  page on the same core.
+- **What comes first:** tests in the suite, and measurements on real
+  folders: the size threshold for hashing, and how many versions a store
+  gathers.
+- **Rejected:** B, the page only for now; C, the page first and `odag`
+  later. Both would shape the logic by browser limits and move it later.
+
+**Contact details and quick notes (Peter asked, 2026-10-13).** A phone
+number is identity data, not content. Tried natively against prelude 5:
+- **In the name** (`alice-447700900123`): no. Names are identity, so a new
+  number would make another alice.
+- **As a value of a head of the prefix kind** (`phone(447700900123)`): it
+  files, and `get friend phone(44)` finds her. But a second number is
+  refused ("provably disjoint 'phone' terms": an item is in the
+  intersection of its values), and a `+` is not a prefix character.
+- **As a plain node below her** (`tel:+447700900123 ⊑ alice`, several
+  allowed): PROJECTIONS.md §6's identity edge. Messages and calls from
+  that number would land under her. It also puts the numbers in her cone:
+  `get friend in(rome)` returned alice and both numbers.
+- **As a plain node above her** (`alice ⊑ tel:+447700900123`): `get
+  friend` stays people only, and "whose number is this" is one query. No
+  routing.
+- **Where she lives** is already a value: `alice ⊑ in(rome)` filed and
+  answered.
+- **A note about her**, `met-at-the-boat-show ⊑ about(alice)`, filed, and
+  `get about(alice)` returned it. A quick note typed in the page would be
+  a document like a file, its edits versions. Where its text is kept is
+  the next question.
+
+**Open:** question 44 (how a phone number attaches to a person), then
+where a quick note's text is kept.
