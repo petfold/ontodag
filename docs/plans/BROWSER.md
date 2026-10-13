@@ -1320,5 +1320,25 @@ never by sitting below it.
   `information`), which the suggestions would offer; `signal-id` would be
   a category of the person's own.
 
-**Open:** question 44 (contact details under `about(person)` and a
-class), then where a quick note's text is kept.
+**Question 44 (decided B, Peter, 2026-10-13): a contact detail is filed
+under `about(person)` and a class, with core's `phone-number` for
+numbers.** A class of identifiers is tied to its service the same way:
+
+    signal-messenger ⊑ application
+    signal-id ⊑ identifier, about(signal-messenger)
+    alice ⊑ friend, person
+    +447700900123 ⊑ about(alice), phone-number
+    alice.42 ⊑ about(alice), signal-id
+
+Tried natively:
+- `get about(alice) about(signal-messenger)` returned `alice.42`;
+- `get about(friend) signal-id` returned every friend's Signal name;
+- `get about(signal-messenger)` returned `signal-id` and every Signal
+  name;
+- `get friend` returned the people alone.
+
+The mockup's example store holds this, and the person's page lists what
+is about them. Rejected: A, under the person and a class, which made the
+numbers people.
+
+**Open:** question 45 (where a quick note's text is kept).

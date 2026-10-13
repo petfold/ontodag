@@ -392,7 +392,11 @@ Each line points to its record.
   by anyone" a choice per store; `swarm:` stores in `odag` must learn the
   same. Question 43 decided A: the installed version gets it too, as one
   Python core built and measured with `odag` commands first, then the
-  page on it. A mockup exists (BROWSER.md §17); nothing is built yet.
+  page on it. Question 44 decided B: a contact detail goes under
+  `about(person)` and a class (`+447700900123 ⊑ about(alice),
+  phone-number`; `signal-id ⊑ identifier, about(signal-messenger)`),
+  never below the person, whose classes it would inherit. A mockup
+  exists (BROWSER.md §17); nothing is built yet.
 - Provenance: signed claim records in a sibling store (PROVENANCE.md).
 - Web: one page, browsing plus a console, where every click writes its
   command (WEB_UI.md). Its DAG lives in the server's memory per session.
@@ -605,9 +609,8 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 
 ## Open questions for Peter
 
-Question 44 (BROWSER.md §17): how a phone number attaches to a person
-(below, above, or in a note); then where a quick note's text is kept.
-Questions 37 to 43 are decided.
+Question 45 (BROWSER.md §17): where a quick note's text is kept.
+Questions 37 to 44 are decided.
 Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 
