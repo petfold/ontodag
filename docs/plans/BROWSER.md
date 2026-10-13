@@ -1341,4 +1341,45 @@ The mockup's example store holds this, and the person's page lists what
 is about them. Rejected: A, under the person and a class, which made the
 numbers people.
 
-**Open:** question 45 (where a quick note's text is kept).
+**Question 45 (decided B with the draft rule, Peter, 2026-10-13): a quick
+note is a file.**
+- **The file:** a `.md` in a notes folder the person picks, named from
+  its first words (`met-at-the-boat-show.md`), and filed like any other
+  document.
+- **Writing it:** Chrome writes it there directly; `odag` writes it
+  directly.
+- **Brave and Freedom** cannot write files yet (#671, #59862), so the page
+  keeps the note as a draft in its encrypted browser storage (question
+  41) until it is saved, which is a download for the person to put in the
+  folder. Once the file is seen in the folder, the draft is deleted. A
+  draft is unsaved work, not a second home.
+- **Taking notes along** means moving the folder (a synced folder, or
+  later a folder published to Swarm as a feature of its own, with holdings
+  counting the copies), never copying bytes into the store.
+- **Why** (Peter): one kind of thing, as Unix's "everything is a file", and
+  no duplication.
+- **Rejected:**
+  - A, the store keeping its own copy of any version beside the folders
+    (no line to draw, but a second home for bytes);
+  - C, notes in the store and files in folders (a line between two kinds
+    that a growing note would cross).
+
+**What sits beside a store, never inside it** (the rule is G1: each
+differs between copies that know the same things):
+- provenance (`NAME-prov`, signed speech acts, written only by
+  `odag-mcp --write`);
+- the cone index (`NAME-index`, rebuildable summaries);
+- the timeline (past roots and `-m` messages, per copy);
+- the page's list of hashes (question 41).
+
+None of them fits in an `.od` file. A store of note bytes would have been
+the first to hold copies of what a file holds equally well.
+
+**Open, smaller:**
+- the proposed defaults for files that change often;
+- the size threshold for hashing (to be measured);
+- how a file name with brackets is spelled as a node;
+- the rule that names a note from its first words.
+
+**Next (question 43):** the Python core with `odag` commands, then the
+page.

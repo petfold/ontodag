@@ -395,8 +395,11 @@ Each line points to its record.
   page on it. Question 44 decided B: a contact detail goes under
   `about(person)` and a class (`+447700900123 ⊑ about(alice),
   phone-number`; `signal-id ⊑ identifier, about(signal-messenger)`),
-  never below the person, whose classes it would inherit. A mockup
-  exists (BROWSER.md §17); nothing is built yet.
+  never below the person, whose classes it would inherit. Question 45
+  decided B with the draft rule: a quick note is a `.md` file in a notes
+  folder, kept as a draft in the page's encrypted storage only until it
+  is saved; the store never holds file bytes. A mockup exists
+  (BROWSER.md §17); nothing is built yet.
 - Provenance: signed claim records in a sibling store (PROVENANCE.md).
 - Web: one page, browsing plus a console, where every click writes its
   command (WEB_UI.md). Its DAG lives in the server's memory per session.
@@ -609,8 +612,9 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 
 ## Open questions for Peter
 
-Question 45 (BROWSER.md §17): where a quick note's text is kept.
-Questions 37 to 44 are decided.
+None open now: questions 37 to 45 (the organiser page) are decided. The
+smaller open points are listed at the end of BROWSER.md §17; next is the
+Python core with `odag` commands (question 43).
 Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 
