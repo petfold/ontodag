@@ -23,6 +23,7 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 import shlex
 import sys
 
@@ -252,7 +253,18 @@ def cmd_put(args, session, out):
         pin = dims.kind_node(name)
         return pin is not None and pin[1] is not None \
             and pin[0] in session.dag.nodes
-    missing = [p for p in args.parents
+    _require_parents(session, args.parents, made_by_put)
+    session.dag.put(args.item, args.parents, optimized=args.optimized)
+    session.save()
+
+
+def _require_parents(session, parents, made_by_put=None):
+    """Refuse categories the store lacks, naming them and the pack that
+    would bring each; `made_by_put` exempts what a put makes itself."""
+    if made_by_put is None:
+        def made_by_put(name):
+            return session.dag.is_term(name)
+    missing = [p for p in parents
                if p not in session.dag.nodes and not made_by_put(p)]
     if missing:
         from ontodag.packs import packs_declaring_node
@@ -270,8 +282,6 @@ def cmd_put(args, session, out):
         lines.extend(f"{name!r} is not a term: {why[name]}"
                      for name in missing if why[name] is not None)
         raise ValueError("\n".join(lines))
-    session.dag.put(args.item, args.parents, optimized=args.optimized)
-    session.save()
 
 
 def _not_a_term(dag, name):
@@ -1125,6 +1135,141 @@ def cmd_ingest(args, session, out):
     session.save()
 
 
+def _folder_cache_path(key):
+    """Where `odag` keeps a folder's hashes (path, size and modification
+    time to SHA-256), in its home and nowhere else: `folders/` there, one
+    file per folder, named by a hash of the folder's path."""
+    import hashlib
+    from ontodag.settings import home_dir
+    name = hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+    return os.path.join(home_dir(), "folders", f"{name}.json")
+
+
+def _look(root, hash_over=None):
+    """Look at a folder through its cache: (Folder, counts)."""
+    from ontodag import folders
+    if not os.path.isdir(root):
+        raise ValueError(f"{root} is not a folder")
+    path = _folder_cache_path(os.path.abspath(root))
+    cache = folders.HashCache.load(path)
+    stats = {}
+    seen = folders.scan(root, cache=cache, hash_over=hash_over, stats=stats)
+    cache.save(path)
+    return folders.Folder(seen), stats
+
+
+def cmd_folder(args, session, out):
+    """Look at a folder of your files (docs/plans/BROWSER.md §17): what is
+    in it by kind, what is filed and what not yet, and every content that
+    is a new version of a document you filed (named as it, its old version
+    gone from the folder), which is filed so at once and said. The folder
+    is read, never written; its hashes are kept in odag's home.
+
+    `--unfiled` lists the files not filed yet, one path a line, ready for
+    `odag file`. `--find TERM...` answers with the folder's kinds joined to
+    your store (`holiday image-file`), as the folder's files that answer."""
+    from ontodag import folders
+    hash_over = _size_bytes(args.hash_over) if args.hash_over else None
+    folder, stats = _look(args.dir, hash_over)
+    dag = session.dag
+    if args.unfiled:
+        for files in folders.unfiled(dag, folder).values():
+            for f in files:
+                print(os.path.join(args.dir, f.path), file=out)
+        return
+    if args.find:
+        view = OntoDAG()
+        for item, kinds in folder.layer():
+            for k in kinds:
+                if k not in view.nodes:
+                    view.put(k, [])
+            view.put(item, kinds)
+        view.merge(session.view())
+        answer = {i.name for i in view.get(args.find)}
+        for digest, files in sorted(folder.by_hash.items()):
+            if folders.version_name(digest) in answer:
+                doc = folders.document_of(view, folders.version_name(digest)) or ""
+                for f in files:
+                    print(f"{os.path.join(args.dir, f.path)}\t{doc}", file=out)
+        return
+    edits, ambiguous = folders.recognise_edits(dag, folder)
+    for seen, doc in edits:
+        folders.attach(dag, seen, doc)
+    if edits:
+        session.save()
+    filed = sum(1 for h in folder.by_hash if folders.version_name(h) in dag.nodes)
+    copies = sum(len(v) - 1 for v in folder.by_hash.values())
+    print(f"{args.dir}: {stats['files']} files, {len(folder.by_hash)} contents"
+          + (f" ({copies} files are copies)" if copies else ""), file=out)
+    kinds = {}
+    for _item, ks in folder.layer():
+        for k in ks:
+            kinds[k] = kinds.get(k, 0) + 1
+    if kinds:
+        print("  by kind: " + ", ".join(f"{k} {n}" for k, n in sorted(kinds.items(), key=lambda kv: (-kv[1], kv[0]))),
+              file=out)
+    print(f"  filed {filed}, not yet filed {len(folder.by_hash) - filed}"
+          + (f", not read {len(folder.unhashed)} (over --hash-over)" if folder.unhashed else ""), file=out)
+    read = stats["bytes_read"]
+    amount = ("under 1 MB" if read < 1_000_000 else f"{read / 1e6:,.0f} MB" if read < 1e9
+              else f"{read / 1e9:,.1f} GB")
+    print(f"  read {stats['hashed']} file{'' if stats['hashed'] == 1 else 's'} ({amount}), "
+          f"{stats['cached']} known unchanged", file=out)
+    for seen, doc in edits:
+        print(f"  {seen.path}: a new version of {doc}, filed with it", file=out)
+    for seen, docs in ambiguous:
+        print(f"  {seen.path}: new content, perhaps a new version of {' or '.join(docs)}: "
+              f"odag file PATH --version-of DOC", file=out)
+
+
+def _size_bytes(text):
+    """A size like 500MB, 2GB or 4096 in bytes."""
+    m = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*([kKmMgGtT]?)[bB]?\s*", text)
+    if not m:
+        raise ValueError(f"not a size: {text!r} (say 500MB, 2GB or a number of bytes)")
+    return int(float(m.group(1)) * 1000 ** " KMGT".index(m.group(2).upper() or " "))
+
+
+def cmd_file(args, session, out):
+    """File files into your store (docs/plans/BROWSER.md §17): each file is
+    a document named by the file, with its content below it as a version
+    (`sha256:...`, under the time it was modified), and the document goes
+    under the categories given. A folder files every file in it. A
+    content already filed adds the categories to its document. A new
+    content named as a document you have is left until you say which it
+    is: `--version-of DOC` (DOC's new version) or `--separate` (a document
+    of its own); without its folder, odag cannot tell that the old version
+    is gone."""
+    from ontodag import folders
+    under = list(args.under or [])
+    _require_parents(session, under)
+    dag = session.dag
+    single = folders.HashCache.load(_folder_cache_path("single files"))
+    for path in args.paths:
+        if os.path.isdir(path):
+            folder, _stats = _look(path)
+            todo = [(os.path.join(path, s.path), s) for s in folder.seen if s.sha256]
+        else:
+            todo = [(path, folders.look_at(path, cache=single))]
+        for shown, seen in todo:
+            known = folders.document_of(dag, folders.version_name(seen.sha256))
+            alike = [] if known or args.version_of or args.separate else folders.named_like(dag, seen)
+            if alike:
+                print(f"{shown}: not filed, since {' and '.join(alike)} has its name: "
+                      f"say --version-of {shlex.quote(alike[0])} or --separate", file=out)
+                continue
+            answer = folders.file(dag, seen, under, version_of=args.version_of)
+            where = f" under {', '.join(under)}" if under else ""
+            if answer["made"]:
+                print(f"{shown}: a new document, {answer['document']}{where}", file=out)
+            elif args.version_of and not known:
+                print(f"{shown}: a new version of {answer['document']}{where}", file=out)
+            else:
+                print(f"{shown}: in {answer['document']}{where}", file=out)
+    single.save(_folder_cache_path("single files"))
+    session.save()
+
+
 def _is_term(dag, name):
     """Does `name` read as a term (a value, a role or graph term)? Filing an
     item under one materializes it; alone it would state nothing."""
@@ -1733,6 +1878,21 @@ Commands:
                         one commit. --drop NODE cone-deletes NODE first
                         (full-rebuild semantics). Usually into a dedicated
                         projection store read via the `overlays` setting
+  folder DIR            look at a folder of your files: how many by kind,
+                        filed and not yet filed; a content that is a new
+                        version of a document you filed (named as it, its
+                        old version gone) is filed so and said. --unfiled
+                        lists the files not filed yet; --find TERM... the
+                        folder's files below all the terms, its kinds
+                        (image-file, document) joined to your store. The
+                        folder is only read; its hashes stay in odag's home
+  file PATH... --under CATEGORY...
+                        file files, or a folder's, into your store: each a
+                        document named by its file, its content below it
+                        as sha256:... under its modification time. A copy
+                        joins its document. A new content named as a
+                        document you have waits for --version-of DOC (its
+                        new version) or --separate (a document of its own)
   excerpt FILE [CAT...] write just that query's answer to FILE, with the
                         edges among the answers kept — an importable cut of
                         the store (`export` is the whole thing).
@@ -1950,6 +2110,8 @@ COMMAND_EFFECTS = {
     "merge": frozenset({"reads", "writes", "files"}),
     "import": frozenset({"writes", "files"}),
     "ingest": frozenset({"reads", "writes", "files"}),
+    "folder": frozenset({"reads", "writes", "files"}),   # files: reads the folder, keeps its hashes
+    "file": frozenset({"reads", "writes", "files"}),
     "export": frozenset({"reads", "files"}),
     "excerpt": frozenset({"reads", "files"}),
     "diff": frozenset({"reads", "files"}),
@@ -2207,6 +2369,31 @@ def build_parser():
                         "sys:source:KEY under the --drop nodes, so a "
                         "consumer can tell whether it is stale")
     p.set_defaults(func=cmd_ingest)
+
+    p = sub.add_parser("folder", add_help=True,
+                       help="look at a folder of your files")
+    p.add_argument("dir")
+    p.add_argument("--unfiled", action="store_true",
+                   help="list the files not filed yet, one path a line")
+    p.add_argument("--find", nargs="+", metavar="TERM",
+                   help="the folder's files below all these, its kinds "
+                        "(image-file, document, ...) joined to your store")
+    p.add_argument("--hash-over", metavar="SIZE",
+                   help="leave files larger than this unread (500MB, 2GB)")
+    p.set_defaults(func=cmd_folder)
+
+    p = sub.add_parser("file", add_help=True,
+                       help="file files (or a folder's) into your store")
+    p.add_argument("paths", nargs="+", metavar="PATH")
+    p.add_argument("--under", nargs="+", metavar="CATEGORY",
+                   help="the categories the files' documents go under")
+    which = p.add_mutually_exclusive_group()
+    which.add_argument("--version-of", metavar="DOC",
+                       help="file a new content as DOC's new version")
+    which.add_argument("--separate", action="store_true",
+                       help="file a new content named as a document you have "
+                            "as a document of its own")
+    p.set_defaults(func=cmd_file)
 
     p = sub.add_parser("export", add_help=True, help="write the store to a file")
     p.add_argument("file")

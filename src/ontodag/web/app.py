@@ -194,6 +194,10 @@ CONSOLE_REFUSALS = {
     "import": "reads a file path on the server — drop a file on the console instead",
     "ingest": "reads a projection stream from a server path or stdin, "
               "and this sandbox has neither",
+    "folder": "reads a folder on the server's disk, not on yours — the "
+              "organiser page reads a folder you pick",
+    "file": "reads files on the server's disk, not on yours — the organiser "
+            "page reads files you pick",
     "merge": "reads a file path on the server — drop a file on the console instead",
     "export": "writes a file path on the server — use the download buttons",
     "excerpt": "writes a file path on the server — use the download buttons",
@@ -456,6 +460,7 @@ def _shape(parser):
 # the list cannot quietly fall behind the CLI.
 COMMAND_GROUPS = (
     ("Filing things", ("put", "move", "rename", "remove")),
+    ("Your files", ("folder", "file")),
     ("Asking questions",
      ("get", "count", "list", "show", "below", "overlapping", "overlaps",
       "meet", "canon", "shared-with")),

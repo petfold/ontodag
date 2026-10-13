@@ -1542,9 +1542,20 @@ it would be good to be able to add single files").
   contents of no kind.
 - **Tests:** `tests/test_folders.py`, 21 tests, on real files in a
   temporary folder.
-- **Next:** `odag` commands on it (look at a folder, file files, list
-  what is not filed, answers showing documents rather than hashes); then
-  the page's "Open a folder…" and "Add files…".
+- **The `odag` commands, built (2026-10-14):**
+  - **`odag folder DIR`** looks at a folder (summary, recognised edits filed
+    and said); `--unfiled` lists the files not filed yet, `--find TERM...`
+    joins the folder's kinds to the store as the folder's files, and
+    `--hash-over SIZE` leaves large files unread. The hashes are kept in
+    odag's home (`folders/`, one file per folder).
+  - **`odag file PATH... --under CATEGORY...`** files single files or a
+    folder's. Categories must exist, as for `put`. A new content named as a
+    document waits for `--version-of DOC` or `--separate`, so nothing is
+    filed that would then need undoing.
+  - **Tests:** `TestFolderCommands`, 9 tests; a User Guide section, §5.14.
+- **Next:**
+  - how `odag get` shows a document's versions (a question for Peter);
+  - then the page's "Open a folder…" and "Add files…".
 
 **Freedom on Android (Peter, 2026-10-13).** The organiser works there,
 with two problems, both fixed and checked in `check.py` (each check

@@ -2818,6 +2818,84 @@ machine, or a site on its server, for each request. §9.4 publishes it as
 keys instead, so each reader works out their own share, with no server at
 all.
 
+### 5.14 Your files, organised where they are
+
+Files stay where they are; your store says what they are. `odag folder`
+looks at a folder and never writes to it:
+
+```console
+$ odag -f mine.od put holiday
+$ odag -f mine.od put notes
+$ odag -f mine.od folder Stuff
+Stuff: 2 files, 2 contents
+  by kind: image-file 1, text-file 1
+  filed 0, not yet filed 2
+  read 2 files (under 1 MB), 0 known unchanged
+$ odag -f mine.od folder Stuff --unfiled
+Stuff/Notes/reading-list.md
+Stuff/Photos/Rome/IMG_2041.jpg
+```
+
+The kinds come from the files' extensions (`image-file`, `video-file`,
+`audio-file`, `text-file`, `archive-file`, core's `document` and
+`presentation`). They are worked out at every look and never stored. It
+skips what a backup tool would: version control, caches, sync tools'
+folders, hidden files and editors' temporary files.
+
+`odag file` files files, a single file or every file in a folder, under
+categories that exist:
+
+```console
+$ odag -f mine.od file Stuff/Photos --under holiday
+Stuff/Photos/Rome/IMG_2041.jpg: a new document, IMG_2041.jpg under holiday
+$ odag -f mine.od file Stuff/Notes --under notes
+Stuff/Notes/reading-list.md: a new document, reading-list.md under notes
+$ odag -f mine.od get notes
+reading-list.md
+sha256:6e317bcd6839e8877395411b47b2b89d2bae7ccb05f78cee32bcdf76b5294265
+```
+
+Each file becomes a **document** named by the file, and its content is a
+**version** below it, named by its SHA-256 (as holdings names files) and
+filed under the time the file was last modified. The document is the
+class of its versions, so renaming or moving the file changes nothing,
+and a copy elsewhere joins the same document. When a file changes, the
+next look finds the new content and files it as the document's new
+version, under the same categories:
+
+```console
+$ odag -f mine.od folder Stuff
+Stuff: 2 files, 2 contents
+  by kind: image-file 1, text-file 1
+  filed 2, not yet filed 0
+  read 1 file (under 1 MB), 1 known unchanged
+  Notes/reading-list.md: a new version of reading-list.md, filed with it
+```
+
+Only what changed is read again: odag keeps each folder's hashes in its
+home (`folders/`), by path, size and modification time. A large folder's
+second look takes a fraction of a second; `--hash-over 2GB` leaves larger
+files unread altogether.
+
+`--find` joins the folder's kinds to your store, so you can ask for the
+holiday photos in this folder:
+
+```console
+$ odag -f mine.od folder Stuff --find holiday image-file
+Stuff/Photos/Rome/IMG_2041.jpg	IMG_2041.jpg
+```
+
+A new content named as a document you have is not filed until you say
+what it is, since without its folder odag cannot tell that the old one is
+gone:
+
+```console
+$ odag -f mine.od file Desktop/reading-list.md --under notes
+Desktop/reading-list.md: not filed, since reading-list.md has its name: say --version-of reading-list.md or --separate
+$ odag -f mine.od file Desktop/reading-list.md --separate --under notes
+Desktop/reading-list.md: a new document, reading-list.md (Desktop) under notes
+```
+
 ## 6. The web app and REST API
 
 The web app gives you the same DAG in a browser — browse it by query, type

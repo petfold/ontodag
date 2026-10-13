@@ -3827,3 +3827,106 @@ def test_status_says_a_store_from_before_5_0_needs_migrating(tmp_path):
     assert dispatch(["status"], Session(str(path)), out=out) == 0
     assert "registry 5.0" not in out.getvalue()
 
+
+
+class TestFolderCommands(unittest.TestCase):
+    """`odag folder` and `odag file` (BROWSER.md §17): a folder looked at,
+    never written; files filed as documents with their contents as
+    versions; an edit recognised; a same-named new file left for the
+    person to place; the folder's kinds joined to the store by --find."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = os.path.join(self.tmp.name, "Stuff")
+        self.write("Photos/Rome/IMG_1.jpg", "rome")
+        self.write("Notes/reading-list.md", "books")
+        self.session = cli.Session(os.path.join(self.tmp.name, "mine.od"))
+        for argv in (["put", "holiday"], ["put", "notes"]):
+            self.assertEqual(_run(argv, self.session)[0], 0)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def write(self, path, text, base=None, mtime=None):
+        full = os.path.join(base or self.root, *path.split("/"))
+        os.makedirs(os.path.dirname(full), exist_ok=True)
+        with open(full, "w") as fh:
+            fh.write(text)
+        if mtime is not None:
+            os.utime(full, (mtime, mtime))
+        return full
+
+    def run_ok(self, *argv):
+        code, out = _run(list(argv), self.session)
+        self.assertEqual(code, 0, out)
+        return out
+
+    def test_a_look_counts_and_lists_what_is_not_filed(self):
+        out = self.run_ok("folder", self.root)
+        self.assertIn("2 files, 2 contents", out)
+        self.assertIn("by kind: image-file 1, text-file 1", out)
+        self.assertIn("filed 0, not yet filed 2", out)
+        listed = self.run_ok("folder", self.root, "--unfiled").splitlines()
+        self.assertEqual(listed, [os.path.join(self.root, "Notes", "reading-list.md"),
+                                  os.path.join(self.root, "Photos", "Rome", "IMG_1.jpg")])
+        self.assertEqual(self.run_ok("list").split(), ["holiday", "notes"])   # a look writes nothing
+
+    def test_files_are_filed_as_documents_with_their_contents_below(self):
+        out = self.run_ok("file", os.path.join(self.root, "Photos", "Rome", "IMG_1.jpg"), "--under", "holiday")
+        self.assertIn("a new document, IMG_1.jpg under holiday", out)
+        self.run_ok("file", os.path.join(self.root, "Notes"), "--under", "notes")
+        got = self.run_ok("get", "notes").split()
+        self.assertEqual(got[0], "reading-list.md")
+        self.assertTrue(got[1].startswith("sha256:"))
+        self.assertIn("filed 2, not yet filed 0", self.run_ok("folder", self.root))
+
+    def test_a_copy_joins_its_document(self):
+        self.run_ok("file", os.path.join(self.root, "Photos", "Rome", "IMG_1.jpg"), "--under", "holiday")
+        copy = self.write("IMG_1 (1).jpg", "rome", base=os.path.join(self.tmp.name, "Downloads"))
+        self.assertIn("in IMG_1.jpg under notes", self.run_ok("file", copy, "--under", "notes"))
+
+    def test_an_unknown_category_is_refused_as_put_refuses_it(self):
+        code, _out = _run(["file", self.root, "--under", "nowhere"], self.session)
+        self.assertNotEqual(code, 0)
+        self.assertEqual(self.run_ok("list").split(), ["holiday", "notes"])
+
+    def test_a_look_files_an_edit_as_its_documents_new_version(self):
+        self.run_ok("file", os.path.join(self.root, "Notes"), "--under", "notes")
+        self.write("Notes/reading-list.md", "more books", mtime=1_790_000_000)
+        out = self.run_ok("folder", self.root)
+        self.assertIn("Notes/reading-list.md: a new version of reading-list.md, filed with it", out)
+        versions = [n for n in self.run_ok("get", "notes").split() if n.startswith("sha256:")]
+        self.assertEqual(len(versions), 2)
+        edited = self.run_ok("get", "time(2026-09-21T14:13:20Z)").split()   # 1_790_000_000
+        self.assertEqual(len(edited), 1)
+        self.assertIn(edited[0], versions)
+
+    def test_a_same_named_new_file_waits_to_be_placed(self):
+        self.run_ok("file", os.path.join(self.root, "Notes"), "--under", "notes")
+        other = self.write("reading-list.md", "other books", base=os.path.join(self.tmp.name, "Desktop"))
+        out = self.run_ok("file", other, "--under", "notes")
+        self.assertIn("not filed, since reading-list.md has its name", out)
+        self.assertIn("a new version of reading-list.md", self.run_ok("file", other, "--version-of", "reading-list.md"))
+        third = self.write("reading-list.md", "third", base=os.path.join(self.tmp.name, "Archive"))
+        self.assertIn("a new document, reading-list.md (Archive)", self.run_ok("file", third, "--separate", "--under", "notes"))
+
+    def test_find_joins_the_folders_kinds_to_the_store(self):
+        self.run_ok("file", self.root, "--under", "holiday")
+        out = self.run_ok("folder", self.root, "--find", "holiday", "image-file")
+        self.assertEqual(out, f"{os.path.join(self.root, 'Photos', 'Rome', 'IMG_1.jpg')}\tIMG_1.jpg\n")
+        self.assertNotIn("image-file", self.run_ok("list").split())     # the kinds are never stored
+
+    def test_large_files_can_be_left_unread(self):
+        self.write("big.mp4", "x" * 3000)
+        out = self.run_ok("folder", self.root, "--hash-over", "1KB")
+        self.assertIn("not read 1 (over --hash-over)", out)
+        self.assertEqual(cli._size_bytes("2GB"), 2_000_000_000)
+        with self.assertRaises(ValueError):
+            cli._size_bytes("lots")
+
+    def test_the_hashes_are_kept_in_odags_home(self):
+        self.run_ok("folder", self.root)
+        cache = cli._folder_cache_path(os.path.abspath(self.root))
+        self.assertTrue(cache.startswith(os.environ["ONTODAG_HOME"]))
+        self.assertTrue(os.path.exists(cache))
+        self.assertIn("2 known unchanged", self.run_ok("folder", self.root))

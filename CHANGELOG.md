@@ -45,6 +45,16 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
+- **`odag folder` and `odag file`** (BROWSER.md §17, on `ontodag.folders`).
+  - **`folder DIR`** looks at a folder, read only: how many files by kind,
+    filed and not yet filed, and each new version of a document filed,
+    which it files and says. `--unfiled` lists the files not filed yet,
+    `--find TERM...` joins the folder's kinds to your store
+    (`holiday image-file`), and `--hash-over SIZE` leaves large files
+    unread. The folder's hashes are kept in odag's home.
+  - **`file PATH... --under CATEGORY...`** files single files or a
+    folder's into your store. A new content named as a document you have
+    waits for `--version-of DOC` or `--separate`.
 - **`ontodag.folders`: your files, organised where they are** (BROWSER.md
   §17, questions 40 to 45; the Python core, with `odag` commands and the
   page to follow). A folder is read, never written. Each file's content is
