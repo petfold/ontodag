@@ -386,8 +386,11 @@ Each line points to its record.
   a version named by its SHA-256, each version with its modification
   time. Question 41 decided C: the store and the list of hashes are kept
   in the browser's storage, encrypted with the person's key, wherever
-  the page runs; Save stays the copy the person owns. A mockup exists
-  (BROWSER.md §17); nothing is built yet.
+  the page runs; Save stays the copy the person owns. Question 42
+  decided B: Publish encrypts by default (the `rs:` stores' AES-SIV, a
+  key derived from the key file, so devices still converge), "readable
+  by anyone" a choice per store; `swarm:` stores in `odag` must learn the
+  same. A mockup exists (BROWSER.md §17); nothing is built yet.
 - Provenance: signed claim records in a sibling store (PROVENANCE.md).
 - Web: one page, browsing plus a console, where every click writes its
   command (WEB_UI.md). Its DAG lives in the server's memory per session.
@@ -600,10 +603,9 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 
 ## Open questions for Peter
 
-Question 42 (BROWSER.md §17): whether Publish encrypts your store. Today
-neither the page's Publish nor a `swarm:` store encrypts, so a published
-store is readable by anyone who knows the key's address and the store's
-name. Questions 37 to 41 are decided.
+Question 43 (BROWSER.md §17): whether the installed version gets the file
+organising too, as one Python module that `odag` and the page share, and
+in which order. Questions 37 to 42 are decided.
 Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 

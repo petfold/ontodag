@@ -1200,4 +1200,66 @@ SHA-256.
 - **Why it matters:** a published personal store is readable, its file
   names included. That is question 42.
 
-**Open:** question 42 (whether Publish encrypts your store).
+**Question 42 (decided B, Peter, 2026-10-13): Publish encrypts your
+store by default; "readable by anyone" is a choice per store.**
+- **How:** the encryption `rs:` stores have (deterministic AES-SIV,
+  `ontodag.encstore`), with a key derived from the key file. Two devices
+  publishing the same knowledge still reach one root. Bee's own
+  encryption takes a random key per upload, so it would not.
+- **`odag`:** `swarm:` stores must learn the same encryption, so that
+  `odag -f swarm:NAME` with the same key reads what the page publishes.
+- **What stays visible:** sizes, record counts and which records are
+  equal.
+- **Choosing "Anyone":** the page warns that the store's file names and
+  categories become readable. Going from readable back to private, it
+  warns that the earlier readable versions stay readable for as long as
+  their batch pays.
+- **Sharing with particular people:** later, through `keyplan`.
+- **Rejected:** A, always encrypted, which leaves no public stores; C,
+  readable as now, which keeps a personal store off Swarm.
+
+**Files that change often (Peter asked, 2026-10-13).** Mailboxes,
+databases (a browser profile, a password vault), logs, virtual-machine
+disks and editor temporaries change many times a day. What bounds the
+cost:
+- **A version is recorded only when the organiser looks.** The page sees
+  a folder once per opening, since a browser gives it a snapshot, and
+  `odag` sees it once per scan; neither records every save. No watcher is
+  planned.
+- **Only filed documents get versions.** An unfiled file that changes
+  costs only its hashing.
+- **What a version adds:** its hash and its date value. A filed file that
+  changes daily, looked at daily, adds about 730 nodes a year.
+- **The real cost is hashing a big file that changed:** a 20 GB disk image
+  takes about 5 minutes streamed in the page (64–66 MB/s) and about 80 s
+  natively (259 MB/s). Size and date cannot skip it, since they changed.
+
+Proposed defaults, not yet decided:
+- skip what holdings skips (hidden folders, caches, `.git`,
+  `node_modules`, Syncthing internals) and editor temporaries;
+- hash a large unfiled file only when it is filed or asked for, with the
+  threshold measured, not guessed;
+- thin old versions only when a real store shows the need, for instance a
+  category whose documents keep only their newest version (a policy as a
+  category, as PROJECTIONS.md §7 does retention).
+
+**The installed version (Peter asked, 2026-10-13): question 43.** The
+logic belongs in ontodag's Python, so that `odag` and the page share it:
+- documents and versions, the type table, the folder's layer, recognising
+  an edit, and the list of hashes;
+- the page runs that module under Pyodide and only reads the folder and
+  hashes in JavaScript.
+
+What the installed side brings, and how the pieces fit:
+- **Natively:** real paths, faster hashing, a private home for the list of
+  hashes, and scans on a schedule.
+- **One store for both:** documents are named by file names and hashes,
+  never paths, so a store filed in the page answers in `odag`, and the
+  other way round.
+- **ontodag-fs:** it already shows a store as folders. A filed document's
+  bytes could come from your own folder as well as from Swarm.
+- **Holdings** stays separate.
+- **loopmarket** is unaffected: the module is optional (B1).
+
+**Open:** question 43 (whether the installed version gets the file
+organising too, and in which order).
