@@ -33,10 +33,10 @@ through a node: `http://localhost:1633/bzz/22d1e16bebfd0afccdddb2060b5669f68c26b
 in any browser, through the public gateway, serve `dist/` and add
 `?gateway=https://api.gateway.ethswarm.org`).
 
-Next version, with Publish (BROWSER.md §16) and the save help (§14.1),
-not behind the names yet: `bzz://cf069f20d98934742b8af909e4f2c7feca73cb07256c38eb600cfcf34edc25d9/`
+Next version, the organiser (BROWSER.md §17), with Publish (§16) and the
+save help (§14.1), not behind the names yet: `bzz://5328d5a259e29ac259fb449a2ed4bd6f89dccdb25c93d2f58b5041c3e5d36bc4/`
 (2026-10-13; to publish, open it through your node:
-`http://localhost:1633/bzz/cf069f20d98934742b8af909e4f2c7feca73cb07256c38eb600cfcf34edc25d9/`).
+`http://localhost:1633/bzz/5328d5a259e29ac259fb449a2ed4bd6f89dccdb25c93d2f58b5041c3e5d36bc4/`).
 
 | file | what it is |
 |---|---|
