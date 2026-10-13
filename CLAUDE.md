@@ -40,7 +40,7 @@ github.com/petfold.
   postage selection, feeds, and the shared signer `swarmfs.signer`. In the
   `swarm` extra (`swarmfs[feeds]>=0.13.0`).
 - **ontodag-fs**: an OntoDAG store as a mountable filesystem. It pins a
-  floor and a ceiling (`>=0.31.0,<0.32.0`); raise the ceiling by hand once ontodag's release job has run
+  floor and a ceiling (`>=0.33.0,<0.34.0` since its 0.9.0); raise the ceiling by hand once ontodag's release job has run
   its suite against the candidate, then release it.
 - **loopmarket**: the marketplace, and the main consumer of dimensions. It
   pins only a floor (`>=0.31.0`), and its suite runs in ontodag's release
@@ -564,7 +564,7 @@ Each line points to its record.
   item passes. Every run since July, with what each taught, is in the
   journal.
 
-## State (2026-10-11)
+## State (2026-10-14)
 
 - **Reminder for Peter, due before 2026-11-01:** the batch `c931c8a5…`
   expires around 2026-11-11 and takes with it the packs, their cone
@@ -572,6 +572,17 @@ Each line points to its record.
   keep and on which batch (`../STAMPS.md`; Pyodide alone was decided D on
   2026-10-12: no batch of its own for now). Raise it at the start of any
   session from 2026-10-25 on.
+- Released 2026-10-14 on Peter's word, each verified from PyPI:
+  recordstore 0.23.0 (`get_many`, and an unreachable trie node read as
+  unavailable), then ontodag 0.33.0 (`odag folder` and `odag file`,
+  suggestions with core's WordNet words, the organiser page; floor
+  recordstore>=0.23.0; every workflow job green, the downstream gate
+  included; `release_smoke.py --pypi` 28/28), then ontodag-fs 0.9.0
+  (`>=0.33.0,<0.34.0`; its first publish run met PyPI's index lag and
+  passed on a rerun). The first 0.33.0 tag failed CI on a browser test
+  that expected the error recordstore 0.23 now wraps (this laptop had
+  recordstore 0.22.2), fixed and tagged again before anything was
+  published. Unchanged: swarmfs 0.14.0, loopmarket 0.17.1.
 - Released 2026-10-11 on Peter's word, each verified from PyPI: ontodag
   0.32.0 (contract 0.7, registry 5.0, prelude 5, surface 0.2: questions
   29–33, geo as rectangles, signed values, relative times; every workflow
@@ -594,10 +605,7 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   into a store whose `geo` is a prefix head is refused; old stores keep
   their own vocabulary, new ones get prelude 5. circulator's main writes v4 offers (its CI has been red
   since 2026-09-21 on a test comparing its own copy of the baseline).
-- Unreleased on the mains (2026-10-12): recordstore's `RecordStore.get_many`
-  and its fix (an unreachable trie node is `RecordUnavailable`, no longer
-  read as absent); ontodag's `LazyOntoDAG(prefetch=True)` and the
-  Freedom page (`demo/freedom/`): since 2026-10-13 the organiser (§17),
+- On Swarm: the Freedom page (`demo/freedom/`): since 2026-10-13 the organiser (§17),
   which also publishes your store through a node under a key file (§16)
   and helps a person save where they want (§14.1), `bzz://c9e24c73…`
   behind `ontodag.gwei` and `ontodag.eth` (feed update 7, 2026-10-14 on
@@ -607,8 +615,7 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   sends no redundancy level, so Bee 2.8 erasure-codes its blobs over 4 KB
   (references unlike Swarm addressing); plain by default, or the node's
   coding (BROWSER.md §13)? Both pages run in real Freedom
-  Browser and through the public gateway (BROWSER.md §13). Releasing needs
-  recordstore first, on Peter's word.
+  Browser and through the public gateway (BROWSER.md §13).
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.
 - Watch coincurve on Python 3.14 (loopmarket's CLAUDE.md, "Upstream to
