@@ -349,6 +349,20 @@ function attachSuggest(input, { lastWord = false, offerNew = "new category", onP
   let rows = [], hi = -1, seq = 0;
   const word = () => (lastWord ? input.value.split(/\s+/).pop() : input.value);
   const paint = () => [...box.children].forEach((d, i) => d.classList.toggle("hi", i === hi));
+  // Above the field when there is more room there, measured against what is
+  // visible: a phone's keyboard covers the screen below a field it scrolled
+  // into view (Freedom on Android puts the field just above the keyboard).
+  const place = () => {
+    const r = input.getBoundingClientRect();
+    const vv = window.visualViewport;
+    const top = vv ? vv.offsetTop : 0;
+    const bottom = vv ? vv.offsetTop + vv.height : innerHeight;
+    const below = bottom - r.bottom - 8, above = r.top - top - 8;
+    const up = below < 200 && above > below;
+    box.classList.toggle("above", up);
+    box.style.maxHeight = `${Math.max(100, Math.min(360, up ? above : below))}px`;
+  };
+  if (window.visualViewport) visualViewport.addEventListener("resize", () => { if (!box.hidden) place(); });
   const show = async () => {
     const typed = word();
     const mine = ++seq;
@@ -364,6 +378,7 @@ function attachSuggest(input, { lastWord = false, offerNew = "new category", onP
       el("span", { class: "where" }, r.isNew ? "yours, at the top" : placesText(r)))));
     paint();
     box.hidden = !rows.length;
+    if (!box.hidden) place();
   };
   const pick = (i, completeOnly = false) => {
     const r = rows[i];
@@ -1015,7 +1030,7 @@ def org_changed():
   $("swarmbatch").onchange = () => showKey();
   await setUpWriting();
   showKey();
-  files = new LocalFile({ input: $("localfile"), types: OD_TYPES,
+  files = new LocalFile({ input: $("localfile"), types: OD_TYPES, downloadType: "application/octet-stream",
     pickers: !FreedomSwarm.present(), refusedKey: "ontodag-pickers-refused" });
   globalThis.ontodagPage.files = files;
   const brave = await isBrave();

@@ -10,10 +10,13 @@
 export class LocalFile {
   // input: a hidden <input type="file">; types: the pickers' file types;
   // pickers: false to skip them up front (in Freedom, say);
-  // refusedKey: where a refusal is remembered.
-  constructor({ input, types, pickers = true, refusedKey = "local-file-pickers-refused" }) {
+  // refusedKey: where a refusal is remembered; downloadType: what a
+  // download is typed as (a type the file's extension does not stand for
+  // makes Android add one: store.od saved as store.od.txt).
+  constructor({ input, types, pickers = true, refusedKey = "local-file-pickers-refused", downloadType = "text/plain" }) {
     this.input = input;
     this.types = types;
+    this.downloadType = downloadType;
     this.refusedKey = refusedKey;
     this.handle = null;
     this.pickers = pickers && typeof showOpenFilePicker === "function" && !this._refused();
@@ -80,7 +83,7 @@ export class LocalFile {
         this._refuse(e);
       }
     }
-    download(text, name);
+    download(text, name, this.downloadType);
     return { how: "download", name };
   }
 }

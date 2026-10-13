@@ -1546,6 +1546,32 @@ it would be good to be able to add single files").
   what is not filed, answers showing documents rather than hashes); then
   the page's "Open a folder…" and "Add files…".
 
+**Freedom on Android (Peter, 2026-10-13).** The organiser works there,
+with two problems, both fixed and checked in `check.py` (each check
+failed first).
+- **The app is a WebView around its own embedded node** (solardev-xyz's
+  freedom-browser-android, 0.4.0); it serves pages from
+  `127.0.0.1:1633` and injects `window.swarm`.
+- **Suggestions were out of sight.** When the keyboard opens, the app
+  scrolls the focused field to just above it (`scrollIntoViewIfNeeded`),
+  so the list, opening below the field, sat behind the keyboard. The list
+  now opens above the field when there is more room there, measured
+  against `visualViewport`.
+- **`store.od` was saved as `store.od.txt`.** The app saves a blob under
+  the type it carries, and `text/plain` made Android add `.txt`; an
+  untyped blob it already saves as `application/octet-stream` (its #408).
+  The store is now typed `application/octet-stream`.
+  - **What it costs:** Android no longer knows the file is text, so a text
+    editor opens it through "Open with".
+  - **The probe:** `bzz://8320d28148e100ca7474ebbaea48629d163793125b3ae69bd8e9d3c3e72109b8/`
+    saves the same store typed three ways (`application/octet-stream`,
+    `text/plain`, `text/x-ontodag`) for Peter to try, since a text type
+    Android has no extension for might keep both the name and the text.
+  - **Either way the store still works:** `odag` reads a store saved as
+    `.od.txt`.
+- **The app has the same "Ask where to save each file" setting** under
+  Downloads (its #322), and the save help now says so.
+
 **Core is shown from the start (Peter, 2026-10-13).** Core is shown
 beside every store unless the person turned it off, which the page
 remembers in that browser. The page composes core while it starts, after

@@ -30,7 +30,7 @@ export function saveAdvice({ pickers, brave = false, freedom = false }) {
   if (freedom) {
     return {
       browser: "Freedom",
-      ask: { path: "Settings → Downloads → “Ask where to save each file” (Freedom 0.8.5 or later)", address: FREEDOM_SETTINGS },
+      ask: { path: "Settings → Downloads → “Ask where to save each file” (on a computer, Freedom 0.8.5 or later; on Android too)", address: FREEDOM_SETTINGS },
       flag: null,
       waits: "Saving back to the same file waits for Freedom (freedom-browser#671).",
     };

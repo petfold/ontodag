@@ -245,6 +245,32 @@ async def add(page, what, under=""):
     return said
 
 
+async def check_suggestions_above(page):
+    """With little room below the field (a phone's keyboard open below
+    it), the suggestions open above it, inside what is visible."""
+    problems = []
+    size = page.viewport_size
+    await page.set_viewport_size({"width": 390, "height": 520})
+    await page.evaluate("""() => {
+        const f = document.getElementById("addunder");
+        window.scrollBy(0, f.getBoundingClientRect().bottom - innerHeight + 4);
+    }""")
+    await page.click("#addunder")
+    await page.type("#addunder", "photo")
+    await page.wait_for_selector("#addunder ~ .suggest div")
+    where = await page.evaluate("""() => {
+        const box = document.querySelector("#addunder ~ .suggest"), r = box.getBoundingClientRect();
+        return { above: box.classList.contains("above"), top: r.top, bottom: r.bottom, height: innerHeight };
+    }""")
+    if not where["above"] or where["top"] < 0 or where["bottom"] > where["height"]:
+        problems.append(f"with the field at the bottom, the suggestions open at {where!r}")
+    await page.fill("#addunder", "")
+    await page.keyboard.press("Escape")
+    await page.set_viewport_size(size)
+    print(f"  suggestions above a field at the bottom of the screen: {'ok' if not problems else problems}")
+    return problems
+
+
 async def check_local(page):
     """Your own store through the page's controls (BROWSER.md §17): the
     problems found."""
@@ -273,9 +299,19 @@ async def check_local(page):
         problems.append(f"typing photo first suggests {first!r}")
     await page.fill("#addunder", "")
     await page.keyboard.press("Escape")
+    problems += await check_suggestions_above(page)
 
+    # A store is saved untyped, as application/octet-stream: typed text/plain,
+    # Freedom on Android saved store.od as store.od.txt.
+    await page.evaluate("""() => {
+        const make = URL.createObjectURL;
+        URL.createObjectURL = (blob) => { window.lastBlobType = blob.type; return make(blob); };
+    }""")
     async with page.expect_download() as info:
         await page.click("#localsave")
+    saved_as = await page.evaluate("window.lastBlobType")
+    if saved_as != "application/octet-stream":
+        problems.append(f"the store was downloaded as {saved_as!r}, which Android names store.od.txt")
     saved = open(await (await info.value).path()).read()
     want = OntoDAG()
     want.put("fruit", [])

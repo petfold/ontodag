@@ -16,6 +16,13 @@ the version numbers appear in commit history and docs.
 
 ### Fixed
 
+- **Suggestions open above the field when the keyboard covers the screen
+  below it.** Freedom on Android scrolls a field to just above the
+  keyboard, so the list opened out of sight. Found by Peter.
+- **A store is downloaded as `application/octet-stream`.** Typed
+  `text/plain`, Freedom on Android saved `store.od` as `store.od.txt`.
+  The file is still plain text: a computer opens it as before, and on
+  Android a text editor opens it through "Open with". Found by Peter.
 - **The page shows what you put into your own store even while a pack is
   open.** It looked the new name up in the pack being browsed, said it was
   not in the store, and left the store menu saying "your own store".
