@@ -1023,3 +1023,88 @@ works there. A gateway has no batches to choose.
 A first publish of a store from a file rebuilds it whole, and a fold from
 a file reads the whole published store: fine for a person's store, and
 the next publish from the same session commits only what changed.
+
+## 17. The page as a personal organiser (2026-10-13)
+
+**Peter's direction (2026-10-13).** OntoDAG is mainly useful for
+organising your own information, and the page should be reorganised for
+that:
+- the shared ontology moves behind a menu item;
+- the page helps people start organising, offering existing categories
+  as they type;
+- a personal folder can be opened and its files filed, tagged by file
+  type to begin with, with more help later;
+- any combination of stores can be shown together, not one at a time.
+
+A clickable mockup shows the design with example files and an example
+store; every category name and place in it is real, from core and
+computing: https://claude.ai/artifact/TaqyGVRCfsky1CZLp76vfH (private
+to Peter). Nothing of it is built in the page yet.
+
+**The design (proposed):**
+- **It opens on your store:** New store, Open store file, Open a folder.
+  The packs move behind one menu, "Vocabularies", from which they can be
+  shown or browsed.
+- **One box for filing, with suggestions:** your categories first, then
+  the vocabularies', each with where it sits. The place is shown because
+  it matters: core's `photograph` is under `image` and `physical-object`
+  (a print), so a jpg filed there would become a physical object.
+- **A folder is read, never written.** Each file is tagged by its type:
+  - jpg, png, heic, gif and webp under `image-file`;
+  - mp4, mov and mkv under `video-file`;
+  - mp3, m4a, wav and flac under `audio-file`;
+  - txt, md, yaml and csv under `text-file`;
+  - zip, gz and tar under `archive-file`, all from computing;
+  - pdf, doc, docx, odt and the spreadsheets under core's `document`;
+  - pptx and odp under core's `presentation`.
+
+  Core's `spreadsheet` is the program (under `computer-program`), so
+  spreadsheets go under `document` for now. The tags are the folder's
+  layer (PROJECTIONS.md §3): rebuilt whenever the folder is opened, never
+  written into your store, which holds only what you filed. The work
+  list is "not yet filed"; several files are filed at once. Dates and
+  folder names are the next easy tags.
+- **Holdings' names:** in store terms a type tag is holdings'
+  `sys:type:<ext>`, and a small table puts each under its kind
+  (`sys:type:jpg ⊑ image-file`), so holdings' projection gets the same
+  hierarchy (PROJECTIONS.md §8). Proposed, not decided.
+- **Any combination of stores:** ticked vocabularies, a published root
+  or another store are read together with yours, and only yours changes.
+  This is `odag`'s overlay view (`Session.view()`, PROJECTIONS.md §5)
+  brought to the page. Browsing starts from your categories, and a
+  vocabulary's categories show only around the ones you use.
+- **Reading a folder:** a plain folder input (`<input type="file"
+  webkitdirectory>`) gives the page the folder's list read-only: names,
+  paths inside the folder, sizes, dates. That is expected in Chrome,
+  Firefox and desktop Safari; Brave and Freedom are to be probed (what
+  Freedom refused, §14.1, was File System Access). After a reload the
+  folder is picked again. The page never sees a file's absolute path,
+  only its path inside the folder picked.
+
+**Question 39 (decided A, Peter, 2026-10-13): when you pick a
+vocabulary's category, only its name goes into your store.** Filing
+`rome-001.jpg` under core's `holiday` stores `rome-001.jpg ⊑ holiday`;
+with core shown, `get event` finds the photo. The page shows a
+vocabulary by itself when your store or the folder uses its names,
+unless you turned it off. Read alone (`odag` without the `overlays`
+setting), such a name is one of your top categories. Rejected:
+- **B:** copying the name's ancestors (7 for `holiday`). Core's top
+  branches would fill your top, and copied edges never get a vocabulary's
+  sense corrections, which do not travel by merge.
+- **C:** copying its direct parents only. It leaves a partial chain, with
+  the same problem.
+
+**Hashing in the page, measured (2026-10-13, this laptop, headless
+Chromium, 128 MB of random bytes, three runs):**
+
+| how | speed |
+|---|---|
+| `crypto.subtle.digest` (the whole file in memory) | 214–219 MB/s |
+| the same over 4 MB files | 214–219 MB/s |
+| noble's streaming SHA-256 (for files too big to hold) | 64–66 MB/s |
+| native Python `hashlib`, for comparison | 259 MB/s |
+
+Reading the files from disk comes on top.
+
+**Open:** question 40 (what a file is called in your store) and
+question 41 (where your store lives between visits).
