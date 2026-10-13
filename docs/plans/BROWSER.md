@@ -1500,6 +1500,52 @@ binding pack later.
   with `--bridge retry`; every answer still matches the native reader.
 - **Tried by Peter** (2026-10-13) in Brave, Chromium and Freedom.
 
+**The Python core for folders, started (2026-10-13, question 43's first
+step): `ontodag.folders`.** Single files too (Peter: "as well as folders,
+it would be good to be able to add single files").
+- **Looking:**
+  - `scan` walks a folder read only, skipping what holdings skips (version
+    control, caches, sync tools' folders, hidden files, editors' and
+    systems' temporaries) and symlinks;
+  - it hashes each file unless the `HashCache` knows it by path, size and
+    modification time, or unless it is larger than `hash_over`;
+  - `look_at` reads one file from anywhere, named by its folder and itself
+    (`Downloads/receipt.pdf`);
+  - `Folder` groups what was seen by content (copies are one) and gives
+    the folder's layer, each content under its kind (`KINDS`: computing's
+    file kinds, core's `document` and `presentation`). The layer is never
+    stored.
+- **Your store:**
+  - **`file`** makes the document (named by the file, the folder added
+    when the name is taken, ` (file)` when the name would read as a typed
+    value) with the content below it as `sha256:<hex>` under its
+    modification time. A copy files into the same document, and
+    categories the store lacks are put at its top as names.
+  - **`recognise_edits`** finds a new content named as a document whose
+    versions have all left the folder; two documents of one name go by
+    folder, and an edit together with a rename is not guessed. `attach`
+    files it.
+  - **For a single file,** `named_like` lists the documents of its name,
+    and `file(..., version_of=)` makes it a new version when the person
+    says so; without its folder, the page cannot tell that the old version
+    is gone.
+  - **`unfiled`** lists the contents not filed yet.
+- **Measured** (this laptop, natively, Peter's own folders, counts only):
+
+  | folder | files | first look (all hashed) | second look (from the cache) | cache file |
+  |---|---|---|---|---|
+  | Documents | 2,520, 1.9 GB | 13.2 s, 141 MB/s | 0.08 s | 377 KB |
+  | Pictures | 1,211, 264 MB | 3.3 s, 81 MB/s | 0.04 s | 188 KB |
+
+  Documents held 155 copies (2,365 contents). By kind: 1,679 documents,
+  494 images, 48 text files, 21 archives and 1 presentation, with 122
+  contents of no kind.
+- **Tests:** `tests/test_folders.py`, 21 tests, on real files in a
+  temporary folder.
+- **Next:** `odag` commands on it (look at a folder, file files, list
+  what is not filed, answers showing documents rather than hashes); then
+  the page's "Open a folder…" and "Add files…".
+
 **Core is shown from the start (Peter, 2026-10-13).** Core is shown
 beside every store unless the person turned it off, which the page
 remembers in that browser. The page composes core while it starts, after

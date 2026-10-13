@@ -191,8 +191,8 @@ class TestCoreIsSwarmFree(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
 
     def test_suggestions_are_reached_only_by_asking_for_them(self):
-        # The organiser page's suggestions and core's WordNet words (143 KB)
-        # load when a page asks for them, never with the core.
+        # The organiser's suggestions, core's WordNet words (143 KB) and the
+        # folder module load when asked for, never with the core.
         code = (
             "import sys\n"
             "import ontodag\n"
@@ -200,6 +200,7 @@ class TestCoreIsSwarmFree(unittest.TestCase):
             "d = OntoDAG(); d.put('a', []); d.put('b', ['a'])\n"
             "assert 'ontodag.suggest' not in sys.modules\n"
             "assert 'ontodag.core_words' not in sys.modules\n"
+            "assert 'ontodag.folders' not in sys.modules\n"
         )
         env = dict(os.environ, PYTHONPATH=SRC)
         proc = subprocess.run(

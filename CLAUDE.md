@@ -90,7 +90,9 @@ github.com/petfold.
   `web/`: the Flask app.
 - `viz.py`, `owl.py`: Graphviz and OWL (extras). `migrate.py`: replays an
   old store through `put`. `browser.py`: the Pyodide bridge, with the
-  organiser page's `Organiser`. `suggest.py` and `core_words.py`
+  organiser page's `Organiser`. `folders.py`: a folder's files and
+  single files filed as documents with their contents as versions (BROWSER.md
+  §17). `suggest.py` and `core_words.py`
   (generated in ontodag-core from WordNet; `NOTICE` carries its licence):
   suggestions while typing. `_extras.py`: teaching errors for a missing
   extra.

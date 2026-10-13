@@ -38,6 +38,15 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
+- **`ontodag.folders`: your files, organised where they are** (BROWSER.md
+  §17, questions 40 to 45; the Python core, with `odag` commands and the
+  page to follow). A folder is read, never written. Each file's content is
+  hashed (a `HashCache` spares re-reading what did not change) and tagged
+  by its kind in a layer that is never stored. Filing a file, from a
+  folder or on its own, makes a document named by the file, with each
+  content it has had below it as `sha256:<hex>` under its modification
+  time. Copies are one version, an edit is recognised by name, and an edit
+  together with a rename is left to the person.
 - **The page is an organiser for your own store** (BROWSER.md §17,
   Peter's direction of 2026-10-13).
   - **Layout:** it opens on your store, with the packs behind a
