@@ -361,7 +361,11 @@ shared piece is this contract, not a package.
    document a new item. Do human categories carry forward, and by what
    act? (A `version-of`-shaped link brushes the relations wall;
    re-filing by hand is honest but tedious; holdings inherits the same
-   gap in `whereis`.)
+   gap in `whereis`.) **Answered for the browser page (question 40,
+   2026-10-13, BROWSER.md §17):** a filed file is a document node, the
+   class of its versions, with each content hash below it. Categories go
+   on the document and every version inherits them, by ordinary "below".
+   No relation is needed.
 4. **Names for link and live items.** A URL is a location, not an
    identity. Content hash when known; else the URL; live sources
    perhaps named by a recipe hash — none of this is settled, and G1

@@ -380,8 +380,11 @@ Each line points to its record.
   written, its files tagged by type in a layer rebuilt on each opening;
   any combination of stores shown together, only yours written.
   Question 39 decided A: a vocabulary's category enters your store as a
-  name only, and the vocabulary shown alongside supplies its places. A
-  mockup exists (BROWSER.md §17); nothing is built yet.
+  name only, and the vocabulary shown alongside supplies its places.
+  Question 40 decided B in its document form: a filed file is a document
+  node named by its file name, with each content it has had below it as
+  a version named by its SHA-256, each version with its modification
+  time. A mockup exists (BROWSER.md §17); nothing is built yet.
 - Provenance: signed claim records in a sibling store (PROVENANCE.md).
 - Web: one page, browsing plus a console, where every click writes its
   command (WEB_UI.md). Its DAG lives in the server's memory per session.
@@ -594,9 +597,8 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 
 ## Open questions for Peter
 
-Question 40 (the organiser page, BROWSER.md §17): what a file is called
-in your store, its path or its content hash; then question 41, where your
-store lives between visits. Questions 37 to 39 are decided.
+Question 41 (the organiser page, BROWSER.md §17): where your store and
+the list of hashes live between visits. Questions 37 to 40 are decided.
 Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 

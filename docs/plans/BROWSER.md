@@ -1106,5 +1106,56 @@ Chromium, 128 MB of random bytes, three runs):**
 
 Reading the files from disk comes on top.
 
-**Open:** question 40 (what a file is called in your store) and
-question 41 (where your store lives between visits).
+**Question 40 (decided B in its document form, Peter, 2026-10-13): what
+a file is called in your store.**
+- **The document:** a filed file is a document, a node named by the file's
+  name when first filed, and your categories go on it.
+- **Its versions:** each content it has had is a version below it, named
+  by its content hash, as holdings and PROJECTIONS.md §6 name files:
+
+      reading-list.md ⊑ notes
+      sha256:4be1… ⊑ reading-list.md      the content when filed
+      sha256:91c0… ⊑ reading-list.md      after an edit
+
+  The document is the class of its versions, so this is ordinary "below"
+  and needs no `version-of` relation. That answers PROJECTIONS.md §10's
+  edited-file residue for the page.
+- **What holds whatever happens:** renames, moves and which folder was
+  picked do not matter, since a known version is found by its hash.
+  Copies are one version, and the store reads by file names without the
+  folder.
+- **Recognising an edit:** the page sees a file whose content it does
+  not know, under the name of a document whose known versions are no
+  longer in the folder. With one such document it attaches the new
+  version itself and says so, with undo; otherwise it asks. An edit and a
+  rename together look like a new file, which lands in "not yet filed"
+  with "a new version of…" offered there.
+- **Names:** the document keeps its first name, and `rename` is offered
+  when the file's name changes. Two files of one name are told apart by
+  their folder. A file name can hold brackets, which ontodag reads as a
+  typed value, so how a file name is spelled as a node is settled when
+  this is built.
+- **History:** old versions stay below the document until removed. The
+  store keeps their names; their bytes survive only where a copy does
+  (on Swarm while its batch pays, on backups holdings tracks).
+- **Modification times:** each version records its modification time
+  when the page first sees it, as a value
+  (`sha256:91c0… ⊑ time(2026-10-13T09:12:41Z)`). It cannot be read again
+  once the file changes. Tried natively: `get reading-list.md
+  time(2026-10-13)` returns that version.
+- **Sizes:** a size needs a head in bytes. The prelude's `size` is the
+  tuple kind (30×20×10 cm), and computing has `file-size` as a plain
+  category, so sizes wait for a name.
+- **Skipping the hash:** a file whose path, size and modification time
+  match the last hashing is taken as unchanged without reading it, as
+  holdings' rescan does. This is for speed only, never verification (bit
+  rot changes neither). It needs that list kept between visits (question
+  41).
+- **What the page sees of a file:** its name, its path inside the picked
+  folder, its size, its modification time, and a type guessed from the
+  extension. It sees no creation time, inode or owner. Natively an inode
+  would not follow a document either, since many editors save by writing
+  a new file over the old one.
+
+**Open:** question 41 (where your store, and the list of hashes, live
+between visits).
