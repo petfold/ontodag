@@ -6,6 +6,7 @@
 
 import { ChunkReader, BlobStore, FreedomSwarm, HttpSwarm, StoredChunks, topicOf } from "./swarm.js";
 import { LocalFile, download } from "./localfile.js";
+import { SaveHelp, flagJustTurnedOn, isBrave, saveAdvice } from "./savehelp.js";
 import { PythonCalls } from "./pycall.js";
 import { Key, NodeWriter, Stage, feedUpdate, uploadStaged } from "./publish.js";
 
@@ -206,6 +207,7 @@ async function openStore(root) {
 const LOCAL = "local";
 const OD_TYPES = [{ description: "OntoDAG store", accept: { "text/plain": [".od"] } }];
 let files = null;
+let saveHelp = null;        // savehelp.js: where the browser saves only by downloading
 
 function showLocal(summary, note = "") {
   $("swarmedit").classList.remove("hidden");
@@ -214,6 +216,7 @@ function showLocal(summary, note = "") {
   $("localstate").textContent = `${summary.name} · ${summary.count} categor${summary.count === 1 ? "y" : "ies"}` +
     (summary.changed ? " · unsaved changes" : " · saved") + ` · ${how}.` + (note ? ` ${note}` : "");
   $("localsave").disabled = false;
+  $("savehelpopen").classList.toggle("hidden", !saveHelp.available);
   $("localprelude").classList.remove("hidden");
   $("localedit").classList.remove("hidden");
   localChanged = summary.changed;
@@ -262,6 +265,7 @@ async function localSave() {
   if (!where) return;
   const summary = await call("local_saved", where.name);
   showLocal(summary, where.how === "download" ? "Downloaded; keep it where you like and open it next time." : "");
+  if (where.how === "download") saveHelp.offer();
 }
 
 async function localPut() {
@@ -317,7 +321,8 @@ function keyNew() {
   key = Key.generate();
   const file = `ontodag-key-${key.address.slice(0, 6)}.txt`;
   download(key.text(), file);
-  showKey(`Saved as ${file} in your downloads. Keep that file: whoever has it can change what you publish, and without it you cannot.`);
+  showKey(`Saved as ${file}, in your downloads unless your browser asked where. Keep that file: whoever has it can change what you publish, and without it you cannot.`);
+  saveHelp.offer();
 }
 
 function keyOpen() {
@@ -600,6 +605,15 @@ def below(a, b):
   files = new LocalFile({ input: $("localfile"), types: OD_TYPES,
     pickers: !FreedomSwarm.present(), refusedKey: "ontodag-pickers-refused" });
   globalThis.ontodagPage.files = files;
+  const brave = await isBrave();
+  saveHelp = new SaveHelp({ dialog: $("savehelp"),
+    advise: () => saveAdvice({ pickers: files.pickers, brave, freedom: FreedomSwarm.present() }) });
+  globalThis.ontodagPage.saveHelp = saveHelp;
+  $("savehelpopen").classList.toggle("hidden", !saveHelp.available);
+  $("savehelpopen").onclick = () => saveHelp.open();
+  if (flagJustTurnedOn({ brave, pickers: files.pickers })) {
+    $("localstate").textContent = `Brave's flag is on: Save now writes back to the file you opened. ${$("localstate").textContent}`;
+  }
   $("store").onchange = () => ($("store").value === LOCAL ? useLocal() : openStore($("store").value));
   $("localnew").onclick = localNew;
   $("localopen").onclick = localOpen;

@@ -34,6 +34,15 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
+- **The page helps you save where you want** (`demo/freedom/savehelp.js`,
+  BROWSER.md §14.1). Where a browser lets the page save only by
+  downloading (Brave, Freedom, Firefox, Safari), the first download of a
+  visit opens a dialog naming the setting that turns each download into a
+  save dialog. It copies the setting's address to paste into a new tab,
+  since a page can neither change a browser's settings nor open its
+  settings pages. In Brave it also offers the flag that turns on File
+  System Access, which applies to every site, and shows its steps only
+  after you say yes. A link beside Save opens the dialog again.
 - **The browser page publishes your own store** (BROWSER.md §16), as
   `odag -f swarm:NAME` does: a random key in a file you keep owns the
   store's feed (`0x` and 64 hex digits, the value `odag` takes as

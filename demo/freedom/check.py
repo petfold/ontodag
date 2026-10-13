@@ -189,6 +189,44 @@ async def check_page(url, root, queries, freedom, gateway=None, index=None, mode
     return got, calls
 
 
+async def check_save_help(page):
+    """After a save that was a download, the page offers its help once
+    (savehelp.js): the browser's download setting, and in Brave also the
+    flag, whose steps show only after the person says yes."""
+    problems = []
+    try:
+        await page.wait_for_selector("#savehelp[open]", timeout=5000)
+    except Exception:
+        return ["after a download, the save help did not open"]
+    text = await page.inner_text("#savehelp")
+    if "Ask where to save" not in text:
+        problems.append(f"the save help says: {text[:160]!r}")
+    await page.click("#savehelp button.primary")
+    await page.wait_for_selector("#savehelp[open]", state="detached")
+    if not await page.is_visible("#savehelpopen"):
+        problems.append("no link to open the save help again")
+    brave = await page.evaluate("""async () => {
+        const m = await import("./savehelp.js");
+        const help = window.ontodagPage.saveHelp, before = help.advise;
+        help.advise = () => m.saveAdvice({ pickers: false, brave: true });
+        help.open();
+        const d = document.getElementById("savehelp");
+        const steps = () => !d.querySelector("ol").classList.contains("hidden");
+        const shownBefore = steps();
+        [...d.querySelectorAll("button")].find((b) => b.textContent === "Yes, show me how").click();
+        await new Promise((r) => setTimeout(r, 200));
+        const out = { shownBefore, shownAfter: steps(), addresses: [...d.querySelectorAll("input.addr")].map((i) => i.value) };
+        d.close();
+        help.advise = before;
+        return out;
+    }""")
+    if brave != {"shownBefore": False, "shownAfter": True,
+                 "addresses": ["brave://settings/downloads", "brave://flags/#file-system-access-api"]}:
+        problems.append(f"Brave's help: {brave!r}")
+    print(f"  save help after a download, and Brave's two settings: {'ok' if not problems else problems}")
+    return problems
+
+
 async def check_local(page):
     """Your own store through the page's buttons; the problems found."""
     import tempfile
@@ -219,6 +257,7 @@ async def check_local(page):
     state = await page.inner_text("#localstate")
     if "· saved" not in state:
         problems.append(f"after saving, the page says: {state!r}")
+    problems += await check_save_help(page)
 
     with tempfile.NamedTemporaryFile("w", suffix=".od", delete=False) as fh:
         fh.write(saved)

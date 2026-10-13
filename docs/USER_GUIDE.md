@@ -3270,7 +3270,15 @@ Where the browser lets a page keep a file you gave it (Chrome), Save
 writes back to that file. Freedom refuses that access and Brave has no
 file pickers, so there Open uses an ordinary file dialog and Save
 downloads the file; keep it where you like and open it next time. The
-page warns before you leave it with unsaved changes. In Python the same
+first time Save downloads, the page offers its help. It names the
+browser's "ask where to save each file" setting, after which every save
+asks which folder and asks before replacing the old copy. It copies the
+setting's address for you to paste into a new tab (a page cannot open a
+browser's settings itself). In Brave it also offers the flag that makes
+Save write back to the file, as in Chrome. The flag applies to every
+site, so its steps show only after you say yes. "Save into a folder you
+choose…" beside Save opens the help again. The page warns before you
+leave it with unsaved changes. In Python the same
 store is `ontodag.browser.LocalStore`:
 
 ```python

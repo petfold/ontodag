@@ -38,6 +38,7 @@ Next version, with Publish (BROWSER.md §16), not behind the names yet:
 | `publish.js` | writing your store (BROWSER.md §16): the key (`Key`, signing as Bee checks), the `Stage` Python's `StagedBlobs` writes into, `NodeWriter` (the node's batches, plain uploads, `/stewardship`, the feed found by probing and written with `POST /soc`) and `uploadStaged` |
 | `pycall.js` | how Python waits for Swarm: JSPI, or retrying where JSPI cannot suspend Python (Pyodide on iOS; BROWSER.md §15) |
 | `localfile.js` | opening and saving a local file: in place where the browser allows it, by file input and download elsewhere |
+| `savehelp.js` | where Save can only download (Brave, Freedom, Firefox, Safari): a dialog naming the browser's ask-where-to-save setting, its address copied to paste, and in Brave the File System Access flag, offered only after a yes (BROWSER.md §14.1); `node test/test_savehelp.mjs` checks which help each browser gets |
 | `swarm.js` | the Swarm layer: `FreedomSwarm`, `HttpSwarm`, `ChunkReader` (chunk trees joined, every chunk checked against its address, an IndexedDB cache), `BlobStore` for Python |
 | `vendor/noble-hashes/` | keccak-256 and the hashes secp256k1 needs (MIT), as `swarm.js` and `publish.js` import them |
 | `vendor/noble-curves/` | secp256k1 (MIT, 1.9.7), for `publish.js` |

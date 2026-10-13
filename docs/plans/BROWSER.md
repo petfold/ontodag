@@ -701,6 +701,21 @@ file (`ontodag.browser.LocalStore`, a whole `OntoDAG` in memory):
 - **Brave alone:** `brave://flags/#file-system-access-api` turns on the
   API Chrome has. The flag is global and against Brave's own choice, but
   fine in one's own browser.
+- **Built for the first two (2026-10-13, Peter chose them):**
+  `demo/freedom/savehelp.js`.
+  - **When it shows:** after the first download of a visit, or from the
+    link beside Save, wherever the page can only download.
+  - **What it says:** the dialog names the ask-where-to-save setting and
+    copies its address (`brave://settings/downloads`, `freedom://settings`)
+    to paste into a new tab. A page can neither change a browser's
+    settings nor open its settings pages.
+  - **Brave's flag:** the dialog asks "Turn it on?" before showing the
+    flag's steps (copy `brave://flags/#file-system-access-api`, set it to
+    Enabled, Relaunch). After the relaunch the page says Save now writes
+    back.
+  - **Checks:** `check.py` checks the dialog after the page's download,
+    and Brave's version through its yes. `test_savehelp.mjs` checks which
+    help each browser gets.
 - **The installed version:** `odag` serving the page on localhost, with
   file access in Python, would work in any browser. It would be
   restricted to its own origin and a token, unlike the node's open CORS

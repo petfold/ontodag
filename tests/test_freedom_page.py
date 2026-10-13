@@ -1,7 +1,8 @@
 """The page's Swarm layer, run under node. swarm.js against chunk trees
 made by swarmfs's splitter: addresses, trees from 0 to 600 KB, a tampered
 or missing chunk refused, one read per chunk. publish.js against swarmfs's
-signer: a feed update signed byte for byte the same. Without
+signer: a feed update signed byte for byte the same. savehelp.js: which
+browser setting it offers where a page saves only by downloading. Without
 swarmfs, make_vectors.py's splitter on pycryptodome (the `act` extra, so
 CI) makes them, checked against swarmfs's where both are present. Skips
 without node, or with neither splitter."""
@@ -72,3 +73,12 @@ class TestPublishJs(unittest.TestCase):
                              capture_output=True, text=True, check=True)
         with open(os.path.join(PAGE, "test", "feed_vector.json")) as fh:
             self.assertEqual(json.loads(run.stdout), json.load(fh))
+
+
+@unittest.skipUnless(shutil.which("node"), "needs node")
+class TestSaveHelpJs(unittest.TestCase):
+    def test_the_help_fits_the_browser(self):
+        run = subprocess.run(["node", os.path.join(PAGE, "test", "test_savehelp.mjs")],
+                             capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("all passed", run.stdout)
