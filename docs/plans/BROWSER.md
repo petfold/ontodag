@@ -1564,9 +1564,19 @@ failed first).
   - **What it costs:** Android no longer knows the file is text, so a text
     editor opens it through "Open with".
   - **The probe:** `bzz://8320d28148e100ca7474ebbaea48629d163793125b3ae69bd8e9d3c3e72109b8/`
-    saves the same store typed three ways (`application/octet-stream`,
-    `text/plain`, `text/x-ontodag`) for Peter to try, since a text type
-    Android has no extension for might keep both the name and the text.
+    saves the same store typed three ways. Peter tried it on GrapheneOS
+    (2026-10-14), with Markor as the text editor:
+
+    | type | name saved | opens as text |
+    |---|---|---|
+    | `application/octet-stream` | `probe-a.od` | from Markor; the Files app does not offer Markor |
+    | `text/plain` | `probe-b.od.txt` | from Markor |
+    | `text/x-ontodag` | `probe-c.od` | from Markor; the Files app does not offer Markor |
+
+    So `application/octet-stream` stays: it keeps the name, and a text
+    type the system has no extension for gains nothing. A store is opened
+    as text from the editor (Markor → Download → Freedom). GrapheneOS ships
+    no text editor.
   - **Either way the store still works:** `odag` reads a store saved as
     `.od.txt`.
 - **The app has the same "Ask where to save each file" setting** under
