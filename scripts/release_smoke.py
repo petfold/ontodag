@@ -497,6 +497,30 @@ def smoke(env, expect_version):
 
     check("the web app ships in the wheel", web_app_is_in_the_package)
 
+    def your_files():
+        # 0.33.0: odag folder and odag file from the wheel, and core's
+        # WordNet words packaged beside them (a 143 KB generated module).
+        import os
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(os.path.join(tmp, "Notes"))
+            with open(os.path.join(tmp, "Notes", "plan.md"), "w") as fh:
+                fh.write("a plan")
+            o("put", "plans")
+            looked = o("folder", tmp)
+            assert "1 file, 1 content" in looked and "not yet filed 1" in looked, looked
+            filed = o("file", os.path.join(tmp, "Notes", "plan.md"), "--under", "plans")
+            assert "a new document, plan.md under plans" in filed, filed
+            got = o("get", "plans").split()
+            assert got[0] == "plan.md" and got[1].startswith("sha256:"), got
+        words = env.run(env.python, "-c",
+                        "from ontodag.core_words import WORDS; from ontodag.suggest import Vocabularies;"
+                        "print(' '.join(dict(WORDS)['photograph']))").strip()
+        assert "photo" in words.split(), words
+        return "a folder looked at, a file filed with its version; photograph: " + words
+
+    check("your files: folder, file, and core's WordNet words", your_files)
+
 
 
 def main():

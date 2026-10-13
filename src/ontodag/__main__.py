@@ -1230,8 +1230,10 @@ def cmd_folder(args, session, out):
         session.save()
     filed = sum(1 for h in folder.by_hash if folders.version_name(h) in dag.nodes)
     copies = sum(len(v) - 1 for v in folder.by_hash.values())
-    print(f"{args.dir}: {stats['files']} files, {len(folder.by_hash)} contents"
-          + (f" ({copies} files are copies)" if copies else ""), file=out)
+    n, c = stats["files"], len(folder.by_hash)
+    print(f"{args.dir}: {n} file{'' if n == 1 else 's'}, {c} content{'' if c == 1 else 's'}"
+          + (f" ({copies} {'file is a copy' if copies == 1 else 'files are copies'})" if copies else ""),
+          file=out)
     kinds = {}
     for _item, ks in folder.layer():
         for k in ks:

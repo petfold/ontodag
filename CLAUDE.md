@@ -35,7 +35,7 @@ github.com/petfold.
 
 - **recordstore**: a versioned key-to-record store over content-addressed
   blobs: canonical roots, snapshots, three-way merge, proofs, history and
-  undo. The one base dependency (`>=0.22.2`). Its brief is `ONBOARDING.md`.
+  undo. The one base dependency (`>=0.23.0`). Its brief is `ONBOARDING.md`.
 - **swarmfs**: the one route to Bee: local-first stores and their sync,
   postage selection, feeds, and the shared signer `swarmfs.signer`. In the
   `swarm` extra (`swarmfs[feeds]>=0.13.0`).
@@ -204,9 +204,8 @@ Contract 0.6 (`docs/CONTRACT.md`, `tests/test_contract.py`):
   (`make_g8.py`) only together with a registry bump.
 - **G9** replays are order-free; single writes are checked as they come.
 
-Versions now: contract 0.7, registry 5.0, prelude 5, surface 0.2 on main
-(released in 0.31.0: contract 0.6, registry 4.4, prelude 4, surface 0.1).
-Consumers compare majors.
+Versions now: contract 0.7, registry 5.0, prelude 5, surface 0.2, all
+released since 0.32.0. Consumers compare majors.
 
 ## Standing rules
 

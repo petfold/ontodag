@@ -14,6 +14,22 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.33.0] — 2026-10-14
+
+Your own things, organised where they are (BROWSER.md §17, questions 37
+to 46, decided by Peter 2026-10-11 to 2026-10-14).
+- **`odag folder` and `odag file`** file your files, single ones or a
+  folder's, as documents named by the files, with each content they have
+  had below them as a version (`sha256:…`), recognising an edit by name.
+- **Suggestions while typing** come from the packs, and from core's
+  WordNet words (`ontodag.suggest`, `ontodag.core_words`).
+- **The browser page** is an organiser for your own store, with the packs
+  shown beside it. It publishes your store through your own node under a
+  key you keep in a file, and reads by retrying on iPhones.
+
+recordstore 0.23.0 is the floor (`get_many`, and an unreachable trie node
+read as unavailable rather than absent).
+
 ### Fixed
 
 - **Suggestions open above the field when the keyboard covers the screen

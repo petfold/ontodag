@@ -144,6 +144,25 @@ data) is [`docs/plans/PROJECTIONS.md`](docs/plans/PROJECTIONS.md), shared with
 [holdings](https://github.com/petfold/holdings), which emits
 exactly this stream from your filesystems and backup drives.
 
+## Your files, where they are
+
+Files stay where they are; your store says what they are:
+
+```console
+$ odag folder ~/Documents                     # how many by kind, filed, not yet filed
+$ odag file ~/Documents/Taxes --under taxes   # each file a document under taxes
+$ odag folder ~/Documents --find taxes document
+```
+
+Each file becomes a document named by the file, with its content below it
+as a version named by its SHA-256, under the time it was last modified. A
+copy elsewhere joins the same document, and renaming or moving it changes
+nothing. When a file is edited, the next look files the new content as the
+document's new version, under the same categories. The folder is only read;
+its hashes stay in odag's home, so a second look reads only what changed
+(2,520 files: 13 s the first time, 0.08 s after). The kinds (`image-file`,
+`document`, ...) come from extensions and are never stored.
+
 ## Where a store lives
 
 Three tiers, each paying for itself, and the same commands throughout:
@@ -181,18 +200,30 @@ into a console as the command it means (`get Japan Flight`). Point at things
 and you have learned the command language without looking anything up. The
 **Refine by** list only offers categories that genuinely narrow what you are
 looking at, with the count each click will leave; the graph is clickable; and a
-`Commands` button lists all 26 OntoDAG commands, marking which of them a
+`Commands` button lists every OntoDAG command, marking which of them a
 browser can run and why the rest cannot.
 
 The web app's DAG is server memory per session — a workbench and a demo, not a
 front end onto your store.
 
-**Without a server at all:** `demo/pyodide/index.html` runs the released
-package inside the browser (Pyodide, installed from PyPI at page load) with
-the same `odag` interpreter against an in-memory store. Equal knowledge gives
-the same canonical root there as on a laptop — `demo/pyodide/check.py`
-verifies that on every release. Swarm from a browser is designed but not yet
-run; see `docs/plans/BROWSER.md`.
+**Without a server at all, on Swarm:** an organiser page runs the package
+inside the browser (Pyodide) and is itself published on Swarm: `bzz://ontodag.gwei/`
+in Freedom Browser, `https://ontodag.gwei.domains/` in any browser, or
+`http://localhost:1633/bzz/ontodag.eth/` through your own Bee node.
+- **Your store comes first,** a `.od` file on your computer; the shared
+  vocabularies are shown beside it in any combination.
+- **While you type, it suggests names** with where each sits: "photo" finds
+  core's `photograph` by its WordNet words.
+- **It publishes your store** through your own node, under a key you keep
+  in a file.
+- **It still reads a published store** straight from Swarm, chunk by
+  checked chunk.
+
+It works in Chrome, Brave, Freedom (desktop and Android) and on iPhones
+(`demo/freedom/`; design and measurements in `docs/plans/BROWSER.md`).
+`demo/pyodide/index.html` runs the released package against an in-memory
+store, and `demo/pyodide/check.py` checks on every release that equal
+knowledge gives the same canonical root there as on a laptop.
 
 ## For AI agents
 
