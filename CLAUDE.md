@@ -407,7 +407,10 @@ Each line points to its record.
   page first (Peter, 2026-10-13), with core's WordNet words as a finding
   aid, never names (`ontodag.suggest`, `ontodag.core_words`,
   `ontodag.browser.Organiser`); folders, documents and versions follow
-  the Python core. A mockup shows the whole design (BROWSER.md §17).
+  the Python core, now built with `odag folder` and `odag file`.
+  Question 46 decided B: on a screen an answer folds a document's
+  versions into its line; a pipe gets every name. A mockup shows the
+  whole design (BROWSER.md §17).
 - Provenance: signed claim records in a sibling store (PROVENANCE.md).
 - Web: one page, browsing plus a console, where every click writes its
   command (WEB_UI.md). Its DAG lives in the server's memory per session.
@@ -620,9 +623,9 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 
 ## Open questions for Peter
 
-None open now: questions 37 to 45 (the organiser page) are decided. The
-smaller open points are listed at the end of BROWSER.md §17; next is the
-Python core with `odag` commands (question 43).
+None open now: questions 37 to 46 (the organiser page and `odag`'s
+folders) are decided. The smaller open points are in BROWSER.md §17;
+next for the organiser is the page's "Open a folder…" and "Add files…".
 Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 

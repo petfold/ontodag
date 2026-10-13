@@ -55,6 +55,9 @@ the version numbers appear in commit history and docs.
   - **`file PATH... --under CATEGORY...`** files single files or a
     folder's into your store. A new content named as a document you have
     waits for `--version-of DOC` or `--separate`.
+  - **Answers on a screen** fold a document's versions into its line,
+    `reading-list.md (2 versions)`; a pipe or `--raw` gets every name
+    (question 46).
 - **`ontodag.folders`: your files, organised where they are** (BROWSER.md
   §17, questions 40 to 45; the Python core, with `odag` commands and the
   page to follow). A folder is read, never written. Each file's content is

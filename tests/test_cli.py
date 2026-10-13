@@ -3910,6 +3910,17 @@ class TestFolderCommands(unittest.TestCase):
         third = self.write("reading-list.md", "third", base=os.path.join(self.tmp.name, "Archive"))
         self.assertIn("a new document, reading-list.md (Archive)", self.run_ok("file", third, "--separate", "--under", "notes"))
 
+    def test_on_a_screen_versions_fold_into_their_document(self):
+        # Question 46, B: a person reads documents, a pipe gets every name.
+        self.run_ok("file", os.path.join(self.root, "Notes"), "--under", "notes")
+        self.write("Notes/reading-list.md", "more books", mtime=1_790_000_000)
+        self.run_ok("folder", self.root)
+        self.assertEqual(self.run_ok("get", "--render", "notes"), "reading-list.md (2 versions)\n")
+        piped = self.run_ok("get", "notes").split()
+        self.assertEqual(len(piped), 3)
+        self.assertIn("reading-list.md (a version, sha256:",
+                      self.run_ok("get", "--render", "time(2026-09-21T14:13:20Z)"))
+
     def test_find_joins_the_folders_kinds_to_the_store(self):
         self.run_ok("file", self.root, "--under", "holiday")
         out = self.run_ok("folder", self.root, "--find", "holiday", "image-file")

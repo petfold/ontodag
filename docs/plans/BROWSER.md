@@ -1553,9 +1553,15 @@ it would be good to be able to add single files").
     document waits for `--version-of DOC` or `--separate`, so nothing is
     filed that would then need undoing.
   - **Tests:** `TestFolderCommands`, 9 tests; a User Guide section, §5.14.
-- **Next:**
-  - how `odag get` shows a document's versions (a question for Peter);
-  - then the page's "Open a folder…" and "Add files…".
+- **Question 46 (decided B, Peter, 2026-10-14): on a screen an answer
+  folds a document's versions into its line** (`reading-list.md (2
+  versions)`, or `reading-list.md (a version, sha256:6e317bcd…)` when the
+  document is not in the answer). A pipe or `--raw` gets every name,
+  following the rule that output is canonical off a terminal.
+  - **Rejected:** A, every name on screen too, which crowds out the names
+    a person reads; C, versions left out unless asked, which would make
+    `get` leave out things below its query.
+- **Next:** the page's "Open a folder…" and "Add files…".
 
 **Freedom on Android (Peter, 2026-10-13).** The organiser works there,
 with two problems, both fixed and checked in `check.py` (each check

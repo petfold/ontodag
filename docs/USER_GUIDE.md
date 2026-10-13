@@ -2851,13 +2851,17 @@ Stuff/Photos/Rome/IMG_2041.jpg: a new document, IMG_2041.jpg under holiday
 $ odag -f mine.od file Stuff/Notes --under notes
 Stuff/Notes/reading-list.md: a new document, reading-list.md under notes
 $ odag -f mine.od get notes
+reading-list.md (1 version)
+$ odag -f mine.od get notes | cat
 reading-list.md
 sha256:6e317bcd6839e8877395411b47b2b89d2bae7ccb05f78cee32bcdf76b5294265
 ```
 
 Each file becomes a **document** named by the file, and its content is a
 **version** below it, named by its SHA-256 (as holdings names files) and
-filed under the time the file was last modified. The document is the
+filed under the time the file was last modified. On a screen an answer
+folds a document's versions into its line; a pipe, or `--raw`, gets every
+name. The document is the
 class of its versions, so renaming or moving the file changes nothing,
 and a copy elsewhere joins the same document. When a file changes, the
 next look finds the new content and files it as the document's new

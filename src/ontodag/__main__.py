@@ -199,6 +199,33 @@ def _namer(args, session, out):
     return lambda name: name
 
 
+def _versions_folded(names, dag, fmt):
+    """An answer's lines for a person (question 46, BROWSER.md §17): a
+    document's versions fold into its line, `reading-list.md (2 versions)`,
+    and a version whose document is not in the answer shows as its
+    document's, `reading-list.md (a version, sha256:6e317bcd…)`. A pipe
+    gets every name, as ever."""
+    from ontodag import folders
+    present = set(names)
+    counts, alone = {}, []
+    for name in names:
+        if folders.is_version(name):
+            doc = folders.document_of(dag, name)
+            if doc in present:
+                counts[doc] = counts.get(doc, 0) + 1
+            else:
+                alone.append((doc, name))
+    lines = []
+    for name in names:
+        if folders.is_version(name):
+            continue
+        k = counts.get(name)
+        lines.append(fmt(name) + (f" ({k} version{'' if k == 1 else 's'})" if k else ""))
+    for doc, ver in sorted(alone, key=lambda dv: (dv[0] is None, dv[0] or "", dv[1])):
+        lines.append(f"{fmt(doc)} (a version, {ver[:15]}…)" if doc else ver)
+    return lines
+
+
 def _print_names(names, args, session, out):
     """Print result names one per line under the display cap.
 
@@ -208,11 +235,15 @@ def _print_names(names, args, session, out):
     so it cannot contaminate a pipe even when `-n` was asked for explicitly."""
     fmt = _namer(args, session, out)
     names = sorted(names)
+    if _want_render(args, out) and any(n.startswith("sha256:") for n in names):
+        lines = _versions_folded(names, session.view(), fmt)
+    else:
+        lines = [fmt(name) for name in names]
     limit = _want_limit(args, out)
-    shown = names[:limit] if limit else names
-    for name in shown:
-        print(fmt(name), file=out)
-    withheld = len(names) - len(shown)
+    shown = lines[:limit] if limit else lines
+    for line in shown:
+        print(line, file=out)
+    withheld = len(lines) - len(shown)
     if withheld:
         print(f"odag: {withheld} more not shown "
               f"(-n 0 for all, or `odag count` for the total)",
