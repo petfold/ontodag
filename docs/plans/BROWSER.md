@@ -1157,5 +1157,47 @@ a file is called in your store.**
   would not follow a document either, since many editors save by writing
   a new file over the old one.
 
-**Open:** question 41 (where your store, and the list of hashes, live
-between visits).
+**Question 41 (decided C, Peter, 2026-10-13): your store and the list of
+hashes are kept in the browser's storage, encrypted with your key,
+wherever the page runs.**
+- **Why encrypted:** other pages see only ciphertext, even through a node
+  or the gateway, where every Swarm page shares one origin (§14.1).
+- **What the person does:** opens the key file once per visit to unlock;
+  Publish needs it anyway.
+- **What stays the same:** Save writes the file you own, and stays the
+  backup, since another page could still delete what the browser keeps.
+- **Rejected:** A, the saved file only (a download per Save in Brave and
+  Freedom, and the folder hashed again on every visit); B, the same
+  storage unencrypted, readable by every page on a shared origin.
+
+**Where the list of hashes may live (Peter asked, 2026-10-13).** The list
+maps a path inside the folder, a size and a modification time to a
+SHA-256.
+- **Never inside the store:** it describes one computer's folder, not your
+  documents (another device has the same photos at other paths and
+  dates). In the store it would change the root at every rescan though
+  nothing you know changed (G1), and a merge would mix two folders'
+  lists. What belongs in the store is there already: each version's hash,
+  its document and its modification time.
+- **Beside the store, yes:** a sibling, as provenance is a sibling store
+  (PROVENANCE.md), encrypted with the same key. It could be a second file
+  next to the `.od`, or its own feed on Swarm. On Swarm it helps a second
+  browser on the same computer (Brave and Freedom keep separate storage)
+  and survives cleared browser data. It never helps another computer, and
+  costs a Swarm write whenever files changed. Not now: the browser keeps
+  it.
+- **Holdings:** holdings' catalog is this list for every drive, already
+  hashed, and publishable on Swarm (its docs/PUBLISHING.md). Where
+  holdings runs, the page could read the hashes from it instead of
+  hashing.
+
+**Found while answering: Publish uploads a store readable.**
+- **The page:** `publish.js` uploads the store's blobs as they are.
+- **`odag`:** a `swarm:` store has no encryption (`store_key` and
+  `ontodag.encstore` cover `rs:` stores only).
+- **Who can read it:** anyone who knows the key's address (it is in every
+  feed update the key signs) and the store's name.
+- **Why it matters:** a published personal store is readable, its file
+  names included. That is question 42.
+
+**Open:** question 42 (whether Publish encrypts your store).
