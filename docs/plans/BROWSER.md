@@ -1573,10 +1573,11 @@ failed first).
     | `text/plain` | `probe-b.od.txt` | with a tap in the Files app, which offers Markor |
     | `text/x-ontodag` | `probe-c.od` | from Markor only; the Files app does not offer it |
 
-    A text type the system has no extension for gains nothing. The choice
-    is between the name (`application/octet-stream`, the page now) and
-    opening with a tap (`text/plain`, renamed `store.od.txt`), which is
-    Peter's to make. `odag` reads `.od.txt`, and a store opened as
+    A text type the system has no extension for gains nothing. Peter chose
+    the name (2026-10-14, A): a store is downloaded as
+    `application/octet-stream` and stays `store.od`, opened as text from
+    the editor; not `text/plain`, which would open with a tap as
+    `store.od.txt`. `odag` reads `.od.txt`, and a store opened as
     `store.od.txt` is saved under that name again. GrapheneOS ships no
     text editor.
   - **Either way the store still works:** `odag` reads a store saved as
