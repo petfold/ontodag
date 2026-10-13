@@ -458,10 +458,13 @@ class TestRetryMode(unittest.TestCase):
         self.assertEqual(again, 1)
 
     def test_a_blob_that_could_not_be_fetched_is_an_error(self):
-        from ontodag.browser import BlobUnreachable
+        # recordstore 0.23 reads an unreachable trie node as unavailable, not
+        # absent: the page's BlobUnreachable arrives as RecordUnavailable.
+        from recordstore import RecordUnavailable
         _direct, page, retrying = self.readers(unreachable=list(self.blobs))
-        with self.assertRaises(BlobUnreachable):
+        with self.assertRaises(RecordUnavailable) as caught:
             until_answered(page, retrying, "get", "c0")
+        self.assertIn("not retrievable", str(caught.exception))
 
 
 class Stage:
