@@ -682,6 +682,34 @@ file (`ontodag.browser.LocalStore`, a whole `OntoDAG` in memory):
   global flag. Its tracker has the removal (#11407), the flag (#18979,
   #44411) and the TypeError (#29411), but no per-site request.
 
+**Workarounds until #671 and #59862 (2026-10-13):**
+- **Reading a folder** needs none. The plain folder input (`<input
+  webkitdirectory>`) is not File System Access, the API those browsers
+  refuse; it is to be probed in both.
+- **Writing:** a download becomes a save into the right folder when the
+  browser asks where to save:
+  - Brave: Settings → Downloads → "Ask where to save each file before
+    downloading";
+  - Freedom from v0.8.5: Settings → Downloads → "Ask where to save each
+    file" (`askWhereToSave`, `src/main/downloads/downloads-manager.js`;
+    off by default, when downloads go silently to `~/Downloads` with
+    `(1)` suffixes).
+
+  Every save is then a native save dialog, with a confirmation to replace
+  an edited note. Brave remembers the last folder; Freedom starts each
+  dialog in Downloads.
+- **Brave alone:** `brave://flags/#file-system-access-api` turns on the
+  API Chrome has. The flag is global and against Brave's own choice, but
+  fine in one's own browser.
+- **The installed version:** `odag` serving the page on localhost, with
+  file access in Python, would work in any browser. It would be
+  restricted to its own origin and a token, unlike the node's open CORS
+  (§14.2). It comes with question 43's core.
+- **Freedom is Solar Punk's own** (solardev-xyz). #671 is a change in
+  `src/main/permissions/permissions-manager.js`: grant reading what was
+  picked, and prompt per site for writing, as for the camera. It could be
+  sent as a pull request on Peter's word.
+
 **A local file as a buffer for Swarm writes.** It fits a store:
 - **Why:** merge is a CRDT (I7), so edits made offline, saved locally and
   published later converge with what others published meanwhile. Nothing is
