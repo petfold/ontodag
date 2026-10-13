@@ -34,6 +34,8 @@ for (const bad of ["", "0x12", "hello", "11".repeat(33)]) {
 }
 check(/^0x[0-9a-fA-F]{40}$/.test(key.checksummed) && key.checksummed.toLowerCase() === `0x${v.owner}`,
       "the address with its checksum capitals");
+check(hex(key.signHash(unhex(v.hash))) === v.hash_signature,
+      "a bare hash signed byte for byte as loopmarket signs an offer id");
 
 if (process.argv[3]) {
   for (const c of JSON.parse(readFileSync(process.argv[3], "utf8"))) {

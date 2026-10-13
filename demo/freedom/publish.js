@@ -68,6 +68,13 @@ export class Key {
     const sig = secp256k1.sign(keccak_256(concat([ETH_PREFIX, digest32])), this._secret, { lowS: true });
     return concat([sig.toCompactRawBytes(), Uint8Array.of(27 + sig.recovery)]);
   }
+
+  // r || s || v (v 0 or 1) over a bare 32-byte hash, as loopmarket signs an
+  // offer id (its sigs.py), recoverable to this key's address.
+  signHash(hash32) {
+    const sig = secp256k1.sign(hash32, this._secret, { lowS: true });
+    return concat([sig.toCompactRawBytes(), Uint8Array.of(sig.recovery)]);
+  }
 }
 
 // The owner a feed update's signature recovers to, or null.
