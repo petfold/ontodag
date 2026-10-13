@@ -45,8 +45,9 @@ the version numbers appear in commit history and docs.
     read your store and the vocabularies shown together; writes go to your
     store alone (`ontodag.browser.Organiser`).
   - **Taking a vocabulary's names:** one enters your store as a name only
-    (question 39). A vocabulary is shown as soon as your store uses its
-    names.
+    (question 39). Core is shown beside your store from the start (turned
+    off, it stays off in that browser); any other vocabulary is shown as
+    soon as your store uses its names.
   - **Suggestions:** Add, Put and Find suggest names as you type
     (`ontodag.suggest`): yours first, then the vocabularies', each with
     where it sits, and core's categories also by their other words from

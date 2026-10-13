@@ -3255,9 +3255,10 @@ Then:
 - A vocabulary's category enters your store as a name only, and the
   vocabulary shown beside your store supplies where it sits. Filing
   `myphoto` under `photograph` stores just that. With core shown, Find
-  `image` finds it, since core puts `photograph` under `image`. The page
-  shows a vocabulary itself once your store uses its names;
-  **Vocabularies** turns any of them on or off, in any combination.
+  `image` finds it, since core puts `photograph` under `image`. Core is
+  shown beside your store from the start, and any other vocabulary once
+  your store uses its names. **Vocabularies** turns any of them on or
+  off, in any combination; core turned off stays off in that browser.
 - Contact details go under `about(person)` and a class, never below the
   person, whose classes they would inherit:
   `+44 7700 900123` under `about(alice) phone-number` stores

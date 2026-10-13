@@ -1498,3 +1498,11 @@ binding pack later.
 - **`check.py`** drives new, add, a WordNet suggestion, save, the save
   help, open, core shown, find and remove, with the Freedom stand-in and
   with `--bridge retry`; every answer still matches the native reader.
+- **Tried by Peter** (2026-10-13) in Brave, Chromium and Freedom.
+
+**Core is shown from the start (Peter, 2026-10-13).** Core is shown
+beside every store unless the person turned it off, which the page
+remembers in that browser. The page composes core while it starts, after
+showing itself; the browser is busy about 3 s and the status line says
+so. The first Add with core shown then took 0.1 s instead of 2.9 s
+(headless Chromium, a local build).

@@ -216,7 +216,15 @@ let hasStore = false;
 let mode = "start";         // "start", "store" or "browse"
 let packNames = [];         // the vocabularies, from packs.json
 const shown = new Set();    // shown beside your store
-const untickedByYou = new Set();
+// The vocabularies you turned off, remembered in this browser (core is
+// shown from the start unless you did).
+const OFF_KEY = "ontodag-vocabularies-off";
+const untickedByYou = new Set((() => {
+  try { return JSON.parse(localStorage.getItem(OFF_KEY) || "[]"); } catch { return []; }
+})());
+function rememberOff() {
+  try { localStorage.setItem(OFF_KEY, JSON.stringify([...untickedByYou])); } catch { /* storage off */ }
+}
 let viewing = null;         // what the work area shows: {category}, {find}, {all} or null
 
 addEventListener("beforeunload", (e) => { if (localChanged) { e.preventDefault(); e.returnValue = ""; } });
@@ -294,6 +302,7 @@ async function applyShown() {
 
 async function setShown(pack, on, byYou) {
   if (on) { shown.add(pack); untickedByYou.delete(pack); } else { shown.delete(pack); if (byYou) untickedByYou.add(pack); }
+  rememberOff();
   await applyShown();
   await showView();
 }
@@ -577,12 +586,14 @@ async function addThing() {
 async function storeOpened(note = "") {
   hasStore = true;
   showMode("store");
-  renderVocabMenu();
+  if (!untickedByYou.has("core")) shown.add("core");
+  await applyShown();
   const now = await showWhatYouUse();
   renderShownLine();
   await afterChange(now.length ? `${now.join(" and ")} shown beside it, since it uses ${now.length > 1 ? "their" : "its"} names.${note ? ` ${note}` : ""}` : note);
   viewing = null;
   await showView();
+  await run("Reading the vocabularies shown…", () => call("org_view"));
   if (!(await call("org_tree")).count) {
     $("addpanel").classList.remove("hidden");
     $("addwhat").focus();
@@ -926,20 +937,30 @@ def org_setup(packs_json):
     return _json.dumps({"packs": sorted(pack_texts)})
 
 def org_warm():
-    """Read every vocabulary's names once, so the first suggestion is quick."""
+    """Read every vocabulary's names once, and compose core, so the first
+    suggestion and the first answer are quick."""
     global vocab
     if vocab is None:
         vocab = Vocabularies(pack_texts)
+    o = _org()
+    shown = list(o.shown)
+    o.show(["core"])
+    o._union()
+    o.show(shown)
     return _json.dumps({"names": len(vocab.names)})
 
 def _org():
     global org
     if org is None:
-        org = Organiser(mine, pack_texts)
+        org = Organiser(mine if mine is not None else LocalStore(), pack_texts)
         org._vocab = vocab
-    elif org.mine is not mine:
+    elif mine is not None and org.mine is not mine:
         org.use(mine)
     return org
+
+def org_view():
+    """The composed view, built now rather than at the first answer."""
+    return _json.dumps({"names": len(_org().view().nodes) - 1})
 
 def org_show(names_json):
     return _org().show(_json.loads(names_json))
@@ -1054,11 +1075,10 @@ def org_changed():
   // the page starts with your store.
   const named = params.get("root") || (params.get("pack") && PACKS[params.get("pack")]);
   if (named) await browse(named, params.get("pack") || `${named.slice(0, 8)}…`);
-  else {
-    showMode("start");
-    status(flagOn ? "Brave's flag is on: Save now writes back to the file you opened." : "Ready.");
-  }
+  else showMode("start");
+  status("Preparing the vocabularies (a few seconds)…");
   await call("org_warm");
+  status(flagOn ? "Brave's flag is on: Save now writes back to the file you opened." : "Ready.");
 }
 
 // For tests and the console: the page's own calls.

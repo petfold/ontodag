@@ -259,9 +259,9 @@ async def check_local(page):
     await page.click("#browseback")
     await page.click("#startnew")
     await page.wait_for_selector("#addpanel:not(.hidden)")
-    said = await add(page, "fruit")
-    if "core is now shown" not in said:
-        problems.append(f"fruit is a core name, yet core was not shown: {said!r}")
+    if "core" not in await page.evaluate("window.ontodagPage.shown()"):
+        problems.append("core is not shown beside a new store")
+    await add(page, "fruit")
     await add(page, "apple", "fruit")
 
     # A suggestion found by a WordNet word: "photo" offers core's photograph.
@@ -314,9 +314,23 @@ async def check_local(page):
         problems.append(f"fruit after removing pear: {answer!r}")
     if not (await page.inner_text("#storestate")).startswith("unsaved changes"):
         problems.append(f"after edits, the page says: {await page.inner_text('#storestate')!r}")
+
+    # Core turned off stays off for the next store, in this browser.
+    await page.click("#vocabbtn")
+    await page.uncheck("input[data-pack=core]")
+    await page.wait_for_function("!window.ontodagPage.shown().includes('core')")
+    await page.click("#storemenubtn")
+    await page.click("#menunew")
+    await page.wait_for_selector("#addpanel:not(.hidden)")
+    if "core" in await page.evaluate("window.ontodagPage.shown()"):
+        problems.append("core came back for a new store after it was turned off")
+    await page.click("#vocabbtn")
+    await page.check("input[data-pack=core]")
+    await page.wait_for_function("window.ontodagPage.shown().includes('core')")
+    await page.click("#vocabbtn")
     os.unlink(fh.name)
-    print(f"  your own store: new, add, a WordNet suggestion, save (download), open (file input), "
-          f"core shown, add, find, remove: {'ok' if not problems else problems}")
+    print(f"  your own store: new (core shown), add, a WordNet suggestion, save (download), open (file input), "
+          f"add, find, remove, core turned off and remembered: {'ok' if not problems else problems}")
     return problems
 
 
