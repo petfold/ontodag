@@ -89,8 +89,11 @@ github.com/petfold.
   as aliases of the same objects. `mcp.py`: `odag-mcp` (stdio JSON-RPC).
   `web/`: the Flask app.
 - `viz.py`, `owl.py`: Graphviz and OWL (extras). `migrate.py`: replays an
-  old store through `put`. `browser.py`: the Pyodide bridge. `_extras.py`:
-  teaching errors for a missing extra.
+  old store through `put`. `browser.py`: the Pyodide bridge, with the
+  organiser page's `Organiser`. `suggest.py` and `core_words.py`
+  (generated in ontodag-core from WordNet; `NOTICE` carries its licence):
+  suggestions while typing. `_extras.py`: teaching errors for a missing
+  extra.
 
 Elsewhere: `tests/` (fixtures in `tests/fixtures/`), `scripts/`
 (`release_smoke.py`, `repin_golden_roots.py`, `browser_check.py`, a
@@ -398,8 +401,11 @@ Each line points to its record.
   never below the person, whose classes it would inherit. Question 45
   decided B with the draft rule: a quick note is a `.md` file in a notes
   folder, kept as a draft in the page's encrypted storage only until it
-  is saved; the store never holds file bytes. A mockup exists
-  (BROWSER.md §17); nothing is built yet.
+  is saved; the store never holds file bytes. The layout went into the
+  page first (Peter, 2026-10-13), with core's WordNet words as a finding
+  aid, never names (`ontodag.suggest`, `ontodag.core_words`,
+  `ontodag.browser.Organiser`); folders, documents and versions follow
+  the Python core. A mockup shows the whole design (BROWSER.md §17).
 - Provenance: signed claim records in a sibling store (PROVENANCE.md).
 - Web: one page, browsing plus a console, where every click writes its
   command (WEB_UI.md). Its DAG lives in the server's memory per session.

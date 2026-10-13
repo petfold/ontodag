@@ -142,7 +142,7 @@ async function run(what, action) {
   try {
     const answer = await action();
     status(`${what.replace(/…$/, "")}: ${((performance.now() - started) / 1000).toFixed(1)} s`);
-    showStats(answer);
+    if (answer && "records" in answer) showStats(answer);
     return answer;
   } catch (e) {
     status(`${e.message || e}`, true);
@@ -202,51 +202,398 @@ async function openStore(root) {
   if (start) await goto(start);
 }
 
-// Your own store, in a file on this computer (localfile.js: saved back in
-// place where the browser allows it, downloaded where it does not).
-const LOCAL = "local";
+// Your own store, organised (BROWSER.md §17): your store first, kept in a
+// file on this computer (localfile.js: saved back in place where the browser
+// allows it, downloaded where it does not), with the vocabularies (the
+// packs, shipped beside the page as packs.json) shown beside it. Answers
+// read your store and the vocabularies shown together; writes go to your
+// store alone (ontodag.browser.Organiser).
 const OD_TYPES = [{ description: "OntoDAG store", accept: { "text/plain": [".od"] } }];
 let files = null;
 let saveHelp = null;        // savehelp.js: where the browser saves only by downloading
-
-function showLocal(summary, note = "") {
-  $("swarmedit").classList.remove("hidden");
-  if (!$("swarmname").value) $("swarmname").value = summary.name.replace(/\.od$/, "") || "store";
-  const how = files.inPlace ? "Save writes back to the file" : "Save downloads the file";
-  $("localstate").textContent = `${summary.name} · ${summary.count} categor${summary.count === 1 ? "y" : "ies"}` +
-    (summary.changed ? " · unsaved changes" : " · saved") + ` · ${how}.` + (note ? ` ${note}` : "");
-  $("localsave").disabled = false;
-  $("savehelpopen").classList.toggle("hidden", !saveHelp.available);
-  $("localprelude").classList.remove("hidden");
-  $("localedit").classList.remove("hidden");
-  localChanged = summary.changed;
-  if (![...$("store").options].some((o) => o.value === LOCAL)) {
-    const o = document.createElement("option");
-    o.value = LOCAL; o.textContent = "your own store";
-    $("store").prepend(o);
-  }
-  $("store").value = LOCAL;
-}
-
 let localChanged = false;
+let hasStore = false;
+let mode = "start";         // "start", "store" or "browse"
+let packNames = [];         // the vocabularies, from packs.json
+const shown = new Set();    // shown beside your store
+const untickedByYou = new Set();
+let viewing = null;         // what the work area shows: {category}, {find}, {all} or null
+
 addEventListener("beforeunload", (e) => { if (localChanged) { e.preventDefault(); e.returnValue = ""; } });
 
-function localResult(text, warn = false) {
-  $("localresult").textContent = text;
-  $("localresult").classList.toggle("warn", warn);
+function el(tag, attrs = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v;
+    else if (k === "onclick") e.onclick = v;
+    else e.setAttribute(k, v);
+  }
+  for (const c of children) if (c !== null && c !== undefined) e.append(c);
+  return e;
 }
 
-async function useLocal() {
-  const answer = await run("Your own store…", () => call("local_use"));
-  if (answer) showNode(answer);
+// What a person typed, spelled as names are (ontodag.suggest.key).
+const keyOf = (text) => text.trim().toLowerCase().split(/\s+/).filter(Boolean).join("-");
+
+function showMode(m) {
+  mode = m;
+  $("start").classList.toggle("hidden", m !== "start");
+  $("app").classList.toggle("hidden", m !== "store");
+  $("browse").classList.toggle("hidden", m !== "browse");
+  $("shownline").classList.toggle("hidden", m !== "store");
+  $("browseback").textContent = hasStore ? "Back to your store" : "Back";
+}
+
+// ---- the vocabularies shown beside your store
+
+// Core, then the packs over it, then the units and currencies.
+function packsInMenu() {
+  const domain = Object.keys(PACKS).filter((p) => packNames.includes(p));
+  return [...domain, ...packNames.filter((p) => p !== "prelude" && !domain.includes(p)).sort()];
+}
+
+function renderVocabMenu() {
+  const box = (p) => {
+    const b = el("input", { type: "checkbox", "data-pack": p });
+    b.checked = shown.has(p);
+    b.disabled = !hasStore;
+    b.onchange = () => setShown(p, b.checked, true);
+    return el("label", {}, b, ` ${p}`);
+  };
+  const list = $("vocablist");
+  list.replaceChildren();
+  if (!hasStore) list.append(el("div", { class: "muted small", style: "padding:2px 8px" }, "Start a store of yours to show them beside it."));
+  const units = packsInMenu().filter((p) => !(p in PACKS));
+  packsInMenu().filter((p) => p in PACKS).forEach((p) => list.append(box(p)));
+  if (units.length) {
+    list.append(el("div", { class: "head" }, "Units and currencies"));
+    units.forEach((p) => list.append(box(p)));
+  }
+}
+
+function renderShownLine() {
+  const on = packsInMenu().filter((p) => shown.has(p));
+  const line = $("shownline");
+  line.replaceChildren(el("span", {}, "Shown with your store:"));
+  for (const p of on) {
+    const box = el("input", { type: "checkbox" });
+    box.checked = true;
+    box.onchange = () => setShown(p, false, true);
+    line.append(el("label", { class: "vchip" }, box, ` ${p}`));
+  }
+  if (!on.length) line.append(el("span", {}, "no vocabularies"));
+  line.append(el("button", { class: "link", onclick: (e) => { e.stopPropagation(); toggleMenu("vocabmenu"); } }, on.length ? "change" : "add one"));
+}
+
+async function applyShown() {
+  const answer = await run("Reading the vocabularies shown…", () => call("org_show", JSON.stringify([...shown])));
+  renderVocabMenu();
+  renderShownLine();
+  return answer;
+}
+
+async function setShown(pack, on, byYou) {
+  if (on) { shown.add(pack); untickedByYou.delete(pack); } else { shown.delete(pack); if (byYou) untickedByYou.add(pack); }
+  await applyShown();
+  await showView();
+}
+
+// The packs your store takes names from are shown, unless you turned them off.
+async function showWhatYouUse() {
+  const uses = (await call("org_uses")).packs.filter((p) => !shown.has(p) && !untickedByYou.has(p));
+  if (!uses.length) return [];
+  uses.forEach((p) => shown.add(p));
+  await applyShown();
+  return uses;
+}
+
+function toggleMenu(id) {
+  for (const m of ["vocabmenu", "storemenu"]) if (m !== id) $(m).classList.add("hidden");
+  $(id).classList.toggle("hidden");
+}
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".menuwrap")) for (const m of ["vocabmenu", "storemenu"]) $(m).classList.add("hidden");
+});
+
+// ---- suggestions as you type (ontodag.suggest: yours first, then the
+// vocabularies', each with where it sits, core's also by its WordNet words)
+
+// Where a name sits: in your store, and in the packs that put it under
+// something (a pack that only mentions it, at its top, is left out unless
+// no pack places it).
+function placesText(s) {
+  const parts = [];
+  if (s.mine) parts.push("yours");
+  const placed = s.places.filter(([, parents]) => parents.length);
+  for (const [pack, parents] of placed.length ? placed : s.places.slice(0, 1)) {
+    parts.push(`${pack}${parents.length ? `, under ${parents.join(", ")}` : ", at its top"}`);
+  }
+  if (s.word) parts.push(`for “${s.word}”`);
+  else if (s.also.length) parts.push(`also: ${s.also.slice(0, 4).join(", ")}`);
+  return parts.join(" · ");
+}
+
+function attachSuggest(input, { lastWord = false, offerNew = "new category", onPick = null } = {}) {
+  const box = el("div", { class: "suggest" });
+  box.hidden = true;
+  input.parentElement.append(box);
+  let rows = [], hi = -1, seq = 0;
+  const word = () => (lastWord ? input.value.split(/\s+/).pop() : input.value);
+  const paint = () => [...box.children].forEach((d, i) => d.classList.toggle("hi", i === hi));
+  const show = async () => {
+    const typed = word();
+    const mine = ++seq;
+    if (!typed.trim() || !hasStore) { box.hidden = true; return; }
+    const answer = await call("org_suggest", typed);
+    if (mine !== seq) return;
+    const k = keyOf(typed);
+    rows = answer.suggestions;
+    if (offerNew && k && !rows.some((r) => r.name === k) && !/[()]/.test(k)) rows.push({ name: k, isNew: true });
+    hi = rows.findIndex((r) => r.name === k && !r.isNew);
+    box.replaceChildren(...rows.map((r, i) => el("div", { "data-i": i },
+      r.isNew ? el("span", { class: "nm new" }, `+ ${offerNew} “${r.name}”`) : el("span", { class: "nm" }, r.name),
+      el("span", { class: "where" }, r.isNew ? "yours, at the top" : placesText(r)))));
+    paint();
+    box.hidden = !rows.length;
+  };
+  const pick = (i, completeOnly = false) => {
+    const r = rows[i];
+    if (!r) return;
+    if (lastWord) {
+      const words = input.value.split(/\s+/);
+      words[words.length - 1] = r.name;
+      input.value = `${words.join(" ")} `;
+    } else {
+      input.value = r.name;
+    }
+    box.hidden = true;
+    input.focus();
+    if (!completeOnly && onPick) onPick(r.name);
+  };
+  input.addEventListener("input", show);
+  input.addEventListener("blur", () => setTimeout(() => { box.hidden = true; }, 150));
+  input.addEventListener("keydown", (e) => {
+    if (box.hidden) return;
+    if (e.key === "ArrowDown") { hi = (hi + 1) % rows.length; paint(); e.preventDefault(); }
+    else if (e.key === "ArrowUp") { hi = (hi - 1 + rows.length) % rows.length; paint(); e.preventDefault(); }
+    else if (e.key === "Tab" && rows.length) { pick(hi >= 0 ? hi : 0, true); e.preventDefault(); }
+    else if (e.key === "Enter" && hi >= 0 && keyOf(word()) !== rows[hi].name) { pick(hi); e.preventDefault(); e.stopImmediatePropagation(); }
+    else if (e.key === "Escape") { box.hidden = true; }
+  });
+  box.addEventListener("mousedown", (e) => {
+    const d = e.target.closest("[data-i]");
+    if (d) { e.preventDefault(); pick(Number(d.dataset.i)); }
+  });
+}
+
+// ---- your store: its header, the side list, and the work area
+
+function showStoreState(summary, note = "") {
+  $("storebox").classList.remove("hidden");
+  $("storename").textContent = summary.name;
+  $("dirty").classList.toggle("hidden", !summary.changed);
+  const how = files.inPlace ? "Save writes back to the file" : "Save downloads the file";
+  $("storestate").textContent = `${summary.changed ? "unsaved changes" : "saved"} · ${how}.${note ? ` ${note}` : ""}`;
+  $("localsave").classList.remove("hidden");
+  $("localsave").classList.toggle("primary", summary.changed);
+  $("storemenuwrap").classList.remove("hidden");
+  $("savehelpopen").classList.toggle("hidden", !saveHelp.available);
+  if (!$("swarmname").value) $("swarmname").value = summary.name.replace(/\.od$/, "") || "store";
+  localChanged = summary.changed;
+}
+
+const chip = (name, src, extra = null) => el("button", {
+  class: `chip ${src === "mine" ? "mine" : "vocab"}`, onclick: () => showCategory(name),
+}, name, src && src !== "mine" && src !== "view" ? el("span", { class: "src" }, src) : null, extra);
+
+async function refreshTree() {
+  const answer = await call("org_tree");
+  const on = viewing && viewing.category;
+  $("tree").replaceChildren(
+    el("li", {}, el("button", { class: viewing && viewing.all ? "on" : "", onclick: showAll },
+      el("span", {}, "Everything in your store"), el("span", { class: "n" }, String(answer.count)))),
+    ...answer.tree.map(([name, depth, below]) => el("li", { style: `padding-left:${depth * 14}px` },
+      el("button", { class: name === on ? "on" : "", onclick: () => showCategory(name) },
+        el("span", {}, name), el("span", { class: "n" }, below ? String(below) : "")))));
+  $("treeempty").classList.toggle("hidden", answer.count > 0);
+  return answer;
+}
+
+async function afterChange(note = "") {
+  showStoreState(await call("local_saved_state"), note);
+  await refreshTree();
+}
+
+function welcome(count) {
+  return el("div", { class: "panel" },
+    el("div", { class: "heading" }, el("h2", {}, count ? "Your store" : "Your store is empty")),
+    el("p", { class: "muted" }, count
+      ? "Pick a category on the left, or Find what is below all of some names."
+      : "Add your first things: type a name, then what it is under. As you type, the vocabularies suggest names and show where each sits; anything you type that no vocabulary has becomes a category of your own."));
+}
+
+async function showView() {
+  if (!viewing) {
+    const tree = await refreshTree();
+    $("view").replaceChildren(welcome(tree.count));
+    return;
+  }
+  if (viewing.category) return showCategory(viewing.category);
+  if (viewing.find) return showFind(viewing.find);
+  if (viewing.all) return showAll();
+}
+
+async function showCategory(name) {
+  viewing = { category: name };
+  const n = await call("org_node", name);
+  await refreshTree();
+  const where = [];
+  if (n.mine) where.push("yours");
+  for (const [pack, parents] of n.places) {
+    if (n.shown.includes(pack)) where.push(`${pack}${parents.length ? `, under ${parents.join(", ")}` : ", at its top"}`);
+  }
+  const panel = el("div", { class: "panel" },
+    el("div", { class: "heading" }, el("h2", {}, name), el("span", { class: "muted small" }, where.join(" · ") || (n.found ? "" : "not in your store or the vocabularies shown"))));
+  for (const [pack, parents] of n.places) {
+    if (n.shown.includes(pack) || pack === "prelude") continue;
+    panel.append(el("p", { class: "small muted" },
+      `${pack} is not shown, so its places for ${name} are hidden (${pack} puts it under ${parents.join(", ") || "nothing"}). `,
+      el("button", { class: "link", onclick: () => setShown(pack, true, false) }, `Show ${pack}`)));
+  }
+  if (n.found) {
+    const above = el("div", { class: "rel" }, el("span", { class: "lbl" }, "Above"));
+    if (n.above.length) n.above.forEach(([p, src]) => above.append(chip(p, src)));
+    else above.append(el("span", { class: "muted" }, "nothing: it is at the top"));
+    const below = el("div", { class: "rel" }, el("span", { class: "lbl" }, "Below"));
+    const yours = n.below.filter(([, , src]) => src === "mine");
+    const theirs = n.below.filter(([, , src]) => src !== "mine");
+    yours.forEach(([c, , src]) => below.append(chip(c, src)));
+    if (theirs.length) {
+      const more = el("button", { class: "link" }, `${theirs.length + n.more} more from ${[...new Set(theirs.map(([, , s]) => s))].join(" and ")}`);
+      more.onclick = () => { more.replaceWith(...theirs.map(([c, , src]) => chip(c, src))); if (n.more) below.append(el("span", { class: "muted small" }, `and ${n.more} more`)); };
+      below.append(more);
+    }
+    if (!n.below.length) below.append(el("span", { class: "muted" }, "nothing"));
+    panel.append(above, below);
+    if (n.about.length) {
+      const about = el("div", { class: "rel" }, el("span", { class: "lbl" }, "About"));
+      n.about.forEach(([c, classes]) => about.append(chip(c, "mine", classes.length ? el("span", { class: "src" }, classes.join(", ")) : null)));
+      panel.append(about);
+    }
+  }
+  const put = el("input", { type: "text", id: "putunder", placeholder: `put ${name} under…, e.g. holiday`, autocomplete: "off" });
+  const putField = el("div", { class: "field", style: "flex:1 1 220px" }, put);
+  const doPut = async () => {
+    const under = put.value.trim();
+    if (!under) return;
+    const a = await call("org_add", name, under);
+    if (a.error) return status(a.error, true);
+    await added(a);
+    await showCategory(name);
+  };
+  const actions = el("div", { class: "bar", style: "margin-top:12px" }, putField, el("button", { onclick: doPut }, "Put"));
+  if (n.mine) {
+    actions.append(el("button", { class: "link", id: "removebutton", onclick: async () => {
+      if (!confirm(`Remove ${name} from your store? What is below it moves up to what is above it.`)) return;
+      const a = await call("org_remove", name);
+      if (a.error) return status(a.error, true);
+      status(`Removed ${a.removed.join(", ")}`);
+      viewing = null;
+      await afterChange();
+      await showView();
+    } }, "Remove from your store"));
+  }
+  panel.append(actions);
+  $("view").replaceChildren(panel);
+  attachSuggest(put, { lastWord: true });
+  put.addEventListener("keydown", (e) => { if (e.key === "Enter") doPut(); });
+}
+
+async function showFind(query) {
+  viewing = { find: query };
+  $("find").value = query;
+  const a = await run(`Finding ${query}…`, () => call("org_get", query));
+  await refreshTree();
+  if (!a) return;
+  const panel = el("div", { class: "panel" }, el("div", { class: "heading" }, el("h2", {}, `Below all of: ${query}`),
+    el("span", { class: "muted small" }, a.error ? "" : `${a.count} found`)));
+  if (a.error) panel.append(el("p", { class: "warn" }, a.error));
+  else {
+    const yours = el("div", { class: "rel" }, el("span", { class: "lbl" }, "Yours"));
+    a.mine.forEach((n) => yours.append(chip(n, "mine")));
+    if (!a.mine.length) yours.append(el("span", { class: "muted" }, "none"));
+    panel.append(yours);
+    if (a.others.length) {
+      const others = el("div", { class: "rel" }, el("span", { class: "lbl" }, "Shown"));
+      a.others.forEach((n) => others.append(chip(n, "view")));
+      if (a.more) others.append(el("span", { class: "muted small" }, `and ${a.more} more`));
+      panel.append(others);
+    }
+  }
+  $("view").replaceChildren(panel);
+}
+
+async function showAll() {
+  viewing = { all: true };
+  const a = await call("org_names");
+  await refreshTree();
+  const rel = el("div", { class: "rel" });
+  a.names.forEach((n) => rel.append(chip(n, "mine")));
+  if (!a.names.length) rel.append(el("span", { class: "muted" }, "nothing yet"));
+  $("view").replaceChildren(el("div", { class: "panel" }, el("div", { class: "heading" }, el("h2", {}, "Everything in your store"),
+    el("span", { class: "muted small" }, `${a.names.length} names`)), rel));
+}
+
+// What an add did, said plainly; the packs it took names from are shown.
+async function added(a) {
+  const parts = [`Added ${a.put}${a.under.length ? ` under ${a.under.join(", ")}` : " at the top"}.`];
+  if (a.taken.length) parts.push(`Took ${a.taken.join(", ")} from the vocabularies, as name${a.taken.length > 1 ? "s" : ""} only.`);
+  if (a.created.length) parts.push(`New categor${a.created.length > 1 ? "ies" : "y"} of yours: ${a.created.join(", ")}.`);
+  if (a.prelude) parts.push("Added the declarations typed values need (the prelude).");
+  const now = await showWhatYouUse();
+  if (now.length) parts.push(`${now.join(" and ")} ${now.length > 1 ? "are" : "is"} now shown beside your store, since it uses ${now.length > 1 ? "their" : "its"} names.`);
+  $("addresult").textContent = parts.join(" ");
+  $("addresult").classList.remove("warn");
+  await afterChange();
+}
+
+async function addThing() {
+  const what = $("addwhat").value.trim();
+  if (!what) return;
+  const a = await call("org_add", what, $("addunder").value.trim());
+  if (a.error) {
+    $("addresult").textContent = a.error;
+    $("addresult").classList.add("warn");
+    return;
+  }
+  await added(a);
+  $("addwhat").value = "";
+  $("addwhat").focus();
+  await showCategory(a.under[0] || a.put);
+}
+
+// ---- opening, starting and saving
+
+async function storeOpened(note = "") {
+  hasStore = true;
+  showMode("store");
+  renderVocabMenu();
+  const now = await showWhatYouUse();
+  renderShownLine();
+  await afterChange(now.length ? `${now.join(" and ")} shown beside it, since it uses ${now.length > 1 ? "their" : "its"} names.${note ? ` ${note}` : ""}` : note);
+  viewing = null;
+  await showView();
+  if (!(await call("org_tree")).count) {
+    $("addpanel").classList.remove("hidden");
+    $("addwhat").focus();
+  }
 }
 
 async function localNew() {
   if (localChanged && !confirm("Your store has unsaved changes. Start a new one anyway?")) return;
   files.forget();
-  const summary = await call("local_new");
-  showLocal(summary);
-  await useLocal();
+  await call("local_new");
+  await storeOpened();
 }
 
 async function localOpen() {
@@ -255,47 +602,25 @@ async function localOpen() {
   if (!file) return;
   const summary = await run(`Opening ${file.name}…`, async () => call("local_open", await file.text(), file.name));
   if (!summary) return;
-  showLocal(summary);
-  await useLocal();
+  await storeOpened();
 }
 
 async function localSave() {
   const { text, name } = await call("local_text");
   const where = await files.save(text, name);
   if (!where) return;
-  const summary = await call("local_saved", where.name);
-  showLocal(summary, where.how === "download" ? "Downloaded; keep it where you like and open it next time." : "");
+  await call("local_saved", where.name);
+  showStoreState(await call("local_saved_state"), where.how === "download" ? "Downloaded; keep it where you like and open it next time." : "");
   if (where.how === "download") saveHelp.offer();
 }
 
-async function localPut() {
-  const item = $("putitem").value.trim();
-  if (!item) return;
-  const answer = await call("local_put", item, $("putunder").value.trim());
-  if (answer.error) return localResult(answer.error, true);
-  localResult(`put ${answer.put}${answer.under.length ? ` under ${answer.under.join(", ")}` : " at the top"}`);
-  $("putitem").value = "";
-  showLocal(await call("local_saved_state"));
-  // Show it in your store, even if a pack was being browsed.
-  await call("local_use");
-  await goto(answer.put);
-}
+// ---- browsing a published store on Swarm, read only
 
-async function localRemove() {
-  const names = $("removenames").value.trim();
-  if (!names) return;
-  const answer = await call("local_remove", names);
-  if (answer.error) return localResult(answer.error, true);
-  localResult(`removed ${answer.removed.join(", ")}`);
-  $("removenames").value = "";
-  showLocal(await call("local_saved_state"));
-  await useLocal();
-}
-
-async function localPrelude() {
-  const answer = await call("local_prelude");
-  localResult(answer.added ? `added ${answer.added} declarations for typed values` : "the prelude is already here");
-  showLocal(await call("local_saved_state"));
+async function browse(root, name) {
+  for (const m of ["vocabmenu", "storemenu"]) $(m).classList.add("hidden");
+  showMode("browse");
+  $("browsename").textContent = name;
+  await openStore(root);
 }
 
 // Your store on Swarm (publish.js): a key the person keeps in a file, the
@@ -390,8 +715,9 @@ async function swarmPublish() {
   swarmResult(answer.unchanged
     ? `${name} is already published as it is: root ${answer.root} (feed update ${answer.index}).`
     : `Published ${name}: root ${answer.root}, feed update ${answer.index}, owner ${key.checksummed}.${merged}`);
-  showLocal(await call("local_saved_state"));
-  await useLocal();
+  await call("org_changed");
+  await afterChange();
+  await showView();
 }
 
 async function swarmFetch() {
@@ -406,8 +732,9 @@ async function swarmFetch() {
   swarmResult(answer.came_in.length || answer.more
     ? `From ${name} (root ${short(answer.fetched)}): ${answer.came_in.join(", ")}${answer.more ? ` and ${answer.more} more` : ""}. Save to keep it in your file.`
     : `Nothing new in ${name} (root ${short(answer.fetched)}).`);
-  showLocal(await call("local_saved_state"));
-  await useLocal();
+  await call("org_changed");
+  await afterChange();
+  await showView();
 }
 
 // Writing goes through a Bee node: the one that served this page (opened as
@@ -582,6 +909,69 @@ def get(query):
 
 def below(a, b):
     return page.call("below", a, b)
+
+# Your store, organised (ontodag.browser.Organiser): the vocabularies'
+# canonical texts come from packs.json, read once.
+import json as _json
+from ontodag.browser import Organiser
+from ontodag.suggest import Vocabularies
+
+org = None
+pack_texts = {}
+vocab = None
+
+def org_setup(packs_json):
+    global pack_texts
+    pack_texts = _json.loads(packs_json)["packs"]
+    return _json.dumps({"packs": sorted(pack_texts)})
+
+def org_warm():
+    """Read every vocabulary's names once, so the first suggestion is quick."""
+    global vocab
+    if vocab is None:
+        vocab = Vocabularies(pack_texts)
+    return _json.dumps({"names": len(vocab.names)})
+
+def _org():
+    global org
+    if org is None:
+        org = Organiser(mine, pack_texts)
+        org._vocab = vocab
+    elif org.mine is not mine:
+        org.use(mine)
+    return org
+
+def org_show(names_json):
+    return _org().show(_json.loads(names_json))
+
+def org_uses():
+    return _org().uses()
+
+def org_tree():
+    return _org().tree()
+
+def org_node(name):
+    return _org().node(name)
+
+def org_get(query):
+    return _org().get(query)
+
+def org_suggest(text):
+    return _org().suggest(text)
+
+def org_add(item, under):
+    return _org().add(item, under)
+
+def org_remove(names):
+    return _org().remove(names)
+
+def org_names():
+    return _json.dumps({"names": sorted(_org()._names(), key=lambda n: (n.lower(), n))})
+
+def org_changed():
+    """Your store changed under the page (a publish folded, a fetch came in)."""
+    _org().use(mine)
+    return _json.dumps({})
 `);
   calls = new PythonCalls(py, globalThis.ontodagBlobs, {
     onRetry: async () => { py.globals.set("retry", true); showRetrying(); await calls.call("reopen"); },
@@ -589,11 +979,14 @@ def below(a, b):
   py.globals.set("retry", calls.choose(params.get("bridge")) === "retry");
   if (calls.mode === "retry") showRetrying();
 
+  packNames = (await call("org_setup", await (await fetch("packs.json")).text())).packs;
   for (const [name, root] of Object.entries(PACKS)) {
-    const o = document.createElement("option");
-    o.value = root; o.textContent = name;
-    $("store").append(o);
+    $("browselist").append(el("button", { onclick: () => browse(root, name) }, name));
   }
+  renderVocabMenu();
+  $("vocabbtn").disabled = false;
+  $("vocabbtn").onclick = (e) => { e.stopPropagation(); toggleMenu("vocabmenu"); };
+  $("storemenubtn").onclick = (e) => { e.stopPropagation(); toggleMenu("storemenu"); };
   $("keynew").onclick = keyNew;
   $("keyopen").onclick = keyOpen;
   $("publish").onclick = swarmPublish;
@@ -601,9 +994,6 @@ def below(a, b):
   $("swarmbatch").onchange = () => showKey();
   await setUpWriting();
   showKey();
-  for (const id of ["store", "root", "open", "goto", "gobutton", "query", "getbutton", "belowa", "belowb", "belowbutton", "localnew", "localopen"]) {
-    $(id).disabled = false;
-  }
   files = new LocalFile({ input: $("localfile"), types: OD_TYPES,
     pickers: !FreedomSwarm.present(), refusedKey: "ontodag-pickers-refused" });
   globalThis.ontodagPage.files = files;
@@ -611,24 +1001,32 @@ def below(a, b):
   saveHelp = new SaveHelp({ dialog: $("savehelp"),
     advise: () => saveAdvice({ pickers: files.pickers, brave, freedom: FreedomSwarm.present() }) });
   globalThis.ontodagPage.saveHelp = saveHelp;
-  $("savehelpopen").classList.toggle("hidden", !saveHelp.available);
   $("savehelpopen").onclick = () => saveHelp.open();
-  if (flagJustTurnedOn({ brave, pickers: files.pickers })) {
-    $("localstate").textContent = `Brave's flag is on: Save now writes back to the file you opened. ${$("localstate").textContent}`;
-  }
-  $("store").onchange = () => ($("store").value === LOCAL ? useLocal() : openStore($("store").value));
-  $("localnew").onclick = localNew;
-  $("localopen").onclick = localOpen;
+  const flagOn = flagJustTurnedOn({ brave, pickers: files.pickers });
+
+  $("startnew").onclick = localNew;
+  $("startopen").onclick = localOpen;
+  $("menunew").onclick = () => { toggleMenu("storemenu"); localNew(); };
+  $("menuopen").onclick = () => { toggleMenu("storemenu"); localOpen(); };
+  $("menupublish").onclick = () => { toggleMenu("storemenu"); $("pubpanel").classList.remove("hidden"); $("pubpanel").scrollIntoView({ block: "nearest" }); };
+  $("pubclose").onclick = () => $("pubpanel").classList.add("hidden");
   $("localsave").onclick = localSave;
-  $("localprelude").onclick = localPrelude;
-  $("putbutton").onclick = localPut;
-  $("putunder").onkeydown = (e) => { if (e.key === "Enter") localPut(); };
-  $("putitem").onkeydown = (e) => { if (e.key === "Enter") localPut(); };
-  $("removebutton").onclick = localRemove;
-  $("removenames").onkeydown = (e) => { if (e.key === "Enter") localRemove(); };
+  $("addtoggle").onclick = () => { $("addpanel").classList.toggle("hidden"); if (!$("addpanel").classList.contains("hidden")) $("addwhat").focus(); };
+  $("addbutton").onclick = addThing;
+  // Suggestions first: an Enter that picks one goes no further.
+  attachSuggest($("addwhat"), { offerNew: "new name" });
+  attachSuggest($("addunder"), { lastWord: true });
+  attachSuggest($("find"), { lastWord: true, offerNew: null });
+  $("addwhat").addEventListener("keydown", (e) => { if (e.key === "Enter") $("addunder").focus(); });
+  $("addunder").addEventListener("keydown", (e) => { if (e.key === "Enter") addThing(); });
+  const find = () => { const q = $("find").value.trim(); if (q) showFind(q); };
+  $("findbutton").onclick = find;
+  $("find").addEventListener("keydown", (e) => { if (e.key === "Enter") find(); });
+  $("browseback").onclick = () => { showMode(hasStore ? "store" : "start"); history.replaceState(null, "", location.pathname + location.search); };
+
   $("open").onclick = () => {
     const root = $("root").value.trim().toLowerCase();
-    if (/^[0-9a-f]{64}$/.test(root)) openStore(root);
+    if (/^[0-9a-f]{64}$/.test(root)) browse(root, `${root.slice(0, 8)}…`);
     else status("A root is 64 hex digits", true);
   };
   $("gobutton").onclick = () => $("goto").value.trim() && goto($("goto").value.trim());
@@ -652,13 +1050,20 @@ def below(a, b):
     if (answer) $("belowresult").textContent = answer.error || `${a} is ${answer.below ? "" : "not "}below ${b}`;
   };
 
-  const chosen = params.get("root") || PACKS[params.get("pack") || "core"] || PACKS.core;
-  $("store").value = chosen;
-  await openStore(chosen);
+  // A link may name a published store (?root= or ?pack=) to browse; otherwise
+  // the page starts with your store.
+  const named = params.get("root") || (params.get("pack") && PACKS[params.get("pack")]);
+  if (named) await browse(named, params.get("pack") || `${named.slice(0, 8)}…`);
+  else {
+    showMode("start");
+    status(flagOn ? "Brave's flag is on: Save now writes back to the file you opened." : "Ready.");
+  }
+  await call("org_warm");
 }
 
 // For tests and the console: the page's own calls.
 globalThis.ontodagPage = { call, openStore, goto, stats: () => reader && reader.stats, ready: null, python: () => py,
   connect: () => document.getElementById("connect").click(), files: null, bridge: () => calls && calls.mode,
-  owner: () => key && key.address, writing: () => Boolean(writer) };
+  owner: () => key && key.address, writing: () => Boolean(writer), showCategory, showFind,
+  shown: () => [...shown], mode: () => mode };
 globalThis.ontodagPage.ready = boot().then(() => true, (e) => { status(`Could not start: ${e.message || e}`, true); console.error(e); return false; });

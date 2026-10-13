@@ -3227,39 +3227,51 @@ walks breadth-first and fetches each level's records in one batch: a
 
 ### In a browser, with nothing installed
 
-A published store can also be read in a browser, and a store of your own
-kept there in a file. The page in
-`demo/freedom/` runs ontodag under Pyodide (Python compiled to
-WebAssembly) and reads the store from Swarm lazily, as above:
+The page in `demo/freedom/` is an organiser for your own things. It runs
+ontodag under Pyodide (Python compiled to WebAssembly), keeps your store
+in a file on your computer, and shows the shared vocabularies (the packs)
+beside it. Open it:
 
-- in **Freedom Browser** through its own Swarm node: open
-  `bzz://ontodag.gwei/`;
-- in **any browser** with a local Bee node (Swarm Desktop, say): open
+- in **Freedom Browser** through its own Swarm node: `bzz://ontodag.gwei/`;
+- in **any browser** with a local Bee node (Swarm Desktop, say):
   `http://localhost:1633/bzz/ontodag.eth/`, read through your own node;
-- in **any browser** through a public gateway: open
+- in **any browser** through a public gateway:
   `https://ontodag.gwei.domains/`, or serve the page's folder and add
   `?gateway=https://api.gateway.ethswarm.org`.
 
-It offers the published packs by their pinned roots: browse a category
-with what lies above and below it, `get`, `below`. Every chunk is checked
-against its address in the page, so neither a gateway nor a client can
-hand it wrong data. The packs' published cone summaries (`ontodag.cones`)
-make a broad category one read. A first visit to core reads a few hundred
-chunks; a second reads none, since the chunks are kept in the browser.
-Freedom limits how much a site that has not connected may read a minute,
-so the page asks you to connect when it runs into that. On an iPhone the
-page reads by retrying (it says so under the title): Python there cannot
-wait on Swarm, so the page fetches what a step needed and runs it again,
-with the same answers (BROWSER.md §15).
+**Your store first.** The page opens on **New store** and **Open store
+file…** (an `.od` file, the format `odag` reads; folders come next).
+Then:
+- **Add** takes a name and what it goes under (space separated). As you
+  type, the page suggests names:
+  - your own first, then the vocabularies';
+  - each with where it sits: typing "phot" offers `photograph — core,
+    under image, physical-object`;
+  - core's categories also by their other words from WordNet: "photo"
+    and "picture" find `photograph`, "telephone" finds `phone-number`.
+    These words only help you find a category; they never become names.
+- A name that no vocabulary has becomes a category of your own, and the
+  page says so.
+- A vocabulary's category enters your store as a name only, and the
+  vocabulary shown beside your store supplies where it sits. Filing
+  `myphoto` under `photograph` stores just that. With core shown, Find
+  `image` finds it, since core puts `photograph` under `image`. The page
+  shows a vocabulary itself once your store uses its names;
+  **Vocabularies** turns any of them on or off, in any combination.
+- Contact details go under `about(person)` and a class, never below the
+  person, whose classes they would inherit:
+  `+44 7700 900123` under `about(alice) phone-number` stores
+  `+447700900123`. Alice's page then lists it under About, and Find
+  `about(friend) phone-number` lists every friend's numbers. The first
+  typed value brings the declarations it needs (the prelude), as
+  `odag prelude` does.
+- **Your categories** on the left lead to each one's page: above,
+  below, what is about it, **Put … under**, and **Remove from your store**
+  (what was below moves up, as `odag remove` does). **Find** is `get`:
+  what is below all the names you give.
 
-**Your own store, in a file.** The same page keeps a store of your own
-as an `.od` file on your computer, written to Swarm only when you publish
-it (below): **New**
-or **Open file…**, then **Put** (a name, and the categories it goes
-under) and **Remove** (what was below moves up, as `odag remove` does),
-browsing and `get` as with a pack, and **Save**. **Add typed values**
-adopts the prelude, as `odag prelude` does. The file is the format `odag`
-reads, so the same store works on the command line:
+The file is the format `odag` reads, so the same store works on the
+command line:
 
 ```console
 $ odag -f mine.od get fruit
@@ -3278,25 +3290,53 @@ browser's settings itself). In Brave it also offers the flag that makes
 Save write back to the file, as in Chrome. The flag applies to every
 site, so its steps show only after you say yes. "Save into a folder you
 choose…" beside Save opens the help again. The page warns before you
-leave it with unsaved changes. In Python the same
-store is `ontodag.browser.LocalStore`:
+leave it with unsaved changes.
+
+In Python the store is `ontodag.browser.LocalStore`, and the page's view
+of it with the vocabularies is `ontodag.browser.Organiser`, given each
+pack's canonical text (the page ships them as `packs.json`):
 
 ```python
->>> from ontodag.browser import LocalStore
->>> store = LocalStore(name="mine.od")
->>> store.put("apple", "fruit")
-'{"error": "unknown super-category: fruit (put it first)", ...}'
->>> _ = store.put("fruit"); _ = store.put("apple", "fruit")
->>> print(store.text(), end="")
+>>> import json
+>>> from ontodag import native
+>>> from ontodag.browser import LocalStore, Organiser
+>>> from ontodag.packs import pack_dag
+>>> texts = {p: native.dumps(pack_dag(p)) for p in ("prelude", "core")}
+>>> org = Organiser(LocalStore(name="mine.od"), texts)
+>>> [s["name"] for s in json.loads(org.suggest("photo"))["suggestions"]][:3]
+['photograph', 'photography', 'photographer']
+>>> _ = org.show(["core"])
+>>> json.loads(org.add("myphoto", "photograph"))["taken"]
+['photograph']
+>>> json.loads(org.get("image"))["mine"]
+['myphoto', 'photograph']
+>>> print(org.mine.text(), end="")
 # ontodag store v1
-#:canonical 5.0 312a686a9bf5599899749659a578bcee0d622d42dde6f78e66f3281d3691dba1
-apple fruit
-fruit '*'
+#:canonical 5.0 a8bccee273ded7a85b1e7d5a9f79b265b74e7ba6665bee083fc47f923f498d23
+myphoto photograph
+photograph '*'
 ```
+
+**Browsing a vocabulary on Swarm, read only.** **Vocabularies → Browse
+one on Swarm** (or a store's root) reads a published store from Swarm
+lazily, as above: a category with what lies above and below it, `get`,
+`below`. Every chunk is checked against its address in the page, so
+neither a gateway nor a client can hand it wrong data. The packs'
+published cone summaries (`ontodag.cones`) make a broad category one
+read. A first visit to core reads a few hundred chunks; a second reads
+none, since the chunks are kept in the browser. Freedom limits how much a
+site that has not connected may read a minute, so the page asks you to
+connect when it runs into that. On an iPhone the page reads by retrying
+(it says so under the title): Python there cannot wait on Swarm, so the
+page fetches what a step needed and runs it again, with the same answers
+(BROWSER.md §15). A link may name the store to browse:
+`?pack=computing`, or `?root=` and its root.
 
 **Publishing it to Swarm.** Opened through your own Bee node (with Swarm
 Desktop: `http://localhost:1633/bzz/ontodag.eth/`), the page also writes
-your store to Swarm, as `odag -f swarm:NAME` does:
+your store to Swarm, as `odag -f swarm:NAME` does (**More → Publish to
+Swarm…**). For now a published store can be read by anyone who knows
+your key's address and the store's name; publishing encrypted is next:
 
 1. **New key** makes the key that owns your stores on Swarm and saves it
    as a file (`ontodag-key-….txt`). Keep that file: whoever has it can

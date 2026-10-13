@@ -1427,3 +1427,74 @@ the first to hold copies of what a file holds equally well.
 
 **Next (question 43):** the Python core with `odag` commands, then the
 page.
+
+**The layout first (Peter, 2026-10-13, after trying the page in Brave):**
+the mockup's layout goes into the page now, ahead of the file core, with
+WordNet's words for suggestions. The page looked nothing like the
+mockup, and "photo" found nothing in core, whose word is `photograph`.
+Folders, file-type tags, documents and versions, and notes as files
+still follow the core (question 43's order, for those).
+
+**The words are a finding aid, not the surface layer** (Peter asked,
+2026-10-13). SURFACE_LAYER.md §12 reads exact aliases on input
+automatically (binding declarations in a pack, `fr(Mercure=Mercury
+(planet))`), and that stays parked behind the Namespaces tripwire. Here a
+word only suggests: "photo" lists `photograph`, the person picks it, and
+nothing is substituted or stored. The same words could become such a
+binding pack later.
+
+**Built (2026-10-13):**
+- **`ontodag.core_words`:** for each core category, the other lemmas of
+  its WordNet 3.0 synset: 3,116 categories, 6,082 words; `photograph` has
+  photo, exposure, picture and pic.
+  - Generated in ontodag-core by `tools/regen_ontodag_words.py` from
+    `align/concepts.tsv`.
+  - ontodag's new `NOTICE` carries WordNet's licence, which the core pack
+    already needed.
+- **`ontodag.suggest`:** `Vocabularies` (every pack's names with their
+  places, read from the packs' texts) and `suggest`. The order:
+  1. your own names;
+  2. a vocabulary's name or word equal to what was typed;
+  3. names and words starting with it, the vocabularies shown first and
+     shorter first;
+  4. your names containing it.
+
+  A pack over core that only borrows a core name at its top does not
+  place it.
+- **`ontodag.browser.Organiser`:** your `LocalStore` with the packs shown
+  beside it.
+  - **The view:** answers read your store merged with the packs shown and
+    those they presume, the union of the packs cached as text. Writes go
+    to your store and are mirrored into the view; a removal composes it
+    again. A test checks the mirrored view equals one composed afresh.
+  - **`add`:** puts a category it lacks at the top of your store first, as
+    a name only, saying whether a vocabulary had it (`taken`) or it is new
+    (`created`); it brings the prelude with the first typed value, and
+    spells a phone number without its spaces.
+  - **Reading:** `node` says whose each edge is and lists what is under
+    `about(name)`. `uses` names the packs your store takes names from,
+    which the page shows.
+- **The page:**
+  - **Start:** it opens on New store and Open store file (Open a folder
+    is shown, disabled, as coming next).
+  - **The vocabularies:** a menu shows them beside your store or browses
+    one on Swarm read only, as before (`?root=` and `?pack=` still open a
+    published store).
+  - **Working:** your categories on the left; Find, Add (both with
+    suggestions) and each category's page on the right.
+  - **Publish** sits under More, with a warning that a published store is
+    readable until question 42 is built.
+  - **`packs.json`:** every pack's canonical text, 340 KB, made by
+    `build.py`.
+- **Measured natively:**
+  - building core from `ontodag.packs` takes 2.3 s, loading its canonical
+    text 0.2 s;
+  - core with computing composed takes 0.4 s, merging a small store in
+    1 ms;
+  - parsing all 16 packs for suggestions takes 0.3 s.
+
+  In Chromium the page was ready in 5.3 s from a local build, and the
+  first add with core shown took 2.9 s (composing the view once).
+- **`check.py`** drives new, add, a WordNet suggestion, save, the save
+  help, open, core shown, find and remove, with the Freedom stand-in and
+  with `--bridge retry`; every answer still matches the native reader.

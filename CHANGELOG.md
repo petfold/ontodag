@@ -38,6 +38,29 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
+- **The page is an organiser for your own store** (BROWSER.md §17,
+  Peter's direction of 2026-10-13).
+  - **Layout:** it opens on your store, with the packs behind a
+    Vocabularies menu, shown beside your store in any combination. Answers
+    read your store and the vocabularies shown together; writes go to your
+    store alone (`ontodag.browser.Organiser`).
+  - **Taking a vocabulary's names:** one enters your store as a name only
+    (question 39). A vocabulary is shown as soon as your store uses its
+    names.
+  - **Suggestions:** Add, Put and Find suggest names as you type
+    (`ontodag.suggest`): yours first, then the vocabularies', each with
+    where it sits, and core's categories also by their other words from
+    WordNet (`ontodag.core_words`, generated in ontodag-core). "photo"
+    finds `photograph`. The words are a finding aid, never names.
+  - **Contact details** go under `about(person)` and a class (question
+    44), the prelude coming with the first typed value.
+  - **Browsing on Swarm:** a published store can still be browsed, read
+    only.
+  - **`packs.json`:** the page ships every pack's canonical text beside
+    itself (340 KB), since loading text is ten times quicker than building
+    a pack in the page.
+  - **`NOTICE`:** it carries WordNet's licence, which the core pack
+    already needed.
 - **The page helps you save where you want** (`demo/freedom/savehelp.js`,
   BROWSER.md §14.1). Where a browser lets the page save only by
   downloading (Brave, Freedom, Firefox, Safari), the first download of a

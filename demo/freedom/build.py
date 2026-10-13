@@ -1,12 +1,12 @@
-"""Assemble the read-only page into demo/freedom/dist/, and publish it.
+"""Assemble the page into demo/freedom/dist/, and publish it.
 
     python3 demo/freedom/build.py                      # dist/ only
     python3 demo/freedom/build.py --publish --batch ID # and upload it to Swarm
     ... --publish --no-feed                            # without moving ontodag.gwei/.eth to it
 
-dist/ holds the page and wheels built from this checkout and from
+dist/ holds the page, wheels built from this checkout and from
 recordstore's beside it (the page needs `RecordStore.get_many`, newer than
-recordstore's last release). Pyodide is not in it: the pages load Pyodide
+recordstore's last release), and packs.json, every pack's canonical text. Pyodide is not in it: the pages load Pyodide
 from its own folder on Swarm (app.js, PYODIDE), published once with
 `--pyodide-only`, so a page publish never stamps Pyodide again.
 `--bundle-pyodide` puts a copy in dist/ instead, for a page that must
@@ -71,8 +71,20 @@ def assemble(dist, recordstore, extra=(), bundle_pyodide=False):
     wheels += [wheel(p, os.path.join(dist, "wheels")) for p in extra]
     with open(os.path.join(dist, "wheels", "manifest.json"), "w") as fh:
         json.dump({"wheels": wheels}, fh, indent=1)
+    write_packs(os.path.join(dist, "packs.json"))
     fingerprint(dist)
     return wheels
+
+
+def write_packs(path):
+    """Every pack's canonical text, from this checkout, for the page's
+    vocabularies (ontodag.browser.Organiser): loading text is ten times
+    quicker than building a pack in the page."""
+    sys.path.insert(0, os.path.join(REPO, "src"))
+    from ontodag import native
+    from ontodag.packs import PACKS, pack_dag
+    with open(path, "w") as fh:
+        json.dump({"packs": {p: native.dumps(pack_dag(p)) for p in sorted(PACKS)}}, fh)
 
 
 # A script reference the page makes itself: `src="app.js"` in HTML, or

@@ -3,153 +3,260 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OntoDAG on Swarm</title>
+<title>OntoDAG</title>
 <style>
+  /* Your store first: a top bar for it and the vocabularies, your categories
+     on the left, the work on the right (docs/plans/BROWSER.md §17). */
   :root {
     --bg: #fbfaf7; --fg: #1d1d1b; --muted: #6b6a66; --line: #dedbd3;
-    --card: #ffffff; --accent: #2f6f4f; --accent-fg: #ffffff; --warn: #9a5b00;
+    --card: #ffffff; --accent: #2f6f4f; --accent-fg: #ffffff; --accent-soft: #e4eee8;
+    --tag: #f0eee8; --warn: #9a5b00; --shadow: rgba(29, 29, 27, 0.12);
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #161614; --fg: #ecebe6; --muted: #a3a29c; --line: #34332f;
-      --card: #1f1f1c; --accent: #7cc49c; --accent-fg: #10170f; --warn: #e3a64a;
+      --card: #1f1f1c; --accent: #7cc49c; --accent-fg: #10170f; --accent-soft: #22332a;
+      --tag: #2a2a26; --warn: #e3a64a; --shadow: rgba(0, 0, 0, 0.5); color-scheme: dark;
     }
   }
   * { box-sizing: border-box; }
+  [hidden], .hidden { display: none !important; }
   body { margin: 0; background: var(--bg); color: var(--fg);
-         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 48px; }
-  h1 { font-size: 1.35rem; margin: 0 0 2px; }
-  .sub { color: var(--muted); margin: 0 0 4px; }
-  .guide { margin: 0 0 16px; font-size: 0.9rem; }
-  .guide a { color: var(--accent); }
-  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 12px 0; }
-  select, input, button { font: inherit; color: inherit; background: var(--card);
-         border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
-  input { min-width: 0; flex: 1 1 220px; font-family: var(--mono); font-size: 0.9rem; }
-  button { cursor: pointer; }
-  button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-  button:disabled { opacity: 0.5; cursor: default; }
-  #status { color: var(--muted); min-height: 1.5em; }
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1120px; margin: 0 auto; padding: 14px 16px 48px; }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 5px 11px; }
+  button:hover { border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  button.link { background: none; border: none; padding: 0; color: var(--accent); }
+  button.link:hover { text-decoration: underline; }
+  button:disabled { opacity: 0.45; cursor: default; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input[type="text"], select { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; min-width: 0; }
+  input[type="text"] { width: 100%; }
+  .muted { color: var(--muted); }
+  .small { font-size: 0.85rem; }
+  .warn { color: var(--warn); }
+  .spacer { flex: 1; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .bar > .field { flex: 1 1 220px; min-width: 0; }
+  .field { position: relative; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+
+  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-block: 4px 6px; }
+  .brand { font-weight: 700; font-size: 1.15rem; margin-right: 6px; }
+  .storename { font-family: var(--mono); font-size: 0.92rem; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); margin-left: 6px; vertical-align: middle; }
+  .menuwrap { position: relative; }
+  .menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; background: var(--card); border: 1px solid var(--line);
+          border-radius: 8px; box-shadow: 0 8px 24px var(--shadow); padding: 8px; width: min(320px, calc(100vw - 32px));
+          display: grid; gap: 2px; max-height: 70vh; overflow-y: auto; }
+  .menu.left { right: auto; left: 0; }
+  .menu > button, .menu .list > button { border: none; text-align: left; background: none; padding: 6px 8px; border-radius: 5px; width: 100%; }
+  .menu > button:hover, .menu .list > button:hover { background: var(--tag); }
+  .menu label { display: flex; gap: 8px; align-items: center; padding: 4px 8px; border-radius: 5px; cursor: pointer; }
+  .menu hr { border: none; border-top: 1px solid var(--line); margin: 6px 0; width: 100%; }
+  .menu .head { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 4px 8px 2px; }
+  .menu .rootrow { display: flex; gap: 6px; padding: 4px 8px; }
+  .menu .rootrow input { font-family: var(--mono); font-size: 0.85rem; }
+
+  #sourceline, #status { color: var(--muted); font-size: 0.85rem; min-height: 1.3em; }
   #status.warn { color: var(--warn); }
+  .shown { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding-block: 4px 12px; font-size: 0.88rem; color: var(--muted); }
+  .vchip { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; color: var(--fg); background: var(--card); cursor: pointer; }
+
+  .app { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 760px) { .app { grid-template-columns: minmax(0, 1fr); } }
+  aside { display: grid; gap: 8px; }
+  aside ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+  aside li button { width: 100%; display: flex; justify-content: space-between; gap: 8px; border: none; background: none; text-align: left; padding: 4px 8px; border-radius: 5px; }
+  aside li button:hover { background: var(--tag); }
+  aside li button.on { background: var(--accent-soft); font-weight: 600; }
+  aside li button .n { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
+  aside p { margin: 0; font-size: 0.88rem; color: var(--muted); }
+  @media (max-width: 760px) {
+    aside ul { display: flex; flex-wrap: wrap; gap: 6px; }
+    aside li { padding-left: 0 !important; }
+    aside li button { width: auto; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+  }
+
+  .work { min-width: 0; display: grid; gap: 14px; }
+  .addrow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 8px; align-items: center; }
+  @media (max-width: 560px) { .addrow { grid-template-columns: minmax(0, 1fr); } }
+  #addresult { margin-top: 8px; font-size: 0.9rem; }
+  .suggest { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--card); border: 1px solid var(--line);
+             border-radius: 8px; box-shadow: 0 8px 24px var(--shadow); padding: 4px; max-height: 360px; overflow-y: auto; }
+  .suggest div { padding: 6px 9px; border-radius: 5px; cursor: pointer; display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
+  .suggest div.hi { background: var(--accent-soft); }
+  .suggest .nm { font-weight: 600; }
+  .suggest .where { font-size: 0.82rem; color: var(--muted); }
+  .suggest .new { color: var(--accent); }
+
+  .heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+  .heading h2 { margin: 0; font-size: 1.2rem; overflow-wrap: anywhere; }
+  .rel { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; font-size: 0.9rem; }
+  .rel .lbl { color: var(--muted); min-width: 52px; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 1px 9px; font-size: 0.84rem; border: 1px solid transparent; white-space: nowrap; cursor: pointer; background: none; }
+  .chip.mine { background: var(--accent-soft); border-color: var(--accent-soft); }
+  .chip.vocab { border-color: var(--line); }
+  .chip .src { color: var(--muted); font-size: 0.75rem; }
+  .chip:hover { border-color: var(--muted); }
+
+  .start { max-width: 760px; padding-block: 18px 0; display: grid; gap: 16px; }
+  .start h1 { font-size: 1.7rem; margin: 0; }
+  .start p { margin: 0; max-width: 62ch; }
+  .choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 680px) { .choices { grid-template-columns: minmax(0, 1fr); } }
+  .choice { text-align: left; padding: 14px 16px; border-radius: 8px; display: grid; gap: 4px; align-content: start; }
+  .choice b { font-size: 1rem; }
+  .choice span { font-size: 0.88rem; color: var(--muted); }
+  .choice.primary span { color: var(--accent-fg); opacity: 0.85; }
+
+  /* Browsing a published store from Swarm, read only. */
   .name { font-family: var(--mono); font-size: 1.05rem; font-weight: 600; word-break: break-all; }
   .count { color: var(--muted); }
   .links { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 6px 0 0; padding: 0; list-style: none; }
   .links a, .result a { color: var(--accent); text-decoration: none; font-family: var(--mono); font-size: 0.9rem; cursor: pointer; }
   .links a:hover, .result a:hover { text-decoration: underline; }
-  .label { color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 10px; }
   .result { margin-top: 8px; }
-  #stats { color: var(--muted); font-size: 0.85rem; font-family: var(--mono); }
-  .hidden { display: none; }
-  .muted { color: var(--muted); font-size: 0.9rem; }
-  .nomargin { margin: 0; }
-  #localresult.warn, #swarmresult.warn { color: var(--warn); }
+  #browse { display: grid; gap: 12px; }
+  #browse input[type="text"] { flex: 1 1 200px; width: auto; font-family: var(--mono); font-size: 0.9rem; }
+  #stats { color: var(--muted); font-size: 0.8rem; font-family: var(--mono); margin-top: 16px; }
+
+  #pubpanel .bar { margin-top: 8px; }
+  #pubpanel input[type="text"] { width: auto; flex: 1 1 200px; }
   #swarmresult { word-break: break-all; }
-  button.link { background: none; border: none; padding: 0; color: var(--accent); }
-  button.link:hover { text-decoration: underline; }
-  dialog { max-width: 640px; width: calc(100vw - 32px); border: 1px solid var(--line); border-radius: 10px;
-           max-height: calc(100vh - 32px); overflow-y: auto;
-           background: var(--card); color: var(--fg); padding: 18px 20px; }
+
+  dialog { max-width: 640px; width: calc(100vw - 32px); max-height: calc(100vh - 32px); overflow-y: auto;
+           border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--fg); padding: 18px 20px; }
   dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
   dialog h2 { font-size: 1.15rem; margin: 0 0 8px; }
   dialog h3 { font-size: 1rem; margin: 16px 0 4px; }
   dialog p { margin: 4px 0; }
   dialog ol { margin: 6px 0; padding-left: 22px; }
-  input.addr { flex: 1 1 260px; }
+  input.addr { flex: 1 1 260px; font-family: var(--mono); background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
   .dialogfoot { justify-content: space-between; margin-top: 16px; }
 </style>
 </head>
 <body>
 <main>
-  <h1>OntoDAG on Swarm</h1>
-  <p class="sub">A published ontology, read straight from Swarm in your browser: nothing installed, nothing downloaded whole. Or your own store, kept in a file on this computer, and published to Swarm when you choose.</p>
-  <p class="guide"><a href="https://github.com/petfold/ontodag/blob/main/docs/USER_GUIDE.md#in-a-browser-with-nothing-installed" target="_blank" rel="noopener">User Guide: this page</a> · <a href="https://github.com/petfold/ontodag/blob/main/docs/USER_GUIDE.md" target="_blank" rel="noopener">the whole guide</a></p>
-
-  <div class="bar">
-    <span id="source">Starting…</span>
-    <button id="connect" class="hidden" title="Already reading Swarm through Freedom. Connecting (Freedom asks you) lets this page read five times as much per minute: 600 chunks instead of 120.">Read faster (connect)</button>
+  <div class="top">
+    <span class="brand">OntoDAG</span>
+    <span id="storebox" class="hidden"><span class="storename" id="storename"></span><span id="dirty" class="dot hidden" title="unsaved changes"></span><br><span class="muted small" id="storestate"></span></span>
+    <button id="localsave" class="hidden">Save</button>
+    <button id="savehelpopen" class="link hidden" title="This browser saves by downloading; a setting lets you choose the folder">Save into a folder you choose…</button>
+    <span class="menuwrap hidden" id="storemenuwrap">
+      <button id="storemenubtn" aria-haspopup="true">More ▾</button>
+      <div class="menu left hidden" id="storemenu">
+        <button id="menupublish">Publish to Swarm…</button>
+        <button id="menunew">New store</button>
+        <button id="menuopen">Open another store file…</button>
+      </div>
+    </span>
+    <span class="spacer"></span>
+    <span class="menuwrap">
+      <button id="vocabbtn" aria-haspopup="true" disabled>Vocabularies ▾</button>
+      <div class="menu hidden" id="vocabmenu">
+        <div class="head">Shown with your store</div>
+        <div id="vocablist"></div>
+        <hr>
+        <div class="head">Browse one on Swarm, read only</div>
+        <div class="list" id="browselist"></div>
+        <div class="rootrow"><input type="text" id="root" placeholder="or a store's root (64 hex)" autocomplete="off"><button id="open">Open</button></div>
+      </div>
+    </span>
   </div>
+  <div id="sourceline"><span id="source">Starting…</span> <button id="connect" class="hidden" title="Already reading Swarm through Freedom. Connecting (Freedom asks you) lets this page read five times as much per minute: 600 chunks instead of 120.">Read faster (connect)</button></div>
   <div id="status">Loading Python (Pyodide, about 14 MB the first time; cached after that)…</div>
+  <div class="shown hidden" id="shownline"></div>
 
-  <div class="card">
-    <div class="bar">
-      <label for="store">Store</label>
-      <select id="store" disabled></select>
-      <input id="root" placeholder="or a store's Swarm root (64 hex)" disabled>
-      <button id="open" disabled>Open</button>
+  <section class="start hidden" id="start">
+    <h1>Organise your own things</h1>
+    <p>Put your things under categories of your own. A thing can sit under several categories at once, and finding is asking for what is below all the ones you name. Shared vocabularies suggest names as you type.</p>
+    <div class="choices">
+      <button class="choice primary" id="startnew"><b>New store</b><span>Start with an empty store and make your own categories.</span></button>
+      <button class="choice" id="startopen"><b>Open store file…</b><span>Carry on with a store you saved, an .od file (the one odag reads).</span></button>
+      <button class="choice" id="startfolder" disabled title="Folders come next: their files, tagged by type, with versions"><b>Open a folder…</b><span>Coming next: file a folder's files, tagged by type.</span></button>
+    </div>
+    <p class="muted small">The vocabularies (core, computing, geography and others) are in the Vocabularies menu, to show beside your store or to browse.</p>
+  </section>
+
+  <div class="app hidden" id="app">
+    <aside>
+      <div class="label">Your categories</div>
+      <ul id="tree"></ul>
+      <p id="treeempty" class="hidden">None yet. Use Add: type a name, then what it is under.</p>
+    </aside>
+    <section class="work">
+      <div class="bar">
+        <div class="field"><input type="text" id="find" placeholder="Find: what is below all of these, e.g. holiday photograph" autocomplete="off"></div>
+        <button id="findbutton">Find</button>
+        <button id="addtoggle">Add…</button>
+      </div>
+      <div class="panel hidden" id="addpanel">
+        <div class="addrow">
+          <div class="field"><input type="text" id="addwhat" placeholder="a name, e.g. rome-2026 or myphoto" autocomplete="off"></div>
+          <div class="field"><input type="text" id="addunder" placeholder="under (space separated), e.g. holiday photograph" autocomplete="off"></div>
+          <button class="primary" id="addbutton">Add</button>
+        </div>
+        <div id="addresult" class="muted"></div>
+      </div>
+      <div class="panel hidden" id="pubpanel">
+        <div class="heading"><h2>Publish to Swarm</h2><span class="muted small">your store, under your key</span></div>
+        <p class="warn small">What you publish can be read by anyone who knows your key's address and the store's name. Publishing encrypted, readable only with your key, comes next (question 42).</p>
+        <div class="bar">
+          <button id="keynew" title="Make a key that owns your stores on Swarm, and save it as a file">New key</button>
+          <button id="keyopen" title="Open the key file you saved">Open key file…</button>
+          <span class="muted small" id="keystate">No key yet: publishing needs one.</span>
+          <input type="file" id="keyfile" accept=".txt,.key,text/plain" class="hidden">
+        </div>
+        <div class="bar">
+          <input type="text" id="swarmname" placeholder="its name on Swarm, as in odag -f swarm:NAME" title="The store's name on Swarm. With the same key, odag -f swarm:NAME is the same store." autocomplete="off">
+          <select id="swarmbatch" class="hidden" title="The postage batch that pays for the upload"></select>
+          <button id="publish" class="primary" disabled>Publish</button>
+          <button id="fetch" disabled title="Bring in what is published under this name and key (from another device, or from odag)">Get from Swarm</button>
+          <button class="link" id="pubclose">Close</button>
+        </div>
+        <div class="muted small" id="swarmnote"></div>
+        <div class="result" id="swarmresult"></div>
+      </div>
+      <div id="view"></div>
+    </section>
+  </div>
+
+  <div id="browse" class="hidden">
+    <div class="panel">
+      <div class="bar"><span class="label">Browsing on Swarm, read only</span><span class="name" id="browsename"></span><span class="spacer"></span><button class="link" id="browseback">Back</button></div>
+    </div>
+    <div class="panel" id="nodecard">
+      <div><span class="name" id="nodename">—</span> <span class="count" id="nodecount"></span></div>
+      <div class="label" style="margin-top:10px">Above</div>
+      <ul class="links" id="above"></ul>
+      <div class="label" style="margin-top:10px">Below</div>
+      <ul class="links" id="below"></ul>
+      <div class="bar" style="margin-top:10px">
+        <input type="text" id="goto" placeholder="go to a category, e.g. fruit" autocomplete="off">
+        <button id="gobutton">Go</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="bar">
+        <input type="text" id="query" placeholder="get: everything below all of these, e.g. fruit tropical" autocomplete="off">
+        <button id="getbutton" class="primary">Get</button>
+      </div>
+      <div class="result" id="getresult"></div>
+      <div class="bar" style="margin-top:8px">
+        <input type="text" id="belowa" placeholder="is this" autocomplete="off">
+        <input type="text" id="belowb" placeholder="below this?" autocomplete="off">
+        <button id="belowbutton">Below?</button>
+      </div>
+      <div class="result" id="belowresult"></div>
     </div>
   </div>
 
-  <div class="card">
-    <div class="bar">
-      <span class="label nomargin">Your own store</span>
-      <button id="localnew" disabled>New</button>
-      <button id="localopen" disabled>Open file…</button>
-      <button id="localsave" disabled>Save</button>
-      <button id="savehelpopen" class="link hidden" title="This browser saves by downloading; a setting lets you choose the folder">Save into a folder you choose…</button>
-      <button id="localprelude" class="hidden" title="Adopt the standard declarations for typed values (mass, time, geo and the rest), as odag prelude does">Add typed values (prelude)</button>
-      <input type="file" id="localfile" accept=".od,text/plain" class="hidden">
-    </div>
-    <div class="muted" id="localstate">A store of your own, as an .od file (the same file odag reads). Nothing goes to Swarm unless you publish it.</div>
-    <div id="localedit" class="hidden">
-      <div class="bar">
-        <input id="putitem" placeholder="put: a name, e.g. apple">
-        <input id="putunder" placeholder="under these (space separated), e.g. fruit; empty for the top">
-        <button id="putbutton" class="primary">Put</button>
-      </div>
-      <div class="bar">
-        <input id="removenames" placeholder="remove (what was below each moves up to its parents)">
-        <button id="removebutton">Remove</button>
-      </div>
-      <div class="result" id="localresult"></div>
-    </div>
-    <div id="swarmedit" class="hidden">
-      <div class="bar">
-        <span class="label nomargin">On Swarm</span>
-        <button id="keynew" title="Make a key that owns your stores on Swarm, and save it as a file">New key</button>
-        <button id="keyopen" title="Open the key file you saved">Open key file…</button>
-        <span class="muted" id="keystate">No key yet: publishing needs one.</span>
-        <input type="file" id="keyfile" accept=".txt,.key,text/plain" class="hidden">
-      </div>
-      <div class="bar">
-        <input id="swarmname" placeholder="its name on Swarm, as in odag -f swarm:NAME" title="The store's name on Swarm. With the same key, odag -f swarm:NAME is the same store.">
-        <select id="swarmbatch" class="hidden" title="The postage batch that pays for the upload"></select>
-        <button id="publish" class="primary" disabled>Publish</button>
-        <button id="fetch" disabled title="Bring in what is published under this name and key (from another device, or from odag)">Get from Swarm</button>
-      </div>
-      <div class="muted" id="swarmnote"></div>
-      <div class="result" id="swarmresult"></div>
-    </div>
-  </div>
-
-  <div class="card" id="nodecard">
-    <div><span class="name" id="nodename">—</span> <span class="count" id="nodecount"></span></div>
-    <div class="label">Above</div>
-    <ul class="links" id="above"></ul>
-    <div class="label">Below</div>
-    <ul class="links" id="below"></ul>
-    <div class="bar">
-      <input id="goto" placeholder="go to a category, e.g. fruit" disabled>
-      <button id="gobutton" disabled>Go</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="bar">
-      <input id="query" placeholder="get: everything below all of these, e.g. fruit tropical" disabled>
-      <button id="getbutton" class="primary" disabled>Get</button>
-    </div>
-    <div class="result" id="getresult"></div>
-    <div class="bar">
-      <input id="belowa" placeholder="is this" disabled>
-      <input id="belowb" placeholder="below this?" disabled>
-      <button id="belowbutton" disabled>Below?</button>
-    </div>
-    <div class="result" id="belowresult"></div>
-  </div>
-
+  <input type="file" id="localfile" accept=".od,text/plain" class="hidden">
   <div id="stats"></div>
 </main>
 <dialog id="savehelp" aria-label="Saving into a folder you choose"></dialog>

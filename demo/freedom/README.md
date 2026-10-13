@@ -1,15 +1,21 @@
 # OntoDAG on Swarm, in the browser
 
-A page that reads a published ontology straight from Swarm: Python
-(ontodag and recordstore) runs under Pyodide, and Swarm is reached through
-Freedom Browser's `window.swarm`, or through a Swarm node or gateway over
-HTTP. Nothing is installed and nothing is downloaded whole. It also keeps
-a store of your own in a local `.od` file (the format `odag` reads): saved
-back in place where the browser allows it (Chrome), downloaded where it
-doesn't (Freedom, Brave), and published to Swarm when you choose, as
-`odag -f swarm:NAME` does, through the node that served the page and under
-a key you keep in a file. Design and measurements: `docs/plans/BROWSER.md`
-§10–§16.
+An organiser for your own things (BROWSER.md §17). Python (ontodag and
+recordstore) runs under Pyodide.
+- **Your store** is a local `.od` file, the format `odag` reads: saved
+  back in place where the browser allows it (Chrome), downloaded where it
+  doesn't (Freedom, Brave), and published to Swarm when you choose, as
+  `odag -f swarm:NAME` does, through the node that served the page and
+  under a key you keep in a file.
+- **The vocabularies** (the packs, shipped beside the page as
+  `packs.json`) are shown beside it in any combination. While you type,
+  they suggest names with where each sits, core's also by its WordNet
+  words.
+- **A published store** can still be browsed read only, straight from
+  Swarm, through Freedom Browser's `window.swarm` or a Swarm node or
+  gateway over HTTP, nothing downloaded whole.
+
+Design and measurements: `docs/plans/BROWSER.md` §10–§17.
 
 Stable address (a feed manifest; every publish advances the feed, so it
 always opens the current version): `bzz://eaaa79002b255222218984bc54a73131adcf720180f06542c1c8e176973a2a23/`. The publisher key is
@@ -34,7 +40,8 @@ not behind the names yet: `bzz://cf069f20d98934742b8af909e4f2c7feca73cb07256c38e
 
 | file | what it is |
 |---|---|
-| `index.html`, `app.js` | the page: a store (the published packs by their pinned roots, or your own in a local file), a category with what is above and below it, `get`, `below`; for your own store, put, remove, the prelude and save, and on Swarm a key file, Publish and Get from Swarm |
+| `index.html`, `app.js` | the page: your store first (New, Open, Save; Add with suggestions, a category's page with above, below and about, Put under, Remove, Find), the vocabularies shown beside it (`ontodag.browser.Organiser`), Publish and Get from Swarm under a key file, and a published store browsed read only (by its pinned root: a category with what is above and below it, `get`, `below`) |
+| `packs.json` | made by `build.py`, not kept here: every pack's canonical text, for the vocabularies (loading text is ten times quicker than building a pack in the page) |
 | `publish.js` | writing your store (BROWSER.md §16): the key (`Key`, signing as Bee checks), the `Stage` Python's `StagedBlobs` writes into, `NodeWriter` (the node's batches, plain uploads, `/stewardship`, the feed found by probing and written with `POST /soc`) and `uploadStaged` |
 | `pycall.js` | how Python waits for Swarm: JSPI, or retrying where JSPI cannot suspend Python (Pyodide on iOS; BROWSER.md §15) |
 | `localfile.js` | opening and saving a local file: in place where the browser allows it, by file input and download elsewhere |

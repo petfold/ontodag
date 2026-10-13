@@ -1,6 +1,7 @@
-"""End-to-end check of the read-only page, outside the suite (like
+"""End-to-end check of the page, outside the suite (like
 scripts/browser_check.py): Playwright's Chromium runs the page from
-demo/freedom/dist/ and reads a published pack from a real Bee node.
+demo/freedom/dist/, browses a published pack read from a real Bee node,
+and organises a store of its own.
 
     python3 demo/freedom/build.py && python3 demo/freedom/check.py
 
@@ -19,11 +20,17 @@ Two ways in, both checked against the same pack read natively in Python
   page served from dist/ reads every chunk from the gateway, which fetches
   from the network: the case of a browser with no Swarm of its own.
 
-Each way also checks your own store (BROWSER.md §14) through the page's
-buttons: New, Put, Save (a download, compared with `ontodag.native` for the
-same writes), then Open by the file input, Put, Remove and Get. Saving back
-in place through File System Access needs a native dialog, so it is not
-checked here; the page falls back to the download where it is refused.
+Each way also checks your own store (BROWSER.md §14, §17) through the
+page's controls:
+- New, Add, and a suggestion found by a WordNet word;
+- Save (a download, compared with `ontodag.native` for the same writes)
+  and the save help it brings;
+- Open by the file input, Add, the vocabulary its names come from shown
+  beside it, Find, and Remove.
+
+Saving back in place through File System Access needs a native dialog, so
+it is not checked here; the page falls back to the download where it is
+refused.
 
 Needs a Bee node with the pack's chunks (BEE_API, default localhost:1633)
 and `playwright` with Chromium.
@@ -227,8 +234,20 @@ async def check_save_help(page):
     return problems
 
 
+async def add(page, what, under=""):
+    """Add something through the page's Add panel; the page's answer."""
+    await page.fill("#addwhat", what)
+    await page.fill("#addunder", under)
+    await page.click("#addbutton")
+    await page.wait_for_function("document.getElementById('addresult').textContent !== ''")
+    said = await page.inner_text("#addresult")
+    await page.evaluate("document.getElementById('addresult').textContent = ''")
+    return said
+
+
 async def check_local(page):
-    """Your own store through the page's buttons; the problems found."""
+    """Your own store through the page's controls (BROWSER.md §17): the
+    problems found."""
     import tempfile
     from ontodag import OntoDAG, native
     problems = []
@@ -236,24 +255,25 @@ async def check_local(page):
     # Downloads and the file input, as in Freedom and Brave.
     await page.evaluate("window.ontodagPage.files.pickers = false")
 
-    async def put(item, under=""):
-        await page.fill("#putitem", item)
-        await page.fill("#putunder", under)
-        await page.click("#putbutton")
-        await page.wait_for_function("(i) => document.getElementById('localresult').textContent.includes(i)", arg=item)
+    # From browsing a pack (the checks start there) to a store of your own.
+    await page.click("#browseback")
+    await page.click("#startnew")
+    await page.wait_for_selector("#addpanel:not(.hidden)")
+    said = await add(page, "fruit")
+    if "core is now shown" not in said:
+        problems.append(f"fruit is a core name, yet core was not shown: {said!r}")
+    await add(page, "apple", "fruit")
 
-    await page.click("#localnew")
-    await page.wait_for_selector("#localedit:not(.hidden)")
-    await put("fruit")
-    # A pack opened in between: what is put goes to your store, and the page
-    # shows it there, not looked up in the pack.
-    core = await page.evaluate("[...document.getElementById('store').options].find((o) => o.textContent === 'core').value")
-    await page.evaluate("(r) => window.ontodagPage.openStore(r)", core)
-    await put("apple", "fruit")
-    shown = await page.evaluate("window.ontodagPage.call('node', 'fruit')")
-    if [n for n, _c in shown.get("below", [])] != ["apple"]:
-        problems.append(f"after putting apple with core open, the page shows another store's fruit: "
-                        f"{len(shown.get('below', []))} below it")
+    # A suggestion found by a WordNet word: "photo" offers core's photograph.
+    await page.fill("#addunder", "")
+    await page.type("#addunder", "photo")
+    await page.wait_for_selector("#addunder ~ .suggest div")
+    first = await page.inner_text("#addunder ~ .suggest div >> nth=0")
+    if not first.startswith("photograph") or "photo" not in first:
+        problems.append(f"typing photo first suggests {first!r}")
+    await page.fill("#addunder", "")
+    await page.keyboard.press("Escape")
+
     async with page.expect_download() as info:
         await page.click("#localsave")
     saved = open(await (await info.value).path()).read()
@@ -262,36 +282,41 @@ async def check_local(page):
     want.put("apple", ["fruit"])
     if saved != native.dumps(want):
         problems.append(f"saved text differs from native.dumps: {saved!r}")
-    state = await page.inner_text("#localstate")
-    if "· saved" not in state:
+    state = await page.inner_text("#storestate")
+    if not state.startswith("saved"):
         problems.append(f"after saving, the page says: {state!r}")
     problems += await check_save_help(page)
 
     with tempfile.NamedTemporaryFile("w", suffix=".od", delete=False) as fh:
         fh.write(saved)
+    await page.click("#storemenubtn")
     async with page.expect_file_chooser() as chooser:
-        await page.click("#localopen")
+        await page.click("#menuopen")
     await (await chooser.value).set_files(fh.name)
-    await page.wait_for_function("document.getElementById('localstate').textContent.includes('.od')")
-    await put("pear", "fruit")
-    await put("food")
-    await put("produce", "food")
-    await page.fill("#putitem", "plum")
-    await page.fill("#putunder", "fruit orchard")
-    await page.click("#putbutton")
-    await page.wait_for_function("document.getElementById('localresult').textContent.includes('orchard')")
-    await page.fill("#removenames", "pear")
+    await page.wait_for_function("document.getElementById('storename').textContent.endsWith('.od')")
+    if "core" not in await page.evaluate("window.ontodagPage.shown()"):
+        problems.append("an opened store that uses core's names did not get core shown")
+    await add(page, "pear", "fruit")
+    await add(page, "food")
+    await add(page, "produce", "food")
+    said = await add(page, "plum", "fruit orchard")
+    if "orchard" not in said:
+        problems.append(f"a new category was not said: {said!r}")
+    answer = await page.evaluate("window.ontodagPage.call('org_get', 'fruit')")
+    if answer.get("mine") != ["apple", "pear", "plum"] or not answer.get("others"):
+        problems.append(f"fruit with core shown: {answer!r}")
+    await page.evaluate("window.ontodagPage.showCategory('pear')")
+    await page.wait_for_selector("#removebutton")
     await page.click("#removebutton")
-    await page.wait_for_function("document.getElementById('localresult').textContent.includes('removed')")
-    answer = await page.evaluate("window.ontodagPage.call('get', 'fruit')")
-    if answer.get("names") != ["apple"]:
-        problems.append(f"get fruit after the edits: {answer!r}")
-    state = await page.inner_text("#localstate")
-    if "unsaved changes" not in state:
-        problems.append(f"after edits, the page says: {state!r}")
+    await page.wait_for_function("document.getElementById('status').textContent.startsWith('Removed')")
+    answer = await page.evaluate("window.ontodagPage.call('org_get', 'fruit')")
+    if answer.get("mine") != ["apple", "plum"]:
+        problems.append(f"fruit after removing pear: {answer!r}")
+    if not (await page.inner_text("#storestate")).startswith("unsaved changes"):
+        problems.append(f"after edits, the page says: {await page.inner_text('#storestate')!r}")
     os.unlink(fh.name)
-    print(f"  your own store: new, put, save (download), open (file input), put, remove, get: "
-          f"{'ok' if not problems else problems}")
+    print(f"  your own store: new, add, a WordNet suggestion, save (download), open (file input), "
+          f"core shown, add, find, remove: {'ok' if not problems else problems}")
     return problems
 
 
@@ -359,16 +384,17 @@ async def check_publish(page, batch):
         with open(keyfile, "w") as fh:
             fh.write(secret + "\n")
 
-        async def put(item, under=""):
-            await page.fill("#putitem", item)
-            await page.fill("#putunder", under)
-            await page.click("#putbutton")
-            await page.wait_for_function("(i) => document.getElementById('localresult').textContent.includes(i)", arg=item)
+        async def new_store():
+            await page.click("#storemenubtn")
+            await page.click("#menunew")
+            await page.wait_for_selector("#addpanel:not(.hidden)")
 
-        await page.click("#localnew")
-        await page.wait_for_selector("#swarmedit:not(.hidden)")
-        await put("fruit")
-        await put("apple", "fruit")
+        await new_store()
+        await add(page, "fruit")
+        await add(page, "apple", "fruit")
+        await page.click("#storemenubtn")
+        await page.click("#menupublish")
+        await page.wait_for_selector("#pubpanel:not(.hidden)")
         async with page.expect_file_chooser() as chooser:
             await page.click("#keyopen")
         await (await chooser.value).set_files(keyfile)
@@ -396,7 +422,7 @@ async def check_publish(page, batch):
         if second == first:
             return problems + ["odag's change never reached the feed"]
 
-        await put("plum", "fruit")
+        await add(page, "plum", "fruit")
         t = time.time()
         third, said = await _publish(page)
         print(f"  publish again: {said[:120]}… ({time.time() - t:.0f} s)")
@@ -412,7 +438,7 @@ async def check_publish(page, batch):
         if sorted(got) != ["apple", "pear", "plum"]:
             problems.append(f"odag read {got} from the feed, not apple, pear and plum")
 
-        await page.click("#localnew")
+        await new_store()
         await page.click("#fetch")
         await page.wait_for_function("document.getElementById('swarmresult').textContent.startsWith('From ')"
                                      " || document.getElementById('swarmresult').classList.contains('warn')",
