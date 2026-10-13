@@ -610,7 +610,10 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   and helps a person save where they want (§14.1), `bzz://c9e24c73…`
   behind `ontodag.gwei` and `ontodag.eth` (feed update 7, 2026-10-14 on
   Peter's word, built from the 0.33.0 release; before it `44bb7def…`); loopmarket's market page (`browser/`,
-  `bzz://56f9ce1b…` behind `loopmarket.gwei` and `loopmarket.eth`; both load one shared Pyodide).
+  `bzz://56f9ce1b…` behind `loopmarket.gwei` and `loopmarket.eth`; both load one shared Pyodide;
+  a version that also makes, publishes and withdraws your offers and
+  announces your book, signing with this page's `publish.js`,
+  `bzz://1a6bb105…`, not behind the names until Peter has tried it).
   Open for Peter: recordstore's `BeeBytesStore`
   sends no redundancy level, so Bee 2.8 erasure-codes its blobs over 4 KB
   (references unlike Swarm addressing); plain by default, or the node's
