@@ -27,10 +27,10 @@ through a node: `http://localhost:1633/bzz/22d1e16bebfd0afccdddb2060b5669f68c26b
 in any browser, through the public gateway, serve `dist/` and add
 `?gateway=https://api.gateway.ethswarm.org`).
 
-Next version, with Publish (BROWSER.md §16), not behind the names yet:
-`bzz://4c2b71261310d7056b9ee559e1491052ed987e9f50ca98ced47f934ed8a07c4f/`
+Next version, with Publish (BROWSER.md §16) and the save help (§14.1),
+not behind the names yet: `bzz://89a9deed695fb4d841e0d2e5d938109c9571b7ab2fc2353251e80f871f68abb8/`
 (2026-10-13; to publish, open it through your node:
-`http://localhost:1633/bzz/4c2b71261310d7056b9ee559e1491052ed987e9f50ca98ced47f934ed8a07c4f/`).
+`http://localhost:1633/bzz/89a9deed695fb4d841e0d2e5d938109c9571b7ab2fc2353251e80f871f68abb8/`).
 
 | file | what it is |
 |---|---|
