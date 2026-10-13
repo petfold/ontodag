@@ -705,10 +705,11 @@ file (`ontodag.browser.LocalStore`, a whole `OntoDAG` in memory):
   file access in Python, would work in any browser. It would be
   restricted to its own origin and a token, unlike the node's open CORS
   (§14.2). It comes with question 43's core.
-- **Freedom is Solar Punk's own** (solardev-xyz). #671 is a change in
+- **A fix in Freedom itself:** #671 is a change in
   `src/main/permissions/permissions-manager.js`: grant reading what was
-  picked, and prompt per site for writing, as for the camera. It could be
-  sent as a pull request on Peter's word.
+  picked, and prompt per site for writing, as for the camera. Freedom
+  belongs to its own project (solardev-xyz), not to Solar Punk. Not now
+  (Peter, 2026-10-13): the first two workarounds come first.
 
 **A local file as a buffer for Swarm writes.** It fits a store:
 - **Why:** merge is a CRDT (I7), so edits made offline, saved locally and
