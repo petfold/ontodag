@@ -1293,5 +1293,32 @@ number is identity data, not content. Tried natively against prelude 5:
   a document like a file, its edits versions. Where its text is kept is
   the next question.
 
-**Open:** question 44 (how a phone number attaches to a person), then
-where a quick note's text is kept.
+**A correction (2026-10-13): nothing but kinds of a person goes below
+the person.** Below is inclusion, so whatever is filed below `alice`
+inherits all her classes. Tried with `alice ⊑ friend, person, in(rome)`:
+- **Numbers and a Signal name filed below her:** `get friend person
+  in(rome)` returned alice, both numbers and `alice.42`. The numbers
+  had become people, friends and in Rome.
+- **The same filed under `about(alice)` and a class** (`+447700900123 ⊑
+  about(alice), phone-number`, `alice.42 ⊑ about(alice), signal-id`):
+  - `get friend in(rome)` returned alice alone;
+  - `get about(alice) phone-number` returned her numbers;
+  - `get about(friend) phone-number` returned every friend's numbers,
+    since the relation kind follows its argument's order;
+  - a shared landline files under `about(alice)` and `about(bob)`.
+
+The recommendation of A in question 44 (a number below its person) was
+therefore wrong. So is PROJECTIONS.md §6's identity edge
+(`mailto:alice@… ⊑ Alice`): a message filed below an address would
+become a person. Messages relate to an identifier through a relation,
+never by sitting below it.
+- **Names:** no `tel:` prefix, since the class says what the node is. A
+  number is spelled in full international form without spaces
+  (`+447700900123`), so one number is one name. Names stay identity, so
+  the same handle on two services would be one node.
+- **Core's word:** core has `phone-number` (under `signal` and
+  `information`), which the suggestions would offer; `signal-id` would be
+  a category of the person's own.
+
+**Open:** question 44 (contact details under `about(person)` and a
+class), then where a quick note's text is kept.

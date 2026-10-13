@@ -176,6 +176,12 @@ overlay stores in the CLI/fs mount.
   `signal:alice.42 ⊑ Alice`), so anything filed under either identifier
   is under Alice by subsumption. Whether those edges are projected from
   the contact source or native to the human layer: open (§10.2).
+  **Corrected 2026-10-13 (BROWSER.md §17):** below is inclusion, so an
+  address below Alice inherits Alice's classes (with `Alice ⊑ person`,
+  the address and every message under it become persons; tried natively).
+  An identifier is filed under `about(Alice)` and a class
+  (`+447700900123 ⊑ about(alice), phone-number`), and a message relates
+  to an identifier through a relation, never by sitting below it.
 
 **SwarmID forward-compatibility note (added 2026-08-20).** The identity
 layer this family needs is probably not ours to build: **SwarmID**
