@@ -5,7 +5,8 @@ Pyodide, reading published packs from Swarm through the page's JavaScript
 (`demo/freedom/swarm.js`), with `run_sync` (JSPI) as the bridge or by
 retrying where JSPI cannot suspend Python. Your own store (`LocalStore`)
 lives in a local file and is published through a node (`StagedBlobs`,
-`demo/freedom/publish.js`; docs/plans/BROWSER.md §16). The adapters' logic
+`demo/freedom/publish.js`; docs/plans/BROWSER.md §16). The organiser
+page shows it with the packs beside it (`Organiser`, §17). The adapters' logic
 is also covered by tests with a fake bridge; the packaging constraints
 are checked in `tests/test_boundaries.py`.
 
@@ -637,3 +638,262 @@ class LocalStore(PageReader):
         return self._answer(fetched=feed_root, came_in=came_in[:self.limit],
                             more=max(0, len(came_in) - self.limit),
                             changed=self.changed, count=len(self.dag.nodes) - 1)
+
+
+class Organiser:
+    """Your store with the vocabularies shown beside it: the organiser page
+    (docs/plans/BROWSER.md §17).
+
+    Answers read the composed view, your store merged with the packs shown
+    (and the packs they presume), as `odag`'s overlays are composed; writes
+    go to your store alone. A category taken from a vocabulary enters your
+    store as a name only (question 39): the vocabulary shown supplies its
+    places. `texts` maps each pack to its canonical `.od` text, which the
+    page ships beside itself: loading text is ten times quicker than
+    building a pack from `ontodag.packs`.
+
+    Every answer is JSON text, as `PageReader`'s are."""
+
+    def __init__(self, mine, texts, limit=100):
+        self.mine = mine
+        self.texts = dict(texts)
+        self.limit = limit
+        self.shown = []
+        self._read = None
+        self._vocab = None
+        self._unions = {}
+        self._view = None
+
+    def _answer(self, **fields):
+        import json
+        return json.dumps(fields)
+
+    @property
+    def vocab(self):
+        if self._vocab is None:
+            from ontodag.suggest import Vocabularies
+            self._vocab = Vocabularies(self.texts)
+        return self._vocab
+
+    def use(self, mine):
+        """Another store of yours (new, opened, or fetched)."""
+        self.mine = mine
+        self._view = None
+
+    # -- what is shown ---------------------------------------------------- #
+
+    def _closure(self):
+        """The packs shown and those they presume, in merge order."""
+        if self._read is None:
+            self._read = self._presumed()
+        return self._read
+
+    def _presumed(self):
+        from ontodag import packs
+        names = set(self.shown)
+        for p in list(names):
+            if packs.presumes_core(p):
+                names.add("core")
+        for p in list(names):
+            if packs.presumes_prelude(p):
+                names.add("prelude")
+        first = [p for p in ("prelude", "core") if p in names]
+        return first + sorted(names - set(first))
+
+    def show(self, names):
+        """Show these packs beside your store (a list of pack names)."""
+        unknown = [n for n in names if n not in self.texts]
+        if unknown:
+            return self._answer(error=f"no such vocabulary: {', '.join(unknown)}", shown=self.shown)
+        self.shown = sorted(set(names))
+        self._read = None
+        self._view = None
+        return self._answer(shown=self.shown, read=self._closure())
+
+    def uses(self):
+        """The packs your store takes names from, which the page shows
+        unless the person turned them off."""
+        mine = self._names()
+        found = set()
+        for name in mine:
+            found.update(self.vocab.packs_having(name))
+        return self._answer(packs=sorted(found - {"prelude"}))
+
+    def _union(self):
+        from ontodag import OntoDAG, native
+        closure = tuple(self._closure())
+        if closure not in self._unions:
+            dag = OntoDAG()
+            for p in closure:
+                dag.merge(native.loads(self.texts[p], source=p))
+            self._unions[closure] = native.dumps(dag)
+        return self._unions[closure]
+
+    def view(self):
+        """The composed view: the packs shown, with your store merged in."""
+        if self._view is None:
+            from ontodag import OntoDAG, native
+            view = native.loads(self._union()) if self._closure() else OntoDAG()
+            view.merge(self.mine.dag)
+            self._view = view
+        return self._view
+
+    # -- reading ---------------------------------------------------------- #
+
+    def _prelude_names(self):
+        return {name for name, places in self.vocab.places.items()
+                if any(p == "prelude" for p, _ in places)}
+
+    def _names(self):
+        """Your store's own names: no root, no values, nothing the prelude
+        declares."""
+        hidden = self._prelude_names()
+        return [n for n in self.mine.dag.nodes
+                if n != "*" and "(" not in n and n not in hidden]
+
+    def _source(self, child, parent):
+        """Whose edge `child ⊑ parent` is: "mine", or the first pack shown
+        that has it."""
+        mine = self.mine.dag.nodes.get(child)
+        if mine is not None and any(p.name == parent for p in mine.parents):
+            return "mine"
+        read = self._closure()
+        for pack, parents in self.vocab.places.get(child, ()):
+            if pack in read and parent in parents:
+                return pack
+        return "view"
+
+    def tree(self):
+        """Your categories for the side list: each top one, and below it
+        those of yours with something of yours below them, as
+        [name, depth, how many of yours are below]."""
+        dag = self.mine.dag
+        names = set(self._names())
+        kids = {}
+        for n in names:
+            for p in dag.nodes[n].parents:
+                if p.name in names:
+                    kids.setdefault(p.name, []).append(n)
+        tops = sorted(n for n in names if not any(p.name in names for p in dag.nodes[n].parents))
+        out = []
+        stack = [(t, 0, (t,)) for t in reversed(tops)]
+        while stack:
+            name, depth, path = stack.pop()
+            out.append([name, depth, dag.nodes[name].descendant_count])
+            for k in sorted(kids.get(name, ()), reverse=True):
+                if k not in path and kids.get(k):
+                    stack.append((k, depth + 1, path + (k,)))
+        return self._answer(tree=out, count=len(names))
+
+    def node(self, name):
+        """A category in the view: what is above and below it and whose
+        each edge is, where the vocabularies place it, and what is filed
+        under `about(name)`."""
+        view = self.view()
+        n = view.nodes.get(name)
+        places = [[pack, list(parents)] for pack, parents in self.vocab.places.get(name, ())]
+        if n is None:
+            return self._answer(name=name, found=False, places=places, shown=self._closure())
+        root = view.root.name
+        above = sorted([p.name, self._source(name, p.name)] for p in n.parents if p.name != root)
+        children = sorted(n.neighbors, key=lambda c: (self._source(c.name, name) != "mine", c.name))
+        shown = children[:self.limit]
+        below = [[c.name, c.descendant_count, self._source(c.name, name)] for c in shown]
+        about = []
+        a = view.nodes.get(f"about({name})")
+        if a is not None:
+            for c in sorted(a.neighbors, key=lambda c: c.name):
+                about.append([c.name, sorted(p.name for p in c.parents
+                                             if p is not a and p.name != root)])
+        return self._answer(name=name, found=True, mine=name in self.mine.dag.nodes,
+                            places=places, shown=self._closure(), count=n.descendant_count,
+                            above=above, below=below, more=len(children) - len(shown),
+                            about=about)
+
+    def get(self, query):
+        """Everything below all the terms, in the view; yours first."""
+        import shlex
+        try:
+            terms = shlex.split(query)
+            answer = sorted(item.name for item in self.view().get(terms))
+        except ValueError as e:
+            return self._answer(query=query, error=str(e))
+        mine = set(self._names())
+        yours = [n for n in answer if n in mine]
+        others = [n for n in answer if n not in mine]
+        return self._answer(query=query, count=len(answer), mine=yours[:self.limit],
+                            others=others[:self.limit], more=max(0, len(others) - self.limit))
+
+    def suggest(self, text, limit=8):
+        from ontodag.suggest import suggest
+        return self._answer(text=text, suggestions=suggest(
+            text, self.vocab, mine=self._names(), shown=self._closure(), limit=limit))
+
+    # -- writing ---------------------------------------------------------- #
+
+    @staticmethod
+    def _spelled(text):
+        """A name as the person typed it, spelled as names are: a phone
+        number with its spaces and dashes taken out, a typed term as typed,
+        anything else lowercase with dashes for spaces."""
+        import re
+        t = text.strip()
+        if re.fullmatch(r"\+[\d\s().-]+", t):
+            return re.sub(r"[\s().-]", "", t)
+        if "(" in t:
+            return t
+        return "-".join(t.lower().split())
+
+    def add(self, item, under=""):
+        """Put `item` into your store under the categories named in
+        `under`. A category not yet in your store is put at its top first,
+        as a name only, whether a vocabulary has it or the person made it
+        up (both are said in the answer); a typed value brings the
+        prelude's declarations if your store lacks them."""
+        import json
+        import shlex
+        try:
+            parents = [self._spelled(p) for p in shlex.split(under)]
+        except ValueError as e:
+            return self._answer(error=str(e))
+        item = self._spelled(item)
+        if not item:
+            return self._answer(error="name what to add")
+        dag = self.mine.dag
+        prelude = 0
+        if any("(" in p for p in parents + [item]) and "dimension" not in dag.nodes:
+            prelude = json.loads(self.mine.prelude())["added"]
+        created, taken = [], []
+        for p in dict.fromkeys(parents):
+            if "(" not in p and p not in dag.nodes and p != item:
+                (taken if p in self.vocab.places else created).append(p)
+        for p in taken + created:
+            answer = json.loads(self.mine.put(p, ""))
+            if "error" in answer:
+                return self._answer(error=answer["error"])
+        answer = json.loads(self.mine.put(item, " ".join(shlex.quote(p) for p in parents)))
+        if "error" in answer:
+            self._view = None
+            return self._answer(error=answer["error"], created=created, taken=taken)
+        self._mirror([(p, []) for p in taken + created] + [(answer["put"], answer["under"])])
+        return self._answer(put=answer["put"], under=answer["under"], taken=taken,
+                            created=created, prelude=prelude, changed=True,
+                            count=len(self._names()))
+
+    def _mirror(self, puts):
+        """The same puts into the view, if it is built; rebuilt instead
+        where one is refused there (merge never refuses)."""
+        if self._view is None:
+            return
+        try:
+            for item, parents in puts:
+                if item in self._view.nodes and not parents:
+                    continue
+                self._view.put(item, parents)
+        except ValueError:
+            self._view = None
+
+    def remove(self, names):
+        answer = self.mine.remove(names)
+        self._view = None
+        return answer

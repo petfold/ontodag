@@ -10,6 +10,7 @@ Written that way deliberately rather than skipped, because the adapter is
 the part we control and the part that would otherwise rot silently.
 """
 
+import json
 import unittest
 
 from ontodag.browser import JsBytesStore, JsFeedPointer, LocalStorageBytesStore
@@ -673,3 +674,94 @@ class TestPublishingYourStore(unittest.TestCase):
         self.assertGreater(runs, 1)
         self.assertEqual(answer["root"], wanted["root"])
         self.assertEqual(answer["came_in"], wanted["came_in"])
+
+
+CORE_TEXT = ("information '*'\nimage information\nphotograph image physical-object\n"
+             "physical-object '*'\nagent '*'\nperson agent\nfriend person\n"
+             "signal information\nphone-number signal\n")
+
+
+class TestTheOrganiser(unittest.TestCase):
+    """Your store with vocabularies shown beside it (BROWSER.md §17):
+    answers from the composed view, writes to your store alone, a
+    vocabulary's category taken as a name only (question 39), contact
+    details under about(person) and a class (question 44)."""
+
+    def setUp(self):
+        from ontodag import native
+        from ontodag.browser import LocalStore, Organiser
+        from ontodag.packs import pack_dag
+        self.texts = {"prelude": native.dumps(pack_dag("prelude")), "core": CORE_TEXT}
+        self.org = Organiser(LocalStore(), self.texts)
+        self.org.show(["core"])
+
+    def ask(self, method, *args):
+        return json.loads(getattr(self.org, method)(*args))
+
+    def test_showing_a_pack_reads_what_it_presumes(self):
+        self.assertEqual(self.ask("show", ["core"]), {"shown": ["core"], "read": ["prelude", "core"]})
+        self.assertIn("error", self.ask("show", ["no-such-pack"]))
+
+    def test_a_vocabularys_category_enters_your_store_as_a_name_only(self):
+        answer = self.ask("add", "myphoto", "photograph")
+        self.assertEqual((answer["taken"], answer["created"]), (["photograph"], []))
+        self.assertEqual(sorted(self.org.mine.dag.nodes["photograph"].parents, key=str)[0].name, "*")
+        self.assertEqual([p.name for p in self.org.mine.dag.nodes["myphoto"].parents], ["photograph"])
+
+    def test_answers_read_the_view_writes_your_store(self):
+        self.ask("add", "myphoto", "photograph")
+        self.assertEqual(self.ask("get", "image")["mine"], ["myphoto", "photograph"])
+        self.assertNotIn("image", self.org.mine.dag.nodes)
+        self.ask("show", [])
+        hidden = self.ask("get", "image")
+        self.assertTrue("error" in hidden or hidden["count"] == 0, hidden)
+
+    def test_a_made_up_category_is_created_and_said(self):
+        answer = self.ask("add", "Rome Trip", '"My Holidays" travel')
+        self.assertEqual((answer["put"], answer["created"]), ("rome-trip", ["my-holidays", "travel"]))
+
+    def test_contact_details_go_under_about_and_a_class(self):
+        self.ask("add", "alice", "friend person")
+        answer = self.ask("add", "+44 7700 900123", "about(alice) phone-number")
+        self.assertEqual(answer["put"], "+447700900123")
+        self.assertGreater(answer["prelude"], 0)
+        self.ask("add", "alice.42", "about(alice) signal-id")
+        node = self.ask("node", "alice")
+        self.assertEqual(node["about"], [["+447700900123", ["phone-number"]], ["alice.42", ["signal-id"]]])
+        self.assertEqual(node["above"], [["friend", "mine"]])
+        self.assertEqual(self.ask("get", "friend")["mine"], ["alice"])
+        self.assertEqual(self.ask("get", "about(alice) phone-number")["mine"], ["+447700900123"])
+
+    def test_the_view_after_writes_is_the_one_composed_afresh(self):
+        from ontodag import native
+        from ontodag.browser import Organiser
+        self.org.view()
+        for item, under in [("myphoto", "photograph"), ("alice", "friend person"),
+                            ("+44 7700 900123", "about(alice) phone-number"), ("rome", "")]:
+            self.ask("add", item, under)
+        fresh = Organiser(self.org.mine, self.texts)
+        fresh.show(["core"])
+        self.assertEqual(native.dumps(self.org.view()), native.dumps(fresh.view()))
+
+    def test_a_removal_is_composed_again(self):
+        self.ask("add", "myphoto", "photograph")
+        self.ask("get", "image")
+        self.ask("remove", "myphoto")
+        self.assertEqual(self.ask("get", "image")["mine"], ["photograph"])
+
+    def test_which_packs_your_store_takes_names_from(self):
+        self.ask("add", "myphoto", "photograph")
+        self.ask("add", "alice", "about(bob)")
+        self.assertEqual(self.ask("uses"), {"packs": ["core"]})
+
+    def test_the_side_list_shows_tops_and_what_has_something_below(self):
+        self.ask("add", "rome-2026", "holiday")
+        self.ask("add", "img-1", "rome-2026")
+        self.ask("add", "taxes", "")
+        tree = self.ask("tree")["tree"]
+        self.assertEqual(tree, [["holiday", 0, 2], ["rome-2026", 1, 1], ["taxes", 0, 0]])
+
+    def test_suggestions_put_yours_first(self):
+        self.ask("add", "photo-album", "")
+        names = [s["name"] for s in self.ask("suggest", "photo")["suggestions"]]
+        self.assertEqual(names[:2], ["photo-album", "photograph"])
