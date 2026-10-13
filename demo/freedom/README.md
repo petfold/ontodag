@@ -28,9 +28,9 @@ in any browser, through the public gateway, serve `dist/` and add
 `?gateway=https://api.gateway.ethswarm.org`).
 
 Next version, with Publish (BROWSER.md §16) and the save help (§14.1),
-not behind the names yet: `bzz://89a9deed695fb4d841e0d2e5d938109c9571b7ab2fc2353251e80f871f68abb8/`
+not behind the names yet: `bzz://cf069f20d98934742b8af909e4f2c7feca73cb07256c38eb600cfcf34edc25d9/`
 (2026-10-13; to publish, open it through your node:
-`http://localhost:1633/bzz/89a9deed695fb4d841e0d2e5d938109c9571b7ab2fc2353251e80f871f68abb8/`).
+`http://localhost:1633/bzz/cf069f20d98934742b8af909e4f2c7feca73cb07256c38eb600cfcf34edc25d9/`).
 
 | file | what it is |
 |---|---|

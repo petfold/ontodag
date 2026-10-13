@@ -591,7 +591,7 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   with the packs' cone summaries, and your own store in a local `.od`
   file, BROWSER.md §14); its next version, which publishes your store
   through a node under a key file (BROWSER.md §16) and helps a person
-  save where they want (§14.1), is `bzz://89a9deed…`, not behind the
+  save where they want (§14.1), is `bzz://cf069f20…`, not behind the
   names until Peter has tried it; loopmarket's market page (`browser/`,
   `bzz://56f9ce1b…` behind `loopmarket.gwei` and `loopmarket.eth`; both load one shared Pyodide).
   Open for Peter: recordstore's `BeeBytesStore`
