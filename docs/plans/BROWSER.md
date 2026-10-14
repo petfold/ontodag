@@ -592,10 +592,67 @@ the pinned ones.
 `swarm.js` now joins coded trees: it reads a coded chunk's data
 references only, their count from the span and the level's table, after
 bee's `ReferenceCount`. It was checked against trees the node coded at
-levels 0 to 4 (`test/make_coded.py`). Whether `BeeBytesStore` should
-upload plain by default (references equal to Swarm addressing, and
-checkable offline) or keep the node's coding (durability) is Peter's
-question.
+levels 0 to 4 (`test/make_coded.py`). Which level our stores upload at
+is question 47, below.
+
+**Question 47 (put to Peter 2026-10-14): at which redundancy level do
+our stores' blobs go to Swarm?** Peter: "We generally prefer erasure
+codes unless there is a good reason against it." What a level does,
+from Bee 2.8.2's source and measured on the node:
+- **The default:** with no `Swarm-Redundancy-Level` header Bee uploads
+  at level 1 (MEDIUM, `DefaultUploadLevel`).
+- **Parity:** above level 0, every intermediate chunk of a blob over
+  4 KB gets parity chunks (at level 1, 2 to 9 per up to 119 data
+  chunks), and the level goes into the root's span, so the reference is
+  no longer the plain Swarm address that swarmfs and the pages compute.
+- **Replicas:** above level 0, every upload's root chunk also goes out
+  as 2, 4, 8 or 16 single-owner copies (levels 1 to 4) in other
+  neighbourhoods, a one-chunk blob included. Measured: a 100-byte blob
+  at level 1 left 2 replicas on the node, at level 0 none. The
+  reference does not change.
+- **Reading:** Bee's own reader (`GET /bytes`) falls back to the
+  replicas when a root chunk is missing (up to 16 by default); the
+  pages read chunks directly and do not yet.
+- **Our stores:** every blob is one chunk (core 9,033 blobs, medicine
+  10,757, Peter's store 62, loopmarket's catalogue 9,039, all under
+  4 KB). For them level 1 means replicas only, three chunks for each
+  blob: core takes 27,099 chunks instead of 9,033, and level 2 five
+  times as many (`test/coding_cost.py` counts from Bee's tables;
+  `test/replicas_probe.py` looks for the replicas on a node).
+- **Today the writers disagree:** `odag`'s `swarm:` stores, the packs
+  and both pages upload at level 0; `loop` writes through
+  `BeeBytesStore`, which sends no header, so at the node's default. A
+  blob over 4 KB (a book's index) gets one reference from `loop` and
+  another from the page, and the same knowledge can reach two roots.
+
+The options:
+- **A. Level 1 everywhere, named.** Every writer sends level 1; swarmfs's
+  local-first upload and the pages also write the two replicas, and the
+  pages learn to read them. One-chunk blobs keep their references, so
+  roots and the packs' golden roots stay. Blobs over 4 KB need a
+  Reed–Solomon encoder byte-identical to Bee's in Python and in
+  JavaScript, checked against the node, so that their coded
+  references can be computed offline. Until then they go at level 0.
+  Pros: Peter's preference and Bee's default; each blob in three
+  neighbourhoods, against an upload that reports success and did not
+  land (bee#5400); one rule for every writer. Cons: three times the
+  chunks; the encoder work; recordstore and swarmfs releases.
+- **B. Level 0 everywhere, named.** Pros: one chunk per blob;
+  references are plain Swarm addresses everywhere; the least work.
+  Cons: no copies beyond the neighbourhood's own; a chunk that did not
+  land is caught only by the stewardship check.
+- **C. Replicas only:** level 1 for blobs of one chunk, level 0 above.
+  A's first step made permanent. Pros: what level 1 gives our stores
+  today, without the encoder; references stay plain. Cons: larger blobs
+  unprotected; two rules by size.
+- **D. Level 2 everywhere.** Four replicas, five times the chunks.
+
+Recommended: A, built in two steps. The first step, level 1 named
+everywhere with replicas, is all our stores need now, because their
+blobs are one chunk. The encoder for larger blobs follows. Replicas
+answer the one loss we have actually met (bee#5400). Our stores are a
+few MB, so three times the chunks is still small. None of it outlives
+the batch: the replicas are stamped on it and expire with it.
 
 Next, as §8 orders them: writing under the §11 key (Weeb-3 or an HTTP
 node first, Freedom after #647). The gateway step is done (above).

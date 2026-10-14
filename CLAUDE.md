@@ -528,8 +528,8 @@ Each line points to its record.
   /health` and `/stamps` before believing anything about a batch.
 - Every batch, its size, duration and contents: `../STAMPS.md` (keep it
   current with each purchase and each upload worth keeping).
-- The batch: `c931c8a5…`, depth 22, TTL 31.6 days on 2026-10-11 (about
-  2026-11-12; the date moves with the storage price). Buy,
+- The batch: `c931c8a5…`, depth 22, TTL 26.5 days on 2026-10-14 (about
+  2026-11-09; the date moves with the storage price). Buy,
   top up or dilute only on Peter's word. The amount per chunk is price ×
   17,280 blocks a day × days, the cost that amount × 2^depth PLUR (1 xBZZ
   = 10^16 PLUR), and diluting one depth halves the time left.
@@ -567,7 +567,7 @@ Each line points to its record.
 ## State (2026-10-14)
 
 - **Reminder for Peter, due before 2026-11-01:** the batch `c931c8a5…`
-  expires around 2026-11-11 and takes with it the packs, their cone
+  expires around 2026-11-09 and takes with it the packs, their cone
   summaries, both read-only pages and the shared Pyodide. Decide what to
   keep and on which batch (`../STAMPS.md`; Pyodide alone was decided D on
   2026-10-12: no batch of its own for now). Raise it at the start of any
@@ -613,11 +613,10 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   `bzz://56f9ce1b…` behind `loopmarket.gwei` and `loopmarket.eth`; both load one shared Pyodide;
   a version that also makes, publishes and withdraws your offers and
   announces your book, signing with this page's `publish.js`,
-  `bzz://1a6bb105…`, not behind the names until Peter has tried it).
-  Open for Peter: recordstore's `BeeBytesStore`
-  sends no redundancy level, so Bee 2.8 erasure-codes its blobs over 4 KB
-  (references unlike Swarm addressing); plain by default, or the node's
-  coding (BROWSER.md §13)? Both pages run in real Freedom
+  `bzz://5e0e4643…`, not behind the names until Peter has tried it; it
+  announced a book live on 2026-10-14, loopmarket's BROWSER.md §5c).
+  Open for Peter: question 47, the redundancy level our stores upload
+  at (BROWSER.md §13). Both pages run in real Freedom
   Browser and through the public gateway (BROWSER.md §13).
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.
@@ -632,8 +631,10 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 
 ## Open questions for Peter
 
-None open now: questions 37 to 46 (the organiser page and `odag`'s
-folders) are decided. The smaller open points are in BROWSER.md §17;
+Question 47 (2026-10-14, BROWSER.md §13): at which redundancy level our
+stores' blobs go to Swarm; recommended A, level 1 named everywhere.
+Questions 37 to 46 (the organiser page and `odag`'s folders) are
+decided. The smaller open points are in BROWSER.md §17;
 next for the organiser is the page's "Open a folder…" and "Add files…".
 Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
