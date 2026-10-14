@@ -147,6 +147,7 @@ export class NodeWriter {
   constructor(base) {
     this.base = base.replace(/\/+$/, "");
     this.http = new HttpSwarm(this.base);
+    this.retry = { tries: 15, wait: 500, cap: 5000 };
   }
 
   // The node's usable batches, the longest-lived first; null if this is
@@ -193,14 +194,19 @@ export class NodeWriter {
   }
 
   // A single-owner chunk, or null if there is none. A light node answers
-  // 500 as well as 404 for a chunk it could not find, so a 500 is asked
-  // again a few times before it counts.
+  // 500 as well as 404 for a chunk it could not find, for seconds at a
+  // time and at once while it remembers the failed retrieval, so a 500 is
+  // asked again with SwarmFeedPointer's budget (15 tries, the wait doubling
+  // from 0.5 s to 5 s, about a minute) and raised only once that is spent:
+  // taken for "none", it could make the page write over an update that
+  // exists.
   async _signed(owner, identifier) {
-    for (let attempt = 0, wait = 500; ; attempt++, wait *= 2) {
+    const { tries, wait: first, cap } = this.retry;
+    for (let attempt = 1, wait = first; ; attempt++, wait = Math.min(wait * 2, cap)) {
       try {
         return await this.http.readSignedChunk(owner, identifier);
       } catch (e) {
-        if (attempt >= 4) throw e;
+        if (attempt >= tries) throw e;
         await pause(wait);
       }
     }

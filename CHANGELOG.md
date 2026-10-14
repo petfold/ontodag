@@ -14,6 +14,17 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The page's writer outlasts a light node's 500s for a missing feed
+  update.** Probing for the next free index, Publish (and loopmarket's
+  page, which copies `publish.js`) gave up after five tries in about 8 s,
+  while the node answered 500 for an update nobody had written, at once
+  while it remembered the failed retrieval, before its 404. It now asks
+  with `SwarmFeedPointer`'s budget (15 tries, about a minute), and a 500
+  that never ends is still an error, never read as "none". Found
+  withdrawing an offer from loopmarket's page in a fresh session.
+
 ## [0.33.0] — 2026-10-14
 
 Your own things, organised where they are (BROWSER.md §17, questions 37

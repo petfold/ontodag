@@ -4,7 +4,7 @@
 // writes reads as one odag wrote; and, given make_vectors.py's trees, a
 // blob's address computed in the page must be the splitter's.
 import { readFileSync } from "node:fs";
-import { Key, Stage, feedUpdate, signerOf } from "../publish.js";
+import { Key, NodeWriter, Stage, feedUpdate, signerOf } from "../publish.js";
 import { chunkAddress, contentAddress, hex, topicOf, unhex } from "../swarm.js";
 
 let failures = 0;
@@ -36,6 +36,27 @@ check(/^0x[0-9a-fA-F]{40}$/.test(key.checksummed) && key.checksummed.toLowerCase
       "the address with its checksum capitals");
 check(hex(key.signHash(unhex(v.hash))) === v.hash_signature,
       "a bare hash signed byte for byte as loopmarket signs an offer id");
+
+// A light node answers 500 for a missing feed update, sometimes for several
+// seconds and at once while it remembers the failed retrieval, before a 404.
+// Probing for the next free index must outlast that, as SwarmFeedPointer's
+// probe does (15 tries); a 500 that never ends is still an error.
+{
+  const answering = (answers) => {
+    const writer = new NodeWriter("http://localhost:1633");
+    writer.retry = { tries: 15, wait: 0, cap: 0 };
+    writer.http = { readSignedChunk: async () => {
+      const a = answers.shift();
+      if (a === 500) throw new Error("GET single-owner chunk: HTTP 500");
+      return a;
+    } };
+    return writer;
+  };
+  const absent = await answering([500, 500, 500, 500, 500, 500, null])._signed("ab", "cd").catch((e) => e);
+  check(absent === null, "a missing feed update answered 500 six times, then 404, is missing");
+  const failing = await answering(Array(15).fill(500))._signed("ab", "cd").catch((e) => e);
+  check(failing instanceof Error && /HTTP 500/.test(failing.message), "a 500 that never ends is an error");
+}
 
 if (process.argv[3]) {
   for (const c of JSON.parse(readFileSync(process.argv[3], "utf8"))) {
