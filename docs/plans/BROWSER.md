@@ -585,9 +585,10 @@ address with level 0. recordstore's `BeeBytesStore` sends no level
 (swarmfs's `redundancy=None`, the node's default). So every store written
 through it, loopmarket's books and the first index among them, has coded
 trees for its blobs over 4 KB. Those references are not recordstore's
-Swarm addressing, and the page's joiner refused them. The packs went up
-through the local-first path, which requires level 0, so their roots are
-the pinned ones.
+Swarm addressing, and the page's joiner refused them. The packs went up through swarmfs's local-first path, which sends no
+level either. Their blobs are all one chunk, so Bee's references
+equalled the ones computed locally and their roots are the pinned ones;
+Bee also wrote two copies of each root (found 2026-10-14, question 47).
 
 `swarm.js` now joins coded trees: it reads a coded chunk's data
 references only, their count from the span and the level's table, after
@@ -619,11 +620,14 @@ from Bee 2.8.2's source and measured on the node:
   blob: core takes 27,099 chunks instead of 9,033, and level 2 five
   times as many (`test/coding_cost.py` counts from Bee's tables;
   `test/replicas_probe.py` looks for the replicas on a node).
-- **Today the writers disagree:** `odag`'s `swarm:` stores, the packs
-  and both pages upload at level 0; `loop` writes through
-  `BeeBytesStore`, which sends no header, so at the node's default. A
-  blob over 4 KB (a book's index) gets one reference from `loop` and
-  another from the page, and the same knowledge can reach two roots.
+- **Today the writers disagree:** only the pages name a level (0).
+  `odag`'s `swarm:` stores and the packs (swarmfs's local-first path)
+  and `loop` (`BeeBytesStore`) send none, so they get the node's
+  default, level 1: the packs' roots have their two copies on the
+  network (checked for core and medicine). A blob over 4 KB (a cone
+  summary) gets one reference at level 1 and another from the page,
+  so the same knowledge can reach two roots; swarmfs refuses such a
+  blob outright, its reference not being the one it computed.
 
 The options:
 - **A. Level 1 everywhere, named.** Every writer sends level 1; swarmfs's
