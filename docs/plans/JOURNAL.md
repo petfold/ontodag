@@ -2963,3 +2963,34 @@ journal):
 - the batch before 2026-11-01;
 - next for the organiser: the page's "Open a folder…" and "Add files…",
   and Q42's encryption.
+
+## 2026-10-14 (morning): a live announcement from the page; question 47
+
+The laptop came up at 08:31 with Swarm Desktop stopped. It was started
+again, and had 90 peers within a few minutes. The batch now shows 26.5
+days left (about 2026-11-09). On Peter's word ("send the xDAI as you
+described", "move it to Rome", "ask the erasure code question"):
+- **Funding:** a fresh page maker key (`0xE2bFB757…`, in
+  `~/.loopmarket/page_maker_key`) got 0.001 xDAI from the chain key, tx
+  `0xe48eb4f8…`, block 48746867, for a fee of 2.1×10⁻⁵ xDAI at a 1 gwei
+  tip.
+- **The live announcement:** loopmarket's page published an offer and
+  announced `swarm:loop-e2bfb757` (tx `0xebb44dfb…`, block 48747073). A
+  keyless reader listed it and folded its offer; loopmarket's journal has
+  the run.
+- **A bug it found:** withdrawing from the page in a fresh session failed
+  on "GET single-owner chunk: HTTP 500". For the missing next feed
+  update, the node answered 404 after 3.6 s, then 500 after 3.8 s, then
+  500 at once. `publish.js` gave up after five tries in about 8 s; it now
+  has `SwarmFeedPointer`'s budget (15 tries, about a minute). The test
+  failed first (`623a4f8`), and the withdrawal then went through in 72 s.
+- **Rome:** the test maker's offer moved from the other city to Rome
+  (`75337293…`), the old one withdrawn; the root is retrievable.
+- **Question 47 measured** (BROWSER.md §13):
+  - Bee 2.8.2 uploads at level 1 when no level is named.
+  - Above level 0, every upload's root, even a single chunk, also goes out
+    as 2 to 16 replicas in other neighbourhoods; a 100-byte probe at
+    level 1 left 2 on the node.
+  - Every blob of core, medicine, Peter's store and loopmarket's catalogue
+    is one chunk, so for them level 1 is replicas only, at three times the
+    chunks.
