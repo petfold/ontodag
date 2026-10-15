@@ -53,15 +53,63 @@ check(src.reads === Object.keys(big.chunks).length, `each chunk read once (${src
 
 check(topicOf("pack-core") === hex(keccak_256(new TextEncoder().encode("pack-core"))), "topic of a name");
 
+// A node or a gateway also hands over a whole blob (GET /bytes/<ref>): it is
+// read in one request and checked by recomputing its address, and a blob of
+// one chunk is then held as that chunk. One that does not check out (a tree
+// the node erasure-coded, or bytes that are not what was asked for) is read
+// chunk by chunk instead, every chunk checked.
+class WholeSource extends FakeSource {
+  constructor(chunks, blobs, { wrong = false } = {}) { super(chunks); this.blobs = blobs; this.wrong = wrong; this.blobReads = 0; }
+  async readBytes(ref) {
+    this.blobReads++;
+    const blob = this.blobs[ref];
+    if (blob === undefined) return null;
+    if (!this.wrong) return blob;
+    if (blob.length === 0) return Uint8Array.of(1);   // nothing to flip in an empty blob
+    const bad = blob.slice();
+    bad[0] ^= 1;
+    return bad;
+  }
+}
+for (const c of cases) {
+  const data = await new ChunkReader(new FakeSource(c.chunks)).bytes(c.root);
+  const whole = new WholeSource(c.chunks, { [c.root]: data });
+  const got = await new ChunkReader(whole).bytes(c.root);
+  check(whole.blobReads === 1 && whole.reads === 0 && createHash("sha256").update(got).digest("hex") === c.sha256,
+        `a ${c.size}-byte blob read whole: ${whole.blobReads} blob read, ${whole.reads} chunk reads`);
+  const liar = new WholeSource(c.chunks, { [c.root]: data }, { wrong: true });
+  const safe = await new ChunkReader(liar).bytes(c.root);
+  check(createHash("sha256").update(safe).digest("hex") === c.sha256 && liar.reads > 0,
+        `a ${c.size}-byte blob that does not check out is read chunk by chunk (${liar.reads} chunk reads)`);
+}
+{
+  const small = cases.find((c) => c.size > 0 && c.size <= 4096);
+  const data = await new ChunkReader(new FakeSource(small.chunks)).bytes(small.root);
+  const whole = new WholeSource(small.chunks, { [small.root]: data });
+  const r = new ChunkReader(whole);
+  await r.bytes(small.root);
+  await r.bytes(small.root);
+  const held = await r.chunk(small.root);
+  check(whole.blobReads === 1 && whole.reads === 0 && held.payload.length === small.size,
+        "a blob of one chunk read whole is held as its chunk: read once, then reused");
+  let missing;
+  try { await new ChunkReader(new WholeSource(small.chunks, {})).bytes(small.root); } catch (e) { missing = e; }
+  check(missing instanceof Unreachable, "a blob the source does not have is unreachable, not empty");
+}
+
 // Live, optional: trees a Bee node erasure-coded itself (test/make_coded.py),
 // read from that node and joined here.
 if (process.argv[3]) {
   const { base, cases: coded } = JSON.parse(readFileSync(process.argv[3], "utf8"));
-  const reader = new ChunkReader(new HttpSwarm(base));
   for (const c of coded) {
+    // A plain tree (level 0) checks out whole; a coded one does not, and is
+    // read chunk by chunk.
+    const reader = new ChunkReader(new HttpSwarm(base));
     const data = await reader.bytes(c.ref);
     const sha = createHash("sha256").update(data).digest("hex");
-    check(sha === c.sha256, `join ${c.size} bytes coded at level ${c.level} by the node`);
+    const path = reader.stats.unchecked ? "chunk by chunk" : "whole";
+    check(sha === c.sha256 && path === (c.level ? "chunk by chunk" : "whole"),
+          `${c.size} bytes coded at level ${c.level} by the node, read ${path}`);
   }
 }
 process.exit(failures ? 1 : 0);

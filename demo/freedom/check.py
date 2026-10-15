@@ -188,7 +188,8 @@ async def check_page(url, root, queries, freedom, gateway=None, index=None, mode
             a = await page.evaluate("([a, b]) => window.ontodagPage.call('below', a, b)", [a_, b_])
             got[("below", a_, b_)] = a["below"]
         stats = await page.evaluate("window.ontodagPage.stats()")
-        print(f"  chunks fetched {stats['reads']} ({stats['bytes'] // 1024} KB), reused {stats['cached']}")
+        print(f"  blobs and chunks fetched {stats['reads']} ({stats['bytes'] // 1024} KB), reused {stats['cached']}, "
+              f"read chunk by chunk after a whole blob did not check out {stats.get('unchecked', 0)}")
         got["local"] = await check_local(page)
         if publish:
             got["local"] += await check_publish(page, publish)

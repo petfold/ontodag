@@ -14,6 +14,15 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Changed
+
+- **The pages read whole blobs from a node or a gateway** (`GET /bytes`),
+  one request each, checked by recomputing the blob's address with Swarm's
+  own rules, so the node does the joining and its recovery from parity and
+  root copies. A blob that does not check out, such as a tree the node
+  erasure-coded, is read chunk by chunk as before. In Freedom, which offers
+  only chunk reads, the page still joins trees itself (BROWSER.md §10.1).
+
 ## [0.33.1] — 2026-10-15
 
 ### Changed

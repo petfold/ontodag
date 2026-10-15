@@ -366,7 +366,10 @@ Each line points to its record.
   password-protected key file comes later too. ontodag keeps its own access
   control (`keyplan`), not the node's ACT. A page reaches Swarm through
   four calls on chunks, with one adapter per client: Freedom, Weeb-3, an
-  HTTP node, a gateway (BROWSER.md §10–§12, SHARING_ON_SWARM.md §2).
+  HTTP node, a gateway (BROWSER.md §10–§12, SHARING_ON_SWARM.md §2). Where
+  a client hands over whole blobs (a node, a gateway), the page reads them
+  whole with `/bytes`, checked by recomputing the address; Freedom reads
+  chunks (Peter, 2026-10-15, BROWSER.md §10.1).
   Freedom requests #647 and #648 are filed; for local files, Freedom #671
   and Brave #59862 (BROWSER.md §14). The read-only page
   (`demo/freedom/`) runs in Freedom Browser (BROWSER.md §13). JSPI

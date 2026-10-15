@@ -117,7 +117,7 @@ function showStats(answer) {
   const kb = (s.bytes / 1024).toFixed(0);
   $("stats").textContent =
     `records read ${answer.records} in ${answer.round_trips} round trips · ` +
-    `chunks fetched ${s.reads} (${kb} KB), kept from earlier visits ${s.stored}, reused ${s.cached}` +
+    `blobs and chunks fetched ${s.reads} (${kb} KB), kept from earlier visits ${s.stored}, reused ${s.cached}` +
     (s.waits ? ` · waited for the read budget ${s.waits}×` : "");
 }
 

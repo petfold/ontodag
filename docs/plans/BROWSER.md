@@ -372,6 +372,22 @@ Two shortcuts are optional: a feed's latest entry (Freedom's
 `swarm_readFeedEntry`, Bee's `/feeds`) and reading a whole blob in one call
 (Weeb-3's `retrieveBytes`, Bee's `/bytes`).
 
+**Whole blobs first (Peter, 2026-10-15).** Where a client hands over
+whole blobs (a node or a gateway, `HttpSwarm.readBytes`), the page reads
+each blob in one request and checks it by recomputing its address with
+Swarm's own rules. That check holds for every blob our writers now make
+(question 47): one chunk at any level, or a plain tree. The node does
+the joining, and recovers from parity and root copies. A blob that does
+not check out (a tree the node coded, such as the 10 coded blobs of
+core's cone index, or bytes that are not what was asked for) is read
+chunk by chunk as before, every chunk checked. Freedom offers only chunk
+reads, so there the page still joins trees; a whole-blob read,
+`swarm_readData`, is asked of Freedom (`../upstream-issues/freedom-read-data.md`).
+Checked: `test_swarm.mjs` (a whole blob in one read and no chunk reads, a
+wrong one read chunk by chunk, live trees the node coded at levels 0–4),
+and the page through the Freedom stand-in, the public gateway and this
+laptop's node, every answer equal to the native reader's.
+
 Everything above the four calls is ours and the same in every client:
 
 - **Chunking and addresses:** splitting blobs into chunks and computing

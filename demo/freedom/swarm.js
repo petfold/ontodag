@@ -262,6 +262,16 @@ export class HttpSwarm {
     return { span: spanValue(wire.subarray(0, 8)), payload: wire.subarray(8) };
   }
 
+  // A whole blob, joined by the node: the node fetches its chunks, recovers
+  // missing ones from parity and a missing root from its copies. Not trusted
+  // here: ChunkReader checks it against the reference.
+  async readBytes(ref) {
+    const res = await fetch(`${this.base}/bytes/${ref}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`GET /bytes/${ref.slice(0, 16)}…: HTTP ${res.status}`);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
   // A single-owner chunk on the wire is identifier(32) | signature(65) |
   // span(8) | payload. The signature is not checked here (no secp256k1 in
   // the page yet): over HTTP, trust in a feed update is trust in the node.
@@ -353,16 +363,21 @@ export class StoredChunks {
   }
 }
 
-// Checked chunks, cached for the session (a chunk never changes), with a cap
-// on reads in flight and a wait-and-retry when a client says "too many".
+// Checked chunks and blobs, cached for the session (they never change), with
+// a cap on reads in flight and a wait-and-retry when a client says "too
+// many". A source that hands over whole blobs (a node or a gateway) is asked
+// for them; one that only reads chunks (Freedom) has its trees joined here.
 export class ChunkReader {
   constructor(source, { inFlight = 16, onRateLimit = () => {}, stored = null } = {}) {
     this.source = source;
     this.cache = new Map();
+    this.blobs = new Map();
     this.stored = stored;
     this.gate = new Gate(inFlight);
     this.onRateLimit = onRateLimit;
-    this.stats = { reads: 0, cached: 0, stored: 0, bytes: 0, waits: 0 };
+    // reads: requests answered (chunks or whole blobs); unchecked: whole
+    // blobs that did not check out and were read chunk by chunk instead.
+    this.stats = { reads: 0, cached: 0, stored: 0, bytes: 0, waits: 0, unchecked: 0 };
   }
 
   chunk(ref) {
@@ -412,9 +427,74 @@ export class ChunkReader {
     }
   }
 
-  // The bytes of a blob: its chunk tree joined, every chunk checked (an
-  // erasure-coded tree's parity chunks are not read).
+  // The bytes of a blob. Where the source hands over whole blobs, one
+  // request, checked by recomputing the blob's address with Swarm's own
+  // rules: that holds for every blob our writers make (a blob of one chunk at
+  // any redundancy level, a larger one at level 0, ontodag's question 47).
+  // A blob that does not check out, such as a tree the node erasure-coded,
+  // is read chunk by chunk instead.
   async bytes(ref) {
+    ref = ref.toLowerCase();
+    if (this.source.readBytes) {
+      const whole = await this.whole(ref);
+      if (whole !== null) return whole;
+    }
+    return this.joined(ref);
+  }
+
+  // The checked blob, or null if what the source handed over did not check
+  // out (then the caller reads the tree).
+  whole(ref) {
+    const hit = this.blobs.get(ref);
+    if (hit) { this.stats.cached++; return hit; }
+    const pending = this._whole(ref);
+    this.blobs.set(ref, pending);
+    pending.catch(() => this.blobs.delete(ref));
+    return pending;
+  }
+
+  async _whole(ref) {
+    // A blob of one chunk may be held already, from this session or an
+    // earlier visit.
+    const held = this.cache.get(ref);
+    if (held) {
+      const chunk = await held;
+      if (chunk.span <= BigInt(CHUNK_SIZE)) { this.stats.cached++; return chunk.payload.slice(0, Number(chunk.span)); }
+    } else if (this.stored) {
+      const kept = await this.stored.get(ref);
+      if (kept) {
+        const chunk = { span: BigInt(kept.span), payload: new Uint8Array(kept.payload) };
+        if (chunk.span <= BigInt(CHUNK_SIZE) && chunkAddress(chunk.span, chunk.payload) === ref) {
+          this.stats.stored++;
+          this.cache.set(ref, Promise.resolve(chunk));
+          return chunk.payload.slice(0, Number(chunk.span));
+        }
+      }
+    }
+    await this.gate.enter();
+    let blob;
+    try {
+      blob = await this.source.readBytes(ref);
+    } catch (e) {
+      throw new Unreachable(ref, e.message);
+    } finally {
+      this.gate.leave();
+    }
+    if (blob === null) throw new Unreachable(ref);
+    if (contentAddress(blob) !== ref) { this.stats.unchecked++; return null; }
+    this.stats.reads++;
+    this.stats.bytes += blob.length;
+    if (blob.length <= CHUNK_SIZE) {
+      const chunk = { span: BigInt(blob.length), payload: blob };
+      this.cache.set(ref, Promise.resolve(chunk));
+      if (this.stored) this.stored.put(ref, chunk);
+    }
+    return blob;
+  }
+
+  // The bytes of a blob read as its chunk tree, every chunk checked (an
+  // erasure-coded tree's parity chunks are not read).
+  async joined(ref) {
     const { span: wire, payload } = await this.chunk(ref);
     const coded = (wire >> 63n) === 1n;
     const level = coded ? Number((wire >> 56n) & 0x7fn) : 0;
@@ -426,7 +506,7 @@ export class ChunkReader {
     if (count * 32 > payload.length) throw new Error(`${ref.slice(0, 16)}… holds fewer references than its span needs`);
     const children = [];
     for (let i = 0; i < count; i++) children.push(hex(payload.subarray(32 * i, 32 * i + 32)));
-    const data = concat(await Promise.all(children.map((c) => this.bytes(c))));
+    const data = concat(await Promise.all(children.map((c) => this.joined(c))));
     if (BigInt(data.length) !== span) throw new Error(`${ref.slice(0, 16)}… joined to ${data.length} bytes, not ${span}`);
     return data;
   }
