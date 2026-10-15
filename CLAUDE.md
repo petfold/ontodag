@@ -430,7 +430,9 @@ Each line points to its record.
   parameter naming a filed node is that node and anything else a value
   (question 50, decided C by Peter, 2026-10-15, BROWSER.md §17). Built on
   main as registry 6.0, a major (Peter: A), with its migrate step
-  (DIMENSIONS.md §23); loopmarket's `from`/`to` follow on its branch
+  (DIMENSIONS.md §23); re-put once G7 held again, the major was kept
+  (Peter: A, 2026-10-15), so an older reader refuses a newer store or
+  offer by its major. loopmarket's `from`/`to` follow on its branch
   `ontodag-0.34`. The capture heads proposed there are built too
   (`folders.HEADS`).
 - Capture places (question 49, decided by Peter, 2026-10-15, BROWSER.md
@@ -700,16 +702,8 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 
 ## Open questions for Peter
 
-Question 50, re-put (2026-10-15): keep registry 6.0 a major, or make it
-5.1? Peter chose the major on G7's finding that the lazy readers lost
-answers on older stores; the walk was then fixed, so every recorded
-answer holds and the contract would allow a minor. What a major still
-buys: an older reader refuses a newer store or offer by its major
-instead of taking its bare rectangles for opaque names (DIMENSIONS.md
-§23). Recommended: keep 6.0. Nothing is released, so either is cheap.
-
-Otherwise none open: question 47 is decided C and released; questions
-37 to 46 and 48 to 50 are decided. The smaller open points are in
+None open now: questions 37 to 50 are decided, and question 47 is
+released. The smaller open points are in
 BROWSER.md §17; next for the organiser: encrypted Publish (question 42,
 step 2 of question 49's order), then the choice at sharing and public
 versions (step 3), and the list of hashes kept between visits (question

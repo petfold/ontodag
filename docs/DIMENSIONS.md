@@ -2345,8 +2345,10 @@ stored under, as the eager walk does, and with it both records keep every
 answer in every residency. What remains is the other direction: an older
 reader takes a new store's bare rectangles for opaque names (a replay
 keeps them, a write or a query refuses them), and names made either side
-of the change differ (G8). Whether it stays a major is put to Peter again
-(question 50, re-put): the contract would now allow a minor.
+of the change differ (G8). Re-put to Peter with that, since the contract
+would now allow a minor: he kept the major (A, 2026-10-15), so an older
+reader refuses a newer store or offer by its major instead of reading
+its bare rectangles as opaque names.
 
 **Built (2026-10-15), registry 6.0.**
 
