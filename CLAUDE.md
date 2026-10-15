@@ -620,7 +620,7 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   `bzz://56f9ce1b…` behind `loopmarket.gwei` and `loopmarket.eth`; both load one shared Pyodide;
   a version that also makes, publishes and withdraws your offers and
   announces your book, signing with this page's `publish.js`,
-  `bzz://5e0e4643…`, not behind the names until Peter has tried it; it
+  `bzz://e64302ea…`, not behind the names until Peter has tried it; it
   announced a book live on 2026-10-14, loopmarket's BROWSER.md §5c).
   Question 47 (the redundancy level, BROWSER.md §13) is decided C and
   built on the mains of swarmfs, recordstore and the page; it ships with
