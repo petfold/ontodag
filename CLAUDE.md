@@ -40,11 +40,11 @@ github.com/petfold.
   postage selection, feeds, and the shared signer `swarmfs.signer`. In the
   `swarm` extra (`swarmfs[feeds]>=0.15.0`).
 - **ontodag-fs**: an OntoDAG store as a mountable filesystem. It pins a
-  floor and a ceiling (`>=0.33.0,<0.34.0` since its 0.9.0); raise the ceiling by hand once ontodag's release job has run
+  floor and a ceiling (`>=0.34.0,<0.35.0` since its 0.10.0); raise the ceiling by hand once ontodag's release job has run
   its suite against the candidate, then release it.
 - **loopmarket**: the marketplace, and the main consumer of dimensions. It
-  pins only a floor (`>=0.31.0`), and its suite runs in ontodag's release
-  gate. Its offer ids hash canonical spellings, so stores made under
+  pins only a floor (`>=0.34.0` on its main; its release 0.17.1 says
+  `>=0.32.0`), and its suite runs in ontodag's release gate. Its offer ids hash canonical spellings, so stores made under
   another registry version need the `ontodag.migrate` replay before mixing.
 - **ontodag-core**: builds the `core` pack and the ten domain packs by
   consensus over WordNet, SUMO, Wikidata and others, and regenerates
@@ -206,8 +206,8 @@ Contract 0.6 (`docs/CONTRACT.md`, `tests/test_contract.py`):
   (`make_g8.py`) only together with a registry bump.
 - **G9** replays are order-free; single writes are checked as they come.
 
-Versions now: contract 0.7, prelude 5, surface 0.2, all released since
-0.32.0; registry 6.0 on main (5.0 released). Consumers compare majors.
+Versions now: contract 0.7, registry 6.0 (since 0.34.0), prelude 5,
+surface 0.2. Consumers compare majors.
 
 ## Standing rules
 
@@ -428,20 +428,19 @@ Each line points to its record.
 - A role of `geo` takes its rectangle without `geo(…)`, written and stored
   so, as time roles take their time: one rule for every kind, a
   parameter naming a filed node is that node and anything else a value
-  (question 50, decided C by Peter, 2026-10-15, BROWSER.md §17). Built on
-  main as registry 6.0, a major (Peter: A), with its migrate step
+  (question 50, decided C by Peter, 2026-10-15, BROWSER.md §17). Released
+  in 0.34.0 as registry 6.0, a major (Peter: A), with its migrate step
   (DIMENSIONS.md §23); re-put once G7 held again, the major was kept
   (Peter: A, 2026-10-15), so an older reader refuses a newer store or
-  offer by its major. loopmarket's `from`/`to` follow on its branch
-  `ontodag-0.34`. The capture heads proposed there are built too
-  (`folders.HEADS`).
+  offer by its major. loopmarket's `from`/`to` follow on its main. The
+  capture heads proposed there are built too (`folders.HEADS`).
 - Capture places (question 49, decided by Peter, 2026-10-15, BROWSER.md
   §17): stored in your store and in what you publish encrypted; the
   choice "include where photos were taken" (off by default) is made at
   sharing and for public versions, and today's readable Publish counts as
   one; `odag` warns before putting them into a readable `swarm:` store.
   Order: capture metadata (with question 50), encrypted Publish
-  (question 42), then the choice at sharing. Step 1 built 2026-10-15:
+  (question 42), then the choice at sharing. Step 1 released in 0.34.0:
   `odag` keeps places in local stores and leaves them out of a `swarm:`
   one unless `--places`; the page keeps them out of its store until
   Publish encrypts, since its Publish is a readable copy of the store.
@@ -629,13 +628,18 @@ Each line points to its record.
   `swarmfs[feeds]>=0.15.0`; every workflow job green, the downstream gate
   included; `release_smoke.py --pypi` 28/28; a fresh `ontodag[swarm]`
   resolves to both). Unchanged: loopmarket 0.17.1, ontodag-fs 0.9.0.
-- On main, not released (2026-10-15): registry 6.0 (question 50) and
-  when and where photos were taken (question 49's step 1). A release is
-  Peter's word; with it loopmarket's branch `ontodag-0.34` merges (its
-  floor to `ontodag>=0.34.0`), its live offers are re-posted under
-  registry major 6 (the Rome offer `75337293…`, and the page maker's
-  book is empty), and the packs' cone summaries, made under registry 5
-  and so not used by 6, are republished.
+- Released 2026-10-15 on Peter's word, each verified from PyPI: ontodag
+  0.34.0 (registry 6.0, question 50; when and where photos were taken,
+  question 49's step 1; every workflow job green, the downstream gate
+  included; `release_smoke.py --pypi` 28/28, its photo check new; one
+  earlier run failed the base install while the index lagged, the next
+  two passed), then ontodag-fs 0.10.0 (`>=0.34.0,<0.35.0`; its contract
+  pin accepts registry 6 alone). loopmarket's main carries the bare
+  spelling with floor `ontodag>=0.34.0`, not released: its unreleased
+  section also holds the maker page Peter has not tried. Its live test
+  offer (Rome, `75337293…`, pinned to registry 5) is not re-posted yet:
+  the market page bundles ontodag 0.33, so an offer under major 6 would
+  leave it until that page is rebuilt and its feed moved (Peter's word).
 - Released 2026-10-14 on Peter's word, each verified from PyPI:
   recordstore 0.23.0 (`get_many`, and an unreachable trie node read as
   unavailable), then ontodag 0.33.0 (`odag folder` and `odag file`,
