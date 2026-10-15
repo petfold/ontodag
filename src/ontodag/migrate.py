@@ -25,7 +25,12 @@ decimals), in `geo(...)` values and in its roles' terms, nested
 (`from(geo(u2e4))`) or bare as stored before registry 4.4 (`from(u2e4)`,
 no place being named so), and `geo` re-declared under the rectangle kind.
 
+Registry 6.0 stores a role's rectangle bare (question 50): the replay
+spells `from(geo(48..49,2..3))` as `from(48..49,2..3)`, since the old
+spelling stays valid input, and needs no rewrite of its own.
+
     python3 -m ontodag.migrate STORE.od        # native file, in place
+    python3 -m ontodag.migrate rs:PATH         # a store odag opens, in place
     migrate_record_store(old_rs, new_rs)       # record stores, programmatic
 """
 
@@ -109,15 +114,11 @@ def migrate_native(path) -> None:
     native.save(_replay(rewrite_geohash_cells(entries), metadata), path)
 
 
-def migrate_record_store(old_store, new_store):
-    """Replay a record-store-backed ontology (records read raw, never
-    interpreted) into `new_store` — a fresh, writable RecordStore — under
-    current canonicalization; returns the committed new root. The old root
-    stays retrievable forever (content addressing forgets nothing) and
-    remains verifiable under its pinned registry version."""
-    from ontodag.eager import EagerOntoDAG
+def _record_entries(record_store):
+    """({name: [parents]}, {name: meta}, {name: payload}) of a record
+    store's records, read raw, never interpreted."""
     entries, metadata, payloads = {}, {}, {}
-    for key, record in old_store.items():
+    for key, record in record_store.items():
         if key == "*":     # the implicit root has a record but is never replayed
             continue
         entries[key] = [p for p in record.get("up", []) if p != "*"]
@@ -125,21 +126,62 @@ def migrate_record_store(old_store, new_store):
             metadata[key] = record["meta"]
         if record.get("payload") is not None:
             payloads[key] = record["payload"]
-    new = EagerOntoDAG(new_store)
-    new.merge(_replay(rewrite_geohash_cells(entries), metadata))
+    return entries, metadata, payloads
+
+
+def _write_replay(dag, record_store):
+    """Replace `dag`'s contents (an EagerOntoDAG) with `record_store`'s
+    records replayed under current canonicalization, payloads following
+    their names."""
+    entries, metadata, payloads = _record_entries(record_store)
+    replayed = _replay(rewrite_geohash_cells(entries), metadata)
+    dag.clear()
+    dag.merge(replayed)
     for key, payload in payloads.items():
-        for stored in _stored_as(new, key):
-            new._payloads[stored] = payload
+        for stored in _stored_as(dag, key):
+            dag._payloads[stored] = payload
+
+
+def migrate_record_store(old_store, new_store):
+    """Replay a record-store-backed ontology (records read raw, never
+    interpreted) into `new_store` — a fresh, writable RecordStore — under
+    current canonicalization; returns the committed new root. The old root
+    stays retrievable forever (content addressing forgets nothing) and
+    remains verifiable under its pinned registry version."""
+    from ontodag.eager import EagerOntoDAG
+    new = EagerOntoDAG(new_store)
+    _write_replay(new, old_store)
     return new.commit()
+
+
+def migrate_store(spec, message="migrate"):
+    """Re-canonicalize a store `odag` opens (`rs:PATH`, `swarm:NAME`) in
+    place, as one new state on its history, the way `odag import` writes a
+    file: `odag undo` goes back to the state it replayed. Idempotent: a
+    store already in the current form gets no new state."""
+    from ontodag.stores import Store
+    store = Store(spec)
+    dag = store.dag
+    before = {name: sorted(p.name for p in node.parents)
+              for name, node in dag.nodes.items()}
+    _write_replay(dag, dag.store)
+    after = {name: sorted(p.name for p in node.parents)
+             for name, node in dag.nodes.items()}
+    if after != before:
+        store.save(message=message)
 
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if len(argv) != 1:
-        print("usage: python3 -m ontodag.migrate STORE.od", file=sys.stderr)
+        print("usage: python3 -m ontodag.migrate STORE.od | rs:PATH | swarm:NAME",
+              file=sys.stderr)
         return 2
     try:
-        migrate_native(argv[0])
+        if argv[0].startswith(("rs:", "swarm:")):
+            migrate_store(argv[0])
+        else:
+            migrate_native(argv[0])
     except (OSError, ValueError) as exc:
         print(f"ontodag.migrate: {exc}", file=sys.stderr)
         return 1

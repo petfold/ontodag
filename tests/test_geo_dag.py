@@ -88,16 +88,18 @@ class TestHalfCircleRule(unittest.TestCase):
 
 
 class TestRoles(unittest.TestCase):
-    def test_a_role_takes_a_place_or_a_rectangle_by_the_bases_name(self):
+    def test_a_role_takes_a_place_or_a_bare_rectangle(self):
         dag = sited()
         dag.put("from", ["site"])
         dag.put("eiffel-tower", ["site(48.8584,2.2945)"])
         dag.put("parcel", ["from(eiffel-tower)"])
-        dag.put("drone", ["from(site(48.85..48.87,2.28..2.30))"])
-        self.assertEqual(names(dag.get(["from(site(48.8..48.9,2.2..2.4))"])), {"parcel", "drone"})
-        for bad in ("from(sydney)", "from(48..49,2..3)"):
-            with self.assertRaisesRegex(ValueError, "no place filed in the 'site' dimension"):
-                dag.put("y", [bad])
+        dag.put("drone", ["from(48.85..48.87,2.28..2.30)"])
+        dag.put("kite", ["from(site(48.85..48.86,2.28..2.29))"])     # the base's name: the same value
+        self.assertEqual(dag.parents_of("kite"), ["from(48.85..48.86,2.28..2.29)"])
+        self.assertEqual(names(dag.get(["from(48.8..48.9,2.2..2.4)"])), {"parcel", "drone", "kite"})
+        self.assertEqual(names(dag.get(["from(site(48.8..48.9,2.2..2.4))"])), {"parcel", "drone", "kite"})
+        with self.assertRaisesRegex(ValueError, "no place filed in the 'site' dimension nor a rectangle"):
+            dag.put("y", ["from(sydney)"])
 
 
 def random_world(seed, resident, size=120):

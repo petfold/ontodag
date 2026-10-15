@@ -1,6 +1,6 @@
 {
  "contract": "0.7",
- "registry": "5.0",
+ "registry": "6.0",
  "below": [
   ["about", "dimension"],
   ["about", "enclosing-dimension"],
@@ -48,8 +48,9 @@
   ["crate", "size(25x35x45cm)"],
   ["delivery", "dimension"],
   ["delivery", "from"],
+  ["delivery", "from(46..50,12..20)"],
+  ["delivery", "from(46.2..46.8,17..19)"],
   ["delivery", "from(geo(46..50,12..20))"],
-  ["delivery", "from(geo(46.2..46.8,17..19))"],
   ["delivery", "geo"],
   ["delivery", "rectangle-dimension"],
   ["denon-wing", "dimension"],
@@ -69,11 +70,12 @@
   ["from", "dimension"],
   ["from", "geo"],
   ["from", "rectangle-dimension"],
-  ["from(geo(46.2..46.8,17..19))", "dimension"],
-  ["from(geo(46.2..46.8,17..19))", "from"],
-  ["from(geo(46.2..46.8,17..19))", "from(geo(46..50,12..20))"],
-  ["from(geo(46.2..46.8,17..19))", "geo"],
-  ["from(geo(46.2..46.8,17..19))", "rectangle-dimension"],
+  ["from(46.2..46.8,17..19)", "dimension"],
+  ["from(46.2..46.8,17..19)", "from"],
+  ["from(46.2..46.8,17..19)", "from(46..50,12..20)"],
+  ["from(46.2..46.8,17..19)", "from(geo(46..50,12..20))"],
+  ["from(46.2..46.8,17..19)", "geo"],
+  ["from(46.2..46.8,17..19)", "rectangle-dimension"],
   ["geo", "dimension"],
   ["geo", "rectangle-dimension"],
   ["geo(46.6..46.7,18.2..18.6)", "dimension"],
@@ -224,7 +226,7 @@
   ["volume", "linear-dimension(volume)"]
  ],
  "get": [
-  {"terms": [], "answer": ["about", "about(japan)", "about(tokyo)", "alice", "area", "bicycle", "bouquet", "calendar-dimension", "count", "count(5)", "count-dimension", "courier", "crate", "delivery", "denon-wing", "dimension", "document", "dominance-dimension", "duration", "employee", "enclosing-dimension", "energy", "from", "from(geo(46.2..46.8,17..19))", "geo", "geo(46.6..46.7,18.2..18.6)", "graph-dimension", "handbook", "in", "in(denon-wing)", "in(japan)", "in(louvre)", "japan", "length", "linear-dimension", "linear-dimension(area)", "linear-dimension(duration)", "linear-dimension(energy)", "linear-dimension(length)", "linear-dimension(mass)", "linear-dimension(pressure)", "linear-dimension(speed)", "linear-dimension(temperature)", "linear-dimension(volume)", "located-at", "located-at(louvre)", "louvre", "mass", "mass(3kg)", "mona-lisa", "person", "photo.jpg", "place", "plane-ticket", "prefix-dimension", "pressure", "rectangle-dimension", "reversed-dimension", "sales-employee", "shared-with", "shared-with(employee)", "size", "size(2/5x3/10x1/5m)", "small-item", "speed", "statue", "temperature", "ticket", "time", "time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)", "tokyo", "transitive-dimension", "transport", "transport(mass(..8kg))", "transport(small-item)", "trip.pdf", "volume"]},
+  {"terms": [], "answer": ["about", "about(japan)", "about(tokyo)", "alice", "area", "bicycle", "bouquet", "calendar-dimension", "count", "count(5)", "count-dimension", "courier", "crate", "delivery", "denon-wing", "dimension", "document", "dominance-dimension", "duration", "employee", "enclosing-dimension", "energy", "from", "from(46.2..46.8,17..19)", "geo", "geo(46.6..46.7,18.2..18.6)", "graph-dimension", "handbook", "in", "in(denon-wing)", "in(japan)", "in(louvre)", "japan", "length", "linear-dimension", "linear-dimension(area)", "linear-dimension(duration)", "linear-dimension(energy)", "linear-dimension(length)", "linear-dimension(mass)", "linear-dimension(pressure)", "linear-dimension(speed)", "linear-dimension(temperature)", "linear-dimension(volume)", "located-at", "located-at(louvre)", "louvre", "mass", "mass(3kg)", "mona-lisa", "person", "photo.jpg", "place", "plane-ticket", "prefix-dimension", "pressure", "rectangle-dimension", "reversed-dimension", "sales-employee", "shared-with", "shared-with(employee)", "size", "size(2/5x3/10x1/5m)", "small-item", "speed", "statue", "temperature", "ticket", "time", "time(2026-08-15T00:00:00Z..2026-08-15T23:59:59Z)", "tokyo", "transitive-dimension", "transport", "transport(mass(..8kg))", "transport(small-item)", "trip.pdf", "volume"]},
   {"terms": ["document"], "answer": ["handbook", "plane-ticket", "ticket", "trip.pdf"]},
   {"terms": ["in(japan)"], "answer": ["tokyo"]},
   {"terms": ["in(louvre)"], "answer": ["denon-wing", "in(denon-wing)", "located-at(louvre)", "mona-lisa", "statue"]},
@@ -236,7 +238,8 @@
   {"terms": ["count(2..)"], "answer": ["bouquet", "count(5)"]},
   {"terms": ["size(25x35x45cm)"], "answer": ["crate", "size(2/5x3/10x1/5m)"]},
   {"terms": ["document", "about(japan)"], "answer": ["trip.pdf"]},
-  {"terms": ["from(geo(46..50,12..20))"], "answer": ["delivery", "from(geo(46.2..46.8,17..19))"]},
+  {"terms": ["from(geo(46..50,12..20))"], "answer": ["delivery", "from(46.2..46.8,17..19)"]},
+  {"terms": ["from(46..50,12..20)"], "answer": ["delivery", "from(46.2..46.8,17..19)"]},
   {"terms": ["transport(small-item)"], "answer": ["courier"]}
  ]
 }

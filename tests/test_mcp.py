@@ -347,10 +347,10 @@ class TestWriteSurface(WritableHarness):
         self.assertIn("proposal", proposed)
         self.assertFalse(proposed["already_below"]["weight(3kg)"])
 
-    def test_a_cell_spelled_as_a_bare_word_is_refused_at_proposal(self):
-        """Review question 14: in a role of geo a bare word names a place,
-        a cell is written by its own name. An agent learns it when it
-        proposes, not when it confirms."""
+    def test_a_word_that_is_no_place_is_refused_at_proposal(self):
+        """Review question 14 and question 50: in a role of geo a word names
+        a filed place, and a rectangle is written bare. An agent learns it
+        when it proposes, not when it confirms."""
         for item, supers in [("dimension", []),
                              ("rectangle-dimension", ["dimension"]),
                              ("geo", ["rectangle-dimension"]), ("from", ["geo"])]:
@@ -359,7 +359,7 @@ class TestWriteSurface(WritableHarness):
                                          "supers": ["from(sydney)"]},
                          expect_error=True)
         self.assertIn("no place filed", text)
-        self.assertIn("from(geo(...))", text)
+        self.assertIn("from(48.8..48.9,2.2..2.4)", text)
         text = self.call("propose_put", {"item": "parcel",
                                          "supers": ["geo(u2e4)"]},
                          expect_error=True)
@@ -368,9 +368,9 @@ class TestWriteSurface(WritableHarness):
                                          "supers": ["geo(-1..1,-170..170)"]},
                          expect_error=True)
         self.assertIn("less than half the circle", text)
-        answer, _ = self.write("parcel", ["from(geo(-34..-33,151..152))"])
+        answer, _ = self.write("parcel", ["from(-34..-33,151..152)"])
         self.assertEqual(self.surface.dag.parents_of("parcel"),
-                         ["from(geo(-34..-33,151..152))"])
+                         ["from(-34..-33,151..152)"])
 
     def test_a_compound_graph_claim_is_claimed_per_part(self):
         # A compound graph-kind term is filed as its parts (DIMENSIONS.md

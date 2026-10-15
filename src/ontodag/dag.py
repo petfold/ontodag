@@ -771,8 +771,8 @@ class _Rectangles:
     containing a rectangle holds a cell that contains the rectangle's own,
     so the values above are those held along its key. A value across 180°,
     or around every longitude, is held by the whole grid. For a role head
-    (`literal_role`), the values its terms write by the base's name,
-    `from(geo(...))`."""
+    (`literal_role`), the rectangles its terms write, `from(48..49,2..3)`
+    (a term naming a filed place is found by the walk instead)."""
 
     DEPTH = 52            # bits: about a metre, the cell of a point
 
@@ -861,7 +861,7 @@ class _Rectangles:
         if self.literal_role is not None:
             if split[0] != self.literal_role:
                 return None
-            if _dims.split_term(split[1]) is None:
+            if dag._param_node(split[0], split[1]) is not None:
                 return None
         return _dims.rect_bounds(name)
 
@@ -1350,7 +1350,7 @@ class OntoDAG(DAG):
             return None                  # a category term's parameter is constraints
         inner = _dims.split_term(param)
         if inner is not None and inner[0] == base:
-            return None    # a value of the dimension, by its own name: `from(geo(u2e4x))`
+            return None    # a value of the dimension, by its own name: `from(geo(48..49,2..3))`
         if param == base:
             # The dimension itself is not a place in it. "From anywhere" is
             # said by saying no from(...) at all: an item that states no
@@ -1402,7 +1402,8 @@ class OntoDAG(DAG):
         """Is `param` a value of `head`'s base written by the base's own
         name in a term of a role, a rectangle, `from(geo(48..49,2..3))`
         (review question 14, question 29)? The one nested parameter a flat
-        kind takes."""
+        kind takes, and read as the rectangle it names, which is stored
+        bare (question 50)."""
         inner = _dims.split_term(param)
         if inner is None:
             return False
@@ -1554,8 +1555,8 @@ class OntoDAG(DAG):
         were refused with a message about the base's dimension. (Removal is
         another matter: no term may be left naming nothing, whatever its
         kind, `_refuse_if_named`.) A value of the base names nothing either:
-        `from(geo(u2e6))` is the cell, read by arithmetic, so filing
-        `geo(u2e6)` under a region is no move of a named place."""
+        `from(48..49,2..3)` is a rectangle, read by arithmetic, so filing
+        `geo(48..49,2..3)` under a region is no move of a named place."""
         split = _dims.split_term(name)
         return [self.nodes[term] for term in
                 (f"{role}({name})"
@@ -1666,9 +1667,7 @@ class OntoDAG(DAG):
                 return {head: canonical}, {head: {canonical}}
             base = self._dimension_of(head)[1]
             upper_raw, lower_raw = self._node_bounds(node)
-            nested = kind == _dims.KIND_RECT
-            respell = lambda term: f"{head}({term})" if nested \
-                else f"{head}({_dims.split_term(term)[1]})"
+            respell = lambda term: f"{head}({_dims.split_term(term)[1]})"
             upper, lower = {}, {}
             for other, value in upper_raw.items():
                 if self._dimension_of(other)[1] == base:
@@ -2081,9 +2080,15 @@ class OntoDAG(DAG):
         if kind == _dims.KIND_RECT:
             base = self._dimension_of(split[0])[1]
             if base != split[0]:
-                # A bare word in a role of a rectangle head names a place;
-                # naming none, a stored term (a replay keeps what it is
+                # In a role of a rectangle head a parameter is a filed place
+                # (above) or a rectangle, written bare as a role of time
+                # takes its time (question 50). A word that is neither is a
+                # place not filed: a stored term (a replay keeps what it is
                 # given) reads as an opaque name, and a new one is refused.
+                try:
+                    return split[0], kind, _dims.canonicalize(name, kind)
+                except ValueError:
+                    pass
                 if name in self.nodes or self._role_lenient:
                     return None
                 node = self.nodes.get(split[1])
@@ -2092,12 +2097,11 @@ class OntoDAG(DAG):
                         f"{split[0]}({split[1]}): {split[1]!r} names a category "
                         f"outside the {base!r} dimension — a role of {base!r} "
                         f"takes the categories filed in it (a place under a "
-                        f"rectangle) or a rectangle by the base's name, "
-                        f"{split[0]}({base}(...))")
+                        f"rectangle) or a rectangle, {split[0]}(48.8..48.9,2.2..2.4)")
                 raise ValueError(
                     f"{name}: {split[1]!r} is no place filed in the {base!r} "
-                    f"dimension — a role of {base!r} takes a place by its name "
-                    f"or a rectangle by the base's, {split[0]}({base}(...)): "
+                    f"dimension nor a rectangle — a role of {base!r} takes a "
+                    f"place by its name or a rectangle, {split[0]}(48.8..48.9,2.2..2.4): "
                     f"file the place first (put {split[1]} '{base}(...)')")
         canonical = _dims.canonicalize(name, kind, units=self._declared_units())
         if kind in _dims.FAMILY_KINDS and canonical not in self.nodes:
@@ -2624,9 +2628,9 @@ class OntoDAG(DAG):
     def _role_hops(self, canonical, head, base, up, limit=None):
         """`_hops` for a role head (DIMENSIONS.md §14): `R(y) ⊑ R(x)` when y
         is below x in the base dimension, a parameter naming either a node
-        (`from(my_home)`) or a value of the base, written by the base's
-        name (`from(geo(48..49,2..3))`). Only a rectangle base is covered;
-        any other falls back to the scan."""
+        (`from(my_home)`) or a value of the base (`from(48..49,2..3)`).
+        Only a rectangle base is covered; any other falls back to the
+        scan."""
         if self._dimension_of(base)[0] == _dims.KIND_RECT:
             return self._role_hops_rect(canonical, head, base, up, limit)
         return None
@@ -2639,7 +2643,7 @@ class OntoDAG(DAG):
         rectangle index."""
         param = _dims.split_term(canonical)[1]
         node = self._param_node(head, param)
-        start = node.name if node is not None else param
+        start = node.name if node is not None else self._base_term(base, param)
         head_node = self.nodes.get(head)
         budget = len(head_node.neighbors) if head_node is not None else 0
         if limit is not None:
@@ -2651,9 +2655,11 @@ class OntoDAG(DAG):
         found = set()
         for name in walked:
             split = _dims.split_term(name)
-            found.add(f"{head}({name})")
             if split is not None and split[0] == base:
+                found.add(f"{head}({split[1]})")
                 found.update(literals.related(_dims.rect_bounds(name), up))
+            else:
+                found.add(f"{head}({name})")
         found.discard(canonical)
         found = [t for t in found if t in self.nodes]
         kind = self._dimension_of(head)[0]
@@ -3855,7 +3861,7 @@ class OntoDAG(DAG):
     def _reduce_roles_touching(self, from_node, to_node):
         """Keep stored form canonical when an edge moves a term's arguments.
 
-        A computed hop such as `from(my_home) ⊑ from(geo(u2e4x))` or
+        A computed hop such as `from(my_home) ⊑ from(48..49,2..3)` or
         `in(tokyo) ⊑ in(japan)` holds only while the nodes the terms name
         stand where they do, so filing one of those nodes can make an
         asserted edge redundant that no rectangle around the new edge sees
@@ -5467,6 +5473,24 @@ class OntoDAG(DAG):
                 if node is not None and not _dims.is_kind_node(param) \
                         and not self._in_dimension(node, base):
                     out.append((term.name, param))
+        return sorted(out)
+
+    def old_spellings(self):
+        """Role terms stored as a registry before 6.0 spelled them, a
+        rectangle by its base's name, as (stored, current) pairs, sorted:
+        `("from(geo(48..49,2..3))", "from(48..49,2..3)")`. Such a term reads
+        as stored; `ontodag.migrate` spells it anew. A walk over every
+        role's terms: what `odag status` reports."""
+        out = []
+        for head in sorted(self._role_heads()):
+            head_node = self.nodes.get(head)
+            if head_node is None or self._dimension_kind(head) != _dims.KIND_RECT:
+                continue
+            for term in head_node.neighbors:
+                split = _dims.split_term(term.name)
+                if split is not None and split[0] == head \
+                        and self._cell_param(head, split[1]):
+                    out.append((term.name, self._canonical_name(term.name)))
         return sorted(out)
 
     @_keeps_values_used

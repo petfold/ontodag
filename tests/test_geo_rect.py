@@ -32,8 +32,10 @@ K = KIND_RECT
     ("geo(89.999,0±500m)", "geo(89.994503..90,-180..180)"),
     ("geo(89.975,0±2km)", "geo(89.957013..89.992987,-180..180)"),
     ("geo(90,0)", "geo(89.5..90,-0.5..0.5)"),
-    # a role writes its base's value by the base's name
-    ("from(geo(48.85..48.87,2.28..2.30))", "from(geo(48.85..48.87,2.28..2.3))"),
+    # a role takes its rectangle without the base's name, as a role of time
+    # takes its time; written with it, it is the same value (question 50)
+    ("from(48.85..48.87,2.28..2.30)", "from(48.85..48.87,2.28..2.3)"),
+    ("from(geo(48.85..48.87,2.28..2.30))", "from(48.85..48.87,2.28..2.3)"),
 ])
 def test_one_name_per_rectangle(raw, canonical):
     assert canonicalize(raw, K) == canonical

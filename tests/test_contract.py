@@ -324,8 +324,9 @@ class TestG7MonotoneVersions(unittest.TestCase):
     version, a newer ontodag never takes away an answer about a fixed
     store. `tests/fixtures/g7.od` is a fixed store over every kind, and
     `g7-answers.json` what it answered when recorded (contract 0.7,
-    registry 5.0; first recorded under 0.3 / 4.3, and again at the
-    registry major that made geo a rectangle head). Every recorded true `is_below` stays true and every
+    registry 6.0; first recorded under 0.3 / 4.3, and again at the
+    registry majors that made geo a rectangle head and a role of geo take
+    its rectangle bare). Every recorded true `is_below` stays true and every
     recorded `get` answer stays inside the new one; recorded falses may
     become true, since gaining answers is allowed. A failure here means a
     release removes an answer: that is a major bump, and only then is the
@@ -371,7 +372,7 @@ class TestG7MonotoneVersions(unittest.TestCase):
 class TestG7SecondRecord(TestG7MonotoneVersions):
     """G7's second record (tests/fixtures/make_g7b.py), first taken under
     contract 0.5 / registry 4.3 before the 2026-10 review's decided changes
-    were built, and again at registry 5.0: graph-kind compounds filed as
+    were built, and again at registries 5.0 and 6.0: graph-kind compounds filed as
     their parts, relation compounds, role terms naming rectangles and
     places, and an item a merge left under two overlapping values of one
     head. The same rule: never regenerated to

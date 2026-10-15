@@ -1,5 +1,5 @@
 # ontodag store v1
-#:canonical 5.0 4d14dc2c0cde2e5c4f78380f12d19fe936fca43aff25ef5bd6115eda89524aad
+#:canonical 6.0 53e24797f1a092ff8a26ea966dab77df6550652b1e2ebf867fb0368689a8ddb7
 about enclosing-dimension
 area 'linear-dimension(area)'
 calendar-dimension dimension
@@ -7,17 +7,17 @@ count count-dimension
 count-dimension dimension
 courier 'transport(mass(..8kg))' 'transport(small-item)'
 crate 'mass(2kg..5kg)'
-delivery 'from(geo(48.1640625..48.2080078125,16.259765625..16.3037109375))'
+delivery 'from(48.1640625..48.2080078125,16.259765625..16.3037109375)'
 dimension '*'
 dominance-dimension dimension
-drone 'from(geo(48.1640625..48.33984375,16.171875..16.5234375))'
+drone 'from(48.1640625..48.33984375,16.171875..16.5234375)'
 duration 'linear-dimension(duration)'
 'duration(5400s)' duration
 enclosing-dimension dimension
 energy 'linear-dimension(energy)'
 from geo
-'from(geo(48.1640625..48.2080078125,16.259765625..16.3037109375))' from
-'from(geo(48.1640625..48.33984375,16.171875..16.5234375))' from
+'from(48.1640625..48.2080078125,16.259765625..16.3037109375)' from
+'from(48.1640625..48.33984375,16.171875..16.5234375)' from
 geo rectangle-dimension
 'geo(48.1640625..48.2080078125,16.259765625..16.3037109375)' geo
 graph-dimension dimension

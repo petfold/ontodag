@@ -1769,10 +1769,10 @@ rectangle cannot be mistaken for a name. One rule for every kind then: a
 parameter naming a filed node is that node, anything else is a value,
 written and stored without the base's name
 (`capture-geo(41.8..42.0,12.4..12.6)`, loopmarket's `from(…)` and
-`to(…)`). A stored spelling changes, so it comes with a registry minor and
-its migrate step (G8). Rejected: A, keep the rule
-(`capture-place(geo(…))`); B, accept the shorter spelling as input but
-store the nested one.
+`to(…)`). A stored spelling changes: registry 6.0, a major (Peter: A, on
+G7's finding, DIMENSIONS.md §23), with its migrate step. Rejected: A, keep
+the rule (`capture-place(geo(…))`); B, accept the shorter spelling as
+input but store the nested one. **Built (2026-10-15).**
 
 **Question 49 (decided, Peter, 2026-10-15): where a photo was taken is
 stored; the choice is at sharing.** A store encrypted under your own key

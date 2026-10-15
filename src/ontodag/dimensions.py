@@ -81,7 +81,15 @@ from fractions import Fraction
 #      exactly (a cell's bounds are dyadic, so finite decimals), and a role's
 #      cells with it; until then a store reads geo as the prefix head it was
 #      declared, and its roles' nested cells as opaque names).
-REGISTRY_VERSION = "5.0"
+# 6.0: a role of a rectangle head takes its rectangle without the base's
+#      name, as a role of time takes its time (question 50, decided by
+#      Peter 2026-10-15): `from(48..49,2..3)`, stored so. Written with it,
+#      `from(geo(48..49,2..3))` is the same value. A stored name's
+#      spelling changes; a store from before reads as it was stored, in
+#      every residency, and `ontodag.migrate` replays it through `put`,
+#      which spells it anew. MAJOR (Peter, 2026-10-15): an older reader
+#      takes a new store's bare rectangles for opaque names.
+REGISTRY_VERSION = "6.0"
 
 
 def registry_compatible(version, other=None):
@@ -198,9 +206,9 @@ MULTI_VALUED = RELATION_KINDS
 # The transitive head an enclosing-kind head follows (ROLES.md §5).
 CONTAINMENT_HEAD = "in"
 # The geo dimension's head, the prelude's rectangle head (question 29). A
-# role of geo (`from`, `to`, `where`) writes a rectangle by geo's own name,
-# `from(geo(48..49,2..3))`, and a bare word in it names a place filed in
-# the dimension (review question 14).
+# role of geo (`from`, `to`, `where`) takes a rectangle bare,
+# `from(48..49,2..3)` (question 50), and a word in it names a place filed
+# in the dimension (review question 14).
 GEO_HEAD = "geo"
 # A head is pinned to one unit family by filing it under a family-narrowed
 # kind node: `mass ⊑ linear-dimension(mass) ⊑ linear-dimension` (ROLES.md
@@ -881,7 +889,8 @@ def _parse_prefix(param):
 # reaches a pole or half the circle. A denotation is (south, north, west,
 # width): latitudes in [-90, 90], the west bound in (-180, 180], the arc's
 # width in [0, 360), and every longitude (-180, 360). In a role the value is
-# written by its base's own name, `from(geo(...))`; the DAG checks the base.
+# written bare, `from(48..49,2..3)`, or by its base's own name,
+# `from(geo(48..49,2..3))`, and stored bare; the DAG checks the base.
 
 _GEO_NUM_RE = re.compile(r"^-?\d+(?:\.\d+)?$")
 _GEOHASH_LIKE = re.compile(r"^[0-9b-hjkmnp-z]*[b-hjkmnp-z][0-9b-hjkmnp-z]*$")
@@ -906,9 +915,10 @@ SPLIT_MEET = _SplitMeet()
 
 
 def _rect_parts(head, param):
-    """(param, nested head) of a rectangle-kind parameter: a role writes its
-    base's value by the base's name, `from(geo(48..49,2..3))`; which head
-    may be nested is the graph's to say."""
+    """(param, nested head) of a rectangle-kind parameter. A role takes its
+    rectangle bare, `from(48..49,2..3)`, and may be given it by the base's
+    name, `from(geo(48..49,2..3))`, the same value (question 50); which
+    head may be nested is the graph's to say."""
     split = split_term(param)
     if split is not None and split[0] != head:
         return split[1], split[0]
@@ -1214,9 +1224,8 @@ def canonicalize(name, kind, units=None):
     if kind == KIND_PREFIX:
         return f"{head}({_parse_prefix(param)})"
     if kind == KIND_RECT:
-        inner, nested = _rect_parts(head, param)
-        text = _render_rect(_parse_rect(inner, units))
-        return f"{head}({nested}({text}))" if nested else f"{head}({text})"
+        inner, _nested = _rect_parts(head, param)
+        return f"{head}({_render_rect(_parse_rect(inner, units))})"
     return f"{head}({_render(_denotation(param, kind, units), kind)})"
 
 

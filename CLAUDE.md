@@ -204,8 +204,8 @@ Contract 0.6 (`docs/CONTRACT.md`, `tests/test_contract.py`):
   (`make_g8.py`) only together with a registry bump.
 - **G9** replays are order-free; single writes are checked as they come.
 
-Versions now: contract 0.7, registry 5.0, prelude 5, surface 0.2, all
-released since 0.32.0. Consumers compare majors.
+Versions now: contract 0.7, prelude 5, surface 0.2, all released since
+0.32.0; registry 6.0 on main (5.0 released). Consumers compare majors.
 
 ## Standing rules
 
@@ -426,10 +426,11 @@ Each line points to its record.
 - A role of `geo` takes its rectangle without `geo(…)`, written and stored
   so, as time roles take their time: one rule for every kind, a
   parameter naming a filed node is that node and anything else a value
-  (question 50, decided C by Peter, 2026-10-15, BROWSER.md §17). Not built
-  yet: it needs a registry minor and its migrate step, and loopmarket's
-  `from`/`to` follow. With it the capture heads proposed there
-  (`capture-time`, `capture-geo`, `capture-in`, `modification-time`).
+  (question 50, decided C by Peter, 2026-10-15, BROWSER.md §17). Built on
+  main as registry 6.0, a major (Peter: A), with its migrate step
+  (DIMENSIONS.md §23); loopmarket's `from`/`to` follow. Next, the capture
+  heads proposed there (`capture-time`, `capture-geo`, `capture-in`,
+  `modification-time`).
 - Capture places (question 49, decided by Peter, 2026-10-15, BROWSER.md
   §17): stored in your store and in what you publish encrypted; the
   choice "include where photos were taken" (off by default) is made at
@@ -477,7 +478,8 @@ Each line points to its record.
   14. In a role a bare word is a filed place and a value is written by
       its base's name, `from(geo(...))` (item 20). Built in ontodag and in
       loopmarket 0.15.0; since registry 5.0 the value is a rectangle and a
-      bare word is never read as a cell, in a query either.
+      bare word is never read as a cell, in a query either; since registry
+      6.0 the rectangle is written bare, `from(48..49,2..3)` (question 50).
   15. loopmarket: one matching engine, ontodag's index, for simple
       matches and the aggregation search, no threshold; the default
       solver kept apart from the rest of loopmarket (item 2). Built

@@ -2,7 +2,8 @@
 
 A head declared under another head — `from` under `geo`, `when` under
 `time` — is a ROLE of that dimension: it shares the kind and the value
-space, and its parameters may be values of the base (`from(geo(47.4..47.6,13.4..13.6))`) or
+space, and its parameters may be values of the base, written bare
+(`from(47.4..47.6,13.4..13.6)`, the same value as `from(geo(...))`), or
 NODES filed in the base dimension: a place under a cell, a region above
 cells, a floor under a building. The order between role terms is then the
 graph's own order in the base dimension. Nothing is stored beyond the name
@@ -52,9 +53,31 @@ def replayed(dag, lines):
     return native.loads(text + "\n" + "\n".join(lines) + "\n")
 
 
+# A role's rectangle as registry 6.0 stores it, and as 5.0 did.
+BARE, NESTED = "from(41.85..41.95,12.45..12.55)", "from(geo(41.85..41.95,12.45..12.55))"
+
+
+def records_from_before(written):
+    """Write into `written`, a RecordStore, a store holding `delivery` under a
+    role's rectangle by geo's name, as registry 5.0 stored it, and commit;
+    returns the root. (The CLI's and migrate's tests use it too.)"""
+    seed = EagerOntoDAG(RecordStore(MemoryBytesStore()))
+    prelude.apply(seed)
+    seed.put("from", ["geo"])
+    seed.put("delivery", [BARE])
+    seed.commit()
+
+    def spelled(name):
+        return NESTED if name == BARE else name
+    for name, record in seed.store.items():
+        written.put(spelled(name), dict(record, up=sorted(map(spelled, record["up"])),
+                                        down=sorted(map(spelled, record["down"]))))
+    return written.commit()
+
+
 def with_offers(dag):
     dag.put("offer", ["from(my_home)"])       # a place as the parameter
-    dag.put("offer2", ["from(geo(47..48,15..16))"])         # a value, as before
+    dag.put("offer2", ["from(geo(47..48,15..16))"])         # a value by the base's name: stored bare
     dag.put("ride", ["from(rome)"])      # a region as the parameter
     return dag
 
@@ -66,25 +89,25 @@ class TestRoleParameters(unittest.TestCase):
         self.assertEqual(d._dimension_of("geo"), ("rectangle-dimension", "geo"))
         self.assertTrue(d.is_below("from(rome)", "from(rome)"))
         # The line the issue reports as False: my_home sits under u2e4x.
-        self.assertTrue(d.is_below("from(my_home)", "from(geo(47..48,13..14))"))
+        self.assertTrue(d.is_below("from(my_home)", "from(47..48,13..14)"))
         self.assertTrue(d.is_below("from(my_home)", "from(rome)"))
         self.assertFalse(d.is_below("from(rome)", "from(my_home)"))
         # A region covers its cells: any cell in it (or finer) is below it.
-        self.assertTrue(d.is_below("from(geo(47..48,13..14))", "from(rome)"))
-        self.assertTrue(d.is_below("from(geo(47.4..47.6,13.4..13.6))", "from(rome)"))
-        self.assertTrue(d.is_below("from(geo(47..48,15..16))", "from(rome)"))
-        self.assertFalse(d.is_below("from(geo(48.5..49.5,13..14))", "from(rome)"))
+        self.assertTrue(d.is_below("from(47..48,13..14)", "from(rome)"))
+        self.assertTrue(d.is_below("from(47.4..47.6,13.4..13.6)", "from(rome)"))
+        self.assertTrue(d.is_below("from(47..48,15..16)", "from(rome)"))
+        self.assertFalse(d.is_below("from(48.5..49.5,13..14)", "from(rome)"))
 
     def test_a_region_is_a_lower_bound_only(self):
         # Its cells are what it is KNOWN to cover; nothing asserts it lies
         # within u2 until someone files it there. Reading the covering as
         # an upper bound would let a later cell flip a True to False.
         d = make_dag()
-        self.assertFalse(d.is_below("from(rome)", "from(geo(45..55,10..30))"))
+        self.assertFalse(d.is_below("from(rome)", "from(45..55,10..30)"))
         d.put("rome", ["geo(45..55,10..30)"])
-        self.assertTrue(d.is_below("from(rome)", "from(geo(45..55,10..30))"))
+        self.assertTrue(d.is_below("from(rome)", "from(45..55,10..30)"))
         d.put("geo(48.5..49.5,13..14)", ["rome"])          # the region grows
-        self.assertTrue(d.is_below("from(rome)", "from(geo(45..55,10..30))"))
+        self.assertTrue(d.is_below("from(rome)", "from(45..55,10..30)"))
 
     def test_a_present_node_outside_the_dimension_is_refused(self):
         d = make_dag()
@@ -94,17 +117,17 @@ class TestRoleParameters(unittest.TestCase):
         with self.assertRaises(ValueError):
             d.get(["from(Flight)"])
         with self.assertRaises(ValueError):
-            d.is_below("from(Flight)", "from(geo(45..55,10..30))")
+            d.is_below("from(Flight)", "from(45..55,10..30)")
 
     def test_a_word_naming_no_place_is_opaque_until_the_place_exists(self):
         d = replayed(make_dag(), ["'from(zzz)' from", "y 'from(zzz)'"])
         self.assertTrue(d.is_below("y", "from(zzz)"))
-        self.assertFalse(d.is_below("y", "from(geo(80..89,170..179))"))
+        self.assertFalse(d.is_below("y", "from(80..89,170..179)"))
         with self.assertRaises(ValueError):
             d.put("zzz", [])                       # would leave the dimension
         d.put("zzz", ["geo(80..89,170..179)"])     # a place named zzz: fine
-        self.assertTrue(d.is_below("from(zzz)", "from(geo(80..89,170..179))"))
-        self.assertTrue(d.is_below("y", "from(geo(80..89,170..179))"))
+        self.assertTrue(d.is_below("from(zzz)", "from(80..89,170..179)"))
+        self.assertTrue(d.is_below("y", "from(80..89,170..179)"))
 
     def test_canonical_form_is_the_name_as_spelled(self):
         d = with_offers(make_dag())
@@ -150,7 +173,7 @@ class TestRoleParameters(unittest.TestCase):
         d.put("want-4th", ["from(my_home_4th)"])
         self.assertTrue(d.is_below("from(my_home_4th)", "from(my_home)"))
         self.assertFalse(d.is_below("from(my_home)", "from(my_home_4th)"))
-        self.assertTrue(d.is_below("want-4th", "from(geo(47..48,13..14))"))
+        self.assertTrue(d.is_below("want-4th", "from(47..48,13..14)"))
         # A give to the whole building serves the fourth floor by overlap;
         # a ground-floor-only courier does not.
         possible = names(d.get_overlapping("from(my_home_4th)"))
@@ -160,28 +183,28 @@ class TestRoleParameters(unittest.TestCase):
 
     def test_queries_with_role_terms(self):
         d = with_offers(make_dag())
-        self.assertEqual(names(d.get(["from(geo(47..48,13..14))"])) - {"from(my_home)"},
+        self.assertEqual(names(d.get(["from(47..48,13..14)"])) - {"from(my_home)"},
                          {"offer"})
         self.assertEqual(names(d.get(["from(rome)"]))
-                         - {"from(my_home)", "from(geo(47..48,15..16))"},
+                         - {"from(my_home)", "from(47..48,15..16)"},
                          {"offer", "offer2", "ride"})
         self.assertEqual(names(d.get(["from(my_home)"])), {"offer"})
         before = set(d.nodes)
-        self.assertEqual(names(d.get(["from(geo(47.4..47.6,13.4..13.6))"])), {"from(my_home)",
+        self.assertEqual(names(d.get(["from(47.4..47.6,13.4..13.6)"])), {"from(my_home)",
                                                           "offer"})
         self.assertEqual(before, set(d.nodes))   # virtual: nothing created
         # Same-head role terms: the finer one wins when comparable ...
-        self.assertEqual(d.get(["from(rome)", "from(geo(47..48,13..14))"]),
-                         d.get(["from(geo(47..48,13..14))"]))
+        self.assertEqual(d.get(["from(rome)", "from(47..48,13..14)"]),
+                         d.get(["from(47..48,13..14)"]))
         # ... and incomparable ones stay separate cones (no fake meet).
-        self.assertEqual(names(d.get(["from(my_home)", "from(geo(47..48,15..16))"])), set())
+        self.assertEqual(names(d.get(["from(my_home)", "from(47..48,15..16)"])), set())
 
     def test_get_overlapping_with_role_terms(self):
         d = with_offers(make_dag())
-        self.assertIn("offer", names(d.get_overlapping("from(geo(47.45..47.5,13.45..13.5))")))
-        self.assertIn("ride", names(d.get_overlapping("from(geo(46..50,12..20))")))
-        self.assertNotIn("offer", names(d.get_overlapping("from(geo(51..54,22..28))")))
-        self.assertNotIn("ride", names(d.get_overlapping("from(geo(51..54,22..28))")))
+        self.assertIn("offer", names(d.get_overlapping("from(47.45..47.5,13.45..13.5)")))
+        self.assertIn("ride", names(d.get_overlapping("from(46..50,12..20)")))
+        self.assertNotIn("offer", names(d.get_overlapping("from(51..54,22..28)")))
+        self.assertNotIn("ride", names(d.get_overlapping("from(51..54,22..28)")))
         self.assertIn("offer", names(d.get_overlapping("from(rome)")))
 
     def test_disjointness_is_never_proven_for_named_places(self):
@@ -189,9 +212,9 @@ class TestRoleParameters(unittest.TestCase):
         # prove two named things apart (the disjointness wall), so a place
         # and a cell it is not known to lie in are accepted.
         d = make_dag()
-        d.put("z", ["from(my_home)", "from(geo(47..48,15..16))"])
+        d.put("z", ["from(my_home)", "from(47..48,15..16)"])
         with self.assertRaises(ValueError):
-            d.put("w", ["from(geo(47..48,13..14))", "from(geo(47..48,15..16))"])
+            d.put("w", ["from(47..48,13..14)", "from(47..48,15..16)"])
 
     def test_render_is_total(self):
         d = with_offers(make_dag())
@@ -222,11 +245,11 @@ class TestStoredFormWithRoles(unittest.TestCase):
     def test_region_growth_reduces_like_direct_filing(self):
         late = make_dag()
         late.put("ride", ["from(rome)"])
-        late.put("ride", ["from(geo(48.5..49.5,13..14))"])           # not in the region (yet)
+        late.put("ride", ["from(48.5..49.5,13..14)"])           # not in the region (yet)
         late.put("geo(48.5..49.5,13..14)", ["rome"])       # now it is
         direct = make_dag()
         direct.put("geo(48.5..49.5,13..14)", ["rome"])
-        direct.put("ride", ["from(geo(48.5..49.5,13..14))", "from(rome)"])
+        direct.put("ride", ["from(48.5..49.5,13..14)", "from(rome)"])
         self.assertEqual(edge_set(late), edge_set(direct))
         self.assertNotIn(("from(rome)", "ride"), edge_set(late))
         self.assertTrue(late.is_below("ride", "from(rome)"))
@@ -235,13 +258,13 @@ class TestStoredFormWithRoles(unittest.TestCase):
         late = make_dag()
         late.put("cafe", ["geo(46..50,12..20)"])            # coarse at first
         late.put("o", ["from(cafe)"])
-        late.put("o", ["from(geo(47.4..47.6,13.4..13.6))"])            # kept: cafe may be elsewhere
+        late.put("o", ["from(47.4..47.6,13.4..13.6)"])            # kept: cafe may be elsewhere
         late.put("cafe", ["geo(47.4..47.6,13.4..13.6)"])          # refined into that cell
         direct = make_dag()                       # geo(46..50,12..20), used no more, goes
         direct.put("cafe", ["geo(47.4..47.6,13.4..13.6)"])
-        direct.put("o", ["from(geo(47.4..47.6,13.4..13.6))", "from(cafe)"])
+        direct.put("o", ["from(47.4..47.6,13.4..13.6)", "from(cafe)"])
         self.assertEqual(edge_set(late), edge_set(direct))
-        self.assertNotIn(("from(geo(47.4..47.6,13.4..13.6))", "o"), edge_set(late))
+        self.assertNotIn(("from(47.4..47.6,13.4..13.6)", "o"), edge_set(late))
 
     def test_roots_agree_across_orders(self):
         def build(order):
@@ -250,23 +273,23 @@ class TestStoredFormWithRoles(unittest.TestCase):
             for name, supers in order:
                 dag.put(name, supers)
             return dag.commit()
-        a = build([("ride", ["from(rome)"]), ("ride", ["from(geo(48.5..49.5,13..14))"]),
+        a = build([("ride", ["from(rome)"]), ("ride", ["from(48.5..49.5,13..14)"]),
                    ("geo(48.5..49.5,13..14)", ["rome"]),
                    ("cafe", ["geo(46..50,12..20)"]), ("o", ["from(cafe)"]),
-                   ("o", ["from(geo(47.4..47.6,13.4..13.6))"]), ("cafe", ["geo(47.4..47.6,13.4..13.6)"])])
+                   ("o", ["from(47.4..47.6,13.4..13.6)"]), ("cafe", ["geo(47.4..47.6,13.4..13.6)"])])
         b = build([("geo(48.5..49.5,13..14)", ["rome"]),
                    ("cafe", ["geo(47.4..47.6,13.4..13.6)"]),
-                   ("o", ["from(geo(47.4..47.6,13.4..13.6))", "from(cafe)"]),
-                   ("ride", ["from(geo(48.5..49.5,13..14))", "from(rome)"])])
+                   ("o", ["from(47.4..47.6,13.4..13.6)", "from(cafe)"]),
+                   ("ride", ["from(48.5..49.5,13..14)", "from(rome)"])])
         self.assertEqual(a, b)
 
     def test_merge_commutes(self):
         a = make_dag()
         a.put("ride", ["from(rome)"])
-        a.put("o", ["from(geo(47.4..47.6,13.4..13.6))"])
+        a.put("o", ["from(47.4..47.6,13.4..13.6)"])
         b = make_dag()
         b.put("geo(48.5..49.5,13..14)", ["rome"])
-        b.put("ride", ["from(geo(48.5..49.5,13..14))"])
+        b.put("ride", ["from(48.5..49.5,13..14)"])
         b.put("cafe", ["geo(47.4..47.6,13.4..13.6)"])
         b.put("o", ["from(cafe)"])
         ab = a.deepcopy()
@@ -274,14 +297,14 @@ class TestStoredFormWithRoles(unittest.TestCase):
         ba = b.deepcopy()
         ba.merge(a)
         self.assertEqual(edge_set(ab), edge_set(ba))
-        self.assertTrue(ab.is_below("o", "from(geo(47.4..47.6,13.4..13.6))"))
+        self.assertTrue(ab.is_below("o", "from(47.4..47.6,13.4..13.6)"))
         self.assertTrue(ab.is_below("ride", "from(rome)"))
 
     def test_sparse_writer_matches_eager(self):
         blobs = MemoryBytesStore()
         base = make_dag(EagerOntoDAG(RecordStore(blobs))).commit()
         steps = [("cafe", ["geo(46..50,12..20)"]), ("o", ["from(cafe)"]),
-                 ("o", ["from(geo(47.4..47.6,13.4..13.6))"]), ("cafe", ["geo(47.4..47.6,13.4..13.6)"]),
+                 ("o", ["from(47.4..47.6,13.4..13.6)"]), ("cafe", ["geo(47.4..47.6,13.4..13.6)"]),
                  ("ride", ["from(rome)"]), ("geo(48.5..49.5,13..14)", ["rome"])]
         eager = EagerOntoDAG(RecordStore(blobs, root=base))
         sparse = SparseOntoDAG(RecordStore(blobs, root=base))
@@ -296,14 +319,14 @@ class TestStoredFormWithRoles(unittest.TestCase):
         eager = with_offers(make_dag(EagerOntoDAG(RecordStore(blobs))))
         root = eager.commit()
         reader = LazyOntoDAG(RecordStore.at(root, blobs))
-        self.assertTrue(reader.is_below("offer", "from(geo(47..48,13..14))"))
-        self.assertFalse(reader.is_below("offer2", "from(geo(47..48,13..14))"))
+        self.assertTrue(reader.is_below("offer", "from(47..48,13..14)"))
+        self.assertFalse(reader.is_below("offer2", "from(47..48,13..14)"))
         self.assertEqual(names(reader.get(["from(rome)"])),
                          names(eager.get(["from(rome)"])))
-        for sub, sup, expected in [("offer", "from(geo(47..48,13..14))", True),
+        for sub, sup, expected in [("offer", "from(47..48,13..14)", True),
                                    ("from(my_home)", "from(rome)", True),
-                                   ("offer2", "from(geo(47..48,13..14))", False),
-                                   ("from(geo(47.4..47.6,13.4..13.6))", "from(rome)", True)]:
+                                   ("offer2", "from(47..48,13..14)", False),
+                                   ("from(47.4..47.6,13.4..13.6)", "from(rome)", True)]:
             cert = prove_below(eager, sub, sup)
             self.assertEqual(verify_below(cert, root), expected, (sub, sup))
 
@@ -316,18 +339,18 @@ class TestOverlapsAndMeet(unittest.TestCase):
         d = make_dag()
         self.assertTrue(d.overlaps("geo(46..50,12..20)", "geo(47.4..47.6,13.4..13.6)"))
         self.assertFalse(d.overlaps("geo(47..48,13..14)", "geo(47..48,15..16)"))
-        self.assertTrue(d.overlaps("from(geo(46..50,12..20))", "from(geo(47.4..47.6,13.4..13.6))"))   # both ways
-        self.assertTrue(d.overlaps("from(geo(47.4..47.6,13.4..13.6))", "from(geo(46..50,12..20))"))
+        self.assertTrue(d.overlaps("from(46..50,12..20)", "from(47.4..47.6,13.4..13.6)"))   # both ways
+        self.assertTrue(d.overlaps("from(47.4..47.6,13.4..13.6)", "from(46..50,12..20)"))
         d.put("when", ["time"])
         self.assertTrue(d.overlaps("when(2026-08)", "when(2026-08-15..2026-09-02)"))
         self.assertFalse(d.overlaps("when(2026-08)", "when(2026-09)"))
 
     def test_nodes_decide_by_the_graph(self):
         d = with_offers(make_dag())
-        self.assertTrue(d.overlaps("from(rome)", "from(geo(46..50,12..20))"))
-        self.assertFalse(d.overlaps("from(rome)", "from(geo(51..54,22..28))"))
-        self.assertTrue(d.overlaps("from(my_home)", "from(geo(47.45..47.5,13.45..13.5))"))  # possibly
-        self.assertFalse(d.overlaps("from(my_home)", "from(geo(51..54,22..28))"))
+        self.assertTrue(d.overlaps("from(rome)", "from(46..50,12..20)"))
+        self.assertFalse(d.overlaps("from(rome)", "from(51..54,22..28)"))
+        self.assertTrue(d.overlaps("from(my_home)", "from(47.45..47.5,13.45..13.5)"))  # possibly
+        self.assertFalse(d.overlaps("from(my_home)", "from(51..54,22..28)"))
         self.assertTrue(d.overlaps("from(my_home)", "from(rome)"))
         # region ∩ region, both sides nodes — never consumer enumeration
         d.put("central", [])
@@ -339,8 +362,8 @@ class TestOverlapsAndMeet(unittest.TestCase):
         d.put("geo(52..53,23..24)", ["north"])
         self.assertFalse(d.overlaps("rome", "north"))
         # an item against a term, and two plain nodes
-        self.assertTrue(d.overlaps("offer", "from(geo(47..48,13..14))"))
-        self.assertFalse(d.overlaps("offer", "from(geo(51..54,22..28))"))
+        self.assertTrue(d.overlaps("offer", "from(47..48,13..14)"))
+        self.assertFalse(d.overlaps("offer", "from(51..54,22..28)"))
         self.assertTrue(d.overlaps("rome", "my_home"))
 
     def test_two_places_under_one_cell_are_two_places(self):
@@ -353,8 +376,8 @@ class TestOverlapsAndMeet(unittest.TestCase):
 
     def test_below_implies_overlaps(self):
         d = with_offers(make_dag())
-        pairs = [("from(geo(47.4..47.6,13.4..13.6))", "from(geo(47..48,13..14))"), ("from(my_home)", "from(geo(46..50,12..20))"),
-                 ("from(geo(47..48,15..16))", "from(rome)"), ("offer", "from(rome)"),
+        pairs = [("from(47.4..47.6,13.4..13.6)", "from(47..48,13..14)"), ("from(my_home)", "from(46..50,12..20)"),
+                 ("from(47..48,15..16)", "from(rome)"), ("offer", "from(rome)"),
                  ("my_home", "geo(47..48,13..14)")]
         for a, b in pairs:
             self.assertTrue(d.is_below(a, b) or d.is_below(b, a), (a, b))
@@ -364,7 +387,7 @@ class TestOverlapsAndMeet(unittest.TestCase):
     def test_errors_and_fail_closed(self):
         d = make_dag()
         with self.assertRaises(ValueError):
-            d.overlaps("from(geo(47..48,13..14))", "geo(47..48,13..14)")          # different heads
+            d.overlaps("from(47..48,13..14)", "geo(47..48,13..14)")          # different heads
         with self.assertRaises(ValueError):
             d.overlaps("mass(3kg)", "mass(nonsense)")  # malformed
         self.assertFalse(d.overlaps("nobody", "geo(47..48,13..14)"))  # unknown: False
@@ -381,17 +404,17 @@ class TestOverlapsAndMeet(unittest.TestCase):
 
     def test_meet(self):
         d = with_offers(make_dag())
-        self.assertEqual(d.meet("from(geo(46..50,12..20))", "from(geo(47.4..47.6,13.4..13.6))"), "from(geo(47.4..47.6,13.4..13.6))")
-        self.assertIsNone(d.meet("from(geo(47..48,13..14))", "from(geo(47..48,15..16))"))
-        self.assertEqual(d.meet("from(rome)", "from(geo(47.4..47.6,13.4..13.6))"), "from(geo(47.4..47.6,13.4..13.6))")
+        self.assertEqual(d.meet("from(46..50,12..20)", "from(47.4..47.6,13.4..13.6)"), "from(47.4..47.6,13.4..13.6)")
+        self.assertIsNone(d.meet("from(47..48,13..14)", "from(47..48,15..16)"))
+        self.assertEqual(d.meet("from(rome)", "from(47.4..47.6,13.4..13.6)"), "from(47.4..47.6,13.4..13.6)")
         self.assertEqual(d.meet("from(my_home)", "from(rome)"), "from(my_home)")
-        self.assertIsNone(d.meet("from(my_home)", "from(geo(51..54,22..28))"))    # no overlap
+        self.assertIsNone(d.meet("from(my_home)", "from(51..54,22..28)"))    # no overlap
         with self.assertRaises(ValueError):
-            d.meet("from(rome)", "from(geo(46..50,12..20))")   # overlap, but no one term
+            d.meet("from(rome)", "from(46..50,12..20)")   # overlap, but no one term
         with self.assertRaises(ValueError):
-            d.meet("from(geo(47..48,13..14))", "geo(47..48,13..14)")
+            d.meet("from(47..48,13..14)", "geo(47..48,13..14)")
         with self.assertRaises(ValueError):
-            d.meet("offer", "from(geo(47..48,13..14))")
+            d.meet("offer", "from(47..48,13..14)")
         self.assertEqual(d.meet("mass(1kg..5kg)", "mass(3kg..)"),
                          "mass(3kg..5kg)")
 
@@ -407,8 +430,8 @@ class TestTheDimensionItselfIsNoParameter(unittest.TestCase):
 
     def test_refused_with_the_reason(self):
         d = make_dag()
-        for call in (lambda: d.is_below("from(geo)", "from(geo(46..50,12..20))"),
-                     lambda: d.overlaps("from(geo)", "from(geo(46..50,12..20))"),
+        for call in (lambda: d.is_below("from(geo)", "from(46..50,12..20)"),
+                     lambda: d.overlaps("from(geo)", "from(46..50,12..20)"),
                      lambda: d.put("anywhere", ["from(geo)"]),
                      lambda: d.get(["from(geo)"]),
                      lambda: d.get_overlapping("from(geo)")):
@@ -430,16 +453,16 @@ class TestTheDimensionItselfIsNoParameter(unittest.TestCase):
         d.put("my_home", ["geo(47.4..47.6,13.4..13.6)"])
         d.put("silent", ["cat"])
         d.put("at_home", ["cat", "from(my_home)"])
-        d.put("in_cell", ["cat", "from(geo(47..48,13..14))"])
-        d.put("elsewhere", ["cat", "from(geo(51..54,22..28))"])
-        self.assertEqual(names(d.get(["cat", "from(geo(46..50,12..20))"], items_only=True)),
+        d.put("in_cell", ["cat", "from(47..48,13..14)"])
+        d.put("elsewhere", ["cat", "from(51..54,22..28)"])
+        self.assertEqual(names(d.get(["cat", "from(46..50,12..20)"], items_only=True)),
                          {"at_home", "in_cell"})
-        self.assertEqual(names(d.get(["cat", "from(geo(47.4..47.6,13.4..13.6))"], items_only=True)),
+        self.assertEqual(names(d.get(["cat", "from(47.4..47.6,13.4..13.6)"], items_only=True)),
                          {"at_home"})
         self.assertEqual(names(d.get(["cat"], items_only=True)),
                          {"silent", "at_home", "in_cell", "elsewhere"})
-        self.assertEqual(names(d.get_overlapping("from(geo(46..50,12..20))")),
-                         {"at_home", "in_cell", "from(my_home)", "from(geo(47..48,13..14))"})
+        self.assertEqual(names(d.get_overlapping("from(46..50,12..20)")),
+                         {"at_home", "in_cell", "from(my_home)", "from(47..48,13..14)"})
 
 
 class TestNoLoopThroughARoleLink(unittest.TestCase):
@@ -483,10 +506,10 @@ class TestRoleGuards(unittest.TestCase):
         d.put("Flight", [])
         with self.assertRaises(ValueError):
             d.reclassify(["my_home"], to=["Flight"])
-        self.assertTrue(d.is_below("offer", "from(geo(47..48,13..14))"))     # untouched
+        self.assertTrue(d.is_below("offer", "from(47..48,13..14)"))     # untouched
         d.reclassify(["my_home"], to=["geo(47..48,15..16)"])
-        self.assertTrue(d.is_below("offer", "from(geo(47..48,15..16))"))
-        self.assertFalse(d.is_below("offer", "from(geo(47..48,13..14))"))
+        self.assertTrue(d.is_below("offer", "from(47..48,15..16)"))
+        self.assertFalse(d.is_below("offer", "from(47..48,13..14)"))
 
 
 if __name__ == "__main__":
@@ -562,12 +585,12 @@ class TestANameUsedTwoWaysAfterAMerge(unittest.TestCase):
 
     def test_the_merged_store_answers_as_alice_did(self):
         alice, m = self.merged()
-        for probe in ("from(nyc)", "from(geo(-40..-30,100..120))"):
+        for probe in ("from(nyc)", "from(-40..-30,100..120)"):
             self.assertEqual(m.is_below("parcel", probe),
                              alice.is_below("parcel", probe), probe)
         self.assertEqual(names(m.get(["city"])), {"nyc"})
-        m.put("box", ["from(geo(-35..-34,110..111))"])               # writes go on too
-        self.assertTrue(m.is_below("box", "from(geo(-40..-30,100..120))"))
+        m.put("box", ["from(-35..-34,110..111)"])               # writes go on too
+        self.assertTrue(m.is_below("box", "from(-40..-30,100..120)"))
 
     def test_a_single_writer_is_still_refused_both_ways(self):
         d = self.alice()
@@ -593,33 +616,40 @@ class TestANameUsedTwoWaysAfterAMerge(unittest.TestCase):
 
 
 class TestARectangleIsWrittenByItsBasesName(unittest.TestCase):
-    """Review question 14 and question 29: in a role of geo a bare word
-    names a place filed in the dimension, and a rectangle is written by
-    geo's own name, `from(geo(47.4..47.6,13.4..13.6))`. A geohash cell is
-    no geo value since registry 5.0; `migrate` turns a store's cells into
-    their rectangles, in its roles' terms too."""
+    """Review question 14, questions 29 and 50: in a role of geo a word
+    names a place filed in the dimension, and a rectangle is written bare,
+    `from(47.4..47.6,13.4..13.6)` (registry 6.0); written by geo's own
+    name it is the same value, stored bare. A geohash cell is no geo value
+    since registry 5.0; `migrate` turns a store's cells into their
+    rectangles, in its roles' terms too."""
 
-    def test_a_rectangle_by_the_bases_name_orders_as_the_rectangle(self):
-        d = with_offers(make_dag())
-        self.assertIn("from(geo(47..48,15..16))", d.nodes)
-        self.assertEqual(d.canonical("from(geo(47..48,15..16))"), "from(geo(47..48,15..16))")
+    def test_a_rectangle_in_a_role_orders_as_the_rectangle(self):
+        d = with_offers(make_dag())                    # offer2 written from(geo(47..48,15..16))
+        self.assertIn("from(47..48,15..16)", d.nodes)
+        self.assertNotIn("from(geo(47..48,15..16))", d.nodes)
+        self.assertEqual(d.canonical("from(geo(47..48,15..16))"), "from(47..48,15..16)")
+        self.assertEqual(d.canonical("from(47..48,15..16)"), "from(47..48,15..16)")
+        self.assertTrue(d.is_below("offer2", "from(46..50,12..20)"))
         self.assertTrue(d.is_below("offer2", "from(geo(46..50,12..20))"))
         self.assertTrue(d.is_below("offer2", "from(rome)"))   # a region
-        self.assertFalse(d.is_below("offer2", "from(geo(47..48,13..14))"))
-        self.assertEqual(d.meet("from(geo(46..50,12..20))", "from(geo(47..48,15..16))"),
-                         "from(geo(47..48,15..16))")
-        self.assertTrue(d.overlaps("from(rome)", "from(geo(47..48,15..16))"))
-        d.put("van", ["from(geo(48.5..49.5,15..16))"])
+        self.assertFalse(d.is_below("offer2", "from(47..48,13..14)"))
+        self.assertEqual(d.meet("from(46..50,12..20)", "from(geo(47..48,15..16))"),
+                         "from(47..48,15..16)")
+        self.assertTrue(d.overlaps("from(rome)", "from(47..48,15..16)"))
+        d.put("van", ["from(48.5..49.5,15..16)"])
         self.assertNotIn("geo(48.5..49.5,15..16)", d.nodes)     # the value itself is not stored
 
     def test_a_bare_word_must_be_a_filed_place(self):
         d = make_dag()
         d.put("parcel", ["from(my_home)"])                  # a place: fine
-        for word in ("sydney", "ljubljna", "u2e5", "47..48,15..16"):
+        d.put("crate", ["from(47..48,15..16)"])            # a rectangle: fine
+        self.assertEqual(d.parents_of("crate"), ["from(47..48,15..16)"])
+        for word in ("sydney", "romme", "u2e5"):
             with self.subTest(word=word):
                 with self.assertRaisesRegex(ValueError, "no place filed") as raised:
                     d.put("x", [f"from({word})"])
-                self.assertIn("from(geo(...))", str(raised.exception))
+                self.assertIn("nor a rectangle", str(raised.exception))
+                self.assertIn("from(48.8..48.9,2.2..2.4)", str(raised.exception))
                 with self.assertRaisesRegex(ValueError, "no place filed"):
                     d.reclassify(["parcel"], to=[f"from({word})"])
                 with self.assertRaisesRegex(ValueError, "no place filed"):
@@ -667,13 +697,39 @@ van 'from(u2e)'
         self.assertEqual(u2e5, "48.33984375..48.515625,15.46875..15.8203125")
         self.assertEqual(d._dimension_of("geo"), ("rectangle-dimension", "geo"))
         self.assertEqual(d.parents_of("crate"), [f"geo({u2e5})"])
-        self.assertEqual(d.parents_of("offer2"), [f"from(geo({u2e5}))"])
-        self.assertEqual(d.parents_of("van"), [f"from(geo({migrate.cell_rectangle('u2e')}))"])
-        self.assertTrue(d.is_below("offer2", "from(geo(48..49,15..16))"))
+        self.assertEqual(d.parents_of("offer2"), [f"from({u2e5})"])
+        self.assertEqual(d.parents_of("van"), [f"from({migrate.cell_rectangle('u2e')})"])
+        self.assertTrue(d.is_below("offer2", "from(48..49,15..16)"))
         self.assertTrue(d.is_below("crate", "geo(46..50,12..20)"))
         p = prelude.prelude_dag()                 # the new prelude merges in
         p.merge(d)
         self.assertTrue(p.is_below("crate", "geo(46..50,12..20)"))
+
+    def test_a_record_store_from_before_reads_alike_in_every_residency(self):
+        """A record store written under registry 5.0 holds a role's rectangle
+        by geo's name. Every residency reads it as stored and finds what is
+        filed under it (G3, G7): the lazy walk now takes a stored node by the
+        name it is stored under, as the eager one does."""
+        blobs = MemoryBytesStore()
+        root = records_from_before(RecordStore(blobs))
+        for cls in (EagerOntoDAG, SparseOntoDAG, LazyOntoDAG):
+            for query in (BARE, NESTED, "from(41..43,12..13)"):
+                with self.subTest(residency=cls.__name__, query=query):
+                    d = cls(RecordStore(blobs, root=root))
+                    self.assertEqual(names(d.get([query])), {"delivery", NESTED})
+                    self.assertTrue(d.is_below("delivery", query))
+
+    def test_old_spellings_names_them_until_migrated(self):
+        blobs = MemoryBytesStore()
+        root = records_from_before(RecordStore(blobs))
+        old = EagerOntoDAG(RecordStore(blobs, root=root))
+        self.assertEqual(old.old_spellings(), [(NESTED, BARE)])
+        from ontodag import migrate
+        target = RecordStore(MemoryBytesStore())
+        migrate.migrate_record_store(RecordStore(blobs, root=root), target)
+        new = EagerOntoDAG(target)
+        self.assertEqual(new.old_spellings(), [])
+        self.assertEqual(new.parents_of("delivery"), [BARE])
 
     def test_the_new_prelude_on_an_unmigrated_store_says_to_migrate(self):
         from ontodag import native
@@ -700,3 +756,40 @@ van 'from(u2e)'
                 w.put("x", ["from(u2e7)"])
             w.put("crate", ["from(geo(47..48,15..16))"])
         self.assertEqual(eager.commit(), sparse.commit())
+
+
+class TestARoleOfGeoTakesItsRectangleBare(unittest.TestCase):
+    """Question 50 (decided C, Peter, 2026-10-15): a role of a rectangle head
+    takes its value without the base's name, as a role of time takes its
+    time, and stores it so. A parameter naming a filed place is that place;
+    anything else is read as a rectangle, and a word that is neither a filed
+    place nor a rectangle is refused, as before."""
+
+    def setUp(self):
+        self.d = OntoDAG()
+        prelude.apply(self.d)
+        self.d.put("capture-geo", ["geo"])
+        self.d.put("rome", [])
+        self.d.put("geo(41.8..42,12.4..12.6)", ["rome"])       # Rome, a region
+
+    def test_a_rectangle_is_written_and_stored_bare(self):
+        self.d.put("photo", ["capture-geo(41.90..41.91,12.49..12.50)"])
+        self.assertEqual(sorted(p.name for p in self.d.nodes["photo"].parents),
+                         ["capture-geo(41.9..41.91,12.49..12.5)"])
+
+    def test_the_base_name_written_in_is_the_same_value(self):
+        self.assertEqual(self.d.parse_term("capture-geo(geo(41.90..41.91,12.49..12.50))").canonical,
+                         "capture-geo(41.9..41.91,12.49..12.5)")
+        self.d.put("a", ["capture-geo(geo(41.9..41.91,12.49..12.5))"])
+        self.d.put("b", ["capture-geo(41.9..41.91,12.49..12.5)"])
+        self.assertEqual(self.d.nodes["a"].parents, self.d.nodes["b"].parents)
+
+    def test_values_are_ordered_and_a_word_is_a_filed_place(self):
+        d = self.d
+        d.put("photo", ["capture-geo(41.9..41.91,12.49..12.5)"])
+        self.assertTrue(d.is_below("capture-geo(41.9..41.91,12.49..12.5)", "capture-geo(41.8..42,12.4..12.6)"))
+        self.assertFalse(d.is_below("capture-geo(41.8..42,12.4..12.6)", "capture-geo(41.9..41.91,12.49..12.5)"))
+        self.assertTrue(d.is_below("photo", "capture-geo(rome)"))      # inside Rome's region
+        self.assertFalse(d.is_below("photo", "geo(41.8..42,12.4..12.6)"))   # a role, not the base
+        with self.assertRaisesRegex(ValueError, "no place filed"):
+            d.put("x", ["capture-geo(paris)"])

@@ -3772,6 +3772,33 @@ def test_status_lists_a_name_clash_a_merge_made(tmp_path):
     assert "from(nyc): the category nyc is outside the dimension" in text
 
 
+def test_status_names_role_rectangles_spelled_as_before_6_0(tmp_path):
+    """`odag status` names a role's rectangle a record store holds by its
+    base's name, as registry 5.0 stored it, and the migrate step that spells
+    it bare (question 50). A native file needs none: it is re-spelled as it
+    loads."""
+    import io
+    import recordstore as rs
+    from ontodag.__main__ import Session, dispatch
+    from test_roles import BARE, NESTED, records_from_before
+    path = tmp_path / "store"
+    path.mkdir()
+    records_from_before(rs.RecordStore(rs.DirBytesStore(str(path / "blobs")),
+                                       pointer=rs.FilePointer(str(path / "root"))))
+    out = io.StringIO()
+    assert dispatch(["status"], Session(f"rs:{path}"), out=out) == 0
+    text = out.getvalue()
+    assert "old spellings = 1" in text
+    assert "ontodag.migrate" in text
+    assert f"  {NESTED} -> {BARE}" in text
+    fresh = tmp_path / "fresh"
+    seed_out = io.StringIO()
+    assert dispatch(["put", "thing"], Session(f"rs:{fresh}"), out=seed_out) == 0
+    out = io.StringIO()
+    assert dispatch(["status"], Session(f"rs:{fresh}"), out=out) == 0
+    assert "old spellings" not in out.getvalue()
+
+
 def test_status_lists_a_contradiction_a_merge_made(tmp_path):
     """`odag status` names an item a merge left under values of one head
     that cannot all hold, which a single write is refused (review question

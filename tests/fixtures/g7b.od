@@ -1,5 +1,5 @@
 # ontodag store v1
-#:canonical 5.0 e00eb2d99ee0a49dfe534c32d02c1f4a8575ad610932bd29ec851828de9cc6a1
+#:canonical 6.0 4cb8cf11e3cf6d9dd9529eb49eb01d8f69648fe5c48dfbdb9c7fd0f861967962
 about enclosing-dimension
 'about(louvre tokyo)' about
 'about(paris)' about
@@ -14,7 +14,7 @@ count count-dimension
 count-dimension dimension
 courier 'transport(mass(..8kg))' 'transport(small-item)'
 crate 'mass(2kg..5kg)'
-delivery 'from(geo(46.6..46.7,18.2..18.6))' 'to(home)'
+delivery 'from(46.6..46.7,18.2..18.6)' 'to(home)'
 dimension '*'
 document '*'
 dominance-dimension dimension
@@ -27,8 +27,8 @@ festival 'time(2026-08-10T00:00:00Z..2026-08-31T23:59:59Z)'
 fragile '*'
 france 'in(europe)' place
 from geo
-'from(geo(46..50,12..20))' from
-'from(geo(46.6..46.7,18.2..18.6))' from
+'from(46..50,12..20)' from
+'from(46.6..46.7,18.2..18.6)' from
 garden place
 geo rectangle-dimension
 'geo(46.64..46.66,18.4..18.45)' geo
@@ -61,7 +61,7 @@ mass 'linear-dimension(mass)'
 memo document 'shared-with(alice bob)'
 mona-lisa 'in(louvre)'
 mover 'transport(bicycle)' 'transport(fragile)'
-parcel 'from(geo(46..50,12..20))'
+parcel 'from(46..50,12..20)'
 paris 'in(france)' place
 person '*'
 place '*'

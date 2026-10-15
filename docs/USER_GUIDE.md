@@ -1159,9 +1159,11 @@ under an existing one and it becomes a **role** of that dimension — same
 kind, same values — and, unlike the base head, it also accepts the
 dimension's *nodes* as parameters: a place you filed under a rectangle, a
 region you filed above rectangles, a floor you filed under a building. In
-a role of `geo` the two are told apart by how they are written: a bare
-word is a **place**, and a rectangle is written by **geo's own name**,
-`from(geo(48.85..48.87,2.28..2.32))`.
+a role of `geo` a word is a **place** filed in the dimension, and a
+rectangle is written as `geo` writes it, without geo's name:
+`from(48.85..48.87,2.28..2.32)`. Written with it,
+`from(geo(48.85..48.87,2.28..2.32))` is the same value, stored bare
+(registry 6.0).
 
 ```python
 dag = OntoDAG(); prelude.apply(dag)
@@ -1173,13 +1175,14 @@ dag.put("from", ["geo"])                          # `from` is a role of geo
 
 dag.put("offer", ["from(my_home)"])               # the place, by name
 dag.put("ride",  ["from(paris-centre)"])          # the region, by name
-dag.put("van",   ["from(geo(48.86,2.35+-200m))"])  # a rectangle, by geo's name
+dag.put("van",   ["from(48.86,2.35+-200m)"])     # a rectangle: 200 m either way
+dag.parents_of("van")                             # ['from(48.858201..48.861799,2.347265..2.352735)']
 
-dag.is_below("offer", "from(geo(48.85..48.87,2.28..2.32))")   # True — my_home is in it
+dag.is_below("offer", "from(48.85..48.87,2.28..2.32)")   # True — my_home is in it
 dag.is_below("offer", "from(paris-centre)")       # True  — and it is in the region
 dag.is_below("van", "from(paris-centre)")         # True  — the van's square is in the other
-dag.is_below("from(paris-centre)", "from(geo(48..49,2..3))")  # False — nothing filed it there
-dag.get(["from(geo(48.8..48.9,2.2..2.4))"])       # offer, van (and the terms above them)
+dag.is_below("from(paris-centre)", "from(48..49,2..3)")  # False — nothing filed it there
+dag.get(["from(48.8..48.9,2.2..2.4)"])            # offer, van (and the terms above them)
 dag.get(["from(paris-centre)"])                   # offer, ride, van
 
 dag.put("my_home_4th", ["my_home"])          # a floor: a sub-place node
@@ -1188,8 +1191,8 @@ dag.is_below("want", "from(my_home)")        # True  — the floor is in the bui
 dag.is_below("offer", "from(my_home_4th)")   # False — the building is not the floor
 dag.get_overlapping("from(my_home_4th)")     # includes offer: a give to the whole
                                              # building may serve the fourth floor
-dag.put("x", ["from(paris-centr)"])          # ValueError: no place filed as
-                                             # 'paris-centr' (a typo, caught)
+dag.put("x", ["from(paris-centr)"])          # ValueError: 'paris-centr' is no place
+                                             # filed nor a rectangle (a typo, caught)
 dag.put("x", ["geo(u09tunq)"])               # ValueError: a geohash cell is no
                                              # geo value since registry 5.0
 dag.put("x", ["geo(-1..1,-170..170)"])       # ValueError: a stored rectangle spans
@@ -1201,9 +1204,11 @@ dag.put("x", ["from(Flight)"])               # ValueError: Flight is a category
 
 Before registry 4.4 a role read any word it could not find as a geohash
 cell, so `from(sydney)` filed a parcel in a block of southern Turkey;
-since 5.0 there are no cells, a bare word must name a filed place, and a
-store from before is brought along by `python3 -m ontodag.migrate
-STORE.od` (`odag status` says when it needs it).
+since 5.0 there are no cells, and a word must name a filed place. Before
+6.0 a role's rectangle was stored by geo's name, `from(geo(...))`; a store
+from before reads as it was stored. A file is spelled anew as it loads, and
+`python3 -m ontodag.migrate rs:PATH` spells an `rs:` store anew, as one new
+state on its history (`odag status` says when a store needs it).
 
 **The pairwise question: `overlaps`, and the one-term meet.** `get_overlapping`
 lists candidates for a term; `overlaps(a, b)` answers it for a *pair*, and
@@ -1215,23 +1220,23 @@ are two places. `meet` gives the intersection of two same-head terms as
 one term, using the store's units, so you can reduce before you ask:
 
 ```python
-dag.overlaps("from(paris-centre)", "from(geo(48.8..48.9,2.2..2.4))")  # True
-dag.overlaps("from(my_home)", "from(geo(48.8584..48.8585,2.2945..2.2946))")
+dag.overlaps("from(paris-centre)", "from(48.8..48.9,2.2..2.4)")  # True
+dag.overlaps("from(my_home)", "from(48.8584..48.8585,2.2945..2.2946)")
                                                      # True  — possibly: my_home
                                                      #         is somewhere in its position
-dag.overlaps("from(my_home)", "from(geo(51..52,-1..0))")  # False — provably elsewhere
+dag.overlaps("from(my_home)", "from(51..52,-1..0)")  # False — provably elsewhere
 dag.overlaps("paris-centre", "my_home")              # True  — nodes both sides
-dag.overlaps("offer", "from(geo(48.85..48.87,2.28..2.32))")  # True — an item and a term
-dag.meet("from(geo(48.8..48.9,2.2..2.4))", "from(geo(48.85..48.87,2.28..2.32))")
-                                                     # 'from(geo(48.85..48.87,2.28..2.32))'
-dag.meet("from(geo(48.85..48.87,2.28..2.32))", "from(geo(48.85..48.87,2.33..2.37))")
+dag.overlaps("offer", "from(48.85..48.87,2.28..2.32)")  # True — an item and a term
+dag.meet("from(48.8..48.9,2.2..2.4)", "from(48.85..48.87,2.28..2.32)")
+                                                     # 'from(48.85..48.87,2.28..2.32)'
+dag.meet("from(48.85..48.87,2.28..2.32)", "from(48.85..48.87,2.33..2.37)")
                                                      # None  — provably empty
-dag.meet("from(paris-centre)", "from(geo(48.8584,2.2945))")
-                                                     # 'from(geo(48.85835..48.85845,2.29445..2.29455))'
+dag.meet("from(paris-centre)", "from(48.8584,2.2945)")
+                                                     # 'from(48.85835..48.85845,2.29445..2.29455)'
 ```
 
 **Saying nothing.** An item that states nothing under `from` is in no
-`from` cone: `get(["ride", "from(geo(51..52,-1..0))"])` does not return it,
+`from` cone: `get(["ride", "from(51..52,-1..0)"])` does not return it,
 and there is no "from anywhere" term to write — `from(geo)`, the dimension
 itself, is refused with that reason (the overlap of everything with A is
 just A). A *query* that does not name `from` does not constrain it; that
@@ -1246,18 +1251,19 @@ dag.put("when", ["time"])                    # a role of time
 dag.put("ride", [])
 dag.put("r1", ["ride", "from(my_home)",
                "when(2026-08-15T10:00:00Z..2026-08-15T10:30:00Z)"])
-dag.put("r2", ["ride", "from(geo(48.85..48.87,2.33..2.37))",
+dag.put("r2", ["ride", "from(48.85..48.87,2.33..2.37)",
                "when(2026-08-15T18:00:00Z..2026-08-15T20:00:00Z)"])
 morning = "when(2026-08-15T08:00:00Z..2026-08-15T12:00:00Z)"
 
 dag.get(["ride", morning])                   # {r1}
-dag.get(["ride", morning, "from(geo(48.85..48.87,2.28..2.32))"])  # {r1} — three cones
-dag.get(["from(geo(48.8..48.9,2.2..2.4))"], items_only=True)
+dag.get(["ride", morning, "from(48.85..48.87,2.28..2.32)"])  # {r1} — three cones
+dag.get(["from(48.8..48.9,2.2..2.4)"], items_only=True)
                                              # offer, r1, r2, van, want
 ```
 
-A time role keeps its values bare (`when(2026-08-15)`): only a role of
-`geo` takes places by name, so only there must a value be told apart.
+A time role keeps its values bare too (`when(2026-08-15)`). Only a role
+of `geo` also takes places by name, so there a word that is no filed
+place and no rectangle is refused.
 
 There is no overlap mode in `get` (one was built and withdrawn on
 2026-09-12: "a handover point exists" was a modelling error, not a missing

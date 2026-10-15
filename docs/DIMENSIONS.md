@@ -2209,7 +2209,8 @@ with a rectangle where they say a cell. As built:
   many, a band around every longitude about nine.
 - Roles of a rectangle head write a value by the base's name; a bare word
   must be a filed place (a stored one naming none reads as an opaque name).
-  The old-spelling machinery of question 14 is gone.
+  The old-spelling machinery of question 14 is gone. Since registry 6.0 a
+  role takes its rectangle bare (§23).
 - `ontodag.migrate` rewrites a pre-5.0 store's cells as their exact
   rectangles, nested and bare role terms too, and re-declares `geo`; until
   then such a store reads geo as a prefix head, and merging the new
@@ -2317,3 +2318,50 @@ Building it found an older fault, fixed first: the interval index's open
 end was a float infinity, which does not compare with a timestamp, so any
 open-ended time query or value raised once a store held a time (since
 0.30.0).
+
+## 23. A role's rectangle written bare (question 50, 2026-10-15)
+
+**Decided: C (Peter, 2026-10-15).** A role of a rectangle head takes its
+value as the base writes it, without the base's name, as a role of time
+takes its time: `from(48.85..48.87,2.28..2.32)`,
+`capture-geo(41.9023..41.9033,12.4958..12.497)`, stored so. One rule for
+every kind: a parameter naming a node filed in the dimension is that node,
+anything else is the base's value. In a role of a rectangle head a word
+that is neither a filed place nor a rectangle is refused, in a write or a
+query. Written with the base's name, `from(geo(...))` is the same value,
+stored bare. The rule this replaces, that a bare word is always a place,
+kept a place called `u2e` from being read as the geohash cell `u2e`; a
+rectangle cannot be mistaken for a name. Rejected: A, keep the rule
+(`capture-place(geo(…))`); B, take the short spelling as input and store
+the nested one.
+
+**Registry 6.0, a major (Peter, 2026-10-15: A).** Building it, G7's
+records read through record stores written by the 5.0 code showed the lazy
+and sparse readers losing answers: a query found the value node
+`from(geo(46.2..46.8,17..19))` but not `delivery` below it, because the
+lazy walk looked the node up by its new spelling. The major was decided on
+that. The walk was then made to take a stored node by the name it is
+stored under, as the eager walk does, and with it both records keep every
+answer in every residency. What remains is the other direction: an older
+reader takes a new store's bare rectangles for opaque names (a replay
+keeps them, a write or a query refuses them), and names made either side
+of the change differ (G8).
+
+**Built (2026-10-15), registry 6.0.**
+
+- `dimensions.canonicalize` writes a rectangle in a role bare;
+  `_rect_parts` reads it bare or nested in the base's name.
+- `dag.py`: a role parameter of a rectangle head that names no filed node
+  is read as the base's value, and one that is neither is refused, naming
+  both ("is no place filed in the 'geo' dimension nor a rectangle"). The
+  rectangle index reads a stored role term as its rectangle unless its
+  parameter names a node, and a role's computed hops start at the base's
+  term.
+- `lazy.py`: a walk from a stored node whose canonical name is not stored
+  takes the node by its own name.
+- A native file whose mark names an older registry loads as a merge of its
+  lines and is re-spelled as it loads; a record store reads as stored, and
+  `ontodag.migrate` re-spells it (the old spelling stays valid input, so
+  the replay needs no rewrite of its own).
+- G7's two records re-recorded at 6.0, the bare spelling probed beside
+  the nested one; G8's record and the migrate fixture regenerated.

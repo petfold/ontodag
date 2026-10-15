@@ -65,6 +65,7 @@ INPUTS = [
     "about(tokyo japan)", "shared-with(sales-employee employee)",
     "shared-with(person)", "located-at(tokyo)",
     "from(geo(46.2..46.8,17..19))", "from(geo(46..50,12..20))",
+    "from(46.2..46.8,17..19)", "from(46..50,12..20)",
     "altitude(-0.43km)", "altitude(-500m..120m)", "altitude(-120m..)",
     "altitude(0m..120m)",
     "geo(48.8584,2.2945)", "geo(48.8584,2.2945±500m)", "geo(-10..10,170..190)",

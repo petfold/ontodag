@@ -120,3 +120,33 @@ class TestMigrationReadsItsVocabularyFirst(unittest.TestCase):
             again = native.load(path)
         self.assertEqual({p.name for p in again.nodes["crate"].parents},
                          {"mass(1kg)", "mass(2kg)"})
+
+
+class TestMigratingAStoreInPlace(unittest.TestCase):
+    """`python3 -m ontodag.migrate rs:PATH` replays a record store and writes
+    the result over it as one new state on its history, the way `odag import`
+    writes a file (question 50: a role's rectangle spelled bare)."""
+
+    def test_spelled_anew_and_undo_goes_back(self):
+        import io
+        import recordstore as rs
+        from ontodag.__main__ import dispatch
+        from ontodag.stores import Store
+        from test_roles import BARE, NESTED, records_from_before
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "store")
+            os.makedirs(path)
+            records_from_before(rs.RecordStore(rs.DirBytesStore(os.path.join(path, "blobs")),
+                                               pointer=rs.FilePointer(os.path.join(path, "root"))))
+            spec = f"rs:{path}"
+            self.assertEqual(migrate.main([spec]), 0)
+            dag = Store(spec).dag
+            self.assertEqual(dag.parents_of("delivery"), [BARE])
+            self.assertEqual(dag.old_spellings(), [])
+            with open(os.path.join(path, "root")) as fh:
+                root = fh.read()
+            self.assertEqual(migrate.main([spec]), 0)          # nothing left: no new state
+            with open(os.path.join(path, "root")) as fh:
+                self.assertEqual(fh.read(), root)
+            self.assertEqual(dispatch(["undo"], Store(spec), out=io.StringIO()), 0)
+            self.assertEqual(Store(spec).dag.parents_of("delivery"), [NESTED])

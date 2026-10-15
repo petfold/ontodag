@@ -1601,10 +1601,10 @@ def cmd_status(args, session, out):
 def _report_merge_leftovers(dag, out):
     """What a merge can leave that a single write is refused: values of one
     head that cannot all hold, and a role term whose word is also a
-    category outside its dimension; and what a store from before registry
-    4.4 holds that a write is refused today, a cell in a role of geo
-    spelled as a bare word. Said only when there is something to say, each
-    with the way out."""
+    category outside its dimension; and what a store from before holds
+    that today's registry spells otherwise: geo cells (before 5.0) and a
+    role's rectangle by its base's name (before 6.0). Said only when there
+    is something to say, each with the way out."""
     contradictions = dag.contradictions()
     if contradictions:
         print(f"contradictions = {len(contradictions)} (an item under values "
@@ -1620,6 +1620,13 @@ def _report_merge_leftovers(dag, out):
         for term, category in clashes:
             print(f"  {term}: the category {category} is outside the dimension",
                   file=out)
+    old = dag.old_spellings()
+    if old:
+        print(f"old spellings = {len(old)} (a role's rectangle by its base's "
+              f"name, as before registry 6.0: it reads as stored; `python3 -m "
+              f"ontodag.migrate STORE` spells it bare)", file=out)
+        for stored, current in old:
+            print(f"  {stored} -> {current}", file=out)
     from ontodag import dimensions as dims
     if dag._dimension_kind(dims.GEO_HEAD) == dims.KIND_PREFIX:
         print("geo cells = a store from before registry 5.0: geo is declared "

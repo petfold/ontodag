@@ -1,9 +1,10 @@
 """Build tests/fixtures/g7.od and g7-answers.json (CONTRACT.md G7).
 
 The answers are a record of what this store answered under contract 0.7 /
-registry 5.0 (first recorded under 0.3 / 4.3; re-recorded at registry 5.0,
-a major, when geo became a rectangle head), and G7 promises every true
-answer stays true within the same majors. So NEVER rerun this to make a failing test pass: a failure means a
+registry 6.0 (first recorded under 0.3 / 4.3; re-recorded at registry 5.0,
+a major, when geo became a rectangle head, and at 6.0, a major, when a role
+of geo took its rectangle bare), and G7 promises every true answer stays
+true within the same majors. So NEVER rerun this to make a failing test pass: a failure means a
 release takes an answer away, which is a major bump. Rerun it only after a
 major bump, deliberately, and say so in the commit.
 """
@@ -40,13 +41,14 @@ names = sorted(n for n in d.nodes if n != "*")
 probes = sorted(set(names) | {
     "mass(..5kg)", "time(2026)", "geo(46..50,12..20)", "count(2..)", "size(25x35x45cm)",
     "in(japan)", "in(louvre)", "about(japan)", "shared-with(alice)",
-    "transport(bicycle mass(5kg))", "from(geo(46..50,12..20))", "located-at(louvre)"})
+    "transport(bicycle mass(5kg))", "from(geo(46..50,12..20))", "from(46..50,12..20)",
+    "located-at(louvre)"})
 below = sorted([a, b] for a in names for b in probes
                if a != b and d.is_below(a, b))
 queries = [[], ["document"], ["in(japan)"], ["in(louvre)"], ["about(japan)"],
            ["shared-with(alice)"], ["mass(..5kg)"], ["time(2026)"], ["geo(46..50,12..20)"],
            ["count(2..)"], ["size(25x35x45cm)"], ["document", "about(japan)"],
-           ["from(geo(46..50,12..20))"], ["transport(small-item)"]]
+           ["from(geo(46..50,12..20))"], ["from(46..50,12..20)"], ["transport(small-item)"]]
 gets = [{"terms": q, "answer": sorted(n.name for n in d.get(q))} for q in queries]
 native.save(d, os.path.join(HERE, "g7.od"))
 lines = ['{', f' "contract": "{CONTRACT_VERSION}",', f' "registry": "{REGISTRY_VERSION}",', ' "below": [']

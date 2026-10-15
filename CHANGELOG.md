@@ -30,6 +30,30 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+- **Registry 6.0: a role of a rectangle head takes its rectangle bare**
+  (question 50, decided by Peter 2026-10-15; DIMENSIONS.md §23), as a role
+  of time takes its time: `from(48.85..48.87,2.28..2.32)`, stored so.
+  `from(geo(48.85..48.87,2.28..2.32))` is still taken, as the same value,
+  and stored bare. A word in a role of `geo` names a filed place, as
+  before; one that is neither a filed place nor a rectangle is refused.
+  - **Migrate step:** `python3 -m ontodag.migrate STORE.od`, or `rs:PATH`
+    or `swarm:NAME`; the replay spells every role's rectangle bare. Until
+    then a store reads as it was stored, in every residency, and `odag
+    status` lists what it holds the old way (`old_spellings()`); a native
+    file from before is re-spelled as it loads.
+  - **`python3 -m ontodag.migrate rs:PATH`** (or `swarm:NAME`) migrates a
+    store `odag` opens in place, as one new state on its history, the way
+    `odag import` writes a file, so `odag undo` goes back; before, a
+    record store took `migrate_record_store` in a program.
+  - **A major:** an older ontodag takes a new store's bare rectangles for
+    opaque names, and loopmarket refuses an offer whose registry major
+    differs from the one it runs. Cone summaries and certificates made
+    under registry 5 are not used by this release.
+- **A lazy or sparse reader walks a stored node by the name it is stored
+  under** when its name in the current spelling is not stored, as the
+  eager reader does. Without it, on a store written under registry 5, a
+  query found `from(geo(46.2..46.8,17..19))` and missed what was filed under
+  it.
 - **Saving back to an opened file asks once with the save dialog where the
   browser refuses to write it.** Freedom 0.8.8 grants read on a file opened
   in the open dialog and write only on one picked in the save dialog (#671).

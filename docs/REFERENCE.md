@@ -6,7 +6,7 @@ the normative guarantees in [CONTRACT.md](CONTRACT.md). Tables here are
 pinned against the code by `tests/test_reference.py` — if a name in this
 file and the code disagree, the suite fails.
 
-Versions this file describes: contract `0.7` · registry `5.0` ·
+Versions this file describes: contract `0.7` · registry `6.0` ·
 prelude `5` · surface `0.2` · core `13`.
 
 ## 1. Vocabulary
@@ -186,7 +186,8 @@ from ontodag.dag import OntoDAG          # always available, no extras
 | `excerpt(queries, context=False)` / `excerpt_names(...)` | a query's answer as a standalone DAG (query terms never added; `context` also brings the categories it hangs from) |
 | `contested(a, b)` | items below both — the two-states-at-once list; empty when one entails the other |
 | `contradictions()` | items under values of one head that cannot all hold, as (item, [values]) pairs; only a merge makes one (a single write is refused it), every query finds the item under each value (`odag status` lists them) |
-| `name_clashes()` | role terms whose word is also a category outside the role's dimension, as (term, category) pairs; only a merge makes one, the term reads as the value it spells (in a role of `geo`, where a word is never a value, as an opaque name), `rename` ends it (`odag status` lists them) |
+| `name_clashes()` | role terms whose word is also a category outside the role's dimension, as (term, category) pairs; only a merge makes one, the term reads as the value it spells (in a role of `geo` a word that is no rectangle reads as an opaque name), `rename` ends it (`odag status` lists them) |
+| `old_spellings()` | role terms stored as a registry before 6.0 spelled them, a rectangle by its base's name, as (stored, current) pairs; they read as stored, `ontodag.migrate` spells them anew (`odag status` lists them) |
 
 Opening a store as `odag` does (`import ontodag` — standard library only,
 until a store needs recordstore or the `swarm` extra):
@@ -276,13 +277,14 @@ included. It has keyed node ids, two keys per node, and
 lazy rotation with an upward fixpoint; docs/plans/SHARING_ON_SWARM.md),
 `ontodag.migrate`
 (replay a store through `put` into the form this release stores, across
-registry majors too), `ontodag.OWLOntology` (OWL).
+registry majors too: `python3 -m ontodag.migrate STORE.od`, or `rs:PATH`
+and `swarm:NAME` as one new state on the store's history), `ontodag.OWLOntology` (OWL).
 
 ## 6. Dimensions (typed values)
 
 A head is declared by one edge to a kind node; values are parametric
 names; the order *within* a dimension is computed from names, never
-stored as edges. Registry `4.3`; same major = same arithmetic.
+stored as edges. Registry `6.0`; same major = same arithmetic.
 
 | kind node | values | order | example |
 |---|---|---|---|
@@ -298,8 +300,11 @@ stored as edges. Registry `4.3`; same major = same arithmetic.
 | `reversed-dimension` | constraints on the graph, as for `graph-dimension`, but kept whole (one thing meeting them all); a stored compound is re-filed under its current spelling when the graph makes a constraint redundant (DIMENSIONS.md §18, §16) | against the graph: `R(X) ⊑ R(Y)` when every constraint of `X` is above, or is, some constraint of `Y`; kinds only, never `in` | `shared-with(sales-employee)` is inside `shared-with(alice)` when `alice ⊑ sales-employee` |
 
 Several values of one head on one item fold to their meet (`put(x, ["mass(1kg..3kg)", "mass(2kg..5kg)"])` files `x` under `mass(2kg..3kg)`; DIMENSIONS.md §9), and so do merges, syncs and loads of a file whose canonical mark does not vouch for it (registry 4.4; values that cannot all hold stay, listed by `odag status`), except a transitive, enclosing or reversed head's terms, which stay separate (Zermatt can be `in(switzerland)` and `in(alps)`, a photo `about(mars)` and `about(earth)`, a budget `shared-with(sales-employee)` and `shared-with(finance-employee)`). Rules that refuse, with teaching errors: cycles, including one that only a computed link the new edge creates would close; a term of a kind the graph orders (graph, transitive, enclosing, reversed) under anything but its head (`in(japan) ⊑ japanese` would state a rule, CONTRACT.md §5.1); anything that would put a thing inside itself under a transitive head (`japan ⊑ in(japan)`); a point filed under two
-provably disjoint values of one head; a role of `geo` naming a word that
-is no filed place; a geohash cell as a `geo(...)` value (registry 5.0:
+provably disjoint values of one head; a role of `geo` given a word that is
+neither a filed place nor a rectangle (registry 6.0: a role takes its
+rectangle without `geo(...)`, `from(48..49,2..3)`; a store from before
+reads as it was stored, and `python3 -m ontodag.migrate STORE` spells it
+anew); a geohash cell as a `geo(...)` value (registry 5.0:
 `python3 -m ontodag.migrate STORE` turns a store's cells into
 rectangles); a new rectangle spanning half the circle of longitude or
 more without spanning it all;
@@ -327,12 +332,13 @@ region above rectangles), `where(my_home_4th)` (a floor under a building). Store
 spelled; ordered by the graph (`from(x) ⊑ from(y)` iff `x ⊑ y` under
 `geo`); a parameter naming a present node outside the dimension is
 refused. A node named by a role term cannot be removed or moved out of
-its dimension while the term stands. In a role of `geo` a bare word is a
-place and a rectangle is written by geo's own name,
-`from(geo(48.85..48.87,2.28..2.32))`: a write or a query naming no filed
-place is refused, and a stored term naming none (only a replay leaves one)
-reads as an opaque name. A time role keeps bare values
-(`when(2026-08-15)`).
+its dimension while the term stands. A role takes its base's value bare,
+a rectangle as a time (registry 6.0): `from(48.85..48.87,2.28..2.32)`,
+`when(2026-08-15)`; written by the base's name,
+`from(geo(48.85..48.87,2.28..2.32))` is the same value, stored bare. In a
+role of `geo` a word that is neither a filed place nor a rectangle is
+refused in a write or a query, and a stored term naming none (only a
+replay leaves one) reads as an opaque name.
 
 Narrower relations (DIMENSIONS.md §20, contract 0.3): a head of a
 transitive, enclosing or reversed kind declared under another head of

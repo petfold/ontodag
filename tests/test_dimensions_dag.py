@@ -587,11 +587,11 @@ class TestDimensionCache(unittest.TestCase):
         b._dimension_of("geo"); b._heads()             # warm before the puts
         for dag, order in ((a, ("r", "s")), (b, ("s", "r"))):
             dag.put("from", ["geo"])
-            values = {"r": "from(geo(47.4..47.6,13.4..13.6))", "s": "from(geo(47..48,13..14))"}
+            values = {"r": "from(47.4..47.6,13.4..13.6)", "s": "from(47..48,13..14)"}
             for name in order:
                 dag.put(name, [values[name]])
         self.assertEqual(a.commit(), b.commit())
-        self.assertEqual({p.name for p in a.nodes["r"].parents}, {"from(geo(47.4..47.6,13.4..13.6))"})
+        self.assertEqual({p.name for p in a.nodes["r"].parents}, {"from(47.4..47.6,13.4..13.6)"})
 
     def test_a_term_shaped_name_is_no_link_in_a_head_chain(self):
         """`z` under `x(y)` under `weight`: `_heads` never lists `z` (a

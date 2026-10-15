@@ -443,9 +443,9 @@ class TestRegistry:
         assert dims.SIGNED_DIMENSION == "signed-dimension"
         # MAJOR.MINOR since v3 (UNITS.md D10): same major = same
         # canonical-name arithmetic; minors add vocabulary only.
-        assert dims.REGISTRY_VERSION == "5.0"
-        assert dims.registry_compatible("5.7")
-        assert not dims.registry_compatible("4.5")
+        assert dims.REGISTRY_VERSION == "6.0"
+        assert dims.registry_compatible("6.7")
+        assert not dims.registry_compatible("5.0")
 
 
 class TestATermIsParsedOnce:

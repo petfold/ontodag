@@ -236,9 +236,9 @@ decided at the 2026-08-01 review:
      `put animal` is refused, not silently given a new category).
   2. **A role term's place must already be in its dimension**, and a
      category a role term names must be placed inside it (DIMENSIONS.md §14).
-     Since 0.6, in a role of `geo` a bare word must name a place already
-     filed there, a rectangle being written by geo's own name
-     (`from(geo(48.85..48.87,2.28..2.30))`): `put parcel from(home)` before
+     Since 0.6, in a role of `geo` a word must name a place already filed
+     there, or be a rectangle (written bare since registry 6.0,
+     `from(48.85..48.87,2.28..2.30)`): `put parcel from(home)` before
      `home` is placed is refused at once, where it used to read `home` as a
      cell and refuse the place later. Since 0.7 a new rectangle whose
      longitude arc spans half the circle or more, but not all of it, is

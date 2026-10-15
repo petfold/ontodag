@@ -303,6 +303,11 @@ class LazyOntoDAG(OntoDAG):
                         limit=None):
         name = self._canonical_name(_name_of(node))
         start = self.nodes.get(name)
+        if start is None and not isinstance(node, str):
+            # A stored node whose spelling an older registry made, as the
+            # eager walk takes it: by the name it is stored under.
+            name = node.name
+            start = self.nodes.get(name)
         if start is None:
             return set()
         # Cones are cached only in the combined order (the query semantics);

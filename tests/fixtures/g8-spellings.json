@@ -1,6 +1,6 @@
 {
  "contract": "0.7",
- "registry": "5.0",
+ "registry": "6.0",
  "filings": [
   [
    "document",
@@ -369,11 +369,19 @@
   ],
   [
    "from(geo(46.2..46.8,17..19))",
-   "from(geo(46.2..46.8,17..19))"
+   "from(46.2..46.8,17..19)"
   ],
   [
    "from(geo(46..50,12..20))",
-   "from(geo(46..50,12..20))"
+   "from(46..50,12..20)"
+  ],
+  [
+   "from(46.2..46.8,17..19)",
+   "from(46.2..46.8,17..19)"
+  ],
+  [
+   "from(46..50,12..20)",
+   "from(46..50,12..20)"
   ],
   [
    "altitude(-0.43km)",
@@ -415,12 +423,12 @@
   "'count(24)' count",
   "courier 'transport(mass(..8kg))' 'transport(small-item)'",
   "dead-sea-shore 'altitude(-430m)'",
-  "delivery 'from(geo(46.2..46.8,17..19))'",
+  "delivery 'from(46.2..46.8,17..19)'",
   "document '*'",
   "employee person",
   "fragile '*'",
   "from geo",
-  "'from(geo(46.2..46.8,17..19))' from",
+  "'from(46.2..46.8,17..19)' from",
   "gallery 'in(museum-district paris)'",
   "'geo(46.6..46.7,18.2..18.6)' geo",
   "'in(in(japan))' in",

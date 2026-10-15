@@ -4,7 +4,8 @@ First recorded under contract 0.5 / registry 4.3, before the 2026-10
 review's decided changes were built, to hold them to G7: within one major,
 a newer ontodag never takes away an answer about a fixed store; re-recorded
 under contract 0.7 / registry 5.0, a major, when geo became a rectangle
-head. It holds what g7.od lacks: graph-kind compounds filed as their parts,
+head, and under 0.7 / 6.0, a major, when a role of geo took its rectangle
+bare. It holds what g7.od lacks: graph-kind compounds filed as their parts,
 relation compounds, role terms naming rectangles and places, and an item a
 merge left under two overlapping values of one head.
 
@@ -57,7 +58,8 @@ PROBES = {
     "about(louvre)", "about(tokyo)", "about(france)", "shared-with(alice)",
     "shared-with(bob)", "transport(bicycle)", "transport(small-item)",
     "transport(mass(5kg))", "from(geo(46..50,12..20))", "from(geo(46.2..46.8,17..19))", "to(geo(46.64..46.66,18.4..18.45))",
-    "to(geo(46..50,12..20))", "geo(46.2..46.8,17..19)", "time(2026)", "time(2026-08)",
+    "to(geo(46..50,12..20))", "from(46..50,12..20)", "to(46.64..46.66,18.4..18.45)",
+    "geo(46.2..46.8,17..19)", "time(2026)", "time(2026-08)",
     "time(2026-08-15..2026-08-20)", "count(2..)",
 }
 
@@ -66,6 +68,7 @@ QUERIES = [
     ["about(tokyo)"], ["about(france)"], ["shared-with(alice)"],
     ["transport(bicycle)"], ["transport(small-item)"], ["mass(..5kg)"],
     ["mass(2kg..5kg)"], ["from(geo(46..50,12..20))"], ["to(geo(46.64..46.66,18.4..18.45))"],
+    ["from(46..50,12..20)"], ["to(46.64..46.66,18.4..18.45)"],
     ["document", "about(louvre)"], ["time(2026)"],
     ["time(2026-08-15..2026-08-20)"],
 ]
