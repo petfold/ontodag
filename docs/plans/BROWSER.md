@@ -764,6 +764,27 @@ button per case) tried them in real Freedom from its checkout (Electron
   Freedom's handler (`src/main/permissions/permissions-manager.js`)
   refuses any permission it does not list. Supporting it would be a Freedom
   change: a per-site prompt for `fileSystem`, as it has for the camera.
+- **Fixed in Freedom 0.8.8 (#671, their PR #679; tried in the nightly of
+  2026-10-15).** Electron's check can only say yes or no, never ask, so
+  Freedom grants exactly what the person chose: read on a file opened in
+  the open dialog, read and write on one picked in the save dialog, a
+  folder as the folder dialog asked. Writing a file that was only opened
+  is refused, and grants last until Freedom quits
+  (`src/main/permissions/file-system-access.js`). Tried with the probe
+  (`demo/freedom/test/file-access-probe.html`): open, save a new file, save
+  it again, and list a folder all work; saving back to an opened file is
+  refused. So `LocalFile` now asks once with the save dialog, named after
+  the opened file, when writing it is refused, and writes in place after
+  that. Peter tried the page with `?pickers=1` in the nightly, while a
+  watcher logged the file:
+  - **A new store:** the first save asked where; the next saves wrote in
+    place.
+  - **A file Freedom had only opened** (`fallback-test-2.od`): the first
+    save asked once with the save dialog, and `kiwi` landed in that file
+    (18:26:31). The next save wrote `lime` in place, with no dialog
+    (18:26:45).
+  The pickers stay off by default in Freedom until 0.8.8 is released (0.8.7
+  refuses even reading after the pick); `?pickers=1` turns them on.
 - **Brave** turned File System Access off on purpose (brave-browser#11407)
   and offers only a global flag (`brave://flags/#file-system-access-api`).
   Peter ran the probe through a node (`http://localhost:1633/bzz/65964c7d…/`):

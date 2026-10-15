@@ -76,6 +76,15 @@ class TestPublishJs(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "needs node")
+class TestLocalFileJs(unittest.TestCase):
+    def test_files_open_and_save_as_each_browser_allows(self):
+        run = subprocess.run(["node", os.path.join(PAGE, "test", "test_localfile.mjs")],
+                             capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("all passed", run.stdout)
+
+
+@unittest.skipUnless(shutil.which("node"), "needs node")
 class TestSaveHelpJs(unittest.TestCase):
     def test_the_help_fits_the_browser(self):
         run = subprocess.run(["node", os.path.join(PAGE, "test", "test_savehelp.mjs")],

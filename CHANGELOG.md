@@ -16,6 +16,13 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+- **Saving back to an opened file asks once with the save dialog where the
+  browser refuses to write it.** Freedom 0.8.8 grants read on a file opened
+  in the open dialog and write only on one picked in the save dialog (#671).
+  The page then asks where to save, named after the opened file, and writes
+  in place from then on, instead of giving up on file pickers and
+  downloading. Tried in Freedom's nightly; the pickers stay off by default
+  in Freedom until 0.8.8 is released (`?pickers=1` turns them on).
 - **The pages read whole blobs from a node or a gateway** (`GET /bytes`),
   one request each, checked by recomputing the blob's address with Swarm's
   own rules, so the node does the joining and its recovery from parity and

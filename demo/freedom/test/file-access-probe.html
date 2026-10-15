@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>File access probe</title>
+<style>
+  :root { color-scheme: light dark; --fg: #1d1d1f; --bg: #fafafa; --ok: #1a7f37; --bad: #b42318; --muted: #6b6b70; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #ececf0; --bg: #17171a; --ok: #4ac26b; --bad: #ff7b72; --muted: #a0a0a8; } }
+  body { font: 16px/1.5 system-ui, sans-serif; color: var(--fg); background: var(--bg); max-width: 40rem; margin: 2rem auto; padding: 0 16px; }
+  h1 { font-size: 1.3rem; }
+  p.note { color: var(--muted); }
+  ol { padding-left: 1.2rem; }
+  li { margin: 0.9rem 0; }
+  button { font: inherit; padding: 0.35rem 0.8rem; }
+  .result { display: block; margin-top: 0.25rem; font-family: ui-monospace, monospace; font-size: 0.9rem; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+  #summary { margin-top: 1.5rem; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>File access probe</h1>
+<p class="note">Does this browser let a page keep a file the person picked?
+Each step says ok or the error it met. (ontodag, BROWSER.md §14; Freedom #671.)</p>
+<ol>
+  <li><button id="open">1. Open a file</button> — pick any small text file; the page reads it.
+      <span class="result" id="r-open"></span></li>
+  <li><button id="writeback">2. Save back to that file</button> — adds a line to the file from step 1, asking for write access.
+      <span class="result" id="r-writeback"></span></li>
+  <li><button id="saveas">3. Save a new file</button> — pick a name; the page writes it.
+      <span class="result" id="r-saveas"></span></li>
+  <li><button id="again">4. Save to it again</button> — writes the file from step 3 again, without a picker.
+      <span class="result" id="r-again"></span></li>
+  <li><button id="folder">5. Open a folder</button> — pick a folder; the page lists what is in it (read only).
+      <span class="result" id="r-folder"></span></li>
+</ol>
+<p id="summary"></p>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const results = {};
+  let opened = null, saved = null;
+  function show(step, ok, text) {
+    results[step] = ok;
+    const el = $("r-" + step);
+    el.textContent = (ok ? "ok: " : "failed: ") + text;
+    el.className = "result " + (ok ? "ok" : "bad");
+    const done = Object.keys(results).length;
+    const good = Object.values(results).filter(Boolean).length;
+    $("summary").textContent = `${good} of ${done} steps ok` + (done === 5 ? " (all five tried)" : "");
+  }
+  const failed = (e) => `${e.name}: ${e.message}`;
+  async function writable(handle) {
+    const mode = { mode: "readwrite" };
+    if (await handle.queryPermission(mode) !== "granted" && await handle.requestPermission(mode) !== "granted") {
+      throw new DOMException("write permission not granted", "NotAllowedError");
+    }
+    return handle.createWritable();
+  }
+  if (typeof showOpenFilePicker !== "function") {
+    $("summary").textContent = "This browser has no file pickers (File System Access is off).";
+  }
+  $("open").onclick = async () => {
+    try {
+      const [h] = await showOpenFilePicker();
+      const file = await h.getFile();
+      opened = h;
+      show("open", true, `read ${file.name}, ${file.size} bytes`);
+    } catch (e) { show("open", false, failed(e)); }
+  };
+  $("writeback").onclick = async () => {
+    if (!opened) return show("writeback", false, "open a file first (step 1)");
+    try {
+      const before = await (await opened.getFile()).text();
+      const w = await writable(opened);
+      await w.write(before + `\nwritten back by the file access probe, ${new Date().toISOString()}\n`);
+      await w.close();
+      show("writeback", true, `${opened.name} now ${(await opened.getFile()).size} bytes`);
+    } catch (e) { show("writeback", false, failed(e)); }
+  };
+  $("saveas").onclick = async () => {
+    try {
+      const h = await showSaveFilePicker({ suggestedName: "probe.txt" });
+      const w = await writable(h);
+      await w.write(`made by the file access probe, ${new Date().toISOString()}\n`);
+      await w.close();
+      saved = h;
+      show("saveas", true, `wrote ${h.name}`);
+    } catch (e) { show("saveas", false, failed(e)); }
+  };
+  $("again").onclick = async () => {
+    if (!saved) return show("again", false, "save a new file first (step 3)");
+    try {
+      const w = await writable(saved);
+      await w.write(`written again by the file access probe, ${new Date().toISOString()}\n`);
+      await w.close();
+      show("again", true, `wrote ${saved.name} again`);
+    } catch (e) { show("again", false, failed(e)); }
+  };
+  $("folder").onclick = async () => {
+    try {
+      const dir = await showDirectoryPicker();
+      const names = [];
+      for await (const [name] of dir.entries()) { names.push(name); if (names.length >= 5) break; }
+      show("folder", true, `${dir.name}: ${names.length ? names.join(", ") : "empty"}${names.length >= 5 ? ", …" : ""}`);
+    } catch (e) { show("folder", false, failed(e)); }
+  };
+</script>
+</body>
+</html>
