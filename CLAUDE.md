@@ -653,6 +653,11 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   released (swarmfs 0.15.0, recordstore 0.24.0, ontodag 0.33.1, the page's
   update 8). Both pages run in real Freedom
   Browser and through the public gateway (BROWSER.md §13).
+- When Freedom 0.8.8 is released: turn the file pickers on by default in
+  Freedom in both pages (`pickers:` in `demo/freedom/app.js` and
+  loopmarket's `browser/app.js`), then a feed update on Peter's word
+  (question 48, decided B; BROWSER.md §14.1). Watch
+  solardev-xyz/freedom-browser's releases.
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.
 - Watch coincurve on Python 3.14 (loopmarket's CLAUDE.md, "Upstream to
