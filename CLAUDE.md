@@ -423,6 +423,13 @@ Each line points to its record.
   rules (a chunk's address, the plain tree) and never from Bee's coding.
   We build no trees and keep no records small on purpose. Protection for
   large records is revisited when the organiser makes them.
+- A role of `geo` takes its rectangle without `geo(…)`, written and stored
+  so, as time roles take their time: one rule for every kind, a
+  parameter naming a filed node is that node and anything else a value
+  (question 50, decided C by Peter, 2026-10-15, BROWSER.md §17). Not built
+  yet: it needs a registry minor and its migrate step, and loopmarket's
+  `from`/`to` follow. With it the capture heads proposed there
+  (`capture-time`, `capture-geo`, `capture-in`, `modification-time`).
 - Provenance: signed claim records in a sibling store (PROVENANCE.md).
 - Web: one page, browsing plus a console, where every click writes its
   command (WEB_UI.md). Its DAG lives in the server's memory per session.

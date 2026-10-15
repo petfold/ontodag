@@ -1736,6 +1736,44 @@ it would be good to be able to add single files").
     where it was as a `geo` value). Whether those are stored or only
     read each time is a question to put.
 
+**A file's own metadata: capture and modification (Peter, 2026-10-15).**
+A version cannot hold its modification time and its capture time both
+as `time(…)`: two separate values of one head on one item read as a
+contradiction. Peter proposed separate heads, and these were tried
+natively:
+
+    capture                                      a plain category grouping them
+    capture-time       ⊑ time, capture           capture-time(2026-07-14T10:22:31Z)
+    capture-geo        ⊑ geo, capture            capture-geo(41.9023..41.9033,12.4958..12.497)
+    capture-in         ⊑ enclosing kind, capture capture-in(paris)
+    modification-time  ⊑ time                    modification-time(2026-10-13T09:12:41Z)
+
+- `capture-time` and `capture-geo` are roles: they take `time`'s and
+  `geo`'s values, and a plain `time(…)` or `geo(…)` value does not find
+  them (the `time` head does: anything dated).
+- `capture-in` relates a photo to a place of yours (`paris ⊑ in(france)`)
+  and follows `in`'s nesting: `capture-in(france)` finds a photo taken in
+  Paris, while `in(paris)` does not. Filed under `in` instead, it would be
+  a narrower relation of `in` (settled 2026-10-07, DIMENSIONS.md §20), so
+  `in(paris)` would find the photo: hence its own head, of the kind
+  `about` has.
+- A named place has no geometry, so `capture-in(paris)` is typed by the
+  person; `capture-time` and `capture-geo` come from the file's metadata.
+
+**Question 50 (decided C, Peter, 2026-10-15): a role of `geo` takes its
+rectangle without `geo(…)`, as time roles take their time.** Today a role
+of a rectangle head reads anything without `geo(…)` as a place's name
+(`dag.py`, the rectangle case). That rule stopped a place called `u2e`
+being misread as the cell `u2e`, from when values were geohash cells; a
+rectangle cannot be mistaken for a name. One rule for every kind then: a
+parameter naming a filed node is that node, anything else is a value,
+written and stored without the base's name
+(`capture-geo(41.8..42.0,12.4..12.6)`, loopmarket's `from(…)` and
+`to(…)`). A stored spelling changes, so it comes with a registry minor and
+its migrate step (G8). Rejected: A, keep the rule
+(`capture-place(geo(…))`); B, accept the shorter spelling as input but
+store the nested one.
+
 **Freedom on Android (Peter, 2026-10-13).** The organiser works there,
 with two problems, both fixed and checked in `check.py` (each check
 failed first).
