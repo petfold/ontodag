@@ -3051,3 +3051,25 @@ published page only reads, so it needed no update.
   the upgrade waits for Peter.
 - Of its fixes, `PUT /stewardship` restoring root copies (#5594) and
   uploads no longer stalling on one invalid chunk (#5647) concern us.
+
+**Bee 2.8.3, afternoon (2026-10-15):**
+- **The package's own service:** Peter installed the `bee` package with
+  apt. It made a separate node (address `0xca8D2c34…`, ultra-light, no
+  funds) as an enabled system service. When Swarm Desktop restarted, the
+  service took port 1633, so Desktop's Bee could not start, and port 1633
+  answered as that empty node. Peter disabled it
+  (`systemctl disable --now bee`).
+- **The node now:** Peter's choice was to leave the new binary where it is
+  and give it Swarm Desktop's config. Desktop's node (`bd5da217…`) now runs
+  as `/usr/bin/bee start --config "~/.local/share/Swarm Desktop/config.yaml"`,
+  with Desktop closed and a cold backup of the 2.8.2 data in
+  `~/bee-backups/`. Light mode, 49 peers, the batch unchanged. As a light
+  node it logged no reserve migration.
+- **The live tests,** with the released packages, all passed: recordstore
+  (224 and 2 skipped), ontodag's Bee tests (2), loopmarket's live tests
+  (3), and both page checks with publishing, back to 13 October's timings
+  (21, 16 and 38 s).
+- **swarmfs's live ACT test** failed before reaching the node: since 0.13.0
+  it called eth_keys' `to_compressed_bytes()` on a coincurve key. Fixed
+  (`3dc57b5`), and it passes on 2.8.3. Nothing of ours sends ACT headers to
+  `/chunks` or `/soc`, the one place 2.8.3 drops them.

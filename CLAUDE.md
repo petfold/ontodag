@@ -530,13 +530,19 @@ Each line points to its record.
 
 ## Bee integration status
 
-- The node: Swarm Desktop's bee 2.8.2 light node at `localhost:1633`, on
-  Gnosis mainnet. Bee 2.8.3 (2026-10-15) is a security release, "upgrade
-  promptly", with no manual migration from 2.8.x; its `.deb` is in
-  `~/Downloads`, checked against the release's checksums. Swapping Swarm
-  Desktop's binary for it was blocked by the permission system and waits
-  for Peter. Another node manager can hold the same port, so `curl
-  /health` and `/stamps` before believing anything about a batch.
+- The node: the light node Swarm Desktop made (overlay `bd5da217…`), at
+  `localhost:1633` on Gnosis mainnet, run since 2026-10-15 by Bee 2.8.3
+  (a security release) from the `bee` package's `/usr/bin/bee` with
+  Swarm Desktop's own config: `bee start --config "~/.local/share/Swarm
+  Desktop/config.yaml"`, log in `~/bee-logs/`. Peter's choice: Swarm
+  Desktop's bundled Bee (2.8.2) is left as it is, and Desktop stays
+  closed, since it would start that Bee on the same data. After a
+  reboot the node must be started again that way. The package's own
+  service (`bee.service`, a separate empty node in `/var/lib/bee`) is
+  disabled: enabled, it took port 1633 when Desktop restarted. A cold
+  backup of the 2.8.2 data is in `~/bee-backups/`. Another node manager
+  can hold the same port, so `curl /health`, `/addresses` and `/stamps`
+  before believing anything about a batch.
 - Every batch, its size, duration and contents: `../STAMPS.md` (keep it
   current with each purchase and each upload worth keeping).
 - The batch: `c931c8a5…`, depth 22, TTL 26.5 days on 2026-10-14 (about
@@ -556,7 +562,12 @@ Each line points to its record.
   batches (BROWSER.md §14.2).
 - Not yet tested on a real node: postage expiry and garbage collection
   (they need a batch nobody minds losing).
-- Last run: 2026-10-11, after the 0.32.0 releases: core and the ten
+- Last run: 2026-10-15, on Bee 2.8.3 with the day's releases: swarmfs's
+  live tests (its ACT round trip once its own test was fixed),
+  recordstore's whole suite live (224 passed, 2 skipped), ontodag's two
+  Bee tests, loopmarket's three live tests, and both page checks with
+  publishing all passed; the pages' timings were back to 2026-10-13's.
+  Before it, 2026-10-11, after the 0.32.0 releases: core and the ten
   domain packs republished keyless (prelude 5 re-pinned their roots),
   every root equal to its pinned `SWARM_GOLDEN_ROOTS` entry, retrievable,
   and read back by its root alone to the identical root; then ontodag's
