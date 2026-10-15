@@ -430,6 +430,13 @@ Each line points to its record.
   yet: it needs a registry minor and its migrate step, and loopmarket's
   `from`/`to` follow. With it the capture heads proposed there
   (`capture-time`, `capture-geo`, `capture-in`, `modification-time`).
+- Capture places (question 49, decided by Peter, 2026-10-15, BROWSER.md
+  §17): stored in your store and in what you publish encrypted; the
+  choice "include where photos were taken" (off by default) is made at
+  sharing and for public versions, and today's readable Publish counts as
+  one; `odag` warns before putting them into a readable `swarm:` store.
+  Order: capture metadata (with question 50), encrypted Publish
+  (question 42), then the choice at sharing.
 - Provenance: signed claim records in a sibling store (PROVENANCE.md).
 - Web: one page, browsing plus a console, where every click writes its
   command (WEB_UI.md). Its DAG lives in the server's memory per session.

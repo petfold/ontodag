@@ -1774,6 +1774,24 @@ its migrate step (G8). Rejected: A, keep the rule
 (`capture-place(geo(…))`); B, accept the shorter spelling as input but
 store the nested one.
 
+**Question 49 (decided, Peter, 2026-10-15): where a photo was taken is
+stored; the choice is at sharing.** A store encrypted under your own key
+is private wherever it is kept, so capture places go into your store and
+into what you publish encrypted (question 42). The choice belongs where
+others can read: a share with people, or a public (readable) version,
+offers "include where photos were taken", off by default; what others
+get is then a slimmer copy without the places. Until encrypted Publish
+is built, today's Publish is a public version, so it offers the same box,
+off by default. `odag`'s `swarm:` stores are your store itself, readable
+until they learn encryption: `odag` warns before putting capture places
+into one. How a share with chosen people leaves the places out (a
+category is shared by giving its keys, and an entry carries all its
+tags; perhaps the places in a separately keyed sibling store) is parked
+until sharing comes to the page. Order: (1) capture metadata, with
+question 50's registry change; (2) encrypted Publish (question 42);
+(3) the choice at sharing and public versions. Rejected: never storing
+coordinates (only typed places), and rounding them.
+
 **Freedom on Android (Peter, 2026-10-13).** The organiser works there,
 with two problems, both fixed and checked in `check.py` (each check
 failed first).
