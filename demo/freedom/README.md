@@ -27,17 +27,19 @@ in any browser, and `http://localhost:1633/bzz/ontodag.eth/` with a local Bee
 node such as Swarm Desktop, no gateway (all resolve the feed; `../DOMAINS.md`
 beside the repos).
 
-Published, behind the names since 2026-10-15 (feed update 9): the
-organiser (BROWSER.md §17) built from the 0.33.1 release, with Publish
-(§16), the save help (§14.1), the Android fixes, the feed probe that
-outlasts a light node's 500s, question 47's upload levels, and whole-blob
-reads from a node or a gateway (§10.1),
-`bzz://edbd87134ba6975011916e93eba0a0cd4d96bb74a511f0fcba8617b9a256d177/`
+Published, behind the names since 2026-10-15 (feed update 10): the
+organiser (BROWSER.md §17) built from the 0.34.0 release (registry 6.0;
+Files… keeps when a photo was taken, and says it leaves out where until
+Publish encrypts), with Publish (§16), the save help (§14.1), whole-blob
+reads from a node or a gateway (§10.1), and the packs' cone summaries made
+under registry 6.0 (`CONE_INDEXES`),
+`bzz://9708569d867478601f790f99d474dd2e0b9ee3c3d7564f0050acb3411a386ea8/`
 (Pyodide loaded from the shared folder `PYODIDE` in `app.js`; through a
-node: `http://localhost:1633/bzz/edbd87134ba6975011916e93eba0a0cd4d96bb74a511f0fcba8617b9a256d177/`, which is also where Publish
+node: `http://localhost:1633/bzz/9708569d867478601f790f99d474dd2e0b9ee3c3d7564f0050acb3411a386ea8/`, which is also where Publish
 works; in any browser, through the public gateway,
 serve `dist/` and add `?gateway=https://api.gateway.ethswarm.org`). The
-versions before it were `bzz://480d23a724534f35ca59858fde3de3d47e906cdb105945d139db929d372db920/` (update 8),
+versions before it were `bzz://edbd87134ba6975011916e93eba0a0cd4d96bb74a511f0fcba8617b9a256d177/` (update 9, the 0.33.1 release with whole-blob reads),
+`bzz://480d23a724534f35ca59858fde3de3d47e906cdb105945d139db929d372db920/` (update 8),
 `bzz://c9e24c73b8f1f0f304d7f7498131e679a106be93e03ec33ee46d185f0e279380/` (update 7),
 `bzz://44bb7def0aad9712c282bf17de4757a33d95ac5becba59eb8866a32008393847/` (update 6) and
 `bzz://22d1e16bebfd0afccdddb2060b5669f68c26b66c19d94cd58eb1d992bfc74d8a/` (update 5).
