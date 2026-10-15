@@ -3112,3 +3112,50 @@ word).**
 - **Checked:** `pip check` reports only older mismatches among Ubuntu's
   own packages, none involving ours, and the browser test that failed
   under recordstore 0.22.2 passes.
+
+## 2026-10-15 (evening): registry 6.0, photos' capture, 0.34.0
+
+**Question 50 built, and re-put.** A role of geo takes its rectangle bare
+(registry 6.0). G7's two records, written into record stores by the 5.0
+code and read by the new one, showed the lazy and sparse readers losing
+answers (`delivery` and `parcel` under `from(geo(46..50,12..20))`):
+the lazy walk looked a stored node up by its new spelling. Two lines fixed
+it, after which every recorded answer held in every residency, so the
+contract would have allowed a minor. Re-put to Peter: he kept the major
+(A), so an older reader refuses a newer store by its major.
+
+**Question 49's step 1: when and where a photo was taken.**
+`ontodag.capture`, standard library only, checked against exiftool:
+- on fixtures that Pillow, ffmpeg and exiftool made (JPEG in both byte
+  orders, PNG, WebP, TIFF, AVIF, MP4 with the movie box before and after
+  the media, MOV with Apple's keys), all equal;
+- on this laptop's own files: 72 photos stating a time (none with its
+  zone, so each reads as a day range), 7 a place, 10 videos a time, all
+  equal once two things were added that real files use and the fixtures
+  first lacked: ffmpeg's 3GPP `loci` box (16.16 fixed point) and the hex
+  "Raw profile type exif" text ImageMagick writes into PNGs;
+- truncated and damaged files read as stating less, and the page's
+  reads by range end within two rounds when it fetches at least 4 KB.
+
+**A mistake:** a check of `odag file`'s stderr ran against
+`swarm:nonexistent-test` in a scratch home, and its local-first sync
+pushed about 50 test blobs on `c931c8a5…` (no place, no feed). Recorded
+in STAMPS.md; swarm behaviour is tested in memory from now on.
+
+**0.34.0 (Peter's word).** ontodag-fs's main accepted registry 5 and 6
+and loopmarket's main took the bare spelling before the tag; every
+workflow job green, the downstream gate included; `release_smoke.py
+--pypi 0.34.0` 28/28 (one earlier run failed the base install while the
+index lagged). Then ontodag-fs 0.10.0 (`>=0.34.0,<0.35.0`), from PyPI
+with ontodag 0.34.0 and registry 6.0. loopmarket's main has the floor
+`>=0.34.0`, not released.
+
+**Cone summaries and feed update 10.** 0.34.0's reader ignores
+summaries made under registry 5, so a page built from it walked:
+`get physical-object` read 2,551 records in 19.7 s. All eleven packs'
+summaries republished under 6.0 (596, about 2.3 MB; every index root
+retrievable, every summary read back through the node equal), after which
+it reads 108 records in 0.07–0.72 s, and a whole check fetches 405 chunks
+instead of 6,756. The page `9708569d…` passed through the node and the
+public gateway before the feed moved; index 10 names it, index 9 the
+previous page, and `ontodag.gwei.domains` served it at the first try.
