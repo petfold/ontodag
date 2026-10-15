@@ -155,9 +155,11 @@ $ odag folder ~/Documents --find taxes document
 ```
 
 Each file becomes a document named by the file, with its content below it
-as a version named by its SHA-256, under the time it was last modified. A
-copy elsewhere joins the same document, and renaming or moving it changes
-nothing. When a file is edited, the next look files the new content as the
+as a version named by its SHA-256, under the time it was last modified
+and, for a photo or a video, when and where its own metadata says it was
+taken: `odag get 'capture-time(2026-07)' 'capture-geo(41.8..42,12.4..12.6)'`
+finds July's photos from Rome. A copy elsewhere joins the same document,
+and renaming or moving it changes nothing. When a file is edited, the next look files the new content as the
 document's new version, under the same categories. The folder is only read;
 its hashes stay in odag's home, so a second look reads only what changed
 (2,520 files: 13 s the first time, 0.08 s after). The kinds (`image-file`,

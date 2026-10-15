@@ -12,7 +12,17 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
-## [Unreleased]
+## [0.34.0] — 2026-10-15
+
+When and where your photos were taken, and a role's rectangle written as
+`geo` writes it. A photo's or a video's version is filed under what its
+own metadata says (question 49's step 1), and every version under
+`modification-time(…)`. A role of `geo` takes its rectangle bare,
+`from(48.85..48.87,2.28..2.32)` (question 50): registry 6.0, a major,
+kept so when re-put (an older reader refuses a newer store or offer by
+its major); `python3 -m ontodag.migrate STORE` moves a store. Contract
+0.7, prelude 5, surface 0.2. Removing `folders.time_value` makes this a
+minor, so ontodag-fs's ceiling rises with it.
 
 ### Added
 
