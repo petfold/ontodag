@@ -687,10 +687,13 @@ above, named on every upload.** The discussion that led there:
 - **Rejected:** A (level 1 everywhere) needs Bee's coding copied into
   our code for blobs over 4 KB; B everywhere loses offline names and the
   check; D costs five times the chunks.
-- **It also suits Ant,** Freedom's node, which reads a coded file only
-  with `--allow-degraded-redundancy` (its README): our small blobs are
-  never coded and the large ones go plain. The pages themselves go up
-  through `/bzz` at level 0 for the same reason, outside this rule.
+- **Ant,** Freedom's node, writes coded trees and root copies exactly as
+  Bee does, and reads them: it rebuilds missing data chunks from parity
+  and fetches a missing root from its copies (its code since
+  2026-07-04, v0.5.64 included; its README still calls this a gap, and
+  was repeated to Peter before the code was read). The pages themselves
+  go up through `/bzz` at level 0 (`build.py`), outside this rule; their
+  references come from the node, so they could go coded.
 - **Built (2026-10-15):** `swarmfs.redundancy_for(size)` and
   `BeeRemote.push_blob` (swarmfs `d2c9f97`; a local-first store could not
   push a blob over 4 KB before, refused as a fork), `BeeBytesStore`
