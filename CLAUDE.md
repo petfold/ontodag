@@ -640,9 +640,10 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   since 2026-09-21 on a test comparing its own copy of the baseline).
 - On Swarm: the Freedom page (`demo/freedom/`): since 2026-10-13 the organiser (§17),
   which also publishes your store through a node under a key file (§16)
-  and helps a person save where they want (§14.1), `bzz://480d23a7…`
-  behind `ontodag.gwei` and `ontodag.eth` (feed update 8, 2026-10-15 on
-  Peter's word, built from the 0.33.1 release; before it `c9e24c73…`); loopmarket's market page (`browser/`,
+  and helps a person save where they want (§14.1), `bzz://edbd8713…`
+  behind `ontodag.gwei` and `ontodag.eth` (feed update 9, 2026-10-15 on
+  Peter's word: the 0.33.1 release with whole-blob reads; before it
+  `480d23a7…`); loopmarket's market page (`browser/`,
   `bzz://56f9ce1b…` behind `loopmarket.gwei` and `loopmarket.eth`; both load one shared Pyodide;
   a version that also makes, publishes and withdraws your offers and
   announces your book, signing with this page's `publish.js`,
