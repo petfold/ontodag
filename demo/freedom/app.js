@@ -27,44 +27,45 @@ const PACKS = {
   space: "feaea1dfc1b923c4fc74b0372900fe5cda8983ff88bdffc52a599d59689100b0",
 };
 
-// Their published cone summaries (demo/freedom/publish_index.py): a broad
-// category's cone in one record instead of a walk. An index for another
-// root is ignored by the reader. ?index=none turns them off; ?index=ROOT
+// Their published cone summaries (demo/freedom/publish_index.py, made
+// under registry 6.0): a broad category's cone in one record
+// instead of a walk. An index for another root or registry major is
+// ignored by the reader. ?index=none turns them off; ?index=ROOT
 // names another.
 const CONE_INDEXES = {
   // core
   "720d44c649379c4508549200a344771a8fa29c64880744dc2372d9f57863ceb8":
-    "1593dbb3dafca6fc2093a7e1fa848ce157125ab155bbe772395c4117cee9dd26",
+    "d3c972e1f475c95f097f6cc3eff9471f166ef1b31e2fddfc2c32a8339da44bcb",
   // physics
   "79ca01f0c6b6ffdf988c539a38a08eeb6c5769d4c0c59161139c216cef581bde":
-    "49c5675212566f347b35126bb6fa49a99dc476ecc1e69203c1faf398334020e5",
+    "816cc66251bd36fa1d7718b509687cf636af03078ffc1713e5ae29fbfd2d3e67",
   // mathematics
   "aeb359949749a11c18409f75563580190ef35b88d08f2086255a707c6f8ae47b":
-    "688c4ce43df7a0d33394ae6fd6f3454d011572294904a5e43fb9a4fcbfdbc039",
+    "0bf62ab7f9ef5a9a59598a6f6799066700625425f5fd2721a1922dce4990aeea",
   // chemistry
   "722e7727a9eea5cfba86519559135fdc90485595ec3e55edd440970e70db23c4":
-    "5958a8fb72c6e27f26d36be954a1042e5ed7551ddddb0df3430e161922ca7b2c",
+    "1e7acef46e90efd99f3f19857e89b6b1d531fe8a78630bcb93e6847ce10aef59",
   // biology
   "749fe2555096b2f926fe7a037831e135a99b626d73fa713f63de7591add4ff5b":
-    "16073edfc9b474a8fd72398ffcc94cd06e32e73abf494370c10c68e97210e386",
+    "af7645fb62febf124ed5029bd96d67e44eb978c1b7a1d4ebe393bff64018df9f",
   // medicine
   "7f4d4d0377290cfad59a164c72308a0b57155505fd0e668c53fab78d77c0d03c":
-    "6e3b3f2d24f2d7758da4700199c159a4df6f43f9a9b83411757a685d60caca6f",
+    "4d32a73e7d30a5754c4ec178dc81cd768f68b2ee808dfd9a01c46613b397569a",
   // ai
   "dabdcecb75e80afa064fdf9b293a017efcef3966e40644374b4eccb626f87c0d":
-    "9413c6b8bfdcdfa339b2f1be70388799947880ad49056c287bc09acbc7bd2fc6",
+    "43b843de5b6a30c7fa151dc82fceef2f75231fbb3cfe419fb6b7ba1da5a0517a",
   // economics
   "9471b8952711bdb05dcd3edc5168c15070ea3afa055628e71a942d3cbedd3ffd":
-    "7709989c5b77ee8e40545a1367476514002db36ae8266a588439aa09c0b8d44e",
+    "20e38a69d3207f3105b4fd4861e2fc13ce3999999325e0c140323cd12ca37311",
   // computing
   "05b8a5ce82a1ecde69ce478c6fc8aa3c02faf91442dcd5cfcb678ef0c9c3a43c":
-    "a67407fdaa88b4cbc7dab4d590853f993046afa8348904a7a3950485fc4c9eaf",
+    "af68819a444414188611f1e6c9fba1a6f3bbd522ccacb291076a80462ba678f7",
   // geography
   "37332a36ab9e8415067396e4a80688213fe5798fe106bb0028e1444b2f9a38c7":
-    "0cc44aec5f5102c5c3c97f7d49ff8411ef020ef8ddaec8ce182a2716e42d0709",
+    "8f116e78f46068ca59fa7c5c3e23e864ee4fc25d243f24b8705419cf86da714b",
   // space
   "feaea1dfc1b923c4fc74b0372900fe5cda8983ff88bdffc52a599d59689100b0":
-    "55b0a791a2d96236f4618d43638d0e5fb46038b82e3c2e7e5cfbbf3c06170b9f",
+    "0375b09b63e33b30aa0ffd05af1db1e7d92b9ab6bc62a2fde0b417256f1acb5b",
 };
 
 const $ = (id) => document.getElementById(id);
