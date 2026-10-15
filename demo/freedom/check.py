@@ -452,8 +452,30 @@ async def check_files(page):
         below = (await page.evaluate("window.ontodagPage.call('org_get', 'notes.md')")).get("mine", [])
         if len([n for n in below if n.startswith("sha256:")]) != 2:
             problems.append(f"notes.md's versions: {below!r}")
+
+        # A photo whose metadata says when and where it was taken (the test
+        # fixture exiftool wrote): its version is filed under when; where
+        # stays out of the page's store until Publish encrypts, and is said.
+        photo = os.path.join(tmp, "IMG_2041.jpg")
+        with open(os.path.join(os.path.dirname(os.path.dirname(HERE)), "tests", "fixtures", "capture", "rome.jpg"), "rb") as src, \
+                open(photo, "wb") as fh:
+            fh.write(src.read())
+        await page.set_input_files("#filesinput", photo)
+        await said("#filesstatus", "1 file")
+        await page.check("#fileswork input[data-sha]")
+        done = await file_ticked("holiday")
+        if "Where 1 photo was taken is not kept yet" not in done:
+            problems.append(f"filing a photo with a place: {done!r}")
+        taken = (await page.evaluate(
+            "window.ontodagPage.call('org_get', 'capture-time(2026-07-14T08:22:31Z)')")).get("mine", [])
+        if not [n for n in taken if n.startswith("sha256:")]:
+            problems.append(f"capture-time(2026-07-14T08:22:31Z): {taken!r}")
+        placed = (await page.evaluate("window.ontodagPage.call('org_get', 'capture-geo(41..43,12..13)')"))
+        if [n for n in placed.get("mine", []) if n.startswith("sha256:")]:
+            problems.append(f"a place was kept: {placed!r}")
     print(f"  your files: a folder by kind (hidden and temporary skipped), filed, an edit undone, "
-          f"single files as a new version: {'ok' if not problems else problems}")
+          f"single files as a new version, a photo's time kept and its place not: "
+          f"{'ok' if not problems else problems}")
     return problems
 
 

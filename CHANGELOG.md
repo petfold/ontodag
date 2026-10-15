@@ -16,6 +16,19 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
+- **When and where a photo or a video was taken** (BROWSER.md §17,
+  questions 49 and 50): `ontodag.capture` reads it from the file's own
+  metadata, standard library only (EXIF in JPEG, TIFF and raw formats,
+  PNG, WebP, HEIC and AVIF; MP4's and MOV's own). `odag file`, `odag
+  folder` and the page file a photo's version under `capture-time(…)`
+  and `capture-geo(…)`, so `get capture-time(2026-07)
+  capture-geo(41.8..42,12.4..12.6)` finds July's photos from Rome. The
+  organiser's heads (`modification-time`, `capture`, `capture-time`,
+  `capture-geo`, and `capture-in` for a place you say) are declared the
+  first time a store files a file. Into a `swarm:` store the place goes
+  only with `--places`; the page keeps places out of its store until
+  Publish encrypts.
+
 - **The page files your files** (BROWSER.md §17): Files…, with Open a
   folder… and Add files…, on `ontodag.folders` as `odag folder` and `odag
   file` are (`Organiser.files_plan`, `files_look`, `files_file`,
@@ -30,6 +43,10 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+- **A version is filed under `modification-time(…)`**, not `time(…)`, so
+  a photo's capture time can sit beside it; `odag get
+  modification-time(2026-10)` finds what changed in October. Versions
+  filed before keep their `time(…)`.
 - **Registry 6.0: a role of a rectangle head takes its rectangle bare**
   (question 50, decided by Peter 2026-10-15; DIMENSIONS.md §23), as a role
   of time takes its time: `from(48.85..48.87,2.28..2.32)`, stored so.

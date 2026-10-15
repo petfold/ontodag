@@ -11,6 +11,7 @@ the part we control and the part that would otherwise rot silently.
 """
 
 import json
+import os
 import unittest
 
 from ontodag.browser import JsBytesStore, JsFeedPointer, LocalStorageBytesStore
@@ -807,7 +808,35 @@ class TestTheOrganisersFiles(unittest.TestCase):
     def test_hidden_and_temporary_files_are_not_read(self):
         listing = [["IMG_1.jpg", 10, 1.0], [".git/config", 5, 1.0], ["notes.md~", 3, 1.0],
                    ["a/b/report.pdf", 7, 1.0]]
-        self.assertEqual(self.ask("files_plan", json.dumps(listing)), {"read": [0, 3], "skipped": 2})
+        self.assertEqual(self.ask("files_plan", json.dumps(listing)),
+                         {"read": [0, 3], "media": [0], "skipped": 2})
+
+    def test_a_photo_is_filed_with_what_it_says(self):
+        """The page reads when and where a photo was taken while it hashes
+        it (`capture_of`), hands it in with the file, and the version is
+        filed with it (questions 49 and 50)."""
+        from ontodag.browser import capture_of
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "fixtures", "capture", "rome.jpg"), "rb") as fh:
+            data = fh.read()
+        ranges = [(0, data[:16])]
+        while True:                                     # the page hands in what is asked
+            taken = json.loads(capture_of(len(data), ranges))
+            if "more" not in taken:
+                break
+            offset, n = taken["more"]
+            ranges.append((offset, data[offset:offset + max(n, 4096)]))
+        self.assertEqual(len(ranges), 2)
+        self.assertEqual(taken, {"time": "2026-07-14T08:22:31Z", "geo": "41.902784,12.496366±4.7m"})
+        photo = dict(self.seen("Rome/IMG_2041.jpg", "rome photo"), taken=taken)
+        look = self.look([photo])
+        a = self.ask("files_file", json.dumps([look["unfiled"][0]["sha256"]]), "holiday")
+        version = a["filed"][0]["version"]
+        parents = sorted(p.name for p in self.org.mine.dag.nodes[version].parents)
+        self.assertIn("capture-time(2026-07-14T08:22:31Z)", parents)
+        self.assertTrue(any(p.startswith("capture-geo(") for p in parents), parents)
+        found = self.ask("get", "capture-geo(41.8..42,12.4..12.6) capture-time(2026-07)")
+        self.assertIn(version, json.dumps(found))
 
     def test_a_folder_is_read_by_kind_and_nothing_is_written(self):
         from ontodag import native

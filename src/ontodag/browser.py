@@ -640,6 +640,20 @@ class LocalStore(PageReader):
                             changed=self.changed, count=len(self.dag.nodes) - 1)
 
 
+def capture_of(size, ranges):
+    """When and where a photo or a video was taken (`ontodag.capture`), for
+    the page, which holds `ranges` ([(offset, bytes)]) of a file of `size`
+    bytes while it hashes it: JSON {time, geo}, or {more: [offset, size]}
+    for bytes it must hand in as well."""
+    import json
+    from ontodag import capture
+    try:
+        found = capture.from_ranges(ranges, size)
+    except capture.NeedBytes as need:
+        return json.dumps({"more": [need.offset, need.size]})
+    return json.dumps({"time": found.time, "geo": found.geo})
+
+
 class Organiser:
     """Your store with the vocabularies shown beside it: the organiser page
     (docs/plans/BROWSER.md §17).
@@ -912,17 +926,20 @@ class Organiser:
     def files_plan(self, listing):
         """Which of a folder's files to read: `listing` is JSON [[path, size,
         mtime], ...]; hidden folders, caches and temporary files are not
-        read."""
+        read. `media`: those read that are photos or videos, whose own
+        metadata the page reads too (`capture_of`)."""
         import json
         from ontodag import folders
         rows = json.loads(listing)
         read = [i for i, row in enumerate(rows) if not folders.skipped(row[0])]
-        return self._answer(read=read, skipped=len(rows) - len(read))
+        media = [i for i in read if folders.is_media(rows[i][0])]
+        return self._answer(read=read, media=media, skipped=len(rows) - len(read))
 
     def files_look(self, seen, name="", whole=True):
         """Look at the files the page read: `seen` is JSON [{path, size,
-        mtime, sha256}], sha256 null for a file too large to read in the
-        page. With `whole` they are a folder's files: a content that is a
+        mtime, sha256, taken}], sha256 null for a file too large to read in
+        the page, taken ({time, geo}, from `capture_of`) for a photo or a
+        video. With `whole` they are a folder's files: a content that is a
         new version of a filed document is attached and said (to undo), as
         `odag folder` does, unless it was undone this session. Single files
         cannot tell that an old version is gone, so a document of their
@@ -931,24 +948,25 @@ class Organiser:
         not yet filed, copies as one."""
         import json
         from ontodag import folders
-        found = [folders.Seen(s["path"], int(s["size"]), float(s["mtime"]), s.get("sha256"))
+        from ontodag.capture import Capture
+        found = [folders.Seen(s["path"], int(s["size"]), float(s["mtime"]), s.get("sha256"),
+                              Capture(**s["taken"]) if s.get("taken") else None)
                  for s in json.loads(seen)]
         self.folder = folders.Folder(found)
         dag = self.mine.dag
         attached, ambiguous = [], []
         if whole:
             edits, unsure = folders.recognise_edits(dag, self.folder)
-            had_time = "time" in dag.nodes
+            had_heads = all(h in dag.nodes for h, _parents in folders.HEADS)
             puts = []
             for s, doc in edits:
                 version = folders.version_name(s.sha256)
                 if (version, doc) in self._declined:
                     continue
-                folders.attach(dag, s, doc)
+                puts.append((version, folders.attach(dag, s, doc)))
                 self.mine.changed = True
-                puts.append((version, [doc, folders.time_value(s.mtime)]))
                 attached.append({"path": s.path, "document": doc, "version": version})
-            if had_time:
+            if had_heads:
                 self._mirror(puts)
             elif puts:
                 self._view = None
@@ -1008,7 +1026,8 @@ class Organiser:
             prelude += done["prelude"]
             if parents or done["made"]:
                 puts.append((done["document"], parents))
-            puts.append((done["version"], [done["document"], folders.time_value(s.mtime)]))
+            if done["parents"]:
+                puts.append((done["version"], done["parents"]))
             filed.append({"path": s.path, "document": done["document"], "version": done["version"],
                           "made": done["made"]})
         if prelude:

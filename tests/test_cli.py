@@ -3856,6 +3856,58 @@ def test_status_says_a_store_from_before_5_0_needs_migrating(tmp_path):
 
 
 
+class TestFilingWhatPhotosSay(unittest.TestCase):
+    """`odag file` and `odag folder` file a photo's or a video's version with
+    when and where its own metadata says it was taken (BROWSER.md §17,
+    questions 49 and 50). A `swarm:` store is readable by anyone who knows
+    its address, so there the place goes only with `--places`."""
+
+    PHOTO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "capture", "rome.jpg")
+
+    def setUp(self):
+        import shutil
+        self.tmp = tempfile.TemporaryDirectory()
+        self.photo = os.path.join(self.tmp.name, "Rome", "IMG_2041.jpg")
+        os.makedirs(os.path.dirname(self.photo))
+        shutil.copy(self.PHOTO, self.photo)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def version_parents(self, session):
+        from ontodag import folders
+        (version,) = [n for n in session.dag.nodes if folders.is_version(n)]
+        return sorted(p.name for p in session.dag.nodes[version].parents)
+
+    def test_a_photo_is_filed_with_when_and_where(self):
+        session = cli.Session(os.path.join(self.tmp.name, "mine.od"))
+        _run(["put", "holiday"], session)
+        code, out, err = _run3(["file", self.photo, "--under", "holiday"], session)
+        self.assertEqual((code, err), (0, ""), out)
+        parents = self.version_parents(session)
+        self.assertIn("capture-time(2026-07-14T08:22:31Z)", parents)
+        self.assertTrue(any(p.startswith("capture-geo(") for p in parents), parents)
+        code, out = _run(["get", "capture-geo(41.8..42,12.4..12.6)", "--raw"], session)
+        version = next(n for n in out.split() if n.startswith("sha256:"))
+        self.assertEqual(_run(["get", "IMG_2041.jpg", "--raw"], session)[1].split()[-1], version)
+
+    def test_into_a_swarm_store_the_place_waits_for_places(self):
+        shared = {"bytes": MemoryBytesStore(), "pointer": MemoryPointer()}
+        session = _mem_swarm_session(shared)
+        _run(["put", "holiday"], session)
+        code, out, err = _run3(["file", self.photo, "--under", "holiday"], session)
+        self.assertEqual(code, 0, out)
+        self.assertIn("where 1 photo or video was taken was left out", err)
+        self.assertIn("--places", err)
+        parents = self.version_parents(session)
+        self.assertIn("capture-time(2026-07-14T08:22:31Z)", parents)
+        self.assertFalse(any(p.startswith("capture-geo(") for p in parents), parents)
+        session = _mem_swarm_session({"bytes": MemoryBytesStore(), "pointer": MemoryPointer()})
+        code, out, err = _run3(["file", self.photo, "--places"], session)
+        self.assertEqual((code, err), (0, ""), out)
+        self.assertTrue(any(p.startswith("capture-geo(") for p in self.version_parents(session)))
+
+
 class TestFolderCommands(unittest.TestCase):
     """`odag folder` and `odag file` (BROWSER.md §17): a folder looked at,
     never written; files filed as documents with their contents as
@@ -3924,7 +3976,7 @@ class TestFolderCommands(unittest.TestCase):
         self.assertIn("Notes/reading-list.md: a new version of reading-list.md, filed with it", out)
         versions = [n for n in self.run_ok("get", "notes").split() if n.startswith("sha256:")]
         self.assertEqual(len(versions), 2)
-        edited = self.run_ok("get", "time(2026-09-21T14:13:20Z)").split()   # 1_790_000_000
+        edited = self.run_ok("get", "modification-time(2026-09-21T14:13:20Z)").split()   # 1_790_000_000
         self.assertEqual(len(edited), 1)
         self.assertIn(edited[0], versions)
 
@@ -3946,7 +3998,7 @@ class TestFolderCommands(unittest.TestCase):
         piped = self.run_ok("get", "notes").split()
         self.assertEqual(len(piped), 3)
         self.assertIn("reading-list.md (a version, sha256:",
-                      self.run_ok("get", "--render", "time(2026-09-21T14:13:20Z)"))
+                      self.run_ok("get", "--render", "modification-time(2026-09-21T14:13:20Z)"))
 
     def test_find_joins_the_folders_kinds_to_the_store(self):
         self.run_ok("file", self.root, "--under", "holiday")

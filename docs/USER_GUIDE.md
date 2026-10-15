@@ -2865,7 +2865,7 @@ sha256:6e317bcd6839e8877395411b47b2b89d2bae7ccb05f78cee32bcdf76b5294265
 
 Each file becomes a **document** named by the file, and its content is a
 **version** below it, named by its SHA-256 (as holdings names files) and
-filed under the time the file was last modified. On a screen an answer
+filed under the time the file was last modified (`modification-time(…)`). On a screen an answer
 folds a document's versions into its line; a pipe, or `--raw`, gets every
 name. The document is the
 class of its versions, so renaming or moving the file changes nothing,
@@ -2894,6 +2894,35 @@ holiday photos in this folder:
 $ odag -f mine.od folder Stuff --find holiday image-file
 Stuff/Photos/Rome/IMG_2041.jpg	IMG_2041.jpg
 ```
+
+**When and where a photo was taken.** A photo's or a video's version is
+also filed under what its own metadata says: `capture-time(…)` and
+`capture-geo(…)`, roles of `time` and `geo`, beside its
+`modification-time(…)`. odag reads EXIF (JPEG, TIFF and raw formats, PNG,
+WebP, HEIC and AVIF) and the metadata MP4 and MOV files carry
+(`ontodag.capture`, with no dependency), so you can ask for July's photos
+from Rome:
+
+```console
+$ odag -f mine.od get 'capture-time(2026-07)' 'capture-geo(41.8..42,12.4..12.6)'
+IMG_2041.jpg (a version, sha256:235dcef8…)
+```
+
+The time is exact to the second when the file records its time zone.
+Without one it is the UTC days the camera's clock can fall on in any zone,
+`capture-time(2026-07-13..2026-07-14)`. The place is the position as the
+file writes it, or the square its stated GPS error covers. A plain
+`time(…)` or `geo(…)` value does not find these values, while `capture`
+finds everything that has one. `capture-in(rome)` you say yourself, for a
+place of yours, and it follows `in` as `about` does: with `rome ⊑
+in(italy)`, `capture-in(italy)` finds the photo. These heads
+(`modification-time`, `capture`, `capture-time`, `capture-geo`,
+`capture-in`) come into your store the first time you file a file.
+
+Where a photo was taken goes into your store, a file or an `rs:` store.
+A `swarm:` store can be read by anyone who knows its address, so there it
+is left out unless you say `--places`, and odag says on stderr what it
+left out (BROWSER.md §17, question 49).
 
 A new content named as a document you have is not filed until you say
 what it is, since without its folder odag cannot tell that the old one is
@@ -3369,7 +3398,8 @@ Then:
   - **Filing:** tick files (a kind's box ticks all of that kind), give
     categories, and **File**. Each file becomes a document named by the
     file, with its content below it as a version (`sha256:…`) under its
-    modification time.
+    modification time and, for a photo or a video, when and where it was
+    taken (§5.14), read in the page while it hashes the file.
   - **Edits:** opening the folder again files an edited file's new
     content as a new version of its document and says so, with
     **Undo**.

@@ -600,7 +600,7 @@ async function addThing() {
 // read here, filed by ontodag.folders in Python. The folder is only read.
 
 const MAX_READ = 256 * 1024 * 1024;   // a larger file is listed, not read (odag folder reads any size)
-const fileHashes = new Map();          // this visit's hashes, by path, size and time
+const fileHashes = new Map();          // this visit's hashes and what photos say, by path, size and time
 let lastLook = null;                   // {seen, name, whole, skipped}: what the work list shows
 
 const insideFolder = (f) => f.webkitRelativePath.split("/").slice(1).join("/") || f.name;
@@ -616,26 +616,53 @@ function sizeText(n) {
 
 const dateText = (seconds) => new Date(seconds * 1000).toISOString().slice(0, 10);
 
-async function sha256Of(file) {
-  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+async function sha256Of(buffer) {
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// When and where a photo or a video was taken, as its own metadata says
+// (ontodag.capture, BROWSER.md §17): read from the bytes held for hashing,
+// the first and last 256 KB, and whatever else Python asks for.
+async function takenFrom(buffer) {
+  const size = buffer.byteLength, part = 1 << 18;
+  const ranges = [[0, new Uint8Array(buffer, 0, Math.min(size, part))]];
+  if (size > part) ranges.push([size - part, new Uint8Array(buffer, size - part)]);
+  for (let round = 0; round < 8; round++) {
+    const a = await call("org_capture", size, ranges);
+    if (!a.more) return a.time || a.geo ? { time: a.time, geo: a.geo } : null;
+    const [offset, n] = a.more;
+    ranges.push([offset, new Uint8Array(buffer, offset, Math.min(size - offset, Math.max(n, part)))]);
+  }
+  return null;
+}
+
+// Where a photo was taken stays out of the page's store for now: Publish
+// puts the store where anyone who knows its address can read it, until it
+// encrypts (question 42) or can leave places out (question 49).
+const KEEP_PLACES = false;
+
 // Each file as ontodag.folders.Seen: its path inside what was picked, size,
-// modification time (seconds) and SHA-256 (null if too large to read here).
-async function readFiles(pairs) {
+// modification time (seconds), SHA-256 (null if too large to read here),
+// and for a photo or a video (`media`) when (and, with KEEP_PLACES, where)
+// it was taken.
+async function readFiles(pairs, media = () => false) {
   const total = pairs.reduce((n, [f]) => n + (f.size <= MAX_READ ? f.size : 0), 0);
   const seen = [];
   let bytes = 0;
-  for (const [f, path] of pairs) {
+  for (const [i, [f, path]] of pairs.entries()) {
     const key = `${path}\u0000${f.size}\u0000${f.lastModified}`;
-    let sha = fileHashes.get(key) || null;
-    if (!sha && f.size <= MAX_READ) {
-      sha = await sha256Of(f);
-      fileHashes.set(key, sha);
+    let known = fileHashes.get(key) || null;
+    if (!known && f.size <= MAX_READ) {
+      const buffer = await f.arrayBuffer();
+      known = { sha: await sha256Of(buffer), taken: media(i) ? await takenFrom(buffer) : null };
+      fileHashes.set(key, known);
       bytes += f.size;
     }
-    seen.push({ path, size: f.size, mtime: f.lastModified / 1000, sha256: sha });
+    const taken = known && known.taken;
+    seen.push({ path, size: f.size, mtime: f.lastModified / 1000, sha256: known ? known.sha : null,
+                taken: taken && !KEEP_PLACES ? { time: taken.time } : taken || null,
+                placeLeftOut: Boolean(taken && taken.geo && !KEEP_PLACES) });
     if (seen.length % 20 === 0 || seen.length === pairs.length) {
       $("filesstatus").textContent = `Reading the files: ${seen.length} of ${pairs.length} (${sizeText(bytes)} of ${sizeText(total)})…`;
     }
@@ -658,7 +685,8 @@ async function openFolder(list) {
   const name = list[0].webkitRelativePath.split("/")[0] || "";
   const rows = list.map((f) => [insideFolder(f), f.size, f.lastModified / 1000]);
   const plan = await call("org_files_plan", JSON.stringify(rows));
-  const seen = await readFiles(plan.read.map((i) => [list[i], rows[i][0]]));
+  const media = new Set(plan.media);
+  const seen = await readFiles(plan.read.map((i) => [list[i], rows[i][0]]), (k) => media.has(plan.read[k]));
   lastLook = { seen, name, whole: true, skipped: plan.skipped };
   await lookAgain();
 }
@@ -667,7 +695,9 @@ async function addFiles(list) {
   if (!list.length) return;
   clearFiles();
   $("filespanel").classList.remove("hidden");
-  const seen = await readFiles(list.map((f) => [f, f.name]));
+  const plan = await call("org_files_plan", JSON.stringify(list.map((f) => [f.name, f.size, f.lastModified / 1000])));
+  const media = new Set(plan.media);
+  const seen = await readFiles(list.map((f) => [f, f.name]), (k) => media.has(k));
   lastLook = { seen, name: "", whole: false, skipped: 0 };
   await lookAgain();
 }
@@ -753,6 +783,10 @@ async function fileTicked() {
   if (f.taken.length) parts.push(`Took ${f.taken.join(", ")} from the vocabularies, as name${f.taken.length > 1 ? "s" : ""} only.`);
   if (f.created.length) parts.push(`New categor${f.created.length > 1 ? "ies" : "y"} of yours: ${f.created.join(", ")}.`);
   if (f.prelude) parts.push("Added the declarations dates need (the prelude).");
+  const filedShas = new Set(ticked);
+  const leftOut = lastLook.seen.filter((s) => s.placeLeftOut && filedShas.has(s.sha256)).length;
+  if (leftOut) parts.push(`Where ${plural(leftOut, "photo")} ${leftOut === 1 ? "was" : "were"} taken is not kept yet: ` +
+    "Publish would show it to anyone who knows the store's address, until it encrypts.");
   const now = await showWhatYouUse();
   if (now.length) parts.push(`${now.join(" and ")} ${now.length > 1 ? "are" : "is"} now shown beside your store, since it uses ${now.length > 1 ? "their" : "its"} names.`);
   result.textContent = parts.join(" ");
@@ -1187,6 +1221,10 @@ def org_files_file(shas, under, versions):
 
 def org_files_undo(versions):
     return _org().files_undo(versions)
+
+def org_capture(size, ranges):
+    from ontodag.browser import capture_of
+    return capture_of(int(size), [(int(o), bytes(b)) for o, b in ranges.to_py()])
 
 def org_names():
     return _json.dumps({"names": sorted(_org()._names(), key=lambda n: (n.lower(), n))})

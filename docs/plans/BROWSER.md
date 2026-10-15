@@ -1792,6 +1792,31 @@ question 50's registry change; (2) encrypted Publish (question 42);
 (3) the choice at sharing and public versions. Rejected: never storing
 coordinates (only typed places), and rounding them.
 
+**Built (2026-10-15): step 1, when and where a file says it was taken.**
+- **Reading:** `ontodag.capture`, standard library only: EXIF in JPEG,
+  TIFF and raw formats, PNG (`eXIf`, and the hex text ImageMagick and
+  GIMP write), WebP and HEIF; MP4's and MOV's own (the movie header's
+  time, Apple's keys, ISO 6709 and 3GPP `loci` positions). A time with
+  its zone is exact to the second; without one it is the UTC days it can
+  fall on in any zone (`2026-07-13..2026-07-14`). A place is the position
+  to the precision the file writes it, or the square of its stated GPS
+  error. Checked against exiftool on fixtures that Pillow, ffmpeg and
+  exiftool made (`tests/fixtures/make_capture.py`), and on this laptop's
+  own photos and videos: 72 photos stating a time (none with its zone), 7
+  a place, 10 videos a time, every one as exiftool reads it.
+- **Filing:** a version goes under `modification-time(…)` (no longer
+  `time(…)`) and, where its file says, `capture-time(…)` and
+  `capture-geo(…)`; the organiser's heads (`folders.HEADS`) come with a
+  store's first filing. Versions filed before keep their `time(…)`.
+- **`odag folder` and `odag file`** read it from disk. Into a `swarm:`
+  store, readable by anyone who knows its address, the place goes only
+  with `--places`, and stderr says what was left out.
+- **The page** reads it while it hashes the file, from the bytes it holds,
+  but keeps the place out of its store for now: its Publish is a readable
+  copy of the store itself, and leaving places out of what is published
+  needs the slimmer copy above. So the page keeps the time, says which
+  places it did not keep, and keeps them once Publish encrypts (step 2).
+
 **Freedom on Android (Peter, 2026-10-13).** The organiser works there,
 with two problems, both fixed and checked in `check.py` (each check
 failed first).

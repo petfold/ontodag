@@ -1198,7 +1198,9 @@ def cmd_folder(args, session, out):
 
     `--unfiled` lists the files not filed yet, one path a line, ready for
     `odag file`. `--find TERM...` answers with the folder's kinds joined to
-    your store (`holiday image-file`), as the folder's files that answer."""
+    your store (`holiday image-file`), as the folder's files that answer.
+    A photo's or a video's new version is filed with when and where it was
+    taken, as `odag file` files it (`--places`)."""
     from ontodag import folders
     hash_over = _size_bytes(args.hash_over) if args.hash_over else None
     folder, stats = _look(args.dir, hash_over)
@@ -1224,10 +1226,13 @@ def cmd_folder(args, session, out):
                     print(f"{os.path.join(args.dir, f.path)}\t{doc}", file=out)
         return
     edits, ambiguous = folders.recognise_edits(dag, folder)
+    left_out = []
     for seen, doc in edits:
-        folders.attach(dag, seen, doc)
+        folders.attach(dag, _with_taken(session, args, seen, os.path.join(args.dir, seen.path),
+                                        left_out), doc)
     if edits:
         session.save()
+    _said_left_out(session, left_out)
     filed = sum(1 for h in folder.by_hash if folders.version_name(h) in dag.nodes)
     copies = sum(len(v) - 1 for v in folder.by_hash.values())
     n, c = stats["files"], len(folder.by_hash)
@@ -1266,18 +1271,21 @@ def _size_bytes(text):
 def cmd_file(args, session, out):
     """File files into your store (docs/plans/BROWSER.md §17): each file is
     a document named by the file, with its content below it as a version
-    (`sha256:...`, under the time it was modified), and the document goes
-    under the categories given. A folder files every file in it. A
-    content already filed adds the categories to its document. A new
+    (`sha256:...`, under the time it was modified and, for a photo or a
+    video, when and where its own metadata says it was taken), and the
+    document goes under the categories given. A folder files every file in
+    it. A content already filed adds the categories to its document. A new
     content named as a document you have is left until you say which it
     is: `--version-of DOC` (DOC's new version) or `--separate` (a document
     of its own); without its folder, odag cannot tell that the old version
-    is gone."""
+    is gone. Into a `swarm:` store, which anyone who knows its address can
+    read, where a photo was taken goes only with `--places` (question 49)."""
     from ontodag import folders
     under = list(args.under or [])
     _require_parents(session, under)
     dag = session.dag
     single = folders.HashCache.load(_folder_cache_path("single files"))
+    left_out = []
     for path in args.paths:
         if os.path.isdir(path):
             folder, _stats = _look(path)
@@ -1291,6 +1299,8 @@ def cmd_file(args, session, out):
                 print(f"{shown}: not filed, since {' and '.join(alike)} has its name: "
                       f"say --version-of {shlex.quote(alike[0])} or --separate", file=out)
                 continue
+            if not known:
+                seen = _with_taken(session, args, seen, shown, left_out)
             answer = folders.file(dag, seen, under, version_of=args.version_of)
             where = f" under {', '.join(under)}" if under else ""
             if answer["made"]:
@@ -1301,6 +1311,29 @@ def cmd_file(args, session, out):
                 print(f"{shown}: in {answer['document']}{where}", file=out)
     single.save(_folder_cache_path("single files"))
     session.save()
+    _said_left_out(session, left_out)
+
+
+def _with_taken(session, args, seen, full_path, left_out):
+    """`seen` with when and where its file says it was taken. A `swarm:`
+    store is readable by anyone who knows its address, so there the place
+    goes only with `--places` (question 49): otherwise it is left out, and
+    `left_out` gets the file."""
+    import dataclasses
+    from ontodag import folders
+    seen = folders.taken(seen, full_path)
+    if seen.taken and seen.taken.geo and _is_swarm(session.spec) and not args.places:
+        left_out.append(seen.path)
+        seen = dataclasses.replace(seen, taken=dataclasses.replace(seen.taken, geo=None))
+    return seen
+
+
+def _said_left_out(session, left_out):
+    if left_out:
+        n = len(left_out)
+        print(f"odag: where {n} photo{'' if n == 1 else 's'} or video{'' if n == 1 else 's'} "
+              f"{'was' if n == 1 else 'were'} taken was left out: {session.spec} is readable "
+              f"by anyone who knows its address (--places files it)", file=_err())
 
 
 def _is_term(dag, name):
@@ -1929,10 +1962,14 @@ Commands:
   file PATH... --under CATEGORY...
                         file files, or a folder's, into your store: each a
                         document named by its file, its content below it
-                        as sha256:... under its modification time. A copy
-                        joins its document. A new content named as a
-                        document you have waits for --version-of DOC (its
-                        new version) or --separate (a document of its own)
+                        as sha256:... under its modification time and,
+                        for a photo or a video, capture-time(...) and
+                        capture-geo(...), when and where it says it was
+                        taken (into a swarm: store the place only with
+                        --places). A copy joins its document. A new
+                        content named as a document you have waits for
+                        --version-of DOC (its new version) or --separate
+                        (a document of its own)
   excerpt FILE [CAT...] write just that query's answer to FILE, with the
                         edges among the answers kept — an importable cut of
                         the store (`export` is the whole thing).
@@ -2420,6 +2457,8 @@ def build_parser():
                         "(image-file, document, ...) joined to your store")
     p.add_argument("--hash-over", metavar="SIZE",
                    help="leave files larger than this unread (500MB, 2GB)")
+    p.add_argument("--places", action="store_true",
+                   help="into a swarm: store too, file where photos were taken")
     p.set_defaults(func=cmd_folder)
 
     p = sub.add_parser("file", add_help=True,
@@ -2433,6 +2472,8 @@ def build_parser():
     which.add_argument("--separate", action="store_true",
                        help="file a new content named as a document you have "
                             "as a document of its own")
+    p.add_argument("--places", action="store_true",
+                   help="into a swarm: store too, file where photos were taken")
     p.set_defaults(func=cmd_file)
 
     p = sub.add_parser("export", add_help=True, help="write the store to a file")

@@ -1,5 +1,5 @@
 """Your files, organised where they are (docs/plans/BROWSER.md §17,
-questions 40 to 45).
+questions 40 to 45, 49 and 50).
 
 A folder is read, never written. What a file's type says is the folder's
 layer: each content under its kind (`image-file`, `video-file`, core's
@@ -8,14 +8,19 @@ layer: each content under its kind (`image-file`, `video-file`, core's
 document:
 
     reading-list.md ⊑ notes                          you filed it
-    sha256:4be1… ⊑ reading-list.md, time(2026-10-01T08:30:12Z)
-    sha256:91c0… ⊑ reading-list.md, time(2026-10-13T09:12:41Z)
+    sha256:4be1… ⊑ reading-list.md, modification-time(2026-10-01T08:30:12Z)
+    sha256:91c0… ⊑ reading-list.md, modification-time(2026-10-13T09:12:41Z)
+    sha256:77e2… ⊑ IMG_2041.jpg, modification-time(…),
+                   capture-time(2026-07-14T08:22:31Z), capture-geo(41.902784,12.496366±4.7m)
 
 - A **document** is named by the file's name when it was first filed, and
   your categories go on it.
 - Each content the file has had is a **version** below it, named by its
   SHA-256 as holdings names files, and filed under the time it was last
-  modified when it was first seen.
+  modified when it was first seen, and, for a photo or a video, when and
+  where it was taken, as far as its own metadata says (`ontodag.capture`).
+  The heads are the organiser's own (`HEADS`), declared in a store the
+  first time it files a version.
 
 The document is the class of its versions, so this is ordinary "below".
 Renames, moves and which folder was opened do not matter (a known
@@ -42,10 +47,11 @@ import os
 import re
 from dataclasses import dataclass
 
-__all__ = ["KINDS", "Seen", "HashCache", "Folder", "kind_of", "skipped", "scan",
-           "look_at", "hash_file", "version_name", "is_version", "time_value",
-           "documents", "versions_of", "document_of", "document_name",
-           "named_like", "file", "unfiled", "recognise_edits", "attach"]
+__all__ = ["KINDS", "HEADS", "Seen", "HashCache", "Folder", "kind_of", "is_media",
+           "skipped", "scan", "look_at", "hash_file", "taken", "version_name",
+           "is_version", "modification_time", "version_parents", "documents",
+           "versions_of", "document_of", "document_name", "named_like", "file",
+           "unfiled", "recognise_edits", "attach"]
 
 # What a file's extension says it is: computing's file kinds, and core's
 # `document` and `presentation` (core's `spreadsheet` is the program, so a
@@ -69,12 +75,28 @@ _TEMPORARY = re.compile(r"(~$|^\.#|^~\$|\.(swp|swo|swx|tmp|part|crdownload)$|^(\
 _VERSION = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
+# What the organiser files a version under, declared in a store the first
+# time it files one: when its content was last modified, and when and where
+# a photo or a video was taken (`capture-time` and `capture-geo` take their
+# values from the file; `capture-in(paris)` is yours to say, and follows
+# `in` as `about` does).
+HEADS = [("modification-time", ["time"]), ("capture", []),
+         ("capture-time", ["time", "capture"]), ("capture-geo", ["geo", "capture"]),
+         ("capture-in", ["enclosing-dimension", "capture"])]
+
+
 def kind_of(path):
     """The kind a file's extension names, or None."""
     name = path.rsplit("/", 1)[-1]
     if "." not in name.strip("."):
         return None
     return KINDS.get(name.rsplit(".", 1)[1].lower())
+
+
+def is_media(path):
+    """Is this a photo or a video, whose own metadata may say when and where
+    it was taken?"""
+    return kind_of(path) in ("image-file", "video-file")
 
 
 def skipped(path):
@@ -97,23 +119,26 @@ def is_version(name):
     return bool(_VERSION.match(name))
 
 
-def time_value(mtime):
-    """A modification time (seconds since the epoch) as a `time` value, to
-    the second, in UTC."""
+def modification_time(mtime):
+    """A modification time (seconds since the epoch) as a version's
+    `modification-time` term, to the second, in UTC."""
     import datetime
     when = datetime.datetime.fromtimestamp(int(mtime), tz=datetime.timezone.utc)
-    return f"time({when.strftime('%Y-%m-%dT%H:%M:%SZ')})"
+    return f"modification-time({when.strftime('%Y-%m-%dT%H:%M:%SZ')})"
 
 
 @dataclass(frozen=True)
 class Seen:
     """A file as one look at its folder found it: its path inside the
-    folder (`/`-separated), size, modification time (seconds) and SHA-256
-    (hex, or None if it was not read)."""
+    folder (`/`-separated), size, modification time (seconds), SHA-256
+    (hex, or None if it was not read), and, for a photo or a video, when
+    and where its metadata says it was taken (an `ontodag.capture.Capture`,
+    or None when not read)."""
     path: str
     size: int
     mtime: float
     sha256: str = None
+    taken: object = None
 
     @property
     def name(self):
@@ -217,6 +242,16 @@ def scan(root, cache=None, hash_over=None, stats=None):
     return sorted(found, key=lambda s: s.path)
 
 
+def taken(seen, full_path):
+    """`seen` with when and where it was taken, read from the file at
+    `full_path` if it is a photo or a video."""
+    import dataclasses
+    if not is_media(seen.path):
+        return seen
+    from ontodag import capture
+    return dataclasses.replace(seen, taken=capture.of_file(full_path))
+
+
 def look_at(path, cache=None):
     """A single file anywhere on this computer, as `Seen`: its path is its
     folder's name and its own (`Downloads/IMG_2041.jpg`), as a folder's
@@ -274,6 +309,20 @@ def versions_of(dag, doc):
     return sorted(c.name for c in node.neighbors if is_version(c.name))
 
 
+def _reads_as_term(dag, name):
+    try:
+        return dag.parse_term(name) is not None
+    except ValueError:
+        return True
+
+
+def _is_document(dag, name):
+    """Is a version's parent `name` its document, not one of its values
+    (`modification-time(…)`, `capture-geo(…)`, or `time(…)` as versions
+    were filed before the organiser's heads)?"""
+    return name != "*" and not ("(" in name and _reads_as_term(dag, name))
+
+
 def documents(dag):
     """Every document in the store: {name: [its versions]}."""
     found = {}
@@ -281,7 +330,7 @@ def documents(dag):
         if not is_version(name):
             continue
         for p in node.parents:
-            if not p.name.startswith("time(") and p.name != "*":
+            if _is_document(dag, p.name):
                 found.setdefault(p.name, []).append(name)
     return {d: sorted(v) for d, v in sorted(found.items())}
 
@@ -292,16 +341,9 @@ def document_of(dag, version):
     if node is None:
         return None
     for p in sorted(node.parents, key=lambda p: p.name):
-        if not p.name.startswith("time(") and p.name != "*":
+        if _is_document(dag, p.name):
             return p.name
     return None
-
-
-def _reads_as_term(dag, name):
-    try:
-        return dag.parse_term(name) is not None
-    except ValueError:
-        return True
 
 
 def document_name(dag, seen):
@@ -333,21 +375,35 @@ def named_like(dag, seen):
     return sorted(d for d in documents(dag) if d == seen.name or d.startswith(f"{seen.name} ("))
 
 
-def _ensure_time(dag):
-    """The prelude's declarations, which a `time` value needs; the number of
-    nodes they added."""
-    if "time" in dag.nodes:
+def _ensure_heads(dag):
+    """The prelude's declarations, which the organiser's heads stand on, and
+    those heads (`HEADS`), where missing; the number of nodes they added."""
+    if all(name in dag.nodes for name, _parents in HEADS):
         return 0
-    from ontodag import prelude
     before = len(dag.nodes)
-    prelude.apply(dag)
+    if "time" not in dag.nodes:
+        from ontodag import prelude
+        prelude.apply(dag)
+    for name, parents in HEADS:
+        if name not in dag.nodes:
+            dag.put(name, parents)
     return len(dag.nodes) - before
 
 
+def version_parents(doc, seen):
+    """What a content is filed under as a version of `doc`: the document,
+    when the content was last modified, and when and where it was taken, as
+    far as `seen.taken` says."""
+    return [doc, modification_time(seen.mtime)] + (seen.taken.terms() if seen.taken else [])
+
+
 def attach(dag, seen, doc):
-    """File the content `seen` as a version of the document `doc`."""
-    _ensure_time(dag)
-    dag.put(version_name(seen.sha256), [doc, time_value(seen.mtime)])
+    """File the content `seen` as a version of the document `doc`; returns
+    what it was filed under."""
+    _ensure_heads(dag)
+    parents = version_parents(doc, seen)
+    dag.put(version_name(seen.sha256), parents)
+    return parents
 
 
 def file(dag, seen, categories=(), version_of=None):
@@ -356,8 +412,9 @@ def file(dag, seen, categories=(), version_of=None):
     or `version_of` (the person said it is a new version of that document),
     or else a new one named by the file. A category the store lacks is put
     at its top first, as a name only. Returns what happened: the document,
-    whether it was made, the categories made, and the prelude's
-    declarations added."""
+    whether it was made, the categories made, the declarations added (the
+    prelude's and the organiser's heads), and what a new version was filed
+    under (`parents`, None if the content was filed already)."""
     if not seen.sha256:
         raise ValueError(f"{seen.path} was not hashed, so it cannot be filed")
     created = []
@@ -365,22 +422,26 @@ def file(dag, seen, categories=(), version_of=None):
         if c not in dag.nodes and not _reads_as_term(dag, c):
             dag.put(c, [])
             created.append(c)
-    prelude = _ensure_time(dag)
+    prelude = _ensure_heads(dag)
     version = version_name(seen.sha256)
     doc = document_of(dag, version)
+    parents = None
     if doc is None and version_of is not None:
         if version_of not in documents(dag):
             raise ValueError(f"{version_of} is not a document in this store")
         doc = version_of
-        dag.put(version, [doc, time_value(seen.mtime)])
+        parents = version_parents(doc, seen)
+        dag.put(version, parents)
     made = doc is None
     if made:
         doc = document_name(dag, seen)
         dag.put(doc, list(categories))
-        dag.put(version, [doc, time_value(seen.mtime)])
+        parents = version_parents(doc, seen)
+        dag.put(version, parents)
     elif categories:
         dag.put(doc, list(categories))
-    return {"document": doc, "version": version, "made": made, "created": created, "prelude": prelude}
+    return {"document": doc, "version": version, "made": made, "created": created,
+            "prelude": prelude, "parents": parents}
 
 
 def unfiled(dag, folder):

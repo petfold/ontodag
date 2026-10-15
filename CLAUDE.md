@@ -92,7 +92,9 @@ github.com/petfold.
   old store through `put`. `browser.py`: the Pyodide bridge, with the
   organiser page's `Organiser`. `folders.py`: a folder's files and
   single files filed as documents with their contents as versions (BROWSER.md
-  §17). `suggest.py` and `core_words.py`
+  §17); `capture.py`, when and where a photo or a video was taken, from
+  its own metadata (EXIF, MP4 and MOV), standard library only.
+  `suggest.py` and `core_words.py`
   (generated in ontodag-core from WordNet; `NOTICE` carries its licence):
   suggestions while typing. `_extras.py`: teaching errors for a missing
   extra.
@@ -428,16 +430,19 @@ Each line points to its record.
   parameter naming a filed node is that node and anything else a value
   (question 50, decided C by Peter, 2026-10-15, BROWSER.md §17). Built on
   main as registry 6.0, a major (Peter: A), with its migrate step
-  (DIMENSIONS.md §23); loopmarket's `from`/`to` follow. Next, the capture
-  heads proposed there (`capture-time`, `capture-geo`, `capture-in`,
-  `modification-time`).
+  (DIMENSIONS.md §23); loopmarket's `from`/`to` follow on its branch
+  `ontodag-0.34`. The capture heads proposed there are built too
+  (`folders.HEADS`).
 - Capture places (question 49, decided by Peter, 2026-10-15, BROWSER.md
   §17): stored in your store and in what you publish encrypted; the
   choice "include where photos were taken" (off by default) is made at
   sharing and for public versions, and today's readable Publish counts as
   one; `odag` warns before putting them into a readable `swarm:` store.
   Order: capture metadata (with question 50), encrypted Publish
-  (question 42), then the choice at sharing.
+  (question 42), then the choice at sharing. Step 1 built 2026-10-15:
+  `odag` keeps places in local stores and leaves them out of a `swarm:`
+  one unless `--places`; the page keeps them out of its store until
+  Publish encrypts, since its Publish is a readable copy of the store.
 - Provenance: signed claim records in a sibling store (PROVENANCE.md).
 - Web: one page, browsing plus a console, where every click writes its
   command (WEB_UI.md). Its DAG lives in the server's memory per session.
@@ -608,7 +613,7 @@ Each line points to its record.
   item passes. Every run since July, with what each taught, is in the
   journal.
 
-## State (2026-10-14)
+## State (2026-10-15)
 
 - **Reminder for Peter, due before 2026-11-01:** the batch `c931c8a5…`
   expires around 2026-11-09 and takes with it the packs, their cone
@@ -622,6 +627,13 @@ Each line points to its record.
   `swarmfs[feeds]>=0.15.0`; every workflow job green, the downstream gate
   included; `release_smoke.py --pypi` 28/28; a fresh `ontodag[swarm]`
   resolves to both). Unchanged: loopmarket 0.17.1, ontodag-fs 0.9.0.
+- On main, not released (2026-10-15): registry 6.0 (question 50) and
+  when and where photos were taken (question 49's step 1). A release is
+  Peter's word; with it loopmarket's branch `ontodag-0.34` merges (its
+  floor to `ontodag>=0.34.0`), its live offers are re-posted under
+  registry major 6 (the Rome offer `75337293…`, and the page maker's
+  book is empty), and the packs' cone summaries, made under registry 5
+  and so not used by 6, are republished.
 - Released 2026-10-14 on Peter's word, each verified from PyPI:
   recordstore 0.23.0 (`get_many`, and an unreachable trie node read as
   unavailable), then ontodag 0.33.0 (`odag folder` and `odag file`,
@@ -688,13 +700,11 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 
 ## Open questions for Peter
 
-None open now: question 47 (the redundancy level) is decided C and
-released; questions 37 to 46 (the organiser page and `odag`'s
-folders) are decided. The smaller open points are in BROWSER.md §17;
-the page's Files… (Open a folder…, Add files…) is built on the main;
-next for the organiser: tags from the files' own metadata (a question to
-put), the list of hashes kept between visits (question 41), encrypted
-Publish (question 42).
+None open now: questions 37 to 50 are decided, and question 47 is
+released. The smaller open points are in BROWSER.md §17; next for the
+organiser: encrypted Publish (question 42, step 2 of question 49's
+order), then the choice at sharing and public versions (step 3), and the
+list of hashes kept between visits (question 41).
 Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).
 

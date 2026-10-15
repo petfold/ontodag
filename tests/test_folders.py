@@ -135,7 +135,7 @@ class TestFilingIntoYourStore(unittest.TestCase):
         self.assertGreater(answer["prelude"], 0)
         version = F.version_name(sha("books"))
         self.assertEqual(sorted(p.name for p in self.dag.nodes[version].parents),
-                         ["reading-list.md", F.time_value(self.when)])
+                         sorted(["reading-list.md", F.modification_time(self.when)]))
         self.assertEqual(F.documents(self.dag), {"reading-list.md": [version]})
         self.assertEqual([i.name for i in self.dag.get(["notes"]) if F.is_version(i.name)], [version])
 
@@ -194,7 +194,7 @@ class TestFilingIntoYourStore(unittest.TestCase):
                          sorted([F.version_name(sha("books")), F.version_name(sha("more books"))]))
         new = F.version_name(sha("more books"))
         self.assertIn(new, [i.name for i in self.dag.get(["notes"])])
-        self.assertEqual([i.name for i in self.dag.get([F.time_value(self.when + 3600)])], [new])
+        self.assertEqual([i.name for i in self.dag.get([F.modification_time(self.when + 3600)])], [new])
         self.assertEqual(list(F.unfiled(self.dag, folder)), [sha("rome photo")])
 
     def test_an_edit_and_a_rename_together_are_not_guessed(self):
@@ -262,6 +262,81 @@ class TestSingleFiles(unittest.TestCase):
         path = write(self.tmp.name, "a/b.txt", "text")
         F.look_at(path, cache=cache)
         self.assertEqual(list(cache.entries.values()), [sha("text")])
+
+
+
+class TestWhenAndWhereTaken(unittest.TestCase):
+    """A photo's or a video's version is filed with when and where its own
+    metadata says it was taken (questions 49 and 50): `capture-time` and
+    `capture-geo`, roles of `time` and `geo`, beside its `modification-time`.
+    The organiser's heads come into a store the first time it files."""
+
+    PHOTO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "capture", "rome.jpg")
+
+    def setUp(self):
+        import shutil
+        self.tmp = tempfile.TemporaryDirectory()
+        self.photo = os.path.join(self.tmp.name, "Rome", "IMG_2041.jpg")
+        os.makedirs(os.path.dirname(self.photo))
+        shutil.copy(self.PHOTO, self.photo)
+        write(self.tmp.name, "Rome/notes.md", "gelato", 1_790_000_000)
+        self.dag = OntoDAG()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def seen(self, name):
+        folder = F.Folder(F.scan(self.tmp.name))
+        found = next(s for s in folder.seen if s.name == name)
+        return F.taken(found, os.path.join(self.tmp.name, *found.path.split("/")))
+
+    def test_a_photo_says_when_and_where(self):
+        seen = self.seen("IMG_2041.jpg")
+        self.assertEqual((seen.taken.time, seen.taken.geo),
+                         ("2026-07-14T08:22:31Z", "41.902784,12.496366±4.7m"))
+        answer = F.file(self.dag, seen, ["holiday"])
+        version = answer["version"]
+        parents = sorted(p.name for p in self.dag.nodes[version].parents)
+        self.assertEqual(parents[0], "IMG_2041.jpg")
+        self.assertIn("capture-time(2026-07-14T08:22:31Z)", parents)
+        self.assertTrue(any(p.startswith("capture-geo(41.9027") for p in parents), parents)
+        self.assertTrue(any(p.startswith("modification-time(") for p in parents), parents)
+        self.assertEqual(sorted(answer["parents"]), sorted(
+            [F.modification_time(seen.mtime)] + seen.taken.terms() + ["IMG_2041.jpg"]))
+        july_in_rome = ["capture-time(2026-07)", "capture-geo(41.8..42,12.4..12.6)"]
+        self.assertEqual([i.name for i in self.dag.get(july_in_rome)], [version])
+        self.assertEqual([i.name for i in self.dag.get(["holiday", "capture"]) if F.is_version(i.name)],
+                         [version])
+        self.assertEqual(F.documents(self.dag), {"IMG_2041.jpg": [version]})
+
+    def test_a_note_says_neither(self):
+        seen = self.seen("notes.md")
+        self.assertIsNone(seen.taken)
+        answer = F.file(self.dag, seen, ["holiday"])
+        self.assertEqual(sorted(p.name for p in self.dag.nodes[answer["version"]].parents),
+                         sorted(["notes.md", F.modification_time(1_790_000_000)]))
+
+    def test_the_heads_come_once_and_capture_in_follows_in(self):
+        F.file(self.dag, self.seen("IMG_2041.jpg"), [])
+        for name, _parents in F.HEADS:
+            self.assertIn(name, self.dag.nodes)
+        before = len(self.dag.nodes)
+        self.assertEqual(F.file(self.dag, self.seen("notes.md"), [])["prelude"], 0)
+        self.assertEqual(len(self.dag.nodes), before + 3)   # a document, a version, its time
+        self.dag.put("italy", [])
+        self.dag.put("rome", ["in(italy)"])
+        self.dag.put("IMG_2041.jpg", ["capture-in(rome)"])
+        self.assertTrue(self.dag.is_below("IMG_2041.jpg", "capture-in(italy)"))
+        self.assertFalse(self.dag.is_below("IMG_2041.jpg", "in(rome)"))   # taken there, not in it
+
+    def test_versions_filed_before_still_name_their_document(self):
+        from ontodag import prelude
+        prelude.apply(self.dag)
+        self.dag.put("reading-list.md", [])
+        old = F.version_name(sha("books"))
+        self.dag.put(old, ["reading-list.md", "time(2026-10-01T08:30:12Z)"])
+        self.assertEqual(F.documents(self.dag), {"reading-list.md": [old]})
+        self.assertEqual(F.document_of(self.dag, old), "reading-list.md")
 
 
 if __name__ == "__main__":
