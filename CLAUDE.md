@@ -35,10 +35,10 @@ github.com/petfold.
 
 - **recordstore**: a versioned key-to-record store over content-addressed
   blobs: canonical roots, snapshots, three-way merge, proofs, history and
-  undo. The one base dependency (`>=0.23.0`). Its brief is `ONBOARDING.md`.
+  undo. The one base dependency (`>=0.24.0`). Its brief is `ONBOARDING.md`.
 - **swarmfs**: the one route to Bee: local-first stores and their sync,
   postage selection, feeds, and the shared signer `swarmfs.signer`. In the
-  `swarm` extra (`swarmfs[feeds]>=0.13.0`).
+  `swarm` extra (`swarmfs[feeds]>=0.15.0`).
 - **ontodag-fs**: an OntoDAG store as a mountable filesystem. It pins a
   floor and a ceiling (`>=0.33.0,<0.34.0` since its 0.9.0); raise the ceiling by hand once ontodag's release job has run
   its suite against the candidate, then release it.

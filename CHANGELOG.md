@@ -14,6 +14,8 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.33.1] — 2026-10-15
+
 ### Changed
 
 - **Every upload names its redundancy level** (question 47, decided by
@@ -22,8 +24,10 @@ the version numbers appear in commit history and docs.
   reference is always the one Swarm's own rules give. The page's writer
   sent 0 for everything; `odag`'s `swarm:` stores and the packs (through
   swarmfs) and `loop` (through recordstore) sent none and got Bee's
-  default. Built in swarmfs and recordstore (their next releases; this
-  release's floors follow them) and in the page.
+  default. Built in swarmfs 0.15.0 and recordstore 0.24.0, this release's
+  floors (`recordstore>=0.24.0`; `swarmfs[feeds]>=0.15.0` in `[swarm]`),
+  and in the page. With them a `swarm:` store can also hold a blob over
+  4 KB: before, swarmfs refused the node's coded reference for it.
 
 ### Fixed
 
