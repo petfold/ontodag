@@ -2994,3 +2994,60 @@ described", "move it to Rome", "ask the erasure code question"):
   - Every blob of core, medicine, Peter's store and loopmarket's catalogue
     is one chunk, so for them level 1 is replicas only, at three times the
     chunks.
+
+## 2026-10-15: question 47 decided and released; Bee 2.8.3 waits
+
+**Question 47, the upload level** (BROWSER.md §13), discussed with Peter:
+- **Where we stand:** we use `/bytes` everywhere for writing, but we also
+  compute references ourselves. That is the only reason a blob's size
+  matters.
+- **Separation of concerns (Peter):** neither trees nor Bee's coding are
+  ours. A reference comes only from Swarm's own rules. Splitting records
+  to stay under 4 KB was rejected as building trees under another name.
+- **Decided C:** level 1 up to 4 KB (the reference unchanged, two copies),
+  level 0 above, named on every upload. Large records' protection is
+  revisited when the organiser makes them.
+- **Found on the way:**
+  - The packs and `odag`'s `swarm:` stores had been uploaded at Bee's
+    default level 1 all along, not 0 as recorded: their roots have their
+    copies. Corrected.
+  - swarmfs's local-first push could not push a blob over 4 KB at all: the
+    node coded it, and the push refused the new reference as a fork.
+  - Ant (Freedom's node) has recovered missing chunks from parity, and a
+    missing root from its copies, since 4 July, v0.5.64 included. Its
+    README still says otherwise, and I repeated the README to Peter before
+    reading the code.
+
+**Released on Peter's word, each verified from PyPI:**
+- swarmfs 0.15.0 (`redundancy_for`, `push_blob` naming it);
+- recordstore 0.24.0 (`BeeBytesStore` naming it);
+- ontodag 0.33.1 (the floors; every job green, the downstream gate
+  included; `release_smoke --pypi` 28/28).
+
+Each change's test failed first, the live ones on this node. A fresh
+`ontodag[swarm]` resolves to recordstore 0.24.0 and swarmfs 0.15.0.
+
+**Feed update 8:** `bzz://480d23a7…`, built from the release. The feed
+reads back naming it, and `ontodag.eth` serves it. `ontodag.gwei.domains`
+caught up after 310 s, its gateway's cache turning over. The page check
+with Publish passed, with the same roots as on 2026-10-13. loopmarket's
+published page only reads, so it needed no update.
+
+**Measured:**
+- **Push time:** ten 200-byte blobs pushed one by one straight to the
+  network took a median of 3.4 s at level 0 and 4.2 s at level 1, over
+  four alternating rounds. The copies cost about a quarter more time, not
+  three times.
+- **The check's slow steps that day:** a fresh home read in 448 s, where
+  it had taken 39 s. The node had restarted twice that day, and its feed
+  probes met 500s.
+- **The node restarted at 12:25,** not by me, in the middle of a recordstore
+  run: 13 failures, which did not recur.
+
+**Bee 2.8.3** (security release, "upgrade promptly"):
+- Peter downloaded the `.deb`; its hash matches the release's checksums.
+- The binary's swap into Swarm Desktop was blocked by the permission
+  system. The node was restarted as it was (2.8.2, the batch usable) and
+  the upgrade waits for Peter.
+- Of its fixes, `PUT /stewardship` restoring root copies (#5594) and
+  uploads no longer stalling on one invalid chunk (#5647) concern us.

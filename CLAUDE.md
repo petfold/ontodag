@@ -531,7 +531,11 @@ Each line points to its record.
 ## Bee integration status
 
 - The node: Swarm Desktop's bee 2.8.2 light node at `localhost:1633`, on
-  Gnosis mainnet. Another node manager can hold the same port, so `curl
+  Gnosis mainnet. Bee 2.8.3 (2026-10-15) is a security release, "upgrade
+  promptly", with no manual migration from 2.8.x; its `.deb` is in
+  `~/Downloads`, checked against the release's checksums. Swapping Swarm
+  Desktop's binary for it was blocked by the permission system and waits
+  for Peter. Another node manager can hold the same port, so `curl
   /health` and `/stamps` before believing anything about a batch.
 - Every batch, its size, duration and contents: `../STAMPS.md` (keep it
   current with each purchase and each upload worth keeping).
@@ -579,6 +583,12 @@ Each line points to its record.
   keep and on which batch (`../STAMPS.md`; Pyodide alone was decided D on
   2026-10-12: no batch of its own for now). Raise it at the start of any
   session from 2026-10-25 on.
+- Released 2026-10-15 on Peter's word, each verified from PyPI: swarmfs
+  0.15.0, then recordstore 0.24.0, then ontodag 0.33.1 (question 47's
+  upload levels; ontodag's floors `recordstore>=0.24.0` and
+  `swarmfs[feeds]>=0.15.0`; every workflow job green, the downstream gate
+  included; `release_smoke.py --pypi` 28/28; a fresh `ontodag[swarm]`
+  resolves to both). Unchanged: loopmarket 0.17.1, ontodag-fs 0.9.0.
 - Released 2026-10-14 on Peter's word, each verified from PyPI:
   recordstore 0.23.0 (`get_many`, and an unreachable trie node read as
   unavailable), then ontodag 0.33.0 (`odag folder` and `odag file`,
@@ -614,18 +624,17 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   since 2026-09-21 on a test comparing its own copy of the baseline).
 - On Swarm: the Freedom page (`demo/freedom/`): since 2026-10-13 the organiser (§17),
   which also publishes your store through a node under a key file (§16)
-  and helps a person save where they want (§14.1), `bzz://c9e24c73…`
-  behind `ontodag.gwei` and `ontodag.eth` (feed update 7, 2026-10-14 on
-  Peter's word, built from the 0.33.0 release; before it `44bb7def…`); loopmarket's market page (`browser/`,
+  and helps a person save where they want (§14.1), `bzz://480d23a7…`
+  behind `ontodag.gwei` and `ontodag.eth` (feed update 8, 2026-10-15 on
+  Peter's word, built from the 0.33.1 release; before it `c9e24c73…`); loopmarket's market page (`browser/`,
   `bzz://56f9ce1b…` behind `loopmarket.gwei` and `loopmarket.eth`; both load one shared Pyodide;
   a version that also makes, publishes and withdraws your offers and
   announces your book, signing with this page's `publish.js`,
   `bzz://e64302ea…`, not behind the names until Peter has tried it; it
   announced a book live on 2026-10-14, loopmarket's BROWSER.md §5c).
   Question 47 (the redundancy level, BROWSER.md §13) is decided C and
-  built on the mains of swarmfs, recordstore and the page; it ships with
-  swarmfs 0.15.0 and recordstore 0.24.0 (Peter's word), and ontodag's
-  floors follow at its next release. Both pages run in real Freedom
+  released (swarmfs 0.15.0, recordstore 0.24.0, ontodag 0.33.1, the page's
+  update 8). Both pages run in real Freedom
   Browser and through the public gateway (BROWSER.md §13).
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.
@@ -641,7 +650,7 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 ## Open questions for Peter
 
 None open now: question 47 (the redundancy level) is decided C and
-built on the mains; questions 37 to 46 (the organiser page and `odag`'s
+released; questions 37 to 46 (the organiser page and `odag`'s
 folders) are decided. The smaller open points are in BROWSER.md §17;
 next for the organiser is the page's "Open a folder…" and "Add files…".
 Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built

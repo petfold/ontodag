@@ -27,14 +27,17 @@ in any browser, and `http://localhost:1633/bzz/ontodag.eth/` with a local Bee
 node such as Swarm Desktop, no gateway (all resolve the feed; `../DOMAINS.md`
 beside the repos).
 
-Published, behind the names since 2026-10-14 (feed update 7): the
-organiser (BROWSER.md §17) built from the 0.33.0 release, with Publish
-(§16), the save help (§14.1) and the Android fixes, `bzz://c9e24c73b8f1f0f304d7f7498131e679a106be93e03ec33ee46d185f0e279380/`
+Published, behind the names since 2026-10-15 (feed update 8): the
+organiser (BROWSER.md §17) built from the 0.33.1 release, with Publish
+(§16), the save help (§14.1), the Android fixes, the feed probe that
+outlasts a light node's 500s, and question 47's upload levels,
+`bzz://480d23a724534f35ca59858fde3de3d47e906cdb105945d139db929d372db920/`
 (Pyodide loaded from the shared folder `PYODIDE` in `app.js`; through a
-node: `http://localhost:1633/bzz/c9e24c73b8f1f0f304d7f7498131e679a106be93e03ec33ee46d185f0e279380/`, which is also where Publish
+node: `http://localhost:1633/bzz/480d23a724534f35ca59858fde3de3d47e906cdb105945d139db929d372db920/`, which is also where Publish
 works; in any browser, through the public gateway,
 serve `dist/` and add `?gateway=https://api.gateway.ethswarm.org`). The
-versions before it were `bzz://44bb7def0aad9712c282bf17de4757a33d95ac5becba59eb8866a32008393847/` (update 6) and
+versions before it were `bzz://c9e24c73b8f1f0f304d7f7498131e679a106be93e03ec33ee46d185f0e279380/` (update 7),
+`bzz://44bb7def0aad9712c282bf17de4757a33d95ac5becba59eb8866a32008393847/` (update 6) and
 `bzz://22d1e16bebfd0afccdddb2060b5669f68c26b66c19d94cd58eb1d992bfc74d8a/` (update 5).
 
 | file | what it is |
