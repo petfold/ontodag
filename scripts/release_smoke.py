@@ -513,13 +513,22 @@ def smoke(env, expect_version):
             assert "a new document, plan.md under plans" in filed, filed
             got = o("get", "plans").split()
             assert got[0] == "plan.md" and got[1].startswith("sha256:"), got
+            # 0.34.0: a photo is filed with when and where it was taken,
+            # read by ontodag.capture from the file's own metadata.
+            photo = os.path.join(tmp, "Rome", "IMG_2041.jpg")
+            os.makedirs(os.path.dirname(photo))
+            shutil.copy(os.path.join(ROOT, "tests", "fixtures", "capture", "rome.jpg"), photo)
+            o("file", photo, "--under", "plans")
+            taken = o("get", "capture-time(2026-07)", "capture-geo(41.8..42,12.4..12.6)").split()
+            assert len(taken) == 1 and taken[0].startswith("sha256:"), taken
         words = env.run(env.python, "-c",
                         "from ontodag.core_words import WORDS; from ontodag.suggest import Vocabularies;"
                         "print(' '.join(dict(WORDS)['photograph']))").strip()
         assert "photo" in words.split(), words
-        return "a folder looked at, a file filed with its version; photograph: " + words
+        return ("a folder looked at, a file filed with its version, a photo with when and where "
+                "it was taken; photograph: " + words)
 
-    check("your files: folder, file, and core's WordNet words", your_files)
+    check("your files: folder, file, a photo's capture, core's WordNet words", your_files)
 
 
 
