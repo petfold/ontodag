@@ -370,7 +370,9 @@ Each line points to its record.
   a client hands over whole blobs (a node, a gateway), the page reads them
   whole with `/bytes`, checked by recomputing the address; Freedom reads
   chunks (Peter, 2026-10-15, BROWSER.md §10.1).
-  Freedom requests #647 and #648 are filed; for local files, Freedom #671
+  Freedom requests #647, #648 and #722 (a whole-blob read) are filed, and
+  freedom-hq/ant#187 (its README); for local files, Freedom #671 (fixed in
+  their nightly of 2026-10-15)
   and Brave #59862 (BROWSER.md §14). The read-only page
   (`demo/freedom/`) runs in Freedom Browser (BROWSER.md §13). JSPI
   (`run_sync`) carries Python's store calls in Chromium-based browsers, so

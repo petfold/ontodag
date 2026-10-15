@@ -3073,3 +3073,28 @@ published page only reads, so it needed no update.
   it called eth_keys' `to_compressed_bytes()` on a coincurve key. Fixed
   (`3dc57b5`), and it passes on 2.8.3. Nothing of ours sends ACT headers to
   `/chunks` or `/soc`, the one place 2.8.3 drops them.
+
+**Whole-blob reads, afternoon (2026-10-15, Peter: "yes, build the /bytes
+reads").**
+- **The change:** the pages read a blob whole from a node or a gateway, and
+  check it by recomputing its address with Swarm's own rules. Freedom
+  offers only chunk reads, so there the page joins trees as before.
+- **Checked:**
+  - Through the Freedom stand-in: 414 chunk reads.
+  - Through the public gateway: every answer equal to the native reader's.
+  - Through this node, with publishing: the same roots.
+  - Live trees the node coded: level 0 read whole, levels 1–4 chunk by
+    chunk.
+- **Old coded blobs:** core's cone index has 10 blobs over 4 KB, all coded
+  (uploaded before the levels were named). The pages read the two they
+  meet chunk by chunk, correctly.
+- **Is a whole-blob read in line with Freedom's principles?** Yes.
+  `window.swarm` is the only way a page reaches the node, raw routes stay
+  closed (#178 was closed on that ground), and public reads are checked
+  and budgeted. A whole-blob read is a provider method in that shape, and
+  the read side of `swarm_publishData`.
+- **Filed on Peter's word:**
+  - Freedom #722 (`swarm_readData`);
+  - freedom-hq/ant#187: its README calls recovery a gap, while its joiner
+    has recovered "always on" since 4 July and the flag the README names is
+    a no-op.

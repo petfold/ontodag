@@ -382,7 +382,8 @@ not check out (a tree the node coded, such as the 10 coded blobs of
 core's cone index, or bytes that are not what was asked for) is read
 chunk by chunk as before, every chunk checked. Freedom offers only chunk
 reads, so there the page still joins trees; a whole-blob read,
-`swarm_readData`, is asked of Freedom (`../upstream-issues/freedom-read-data.md`).
+`swarm_readData`, is asked of Freedom (#722, filed 2026-10-15 on Peter's
+word). Ant's README still calls its recovery a gap (freedom-hq/ant#187).
 Checked: `test_swarm.mjs` (a whole blob in one read and no chunk reads, a
 wrong one read chunk by chunk, live trees the node coded at levels 0–4),
 and the page through the Freedom stand-in, the public gateway and this
