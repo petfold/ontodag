@@ -565,7 +565,10 @@ Each line points to its record.
   Desktop/config.yaml"`, log in `~/bee-logs/`. Peter's choice: Swarm
   Desktop's bundled Bee (2.8.2) is left as it is, and Desktop stays
   closed, since it would start that Bee on the same data. After a
-  reboot the node must be started again that way. The package's own
+  reboot start it with `../bee-start.sh` (it refuses a second node, says
+  which overlay answers, and waits until it does); `../bee-stop.sh`
+  stops it cleanly. Both tried 2026-10-16: the same overlay and batch
+  after a restart, 71 peers within 40 s. The package's own
   service (`bee.service`, a separate empty node in `/var/lib/bee`) is
   disabled: enabled, it took port 1633 when Desktop restarted. A cold
   backup of the 2.8.2 data is in `~/bee-backups/`. Another node manager
