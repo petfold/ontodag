@@ -768,3 +768,103 @@ class TestTheOrganiser(unittest.TestCase):
         self.ask("add", "photo-album", "")
         names = [s["name"] for s in self.ask("suggest", "photo")["suggestions"]]
         self.assertEqual(names[:2], ["photo-album", "photograph"])
+
+
+class TestTheOrganisersFiles(unittest.TestCase):
+    """Your files in the page (BROWSER.md §17, questions 40 to 46): the page
+    lists a folder or single files and hashes them; the organiser says which
+    to read, what the folder holds by kind (a layer, never written), files
+    what is not yet filed as documents with their contents as versions,
+    attaches a recognised edit (with undo), and offers single files as a new
+    version of a document of their name."""
+
+    def setUp(self):
+        from ontodag import native
+        from ontodag.browser import LocalStore, Organiser
+        from ontodag.packs import pack_dag
+        texts = {"prelude": native.dumps(pack_dag("prelude")), "core": CORE_TEXT}
+        self.org = Organiser(LocalStore(), texts)
+        self.org.show(["core"])
+
+    def ask(self, method, *args):
+        return json.loads(getattr(self.org, method)(*args))
+
+    @staticmethod
+    def sha(text):
+        import hashlib
+        return hashlib.sha256(text.encode()).hexdigest()
+
+    def seen(self, path, text, mtime=1791000000.0):
+        return {"path": path, "size": len(text), "mtime": mtime, "sha256": self.sha(text)}
+
+    def look(self, files, name="Holiday", whole=True):
+        return self.ask("files_look", json.dumps(files), name, whole)
+
+    def versions(self, doc):
+        from ontodag.folders import versions_of
+        return versions_of(self.org.mine.dag, doc)
+
+    def test_hidden_and_temporary_files_are_not_read(self):
+        listing = [["IMG_1.jpg", 10, 1.0], [".git/config", 5, 1.0], ["notes.md~", 3, 1.0],
+                   ["a/b/report.pdf", 7, 1.0]]
+        self.assertEqual(self.ask("files_plan", json.dumps(listing)), {"read": [0, 3], "skipped": 2})
+
+    def test_a_folder_is_read_by_kind_and_nothing_is_written(self):
+        from ontodag import native
+        before = native.dumps(self.org.mine.dag)
+        a = self.look([self.seen("IMG_1.jpg", "one"), self.seen("IMG_2.jpg", "two"),
+                       self.seen("trip.pdf", "pdf"), self.seen("copy/IMG_1.jpg", "one"),
+                       self.seen("misc.xyz", "x"),
+                       {"path": "big.mp4", "size": 10 ** 10, "mtime": 1.0, "sha256": None}])
+        self.assertEqual((a["name"], a["files"], a["unhashed"], a["filed"]), ("Holiday", 6, 1, 0))
+        self.assertEqual(a["kinds"], {"document": 1, "image-file": 3, "other": 1, "video-file": 1})
+        unfiled = {u["name"]: u for u in a["unfiled"]}
+        self.assertEqual(sorted(unfiled), ["IMG_1.jpg", "IMG_2.jpg", "misc.xyz", "trip.pdf"])
+        self.assertEqual(unfiled["IMG_1.jpg"]["paths"], ["IMG_1.jpg", "copy/IMG_1.jpg"])   # copies are one
+        self.assertEqual(unfiled["IMG_1.jpg"]["kind"], "image-file")
+        self.assertEqual((a["attached"], a["changed"]), ([], False))
+        self.assertEqual(native.dumps(self.org.mine.dag), before)
+
+    def test_filing_puts_documents_under_categories_with_their_versions(self):
+        a = self.look([self.seen("IMG_1.jpg", "one"), self.seen("trip.pdf", "pdf")])
+        f = self.ask("files_file", json.dumps([u["sha256"] for u in a["unfiled"]]),
+                     "holiday photograph", "{}")
+        self.assertEqual(sorted(x["document"] for x in f["filed"]), ["IMG_1.jpg", "trip.pdf"])
+        self.assertEqual((f["taken"], f["created"], f["changed"]), (["photograph"], ["holiday"], True))
+        self.assertTrue(self.org.mine.changed)
+        self.assertEqual(self.versions("IMG_1.jpg"), ["sha256:" + self.sha("one")])
+        self.assertEqual(sorted(p.name for p in self.org.mine.dag.nodes["IMG_1.jpg"].parents),
+                         ["holiday", "photograph"])
+        found = self.ask("get", "holiday image")["mine"]
+        self.assertTrue({"IMG_1.jpg", "trip.pdf"} <= set(found), found)
+        again = self.look([self.seen("IMG_1.jpg", "one"), self.seen("trip.pdf", "pdf")])
+        self.assertEqual((again["filed"], again["unfiled"]), (2, []))
+
+    def test_only_what_was_looked_at_and_read_can_be_filed(self):
+        a = self.look([{"path": "big.mp4", "size": 10 ** 10, "mtime": 1.0, "sha256": None}])
+        self.assertEqual(a["unfiled"], [])
+        self.assertIn("error", self.ask("files_file", json.dumps([self.sha("never seen")]), "", "{}"))
+
+    def test_an_edit_is_attached_as_a_new_version_and_can_be_undone(self):
+        a = self.look([self.seen("notes.md", "v1")])
+        self.ask("files_file", json.dumps([a["unfiled"][0]["sha256"]]), "notes", "{}")
+        b = self.look([self.seen("notes.md", "v2", mtime=1791000500.0)])
+        self.assertEqual([(x["path"], x["document"]) for x in b["attached"]], [("notes.md", "notes.md")])
+        self.assertEqual((b["unfiled"], len(self.versions("notes.md"))), ([], 2))
+        undone = self.ask("files_undo", json.dumps([b["attached"][0]["version"]]))
+        self.assertEqual(undone["undone"], [b["attached"][0]["version"]])
+        self.assertEqual(self.versions("notes.md"), ["sha256:" + self.sha("v1")])
+        # Undone, it is not attached again; it waits in the work list instead.
+        c = self.look([self.seen("notes.md", "v2", mtime=1791000500.0)])
+        self.assertEqual(c["attached"], [])
+        self.assertEqual([(u["name"], u["like"]) for u in c["unfiled"]], [("notes.md", ["notes.md"])])
+
+    def test_single_files_are_offered_as_a_new_version_of_a_document_of_their_name(self):
+        a = self.look([self.seen("notes.md", "v1")])
+        self.ask("files_file", json.dumps([a["unfiled"][0]["sha256"]]), "notes", "{}")
+        b = self.look([self.seen("notes.md", "v2")], "", False)
+        self.assertEqual((b["attached"], b["unfiled"][0]["like"]), ([], ["notes.md"]))
+        sha = b["unfiled"][0]["sha256"]
+        f = self.ask("files_file", json.dumps([sha]), "", json.dumps({sha: "notes.md"}))
+        self.assertEqual((f["filed"][0]["document"], f["filed"][0]["made"]), ("notes.md", False))
+        self.assertEqual(len(self.versions("notes.md")), 2)

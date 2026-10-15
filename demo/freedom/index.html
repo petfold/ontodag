@@ -84,6 +84,15 @@
 
   .work { min-width: 0; display: grid; gap: 14px; }
   .addrow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 8px; align-items: center; }
+  .filingrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-top: 10px; }
+  .filelist { margin-top: 10px; border-top: 1px solid var(--line); }
+  .kindhead { display: flex; gap: 8px; align-items: center; padding: 8px 0 4px; font-weight: 600; }
+  .filerow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: baseline;
+             padding: 4px 0 4px 18px; border-bottom: 1px solid var(--line); }
+  .filerow .fname { font-family: var(--mono); font-size: 0.9rem; word-break: break-all; }
+  .filerow .fmeta { color: var(--muted); font-size: 0.82rem; white-space: nowrap; }
+  .filerow select { grid-column: 2 / 4; justify-self: start; font-size: 0.85rem; margin-top: 2px; }
+  @media (max-width: 560px) { .filerow { grid-template-columns: auto minmax(0, 1fr); } .filerow .fmeta { grid-column: 2; } .filerow select { grid-column: 2; } }
   @media (max-width: 560px) { .addrow { grid-template-columns: minmax(0, 1fr); } }
   #addresult { margin-top: 8px; font-size: 0.9rem; }
   .suggest { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--card); border: 1px solid var(--line);
@@ -179,7 +188,7 @@
     <div class="choices">
       <button class="choice primary" id="startnew"><b>New store</b><span>Start with an empty store and make your own categories.</span></button>
       <button class="choice" id="startopen"><b>Open store file…</b><span>Carry on with a store you saved, an .od file (the one odag reads).</span></button>
-      <button class="choice" id="startfolder" disabled title="Folders come next: their files, tagged by type, with versions"><b>Open a folder…</b><span>Coming next: file a folder's files, tagged by type.</span></button>
+      <button class="choice" id="startfolder"><b>Open a folder…</b><span>File a folder's files under categories of your own, sorted by type. The folder is only read, never changed.</span></button>
     </div>
     <p class="muted small">The vocabularies (core, computing, geography and others) are in the Vocabularies menu, to show beside your store or to browse.</p>
   </section>
@@ -195,6 +204,7 @@
         <div class="field"><input type="text" id="find" placeholder="Find: what is below all of these, e.g. holiday photograph" autocomplete="off"></div>
         <button id="findbutton">Find</button>
         <button id="addtoggle">Add…</button>
+        <button id="filestoggle" title="File a folder's files, or single files, under your categories">Files…</button>
       </div>
       <div class="panel hidden" id="addpanel">
         <div class="addrow">
@@ -203,6 +213,25 @@
           <button class="primary" id="addbutton">Add</button>
         </div>
         <div id="addresult" class="muted"></div>
+      </div>
+      <div class="panel hidden" id="filespanel">
+        <div class="heading"><h2>Your files</h2><span class="muted small">read where they are, never changed</span></div>
+        <div class="bar">
+          <button id="folderopen" title="Pick a folder: its files are listed by type, and what is not yet filed can be filed">Open a folder…</button>
+          <button id="filesadd" title="Pick single files to file">Add files…</button>
+          <span class="spacer"></span>
+          <button class="link" id="filesclose">Close</button>
+        </div>
+        <input type="file" id="folderinput" webkitdirectory multiple class="hidden">
+        <input type="file" id="filesinput" multiple class="hidden">
+        <div id="filesstatus" class="muted"></div>
+        <div id="filesattached"></div>
+        <div id="fileswork"></div>
+        <div class="filingrow hidden" id="filesfiling">
+          <div class="field"><input type="text" id="filesunder" placeholder="file the ticked ones under (space separated), e.g. holiday rome-2026" autocomplete="off"></div>
+          <button class="primary" id="filesfile">File</button>
+        </div>
+        <div id="filesresult" class="muted"></div>
       </div>
       <div class="panel hidden" id="pubpanel">
         <div class="heading"><h2>Publish to Swarm</h2><span class="muted small">your store, under your key</span></div>

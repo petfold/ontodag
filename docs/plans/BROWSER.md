@@ -1709,7 +1709,32 @@ it would be good to be able to add single files").
   - **Rejected:** A, every name on screen too, which crowds out the names
     a person reads; C, versions left out unless asked, which would make
     `get` leave out things below its query.
-- **Next:** the page's "Open a folder…" and "Add files…".
+- **Built in the page (2026-10-15):** **Files…**, with **Open a folder…**
+  and **Add files…**, on the same core (`Organiser.files_plan`,
+  `files_look`, `files_file`, `files_undo`):
+  - **Reading:** a folder comes through a plain folder input
+    (`webkitdirectory`), read only, so it needs no File System Access.
+    Python says which files to read (hidden folders, caches and
+    temporary files are not), and the page hashes them with
+    `crypto.subtle`. A file over 256 MB is listed but not read.
+  - **The list:** the folder by kind; a clear edit of a filed document
+    attached as a new version, said with Undo (undone, it is not
+    attached again that session); the rest not yet filed, by kind,
+    copies as one, ticked and filed under categories with suggestions.
+    Single files are offered as a new version of a document of their
+    name.
+  - **Checked:** `TestTheOrganisersFiles` (6, each failing first), and
+    `check.py`'s files step in Chromium and as an iPhone reads (retry
+    mode): a folder of images, a PDF, a copy, a `.git` folder and a
+    temporary file; filing; an edit and its undo; single files as a new
+    version.
+  - **Not yet:** the list of hashes kept between visits (question 41's
+    encrypted browser storage), so each visit reads the files again;
+    Find joined with the folder's kinds (`odag folder --find`); and
+    tags from the files' own metadata, which Peter suggested on
+    2026-10-15 (the time a photo or video was taken as a `time` value,
+    where it was as a `geo` value). Whether those are stored or only
+    read each time is a question to put.
 
 **Freedom on Android (Peter, 2026-10-13).** The organiser works there,
 with two problems, both fixed and checked in `check.py` (each check

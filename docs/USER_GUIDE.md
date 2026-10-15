@@ -3321,8 +3321,8 @@ beside it. Open it:
   `https://ontodag.gwei.domains/`, or serve the page's folder and add
   `?gateway=https://api.gateway.ethswarm.org`.
 
-**Your store first.** The page opens on **New store** and **Open store
-file…** (an `.od` file, the format `odag` reads; folders come next).
+**Your store first.** The page opens on **New store**, **Open store
+file…** (an `.od` file, the format `odag` reads) and **Open a folder…**.
 Then:
 - **Add** takes a name and what it goes under (space separated). As you
   type, the page suggests names:
@@ -3352,6 +3352,27 @@ Then:
   below, what is about it, **Put … under**, and **Remove from your store**
   (what was below moves up, as `odag remove` does). **Find** is `get`:
   what is below all the names you give.
+- **Files…** files your files, as `odag folder` and `odag file` do
+  (§5.14). **Open a folder…** lists a folder's files, or **Add files…**
+  single ones. They are only read, never changed:
+  - **The list:** what the folder holds, by kind (`image-file`,
+    `document` and so on), and what is not yet filed, with copies
+    counted once. Hidden folders and temporary files are skipped, and a
+    file over 256 MB is listed but not read (`odag folder` reads any
+    size).
+  - **Filing:** tick files (a kind's box ticks all of that kind), give
+    categories, and **File**. Each file becomes a document named by the
+    file, with its content below it as a version (`sha256:…`) under its
+    modification time.
+  - **Edits:** opening the folder again files an edited file's new
+    content as a new version of its document and says so, with
+    **Undo**.
+  - **Single files:** where a document of the same name exists, **a new
+    version of…** is offered beside the file.
+
+  The page reads the files again on each visit (it keeps no list of
+  them yet). The store is the same file `odag` reads, so `odag -f
+  mine.od folder ~/Pictures/Holiday` sees what you filed.
 
 The file is the format `odag` reads, so the same store works on the
 command line:
@@ -3362,9 +3383,13 @@ apple
 ```
 
 Where the browser lets a page keep a file you gave it (Chrome), Save
-writes back to that file. Freedom refuses that access and Brave has no
-file pickers, so there Open uses an ordinary file dialog and Save
-downloads the file; keep it where you like and open it next time. The
+writes back to that file. Freedom grants that from version 0.8.8: there
+the first Save of a file you opened asks once with the save dialog,
+then writes in place (the page uses it in Freedom once 0.8.8 is
+released; add `?pickers=1` to try it before). Earlier Freedom refuses
+that access and Brave has no file pickers, so there Open uses an
+ordinary file dialog and Save downloads the file; keep it where you
+like and open it next time. The
 first time Save downloads, the page offers its help. It names the
 browser's "ask where to save each file" setting, after which every save
 asks which folder and asks before replacing the old copy. It copies the

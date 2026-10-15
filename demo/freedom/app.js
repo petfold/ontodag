@@ -596,10 +596,185 @@ async function addThing() {
   await showCategory(a.under[0] || a.put);
 }
 
+// ---- your files (BROWSER.md §17): a folder, or single files, listed and
+// read here, filed by ontodag.folders in Python. The folder is only read.
+
+const MAX_READ = 256 * 1024 * 1024;   // a larger file is listed, not read (odag folder reads any size)
+const fileHashes = new Map();          // this visit's hashes, by path, size and time
+let lastLook = null;                   // {seen, name, whole, skipped}: what the work list shows
+
+const insideFolder = (f) => f.webkitRelativePath.split("/").slice(1).join("/") || f.name;
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+function sizeText(n) {
+  if (n < 1024) return `${n} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let v = n / 1024, i = 0;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
+}
+
+const dateText = (seconds) => new Date(seconds * 1000).toISOString().slice(0, 10);
+
+async function sha256Of(file) {
+  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Each file as ontodag.folders.Seen: its path inside what was picked, size,
+// modification time (seconds) and SHA-256 (null if too large to read here).
+async function readFiles(pairs) {
+  const total = pairs.reduce((n, [f]) => n + (f.size <= MAX_READ ? f.size : 0), 0);
+  const seen = [];
+  let bytes = 0;
+  for (const [f, path] of pairs) {
+    const key = `${path}\u0000${f.size}\u0000${f.lastModified}`;
+    let sha = fileHashes.get(key) || null;
+    if (!sha && f.size <= MAX_READ) {
+      sha = await sha256Of(f);
+      fileHashes.set(key, sha);
+      bytes += f.size;
+    }
+    seen.push({ path, size: f.size, mtime: f.lastModified / 1000, sha256: sha });
+    if (seen.length % 20 === 0 || seen.length === pairs.length) {
+      $("filesstatus").textContent = `Reading the files: ${seen.length} of ${pairs.length} (${sizeText(bytes)} of ${sizeText(total)})…`;
+    }
+  }
+  return seen;
+}
+
+function clearFiles() {
+  lastLook = null;
+  for (const id of ["filesstatus", "filesattached", "fileswork", "filesresult"]) $(id).replaceChildren();
+  $("filesfiling").classList.add("hidden");
+}
+
+async function openFolder(list) {
+  if (!list.length) return;
+  if (!hasStore) await localNew();        // the start screen's Open a folder…: a new store to file into
+  if (!hasStore) return;
+  clearFiles();
+  $("filespanel").classList.remove("hidden");
+  const name = list[0].webkitRelativePath.split("/")[0] || "";
+  const rows = list.map((f) => [insideFolder(f), f.size, f.lastModified / 1000]);
+  const plan = await call("org_files_plan", JSON.stringify(rows));
+  const seen = await readFiles(plan.read.map((i) => [list[i], rows[i][0]]));
+  lastLook = { seen, name, whole: true, skipped: plan.skipped };
+  await lookAgain();
+}
+
+async function addFiles(list) {
+  if (!list.length) return;
+  clearFiles();
+  $("filespanel").classList.remove("hidden");
+  const seen = await readFiles(list.map((f) => [f, f.name]));
+  lastLook = { seen, name: "", whole: false, skipped: 0 };
+  await lookAgain();
+}
+
+async function lookAgain() {
+  if (!lastLook) return;
+  const a = await call("org_files_look", JSON.stringify(lastLook.seen), lastLook.name, lastLook.whole);
+  if (a.error) {
+    $("filesstatus").textContent = a.error;
+    return;
+  }
+  renderFiles(a);
+  if (a.attached.length) await afterChange();
+}
+
+function renderFiles(a) {
+  const kinds = Object.entries(a.kinds).map(([k, n]) => `${n} ${k}`).join(", ");
+  const parts = [`${a.name ? `${a.name}: ` : ""}${plural(a.files, "file")}${kinds ? ` (${kinds})` : ""}`];
+  if (a.filed) parts.push(`${a.filed} already filed`);
+  parts.push(a.unfiled.length ? `${a.unfiled.length} not yet filed` : "nothing left to file");
+  if (lastLook.skipped) parts.push(`${lastLook.skipped} skipped (hidden or temporary)`);
+  if (a.unhashed) parts.push(`${plural(a.unhashed, "file")} too large to read in the page (odag folder reads any size)`);
+  $("filesstatus").textContent = parts.join(" · ");
+
+  const attached = $("filesattached");
+  attached.replaceChildren();
+  if (a.attached.length) {
+    attached.append(el("p", { class: "small" },
+      `Filed as a new version: ${a.attached.map((x) => x.path === x.document ? x.path : `${x.path} (of ${x.document})`).join(", ")}. `,
+      el("button", { class: "link", onclick: () => undoAttached(a.attached.map((x) => x.version)) }, "Undo")));
+  }
+  if (a.ambiguous.length) {
+    attached.append(el("p", { class: "small muted" },
+      `${plural(a.ambiguous.length, "file")} could be a new version of more than one document: tick, and choose which below.`));
+  }
+
+  const work = $("fileswork");
+  work.replaceChildren();
+  $("filesfiling").classList.toggle("hidden", !a.unfiled.length);
+  if (!a.unfiled.length) return;
+  const list = el("div", { class: "filelist" });
+  const kindsInOrder = [...new Set(a.unfiled.map((u) => u.kind))];
+  for (const kind of kindsInOrder) {
+    const these = a.unfiled.filter((u) => u.kind === kind);
+    const all = el("input", { type: "checkbox", "aria-label": `tick all ${kind}` });
+    list.append(el("label", { class: "kindhead" }, all, `${kind} (${these.length})`));
+    const boxes = [];
+    for (const u of these) {
+      const id = `f-${u.sha256.slice(0, 20)}`;
+      const box = el("input", { type: "checkbox", id, "data-sha": u.sha256 });
+      boxes.push(box);
+      const copies = u.paths.length > 1 ? ` and ${plural(u.paths.length - 1, "copy", "copies")}` : "";
+      const row = el("div", { class: "filerow" }, box,
+        el("label", { class: "fname", for: id }, `${u.paths[0]}${copies}`),
+        el("span", { class: "fmeta" }, `${sizeText(u.size)} · ${dateText(u.mtime)}`));
+      if (u.like.length) {
+        row.append(el("select", { "data-sha": u.sha256, "aria-label": `what ${u.name} is` },
+          el("option", { value: "" }, "a new document"),
+          ...u.like.map((d) => el("option", { value: d }, `a new version of ${d}`))));
+      }
+      list.append(row);
+    }
+    all.onchange = () => { for (const b of boxes) b.checked = all.checked; };
+  }
+  work.append(list);
+}
+
+async function fileTicked() {
+  const ticked = [...document.querySelectorAll("#fileswork input[data-sha]:checked")].map((b) => b.dataset.sha);
+  const result = $("filesresult");
+  result.classList.remove("warn");
+  if (!ticked.length) { result.textContent = "Tick the files to file first."; return; }
+  const versions = {};
+  for (const s of document.querySelectorAll("#fileswork select[data-sha]")) {
+    if (s.value && ticked.includes(s.dataset.sha)) versions[s.dataset.sha] = s.value;
+  }
+  const f = await run("Filing…", () => call("org_files_file", JSON.stringify(ticked), $("filesunder").value.trim(), JSON.stringify(versions)));
+  if (!f) return;
+  if (f.error) { result.textContent = f.error; result.classList.add("warn"); return; }
+  const asVersions = f.filed.filter((x) => !x.made).length;
+  const parts = [`Filed ${plural(f.filed.length, "file")}${f.under.length ? ` under ${f.under.join(", ")}` : ""}` +
+    `${asVersions ? ` (${asVersions} as a new version of a document you had)` : ""}.`];
+  if (f.taken.length) parts.push(`Took ${f.taken.join(", ")} from the vocabularies, as name${f.taken.length > 1 ? "s" : ""} only.`);
+  if (f.created.length) parts.push(`New categor${f.created.length > 1 ? "ies" : "y"} of yours: ${f.created.join(", ")}.`);
+  if (f.prelude) parts.push("Added the declarations dates need (the prelude).");
+  const now = await showWhatYouUse();
+  if (now.length) parts.push(`${now.join(" and ")} ${now.length > 1 ? "are" : "is"} now shown beside your store, since it uses ${now.length > 1 ? "their" : "its"} names.`);
+  result.textContent = parts.join(" ");
+  await afterChange();
+  await lookAgain();
+}
+
+async function undoAttached(versions) {
+  const u = await call("org_files_undo", JSON.stringify(versions));
+  const result = $("filesresult");
+  if (u.error) { result.textContent = u.error; result.classList.add("warn"); return; }
+  result.classList.remove("warn");
+  result.textContent = `Took back ${plural(u.undone.length, "new version")}: they wait below, with their document offered.`;
+  await afterChange();
+  await lookAgain();
+}
+
 // ---- opening, starting and saving
 
 async function storeOpened(note = "") {
   hasStore = true;
+  clearFiles();   // a look at files belongs to the store it was made for
   showMode("store");
   if (!untickedByYou.has("core")) shown.add("core");
   await applyShown();
@@ -1001,6 +1176,18 @@ def org_add(item, under):
 def org_remove(names):
     return _org().remove(names)
 
+def org_files_plan(listing):
+    return _org().files_plan(listing)
+
+def org_files_look(seen, name, whole):
+    return _org().files_look(seen, name, bool(whole))
+
+def org_files_file(shas, under, versions):
+    return _org().files_file(shas, under, versions)
+
+def org_files_undo(versions):
+    return _org().files_undo(versions)
+
 def org_names():
     return _json.dumps({"names": sorted(_org()._names(), key=lambda n: (n.lower(), n))})
 
@@ -1055,6 +1242,16 @@ def org_changed():
   attachSuggest($("find"), { lastWord: true, offerNew: null });
   $("addwhat").addEventListener("keydown", (e) => { if (e.key === "Enter") $("addunder").focus(); });
   $("addunder").addEventListener("keydown", (e) => { if (e.key === "Enter") addThing(); });
+  $("filestoggle").onclick = () => $("filespanel").classList.toggle("hidden");
+  $("filesclose").onclick = () => $("filespanel").classList.add("hidden");
+  $("folderopen").onclick = () => $("folderinput").click();
+  $("filesadd").onclick = () => $("filesinput").click();
+  $("startfolder").onclick = () => $("folderinput").click();
+  $("folderinput").onchange = () => { const l = [...$("folderinput").files]; $("folderinput").value = ""; openFolder(l); };
+  $("filesinput").onchange = () => { const l = [...$("filesinput").files]; $("filesinput").value = ""; addFiles(l); };
+  $("filesfile").onclick = fileTicked;
+  attachSuggest($("filesunder"), { lastWord: true });   // first: an Enter that picks a suggestion goes no further
+  $("filesunder").addEventListener("keydown", (e) => { if (e.key === "Enter") fileTicked(); });
   const find = () => { const q = $("find").value.trim(); if (q) showFind(q); };
   $("findbutton").onclick = find;
   $("find").addEventListener("keydown", (e) => { if (e.key === "Enter") find(); });

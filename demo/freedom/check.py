@@ -191,6 +191,7 @@ async def check_page(url, root, queries, freedom, gateway=None, index=None, mode
         print(f"  blobs and chunks fetched {stats['reads']} ({stats['bytes'] // 1024} KB), reused {stats['cached']}, "
               f"read chunk by chunk after a whole blob did not check out {stats.get('unchecked', 0)}")
         got["local"] = await check_local(page)
+        got["local"] += await check_files(page)
         if publish:
             got["local"] += await check_publish(page, publish)
         await browser.close()
@@ -368,6 +369,91 @@ async def check_local(page):
     os.unlink(fh.name)
     print(f"  your own store: new (core shown), add, a WordNet suggestion, save (download), open (file input), "
           f"add, find, remove, core turned off and remembered: {'ok' if not problems else problems}")
+    return problems
+
+
+async def check_files(page):
+    """Your files (BROWSER.md §17): a folder listed by kind with its hidden
+    and temporary files skipped, what is not yet filed filed under
+    categories, an edit recognised and undone, and single files offered as
+    a new version of a document of their name. The problems found."""
+    import tempfile
+    problems = []
+
+    async def said(selector, starts):
+        await page.wait_for_function(
+            "([s, w]) => document.querySelector(s).textContent.startsWith(w)", arg=[selector, starts])
+        return await page.inner_text(selector)
+
+    async def file_ticked(under):
+        await page.fill("#filesunder", under)
+        await page.keyboard.press("Escape")
+        await page.click("#filesfile")
+        return await said("#filesresult", "Filed")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = os.path.join(tmp, "Holiday")
+        for rel, data in (("IMG_1.jpg", b"one"), ("IMG_2.jpg", b"two"), ("trip.pdf", b"pdf"),
+                          ("copy/IMG_1.jpg", b"one"), (".git/config", b"x"), ("notes.md~", b"t")):
+            path = os.path.join(folder, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "wb") as fh:
+                fh.write(data)
+        await page.click("#filestoggle")
+        await page.set_input_files("#folderinput", folder)
+        status = await said("#filesstatus", "Holiday:")
+        want = "Holiday: 4 files (1 document, 3 image-file) · 3 not yet filed · 2 skipped (hidden or temporary)"
+        if status != want:
+            problems.append(f"the folder: {status!r}")
+        for box in await page.query_selector_all("#fileswork input[data-sha]"):
+            await box.check()
+        done = await file_ticked("holiday photograph")
+        if not done.startswith("Filed 3 files under holiday, photograph"):
+            problems.append(f"filing the folder: {done!r}")
+        # All three went under photograph, which core puts under image.
+        found = (await page.evaluate("window.ontodagPage.call('org_get', 'holiday image')")).get("mine", [])
+        if not {"IMG_1.jpg", "IMG_2.jpg", "trip.pdf"} <= set(found):
+            problems.append(f"holiday image: {found!r}")
+        status = await said("#filesstatus", "Holiday:")
+        if "3 already filed · nothing left to file" not in status:
+            problems.append(f"the folder after filing: {status!r}")
+
+        # An edit: opening the folder again files the new content as a new
+        # version of its document, with undo; undone, it waits in the list.
+        with open(os.path.join(folder, "IMG_2.jpg"), "wb") as fh:
+            fh.write(b"two, edited")
+        await page.set_input_files("#folderinput", folder)
+        attached = await said("#filesattached", "Filed as a new version")
+        if "IMG_2.jpg" not in attached:
+            problems.append(f"the edit: {attached!r}")
+        await page.click("#filesattached button")
+        await said("#filesresult", "Took back")
+        offered = await page.inner_text("#fileswork select")
+        if "a new version of IMG_2.jpg" not in offered:
+            problems.append(f"after undo, the list offers: {offered!r}")
+
+        # Single files: one filed, then a new content of it filed as its new version.
+        notes = os.path.join(tmp, "notes.md")
+        with open(notes, "wb") as fh:
+            fh.write(b"n1")
+        await page.set_input_files("#filesinput", notes)
+        await said("#filesstatus", "1 file")
+        await page.check("#fileswork input[data-sha]")
+        await file_ticked("notes")
+        with open(notes, "wb") as fh:
+            fh.write(b"n2, edited")
+        await page.set_input_files("#filesinput", notes)
+        await said("#filesstatus", "1 file")
+        await page.select_option("#fileswork select", "notes.md")
+        await page.check("#fileswork input[data-sha]")
+        done = await file_ticked("")
+        if "1 as a new version of a document you had" not in done:
+            problems.append(f"a new version of notes.md: {done!r}")
+        below = (await page.evaluate("window.ontodagPage.call('org_get', 'notes.md')")).get("mine", [])
+        if len([n for n in below if n.startswith("sha256:")]) != 2:
+            problems.append(f"notes.md's versions: {below!r}")
+    print(f"  your files: a folder by kind (hidden and temporary skipped), filed, an edit undone, "
+          f"single files as a new version: {'ok' if not problems else problems}")
     return problems
 
 

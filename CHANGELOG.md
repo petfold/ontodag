@@ -14,6 +14,20 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Added
+
+- **The page files your files** (BROWSER.md §17): Files…, with Open a
+  folder… and Add files…, on `ontodag.folders` as `odag folder` and `odag
+  file` are (`Organiser.files_plan`, `files_look`, `files_file`,
+  `files_undo`). A folder is read, never written:
+  - its files are listed by kind, hidden and temporary ones skipped, and
+    hashed in the page;
+  - what is not yet filed is ticked and filed under categories, each file
+    a document with its content as a version;
+  - an edited file is filed as a new version of its document, with undo;
+  - single files are offered as a new version of a document of their
+    name.
+
 ### Changed
 
 - **Saving back to an opened file asks once with the save dialog where the

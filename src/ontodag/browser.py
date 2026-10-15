@@ -663,6 +663,8 @@ class Organiser:
         self._vocab = None
         self._unions = {}
         self._view = None
+        self.folder = None        # the last look at files (`files_look`)
+        self._declined = set()    # (version, document) pairs undone this session
 
     def _answer(self, **fields):
         import json
@@ -679,6 +681,8 @@ class Organiser:
         """Another store of yours (new, opened, or fetched)."""
         self.mine = mine
         self._view = None
+        self.folder = None
+        self._declined = set()
 
     # -- what is shown ---------------------------------------------------- #
 
@@ -897,3 +901,138 @@ class Organiser:
         answer = self.mine.remove(names)
         self._view = None
         return answer
+
+    # -- your files (BROWSER.md §17, questions 40 to 46) ------------------- #
+    #
+    # The page lists a folder (or single files) and hashes what it reads;
+    # `ontodag.folders` does the rest, as for `odag folder` and `odag file`.
+    # The folder is read, never written, and its kinds are a layer that is
+    # never stored.
+
+    def files_plan(self, listing):
+        """Which of a folder's files to read: `listing` is JSON [[path, size,
+        mtime], ...]; hidden folders, caches and temporary files are not
+        read."""
+        import json
+        from ontodag import folders
+        rows = json.loads(listing)
+        read = [i for i, row in enumerate(rows) if not folders.skipped(row[0])]
+        return self._answer(read=read, skipped=len(rows) - len(read))
+
+    def files_look(self, seen, name="", whole=True):
+        """Look at the files the page read: `seen` is JSON [{path, size,
+        mtime, sha256}], sha256 null for a file too large to read in the
+        page. With `whole` they are a folder's files: a content that is a
+        new version of a filed document is attached and said (to undo), as
+        `odag folder` does, unless it was undone this session. Single files
+        cannot tell that an old version is gone, so a document of their
+        name is offered instead (`like`). Answers what the files are by
+        kind, how many contents are filed, and the work list: the contents
+        not yet filed, copies as one."""
+        import json
+        from ontodag import folders
+        found = [folders.Seen(s["path"], int(s["size"]), float(s["mtime"]), s.get("sha256"))
+                 for s in json.loads(seen)]
+        self.folder = folders.Folder(found)
+        dag = self.mine.dag
+        attached, ambiguous = [], []
+        if whole:
+            edits, unsure = folders.recognise_edits(dag, self.folder)
+            had_time = "time" in dag.nodes
+            puts = []
+            for s, doc in edits:
+                version = folders.version_name(s.sha256)
+                if (version, doc) in self._declined:
+                    continue
+                folders.attach(dag, s, doc)
+                self.mine.changed = True
+                puts.append((version, [doc, folders.time_value(s.mtime)]))
+                attached.append({"path": s.path, "document": doc, "version": version})
+            if had_time:
+                self._mirror(puts)
+            elif puts:
+                self._view = None
+            ambiguous = [{"sha256": s.sha256, "path": s.path, "documents": docs} for s, docs in unsure]
+        kinds = {}
+        for s in found:
+            kind = folders.kind_of(s.path) or "other"
+            kinds[kind] = kinds.get(kind, 0) + 1
+        filed = sum(1 for h in self.folder.by_hash if folders.version_name(h) in dag.nodes)
+        work = []
+        for h, files in folders.unfiled(dag, self.folder).items():
+            first = files[0]
+            work.append({"sha256": h, "paths": [f.path for f in files], "name": first.name,
+                         "folder": first.folder, "kind": folders.kind_of(first.path) or "other",
+                         "size": first.size, "mtime": first.mtime,
+                         "like": folders.named_like(dag, first)})
+        work.sort(key=lambda w: (w["kind"], w["paths"][0]))
+        return self._answer(name=name, files=len(found), kinds=dict(sorted(kinds.items())),
+                            unhashed=len(self.folder.unhashed), filed=filed, attached=attached,
+                            ambiguous=ambiguous, unfiled=work, changed=self.mine.changed,
+                            count=len(self._names()))
+
+    def files_file(self, shas, under="", versions="{}"):
+        """File contents from the last look (JSON list of SHA-256s) under
+        the categories named in `under`: each as a document named by its
+        file, with the content as a version, or as a new version of the
+        document `versions` names for it (JSON {sha256: document}). A
+        category not yet in your store is put at its top first, as a name
+        only (question 39)."""
+        import json
+        import shlex
+        from ontodag import folders
+        try:
+            parents = [self._spelled(p) for p in shlex.split(under)]
+        except ValueError as e:
+            return self._answer(error=str(e))
+        version_of = json.loads(versions)
+        folder = self.folder
+        chosen = json.loads(shas)
+        missing = [h for h in chosen if folder is None or h not in folder.by_hash]
+        if missing:
+            return self._answer(error=f"{len(missing)} of these were not in the files looked at; look again")
+        dag = self.mine.dag
+        taken, created = [], []
+        for p in dict.fromkeys(parents):
+            if "(" not in p and p not in dag.nodes:
+                (taken if p in self.vocab.places else created).append(p)
+        filed, puts, prelude = [], [(p, []) for p in taken + created], 0
+        for h in chosen:
+            s = folder.by_hash[h][0]
+            try:
+                done = folders.file(dag, s, parents, version_of=version_of.get(h))
+            except ValueError as e:
+                self._view = None
+                return self._answer(error=str(e), filed=filed)
+            self.mine.changed = True
+            prelude += done["prelude"]
+            if parents or done["made"]:
+                puts.append((done["document"], parents))
+            puts.append((done["version"], [done["document"], folders.time_value(s.mtime)]))
+            filed.append({"path": s.path, "document": done["document"], "version": done["version"],
+                          "made": done["made"]})
+        if prelude:
+            self._view = None
+        else:
+            self._mirror(puts)
+        return self._answer(filed=filed, under=parents, taken=taken, created=created,
+                            prelude=prelude, changed=True, count=len(self._names()))
+
+    def files_undo(self, versions):
+        """Take back versions a look attached (JSON list): they are removed,
+        and not attached again this session; they wait in the work list,
+        with their document offered."""
+        import json
+        import shlex
+        from ontodag import folders
+        names = json.loads(versions)
+        dag = self.mine.dag
+        for v in names:
+            doc = folders.document_of(dag, v)
+            if doc:
+                self._declined.add((v, doc))
+        answer = json.loads(self.mine.remove(" ".join(shlex.quote(v) for v in names)))
+        self._view = None
+        if "error" in answer:
+            return self._answer(error=answer["error"])
+        return self._answer(undone=names, changed=answer["changed"], count=len(self._names()))
