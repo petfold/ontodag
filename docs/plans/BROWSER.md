@@ -687,6 +687,18 @@ above, named on every upload.** The discussion that led there:
 - **Rejected:** A (level 1 everywhere) needs Bee's coding copied into
   our code for blobs over 4 KB; B everywhere loses offline names and the
   check; D costs five times the chunks.
+- **It also suits Ant,** Freedom's node, which reads a coded file only
+  with `--allow-degraded-redundancy` (its README): our small blobs are
+  never coded and the large ones go plain. The pages themselves go up
+  through `/bzz` at level 0 for the same reason, outside this rule.
+- **Built (2026-10-15):** `swarmfs.redundancy_for(size)` and
+  `BeeRemote.push_blob` (swarmfs `d2c9f97`; a local-first store could not
+  push a blob over 4 KB before, refused as a fork), `BeeBytesStore`
+  (recordstore `51c35d9`), and the page's `uploadBlob`. Each test failed
+  first; the live ones on this laptop's node checked that a 10 KB blob
+  keeps its computed reference and a small one gets its two copies. The
+  page's publish check gave the same roots as on 2026-10-13, and the
+  page's root then had its two copies.
 
 Next, as §8 orders them: writing under the §11 key (Weeb-3 or an HTTP
 node first, Freedom after #647). The gateway step is done (above).

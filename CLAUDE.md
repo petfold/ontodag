@@ -623,7 +623,9 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   `bzz://5e0e4643…`, not behind the names until Peter has tried it; it
   announced a book live on 2026-10-14, loopmarket's BROWSER.md §5c).
   Question 47 (the redundancy level, BROWSER.md §13) is decided C and
-  being built in swarmfs, recordstore and the page. Both pages run in real Freedom
+  built on the mains of swarmfs, recordstore and the page; it ships with
+  swarmfs 0.15.0 and recordstore 0.24.0 (Peter's word), and ontodag's
+  floors follow at its next release. Both pages run in real Freedom
   Browser and through the public gateway (BROWSER.md §13).
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.
@@ -639,7 +641,7 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 ## Open questions for Peter
 
 None open now: question 47 (the redundancy level) is decided C and
-being built; questions 37 to 46 (the organiser page and `odag`'s
+built on the mains; questions 37 to 46 (the organiser page and `odag`'s
 folders) are decided. The smaller open points are in BROWSER.md §17;
 next for the organiser is the page's "Open a folder…" and "Add files…".
 Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built

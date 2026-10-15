@@ -14,6 +14,17 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Changed
+
+- **Every upload names its redundancy level** (question 47, decided by
+  Peter 2026-10-15): level 1 for a blob up to 4 KB, so Bee also writes
+  two copies of it and its reference is unchanged, level 0 above, so a
+  reference is always the one Swarm's own rules give. The page's writer
+  sent 0 for everything; `odag`'s `swarm:` stores and the packs (through
+  swarmfs) and `loop` (through recordstore) sent none and got Bee's
+  default. Built in swarmfs and recordstore (their next releases; this
+  release's floors follow them) and in the page.
+
 ### Fixed
 
 - **The page's writer outlasts a light node's 500s for a missing feed

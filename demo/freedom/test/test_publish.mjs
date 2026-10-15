@@ -58,6 +58,26 @@ check(hex(key.signHash(unhex(v.hash))) === v.hash_signature,
   check(failing instanceof Error && /HTTP 500/.test(failing.message), "a 500 that never ends is an error");
 }
 
+// Every upload names its redundancy level (question 47): 1 while a blob fits
+// one chunk (the node adds two copies; the reference is the chunk's own), 0
+// above, so the node's reference is always the one the page computed.
+{
+  const levels = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    levels.push([init.body.length, init.headers["Swarm-Redundancy-Level"]]);
+    return { ok: true, json: async () => ({ reference: "ab".repeat(32) }) };
+  };
+  try {
+    const writer = new NodeWriter("http://localhost:1633");
+    for (const n of [100, 4096, 4097, 5000]) await writer.uploadBlob(new Uint8Array(n), "cd".repeat(32), "ab".repeat(32));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  check(JSON.stringify(levels) === JSON.stringify([[100, "1"], [4096, "1"], [4097, "0"], [5000, "0"]]),
+        "an upload names level 1 for a blob of one chunk, 0 above");
+}
+
 if (process.argv[3]) {
   for (const c of JSON.parse(readFileSync(process.argv[3], "utf8"))) {
     // the tree's leaves, in order, are the blob: rebuild it from the chunks

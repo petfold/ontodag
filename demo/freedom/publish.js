@@ -12,7 +12,7 @@
 import { keccak_256 } from "./vendor/noble-hashes/sha3.js";
 import { secp256k1 } from "./vendor/noble-curves/secp256k1.js";
 import {
-  HttpSwarm, chunkAddress, contentAddress, feedIdentifier, hex, socAddress, spanBytes, unhex,
+  CHUNK_SIZE, HttpSwarm, chunkAddress, contentAddress, feedIdentifier, hex, socAddress, spanBytes, unhex,
 } from "./swarm.js";
 
 const utf8 = new TextEncoder();
@@ -168,13 +168,17 @@ export class NodeWriter {
       .sort((a, b) => b.ttl - a.ttl);
   }
 
+  // The level is always named, never left to the node (question 47): 1
+  // while the blob fits one chunk, so the node also writes two copies of
+  // it and the reference is the chunk's own; 0 above, where coding would
+  // change the reference (swarmfs.redundancy_for is the same rule).
   async uploadBlob(bytes, batch, ref) {
     const res = await fetch(`${this.base}/bytes`, {
       method: "POST",
       headers: {
         "Content-Type": "application/octet-stream",
         "Swarm-Postage-Batch-Id": batch,
-        "Swarm-Redundancy-Level": "0",
+        "Swarm-Redundancy-Level": bytes.length <= CHUNK_SIZE ? "1" : "0",
         "Swarm-Deferred-Upload": "false",
       },
       body: bytes,
