@@ -410,6 +410,13 @@ Each line points to its record.
   Question 46 decided B: on a screen an answer folds a document's
   versions into its line; a pipe gets every name. A mockup shows the
   whole design (BROWSER.md §17).
+- Redundancy (question 47, decided C by Peter, 2026-10-15, BROWSER.md
+  §13): every upload names its level, never the node's default: level 1
+  for a blob up to 4 KB (two copies of it, its reference unchanged),
+  level 0 above, so a reference is always computable from Swarm's own
+  rules (a chunk's address, the plain tree) and never from Bee's coding.
+  We build no trees and keep no records small on purpose. Protection for
+  large records is revisited when the organiser makes them.
 - Provenance: signed claim records in a sibling store (PROVENANCE.md).
 - Web: one page, browsing plus a console, where every click writes its
   command (WEB_UI.md). Its DAG lives in the server's memory per session.
@@ -615,8 +622,8 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   announces your book, signing with this page's `publish.js`,
   `bzz://5e0e4643…`, not behind the names until Peter has tried it; it
   announced a book live on 2026-10-14, loopmarket's BROWSER.md §5c).
-  Open for Peter: question 47, the redundancy level our stores upload
-  at (BROWSER.md §13). Both pages run in real Freedom
+  Question 47 (the redundancy level, BROWSER.md §13) is decided C and
+  being built in swarmfs, recordstore and the page. Both pages run in real Freedom
   Browser and through the public gateway (BROWSER.md §13).
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.
@@ -631,10 +638,9 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 
 ## Open questions for Peter
 
-Question 47 (2026-10-14, BROWSER.md §13): at which redundancy level our
-stores' blobs go to Swarm; recommended A, level 1 named everywhere.
-Questions 37 to 46 (the organiser page and `odag`'s folders) are
-decided. The smaller open points are in BROWSER.md §17;
+None open now: question 47 (the redundancy level) is decided C and
+being built; questions 37 to 46 (the organiser page and `odag`'s
+folders) are decided. The smaller open points are in BROWSER.md §17;
 next for the organiser is the page's "Open a folder…" and "Add files…".
 Polygons and unions of rectangles: not now. None open from the review: questions 24–28 are decided and built
 (`docs/plans/REVIEW_2026-10.md` items 21–25).

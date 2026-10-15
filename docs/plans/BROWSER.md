@@ -658,6 +658,36 @@ answer the one loss we have actually met (bee#5400). Our stores are a
 few MB, so three times the chunks is still small. None of it outlives
 the batch: the replicas are stamped on it and expire with it.
 
+**Decided C (Peter, 2026-10-15): level 1 for a blob up to 4 KB, level 0
+above, named on every upload.** The discussion that led there:
+- **Separation of concerns (Peter):** Bee's internals are not ours to
+  depend on. We neither build trees nor copy Bee's coding. A blob's
+  reference is computed only by Swarm's own rules: a chunk's address,
+  and the plain tree above it that every client shares. Coded trees and
+  the root copies are Bee's implementation; Ant had to reimplement
+  Bee's hash trie to reproduce them.
+- **Why size matters at all:** the size of a record is the node's
+  business, and `/bytes` takes any. It matters only because we name
+  blobs before the node does (local-first commits, the page's staging,
+  the check of the node's answer). Up to 4 KB the name is the same at
+  every level, and level 1 only adds two copies on the side. Above
+  4 KB, coding changes the name, so those blobs go at level 0. Splitting
+  records to stay under 4 KB was rejected: it is building trees under
+  another name. Keeping blobs small is a performance matter only.
+- **The cost, accepted for now:** blobs over 4 KB get no parity and no
+  copies. Today they are only the cone summaries, a cache: a page that
+  cannot fetch one walks the category instead, exactly. At level 0 they
+  still have the neighbourhood's own replication, and swarmfs's sync
+  checks each upload and pushes again from the laptop what did not land.
+- **Revisit** when the organiser makes large category records (a filed
+  folder of 2,563 files is an 85 KB record). The two clean ways then:
+  let the node code them and take its name (B), or re-check published
+  stores from the owner's copy and push again what is missing, which
+  protects every blob at any level.
+- **Rejected:** A (level 1 everywhere) needs Bee's coding copied into
+  our code for blobs over 4 KB; B everywhere loses offline names and the
+  check; D costs five times the chunks.
+
 Next, as §8 orders them: writing under the §11 key (Weeb-3 or an HTTP
 node first, Freedom after #647). The gateway step is done (above).
 
