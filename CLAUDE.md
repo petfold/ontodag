@@ -43,8 +43,8 @@ github.com/petfold.
   floor and a ceiling (`>=0.34.0,<0.35.0` since its 0.10.0); raise the ceiling by hand once ontodag's release job has run
   its suite against the candidate, then release it.
 - **loopmarket**: the marketplace, and the main consumer of dimensions. It
-  pins only a floor (`>=0.34.0` on its main; its release 0.17.1 says
-  `>=0.32.0`), and its suite runs in ontodag's release gate. Its offer ids hash canonical spellings, so stores made under
+  pins only a floor (`>=0.34.0` since its 0.18.0), and its suite runs in
+  ontodag's release gate. Its offer ids hash canonical spellings, so stores made under
   another registry version need the `ontodag.migrate` replay before mixing.
 - **ontodag-core**: builds the `core` pack and the ten domain packs by
   consensus over WordNet, SUMO, Wikidata and others, and regenerates
@@ -634,12 +634,13 @@ Each line points to its record.
   included; `release_smoke.py --pypi` 28/28, its photo check new; one
   earlier run failed the base install while the index lagged, the next
   two passed), then ontodag-fs 0.10.0 (`>=0.34.0,<0.35.0`; its contract
-  pin accepts registry 6 alone). loopmarket's main carries the bare
-  spelling with floor `ontodag>=0.34.0`, not released: its unreleased
-  section also holds the maker page Peter has not tried. Its live test
-  offer (Rome, `75337293…`, pinned to registry 5) is not re-posted yet:
-  the market page bundles ontodag 0.33, so an offer under major 6 would
-  leave it until that page is rebuilt and its feed moved (Peter's word).
+  pin accepts registry 6 alone), then loopmarket 0.18.0 (the market page
+  and your offers from it, the bare spelling, floor `ontodag>=0.34.0`;
+  uv resolved it at once, and the installer in a fresh home installed
+  it). Then, on the same word, loopmarket's market page rebuilt with
+  them went behind its names (feed update 5), and the test maker's Rome
+  offer was re-posted under registry 6 (`ff0abfa99a92…`, the registry 5
+  one withdrawn); a keyless reader and the page both list it.
 - Released 2026-10-14 on Peter's word, each verified from PyPI:
   recordstore 0.23.0 (`get_many`, and an unreachable trie node read as
   unavailable), then ontodag 0.33.0 (`odag folder` and `odag file`,
@@ -680,11 +681,12 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   Peter's word: the 0.34.0 release, with the packs' cone summaries
   republished under registry 6.0; checked through the node and the
   public gateway before the feed moved; before it `edbd8713…`); loopmarket's market page (`browser/`,
-  `bzz://56f9ce1b…` behind `loopmarket.gwei` and `loopmarket.eth`; both load one shared Pyodide;
-  a version that also makes, publishes and withdraws your offers and
-  announces your book, signing with this page's `publish.js`,
-  `bzz://adf2e955…`, not behind the names until Peter has tried it; it
-  announced a book live on 2026-10-14, loopmarket's BROWSER.md §5c).
+  `bzz://2abb4979…` behind `loopmarket.gwei` and `loopmarket.eth` since
+  2026-10-15 (feed update 5: loopmarket 0.18.0 with ontodag 0.34.0, which
+  also makes, publishes and withdraws your offers and announces your
+  book, signing with this page's `publish.js`; it announced a book live
+  on 2026-10-14, loopmarket's BROWSER.md §5c; before it `56f9ce1b…`,
+  read-only); both load one shared Pyodide).
   Question 47 (the redundancy level, BROWSER.md §13) is decided C and
   released (swarmfs 0.15.0, recordstore 0.24.0, ontodag 0.33.1, the page's
   update 8). Both pages run in real Freedom
