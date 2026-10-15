@@ -3098,3 +3098,17 @@ reads").**
   - freedom-hq/ant#187: its README calls recovery a gap, while its joiner
     has recovered "always on" since 4 July and the flag the README names is
     a no-op.
+
+**Feed update 9 and the system Python (2026-10-15, evening, Peter's
+word).**
+- **Feed update 9:** the feed points at `edbd8713…`, the version checked
+  through the node with publishing. Its eight page files are byte for byte
+  a fresh build of HEAD, and no package code changed since the tags. The
+  feed manifest, `ontodag.eth` and `ontodag.gwei` all serve it, the
+  gateway within seconds this time.
+- **The user site:** ontodag (editable from the checkout), recordstore
+  0.24.0, swarmfs 0.15.0, loopmarket 0.17.1 (`loop` was 0.7.0) and
+  ontodag-fs 0.9.0, with nothing else changed (a dry run first).
+- **Checked:** `pip check` reports only older mismatches among Ubuntu's
+  own packages, none involving ours, and the browser test that failed
+  under recordstore 0.22.2 passes.
