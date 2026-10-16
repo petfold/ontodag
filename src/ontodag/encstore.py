@@ -1,8 +1,8 @@
 """Deterministic authenticated encryption for record-store blobs — the
 single-audience encrypted store (PACKS.md §14 item 3, second half;
-PROJECTIONS.md §11's overlay composition assumes it; the category key graph
-of `docs/plans/act-categories/DESIGN.md` later supplies this module's key
-from an audience node, which is the two mechanisms' unification seam).
+PROJECTIONS.md §11's overlay composition assumes it). Its 64-byte key
+comes from the `store_key` setting (`derive_key`, below), or from a 32-byte
+node key through `ontodag.act.store_key_for`.
 
 The one design fact everything follows from: **encryption must be
 deterministic**, because the store is content-addressed. A random nonce

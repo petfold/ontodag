@@ -182,12 +182,14 @@ someone holding nothing but the root. And an `rs:` store can be **encrypted**
 (`odag set store_key ...`, the `crypto` extra): records and structure are
 ciphertext at rest, a wrong key refuses at open, and encryption is
 deterministic on purpose — your two devices with the same key still commit
-the same knowledge to the same root. Behind that seam sits **`ontodag.act`**
-(the `act` extra, experimental): category-based access control — a key per
-category and rekeying tokens along the DAG's own edges, so whoever holds the
-key for `finance` derives the keys for everything filed below it, with
-grantee entries bit-compatible with Bee's ACT; client-side only, no node
-changes ([docs/plans/act-categories/DESIGN.md](docs/plans/act-categories/DESIGN.md)).
+the same knowledge to the same root. Sharing with particular people is
+**`ontodag.keyplan`** (the `act` extra, experimental): what you file below
+`shared-with(person)` becomes a key per category and a token per edge of the
+order, so a reader works out what they may read from the published records
+and their own key alone, everything below a category they can open
+included. Its grantee entries are bit-compatible with Bee's ACT; it runs in
+the client, with no node changes
+([docs/plans/SHARING_ON_SWARM.md](docs/plans/SHARING_ON_SWARM.md)).
 
 ## In a browser
 
