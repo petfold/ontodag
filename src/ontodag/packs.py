@@ -323,3 +323,39 @@ def apply(dag, name) -> None:
     """Merge pack `name` into `dag`. Idempotent (merge semantics), and the
     vocabulary then travels with the store."""
     dag.merge(adoption_dag(dag, name))
+
+
+def uses(name) -> tuple:
+    """The sibling packs pack `name` borrows names from: a soft dependency.
+    Core is a hard one (`apply` brings it); a sibling is only offered, since
+    adopting all of computing to place geography's five borrowed names is a
+    bad trade. The module's `USES` when ontodag-core wrote one, else derived
+    from its `BORROWED` names and the packs that own them."""
+    module = _DOMAIN.get(name)
+    if module is None:
+        return ()
+    declared = getattr(module, "USES", None)
+    if declared is not None:
+        return tuple(declared)
+    return tuple(sorted({owner for borrowed in module.BORROWED
+                         for owner in _owners(borrowed, besides=name)}))
+
+
+def _owners(node, besides=None):
+    return [q for q, module in _DOMAIN.items()
+            if q != besides and any(n == node and parents for n, parents in module.PACK)]
+
+
+def unplaced_borrowings(dag, name) -> dict:
+    """{sibling: [names]}: the names pack `name` borrows that still sit at
+    the top of `dag`, with no parent but the root, and the sibling packs
+    that would file them. Empty once every sibling it uses is adopted."""
+    module = _DOMAIN.get(name)
+    found = {}
+    for borrowed in getattr(module, "BORROWED", ()):
+        node = dag.nodes.get(borrowed)
+        if node is None or any(p.name != "*" for p in node.parents):
+            continue
+        for owner in _owners(borrowed, besides=name):
+            found.setdefault(owner, []).append(borrowed)
+    return {owner: sorted(names) for owner, names in sorted(found.items())}

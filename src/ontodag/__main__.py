@@ -938,6 +938,11 @@ def cmd_pack(args, session, out):
         return _preview_merge(args, session, adoption_dag(session.dag, args.name), out)
     session.dag.merge(adoption_dag(session.dag, args.name))
     session.save()
+    # A sibling pack is a soft dependency: offered, never adopted for you.
+    from ontodag.packs import unplaced_borrowings
+    for sibling, names in unplaced_borrowings(session.dag, args.name).items():
+        print(f"note: {args.name} uses {', '.join(names)} from {sibling}; "
+              f"`odag pack {sibling}` files them", file=sys.stderr)
 
 
 def cmd_canon(args, session, out):

@@ -373,6 +373,26 @@ class TestDomainPacks(unittest.TestCase):
         self.assertEqual(packs_declaring_node("mount-everest"), ["geography"])
 
 
+class TestSoftDependencies(unittest.TestCase):
+    """A sibling pack is a soft dependency: `uses` names the packs whose
+    names a pack borrows, and `unplaced_borrowings` the ones still unfiled
+    in a store, which `odag pack` and the REST route offer, never adopt."""
+
+    def test_uses_names_the_siblings_a_pack_borrows_from(self):
+        from ontodag.packs import uses
+        self.assertIn("computing", uses("geography"))       # file-format, database, ...
+        self.assertEqual(uses("chemistry"), ())              # core alone
+        self.assertEqual(uses("core"), ())                   # not a domain pack
+
+    def test_unplaced_borrowings_empty_once_the_sibling_is_adopted(self):
+        from ontodag.packs import unplaced_borrowings
+        dag = ontodag.OntoDAG()
+        apply(dag, "geography")
+        self.assertIn("file-format", unplaced_borrowings(dag, "geography").get("computing", []))
+        apply(dag, "computing")
+        self.assertNotIn("computing", unplaced_borrowings(dag, "geography"))
+
+
 class TestCorePack(unittest.TestCase):
     """docs/CORE.md: the upper ontology as a pack — closure, size discipline,
     the motivating paths, no unit declarations, composition with the
