@@ -1,17 +1,38 @@
 # Category-Based Access Control on Swarm: OntoDAG as a Key Graph
 
-Status: discussion draft (August 2026). **Superseded in implementation
-(2026-10-07, ontodag 0.30):** Phase 1 was built as `ontodag.act`'s
-`KeyGraph`/`Resolver`/`align` (0.19–0.29) and is retired; the key plan,
-`ontodag.keyplan`, derives the same tokens from the store instead of a
-hand-maintained twin, and [../SHARING_ON_SWARM.md](../SHARING_ON_SWARM.md)
-is the record for it. `ontodag.act` keeps the primitives (Bee-ACT grantee
-entries, format-2 tokens, `store_key_for`). The analysis below still
-stands; read "key graph" as "key plan" for anything built. Original
-status: nothing here is implemented. This
-document is written to become, in whole or in parts: (a) the design record for
-an OntoDAG feature, (b) a Bee feature-request issue, and (c) possibly a SWIP
-for the on-Swarm key-graph format. §8 recommends which part goes where.
+Status: **historical** (written August 2026, kept as it was since
+2026-10-16). Nothing here is maintained. What is true now:
+
+- **The design record** for access control is
+  [SHARING_ON_SWARM.md](SHARING_ON_SWARM.md) (§4 the key plan, §9 the
+  alternatives, §11 the open topics, §13 what is built), with
+  [SHARING.md](SHARING.md) for the rule it enforces and
+  [BROWSER.md](BROWSER.md) §12 for why the node's ACT is not used.
+- **The code** is `ontodag.keyplan` (`Publisher`, `Reader`) over the
+  primitives in `ontodag.act` (Bee-ACT grantee entries, format-2 tokens,
+  `store_key_for`), in the `act` extra. User Guide §9.3–§9.4.
+
+What became of each part:
+
+| Part | Became |
+|---|---|
+| §1–§2.6, the construction | Built, as the key plan: a key per node, a token per edge of the order below the audience terms, grantee entries in Bee's format (SHARING_ON_SWARM §4) |
+| §2.5, AND audiences | Not built; kept as topic S19 in SHARING_ON_SWARM §11 |
+| §2.7, the knowledge DAG's mutations | Overtaken: the plan is derived from the store at every publication, so nothing mints tokens edit by edit |
+| §2.8, time buckets | Answered: tokens follow computed hops as well as asserted edges |
+| §3, one Bee ACT per category | Not followed: ontodag seals content itself and uses the node's ACT for nothing (BROWSER.md §12) |
+| §4 Phase 1, `KeyGraph`/`Resolver`/`align` (0.19–0.29) | Retired in 0.30; item 4 (category manifests and feeds) was never built |
+| §4 Phase 2, a `Swarm-Act-Access-Key` header | Not filed: it helps only clients without cryptography (BROWSER.md §12); Freedom #648 was filed instead |
+| §4 Phase 3 and §8, a SWIP | SHARING_ON_SWARM §10, Phase 8 |
+| §5, the crypto spike | Pinned in `tests/test_act.py`; the conventions are in `ontodag.act`'s docstrings |
+| §6, costs and limits | SHARING_ON_SWARM §4.3, §4.4 and §9 |
+| §7, alternatives | SHARING_ON_SWARM §9 |
+| §9, open questions | Personal keys: identity option A (BROWSER.md §14.3). Token storage: under each node's record (S5). Epochs: per node, lazy, upward to a fixpoint (S6). Twin or one DAG: derived from the store. Padding: S8, open |
+
+The original status: a discussion draft, written to become, in whole or in
+parts: (a) the design record for an OntoDAG feature, (b) a Bee
+feature-request issue, and (c) possibly a SWIP for the on-Swarm key-graph
+format. §8 recommends which part goes where.
 
 Companion reading: `docs/SWARM_DESIGN.md` (how OntoDAG persists on Swarm via
 `recordstore`), and in the Bee repository `pkg/accesscontrol/` (the ACT
@@ -186,8 +207,8 @@ originally predated:
 ### 2.8 Walls: posts as document categories, audiences as recipient categories (added 2026-09-24)
 
 The first concrete workload for this design is posting to an audience —
-walls and inboxes, [../WALLS_AND_INBOXES.md](../WALLS_AND_INBOXES.md) (canonical;
-with [../SHARING.md](../SHARING.md) for the rule it enforces):
+walls and inboxes, [WALLS_AND_INBOXES.md](WALLS_AND_INBOXES.md) (canonical;
+with [SHARING.md](SHARING.md) for the rule it enforces):
 
 - **Recipient categories are audiences**: principals, and the groups filed
   under them (`friends ⊑ ada@…`), nesting as the people DAG of §2.2 does.
@@ -430,7 +451,7 @@ Do both, in order, and keep them small:
 - Padding/decoy policy for category manifests (§6) — needed in v1 of the
   format or deferrable?
 
-*(2026-09-25: [../SHARING_ON_SWARM.md](../SHARING_ON_SWARM.md) takes up
+*(2026-09-25: [SHARING_ON_SWARM.md](SHARING_ON_SWARM.md) takes up
 several of these. The key graph is derived from reach at every commit,
 which answers the aligned-twin question. Rotation is per node, and lazy:
 only before something new is wrapped under a lost node, then upward to a

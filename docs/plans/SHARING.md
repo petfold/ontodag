@@ -9,7 +9,7 @@ rule server-side (its `docs/DESIGN.md` §4–§10); this record proposes which
 part of that belongs in OntoDAG, and how it meets the three mechanisms
 OntoDAG already has for more than one reader: overlays
 ([PROJECTIONS.md](PROJECTIONS.md) §5), category access control
-([act-categories/DESIGN.md](act-categories/DESIGN.md)) and reader-side
+([ACT_CATEGORIES.md](ACT_CATEGORIES.md)) and reader-side
 trust lists ([../AGENT_SURFACE.md](../AGENT_SURFACE.md)).
 
 ## 1. The problem
@@ -103,7 +103,7 @@ bridge edges from a people node to a document category. Written as
 OntoDAG edges, with each token `u → v` read as `v ⊑ u` ("v is held by u"),
 both halves point the same way:
 
-| ACT (act-categories/DESIGN.md §2.2) | This rule (in O's store) |
+| ACT (ACT_CATEGORIES.md §2.2) | This rule (in O's store) |
 |---|---|
 | token `alice → eng-dept` (Alice holds the department key) | `eng-dept ⊑ alice@…` |
 | token `eng-dept → company` (the department derives the company key) | `company ⊑ eng-dept` |

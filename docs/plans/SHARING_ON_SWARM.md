@@ -11,7 +11,7 @@ can run on Swarm with no server at all:
 
 - **Identity and each user's data:** dappdata or Swarm ID.
 - **Who may read what:** enforced by keys, extending ACT as sketched in
-  [act-categories/DESIGN.md](act-categories/DESIGN.md) ("ACT" below).
+  [ACT_CATEGORIES.md](ACT_CATEGORIES.md) ("ACT" below).
 - **Delivery and attention:** ucomm.
 
 categor.io, the server version, is the reference for what the functions
@@ -522,7 +522,10 @@ principal, with a keypair**, as ACT §3 already gives every people node.
   which matches what Swarm's feeds and single-owner chunks offer.
 - **Audiences with structure, at constant cost per change.** A new member
   costs one grantee entry and one token, and a new share one token,
-  whatever the group's size. That solves the flat-list problem of ACT §1.
+  whatever the group's size. That solves the flat-list problem of ACT §1:
+  with a grantee list per publication, sharing with a group of 500 is 500
+  entries, and a new member means touching every publication they should
+  see.
 - **Receivers are hidden from each other** by construction; only their
   number shows (§4.4).
 - **Consent is free.** Pull-only means nothing forces its way in, and the
@@ -547,6 +550,14 @@ principal, with a keypair**, as ACT §3 already gives every people node.
 
 **Against the alternatives:**
 - **Plain ACT** is flat lists, fine for a few readers.
+- **CP-ABE** (ciphertext-policy attribute-based encryption) states
+  policies such as "dept=eng OR role=admin" with no walk. It needs
+  pairing-based cryptography, with weak Python and Go libraries, larger
+  ciphertexts and harder revocation, and reuses nothing Bee has. The key
+  plan needs only symmetric cryptography and the ECDH Bee already uses.
+- **HIBE** (hierarchical identity-based encryption) derives keys from
+  parent to child only: the wrong direction for groups, where a member's
+  key must open the group's.
 - **MLS** gives groups forward secrecy and cheap removal, but no hierarchy
   and no shared categories: it suits conversations.
 - **Nostr and ActivityPub** put relays or servers in the path. They see at
@@ -571,7 +582,7 @@ Each phase ends at a gate that can be checked.
 | **5: Walls and inboxes** | one log per author; ucomm inbox polling and attention; `posted` (WALLS_AND_INBOXES Q3) | 200 follows polled within a stated budget |
 | **6: Requests and push** | a GSOC mailbox or relay behind ucomm's `Rendezvous` interface; spam economics | requests work with the relay off (out of band) and on |
 | **7: Groups across stores** | group principals with keypairs; epoch feeds; automatic re-grants; custody (D28) | after a member leaves Acme, a third party's next post to "Acme's employees" doesn't reach them |
-| **8: Specify** | a SWIP for the key-plan format (ACT Phase 3); the Bee header for caller-supplied keys, if plain Bee clients need it (ACT Phase 2) | the format read by a second implementation |
+| **8: Specify** | a SWIP for the key-plan format (ACT Phase 3): the token and record encodings, node ids, the record layout, the rotation rules, and how a grantee entry maps onto Bee's ACT, once the format has survived real use; the Bee header for caller-supplied keys, if plain Bee clients need it (ACT Phase 2; BROWSER.md §12) | the format read by a second implementation |
 
 ## 11. Discussion topics
 
@@ -678,6 +689,13 @@ Each has options and a leaning; none is decided.
   key-value store and history? *Leaning:* OntoDAG's store for now. Keep
   the entries format-compatible, so a Bee-native path stays open (ACT
   Phase 2).
+- **S19 — AND audiences.** Sharing with the people in both A and B is not
+  a filing: filing under `shared-with(A)` and `shared-with(B)` shares
+  with either. Keys could carry it, a content key derived from both
+  audience keys, `KDF(K_A || K_B)`. Not planned. If it is built, the keys
+  are concatenated in a canonical order (sorted names), or two writers
+  derive different keys for one audience: G1's rule, applied to keys (ACT
+  §2.5).
 
 ## 12. What was checked, and how
 
@@ -729,7 +747,7 @@ changed since the list below, which is kept as it was:
   reader receives is the reader's business (WALLS_AND_INBOXES.md's note).
 - **`KeyGraph`, `Resolver` and `align` retire**; `ontodag.act` keeps the
   primitives (grantee entries, `wrap`/`unwrap` in token format 2,
-  `store_key_for`). act-categories/DESIGN.md's Phases 1–2 are carried by
+  `store_key_for`). ACT_CATEGORIES.md's Phases 1–2 are carried by
   this plan, and the gap in `KeyGraph.revoke` (leaves never rotated)
   leaves with it.
 - **Review fixes:** a name removed and filed again gets a fresh key, never

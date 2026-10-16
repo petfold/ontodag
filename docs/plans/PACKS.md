@@ -339,7 +339,7 @@ cannot have per-reader visibility: the root hashes everything, and
 transitive reduction does not survive projection. So **structure-privacy
 = per-audience stores (overlays)**, composed by merge in a session that
 holds the keys, never committed as a whole — and **content-privacy = the
-category key graph** of `act-categories/DESIGN.md` (per-document keys,
+category key graph** of `ACT_CATEGORIES.md` (per-document keys,
 subsumption decrypts, one token per edge, one bridge per grant). They
 unify at one seam: an encrypted overlay's blobs take their key from the
 audience's node in the key graph, making "a private overlay" and "a
@@ -514,7 +514,7 @@ The freeze this document imposed is **lifted, into the following order**
    its Phase 1 without committing to the weeks. **[Done 2026-08-20:
    `experiments/act_crypto_spike.py` matches Bee v2.8.1 bit-for-bit on
    generated vectors (incl. the 31-byte stripped-x trap pair) and Bee's
-   own upstream fixed vector — record in act-categories DESIGN.md §5.]**
+   own upstream fixed vector — record in ACT_CATEGORIES.md §5.]**
 4. **act-categories Phase 1 on a tripwire**: the first real
    multi-audience need (a second person/team reading a *category* of
    content; ucomm or ontodag-fs reaching shared deployment). It needs

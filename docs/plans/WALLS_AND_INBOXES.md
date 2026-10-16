@@ -15,7 +15,7 @@ which carries its own fold of it:
 - **ucomm** (`docs/WALLS_AND_INBOXES.md` there): how posts reach readers, and
   whether they deserve attention.
 - **categor.io** (`docs/DESIGN.md` §14 there): the site's walls and inboxes.
-- **ACT** ([act-categories/DESIGN.md](act-categories/DESIGN.md) §2.8):
+- **ACT** ([ACT_CATEGORIES.md](ACT_CATEGORIES.md) §2.8):
   enforcing the same audiences with keys on Swarm. How all of it runs with
   no server is [SHARING_ON_SWARM.md](SHARING_ON_SWARM.md).
 
@@ -149,7 +149,7 @@ Everything about an inbox beyond "which posts may I see" is the reader's:
 
 ## 6. ACT: document categories and recipient categories
 
-The extension of Swarm ACT sketched in act-categories/DESIGN.md gets its
+The extension of Swarm ACT sketched in ACT_CATEGORIES.md gets its
 two halves from walls directly:
 
 - **Recipient categories** are the audiences: principals and the groups

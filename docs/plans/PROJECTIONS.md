@@ -143,7 +143,7 @@ human-held items detach and keep their classification.]**
 **The join (proposed — the one new seam).** *(2026-08-20: this seam
 gained a second and third client — pack adoption previews and
 per-audience privacy overlays compose the same way; see PACKS.md Part II
-§11 and `act-categories/DESIGN.md`. The composed read view needs no
+§11 and `ACT_CATEGORIES.md`. The composed read view needs no
 cross-layer re-reduction to answer queries: cones are
 reduction-invariant, and reduction only matters at commit, which the
 composed view never does.)* **[Shipped 2026-08-20: `Session.view()` +

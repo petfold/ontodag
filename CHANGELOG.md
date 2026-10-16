@@ -1890,7 +1890,7 @@ Design record: `docs/DIMENSIONS.md` §8 and §14.
   every edge access flows along gets a public rekeying token, so a reader
   decrypts a document iff a token path leads from their personal key to
   it: people keys flow upward, document keys downward, a bridge is a
-  grant (docs/plans/act-categories/DESIGN.md §2). Grantee entries are Bee
+  grant (docs/plans/ACT_CATEGORIES.md §2). Grantee entries are Bee
   ACT entries bit for bit (the v2.8.1 Go vectors from the August spike are
   now pinned in `tests/test_act.py`); tokens are ours, per-edge-keyed so
   no keystream is ever reused. *(Corrected 2026-10-06: a token re-minted

@@ -3,7 +3,7 @@
 deterministic crypto in Python, pinned bit-for-bit against vectors generated
 from Bee's own Go packages at v2.8.1 (`bee/actvectors_main/main.go`).
 
-This retires the one real unknown in `docs/plans/act-categories/DESIGN.md`
+This retires the one real unknown in `docs/plans/ACT_CATEGORIES.md`
 Phase 1 (§5): the ECDH → Keccak → stream-cipher conventions where the Python
 and Go implementations must agree exactly. It is a *spike* — throwaway proof
 that the primitives line up — not the feature. Run it directly:

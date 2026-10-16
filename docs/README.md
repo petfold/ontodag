@@ -30,8 +30,9 @@ to add a section somewhere, check it isn't another document's job.
 
 Discussion drafts and direction papers. **Nothing in `plans/` is
 shipped**; treat clauses there as proposed until a design record or the
-code says otherwise. Currently: act-categories/DESIGN (category-based
-access control on Swarm — an ACT key graph where subsumption decrypts),
+code says otherwise. Currently: ACT_CATEGORIES (historical: the August
+2026 design for category-based access control on Swarm, succeeded by
+SHARING_ON_SWARM),
 BINDING (roles, bundles, multiplicity),
 EVOLUTION (how an ontology changes; the top ontology), PACKS (published
 ontologies and trust; Part II = the 2026-08-20 decisions and build

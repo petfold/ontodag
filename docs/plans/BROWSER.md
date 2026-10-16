@@ -495,7 +495,7 @@ which `ontodag.act` writes byte for byte as Bee does, pinned against
 Bee's vectors (`tests/test_act.py`). Beyond it they differ in kind:
 
 - **Categories, not lists.** One grant reaches a whole category cone
-  (`act-categories/DESIGN.md` §1).
+  (`ACT_CATEGORIES.md` §1).
 - **Keys no node holds.** Category keys belong to no node, and readers
   often have no node of their own (a page, an offline store). Bee's and
   Ant's ACT always use the node's key (DESIGN §4; `act.rs:31-33`).
