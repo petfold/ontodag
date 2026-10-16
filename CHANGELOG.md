@@ -12,6 +12,24 @@ publish workflow was bypassed and the manual uploads never ran); their
 features first shipped to users in 0.10.0. They are kept as entries because
 the version numbers appear in commit history and docs.
 
+## [Unreleased]
+
+### Changed
+
+- **`POST /dag/pack` adopts as `odag pack` does**: through `packs.apply`, so
+  a domain pack brings `core` along when the store lacks it, instead of
+  leaving core's names as unfiled top-level stubs. The answer names, under
+  `uses`, the sibling packs whose borrowed names are still unfiled.
+
+### Added
+
+- **Soft dependencies between domain packs**: `packs.uses(name)` (a
+  module's `USES`, which ontodag-core's regen writes, else derived from
+  `BORROWED`) and `packs.unplaced_borrowings(dag, name)`. `odag pack NAME`
+  prints a note to stderr naming each sibling whose names are still unfiled
+  (`odag pack computing` files them). It is offered and never adopted: core
+  is the only dependency that ships as closure.
+
 ## [0.34.0] — 2026-10-15
 
 When and where your photos were taken, and a role's rectangle written as

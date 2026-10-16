@@ -558,7 +558,9 @@ Settled 2026-10-07:
 23. **Core declares the unit heads for the quantity names it owns, and
     `force` is the physics quantity** (2026-10-07). Core v11 took
     `force`, `current` and `frequency`, which the physics pack declared
-    as heads in 0.29; a pack never carries entries for core names, so
+    as heads in 0.29; a pack carried no entries for core names then (since
+    ontodag-core's v14 review it may, but only to add a parent from the
+    pack, a refinement, never a head or a unit pin), so
     the build had silently dropped those declarations. Whoever owns a
     name declares its head: core files `force ⊑ linear-dimension(force)`
     and likewise for `current` and `frequency` (ontodag-core
