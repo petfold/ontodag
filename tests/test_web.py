@@ -1031,6 +1031,16 @@ class TestDeclaringDimensionsOverRest:
                            ).status_code == 201
         assert put(client, "wallet", ["price(1BTC)"]).status_code in (201, 400)
 
+    def test_a_domain_pack_brings_core_and_names_the_siblings_it_uses(self, client):
+        # as `odag pack` does: the REST route adopts by `packs.apply`, so a
+        # domain pack's core names arrive filed, not as top-level stubs
+        response = client.post("/dag/pack", json={"name": "geography"})
+        assert response.status_code == 201
+        assert "computing" in response.get_json()["uses"]       # offered, not adopted
+        nodes = client.get("/dag").get_json()["nodes"]
+        names = {n["name"] if isinstance(n, dict) else n for n in nodes}
+        assert {"physical-object", "place", "mount-everest"} <= names
+
     def test_an_unknown_pack_is_a_client_error(self, client):
         response = client.post("/dag/pack", json={"name": "nope"})
         assert response.status_code == 400

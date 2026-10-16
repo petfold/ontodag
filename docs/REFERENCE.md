@@ -392,7 +392,7 @@ empty `cat` = everything.
 | `/dag/overlapping?term=…` | GET | candidates whose value merely overlaps the term (G6) |
 | `/dag/canon[?term=…]` | GET | what a spelling stores (`canonical` + `display`); bare: surface/registry versions |
 | `/dag/prelude` | GET / POST | preview / adopt the standard dimension declarations — **typed values need this first on this surface** |
-| `/dag/pack` | GET / POST `{name}` | list (with `kind`: units or categories) / adopt a pack |
+| `/dag/pack` | GET / POST `{name}` | list (with `kind`: units or categories) / adopt a pack, as `odag pack` does (core comes along; `uses` names siblings still to adopt) |
 | `/market`, `/cars…` | GET | the car-market demo |
 
 Serving the page (all read-only except the console and the example):

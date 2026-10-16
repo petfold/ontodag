@@ -856,10 +856,12 @@ def adopt_prelude():
 def adopt_pack():
     """Unit vocabulary packs — currencies and the like, as graph data.
 
-    GET lists what is shipped; POST `{"name": ...}` merges one in. Same
-    vocabulary-travels-with-the-store story as `odag pack`: nothing here is a
+    GET lists what is shipped; POST `{"name": ...}` adopts one, exactly as
+    `odag pack` does: a domain pack brings `core` along when the store lacks
+    it (a dependency ships as closure), and the answer's `uses` names the
+    sibling packs whose borrowed names are still unfiled. Nothing here is a
     release-coupled table."""
-    from ontodag.packs import PACKS, is_unit_pack, pack_dag
+    from ontodag.packs import PACKS, apply, is_unit_pack, unplaced_borrowings
 
     if request.method == "GET":
         return jsonify({"packs": [
@@ -873,10 +875,14 @@ def adopt_pack():
     if not name:
         return jsonify({"error": "need a pack name (GET /dag/pack lists them)"}), 400
     try:
-        current_dag().merge(pack_dag(name))
+        apply(current_dag(), name)
     except (KeyError, ValueError) as e:
         return jsonify({"error": str(e)}), 400
-    return jsonify({"message": f"Pack {name} adopted."}), 201
+    answer = {"message": f"Pack {name} adopted."}
+    unplaced = unplaced_borrowings(current_dag(), name)
+    if unplaced:
+        answer["uses"] = unplaced
+    return jsonify(answer), 201
 
 
 @app.route("/dag/removal", methods=["GET"])
