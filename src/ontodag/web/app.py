@@ -206,6 +206,7 @@ CONSOLE_REFUSALS = {
     "index": "publishes a record store, which this sandbox has nowhere to put",
     "set": "which store this app opens is a launch argument, not a page's decision",
     "swarm": "checks a Bee node this sandbox does not talk to",
+    "publish": "uploads to a Bee node this sandbox does not talk to",
     "web": "is what you are looking at",
     "history": "this sandbox keeps no versions (an `rs:` or `swarm:` store does)",
     "status": "this sandbox keeps no versions (an `rs:` or `swarm:` store does)",
@@ -469,7 +470,7 @@ COMMAND_GROUPS = (
      ("import", "export", "merge", "ingest", "excerpt", "diff",
       "visualize")),
     ("Versions", ("history", "status", "undo", "redo")),
-    ("Store and network", ("set", "index", "swarm")),
+    ("Store and network", ("set", "index", "publish", "swarm")),
     ("Help", ("help",)),
 )
 

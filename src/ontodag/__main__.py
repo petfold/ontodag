@@ -942,7 +942,7 @@ def cmd_pack(args, session, out):
     from ontodag.packs import unplaced_borrowings
     for sibling, names in unplaced_borrowings(session.dag, args.name).items():
         print(f"note: {args.name} uses {', '.join(names)} from {sibling}; "
-              f"`odag pack {sibling}` files them", file=sys.stderr)
+              f"`odag pack {sibling}` files them", file=_err())
 
 
 def cmd_canon(args, session, out):
@@ -1619,6 +1619,7 @@ def cmd_status(args, session, out):
         store, close = _open_history(session)
     except ValueError:
         # A file store: no history, but the rest is still worth saying.
+        _print_knowledge(session, out)
         print(f"items = {len(session.dag.get([]))}", file=out)
         print("history = none (a plain file keeps one state)", file=out)
         _report_merge_leftovers(session.dag, out)
@@ -1626,6 +1627,7 @@ def cmd_status(args, session, out):
     try:
         status = store.status()
         print(f"root = {status['root']}", file=out)
+        _print_knowledge(session, out)
         print(f"items = {len(session.dag.get([]))}", file=out)
         print(f"versions = {status['history']}", file=out)
         print(f"undoable = {status['undoable']}", file=out)
@@ -1633,6 +1635,41 @@ def cmd_status(args, session, out):
     finally:
         close()
     _report_merge_leftovers(session.dag, out)
+    return 0
+
+
+def _print_knowledge(session, out):
+    """The knowledge id beside the root: what the store knows, whatever keeps
+    it (ontodag.knowledge). Said, not computed, without the swarm extra."""
+    from ontodag import knowledge
+    from ontodag._extras import MissingExtra
+    try:
+        print(f"knowledge = {knowledge.knowledge_id(session.dag)}", file=out)
+    except MissingExtra:
+        print('knowledge = (needs the swarm extra: pip install "ontodag[swarm]")', file=out)
+
+
+def cmd_publish(args, session, out):
+    """Upload the store's canonical text to Swarm; print its knowledge id,
+    which `merge knowledge:ID` fetches. Public: whoever has the id reads it."""
+    from ontodag import encstore, knowledge
+    if (hasattr(session.backend, "path")
+            and encstore.read_marker(session.backend.path) is not None):
+        print("odag: this store is encrypted, and publish writes its text in the "
+              "clear for anyone with the id: refused", file=_err())
+        return 1
+    ref = knowledge.publish(session.dag)
+    print(f"knowledge = {ref}", file=out)
+    try:
+        held = knowledge.retrievable(ref)
+    except Exception as exc:                          # the upload stands either way
+        print(f"odag: published; the node could not say whether the network "
+              f"holds it yet ({exc})", file=_err())
+        return 0
+    if not held:
+        print("odag: published, but the node does not yet report it retrievable "
+              f"from the network; check later with GET /stewardship/{ref}",
+              file=_err())
     return 0
 
 
@@ -2189,8 +2226,9 @@ COMMAND_EFFECTS = {
     "status": frozenset({"reads", "versions"}),
     "undo": frozenset({"versions", "writes"}),
     "redo": frozenset({"versions", "writes"}),
-    "merge": frozenset({"reads", "writes", "files"}),
-    "import": frozenset({"writes", "files"}),
+    "merge": frozenset({"reads", "writes", "files", "network"}),   # network: knowledge:ID
+    "import": frozenset({"writes", "files", "network"}),
+    "publish": frozenset({"reads", "network", "settings"}),
     "ingest": frozenset({"reads", "writes", "files"}),
     "folder": frozenset({"reads", "writes", "files"}),   # files: reads the folder, keeps its hashes
     "file": frozenset({"reads", "writes", "files"}),
@@ -2427,13 +2465,19 @@ def build_parser():
     p.add_argument("-o", "--output")
     p.set_defaults(func=cmd_canon, stream_output=True)
 
-    p = sub.add_parser("merge", add_help=True, help="merge a file into the store")
+    p = sub.add_parser("merge", add_help=True,
+                       help="merge a file, or knowledge:ID from Swarm, into the store")
     p.add_argument("file")
     p.add_argument("--diff", action="store_true",
                    help="preview: print what would arrive and check "
                         "compatibility; change nothing (exit 1 = the merge "
                         "would conflict)")
     p.set_defaults(func=cmd_merge, stream_output=True)
+
+    p = sub.add_parser("publish", add_help=True,
+                       help="upload the store's canonical text to Swarm and "
+                            "print its knowledge id (merge knowledge:ID fetches it)")
+    p.set_defaults(func=cmd_publish, stream_output=True)
 
     p = sub.add_parser("import", add_help=True, help="replace the store with a file")
     p.add_argument("file")

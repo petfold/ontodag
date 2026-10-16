@@ -64,6 +64,10 @@ A higher layer may use exactly this, and nothing else:
 
 - **Operations:** `put`, `get`, `get_any`, `is_below`, `get_overlapping`,
   `remove`, `merge`, `sync`.
+- **Knowledge ids:** `ontodag.knowledge.knowledge_id(dag)`, the Swarm
+  (BMT) reference of `native.dumps(dag)`, names what a store knows: G1's
+  equal knowledge, one id, whatever backend keeps it (PACKS.md §15). A
+  root names how a store keeps it.
 - **Roots:** `commit() → root`; read-only snapshots at any root
   (`RecordStore.at(root)` under `LazyOntoDAG`); a followable signed pointer to
   the latest root (`SwarmFeedPointer`).

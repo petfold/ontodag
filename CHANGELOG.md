@@ -23,6 +23,16 @@ the version numbers appear in commit history and docs.
 
 ### Added
 
+- **Knowledge ids** (`ontodag.knowledge`, PACKS.md §15): the Swarm (BMT)
+  reference of a store's canonical `.od` text. Equal knowledge has one id
+  whatever keeps it (a file, `rs:`, `swarm:`) and however it was built;
+  the root still names how a store keeps it (its trie, by its backend's
+  hash). `odag status` prints `knowledge = …` (with the `swarm` extra);
+  `odag publish` uploads the text and prints the id, refusing an
+  encrypted store and saying when the node does not yet report the
+  content retrievable; `merge`, `merge --diff` and `import` take
+  `knowledge:ID`, checking the fetched bytes against the id before
+  reading them. Golden knowledge ids pin three shipped packs.
 - **Soft dependencies between domain packs**: `packs.uses(name)` (a
   module's `USES`, which ontodag-core's regen writes, else derived from
   `BORROWED`) and `packs.unplaced_borrowings(dag, name)`. `odag pack NAME`

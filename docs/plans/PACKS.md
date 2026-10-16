@@ -529,3 +529,31 @@ The freeze this document imposed is **lifted, into the following order**
 publishing is now the way (item 1); code distribution remains bootstrap
 only. New vocabulary continues to gate on nothing — graph-declared
 units made that a data question, which was the point.
+
+## 15. Knowledge ids (2026-10-17, decided with Peter)
+
+A store's root names how it is kept: recordstore's trie, one record per
+node, hashed by the backend's addressing (sha256 for `rs:`, Swarm's BMT for
+`swarm:`). So one state had two roots, and both move if the trie's format
+ever does. Three jobs had been resting on that one hash: saying *what* a
+store knows (comparison, pinning, endorsement), *fetching* it, and reading
+part of it or proving a claim (lazy reads, certificates). Only the third
+needs the trie.
+
+Decided: a **knowledge id** for the first two, the BMT reference of the
+store's canonical `.od` text (`native.dumps`). The text is a function of
+the filings under one registry version (G1; its version is in the
+`#:canonical` line, G8), so equal knowledge has one id whatever keeps it,
+and the id is also the Swarm address of the text: `odag publish` uploads
+it, `merge knowledge:ID` fetches it and checks the bytes against the id
+before reading them. Roots keep the third job. The id is computed on
+demand, never on commit (it hashes the whole text: about 0.4 s for
+core's 680 KB), and needs the `swarm` extra for Keccak; the `.od`
+checksum line stays sha256, the standard library's.
+
+Weighed and declined: BMT addressing for every store's root (one id that
+can also fetch and prove, but still tied to the trie's format, and every
+commit pays Keccak), and sha256 of the text (free, but not an address).
+Endorsements, a pack index and `USES` refer to knowledge ids. A corrected
+gloss is a new id: it is a different pack.
+

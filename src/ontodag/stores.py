@@ -50,6 +50,11 @@ def _detect_format(path):
 
 
 def _load(path):
+    if path.startswith("knowledge:"):
+        # a store published by its knowledge id (ontodag.knowledge): fetched
+        # from Swarm and checked against the id before anything is read
+        from ontodag import knowledge
+        return knowledge.fetch(path)
     fmt = _detect_format(path)
     if fmt == "native":
         return _native.load(path)

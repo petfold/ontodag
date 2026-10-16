@@ -3628,6 +3628,17 @@ class TestEncryptedStore(unittest.TestCase):
         code, out = _run(["status"], cli.Session(f"rs:{path}"))
         self.assertIn("encrypted = yes", out)
 
+    def test_publish_refuses_an_encrypted_store(self):
+        # publish writes the text in the clear for anyone with the id
+        path = os.path.join(self._dir.name, "secret")
+        self.assertEqual(_run(["put", "Zebra"], cli.Session(f"rs:{path}"))[0], 0)
+        from ontodag import knowledge
+        with mock.patch.object(knowledge, "publish",
+                               side_effect=AssertionError("nothing may upload")):
+            code, _out, err = _run3(["publish"], cli.Session(f"rs:{path}"))
+        self.assertEqual(code, 1)
+        self.assertIn("encrypted", err)
+
     def test_wrong_key_and_missing_key_refuse_at_open(self):
         path = os.path.join(self._dir.name, "secret")
         self.assertEqual(_run(["put", "Zebra"],
