@@ -38,8 +38,8 @@ def legacy_text():
     ]:
         d.put(name, parents)
     d.nodes["parcel"].metadata["label"] = "Parcel 7"
-    text = native.dumps(d)
-    lines = [line for line in text.splitlines() if not line.startswith("#:canonical")]
+    # every term's line, as releases before canonical form 2 wrote them
+    lines = [native.HEADER] + native._lines(d, derive=False)
     # an item under two overlapping values, as a merge stored it before 4.4
     lines += ["'mass(..5kg)' mass", "'mass(2kg..)' mass",
               "crate 'mass(..5kg)' 'mass(2kg..)'"]

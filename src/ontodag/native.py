@@ -5,9 +5,13 @@ One line per node, `name parent1 parent2 ...` (shell-quoted), under a
 carrying metadata. The format is canonical — nodes, parents and metadata
 keys sorted — so equal knowledge gives equal bytes.
 
-A file `dumps` wrote carries a `#:canonical <registry version> <sha256>` line
-after the header: the hash of everything below it, and the registry version
-whose spelling rules wrote it. A file whose marker holds — the current
+A term whose line would say only where it is anchored (`'in(alps)' in`) has
+no line when something is filed under it: the filing brings it, and the
+load puts it under its anchor (form 2, below).
+
+A file `dumps` wrote carries a `#:canonical <registry version> <sha256>
+<form>` line after the header: the hash of everything below it, the registry
+version whose spelling rules wrote it, and the canonical form. A file whose marker holds — the current
 registry version, the hash matching — is built straight from its lines,
 since it is already canonical: under one registry version the same filings
 always store the same (CONTRACT.md G8). On the 11,900-category store of core
@@ -45,7 +49,7 @@ import shlex
 
 from ontodag.dag import Item, OntoDAG
 from ontodag.dimensions import (REGISTRY_VERSION, UNIT_DECLARATION,
-                                constraints, split_term)
+                                constraints, kind_node, split_term)
 
 HEADER = "# ontodag store v1"
 
@@ -63,6 +67,16 @@ META_LINE = "#:meta"
 # released before it skips it, and reads the file as before.
 CANONICAL_LINE = "#:canonical"
 
+# The canonical form's version, the marker's fourth field. Form 2 (since
+# 2026-10-17) leaves out a term's line when the line says only where the
+# term is anchored, `'in(alps)' in` or `'linear-dimension(mass)'
+# linear-dimension`: the term is derived from the lines that file something
+# under it. A geography store has thousands. A reader that knows only form
+# 1 (three fields) does not trust a form-2 file and reads it as a merge of
+# its lines, which derives the terms too; form-1 files, which write every
+# term's line, are still trusted and built as written.
+CANONICAL_FORM = "2"
+
 # The lines git writes into a file it could not merge.
 _CONFLICT = ("<<<<<<<", "|||||||", "=======", ">>>>>>>")
 
@@ -74,18 +88,29 @@ def loads(text, source="<text>"):
     would from `put`."""
     entries, metadata, lined = _parse(text.splitlines(), source)
     if _trusted(text):
-        return _direct(entries, metadata)
+        return _direct(entries, metadata, lined)
     return _restore(entries, metadata, lined)
 
 
 def dumps(dag):
     """OntoDAG -> canonical `.od` text, ending in a newline, with the marker
     that lets the next load trust it."""
+    lines = _lines(dag)
+    body = "\n".join(lines) + "\n" if lines else ""
+    return (f"{HEADER}\n{CANONICAL_LINE} {REGISTRY_VERSION} {_digest(body)} "
+            f"{CANONICAL_FORM}\n{body}")
+
+
+def _lines(dag, derive=True):
+    """The body's lines, sorted. `derive=False` writes every term's line too,
+    as form 1 did: what the store holds, whatever the text leaves out."""
     lines = []
     for name in sorted(dag.nodes):
         if name == dag.root.name:
             continue
         node = dag.nodes[name]
+        if derive and _derived(dag, node):
+            continue
         if node.metadata:
             # sort_keys so the file is byte-stable; json escapes newlines, so
             # the token cannot break the line-oriented parse whatever a label
@@ -96,9 +121,30 @@ def dumps(dag):
             p.name for p in node.parents if dag.nodes.get(p.name) is p
         )
         lines.append(" ".join(shlex.quote(t) for t in [name] + parents))
-    body = "\n".join(lines) + "\n" if lines else ""
-    return (f"{HEADER}\n{CANONICAL_LINE} {REGISTRY_VERSION} {_digest(body)}\n"
-            f"{body}")
+    return lines
+
+
+def _anchor(name):
+    """Where a term is anchored, which is all its line would say: a value or
+    a relation term under its head (`in(alps)` under `in`), a family pin
+    under its kind node (`linear-dimension(mass)` under `linear-dimension`).
+    None for a plain name."""
+    found = kind_node(name)
+    if found is not None:
+        return found[0] if found[1] is not None else None
+    split = split_term(name)
+    return split[0] if split is not None else None
+
+
+def _derived(dag, node):
+    """Does a load derive `node` without its line? A term whose only parent
+    is its anchor, that carries no metadata, and that something is filed
+    under (the line that files it brings it)."""
+    anchor = _anchor(node.name)
+    if anchor is None or node.metadata or not node.neighbors:
+        return False
+    parents = [p.name for p in node.parents if dag.nodes.get(p.name) is p]
+    return parents == [anchor]
 
 
 def load(path):
@@ -126,7 +172,9 @@ def _trusted(text):
     head, _, rest = text.partition("\n")
     marker, _, body = rest.partition("\n")
     parts = marker.split()
-    return (head.strip() == HEADER and len(parts) == 3
+    # form 1 (three fields) wrote every term's line; form 2 derives them
+    return (head.strip() == HEADER and len(parts) in (3, 4)
+            and (len(parts) == 3 or parts[3] == CANONICAL_FORM)
             and parts[0] == CANONICAL_LINE and parts[1] == REGISTRY_VERSION
             and parts[2] == _digest(body))
 
@@ -181,10 +229,11 @@ def _parse(lines, source):
     return entries, metadata, lined
 
 
-def _direct(entries, metadata):
+def _direct(entries, metadata, lined=None):
     """Build a canonical file as written: its nodes, its edges, and the
     counts computed once. Nothing is reduced or canonicalized, because a
-    file the marker vouches for is already both."""
+    file the marker vouches for is already both. A term met only as a
+    parent goes under its anchor, the line form 2 leaves out."""
     dag = OntoDAG()
     for name in entries:
         if name not in dag.nodes:
@@ -193,6 +242,11 @@ def _direct(entries, metadata):
         child = dag.nodes[name]
         for parent in parents:
             dag.nodes[parent].neighbors.add(child)
+    for name, parents in entries.items():
+        if lined is not None and name not in lined and not parents:
+            anchor = _anchor(name)
+            if anchor is not None and anchor in dag.nodes:
+                dag.nodes[anchor].neighbors.add(dag.nodes[name])
     for node in dag.nodes.values():
         node.descendant_count = len(dag.get_descendants(node, computed=False))
     _annotate(dag, metadata)
@@ -240,6 +294,11 @@ def _restore(entries, metadata, lined):
             node = dag.nodes[names[0]]
             parents = [dag.nodes[p] for parent in pending[name]
                        for p in arrive(parent)]
+            if name not in lined and not parents \
+                    and _parametric(dag, node.name) is None:
+                anchor = _anchor(node.name)   # a family pin, met as a parent
+                if anchor is not None and anchor in dag.nodes:
+                    parents.append(dag.nodes[anchor])
             if "*" in entries[name] or (
                     name not in lined and not parents
                     and _parametric(dag, node.name) is None):
@@ -284,6 +343,10 @@ def _replay(entries, metadata=None):
     cycle."""
     pending = {name: [p for p in parents if p != "*"]
                for name, parents in entries.items() if name != "*"}
+    for name, parents in pending.items():
+        anchor = _anchor(name)    # a term form 2 wrote no line for
+        if not parents and anchor is not None and anchor in pending:
+            parents.append(anchor)
     dag = OntoDAG()
     with dag._lenient_roles():
         for name in _load_order(pending):

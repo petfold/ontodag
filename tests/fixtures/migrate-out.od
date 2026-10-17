@@ -1,5 +1,5 @@
 # ontodag store v1
-#:canonical 6.0 53e24797f1a092ff8a26ea966dab77df6550652b1e2ebf867fb0368689a8ddb7
+#:canonical 6.0 eb2669c89c201ea56048bb3a491cf26dafc88fd45030dca4f045d9a8bd85dc04 2
 about enclosing-dimension
 area 'linear-dimension(area)'
 calendar-dimension dimension
@@ -12,31 +12,16 @@ dimension '*'
 dominance-dimension dimension
 drone 'from(48.1640625..48.33984375,16.171875..16.5234375)'
 duration 'linear-dimension(duration)'
-'duration(5400s)' duration
 enclosing-dimension dimension
 energy 'linear-dimension(energy)'
 from geo
-'from(48.1640625..48.2080078125,16.259765625..16.3037109375)' from
-'from(48.1640625..48.33984375,16.171875..16.5234375)' from
 geo rectangle-dimension
-'geo(48.1640625..48.2080078125,16.259765625..16.3037109375)' geo
 graph-dimension dimension
 in transitive-dimension
 length 'linear-dimension(length)'
 lesson 'duration(5400s)'
 linear-dimension dimension
-'linear-dimension(area)' linear-dimension
-'linear-dimension(duration)' linear-dimension
-'linear-dimension(energy)' linear-dimension
-'linear-dimension(length)' linear-dimension
-'linear-dimension(mass)' linear-dimension
-'linear-dimension(pressure)' linear-dimension
-'linear-dimension(speed)' linear-dimension
-'linear-dimension(temperature)' linear-dimension
-'linear-dimension(volume)' linear-dimension
 mass 'linear-dimension(mass)'
-'mass(2kg..5kg)' mass
-'mass(3kg)' mass
 #:meta parcel '{"label": "Parcel 7"}'
 parcel 'mass(3kg)'
 photo 'geo(48.1640625..48.2080078125,16.259765625..16.3037109375)'
@@ -52,6 +37,4 @@ temperature 'linear-dimension(temperature)'
 time calendar-dimension
 transitive-dimension dimension
 transport graph-dimension
-'transport(mass(..8kg))' transport
-'transport(small-item)' transport
 volume 'linear-dimension(volume)'

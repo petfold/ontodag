@@ -16,6 +16,22 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+- **Canonical `.od` text no longer writes a term's line when the line says
+  only where the term is anchored** (canonical form 2): `'in(alps)' in`,
+  `'about(address)' about`, `'mass(5kg)' mass`, `'linear-dimension(area)'
+  linear-dimension`. A load derives each from the lines that file
+  something under it. A term keeps its line when it says more: a second
+  parent, metadata, or nothing filed under it; unit declarations always
+  keep theirs. The marker gains a fourth field, the form (`#:canonical
+  <registry> <sha256> 2`); form-1 files (three fields, 0.30.x) are still
+  trusted and built as written, and a release that knows only form 1 reads
+  a form-2 file as a merge of its lines, which derives the same terms. The
+  store is unchanged: equal knowledge, equal root; knowledge ids move,
+  since they name the text. Core loses 45 lines, the prelude 9, and a
+  geography store one line per place something is filed `in()`. A
+  hand-written or older file's family pin met only as a parent
+  (`x 'linear-dimension(area)'`) now loads under its kind node, where
+  before it went to the top level.
 - **`POST /dag/pack` adopts as `odag pack` does**: through `packs.apply`, so
   a domain pack brings `core` along when the store lacks it, instead of
   leaving core's names as unfiled top-level stubs. The answer names, under

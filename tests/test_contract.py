@@ -404,7 +404,8 @@ class TestG8SignalledSpellings(unittest.TestCase):
         for name, parents in cls.record["filings"]:
             cls.dag.put(name, parents)
         own = set(prelude.prelude_dag().nodes)
-        cls.stored = [line for line in native.dumps(cls.dag).splitlines()
+        # every term's line: what is stored, not what the text derives
+        cls.stored = [line for line in native._lines(cls.dag, derive=False)
                       if line.split()[0].strip("'") not in own
                       and not line.startswith("#")]
 

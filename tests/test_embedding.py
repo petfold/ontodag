@@ -113,7 +113,8 @@ def test_dumps_marks_what_it_writes():
     head, marker, body = text.split("\n", 2)
     assert head == native.HEADER
     assert marker == (f"{native.CANONICAL_LINE} {REGISTRY_VERSION} "
-                      f"{hashlib.sha256(body.encode()).hexdigest()}")
+                      f"{hashlib.sha256(body.encode()).hexdigest()} "
+                      f"{native.CANONICAL_FORM}")
 
 
 def test_a_marked_file_is_built_as_written(monkeypatch):
@@ -134,14 +135,76 @@ def test_any_other_file_is_restored_to_the_same_store(change, monkeypatch):
     if change == "no marker":
         other = _unmarked(text)
     elif change == "another registry":
-        word, _, digest = marker.split()
-        other = f"{head}\n{word} 4.2 {digest}\n{body}"
+        word, _, digest, form = marker.split()
+        other = f"{head}\n{word} 4.2 {digest} {form}\n{body}"
     else:
         other = f"{head}\n{marker}\n{body}".replace("\nparcel ", "\nparcel  ")
     def refuse(*args, **kwargs):
         raise AssertionError("an unvouched file was trusted")
     monkeypatch.setattr(native, "_direct", refuse)
     assert native.dumps(native.loads(other)) == text
+
+
+# ---- form 2: a term's anchor line is derived, not written (2026-10-17) ----------
+
+def _term_lines(text):
+    return [line for line in text.splitlines()
+            if not line.startswith("#") and "(" in line.split()[0]]
+
+
+def test_a_term_that_only_says_its_anchor_has_no_line():
+    # `'in(paris)' in` and `'linear-dimension(mass)' linear-dimension` say
+    # nothing the lines under them do not; a geography store has thousands
+    text = native.dumps(_typed())
+    kept = {line.split()[0].strip("'") for line in _term_lines(text)}
+    assert not {"in(paris)", "about(paris)", "from(paris)", "mass(5kg)",
+                "linear-dimension(mass)"} & kept
+    assert all(name.startswith("unit") for name in kept)    # declarations stay
+
+
+def test_a_term_with_more_to_say_keeps_its_line():
+    dag = _typed()
+    dag.nodes["mass(5kg)"].metadata["note"] = "a parcel"     # metadata
+    text = native.dumps(dag)
+    kept = {line.split()[0].strip("'") for line in _term_lines(text)}
+    assert "mass(5kg)" in kept
+    assert "in(paris)" not in kept
+    assert native.dumps(native.loads(_unmarked(text))) == text
+
+
+@pytest.mark.parametrize("trust", ["form 2", "no marker"])
+def test_the_derived_terms_come_back_under_their_anchors(trust):
+    dag = _typed()
+    text = native.dumps(dag)
+    if trust == "no marker":            # what a reader without form 2 does
+        text = _unmarked(text)
+    back = native.loads(text)
+    assert {n: sorted(p.name for p in back.nodes[n].parents) for n in back.nodes} == \
+        {n: sorted(p.name for p in dag.nodes[n].parents) for n in dag.nodes}
+    assert native.dumps(back) == native.dumps(dag)
+    for term, anchor in (("in(paris)", "in"), ("linear-dimension(mass)", "linear-dimension"),
+                         ("mass(5kg)", "mass")):
+        assert [p.name for p in back.nodes[term].parents] == [anchor]
+
+
+def test_a_form_1_file_is_still_trusted(monkeypatch):
+    # what 0.30.x wrote: every term's line, a three-field marker
+    import hashlib
+    from ontodag.dimensions import REGISTRY_VERSION
+    dag = _typed()
+    body = "".join(line + "\n" for line in native._lines(dag, derive=False))
+    text = (f"{native.HEADER}\n{native.CANONICAL_LINE} {REGISTRY_VERSION} "
+            f"{hashlib.sha256(body.encode()).hexdigest()}\n{body}")
+    assert native._trusted(text)
+    monkeypatch.setattr(native, "_restore", lambda *a: (_ for _ in ()).throw(
+        AssertionError("a form-1 file was not trusted")))
+    assert native.dumps(native.loads(text)) == native.dumps(dag)
+
+
+def test_a_form_this_reader_does_not_know_is_restored():
+    text = native.dumps(_typed())
+    head, marker, body = text.split("\n", 2)
+    assert not native._trusted(f"{head}\n{marker[:-1]}3\n{body}")
 
 
 @pytest.mark.parametrize("written", ["'mass(5000g)'", "'mass(5kg)'",
@@ -211,13 +274,13 @@ def test_on_what_odag_writes_the_replay_reads_what_the_marker_vouches_for(make):
         # what `diff --additions` writes: an arrival's parent without one
         entries, metadata, _ = native._parse(
             ["Ryokan", "Ryokan-Kyoto Ryokan", "JAL-cheap Ryokan"], "add.od")
-        dag = native._direct(entries, metadata)
+        dag = native._direct(entries, metadata, set(entries))
     else:
         dag = _sample() if make == "sample" else _typed()
     text = native.dumps(dag)
     entries, metadata, lined = native._parse(text.splitlines(), "t")
     assert native.dumps(native._restore(entries, metadata, lined)) == \
-        native.dumps(native._direct(entries, metadata)) == text
+        native.dumps(native._direct(entries, metadata, lined)) == text
 
 
 def test_a_parent_never_given_a_line_is_top_level():
@@ -237,7 +300,9 @@ def test_an_older_release_s_store_loads_as_it_was():
     assert native.CANONICAL_LINE not in text
     dag = native.loads(text)
     assert "transport(mass(..8kg) small-item)" in dag.nodes
-    assert native.dumps(dag).split("\n", 2)[2] == text.split("\n", 1)[1]
+    # every line it wrote, the term lines form 2 derives included
+    assert "".join(line + "\n" for line in native._lines(dag, derive=False)) == \
+        text.split("\n", 1)[1]
 
 
 def test_a_file_git_could_not_merge_is_refused_not_read_as_names():

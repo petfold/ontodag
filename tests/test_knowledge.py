@@ -19,9 +19,9 @@ HAVE_SWARMFS = importlib.util.find_spec("swarmfs") is not None
 # Pinned like GOLDEN_ROOTS in test_packs.py, but they name the text, not a
 # store: they move when a pack's content or the registry's spelling moves.
 GOLDEN_KNOWLEDGE_IDS = {
-    "prelude": "cd6423d0ce2f0347a7728c4c95bc7fcbce86dffbd7ef174637b331da40cc4220",
-    "crypto-core": "e8d997c1bbfd78dd31499ad018966603312660b8facbf896dc722bb0d7953ef9",
-    "fiat-iso4217": "92255b1528dea23109f3a9387e6788eed05ed7b63ab72628e684007bcbdadf1c",
+    "prelude": "cb0c8b182d701625e079f84f32c2e03cd033f4a458e242148d62edfc10f16e8b",
+    "crypto-core": "6a01b494dfe568d165cc74691f7cf26d29e6f8f3765bb0e2d7d4a38ae27b5c4c",
+    "fiat-iso4217": "c0d8bc2598355060c234542144a01444f8b401af04003fbb93c10d88a46b4a2a",
 }
 
 

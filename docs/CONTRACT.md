@@ -201,7 +201,10 @@ decided at the 2026-08-01 review:
   a merge of its lines would be (2026-10-09; replaying it through `put`
   instead would have filed the fixture's folded compound as its parts,
   and its name would have left the answers). `ontodag.migrate` is the
-  explicit step into the current stored form.
+  explicit step into the current stored form. The text can change form
+  without the store changing: canonical form 2 (2026-10-17) leaves out a
+  term's line that says only its anchor, and both forms load to the same
+  store.
 
 - **G8 — Signalled spellings.** A valid name's canonical spelling, and the
   stored form a given set of filings produces (so its root), change only

@@ -224,7 +224,7 @@ The `.od` format as text (`from ontodag import native` — standard library only
 
 | call | one line |
 |---|---|
-| `native.dumps(dag)` / `native.loads(text, source=…)` | canonical `.od` text, checksummed, and back: a file whose checksum holds is built as written, any other is read as a merge of its lines (spellings canonical, nothing migrated); `source` names the text in a malformed-line error |
+| `native.dumps(dag)` / `native.loads(text, source=…)` | canonical `.od` text, checksummed, and back: a file whose checksum holds is built as written, any other is read as a merge of its lines (spellings canonical, nothing migrated); a term whose only parent is its anchor (`in(alps)` under `in`, `linear-dimension(area)` under `linear-dimension`), with no metadata and something filed under it, has no line and is derived on load (form 2); `source` names the text in a malformed-line error |
 | `native.load(path)` / `native.save(dag, path)` | the same for a file; a missing file loads as an empty store |
 | `knowledge.knowledge_id(dag)` | the Swarm (BMT) reference of `native.dumps(dag)`: equal knowledge, one id, whatever backend keeps it and however it was built (needs the `swarm` extra) |
 | `knowledge.publish(dag)` / `knowledge.fetch(id)` | upload the canonical text, returning its id (refused if the node's reference differs); fetch by id, refusing bytes whose reference is not the id |
