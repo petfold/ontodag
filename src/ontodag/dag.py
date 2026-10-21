@@ -992,6 +992,14 @@ class OntoDAG(DAG):
         """The registry kind a declared dimension head inherits, or None."""
         return self._dimension_of(head_name)[0]
 
+    def _schema_node(self, name):
+        """`name`'s node for the declaration walks (`_heads`,
+        `_dimension_of`, `_escapes`), which read its parents, its plain
+        children and the terms under it that hang elsewhere too, never a
+        term that hangs under its head alone (`_derivable`). Seam for the
+        lazy reader, which need not load the whole store for them."""
+        return self.nodes.get(name)
+
     def _kind_walk_parents(self, node):
         """The parents the declaration walk follows: this DAG's own, with
         every term-shaped name but a kind node left out. A value is a leaf
@@ -1029,10 +1037,11 @@ class OntoDAG(DAG):
         (`_maybe_invalidate_heads`; `_forget`). Absent names are not
         cached (they may appear), and an ambiguous declaration raises
         uncached, so the error stays loud at every use."""
-        node = self.nodes.get(head_name)
-        if node is None or _dims.is_kind_node(head_name) \
-                or _dims.split_term(head_name) is not None:
+        if _dims.is_kind_node(head_name) or _dims.split_term(head_name) is not None:
             return None, None     # a term-shaped name is never a head (`_heads`)
+        node = self._schema_node(head_name)
+        if node is None:
+            return None, None
         cache = self._dim_cache
         if cache is None:
             cache = self._dim_cache = {}
@@ -1100,6 +1109,40 @@ class OntoDAG(DAG):
                         f"cannot pin {head_name!r} to {family}: it already "
                         f"holds {value.name}, which is {other}")
 
+    def _derivable(self, node):
+        """Is `node` a term a reader derives instead of reading it? A term
+        whose only parent is its anchor (`dimensions.anchor_of`), that
+        carries no metadata and that something is filed under: the filings
+        bring it, so a canonical file writes no line for it (form 2) and a
+        record store keeps no record of it (2026-10-22)."""
+        anchor = _dims.anchor_of(node.name)
+        if anchor is None or node.metadata or not node.neighbors:
+            return False
+        parents = [p.name for p in node.parents if self.nodes.get(p.name) is p]
+        return parents == [anchor]
+
+    def _materialize_term(self, name):
+        """The node for a term a peer's record names as a parent but no
+        record of ours holds, materialized under its anchor as `put` would;
+        None when `name` is not a term this graph can read."""
+        if name in self.nodes:
+            return self.nodes[name]
+        try:
+            parsed = self._parse_parametric(name)
+        except ValueError:
+            parsed = None
+        if parsed is not None:
+            return self._ensure_parametric_node(name, parsed[0], parsed[1])
+        self._ensure_declaration_node(name)
+        if name not in self.nodes:
+            anchor = _dims.anchor_of(name)
+            if anchor is None or anchor not in self.nodes:
+                return None
+            node = Item(name)                # an opaque term-shaped name
+            self.add_node(node)
+            self.add_edge(self.nodes[anchor], node)
+        return self.nodes[name]
+
     def _ensure_declaration_node(self, name):
         """Materialize a family pin (`linear-dimension(mass)`) on first use,
         under its kind node, as a value is materialized under its head; and
@@ -1164,7 +1207,7 @@ class OntoDAG(DAG):
             return cached
         heads = {}
         for kind in sorted(_dims.KINDS):
-            kind_node = self.nodes.get(kind)
+            kind_node = self._schema_node(kind)
             if kind_node is None:
                 continue
             stack = list(kind_node.neighbors)
@@ -1176,7 +1219,7 @@ class OntoDAG(DAG):
                     # it first made a lazy store's first walk fetch every
                     # value of every head (1,237 fetches for 1,200 values).
                     continue
-                child = self.nodes.get(name)               # expands on lazy
+                child = self._schema_node(name)            # expands on lazy
                 if child is not None and pin not in (None, (name, None)):
                     stack.extend(child.neighbors)          # a family pin
                     continue
@@ -4151,7 +4194,9 @@ class OntoDAG(DAG):
         hit = cache.get(head)
         if hit is not None:
             return hit
-        head_node = self.nodes.get(head)
+        # a term a reader derives hangs under its head only, so it never
+        # escapes: the head's plain expansion is enough (`_schema_node`)
+        head_node = self._schema_node(head)
         escapes = False
         for child in list(head_node.neighbors) if head_node is not None else ():
             split = _dims.split_term(child.name)

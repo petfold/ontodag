@@ -1,8 +1,9 @@
 """A store's knowledge id: the Swarm reference of its canonical `.od` text.
 
 Two hashes name a state, for two jobs. The **root** (`odag status`) names
-how a store keeps it: recordstore's trie of one record per node, hashed by
-the backend's addressing (sha256 for `rs:`, Swarm's BMT for `swarm:`). It is
+how a store keeps it: recordstore's trie of one record per node (a derived
+term has none), hashed by the backend's addressing (sha256 for `rs:`,
+Swarm's BMT for `swarm:`). It is
 what lazy reads and certificates walk, and it changes with the backend and
 with the trie's format. The **knowledge id** names what the store knows: the
 BMT reference of `native.dumps(dag)`, which is a function of the filings

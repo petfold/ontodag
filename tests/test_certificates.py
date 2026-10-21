@@ -124,7 +124,8 @@ class TestCertificates(unittest.TestCase):
                 "job['expected']\n"
             )
             for seed in ("0", "1", "42"):
-                env = dict(os.environ, PYTHONPATH=REPO_SRC,
+                env = dict(os.environ, PYTHONPATH=os.pathsep.join(
+                    p for p in (REPO_SRC, os.environ.get("PYTHONPATH")) if p),
                            PYTHONHASHSEED=seed)
                 proc = subprocess.run([sys.executable, "-c", code],
                                       capture_output=True, text=True,

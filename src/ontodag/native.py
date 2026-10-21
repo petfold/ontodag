@@ -49,7 +49,7 @@ import shlex
 
 from ontodag.dag import Item, OntoDAG
 from ontodag.dimensions import (REGISTRY_VERSION, UNIT_DECLARATION,
-                                constraints, kind_node, split_term)
+                                anchor_of, constraints, split_term)
 
 HEADER = "# ontodag store v1"
 
@@ -124,27 +124,10 @@ def _lines(dag, derive=True):
     return lines
 
 
-def _anchor(name):
-    """Where a term is anchored, which is all its line would say: a value or
-    a relation term under its head (`in(alps)` under `in`), a family pin
-    under its kind node (`linear-dimension(mass)` under `linear-dimension`).
-    None for a plain name."""
-    found = kind_node(name)
-    if found is not None:
-        return found[0] if found[1] is not None else None
-    split = split_term(name)
-    return split[0] if split is not None else None
-
-
 def _derived(dag, node):
-    """Does a load derive `node` without its line? A term whose only parent
-    is its anchor, that carries no metadata, and that something is filed
-    under (the line that files it brings it)."""
-    anchor = _anchor(node.name)
-    if anchor is None or node.metadata or not node.neighbors:
-        return False
-    parents = [p.name for p in node.parents if dag.nodes.get(p.name) is p]
-    return parents == [anchor]
+    """Does a load derive `node` without its line (`OntoDAG._derivable`)?
+    The base rule, whatever the store: a payload is not in the text."""
+    return OntoDAG._derivable(dag, node)
 
 
 def load(path):
@@ -244,7 +227,7 @@ def _direct(entries, metadata, lined=None):
             dag.nodes[parent].neighbors.add(child)
     for name, parents in entries.items():
         if lined is not None and name not in lined and not parents:
-            anchor = _anchor(name)
+            anchor = anchor_of(name)
             if anchor is not None and anchor in dag.nodes:
                 dag.nodes[anchor].neighbors.add(dag.nodes[name])
     for node in dag.nodes.values():
@@ -296,7 +279,7 @@ def _restore(entries, metadata, lined):
                        for p in arrive(parent)]
             if name not in lined and not parents \
                     and _parametric(dag, node.name) is None:
-                anchor = _anchor(node.name)   # a family pin, met as a parent
+                anchor = anchor_of(node.name)   # a family pin, met as a parent
                 if anchor is not None and anchor in dag.nodes:
                     parents.append(dag.nodes[anchor])
             if "*" in entries[name] or (
@@ -343,8 +326,13 @@ def _replay(entries, metadata=None):
     cycle."""
     pending = {name: [p for p in parents if p != "*"]
                for name, parents in entries.items() if name != "*"}
+    # a term with no line (form 2) or no record (a record store) is met
+    # only as a parent: it goes under its anchor
+    for parent in {p for parents in pending.values() for p in parents}:
+        if parent not in pending and anchor_of(parent) is not None:
+            pending[parent] = []
     for name, parents in pending.items():
-        anchor = _anchor(name)    # a term form 2 wrote no line for
+        anchor = anchor_of(name)
         if not parents and anchor is not None and anchor in pending:
             parents.append(anchor)
     dag = OntoDAG()

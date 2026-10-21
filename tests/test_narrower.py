@@ -458,7 +458,8 @@ class TestCertificatesAcrossProcesses(unittest.TestCase):
         src = os.path.join(os.path.dirname(os.path.dirname(
             os.path.abspath(__file__))), "src")
         for seed in ("0", "1", "42"):
-            env = dict(os.environ, PYTHONPATH=src, PYTHONHASHSEED=seed)
+            env = dict(os.environ, PYTHONHASHSEED=seed, PYTHONPATH=os.pathsep.join(
+                p for p in (src, os.environ.get("PYTHONPATH")) if p))
             proc = subprocess.run([sys.executable, "-c", code], env=env,
                                   capture_output=True, text=True, timeout=120)
             self.assertEqual(proc.returncode, 0, f"seed={seed}:\n{proc.stderr}")

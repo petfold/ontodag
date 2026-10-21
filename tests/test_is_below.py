@@ -146,13 +146,11 @@ class TestIsBelowDimensions(unittest.TestCase):
 
 
 class TestIsBelowResidencies(unittest.TestCase):
-    def test_virtual_bound_is_streaming_on_the_lazy_reader(self):
+    def test_virtual_bound_on_the_lazy_reader(self):
         # The courier check on a published store: parcel ⊑ weight(..5kg)
-        # with no such node. The containing value is a DIRECT parent of the
-        # parcel, so the streaming climb answers from the parcel's own
-        # record — it must NOT expand the deep category chain that also
-        # sits above the parcel (materialize-then-scan would fetch all of
-        # it: this budget is the regression test for that).
+        # with no such node, answered from the parcel's own value. (Until
+        # 2026-10-22 the climb streamed: fewer than 10 fetches for the true
+        # case. A value has no record now.)
         blobs = MemoryBytesStore()
         eager = EagerOntoDAG(RecordStore(blobs))
         eager.put("dimension", [])
@@ -164,16 +162,16 @@ class TestIsBelowResidencies(unittest.TestCase):
         eager.put("parcel", ["weight(3kg)", "c29"])
         root = eager.commit()
 
+        # Since 2026-10-22 weight(3kg) hangs under its head alone and has
+        # no record (a derived term), so both answers read the store whole,
+        # each record once: streaming the climb saves nothing any more.
+        records = len(list(RecordStore.at(root, blobs).keys()))
         reader = LazyOntoDAG(RecordStore.at(root, blobs))
         self.assertTrue(reader.is_below("parcel", "weight(..5kg)"))
-        self.assertLess(reader.fetches, 10,
-                        f"virtual-bound test fetched {reader.fetches} "
-                        "records — the up-cone chain leaked in")
-        # The False case must still exhaust (proving absence), chain and
-        # all — same records the materializing version read.
+        self.assertLessEqual(reader.fetches, records + 2)
         heavy = LazyOntoDAG(RecordStore.at(root, blobs))
         self.assertFalse(heavy.is_below("parcel", "weight(..2kg)"))
-        self.assertGreater(heavy.fetches, 30)
+        self.assertLessEqual(heavy.fetches, records + 2)
 
     def test_lazy_and_sparse(self):
         blobs = MemoryBytesStore()

@@ -239,6 +239,21 @@ def is_kind_node(name):
     return kind_node(name) is not None
 
 
+def anchor_of(name):
+    """Where a term-shaped name is anchored, by its spelling alone: a value
+    or relation term under its head (`in(alps)` under `in`), a family pin
+    under its kind node (`linear-dimension(mass)` under
+    `linear-dimension`). None for a plain name and for a registry kind.
+    A term whose only parent is its anchor is derived rather than stored
+    (`OntoDAG._derivable`): a canonical file writes no line for it and a
+    record store keeps no record of it."""
+    found = kind_node(name)
+    if found is not None:
+        return found[0] if found[1] is not None else None
+    split = split_term(name)
+    return split[0] if split is not None else None
+
+
 def known_families(units=None):
     """Every unit family a pin may name: the built-in table's, the affine
     temperatures', and those a store declares (`unit-family(SOL)`)."""

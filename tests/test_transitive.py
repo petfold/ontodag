@@ -671,7 +671,8 @@ class TestCertificatesAcrossProcesses(unittest.TestCase):
         src = os.path.join(os.path.dirname(os.path.dirname(
             os.path.abspath(__file__))), "src")
         for seed in ("0", "1", "42"):
-            env = dict(os.environ, PYTHONPATH=src, PYTHONHASHSEED=seed)
+            env = dict(os.environ, PYTHONHASHSEED=seed, PYTHONPATH=os.pathsep.join(
+                p for p in (src, os.environ.get("PYTHONPATH")) if p))
             proc = subprocess.run([sys.executable, "-c", code], env=env,
                                   capture_output=True, text=True, timeout=120)
             self.assertEqual(proc.returncode, 0, f"seed={seed}:\n{proc.stderr}")
@@ -859,11 +860,12 @@ class TestQueriesAgainstTheOracle(unittest.TestCase):
 
 
 class TestABroadTermOnALazyReader(unittest.TestCase):
-    """A lazy reader pays a fetch for every record it reads, so a broad
-    about-term beside a small category is checked per candidate there too,
-    not listed: 504 fetches before 2026-10-09, 177 after. (What remains is
-    mostly the first upward check through `about`, which fetches the head's
-    star to learn whether any term of it hangs anywhere else.)"""
+    """A lazy reader pays a fetch for every record it reads. Since
+    2026-10-22 a term that hangs under its head alone has no record (Peter:
+    a geography store holds thousands), so a query that reaches one reads
+    the whole store once and answers from memory; a plain query stays
+    small. (Before, a broad about-term beside a small category was checked
+    per candidate: 504 fetches before 2026-10-09, 177 after.)"""
 
     def test_fetches(self):
         rnd = random.Random(7)
@@ -884,8 +886,11 @@ class TestABroadTermOnALazyReader(unittest.TestCase):
             reader = LazyOntoDAG(RecordStore.at(root, blobs))
             self.assertEqual(names(reader.get(terms)), names(dag.get(terms)))
             return reader.fetches
-        self.assertLess(fetches(["about(p0)", "review"]),
-                        fetches(["about(p0)"]) / 2)
+        records = len(list(RecordStore.at(root, blobs).keys()))
+        for terms in (["about(p0)", "review"], ["about(p0)"]):
+            # every record once, and the one miss that sent it whole
+            self.assertIn(fetches(terms), (records, records + 1))
+        self.assertLess(fetches(["review"]), 10)
 
 
 class TestStoresAndReaders(unittest.TestCase):

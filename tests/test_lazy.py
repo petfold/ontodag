@@ -256,13 +256,19 @@ class TestLazyDimensions(unittest.TestCase):
             expected,
             {i.name for i in reader.get_overlapping("weight(1kg..)")})
 
-    def test_fetch_budget_ignores_unrelated_subtree(self):
+    def test_a_value_query_reads_the_store_once(self):
+        # Until 2026-10-22 the query walked the kind chain, the star and the
+        # matching cones, never the 40-leaf unrelated subtree (under 20
+        # fetches). A value has no record now, so the reader goes whole:
+        # every record once, then answers from memory.
+        from recordstore import RecordStore
+        records = len(list(RecordStore.at(self.root, self.blobs).keys()))
         reader = lazy(self.root, self.blobs)
         reader.get(["weight(..5kg)"])
-        # The query walks the kind chain, the star and the matching cones —
-        # never the 40-leaf unrelated subtree.
-        self.assertLess(reader.fetches, 20,
-                        f"lazy dimension query fetched {reader.fetches}")
+        self.assertLessEqual(reader.fetches, records + 2)
+        before = reader.fetches
+        reader.get(["weight(..3kg)"])
+        self.assertEqual(reader.fetches, before)
 
     def test_dimension_free_query_costs_no_dimension_fetches(self):
         reader = lazy(self.root, self.blobs)

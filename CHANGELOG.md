@@ -16,6 +16,29 @@ the version numbers appear in commit history and docs.
 
 ### Changed
 
+- **Record stores keep no record of a derived term** (Peter, 2026-10-22):
+  a term whose only parent is its anchor, with no metadata and no payload
+  (`in(alps)` under `in`, `mass(5kg)` under `mass`), is named only in the
+  `up` of the records filed under it. Its anchor's record leaves it out of
+  `down` and counts such terms (`"terms": n`, only when there are any).
+  `EagerOntoDAG` derives them on hydration, `sync` and `merge_delta`
+  materialize one a peer's record names, and `ontodag.migrate` replays
+  them under their anchors. Family pins keep their records (schema, a
+  handful). **Every store's root moves** (the records changed); the
+  knowledge id does not.
+- **The lazy reader loads the whole store for a term**: the first time a
+  walk reaches a term-shaped name with no record, or needs the children of
+  a record that counts terms, `LazyOntoDAG` reads every record and derives
+  the terms, then answers from memory. Plain-name queries and plain
+  `SparseOntoDAG` writes stay lazy; the declaration walks (`_heads`,
+  `_dimension_of`, `_escapes`) read a head's record without its terms
+  (`_schema_node`).
+- **`is_below` certificates for such answers carry the whole store**
+  (certificate version 2): a recordstore prefix proof of every record
+  (`prove_prefix("")`, recordstore 0.25), since no per-key proofs show that
+  no other record is filed under a term. A walk that touches no derived
+  term keeps version 1. Without recordstore 0.25, proving or checking one
+  raises `certificates.NeedsPrefixProofs`, and the tests that need one skip.
 - **Canonical `.od` text no longer writes a term's line when the line says
   only where the term is anchored** (canonical form 2): `'in(alps)' in`,
   `'about(address)' about`, `'mass(5kg)' mass`, `'linear-dimension(area)'

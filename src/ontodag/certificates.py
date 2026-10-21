@@ -41,6 +41,15 @@ made negative certificates cheap in the first place. If the closure logic
 ever under-covers, verification fails loudly; it can never validate a
 wrong answer.
 
+**An answer about a term that has no record** (2026-10-22: a term whose
+only parent is its anchor is derived, not stored) depends on every record
+filed under it, which no set of per-key proofs can show complete. When the
+walk needs the whole store (the lazy reader goes whole), the certificate is
+**version 2**: instead of per-key proofs it carries recordstore's prefix
+proof of the whole store (`prove_prefix("")`, recordstore 0.25), and the
+verifier re-runs the walk over every record, proven complete. Its size is
+the store's; a walk that touches no derived term keeps version 1.
+
 The certificate pins ``REGISTRY_VERSION``: the combined order is computed
 by the dimensions interpreter, so a verifier on a different registry
 refuses rather than misinterprets (`CONTRACT.md` L2 — the same discipline
@@ -65,6 +74,11 @@ class CertificateError(Exception):
     """The certificate does not verify against the given root."""
 
 
+class NeedsPrefixProofs(CertificateError):
+    """A whole-store certificate, and a recordstore without prefix proofs
+    (before 0.25) to make or check it."""
+
+
 class _RecordingStore:
     """Wraps a record store, remembering every key the walk asks for —
     including the misses, which become absence proofs."""
@@ -72,10 +86,15 @@ class _RecordingStore:
     def __init__(self, inner):
         self._inner = inner
         self.accessed = set()
+        self.whole = False           # the walk read every record
 
     def get(self, key):
         self.accessed.add(key)
         return self._inner.get(key)
+
+    def items(self):
+        self.whole = True
+        return self._inner.items()
 
 
 class _VerifiedFragment:
@@ -96,6 +115,28 @@ class _VerifiedFragment:
         raise CertificateError(
             f"certificate does not cover record {key!r}, which the walk "
             f"needs — incomplete or mismatched certificate")
+
+    def items(self):
+        raise CertificateError(
+            "the walk needs every record (a derived term) and the "
+            "certificate carries per-key proofs only")
+
+
+class _WholeFragment:
+    """Every record of a root, from a verified prefix proof of the whole
+    store: complete, so a miss is a real absence."""
+
+    def __init__(self, records):
+        self._records = records
+
+    def get(self, key):
+        if key in self._records:
+            return copy.deepcopy(self._records[key])
+        raise KeyError(key)
+
+    def items(self):
+        return ((key, copy.deepcopy(record))
+                for key, record in sorted(self._records.items()))
 
 
 def _walk(store, sub, sup):
@@ -172,9 +213,18 @@ def prove_below(dag_or_store, sub, sup):
         "sub": sub,
         "sup": sup,
         "result": result,
-        "proofs": [snapshot.prove(key)
-                   for key in sorted(recorder.accessed)],
     }
+    if recorder.whole:
+        if not hasattr(snapshot, "prove_prefix"):
+            raise NeedsPrefixProofs(
+                f"is_below({sub!r}, {sup!r}) depends on a term that has no "
+                "record, so its certificate carries the whole store: that "
+                "needs recordstore's prefix proofs (0.25 or later)")
+        certificate["version"] = 2
+        certificate["store"] = snapshot.prove_prefix("")
+    else:
+        certificate["proofs"] = [snapshot.prove(key)
+                                 for key in sorted(recorder.accessed)]
     verify_below(certificate, root)   # never hand out a broken certificate
     return certificate
 
@@ -192,7 +242,7 @@ def verify_below(certificate, root):
     if not isinstance(certificate, dict) or \
             certificate.get("format") != CERTIFICATE_FORMAT:
         raise CertificateError(f"not a {CERTIFICATE_FORMAT} envelope")
-    if certificate.get("version") != 1:
+    if certificate.get("version") not in (1, 2):
         raise CertificateError(
             f"unsupported certificate version "
             f"{certificate.get('version')!r}")
@@ -209,6 +259,25 @@ def verify_below(certificate, root):
     sub, sup = certificate.get("sub"), certificate.get("sup")
     if not isinstance(sub, str) or not isinstance(sup, str):
         raise CertificateError("certificate carries no sub/sup claim")
+
+    if certificate["version"] == 2:
+        verify_prefix = getattr(_rs, "verify_prefix", None)
+        if verify_prefix is None:
+            raise NeedsPrefixProofs(
+                "a whole-store certificate needs recordstore's prefix "
+                "proofs (0.25 or later) to verify")
+        proof = certificate.get("store")
+        if not isinstance(proof, dict) or proof.get("prefix") != "":
+            raise CertificateError("certificate carries no whole-store proof")
+        try:
+            records = verify_prefix(proof, root)
+        except ProofError as exc:
+            raise CertificateError(f"store proof failed: {exc}") from None
+        result, _ = _walk(_WholeFragment(records), sub, sup)
+        if result != bool(certificate.get("result")):
+            raise CertificateError(
+                "the certificate's claim contradicts its own records")
+        return result
 
     present, absent = {}, set()
     proofs = certificate.get("proofs")

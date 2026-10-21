@@ -258,7 +258,7 @@ Persistence adapters (all reachable as `ontodag.X`, imported lazily):
 | class | residency | writes | for |
 |---|---|---|---|
 | `EagerOntoDAG(store)` | full hydration | yes, `commit()` diffs | canonical roots, `sync(other_root)` multi-writer merge (diff-driven: reads the divergence, not the store) |
-| `LazyOntoDAG(store)` | fetch-as-walked | read-only | querying a published store at query cost; `as-of` via `store.at(root)` |
+| `LazyOntoDAG(store)` | fetch-as-walked; whole on the first derived term (no record) it reaches | read-only | querying a published store at query cost; `as-of` via `store.at(root)` |
 | `SparseOntoDAG(store)` | resident set | yes | writing into a large store without hydrating it; `sync(other_root)` folds a peer at divergence cost (store must sit at the writer's own lineage) |
 
 Related modules: `ontodag.prelude` (`apply(dag)`), `ontodag.packs`
@@ -434,7 +434,7 @@ throughout, `display` beside them.
 | native store | `.od` text, sorted, one node per line, a checksum line — diffable |
 | OWL / Manchester | `.owl` / `.omn` by extension, via the `owl` extra |
 | store root | 64-hex content address; equal content ⇔ equal root |
-| certificate | JSON envelope of authenticated records; `verify_below(cert, root)` needs no store access |
+| certificate | JSON envelope of authenticated records (version 1: per-key proofs; version 2, an answer about a derived term: a prefix proof of the whole store, recordstore 0.25); `verify_below(cert, root)` needs no store access |
 | provenance record | signed JSON (`v`, subject hash, basis root, `ext` map), content-addressed under `s/<subject>/<record>` |
 
 ## 10. Where the rest lives

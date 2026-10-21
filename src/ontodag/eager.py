@@ -12,7 +12,13 @@ Implements the design in docs/SWARM_DESIGN.md:
 
 - One record per node, keyed by the node name (§3): ``{"up": [...],
   "down": [...], "count": int, "payload": ref-or-None, "meta": {...}}``
-  with `up`/`down` sorted so the encoding is deterministic.
+  with `up`/`down` sorted so the encoding is deterministic. A term whose
+  only parent is its anchor (`in(alps)` under `in`) has no record
+  (2026-10-22, Peter: a geography store has thousands): the records filed
+  under it name it in `up`, and hydration puts it back under its anchor.
+  Its anchor's `down` leaves it out and says only how many such terms it
+  has, `"terms": n`, so a lazy reader knows it cannot walk below the anchor
+  record by record.
 - Hydrate the whole graph into memory once, operate in RAM, and push
   changes back through staged puts + ``commit()`` (§6). Mutation semantics
   (acyclicity, transitive reduction, counts) are entirely inherited from
@@ -57,7 +63,8 @@ class EagerOntoDAG(OntoDAG):
         only when given, so a duck-typed store with a plain `commit()` keeps
         working."""
         current = {name: self._record_for(node)
-                   for name, node in self.nodes.items()}
+                   for name, node in self.nodes.items()
+                   if not self._derivable(node)}
         for name, record in current.items():
             if self._synced.get(name) != record:
                 self.store.put(name, record)
@@ -70,17 +77,12 @@ class EagerOntoDAG(OntoDAG):
         self.base_root = root
         return root
 
+    def _derivable(self, node):
+        # a payload is kept on the term's record, so that term keeps one
+        return node.name not in self._payloads and _derived_in_records(self, node)
+
     def _record_for(self, node):
-        return {
-            "up": sorted(parent.name for parent in node.parents
-                         if self.nodes.get(parent.name) is parent),
-            "down": sorted(child.name for child in node.neighbors),
-            "count": node.descendant_count,
-            "payload": self._payloads.get(node.name),
-            # copied: _synced keeps these records, so aliasing the live dict
-            # would make later in-place metadata edits invisible to the diff
-            "meta": dict(node.metadata),
-        }
+        return _record(self, node, self._payloads.get(node.name))
 
     def _hydrate(self):
         records = dict(self._all_records())
@@ -100,6 +102,7 @@ class EagerOntoDAG(OntoDAG):
                 self._payloads[name] = record["payload"]
             if record.get("meta"):
                 node.metadata = dict(record["meta"])
+        _derive_terms(self, records)
         self._synced = records
 
     def _all_records(self):
@@ -283,6 +286,7 @@ class EagerOntoDAG(OntoDAG):
                     node.metadata.setdefault(meta_key, value)
             if record.get("payload") is not None:
                 self._payloads.setdefault(key, record["payload"])
+        arrived = set()                  # terms with no record, materialized
         # Pass 2: replay the peer's asserted edges. Every parent a peer
         # record names exists by now: an unchanged-in-both parent is
         # already ours, a changed or peer-new one is in the diff, and a
@@ -294,11 +298,16 @@ class EagerOntoDAG(OntoDAG):
                 node = self.nodes[key]
                 for parent_name in touched[key]["up"]:
                     parent = self.nodes.get(parent_name)
+                    if parent is None:   # a term with no record (derived)
+                        parent = self._materialize_term(parent_name)
+                        if parent is not None:
+                            arrived.add(parent.name)
                     if parent is not None:
                         self.add_edge(parent, node)
-        self._respell_deferred(touched)   # compounds left behind (merge())
+        arrived.update(touched)
+        self._respell_deferred(arrived)   # compounds left behind (merge())
         self._fold_replayed(touched)      # values left unmet (merge())
-        self._touched_values.update(touched)  # unused ones forgotten (merge())
+        self._touched_values.update(arrived)  # unused ones forgotten (merge())
 
         if getattr(self.store, "root", None) == other_root:
             for key, _mine, theirs in diff:
@@ -307,3 +316,64 @@ class EagerOntoDAG(OntoDAG):
                 else:
                     self._synced[key] = theirs
         return bool(touched)
+
+
+def _derived_in_records(dag, node):
+    """`OntoDAG._derivable`, less the family pins: a pin
+    (`linear-dimension(mass)`) keeps its record, so the declaration walks
+    find every head from the kind nodes' records without loading the
+    store. Pins are schema, a handful per store, not filings."""
+    from ontodag import dimensions as _dims
+    found = _dims.kind_node(node.name)
+    if found is not None and found[1] is not None:
+        return False
+    return OntoDAG._derivable(dag, node)
+
+
+def _record(dag, node, payload):
+    """The record a node is stored as. A child the reader derives is left
+    out of `down` and counted in `terms` (only when there is one), so the
+    records of plain nodes are as they were."""
+    down, terms = [], 0
+    for child in node.neighbors:
+        if dag._derivable(child):
+            terms += 1
+        else:
+            down.append(child.name)
+    record = {
+        "up": sorted(parent.name for parent in node.parents
+                     if dag.nodes.get(parent.name) is parent),
+        "down": sorted(down),
+        "count": node.descendant_count,
+        "payload": payload,
+        # copied: a writer keeps these records as its baseline, so aliasing
+        # the live dict would make later in-place metadata edits invisible
+        "meta": dict(node.metadata),
+    }
+    if terms:
+        record["terms"] = terms
+    return record
+
+
+def _derive_terms(dag, records):
+    """Put back, under their anchors, the terms the records name in `up`
+    but hold no record of, and count their cones. Raw edges, as hydration's
+    are: the records are already reduced."""
+    from ontodag import dimensions as _dims
+    derived = []
+    for name, record in records.items():
+        for parent_name in record["up"]:
+            parent = dag.nodes.get(parent_name)
+            if parent is None:
+                anchor = _dims.anchor_of(parent_name)
+                if anchor is None or anchor not in dag.nodes:
+                    raise ValueError(
+                        f"{name!r} is filed under {parent_name!r}, which has "
+                        "no record and is not a term this store can derive")
+                parent = Item(parent_name)
+                dag.add_node(parent)
+                dag.nodes[anchor].neighbors.add(parent)
+                derived.append(parent)
+            parent.neighbors.add(dag.nodes[name])
+    for term in derived:
+        term.descendant_count = len(dag.get_descendants(term, computed=False))

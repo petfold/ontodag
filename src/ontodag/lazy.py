@@ -79,6 +79,16 @@ deterministically-derived bitmap blob per hot category, fetched instead of
 walked. This class deliberately stops short of that — it is the on-demand
 *reader*; the summaries are a derived index with its own design note.
 
+**Terms are not records** (2026-10-22). A term whose only parent is its
+anchor (`in(alps)` under `in`) has no record: the records filed under it
+name it, and its anchor's record counts such terms (`"terms": n`) instead
+of listing them. Finding what is filed under such a term needs every
+record, so the first time a walk reaches one — a name with no record that
+a term's spelling has, or an anchor whose record counts terms — this reader
+loads the whole store and derives the terms (`_go_whole`), and answers from
+memory after that. A walk that touches no term, the plain-name queries,
+stays lazy.
+
 Batching note: a walk expands one node at a time because the duck-typed store
 interface offers only single-key ``get``. A store-level multi-key get would let
 each BFS level fetch concurrently (recordstore already batches at the blob
@@ -115,7 +125,10 @@ class _LazyNodes(dict):
         if node is not None and name in self._dag._expanded:
             return node
         if self._dag._load(name) is None:
-            return default
+            # a term with no record of its own, derived by going whole
+            node = dict.get(self, name)
+            return node if node is not None and name in self._dag._expanded \
+                else default
         # Resolution expands: the planner reads `descendant_count` off the
         # nodes it gets back, and an unexpanded stub reports 0, which would
         # leave it ordering cones and dropping subsumed terms on no
@@ -164,6 +177,8 @@ class LazyOntoDAG(OntoDAG):
         self.rounds = 0             # store calls: get, or get_many
         self._records = {}          # name -> record (or None: known absent)
         self._expanded = set()      # names whose edges are filled in
+        self._whole = False         # every record loaded, the terms derived
+        self._partial = set()       # edges from the record, derived terms not
         self._cone_cache = {} if cache_cones else None
         self._max_cached_cones = max_cached_cones
         # Optional published cone summaries (ontodag.cones.ConeIndex, duck-
@@ -179,17 +194,57 @@ class LazyOntoDAG(OntoDAG):
     # ------------------------------------------------------------- fetching
 
     def _load(self, name):
-        """The record for `name`, or None if the store has no such key."""
+        """The record for `name`, or None if the store has no such key. A
+        term-shaped name with no record may be a derived term: the whole
+        store is loaded to tell (`_go_whole`)."""
         if name in self._records:
-            return self._records[name]
-        try:
-            record = self.store.get(name)
-        except KeyError:
-            record = None
-        self.fetches += 1
-        self.rounds += 1
-        self._records[name] = record
+            record = self._records[name]
+        elif self._whole:                # every record is read: a miss is known
+            record = self._records[name] = None
+        else:
+            try:
+                record = self.store.get(name)
+            except KeyError:
+                record = None
+            self.fetches += 1
+            self.rounds += 1
+            self._records[name] = record
+        if record is None and not self._whole \
+                and _dims.anchor_of(name) is not None:
+            self._go_whole()
         return record
+
+    def _go_whole(self):
+        """Load every record and derive the terms that have none: what is
+        filed under a derived term is known only from the records that name
+        it. Once per reader; nodes already resident keep their state (a
+        sparse writer's edits win over the store's records)."""
+        if self._whole:
+            return
+        self._whole = True
+        self.load_all()
+        resident = [node for name, node in dict.items(self.nodes)
+                    if name in self._expanded]
+        derived = {}
+        for node in resident:
+            for parent in node.parents:
+                if parent.name in self._expanded \
+                        or dict.get(self.nodes, parent.name) is not parent:
+                    continue
+                anchor = _dims.anchor_of(parent.name)
+                if anchor is None or self._records.get(anchor) is None \
+                        and anchor not in self._expanded:
+                    continue                 # a dangling name, not a term
+                derived[parent.name] = parent
+                parent.neighbors.add(node)
+        for name, term in derived.items():
+            self._expanded.add(name)
+            self._stub(_dims.anchor_of(name)).neighbors.add(term)
+        for term in derived.values():
+            term.descendant_count = len(OntoDAG.get_descendants(
+                self, term, computed=False))
+        if self._cone_cache:
+            self._cone_cache.clear()
 
     def _prefetch(self, frontier):
         """Read, in one batch, the records of the unread nodes in `frontier`
@@ -229,17 +284,35 @@ class LazyOntoDAG(OntoDAG):
             self._on_node_added(node)     # the hook every new node passes
         return node
 
-    def _expand(self, node):
-        """Fill in `node`'s count, metadata and both edge directions."""
-        if node.name in self._expanded:
+    def _expand(self, node, plain=False):
+        """Fill in `node`'s count, metadata and both edge directions. A
+        record that counts terms (`"terms"`) holds only the plain children:
+        the store is loaded whole for the rest, unless `plain`, for a walk
+        that reads parents and plain children only (the declaration walks),
+        which leaves the node partly expanded."""
+        if node.name in self._expanded \
+                or plain and node.name in self._partial:
             return node
         # Read before marking: a read that fails must leave the node
         # unexpanded, so the next query reads it again instead of taking
         # an edgeless stub for a node with nothing below it.
         record = self._load(node.name)
+        if record is not None and record.get("terms") and not self._whole:
+            if plain:
+                self._partial.add(node.name)
+                self._fill(node, record)
+                return node
+            self._go_whole()                 # the terms below it have no record
+        if node.name in self._expanded:      # going whole expanded it
+            return node
         self._expanded.add(node.name)
         if record is None:
             return node
+        self._fill(node, record)
+        return node
+
+    def _fill(self, node, record):
+        """A record's count, metadata and edges on `node` (idempotent)."""
         node.descendant_count = record["count"]
         if record.get("meta"):
             node.metadata = dict(record["meta"])
@@ -250,7 +323,16 @@ class LazyOntoDAG(OntoDAG):
             # add this edge downward too; adding it upward here is what lets a
             # probe walk ancestors without expanding whole cones.
             node.parents.add(self._stub(parent_name))
-        return node
+
+    def _schema_node(self, name):
+        """The declaration walks read parents and plain children only: a
+        head's record is read, but the terms below it need not be."""
+        node = dict.get(self.nodes, name)
+        if node is not None and (name in self._expanded or name in self._partial):
+            return node
+        if self._load(name) is None:
+            return self.nodes.get(name)      # absent, or derived by going whole
+        return self._expand(self._stub(name), plain=True)
 
     def _expand_many(self, nodes):
         """Expand several nodes, their records read in one batch when the
@@ -265,7 +347,10 @@ class LazyOntoDAG(OntoDAG):
         items = getattr(self.store, "items", None)
         pairs = items() if callable(items) else (
             (name, self.store.get(name)) for name in self.store.keys())
+        self.rounds += 1
         for name, record in pairs:
+            if name not in self._records:
+                self.fetches += 1          # every record read counts
             self._records.setdefault(name, record)
         for name in list(self._records):
             if self._records[name] is not None:
@@ -287,13 +372,13 @@ class LazyOntoDAG(OntoDAG):
         DAG's own parents, and skip every term-shaped name but a kind node,
         like the eager one; by name, so such a parent is never fetched."""
         out = []
-        for parent in self._expand(node).parents:
+        for parent in self._expand(node, plain=True).parents:
             if dict.get(self.nodes, parent.name) is not parent:
                 continue
             if _dims.split_term(parent.name) is not None \
                     and not _dims.is_kind_node(parent.name):
                 continue
-            self._expand(parent)
+            self._expand(parent, plain=True)
             out.append(parent)
         return out
 
@@ -594,19 +679,23 @@ class SparseOntoDAG(LazyOntoDAG):
 
     # --------------------------------------------------------------- commit
 
-    def _record_for(self, node):
-        loaded = self._records.get(node.name) or {}
+    def _payload(self, name):
+        loaded = self._records.get(name) or {}
         payload = loaded.get("payload")     # preserved, never edited here
         if payload is None:                 # adopted from a peer fold
-            payload = self._payloads.get(node.name)
-        return {
-            "up": sorted(p.name for p in node.parents
-                         if dict.get(self.nodes, p.name) is p),
-            "down": sorted(child.name for child in node.neighbors),
-            "count": node.descendant_count,
-            "payload": payload,
-            "meta": dict(node.metadata),
-        }
+            payload = self._payloads.get(name)
+        return payload
+
+    def _derivable(self, node):
+        # only a resident node is judged: a stub came from a record's
+        # `down`, which lists no derived term, and a payload keeps a record
+        from ontodag.eager import _derived_in_records
+        return node.name in self._expanded and self._payload(node.name) is None \
+            and _derived_in_records(self, node)
+
+    def _record_for(self, node):
+        from ontodag.eager import _record
+        return _record(self, node, self._payload(node.name))
 
     def commit(self, message=None):
         """Stage the resident diff, commit, return the new root.
@@ -622,6 +711,11 @@ class SparseOntoDAG(LazyOntoDAG):
         for name in sorted(self._expanded):
             node = dict.get(self.nodes, name)
             if node is None:
+                continue
+            if self._derivable(node):        # a term with no record
+                if self._records.get(name) is not None:
+                    self.store.delete(name)
+                    self._records[name] = None
                 continue
             record = self._record_for(node)
             if self._records.get(name) != record:
@@ -718,6 +812,7 @@ class SparseOntoDAG(LazyOntoDAG):
             if record.get("payload") is not None \
                     and key not in self._payloads:
                 self._payloads[key] = record["payload"]
+        arrived = set()                  # terms with no record, materialized
         # Pass 2: replay the peer's asserted edges (order-free: add_edge
         # maintains the complete redundancy rectangle).
         with self._lenient_roles():      # nodes landed before their edges
@@ -727,9 +822,14 @@ class SparseOntoDAG(LazyOntoDAG):
                 node = self.nodes[key]
                 for parent_name in touched[key]["up"]:
                     parent = self.nodes.get(parent_name)
+                    if parent is None:   # a term with no record (derived)
+                        parent = self._materialize_term(parent_name)
+                        if parent is not None:
+                            arrived.add(parent.name)
                     if parent is not None:
                         self.add_edge(parent, node)
-        self._respell_deferred(touched)   # compounds left behind (merge())
+        arrived.update(touched)
+        self._respell_deferred(arrived)   # compounds left behind (merge())
         self._fold_replayed(touched)      # values left unmet (merge())
-        self._touched_values.update(touched)  # unused ones forgotten (merge())
+        self._touched_values.update(arrived)  # unused ones forgotten (merge())
         return bool(touched)

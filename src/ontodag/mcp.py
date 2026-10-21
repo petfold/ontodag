@@ -372,8 +372,11 @@ class AgentSurface:
             # proofs of every record the answer depends on; anyone holding
             # the cited root checks it with
             # ontodag.certificates.verify_below(certificate, root).
-            from ontodag.certificates import prove_below
-            payload["certificate"] = prove_below(dag, sub, sup)
+            from ontodag.certificates import NeedsPrefixProofs, prove_below
+            try:
+                payload["certificate"] = prove_below(dag, sub, sup)
+            except NeedsPrefixProofs as exc:   # a whole-store certificate
+                raise ToolError(str(exc)) from None
         return self._envelope(root, payload)
 
     def tool_overlapping(self, arguments):

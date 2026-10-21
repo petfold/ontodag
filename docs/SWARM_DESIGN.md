@@ -121,9 +121,24 @@ value: {
   "down":  ["<name>", ...],           # subcategories (sorted)
   "count": <int>,                     # descendant_count
   "payload": "<swarm ref>" | null,    # optional: content this category tags
-  "meta":  {...}                      # optional, e.g. Content-Type
+  "meta":  {...},                     # optional, e.g. Content-Type
+  "terms": <int>                      # only when > 0: derived terms below
 }
 ```
+
+**Derived terms have no record** (2026-10-22, Peter: a geography store
+holds thousands of `in()` terms, and they are not knowledge). A term whose
+only parent is its anchor (`in(alps)` under `in`, `mass(5kg)` under
+`mass`), with no metadata and no payload, is named in the `up` of the
+records filed under it and nowhere else; its anchor's `down` leaves it out
+and `terms` counts such children. Hydration puts each back under its
+anchor. A lazy reader that reaches one — a term-shaped name with no record,
+or a walk below a record that counts terms — loads the whole store once and
+derives them, so plain-name queries stay lazy and term queries are whole.
+Family pins (`linear-dimension(mass)`) keep their records: they are schema,
+and the declaration walks find every head from them without a whole load.
+An `is_below` certificate whose walk went whole carries the store as a
+recordstore prefix proof (certificate version 2).
 
 Nodes are deliberately undifferentiated — there is no class/instance
 `kind` field. Everything is one `Item`; a node that tags stored content is
