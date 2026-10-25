@@ -228,11 +228,7 @@ class TestTools(SurfaceHarness):
         self.assertIn("is_below", text)   # points at what IS certifiable
 
     def test_is_below_certify_returns_a_verifiable_certificate(self):
-        import recordstore
         from ontodag.certificates import verify_below
-        if not hasattr(recordstore, "verify_prefix"):
-            self.skipTest("a value's certificate carries the whole store: "
-                          "recordstore prefix proofs (0.25)")
         answer = self.call("is_below", {"sub": "weight(3kg)",
                                         "sup": "weight(..5kg)",
                                         "certify": True})

@@ -47,7 +47,7 @@ currencies, `crypto-majors` for the market's top coins — or declare your
 own: vocabulary is graph data that travels with the store, no release
 needed; the shipped packs are also published on Swarm, adoptable by
 fingerprint alone, and adopting one reproduces the pinned golden root
-byte-identically). `odag prelude` declares the everyday dimensions in one command. A **starting vocabulary** ships the same way: `odag pack core` merges an upper ontology of ~5,000 categories in eleven branches (including an everyday goods layer: toaster, jeans, aspirin), built by consensus over WordNet, SUMO, OpenCyc, schema.org, YAGO, BFO, DOLCE and Wikidata (every edge carried by two independent sources or an explicit ruling; [docs/CORE.md](docs/CORE.md); ten domain packs built the same way — `odag pack physics`, `mathematics`, `chemistry`, `biology`, `medicine`, `ai`, `economics`, `computing`, `geography`, `space`, about 6,900 categories over core, from [ontodag-core](https://github.com/petfold/ontodag-core) — merge in the same way and all converge on one root), so a plane ticket is a document and an email from a man is an email from a human before you file anything. Masses and sizes (`mass(..5kg)`), places on the globe
+byte-identically). `odag prelude` declares the everyday dimensions in one command. A **starting vocabulary** ships the same way: `odag pack core` merges an upper ontology of about 4,800 categories in fourteen branches (including an everyday goods layer: toaster, jeans, aspirin), built by consensus over WordNet, SUMO, OpenCyc, schema.org, YAGO, BFO, DOLCE and Wikidata (every edge carried by two independent sources or an explicit ruling; [docs/CORE.md](docs/CORE.md); ten domain packs built the same way — `odag pack physics`, `mathematics`, `chemistry`, `biology`, `medicine`, `ai`, `economics`, `computing`, `geography`, `space`, about 6,700 categories over core, from [ontodag-core](https://github.com/petfold/ontodag-core) — merge in the same way and all converge on one root), so a plane ticket is a document and an email from a man is an email from a human before you file anything. Masses and sizes (`mass(..5kg)`), places on the globe
 (`geo(48.8584,2.2945±500m)`, a square 500 m either way), codes that nest
 by prefix, and does-it-fit tuples all work the same way. See
 [User Guide §4.7](docs/USER_GUIDE.md) and the design record
@@ -249,7 +249,7 @@ the tool shapes in [docs/AGENT_SURFACE.md](docs/AGENT_SURFACE.md).
 ## Roadmap
 
 The roadmap — what is done, what is queued next, what is parked and why — is in
-**[ROADMAP.md](ROADMAP.md)**. The suite is **1638 tests** (`pip install -e
+**[ROADMAP.md](ROADMAP.md)**. The suite is **1637 tests** (`pip install -e
 ".[test]" && pytest`); a guard in `tests/test_reference.py` fails if that
 number drifts, so it is current by construction.
 Longer-term goals for the database direction (and the features deliberately not

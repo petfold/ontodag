@@ -1,7 +1,7 @@
 # The `core` pack: an upper ontology built by consensus
 
 Design record for `src/ontodag/core_ontology.py`, shipped as the pack
-`core` (v13, shipped in 0.31; v12 shipped in 0.30, v9 in 0.24.0, and
+`core` (v14, shipped in 0.35; v13 shipped in 0.31, v12 in 0.30, v9 in 0.24.0, and
 v7, v8, v10 and v11 were built but never released on their own — see
 Versioning). The list is **generated** in the sister repository
 [ontodag-core](https://github.com/petfold/ontodag-core); this page says
@@ -73,21 +73,24 @@ it be useful?*, and versions are monotone.
   communication, not information, though it carries some.
 - **Roles and stages are out.** `pet`, `child`, `adult` are not kinds.
 
-## The eleven branches
+## The fourteen branches
 
-| branch | what goes under it | size (v13) |
+| branch | what goes under it | size (v14) |
 |---|---|---|
-| `physical-object` | artifacts, organisms, body parts, natural objects | ~2,500 |
-| `event` | acts, activities, processes, natural events, changes | ~660 |
-| `substance` | food, materials, chemicals, drugs, fuels | ~620 |
-| `information` | documents, messages, symbols, music, images, software | ~450 |
-| `agent` | persons, causes, and bodies that act as one (organizations, legislatures, juries) | ~430 |
+| `physical-object` | artifacts, organisms, body parts, natural objects | ~2,300 |
+| `substance` | food, materials, chemicals, drugs, fuels | ~630 |
+| `event` | acts, activities, processes, natural events, changes | ~570 |
+| `agent` | persons, causes, and bodies that act as one (organizations, legislatures, juries) | ~420 |
 | `attribute` | qualities, states, feelings, colors, shapes | ~420 |
-| `cognition` | beliefs, concepts, ideas, skills, methods, the senses | ~340 |
-| `place` | regions, buildings, rooms, bodies of water, roads | ~210 |
-| `group` | any number of members considered as a unit: social groups, species and herds, sequences, rows and matrices | ~190 |
-| `possession` | money, debts, income, belongings | ~60 |
-| `field-of-study` | sciences, humanities, arts, engineering, medicine, law | ~50 |
+| `information` | documents, messages, symbols, music, images, software | ~380 |
+| `possession` | money, goods, debts, income, belongings | ~280 |
+| `place` | regions, buildings, rooms, bodies of water, roads | ~220 |
+| `group` | any number of members considered as a unit: social groups, species and herds, sequences, rows and matrices | ~170 |
+| `cognition` | beliefs, ideas, skills, methods, the senses | ~120 |
+| `amount` | measures: time periods, portions, fractions, rates | ~80 |
+| `field-of-study` | sciences, humanities, arts, engineering, medicine, law | ~35 |
+| `relation` | relations between things: ratios, directions, kinship, comparisons | ~30 |
+| `part` | parts taken abstractly: details, beginnings, middles | ~5 |
 
 Sizes overlap: a node in several branches is counted in each.
 
@@ -307,6 +310,39 @@ vaccines gain the hinge, beside five kinds of vaccine (each also under
 `antigen`, which is the medicine pack's: core may lean on no pack). **4,986
 listed categories.**
 
+**v14 (0.35, 2026-10-25): the everyday-sense review.** Peter re-read core
+under transitivity and found the same faults again and again:
+- rare WordNet senses on plain names (`auditor` the student,
+  `accommodation` the favour);
+- several parents read as OR when they mean AND (`adult ⊑ animal person`);
+- odd inherited chains (`adversity ⊑ destiny`, `angel ⊑ belief`).
+
+The rules since are three: a plain name means its everyday, most frequent
+sense; several parents mean AND; an edge is wrong when any ancestor it
+brings in is false. Every name of core and of every pack was read against
+them, twice, from a pre-filled audit sheet. A third rule shrinks core to
+clear, unchanging things. ontodag-core's `docs/REVIEW_V14.md` is the
+record, `align/sense-review-v14.tsv` the decisions and
+`tools/sense_vectors.py` the word-frequency and embedding witnesses.
+
+Changes, all through ontodag-core's rulings files:
+- **`concept` is gone.** Its members went to information, method, amount
+  or state.
+- **Three new top branches:** `amount`, `relation` and `part`.
+- **Synonyms merged:** coast/seashore, pig/hog, abuse/maltreatment,
+  government/authorities, and more.
+- **Plain names take their everyday sense:** cast (the actors), club (the
+  association), craft (the trade), scale (of measurement), feed, mate,
+  android, translation, penalty, price (the amount asked).
+- **Everyday words that lived only in packs moved into core:** market,
+  insurance, goods, salary, coast, shore, bond, revenue, savings, africa,
+  asia, and about 30 more.
+- **The building and organization readings of hospital, hotel, library and
+  the like stay together for now.**
+
+Renames, merges and drops never propagate by merge: a store that adopted
+v13 keeps v13's names until it adopts afresh. **4,753 listed categories.**
+
 **Open sense questions the goods layer exposed** (core-wordnet's first
 senses, each an intervention if changed, so listed rather than done):
 `table` is the laid table, not the furniture (`table-furniture` for now);
@@ -324,13 +360,13 @@ everyday artifact or food sense was the recommendation, decided in v9 (below).
 
 The same weeks built **ten domain packs** in ontodag-core beside core —
 physics, mathematics, chemistry, biology, medicine, ai, economics,
-computing, geography, space, about 6,900 categories together — under the
+computing, geography, space, about 6,700 categories together — under the
 policy of §7 there: hinges in core, contents in packs, everyday words never
 taken by a pack. Since 0.21.0 they **ship in the wheel** (`odag pack geography`; each applies
 core first, `ontodag.domain`), the reversible half of the PACKS.md Part II
 decision — publishing them to Swarm later is the same stores. They fit: ontodag-core's
-`tools/integrate.py` merges core and all ten into one store — 11,899
-categories with core v13, the same root in every merge order, every cross-pack claim
+`tools/integrate.py` merges core and all ten into one store — 11,642
+categories with core v14, the same root in every merge order, every cross-pack claim
 resolving — with roots pinned in ontodag-core's UPPER.md §8.1.
 
 `CORE_VERSION` bumps whenever the list changes; the list itself is

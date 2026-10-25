@@ -741,7 +741,7 @@ missing file loads as an empty store, as `odag` treats a new one).
 
 The second line is a checksum of the rest, with the registry version that
 wrote it. A file that still matches is read back exactly as written: half
-a second for the 11,900 categories of core and every domain pack (§4.8).
+a second for the 11,600 categories of core and every domain pack (§4.8).
 Any other file — edited by hand, written by a release from before the
 checksum, or under another registry version — is read the way a merge of
 its lines would be, which takes about five times as long: each name spelled
@@ -1309,9 +1309,10 @@ mail-from-bob.eml
 Nobody filed anything under `human` or `document`; the paths were in the
 pack (`plane-ticket ⊑ transport-ticket ⊑ ticket ⊑ document`,
 `man ⊑ human ⊑ person`, and `human ⊑ mammal` too), and a query is the
-intersection of cones. It is 4,986 categories in eleven branches —
+intersection of cones. It is 4,753 categories in fourteen branches —
 physical object, substance, agent, group, event, information, place,
-attribute, possession, cognition, field of study — and `odag pack core --show`
+attribute, possession, cognition, amount, relation, part, field of study —
+and `odag pack core --show`
 prints every claim. Version 6 was not written by hand: it was built by
 consensus over WordNet, SUMO, OpenCyc, schema.org, YAGO, BFO, DOLCE and
 Wikidata (every edge entailed by two independent sources, or accepted on
@@ -1342,7 +1343,7 @@ a mistake is survivable. The reasoning is in `docs/CORE.md`.
 **The domain packs** are those contents, ten of them since 0.21.0, built the
 same way in the same repository: `physics`, `mathematics`, `chemistry`,
 `biology`, `medicine`, `ai`, `economics`, `computing`, `geography`, `space`
-— about 6,900 categories over core. Each applies `core` for you (as core
+— about 6,700 categories over core. Each applies `core` for you (as core
 applies the prelude), and all ten with core converge on one root whatever
 order you adopt them in:
 
@@ -1352,27 +1353,29 @@ $ odag put base-camp.jpg mount-everest
 $ odag below base-camp.jpg landform
 true
 $ odag count landform
-116
+146
 ```
 
 A pack sometimes hangs a concept from a name that belongs to a *sibling*
-pack — geography's GIS formats under computing's `file-format`. Adopted
-alone, that borrowed name sits at the top level, and the moment the
-sibling arrives it is filed; nothing has to be redone:
+pack — ai's knowledge graphs under computing's `knowledge-graph`. Adopted
+alone, that borrowed name sits at the top level, `odag pack` names the
+sibling that would file it, and the moment the sibling arrives it is
+filed; nothing has to be redone:
 
 ```console
-$ odag put readme.md shapefile
-$ odag get file-format
-geographic-data-format
-geojson
-geotiff
-gps-exchange-format
-keyhole-markup-language
-readme.md
-shapefile
-well-known-text
+$ odag pack ai
+note: ai uses computational-ontology, computer-simulation, data-mining, human-computer-interaction, knowledge-base, knowledge-graph, logic-programming, search-algorithm, signal-processing from computing; `odag pack computing` files them
+note: ai uses formal-system, mathematical-expression, mathematical-set, mathematical-space from mathematics; `odag pack mathematics` files them
+$ odag put facts.ttl temporal-knowledge-graph
+$ odag get knowledge-graph
+dynamic-knowledge-graph
+facts.ttl
+temporal-knowledge-graph
+$ odag below facts.ttl information
+false
 $ odag pack computing
-$ odag below readme.md information
+note: computing uses directed-acyclic-graph, formal-system, mathematical-graph from mathematics; `odag pack mathematics` files them
+$ odag below facts.ttl information
 true
 ```
 

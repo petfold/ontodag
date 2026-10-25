@@ -23,7 +23,7 @@ from ontodag.packs import PACKS, apply, pack_dag
 GOLDEN_ROOTS = {  # pack fingerprints: everyone merging these converges (a domain pack's root is core + pack, so it moves when core does;
     # all moved 2026-10-22 when derived terms lost their records)
     "core":  # v12, 2026-10-07 — the upper ontology (docs/CORE.md): v11 + step 7, prelude v4
-        "8305bc91294a3d8f0a6e49fcbb1b1409d346d523d715f77504031436aa57dc57",
+        "7bc21466a8f9df5492884dde530f8c53cd541f50e4b25b42f4f0481a84b2e091",
     "crypto-core":
         "4d501a439e109269252300d2777145be6ef736bbe5468b7812f016acb730d566",
     "crypto-majors":
@@ -33,25 +33,25 @@ GOLDEN_ROOTS = {  # pack fingerprints: everyone merging these converges (a domai
     "fiat-iso4217":
         "f1a2226ca3f4bbb90437d7331bbb5aa8758673a8f8350eec8c5b3d57c7b5ba7b",
     "physics":  # v5 over core v12, 2026-10-07 (ontodag-core packs/physics)
-        "20e0e341e75536b2e2f8fb0eae6d57ea44e19439afca625e778ab05f3f61eec9",
+        "b24999a62b8aa2b385268035527cb26e7c5431bd25ba0dda099d983afb020879",
     "mathematics":  # v3 over core v12, 2026-10-07 (ontodag-core packs/mathematics)
-        "64b540726fd16e5e8a11e7fded9e832b4569b9046a0e177d8e6d603823276c1e",
+        "7b05a2f1977337074ca1393f0f9bb6d0abc3b861660433d24e94f1588ef292a2",
     "chemistry":  # v3 over core v12, 2026-10-07 (ontodag-core packs/chemistry)
-        "b8ba06e6961dcdaebb4a78dfb1b433c1146cb638a3cb9828be3791709d393105",
+        "69fb8e4d26ec2b05a607c373779decc6c39f0be16c966268d37c76c90a46bdfd",
     "biology":  # v3 over core v12, 2026-10-07 (ontodag-core packs/biology)
-        "edbbf2cfa796c8e71fa07b6bb3964cf6a96640b9fd8128c11ca1b2d7e727ae5d",
+        "716962388eef38cca2888456ee388046f33231e6cdb11f7f4cc24bd4703a3b79",
     "medicine":  # v6 over core v12, 2026-10-07 (ontodag-core packs/medicine)
-        "f8061f5efe70209b0887a2950f1b0d5b8313c29b749c0b53a9a493eeffb0bee4",
+        "2e65ffd28337b494687f1b243167f2bba515b9852fd302fccca6d4c016f5b0ac",
     "ai":  # v5 over core v12, 2026-10-07 (ontodag-core packs/ai)
-        "bf9cf91af89d35542df376ef360965181feb5db978a69f4c5ed8a01b6768f559",
+        "d42c82107c31eba1d0e6622352fedd630a1cf476409d5c2e496aff0d4dd70579",
     "economics":  # v7 over core v12, 2026-10-07 (ontodag-core packs/economics)
-        "a584cf07c2adcd2c1d7b0d07bcd3fbe9da211f845ae3124f2105e41e90b2990c",
+        "e5ca8bdb319e8121d62b42e6f28f2fbd5fd093ae2f2c206a69709d514af72185",
     "computing":  # v5 over core v12, 2026-10-07 (ontodag-core packs/computing)
-        "65dc59608c7ba23eec1e82aabdd9d64c1303020cc5eb91fab34bffa68a94b54c",
+        "a5318ebf237a744fa32f0020994bc1fb5786d4b48f6a216beaeee063fc149073",
     "geography":  # v6 over core v12, 2026-10-07 (ontodag-core packs/geography)
-        "c944bba70616c3f4d56bf5a1b340cf4eb00f63be568193e362e8fd01b31abe99",
+        "3f566922fdc31a17b69c8d23b747cc48332ee7d6498d38b91b3a24304ba7afbe",
     "space":  # v5 over core v12, 2026-10-07 (ontodag-core packs/space)
-        "6e9ffc3e1caf6a7e32cc738780407386f773bcfed5f24173b5ff2de95e8e3ca0",
+        "ba35f7ca6a479125da079525a4617404093150fd7c1609a2110d5d062f8a457e",
 }
 
 
@@ -249,7 +249,7 @@ SWARM_GOLDEN_ROOTS = {  # the same packs under Swarm (BMT) addressing —
     # the fingerprints real Swarm publication must reproduce (PACKS.md §14
     # item 1). Computable offline: BMT is a hash, not a network.
     "core":
-        "9305fa6947207add60388d33e9e841f7ac289a68f39963bfc5a85f02fcc17eff",
+        "ee32b3bae0c76bcf95f0fa0973aa70ed5a8c57d3f87326d2687a9f66b22d2ae5",
     "crypto-core":
         "bbd0a930d7888aae3ea65c3ce794e793b5362f4e1837f816567889c75c22ea14",
     "crypto-majors":
@@ -259,30 +259,30 @@ SWARM_GOLDEN_ROOTS = {  # the same packs under Swarm (BMT) addressing —
     "fiat-iso4217":
         "36a9e1e2fdce1f87b273a50938f30cf931a0880b2bba8ab1a3dea1fe0309dd7b",
     "physics":
-        "cf40e6754064f5256f9a74c7c324e887be52dd9c2b08488387a1ae428f18f094",
+        "2d642b5ea8d38cec1fadd9b789ba84507005caf99fec2874aeb850db1e038517",
     "mathematics":
-        "cd407ae313e6da2ee29299f98b2a297e3be38bc352b3ef3ab0a02219e1f271fa",
+        "4d43578c16273500600dd48f89f6062d9a824fd7cc59dfe2716b8501e4f083ae",
     "chemistry":
-        "3b6388ad38badbc3320be2a219bf852f8193a7f1ecf7ead136d65d147cf85529",
+        "38e2c898c24135df3a9abddb1d09c5ce04cd57a0ce9c6489cdbf5d08a447ad41",
     "biology":
-        "5e4fed2ef22945f74e1dc8031ef94c7e1030f227af5db1a6686ed0b31f8148c6",
+        "718e84d510661d33affc61a711d8a1f462901faa31216510fec477b4f24a580d",
     "medicine":
-        "e1f4690403409dfae11e6246a1b8521a19d02e8dbf3c14cd5715e5c8070ca9dc",
+        "2406646b92f2f54852d933adbe35544f549cfb543ec694e62e537e0f72336ba8",
     "ai":
-        "ab65de5bca495103c67594132d9ec0687c4d6229bdebd03c1c4cc2c9d0e07ab7",
+        "5e58f29467fa76f5409e0c70ae0965ce81058ca97c6d20e8de4022c56e78fbce",
     "economics":  # v6, 2026-09-19
-        "546c15bf24303584891a98a1d757bc0236730d49e6777d2a613a3324452e3f65",
+        "7cb150b1d6f347ec6d35d2da8318474bb57cea73d8f48cc37812783656971cbc",
     "computing":
-        "9072a60498e22200fa10c3c5f612cb024877f74ce1cfb2a6d71e7fa91fb56867",
+        "ca8b01d710a1d89db5d56ca2772fce365c58f06ae9af32f740b7730da652079a",
     "geography":
-        "bba4cd1c678112d6b6d69eb3532a2ed1d8230cdf68b620e6c6c758f654967c59",
+        "03a37d39ceefa5d47a2f37ea683040a86b9379d58719e23de03c1f578d2ac181",
     "space":
-        "fbf229fd23ec3cd925a875a51e87c4301ac52aa060527fd29a55fd6f3ae5a029",
+        "67f6be2688e5fb7ca85a463c3d2929dad2b177bb3edb6bb910e8fa110598cff3",
 }
 
 
 UNION_ROOT = (  # core + all ten domain packs, any order (ontodag-core tools/integrate.py, UPPER.md §8.1)
-    "7928c2cd05860d81bd1d3becb3768cccc4864fe5ca04c3fd4bca075b50ae5515")
+    "3d09e626b7fe1cecfe82e2263b6230fd62780c93e098b2ac6199398d6d4e3e61")
 
 DOMAIN_PACKS = ["physics", "mathematics", "chemistry", "biology", "medicine", "ai",
                 "economics", "computing", "geography", "space"]
@@ -351,27 +351,41 @@ class TestDomainPacks(unittest.TestCase):
         for name in DOMAIN_PACKS:
             apply(dag, name)
         self.assertEqual(dag.commit(), UNION_ROOT)
-        self.assertEqual(len(dag.nodes) - 1, 11900)   # core v13, prelude 5 (2026-10-11)
+        self.assertEqual(len(dag.nodes) - 1, 11642)   # core v14, prelude 5 (2026-10-25)
         # cross-pack claims resolve in the union
-        self.assertTrue(dag.is_below("shapefile", "file-format"))          # geography -> computing
+        self.assertTrue(dag.is_below("temporal-knowledge-graph", "knowledge-base"))  # ai -> computing
         self.assertTrue(dag.is_below("merkle-dag", "directed-acyclic-graph"))  # computing -> mathematics
         self.assertTrue(dag.is_below("celestial-coordinate-system", "coordinate-system"))  # space -> geography
-        # and nothing but core's roots and the prelude's kind node sits at the top
+        self.assertTrue(dag.is_below("pork-butcher", "merchant"))   # economics carries occupations' butcher
+        # and nothing but core's roots, the prelude's kind node and the
+        # mathematics pack's own branch sits at the top
         tops = {x.name for x in dag.nodes["*"].neighbors}
-        self.assertEqual(tops, {"agent", "attribute", "cognition", "dimension", "event", "field-of-study",
-                                "group", "information", "physical-object", "place", "possession",
-                                "substance"})   # group: core v13's eleventh branch
+        self.assertEqual(tops, {"agent", "amount", "attribute", "cognition", "dimension", "event",
+                                "field-of-study", "group", "information", "mathematical-object", "part",
+                                "physical-object", "place", "possession", "relation", "substance"})
 
     def test_a_pack_alone_leaves_a_borrowed_name_at_top_level_until_its_sibling_comes(self):
         from ontodag.packs import pack_dag, describe, packs_declaring_node
-        dag = pack_dag("geography")
-        self.assertIn("file-format", {x.name for x in dag.nodes["*"].neighbors})   # computing's, borrowed
-        self.assertTrue(dag.is_below("shapefile", "file-format"))
-        apply(dag, "computing")
-        self.assertNotIn("file-format", {x.name for x in dag.nodes["*"].neighbors})  # filed under information
-        self.assertEqual(describe("geography"), "984 categories")             # borrowed names not counted
-        self.assertEqual(packs_declaring_node("file-format"), ["computing"])   # and never hinted as geography's
-        self.assertEqual(packs_declaring_node("mount-everest"), ["geography"])
+        dag = pack_dag("space")
+        self.assertIn("coordinate-system", {x.name for x in dag.nodes["*"].neighbors})   # geography's, borrowed
+        self.assertTrue(dag.is_below("celestial-coordinate-system", "coordinate-system"))
+        apply(dag, "geography")
+        self.assertNotIn("coordinate-system", {x.name for x in dag.nodes["*"].neighbors})  # filed
+        self.assertEqual(describe("space"), "340 categories")                  # borrowed names not counted
+        self.assertEqual(packs_declaring_node("coordinate-system"), ["geography"])  # and never hinted as space's
+        self.assertEqual(packs_declaring_node("milky-way"), ["space"])
+
+    def test_a_packs_own_top_level_name_is_its_own_not_borrowed(self):
+        # mathematical-object is the mathematics pack's own branch (ontodag-core,
+        # 2026-10-16): siblings borrow it, and it already sits where its owner puts it
+        from ontodag.packs import _DOMAIN, pack_entries, packs_declaring_node, unplaced_borrowings, uses
+        self.assertIn(("mathematical-object", ()), pack_entries("mathematics"))   # as core writes its branches
+        self.assertNotIn("mathematical-object", _DOMAIN["mathematics"].BORROWED)
+        self.assertEqual(packs_declaring_node("mathematical-object"), ["mathematics"])
+        self.assertEqual(uses("geography"), ("mathematics",))
+        dag = ontodag.OntoDAG()
+        apply(dag, "geography")
+        self.assertEqual(unplaced_borrowings(dag, "geography"), {})          # nothing to file
 
 
 class TestSoftDependencies(unittest.TestCase):
@@ -381,17 +395,17 @@ class TestSoftDependencies(unittest.TestCase):
 
     def test_uses_names_the_siblings_a_pack_borrows_from(self):
         from ontodag.packs import uses
-        self.assertIn("computing", uses("geography"))       # file-format, database, ...
+        self.assertIn("computing", uses("ai"))              # knowledge-graph, search-algorithm, ...
         self.assertEqual(uses("chemistry"), ())              # core alone
         self.assertEqual(uses("core"), ())                   # not a domain pack
 
     def test_unplaced_borrowings_empty_once_the_sibling_is_adopted(self):
         from ontodag.packs import unplaced_borrowings
         dag = ontodag.OntoDAG()
-        apply(dag, "geography")
-        self.assertIn("file-format", unplaced_borrowings(dag, "geography").get("computing", []))
+        apply(dag, "ai")
+        self.assertIn("knowledge-graph", unplaced_borrowings(dag, "ai").get("computing", []))
         apply(dag, "computing")
-        self.assertNotIn("computing", unplaced_borrowings(dag, "geography"))
+        self.assertNotIn("computing", unplaced_borrowings(dag, "ai"))
 
 
 class TestCorePack(unittest.TestCase):
@@ -496,5 +510,5 @@ class TestCorePack(unittest.TestCase):
             self.assertIn("human ⊑ mammal, person", out.getvalue())
             out = _io.StringIO()
             cli.dispatch(["pack"], session, out=out, err=_io.StringIO())
-            self.assertIn("core v13 (4986 categories)", out.getvalue())
+            self.assertIn("core v14 (4753 categories)", out.getvalue())
             self.assertIn("declarations)", out.getvalue())   # unit packs

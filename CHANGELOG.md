@@ -14,8 +14,50 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.35.0] — 2026-10-25
+
+Core v14, and record stores that keep no record of a derived term. In core
+a plain name now means its everyday sense, and several parents mean AND:
+4,753 categories in fourteen branches, with the ten domain packs rebuilt
+over it. Every store's root moves; its knowledge id names its canonical
+text, which is form 2. Needs recordstore 0.25. Contract 0.7, registry 6.0,
+prelude 5, surface 0.2, core 14.
+
 ### Changed
 
+- **Core v14: the everyday-sense review** (Peter, ontodag-core's
+  docs/REVIEW_V14.md, 2026-10-16 to 2026-10-25). Every core item was re-read:
+  - a plain name means its everyday, most frequent sense, and the others
+    are qualified (`woodworking-plane`, `web-feed`) or left to a pack;
+  - several parents mean AND, so each must hold of the child;
+  - `concept` is dropped and `quantity` merged into `amount`; `amount`,
+    `relation` and `part` are top branches now, fourteen in all;
+  - duplicates are merged (`seashore` into `coast`, `purchase-price` into
+    `price`), and 37 everyday words move from the packs into core
+    (`market`, `goods`, `salary`, `editor`).
+
+  Core goes from 4,986 categories to 4,753. A rename or a retraction does
+  not propagate by merge, so a store that adopted v13 keeps v13's names
+  until it adopts afresh; every golden root moves, the union's (core and
+  all ten, 11,642 categories) and the Swarm roots with them.
+- **The domain packs over core v14**: physics 6, mathematics 4,
+  chemistry 4, biology 4, medicine 8, ai 6, economics 8, computing 6,
+  geography 7 and space 6, about 6,700 categories together. A pack may
+  carry an entry for a core name where it refines it with a parent of its
+  own; merged with core, core's edge is implied. `mathematical-object` is
+  the mathematics pack's own top-level name, written parentless as core
+  writes its branches and not borrowed; the packs that borrow it name
+  `mathematics` in `USES`, and `unplaced_borrowings` no longer offers a
+  sibling for a name that already sits where the sibling puts it.
+  `butcher` belongs to ontodag-core's occupations pack, which does not ship
+  yet, so economics carries it (`butcher ⊑ merchant, worker`) rather than
+  leave it at the top.
+- **The other words for core's names follow its current senses**
+  (`core_words`): each name's WordNet synset is now the one core's build
+  records for it, so a re-sensed name no longer offers its old sense's
+  words, and `pressure`, which the prelude declares, has none.
+- **recordstore 0.25 is the floor** (base, `store` and `swarm`), for the
+  prefix proofs below.
 - **Record stores keep no record of a derived term** (Peter, 2026-10-22):
   a term whose only parent is its anchor, with no metadata and no payload
   (`in(alps)` under `in`, `mass(5kg)` under `mass`), is named only in the
@@ -37,8 +79,8 @@ the version numbers appear in commit history and docs.
   (certificate version 2): a recordstore prefix proof of every record
   (`prove_prefix("")`, recordstore 0.25), since no per-key proofs show that
   no other record is filed under a term. A walk that touches no derived
-  term keeps version 1. Without recordstore 0.25, proving or checking one
-  raises `certificates.NeedsPrefixProofs`, and the tests that need one skip.
+  term keeps version 1. An older recordstore cannot prove or check one
+  (`certificates.NeedsPrefixProofs`).
 - **Canonical `.od` text no longer writes a term's line when the line says
   only where the term is anchored** (canonical form 2): `'in(alps)' in`,
   `'about(address)' about`, `'mass(5kg)' mass`, `'linear-dimension(area)'
