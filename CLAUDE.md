@@ -52,7 +52,7 @@ github.com/petfold.
   and rulings are in its `docs/UPPER.md` and `align/`.
 - **factbond**: bonded assertions and adjudication. It consumes the
   contract; ontodag never imports it.
-- **categorio** (categor.io): a website over ontodag (`>=0.31.0`), the
+- **categorio** (categor.io): a website over ontodag (`>=0.35.0`), the
   driver of `sharing` and `keyplan`. Its live site updates by the admin's
   ssh step (its `docs/ADMIN.md`).
 
@@ -631,6 +631,18 @@ Each line points to its record.
   `swarmfs[feeds]>=0.15.0`; every workflow job green, the downstream gate
   included; `release_smoke.py --pypi` 28/28; a fresh `ontodag[swarm]`
   resolves to both). Unchanged: loopmarket 0.17.1, ontodag-fs 0.9.0.
+- Released 2026-10-25 on Peter's word ("Do the releases"; no migration,
+  no real users yet), each verified from PyPI: recordstore 0.25.0 (prefix
+  proofs), then ontodag 0.35.0 (core v14 and the ten packs over it,
+  term-free record stores, canonical form 2, knowledge ids; every workflow
+  job green, the downstream gate included, after a first tag failed only
+  the README's test count; `release_smoke.py --pypi` 28/28), then
+  ontodag-fs 0.11.0 (`>=0.35.0,<0.36.0`). The eleven packs republished
+  keyless on `c931c8a5…`: every root equal to its `SWARM_GOLDEN_ROOTS` pin
+  and retrievable, core and geography read back by root and recommitted
+  identical. categorio's floor is `>=0.35.0` (pushed); its live update,
+  the admin's ssh step, is Peter's. Not rebuilt: the packs' cone summaries
+  and the read-only pages, still core v13's.
 - Released 2026-10-15 on Peter's word, each verified from PyPI: ontodag
   0.34.0 (registry 6.0, question 50; when and where photos were taken,
   question 49's step 1; every workflow job green, the downstream gate
