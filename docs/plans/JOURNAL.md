@@ -3159,3 +3159,19 @@ it reads 108 records in 0.07–0.72 s, and a whole check fetches 405 chunks
 instead of 6,756. The page `9708569d…` passed through the node and the
 public gateway before the feed moved; index 10 names it, index 9 the
 previous page, and `ontodag.gwei.domains` served it at the first try.
+
+## 2026-10-30: what MLS, TreeKEM and ClaimChain teach the key plan
+
+Three sources from the Swarm research group, read against the key plan:
+RFC 9420 §7 (MLS's ratchet tree), TreeKEM's machine-checked proof (ePrint
+2025/410) and ClaimChain (WPES 2018). The record is SHARING_ON_SWARM §14,
+with the topics it raises, S20–S24. MLS's tree is there for speed, so
+only its path-secret chain needs a tree; its blanking is our lazy
+rotation, and the paper's proof method works on a DAG unchanged.
+
+**Measured** (`experiments/keyplan_rotation_cost.py`, §4.3's group in
+today's model): a post after a member leaves writes 121 records, 49 of
+them tokens into the group's term and 69 re-minted to children that kept
+their keys; a post six levels down writes 506, of which 485 are such
+re-mints. An epoch chain, the new key wrapping the old, would write 53
+and 30 (counted, not built).

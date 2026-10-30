@@ -737,7 +737,8 @@ Older, not urgent: a publisher key for the packs on
 Swarm (published without one, so no feed yet; PACKS.md); the browser's
 open points (BROWSER.md §11: which message the wallet signs, dappdata as
 the shared layer, which clients first); ontodag-core's doubtful list
-(its UPPER.md §9).
+(its UPPER.md §9). Not urgent either: the key plan's topics S20–S24, from
+MLS, TreeKEM and ClaimChain (SHARING_ON_SWARM §14, 2026-10-30).
 
 Parked behind a discussion or a tripwire (in `docs/plans/`, some only in
 the journal): the

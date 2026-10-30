@@ -4,8 +4,9 @@ Status: plan and discussion draft (2026-09-25). Phase 1 and a first
 Phase 2 run are built (§13), and in 0.30 the key plan becomes the one
 access-control API: `ontodag.act`'s hand-maintained key graph
 (`KeyGraph`, `Resolver`, `align`) is retired, so this document is also the
-record for what act-categories' phases became (§13's 0.30 note). The rest
-is a plan. It asks how the sharing and receiving of
+record for what act-categories' phases became (§13's 0.30 note). §14
+compares it with MLS, TreeKEM and ClaimChain (2026-10-30). The rest is a
+plan. It asks how the sharing and receiving of
 [SHARING.md](SHARING.md) and [WALLS_AND_INBOXES.md](WALLS_AND_INBOXES.md)
 can run on Swarm with no server at all:
 
@@ -559,7 +560,8 @@ principal, with a keypair**, as ACT §3 already gives every people node.
   parent to child only: the wrong direction for groups, where a member's
   key must open the group's.
 - **MLS** gives groups forward secrecy and cheap removal, but no hierarchy
-  and no shared categories: it suits conversations.
+  and no shared categories: it suits conversations. §14 maps its
+  mechanisms onto the key plan.
 - **Nostr and ActivityPub** put relays or servers in the path. They see at
   least the traffic, and an ActivityPub server holds its users' posts in
   the clear.
@@ -696,6 +698,33 @@ Each has options and a leaning; none is decided.
   are concatenated in a canonical order (sorted names), or two writers
   derive different keys for one audience: G1's rule, applied to keys (ACT
   §2.5).
+
+**Lessons from MLS, TreeKEM and ClaimChain (§14)**
+
+- **S20 — Receiving keys.** Grants are wrapped to a reader's long-lived
+  sharing identity, so a stolen key reads everything until every author
+  grants to a new one, and nothing tells authors that there is one.
+  - Keep one key; or
+  - a receiving key apart from the identity: signed by it, published in
+    its profile record (§2) with an expiry, and rotated. Authors grant to
+    the current one at their next publication, as MLS's key packages and
+    ClaimChain's per-block keys work.
+  - *Leaning:* the second, built with identity (Phase 3).
+- **S21 — Rotation cost.** A key tree under a node with many parents, an
+  epoch chain, both, or neither (§14.2). *Leaning:* the epoch chain first,
+  since it carries most of the cost in both measured cases, keeping §4.1's
+  check exact; a key tree once a group has hundreds of members.
+- **S22 — Verifiable ids.** Keyed ids (today), or ids from a VRF with a
+  proof in each record and a public check of each record's key, so that
+  readers can hold an author to one version of a name. *Leaning:* not
+  until certificates or groups across stores need it.
+- **S23 — Unlinkable entries.** One lookup key per author–reader pair
+  (today), or one per publication, rewriting every entry each time.
+  *Leaning:* today's, until padding (S8) is decided, since both hide the
+  same kind of thing.
+- **S24 — A machine-checked model** of the key plan, in DY* or a similar
+  tool, for the SWIP of Phase 8. *Leaning:* yes, beside the random-store
+  tests, not instead of them.
 
 ## 12. What was checked, and how
 
@@ -862,3 +891,135 @@ references, which `keyplan` doesn't do.
 - groups across stores (Phase 7);
 - S5's other record layout;
 - a fix for `KeyGraph.revoke` itself.
+
+## 14. What MLS, TreeKEM and ClaimChain teach (2026-10-30)
+
+Three sources came up in the Swarm research group, in a discussion of
+generalising ACT to categories of readers and of content:
+
+- MLS's ratchet tree ([RFC 9420 §7](https://www.rfc-editor.org/rfc/rfc9420.html#section-7));
+- a machine-checked proof of TreeKEM, MLS's group key agreement (Wallez,
+  Protzenko and Bhargavan, [ePrint 2025/410](https://eprint.iacr.org/2025/410));
+- ClaimChain (Kulynych, Lueks, Isaakidis, Danezis and Troncoso, WPES 2018;
+  [claimchain.github.io](http://claimchain.github.io/)).
+
+MLS and TreeKEM work on trees, and the key plan on a DAG. What carries
+over follows, and the topics it raises are S20–S24 (§11).
+
+### 14.1 MLS: a tree for speed, not for meaning
+
+- **MLS's members are a flat set.** The tree is a balanced binary tree the
+  protocol lays over them so that a change costs log n encryptions, and
+  being siblings means nothing. Here the DAG is the policy itself.
+- **Only one mechanism needs a tree:** the path secrets, each parent's
+  derived from its child's (§7.4). That is the `K_parent = KDF(K_child)`
+  that ACT §2.3 set aside, since a node with two parents can't be derived
+  from both.
+- **The rest has a counterpart here:**
+
+| MLS | The key plan |
+|---|---|
+| removing a member blanks every node it knew; the next path update fills them again | `losses` marks every lost node stale; lazy rotation, upward to a fixpoint (§4.3) |
+| the drafts' "double-join" attack, fixed by blanking (2025/410 §4.3) | `KeyGraph.revoke`'s gap, fixed by the fixpoint |
+| an unmerged leaf: a joiner that doesn't hold its path's keys yet | a joiner gets one token, and sees the past on purpose |
+| the tree hash in the group context | the published store's root, under the author's feed |
+
+**Security goals.** TreeKEM aims at four (2025/410 §2.1):
+
+- *Remove-security*, a removed member reads nothing new: §4.3's guarantee.
+- *Add-security*, a joiner reads nothing from before: deliberately not
+  ours. Reach is the whole cone, whenever one joined. An audience that
+  wants it should say so in the store, as an AND audience with a time
+  (S19), not in the keys.
+- *Forward secrecy* isn't a goal for publication (§9).
+- *Post-compromise security* is a gap. A reader's grants are wrapped to its
+  long-lived sharing identity (§2), so a stolen key reads everything until
+  every author grants to a new one, and nothing tells authors that there is
+  one. MLS keeps the signing identity apart from encryption keys that
+  rotate, published in key packages, which must expire and be deleted after
+  use (2025/410 §4.4, §6). ClaimChain puts a fresh Diffie–Hellman key in
+  every block. S20.
+
+### 14.2 What the proof and the costs say
+
+- **The proof method suits a DAG.** 2025/410 proves TreeKEM's secrecy in
+  DY*, on a byte-precise specification that passes MLS's test vectors. Its
+  security labels are sets of readers, and its central rule, that a key
+  must be more secret than what it encrypts (§5.4), is "a token points only
+  down the order". Nothing in that needs a tree, so a machine-checked model
+  of the key plan is within reach for Phase 8 (S24).
+- **Two cautions from the paper.** Its proof needed the group context bound
+  into the key schedule (§5.3): a derived key should name what it belongs
+  to. And symbolic models treat encryption as perfect (§4.1), so they can't
+  see a reused keystream, as format 1's tokens had (`ontodag.act`). A proof
+  would add to the random-store tests, not replace them.
+
+**Where a rotation's cost goes**, measured on `keyplan` with §4.3's group
+in today's model, members filed under the group: 50 members, 1,000 items
+(`experiments/keyplan_rotation_cost.py`, two seconds):
+
+| | written | made of |
+|---|---|---|
+| m0 leaves the group | 0 (3 deleted) | m0's entry, record and token |
+| a post in the group | 121 | 49 tokens into the group's term, one per remaining member; 70 out of it, 69 of them re-minted to children that kept their keys; 2 records |
+| a post six levels down, with 8 folders above it | 506 | 9 nodes rotated; 485 tokens re-minted to children that kept their keys; 10 records |
+
+Two known ideas fit the two large parts (S21; counted, not built):
+
+- **A key tree inside a node with many parents**, LKH's and TreeKEM's idea
+  used per node. After a member leaves, about 2·log₂ n tokens are re-minted
+  instead of n: about 12 instead of 49, or 18 instead of 499.
+- **An epoch chain:** the new key wraps the old, so the tokens to children
+  that kept their keys stay valid, and only new tokens go under the new key
+  (Bee's ACT history; key regression, §14.4). The group post then writes 53
+  records instead of 121, and the deep post 30 instead of 506.
+
+With both, the group post writes about 16. The costs:
+
+- the plan stops being a pure function of the store (positions in the
+  tree, tokens kept from old epochs);
+- the public store grows;
+- a chain must be cut when a child leaves, or a later member would reach
+  that child's old key.
+
+### 14.3 ClaimChain
+
+- **It is the closest in shape.** Each user keeps a signed hash chain of
+  blocks. A block holds an authenticated key–value map of encrypted claims,
+  and capabilities at lookup keys derived from a Diffie–Hellman secret
+  between owner and reader. That is our feed, record store and grantee
+  entries. The key plan generalises its capabilities: one entry opens a
+  cone instead of one claim.
+- **Unlinkable entries.** A capability's lookup key also takes the label
+  and a fresh nonce per block, so nobody can follow a reader's entry from
+  one block to the next. Ours sit at one lookup key per author–reader pair,
+  so anyone can watch an entry appear, change and vanish (§4.4). Doing as
+  ClaimChain does would rewrite every entry at each publication. S23.
+- **Verifiable ids.** Claim lookup keys come from a VRF of the label:
+  unguessable to outsiders, as our keyed ids are (S4), and checkable by a
+  reader given the proof, which ours aren't. With committing encryption,
+  every reader of a name provably sees one record, so an author can't show
+  two readers two versions of it. That matters only where readers must hold
+  an author to one version: certificates (§9) and groups used across
+  stores (§7). S22.
+- **Fork detection.** Cross-references between chains expose an owner who
+  shows different people different histories. Feeds that carry keys need
+  the same: profile records (§2), and a group's key by epoch (§7).
+- **Evidence against privacy.** In ClaimChain's Enron simulation, hiding
+  who vouches for whom left senders with up to ten times less evidence for
+  a key, so fewer users need be corrupted to spread a false one. "Never a
+  global list" (S3) pays the same price.
+- **Access patterns.** Full privacy needs private retrieval (ClaimChain
+  §7). On Swarm, which chunks a reader fetches outlines its reach to
+  whoever serves them.
+
+### 14.4 Closer prior art
+
+- Wong, Gouda and Lam, "Secure group communications using key graphs"
+  (SIGCOMM 1998): group keys in a DAG, with key trees as the special case.
+- Plutus (Kallahalla et al., FAST 2003): lazy revocation in a shared file
+  system, the shape of §4.3. Key regression (Fu, Kamara and Kohno, NDSS
+  2006): newer keys that derive older ones, the epoch chain of §14.2.
+- Weidner, Kleppmann, Hugenroth and Beresford, "Key agreement for
+  decentralized secure group messaging with strong security guarantees"
+  (CCS 2021): group keys with no central ordering, for S14 and §7.
