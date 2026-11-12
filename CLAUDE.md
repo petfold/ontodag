@@ -731,11 +731,17 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   released (swarmfs 0.15.0, recordstore 0.24.0, ontodag 0.33.1, the page's
   update 8). Both pages run in real Freedom
   Browser and through the public gateway (BROWSER.md §13).
-- When Freedom 0.8.8 is released: turn the file pickers on by default in
-  Freedom in both pages (`pickers:` in `demo/freedom/app.js` and
-  loopmarket's `browser/app.js`), then a feed update on Peter's word
-  (question 48, decided B; BROWSER.md §14.1). Watch
-  solardev-xyz/freedom-browser's releases.
+- Freedom 0.8.8 was released on 2026-10-31, so question 48's step is
+  due: turn the file pickers on by default in Freedom in both pages
+  (`pickers:` in `demo/freedom/app.js` and loopmarket's
+  `browser/app.js`), then a feed update on Peter's word (BROWSER.md
+  §14.1). The feed update needs a batch and the feeds' keys, and this
+  laptop has neither.
+- loopmarket 0.18.1 has been on its main since 2026-10-29 without a tag:
+  PyPI serves 0.18.0, whose open floor takes ontodag 0.35 and with it
+  core v14, the split its changelog describes. Releasing it is Peter's
+  word; its market page still has to be rebuilt for core v14, which
+  needs the batch and the feed keys too.
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.
 - Watch coincurve on Python 3.14 (loopmarket's CLAUDE.md, "Upstream to
@@ -755,14 +761,17 @@ shipped vocabulary is close to a tree: 11% of its nodes have several
 parents, and `whale ⊑ mammal` is all it says of a whale. Peter reads that
 as a fault, since natural concepts are no tree. The trial (option B) is
 done, on Peter's "do your Now list", and unshipped: 17 classes named by a
-shared quality and 130 candidate edges on the 97 animal kinds of core and
-biology. With two witnesses, 41 edges are stored and the nodes with
-several parents go from 4 of 97 to 35 of 113. The scarce thing is the
-second witness, not the inclusion rule: 58 of the 109 edges that hold
+shared quality and 132 candidate edges on the 97 animal kinds of core and
+biology. With two witnesses, 42 edges are stored and the nodes with
+several parents go from 4 of 97 to 36 of 113. The scarce thing is the
+second witness, not the inclusion rule: 55 of the 109 edges that hold
 have only Claude's reading. Left for Peter: the standard (strict or
 everyday), whether the reading may carry an edge in this work, whether to
 ship (the classes would be a core v15), and whether to go on to plants,
-artifacts by use, and materials.
+artifacts by use, and materials. Also his to review: thirteen Wikidata
+ids of animals that Claude corrected in ontodag-core's
+`align/overrides.tsv` beside the eagle's, which he ruled (the eagle is
+the bird; its id had been a gold coin's).
 
 Otherwise none open: questions 37 to 51 are decided, and question 47 is
 released. The smaller open points are in

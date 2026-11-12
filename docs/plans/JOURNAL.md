@@ -3291,3 +3291,17 @@ left out is `physical-object` in 210 of the 217 near misses.
 **The batch.** Asked whether to top `b57c159c…` up for one week or three
 (2.59 or 7.78 xBZZ of this node's 26.17), Peter chose to do nothing for
 now; it had 12.27 days left at 14:52 UTC. `../STAMPS.md` has it.
+
+**The eagle, and thirteen others.** Peter: "eagle is a bird primarily."
+Its Wikidata id was a United States gold coin's: the alignment takes the
+item that carries the synset's WordNet id on Wikidata, and that coin
+carries the bird's. The same fault in thirteen more of the 88 animal
+kinds (`frog` on the common toad, `lamb` on the sheep, `chicken` on the
+red junglefowl, ten words on one genus or species), corrected in
+ontodag-core's `align/overrides.tsv` and its concept tables. Wikidata,
+asked again, gives the trial 35 witnesses where it had 25: two witnesses
+and the everyday standard now make 54 edges, 42 stored, 36 of 113 nodes
+with several parents, and 55 of the 109 edges that hold have only the
+reading. Found while answering what else is Peter's to decide: Freedom
+0.8.8 has been out since 2026-10-31, and loopmarket 0.18.1 has waited
+untagged since 2026-10-29.
