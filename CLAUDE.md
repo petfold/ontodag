@@ -382,13 +382,15 @@ Each line points to its record.
   control (`keyplan`), not the node's ACT. A page reaches Swarm through
   four calls on chunks, with one adapter per client: Freedom, Weeb-3, an
   HTTP node, a gateway (BROWSER.md §10–§12, SHARING_ON_SWARM.md §2). Where
-  a client hands over whole blobs (a node, a gateway), the page reads them
-  whole with `/bytes`, checked by recomputing the address; Freedom reads
-  chunks (Peter, 2026-10-15, BROWSER.md §10.1).
-  Freedom requests #647, #648 and #722 (a whole-blob read) are filed, and
-  freedom-hq/ant#187 (its README); for local files, Freedom #671 (fixed in
-  their nightly of 2026-10-15)
-  and Brave #59862 (BROWSER.md §14). The read-only page
+  a client hands over whole blobs (a node, a gateway, Freedom since
+  0.8.8), the page reads them whole, checked by recomputing the address
+  (Peter, 2026-10-15, BROWSER.md §10.1).
+  Freedom built what was asked of it: #722 (a whole-blob read, in 0.8.8),
+  and #647 (a chunk the page signed) and #648 (ACT shares made to the
+  node) in its nightly of 2026-11-12; freedom-hq/ant#187 (its README) is
+  fixed in Ant v0.5.78; for local files, Freedom #671 is fixed in 0.8.8,
+  and Brave #59862 is open (BROWSER.md §14). The page publishes through
+  Freedom's own node on #647 (`FreedomWriter`, BROWSER.md §16). The read-only page
   (`demo/freedom/`) runs in Freedom Browser (BROWSER.md §13). JSPI
   (`run_sync`) carries Python's store calls in Chromium-based browsers, so
   recordstore and `LazyOntoDAG` run unchanged; `swarm.js` joins and checks
@@ -744,12 +746,17 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   released (swarmfs 0.15.0, recordstore 0.24.0, ontodag 0.33.1, the page's
   update 8). Both pages run in real Freedom
   Browser and through the public gateway (BROWSER.md §13).
-- Freedom 0.8.8 was released on 2026-10-31, so question 48's step is
-  due: turn the file pickers on by default in Freedom in both pages
-  (`pickers:` in `demo/freedom/app.js` and loopmarket's
-  `browser/app.js`), then a feed update on Peter's word (BROWSER.md
-  §14.1). The feed update needs a batch and the feeds' keys, and this
-  laptop has neither.
+- Built 2026-11-13 on Freedom's fixes, in both pages' code and not yet
+  behind their names: publishing through Freedom's own node (their #647)
+  and whole-blob reads there (their #722), and question 48's step, the
+  file pickers on by default in Freedom now that 0.8.8 is released
+  (BROWSER.md §16, §10.1, §14.1). Checked against a stand-in written from
+  Freedom's source and against bee-js; **not yet run in a real Freedom**:
+  that needs its nightly of 2026-11-12 (or the release after 0.8.8),
+  which is younger than the two weeks third-party releases wait on this
+  laptop, and a Freedom node with postage. The feed updates are Peter's
+  word, and need a batch and the feeds' keys, which this laptop has
+  not.
 - loopmarket 0.18.1 has been on its main since 2026-10-29 without a tag:
   PyPI serves 0.18.0, whose open floor takes ontodag 0.35 and with it
   core v14, the split its changelog describes. Releasing it is Peter's

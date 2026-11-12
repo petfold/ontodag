@@ -3384,3 +3384,62 @@ The everyday reading has 63 and 81.
 **The mule** gains `mammal` in core v15 and keeps `livestock`: one
 `parent+` row in `align/rulings-v15.tsv`, read back with the build's own
 parser and not built (`sources/` is not on this laptop).
+
+## 2026-11-13 (night): Freedom's fixes, and the page publishes through it
+
+Peter away, with Meinhard's message of 2026-11-12: everything on the
+meeting's list is done. Read on GitHub, all closed: Freedom #647 (a
+single-owner chunk the page signed, their PR #1181), #648 (ACT shares
+made to the node, #1187 and #1196) and #169 (single-range `bzz://` reads
+kept as a contract, #1182), all in the nightly `0.8.9-nightly.20261112`
+(main at e17c9d01, which also pins Ant v0.5.78); Ant #79, #80, #81, #82,
+#61, #62, #187, #234 and #247 in v0.5.78; freedom-browser-android #524.
+Earlier and not yet followed here: #722 (`swarm_readData`), in Freedom
+since 0.8.8.
+
+**What the page does with them.**
+- **Publishing through Freedom** (`FreedomWriter` in `publish.js`,
+  BROWSER.md §16): a blob as the chunks of its plain tree
+  (`swarm_publishChunk`, each answer the address the page computed), the
+  feed update as the chunk the key signed
+  (`swarm_publishSingleOwnerChunk`). `swarm.js` gained `treeChunks`, and
+  `contentAddress` is its root. The newest update is looked for two ways
+  and the later index counts, because Freedom reports a chunk its node
+  failed to fetch as missing. One write goes alone first, so the person
+  meets one "Confirm Publish" and can let the site always publish.
+  loopmarket's page has the same writer for a maker's book.
+- **Whole blobs in Freedom** (`FreedomSwarm.readBytes`, §10.1): Peter's
+  rule of 2026-10-15, now that the client hands them over.
+- **Question 48's step**: the file pickers on by default in Freedom, in
+  both pages.
+
+**Checked.** `test_freedom.mjs` (in the suite as `TestFreedomJs`),
+against `test/freedom_standin.mjs`, a stand-in written from Freedom's
+handlers at e17c9d01: what goes up is exactly swarmfs's splitter's
+chunks for every tree from 1 byte to 600 KB (the 524,289-byte tree
+among them, the size where Ant's splitter differed until v0.5.78, their
+#234); swarmfs's feed update is taken, another key's refused. Each
+mechanism was switched off once and a test failed. Outside the suite,
+with the bee-js 13.2.0 in the Freedom checkout, the check Freedom runs
+(`unmarshalSingleOwnerChunk`, as in its `publishSignedSingleOwnerChunk`):
+the page's update is accepted at the page's address for 200 random keys,
+both recovery bytes, and bee-js addresses a 600 KB tree's 150 chunks as
+the page does.
+
+**Not checked, and why.** Nothing ran in a real Freedom. The nightly and
+Ant v0.5.78 are one and two days old, and third-party releases wait two
+weeks on this laptop since the compromise of 2026-11-09; no Playwright
+is installed here either, so `check.py` did not run. A real publish also
+needs a Freedom node with postage, which is spending. To check when
+Peter says: Freedom at the nightly (or from the checkout: `git pull`,
+`npm run ant:download`, `npm start`), a node with a batch, the page from
+`python3 demo/freedom/build.py` served from `dist/`, then New key, a
+name, Publish, and `odag -f swarm:NAME` with the same key reading it
+back, as `check.py --publish` does through a node.
+
+**Seen and left.** A blob of one chunk gets no second copy through
+Freedom, since `swarm_publishChunk` names no redundancy level (question
+47's level 1). `swarm_publishData` would send a large blob in one call;
+its reference is the page's only if Freedom's node uploads plain, which
+is to be measured there. A person who met the pickers' refusal in an old
+Freedom stays on downloads after updating, as question 48 accepted.
