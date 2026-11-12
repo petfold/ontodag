@@ -55,6 +55,7 @@ export class FreedomStandIn {
     this.hidden = new Set();    // addresses the node fails to find, as a light node sometimes does
     this.limited = 0;           // reads to answer "rate_limited" before answering
     this.calls = [];            // every method asked, in order
+    this.order = [];            // the chunks published, in the order they arrived
     this.prompts = [];
     this.writing = 0;
     this.mostWriting = 0;
@@ -157,6 +158,7 @@ export class FreedomStandIn {
     this._ready();
     const reference = chunkAddress(s, payload);
     this.chunks.set(reference, { span: s, payload });
+    this.order.push(reference);
     return { reference };
   }
 

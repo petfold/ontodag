@@ -1252,7 +1252,8 @@ single-owner chunk the page signed (`swarm_publishSingleOwnerChunk`, the
 request #647), so the same key file owns the same feed there
 (`FreedomWriter` in `publish.js`, the fourth call of §10.1):
 - **The blobs** go up as the chunks of their plain trees, one
-  `swarm_publishChunk` each, the root last. Freedom's answer must be the
+  `swarm_publishChunk` each, at most eight in flight over all blobs and
+  a blob's root last. Freedom's answer must be the
   address the page computed for every chunk, and a chunk two blobs share
   goes up once. Nothing names a redundancy level, since the call takes
   none: a blob of one chunk gets no second copy there (question 47's
@@ -1265,12 +1266,14 @@ request #647), so the same key file owns the same feed there
   node and by the node's own lookup (`swarm_readFeedEntry`), and the later
   index counts: Freedom reports a chunk its node failed to fetch as
   missing, so either way alone can come up short, and a short answer
-  would write over an update that exists.
+  would write over an update that exists. A spent read budget during the
+  lookup is waited out, and one that stays spent is an error, never an
+  empty feed.
 - **Freedom chooses the batch and asks the person.** The page shows no
   batch list. Each write opens Freedom's "Confirm Publish" unless the
   person ticks "Always allow this site to publish to Swarm without
-  asking"; the page sends one write alone first, so that one prompt
-  appears and not one per blob in flight, and a refusal there ends the
+  asking"; every publish sends one write alone first, so that one prompt
+  appears and not one per write in flight, and a refusal there ends the
   publish. Freedom's refusals are said in words (no postage, the node not
   ready, a declined prompt).
 - **No retrievability check.** A page cannot ask Freedom whether the
@@ -1286,7 +1289,8 @@ Checked, without a real Freedom:
   to 600 KB arrives as exactly swarmfs's splitter's chunks; the update
   swarmfs signs is taken, another key's is refused, and a recovery byte
   of 0 or 1 is refused; the newest update is found when either way of
-  looking comes up short; one prompt until the first write is through;
+  looking comes up short; one prompt until a publish's first write is
+  through, and never more writes in flight than the writer allows;
   a whole publish (stage, upload, feed) read back by a second reader.
 - bee-js 13.2.0, with which Freedom verifies (`unmarshalSingleOwnerChunk`,
   as its `publishSignedSingleOwnerChunk` calls it): the update the page

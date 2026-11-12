@@ -72,6 +72,29 @@ for (const c of cases.filter((c) => c.size > 0)) {
 }
 
 {
+  // A large blob's chunks go up a few at a time, never more than the
+  // writer allows in flight, and its root last.
+  const big = cases.find((c) => c.size === 600_000);
+  const freedom = await connectedStandIn({ approve: async () => { await new Promise((r) => setTimeout(r, 1)); return "always"; } });
+  const writer = new FreedomWriter(freedom);
+  freedom.always = true;
+  freedom.request = ((real) => async (r) => { await new Promise((resolve) => setTimeout(resolve, 1)); return real(r); })(freedom.request.bind(freedom));
+  await Promise.all([writer.uploadBlob(big.data, null, big.root), writer.uploadBlob(cases[5].data, null, cases[5].root)]);
+  check(freedom.order.indexOf(big.root) > freedom.order.length - 4 && freedom.chunks.size === Object.keys(big.chunks).length + Object.keys(cases[5].chunks).length,
+        "a large blob's root goes up after its other chunks");
+  const few = new FreedomWriter(await connectedStandIn({ approve: () => "always" }), { inFlight: 3 });
+  let most = 0, now = 0;
+  few.swarm.request = ((real) => async (r) => {
+    if (r.method !== "swarm_publishChunk") return real(r);
+    most = Math.max(most, ++now);
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    try { return await real(r); } finally { now--; }
+  })(few.swarm.request.bind(few.swarm));
+  await few.uploadBlob(big.data, null, big.root);
+  check(most === 3, `at most the writer's ${3} writes are in flight (${most} seen)`);
+}
+
+{
   const empty = cases.find((c) => c.size === 0);
   const freedom = await connectedStandIn();
   const e = await failing(() => new FreedomWriter(freedom).uploadBlob(empty.data, null, empty.root));
@@ -122,6 +145,30 @@ for (const c of cases.filter((c) => c.size > 0)) {
   freedom.approve = () => "always";
   await writer.uploadBlob(small[0].data, null, small[0].root);
   check(freedom.chunks.size > 0, "and publishing again asks again");
+}
+
+{
+  // Each publish starts with one write alone (the page connects first),
+  // so a person who approved once without "always" meets one prompt first
+  // the next time too.
+  const small = cases.filter((c) => c.size > 0 && c.size <= 8192);
+  const waiting = [];
+  const freedom = await connectedStandIn({ approve: () => new Promise((resolve) => waiting.push(resolve)) });
+  const writer = new FreedomWriter(freedom);
+  const first = writer.uploadBlob(small[0].data, null, small[0].root);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  waiting.shift()(true);
+  await first;
+  await writer.connect();
+  const all = Promise.all(small.slice(1).map((c) => writer.uploadBlob(c.data, null, c.root)));
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  const asked = waiting.length;
+  while (freedom.chunks.size < small.reduce((n, c) => n + Object.keys(c.chunks).length, 0)) {
+    while (waiting.length) waiting.shift()(true);
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+  await all;
+  check(asked === 1, `a second publish starts with one prompt again (${asked} waiting)`);
 }
 
 // What Freedom says when it cannot write, as a sentence.
@@ -203,6 +250,21 @@ const rootAt = (i) => hex(Uint8Array.from({ length: 32 }, (_, k) => (i * 7 + k) 
   gone.hidden.add(feedUpdate(key, topic, 4, rootAt(4), 0).address);
   const e = await failing(() => lost.feedRoot(key.address, topic));
   check(e && /could not be read/.test(e.message), "an update the lookup names but nothing can read is an error, not an older root");
+}
+
+{
+  // A spent read budget while looking for the newest update is waited out;
+  // one that never ends is an error, never "an empty feed".
+  const freedom = await connectedStandIn({ approve: () => "always" });
+  const writer = new FreedomWriter(freedom);
+  writer.retry = { tries: 6, wait: 1, cap: 2 };
+  for (let i = 0; i < 3; i++) await writer.writeFeed(feedUpdate(key, topic, i, rootAt(i), 1000 + i));
+  freedom.limited = 3;
+  const found = await writer.feedRoot(key.address, topic);
+  check(found && found.index === 2 && freedom.limited === 0, "a spent read budget during the feed lookup is waited out");
+  freedom.limited = 1000;
+  const e = await failing(() => writer.feedRoot(key.address, topic));
+  check(e && e.data && e.data.reason === "rate_limited", "a budget that stays spent is an error, not an empty feed");
 }
 
 {

@@ -266,6 +266,19 @@ export class NodeWriter {
 
 const reasonOf = (e) => (e && e.data && e.data.reason) || "";
 
+// At most `n` at a time; the rest wait their turn.
+class Turns {
+  constructor(n) { this.free = n; this.waiting = []; }
+  async take() {
+    if (this.free > 0) { this.free--; return; }
+    await new Promise((resolve) => this.waiting.push(resolve));
+  }
+  give() {
+    const next = this.waiting.shift();
+    if (next) next(); else this.free++;
+  }
+}
+
 // What Freedom's refusal of a write means, as a sentence for the person.
 function freedomRefusal(e, doing) {
   const reason = reasonOf(e);
@@ -293,12 +306,14 @@ function freedomRefusal(e, doing) {
 // before it stamps it. Freedom asks the person to confirm each chunk unless
 // they let the site always publish.
 export class FreedomWriter {
-  constructor(swarm = globalThis.swarm) {
+  constructor(swarm = globalThis.swarm, { inFlight = 8 } = {}) {
     this.swarm = swarm;
     this.source = new FreedomSwarm(swarm);
     this.choosesBatch = true;     // nothing for the page to choose
     this.sent = new Map();        // chunk address -> the promise of its upload
-    this.first = null;            // the first write, alone: its prompt, once
+    this.first = null;            // a publish's first write, alone: its prompt, once
+    this.turns = new Turns(inFlight);   // writes in flight, over all blobs
+    this.retry = { tries: 6, wait: 2000, cap: 30000 };   // a spent read budget, waited out
   }
 
   // Why this Freedom cannot publish from this page, or null if it can try:
@@ -317,8 +332,10 @@ export class FreedomWriter {
     return null;
   }
 
-  // The site's connection to the node: asked once, a prompt the first time.
+  // The site's connection to the node, asked at the start of each publish:
+  // a prompt the first time, nothing after.
   async connect() {
+    this.first = null;
     try {
       await this.swarm.request({ method: "swarm_requestAccess" });
     } catch (e) {
@@ -326,16 +343,20 @@ export class FreedomWriter {
     }
   }
 
-  // One write at a time until the first has gone through, so the person
-  // meets one prompt, where they can let the site always publish, and not
-  // one for each write in flight. If that first write is refused, the ones
-  // waiting behind it fail with it, unasked.
+  // One write at a time until a publish's first has gone through, so the
+  // person meets one prompt, where they can let the site always publish,
+  // and not one for each write in flight. If that first write is refused,
+  // the ones waiting behind it fail with it, unasked. After it, a few at a
+  // time.
   async _write(method, params, doing) {
     const go = async () => {
+      await this.turns.take();
       try {
         return await this.swarm.request({ method, params });
       } catch (e) {
         throw freedomRefusal(e, doing);
+      } finally {
+        this.turns.give();
       }
     };
     if (!this.first) {
@@ -346,6 +367,20 @@ export class FreedomWriter {
     }
     await this.first;
     return go();
+  }
+
+  // A read that outlasts a spent read budget (a site may read so much of
+  // Swarm a minute): waited out, the wait doubling, then given up.
+  async _read(read) {
+    const { tries, wait: first, cap } = this.retry;
+    for (let attempt = 1, wait = first; ; attempt++, wait = Math.min(wait * 2, cap)) {
+      try {
+        return await read();
+      } catch (e) {
+        if (reasonOf(e) !== "rate_limited" || attempt >= tries) throw e;
+        await pause(wait);
+      }
+    }
   }
 
   _chunk(c) {
@@ -365,14 +400,16 @@ export class FreedomWriter {
     return going;
   }
 
-  // The blob's plain tree, chunk by chunk, the root last: a chunk two blobs
-  // share goes up once.
+  // The blob's plain tree, chunk by chunk, a few in flight and the root
+  // last: a chunk two blobs share goes up once.
   async uploadBlob(bytes, _batch, ref) {
     const chunks = treeChunks(bytes);
-    if (chunks[chunks.length - 1].address !== ref) {
-      throw new Error(`a blob staged as ${ref.slice(0, 16)}… splits to ${chunks[chunks.length - 1].address.slice(0, 16)}…`);
+    const root = chunks.pop();
+    if (root.address !== ref) {
+      throw new Error(`a blob staged as ${ref.slice(0, 16)}… splits to ${root.address.slice(0, 16)}…`);
     }
-    for (const c of chunks) await this._chunk(c);
+    await Promise.all(chunks.map((c) => this._chunk(c)));
+    await this._chunk(root);
   }
 
   // Freedom gives a page no way to ask whether the network serves a chunk
@@ -392,7 +429,7 @@ export class FreedomWriter {
   // signature must recover to the owner.
   async feedRoot(owner, topic) {
     owner = owner.replace(/^0x/, "").toLowerCase();
-    const at = (i) => this.source.readSignedChunk(owner, feedIdentifier(topic, i));
+    const at = (i) => this._read(() => this.source.readSignedChunk(owner, feedIdentifier(topic, i)));
     let newest = -1;
     if (await at(0)) {
       let lo = 0, hi = 1;
@@ -403,7 +440,7 @@ export class FreedomWriter {
       }
       newest = lo;
     }
-    const looked = await this.source.latestFeedIndex(owner, topic);
+    const looked = await this._read(() => this.source.latestFeedIndex(owner, topic));
     if (looked !== null && looked > newest) newest = looked;
     if (newest < 0) return null;
     const identifier = feedIdentifier(topic, newest);
