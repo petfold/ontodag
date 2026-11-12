@@ -3305,3 +3305,24 @@ with several parents, and 55 of the 109 edges that hold have only the
 reading. Found while answering what else is Peter's to decide: Freedom
 0.8.8 has been out since 2026-10-31, and loopmarket 0.18.1 has waited
 untagged since 2026-10-29.
+
+**The ruling sheet, and a source the trial had not asked.** Peter: "make
+the 55 item sheet", the edges of question 52's trial that only the
+reading speaks for. Checking each against the WordNet data before writing
+it up showed that the trial had asked Wikidata and the glosses and never
+WordNet's own tree, which states four of the 55 (`cattle`, `deer` and
+`buffalo ⊑ ruminant`, `cat ⊑ carnivore`) and five edges that were not
+candidates at all. Two gloss readings had been made from the wrong text
+(the eagle's flight stands after the 97 characters the concept table
+keeps; the guinea pig's row there still has the experimental subject's
+gloss). With the tree as a third source and the glosses read whole: 137
+candidates, 62 edges with two witnesses and 49 stored, 39 of 113 nodes
+with several parents, and 49 of the 111 edges that hold resting on the
+reading. Those 49 are the sheet, ontodag-core's
+`align/trial-cross-rulings.tsv`: each with what the reading rests on and
+what may be held against it, and a column for Peter's yes or no that
+`tools/cross_trial.py` reads (tried on copies: every row yes gives the
+"reading alone" result, a no on an edge that follows from an accepted one
+is reported, a file saved by a spreadsheet reads the same). Seen on the
+way and not touched: core files `mule` under `livestock` alone, so it is
+not under `mammal`.

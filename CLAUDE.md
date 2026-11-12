@@ -761,14 +761,16 @@ shipped vocabulary is close to a tree: 11% of its nodes have several
 parents, and `whale ⊑ mammal` is all it says of a whale. Peter reads that
 as a fault, since natural concepts are no tree. The trial (option B) is
 done, on Peter's "do your Now list", and unshipped: 17 classes named by a
-shared quality and 132 candidate edges on the 97 animal kinds of core and
-biology. With two witnesses, 42 edges are stored and the nodes with
-several parents go from 4 of 97 to 36 of 113. The scarce thing is the
-second witness, not the inclusion rule: 55 of the 109 edges that hold
-have only Claude's reading. Left for Peter: the standard (strict or
-everyday), whether the reading may carry an edge in this work, whether to
-ship (the classes would be a core v15), and whether to go on to plants,
-artifacts by use, and materials. Also his to review: thirteen Wikidata
+shared quality and 137 candidate edges on the 97 animal kinds of core and
+biology. With two witnesses, 49 edges are stored and the nodes with
+several parents go from 4 of 97 to 39 of 113. The scarce thing is the
+second witness, not the inclusion rule: 49 of the 111 edges that hold
+have only Claude's reading. Those 49 wait for Peter's yes or no in
+ontodag-core's `align/trial-cross-rulings.tsv`, which
+`tools/cross_trial.py` reads. Also left for Peter: the standard (strict
+or everyday), whether the reading may carry an edge in this work, whether
+to ship (the classes would be a core v15), and whether to go on to
+plants, artifacts by use, and materials. Also his to review: thirteen Wikidata
 ids of animals that Claude corrected in ontodag-core's
 `align/overrides.tsv` beside the eagle's, which he ruled (the eagle is
 the bird; its id had been a gold coin's).
