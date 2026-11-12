@@ -349,7 +349,7 @@ Each line points to its record.
 - recordstore is the base dependency; everything else is an extra. All Bee
   traffic goes through swarmfs, with one shared signer
   (`swarmfs.signer`), 32 requests in flight (measured).
-- Packs: PACKS.md Part II. Core v13 and ten domain packs ship in the wheel,
+- Packs: PACKS.md Part II. Core v14 and ten domain packs ship in the wheel,
   built in ontodag-core.
 - Units: UNITS.md (rational anchors; bare `C` and `F` are Celsius and
   Fahrenheit, `coulomb` and `farad` spelled out; counts start at 1).
