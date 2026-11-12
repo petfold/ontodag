@@ -746,6 +746,11 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   core v14, the split its changelog describes. Releasing it is Peter's
   word; its market page still has to be rebuilt for core v14, which
   needs the batch and the feed keys too.
+- Core v15 is begun and not built: `goose`, `turkey` and `guinea-fowl`
+  move from `poultry` to `bird`, as `duck` did in v14 (Peter left it to
+  Claude on 2026-11-12; ontodag-core's `align/rulings-v15.tsv`). It waits
+  for a build, which needs ontodag-core's `sources/`, not on this laptop,
+  and for a release on Peter's word.
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.
 - Watch coincurve on Python 3.14 (loopmarket's CLAUDE.md, "Upstream to
@@ -772,15 +777,23 @@ stored, and the nodes with several parents go from 4 of 97 to 55 of 113.
 41 of the 86 rest on Claude's reading and that ruling alone; they are in
 ontodag-core's `align/trial-cross-rulings.tsv`, which
 `tools/cross_trial.py` reads and Peter may change. Left for Peter:
-whether `mammal ⊑ warm-blooded-animal` and `fish ⊑ aquatic-animal` stay
-out for one odd kind each (the naked mole-rat, the mudskippers); three
-shipped edges that break the rule (`goose`, `turkey` and
-`guinea-fowl ⊑ poultry` in core v14); whether to ship (the classes would
-be a core v15); and whether to go on to plants, artifacts by use, and
-materials. Also his to review: thirteen Wikidata
+question 53 below; whether to ship (the classes would go in a core v15);
+and whether to go on to plants, artifacts by use, and materials. Also his to review: thirteen Wikidata
 ids of animals that Claude corrected in ontodag-core's
 `align/overrides.tsv` beside the eagle's, which he ruled (the eagle is
 the bird; its id had been a gold coin's).
+
+Question 53 (2026-11-12, the same §17): what to do with a line that
+holds of nearly every member? The strict rule leaves out
+`mammal ⊑ warm-blooded-animal` (the naked mole-rat),
+`fish ⊑ aquatic-animal` (the mudskippers),
+`reptile ⊑ cold-blooded-animal` and `shark ⊑ carnivore`, and Peter is no
+longer sure: those lines are true to him, and OntoDAG has no exceptions.
+A: stay strict and say each line of the kinds it is true of (24 edges put
+45 kinds back under `warm-blooded-animal`). B: allow rare exceptions. C:
+A, and the line itself offered as a suggestion when someone files under
+`mammal`. Recommended: A now, C later; not B, since a merge cannot carry
+an exception.
 
 Otherwise none open: questions 37 to 51 are decided, and question 47 is
 released. The smaller open points are in

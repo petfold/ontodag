@@ -3345,3 +3345,14 @@ default standard is strict. The rule is in CLAUDE.md's standing rules.
 Seen and not touched: core v14's `goose`, `turkey` and
 `guinea-fowl ⊑ poultry` break the rule that moved `duck` out of
 `poultry`.
+
+**Question 53, and the poultry.** Peter, on the lines the rule left out:
+mammals do belong to `warm-blooded-animal`, and rare exceptions would be
+the easy way, "but OntoDAG doesn't do that. What do you think? You decide
+the poultry, it looks harmless." Put as question 53 (ontodag-core's
+UPPER.md §17), with a recommendation: stay strict and say each line of
+the kinds it is true of. Measured in memory: 24 edges put 45 kinds under
+`warm-blooded-animal` again, and 73 of 96 kinds under a quality class
+(66 strict, 81 everyday). The poultry, decided: `goose`, `turkey` and
+`guinea-fowl` move to `bird` in core v15 (`align/rulings-v15.tsv`), not
+built here and not released by itself.
