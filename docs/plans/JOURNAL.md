@@ -3175,3 +3175,66 @@ them tokens into the group's term and 69 re-minted to children that kept
 their keys; a post six levels down writes 506, of which 485 are such
 re-mints. An epoch chain, the new key wrapping the old, would write 53
 and 30 (counted, not built).
+
+## 2026-11-12: the code beside the graph; filing made cheaper; a new laptop
+
+**Peter's two concerns.** OntoDAG works on the graph and never on the
+neural code (FCA's context); and independent aspects should factor, as
+lattices do. Both had earlier records (SEMANTIC_CODES, parked in July;
+mdl-fca's product note). The new record is `CODES_AND_FACTORS.md`, with
+`experiments/codes_probe.py` printing its numbers on core and the ten
+packs (11,643 nodes, 5.3 ancestors a node, 61,826 pairs in the order)
+and on 30,000 made-up items filed under three top-level cones. What it
+found: the store already keeps six pieces of the code, each partial in
+its own way; a code built from asserted edges is whole only where no term
+is involved, so a mark of completeness is needed and suffices (with it
+the codes gave the planner's answers on 200 queries and the browser's
+counts on 57,821 answer members); a code pays for counting (a thousand
+times) and browsing (twice), hardly for filing; the stored graph is
+already the factored form (90,000 item edges, against 522,475 pairs of
+categories holding something and 15.8 million possible), and one
+numbering of all nodes saves only half where items sit under several
+aspects. Question 51, what to do first, was decided B by Peter the same
+day.
+
+**Step 1: `experiments/context_export.py`.** A store, or shipped packs,
+as a Burmeister `.cxt` file, a `.npy` table and a `.json` file naming the
+knowledge id it was made from. The shipped vocabulary is 8,795 objects by
+2,847 attributes with 39,522 crosses; below `place`, 439 by 183. A first
+run of mdl-fca's learner on the `place` table took 1.4 s: 39 concepts,
+the codelength at 79% of the empty model's, 14 of the 162 categories with
+more than one attribute found exactly.
+
+**Filing.** The probe showed a put spending 45% of its time asking each
+of the packs' fifty roles, on every edge, whether it named the new node,
+and two of an edge's four climbs looking below a leaf just made. Changed
+(`CHANGELOG.md`, Unreleased): 0.88 ms to 0.25 ms for an item under three
+categories; the suite went from 237 s to 208 s. It was checked by a
+pytest plugin kept outside the repository that ran the old functions
+(read from git HEAD) beside the new on every call the suite makes, and
+required equal answers: 618,470 searches for moved terms, 330,986 role
+lookups, 1,192,947 self-containment checks, 786,160 leaf shortcuts and
+549,782 early exits. The comparison is made on resident graphs only. On
+the sparse writer the search for moved terms is not repeatable: the
+unchanged code, called twice in a row in `tests/test_narrower.py`,
+answered differently once, because the first call loads terms the second
+then finds. The test passes all the same; whether a first call can miss a
+term that should have been re-reduced was not followed up.
+
+**The vocabulary is close to a tree**, and Peter reads that as a fault:
+natural concepts are no tree. 11% of its nodes have several parents;
+`whale ⊑ mammal` is all it says of a whale. The single-witness edges the
+consensus leaves out are mostly noise (`ladle ⊑ vehicle-body`), so the
+two-witness rule is not what to loosen. Recorded as question 52 in
+ontodag-core's `docs/UPPER.md` §17, with `tools/second_places.py`.
+
+**The laptop.** Peter works on the second laptop since November. Its
+`python3` is 3.14, without recordstore and without a coincurve wheel, so
+the family now runs from `../.venv` (Python 3.12, uv; the sister
+repositories from their checkouts; third-party releases at least two
+weeks old): the whole suite passed there before any change, 1634 passed
+and 5 skipped. Git had no name or email; set from the history. The node
+here is `74f7e74f…` and owns no batch; `b57c159c…`, which holds what is
+kept, belongs to the first laptop's node and runs out about 2026-11-24
+(`../STAMPS.md`, which now has a section for this laptop). Bee's source
+shows a node may top up a batch it does not own; not tried.

@@ -111,8 +111,15 @@ virtualenv committed by accident and untracked by question 22),
 - `python3 -m pytest` from the repo root runs everything. `conftest.py`
   puts `src/` on the path and points `$ONTODAG_HOME` at a temporary
   directory; pyproject's `python_files = ["test*.py"]` also collects
-  `testdag.py`, `testitem.py` and `testowl.py`. About 1,400 tests, about
-  6 minutes on this laptop.
+  `testdag.py`, `testitem.py` and `testowl.py`. About 1,640 tests, about
+  4 minutes on this laptop.
+- This laptop (Ubuntu 26.04) has Python 3.14 as `python3`, for which
+  coincurve has no wheel, so the family runs from `../.venv`: Python
+  3.12, made with uv on 2026-11-12, with recordstore, swarmfs, ontodag,
+  ontodag-fs, loopmarket, mdl-fca, factbond and categorio installed from
+  their checkouts and third-party releases at least two weeks old
+  (`../.venv/installed-2026-11-12.txt`). Here `python3` in this file
+  means `../.venv/bin/python`; the system Python has no recordstore.
 - `CI=1 python3 -m pytest` also checks the test count README.md states
   (passed plus skipped). Run it before any tag.
 - Gated: `tests/test_swarm_bee.py` needs `BEE_API` and `BEE_BATCH`, and
@@ -566,27 +573,24 @@ Each line points to its record.
 
 ## Bee integration status
 
-- The node: the light node Swarm Desktop made (overlay `bd5da217…`), at
-  `localhost:1633` on Gnosis mainnet, run since 2026-10-15 by Bee 2.8.3
-  (a security release) from the `bee` package's `/usr/bin/bee` with
-  Swarm Desktop's own config: `bee start --config "~/.local/share/Swarm
-  Desktop/config.yaml"`, log in `~/bee-logs/`. Peter's choice: Swarm
-  Desktop's bundled Bee (2.8.2) is left as it is, and Desktop stays
-  closed, since it would start that Bee on the same data. After a
-  reboot start it with `../bee-start.sh` (it refuses a second node, says
-  which overlay answers, and waits until it does); `../bee-stop.sh`
-  stops it cleanly. Both tried 2026-10-16: the same overlay and batch
-  after a restart, 71 peers within 40 s. The package's own
-  service (`bee.service`, a separate empty node in `/var/lib/bee`) is
-  disabled: enabled, it took port 1633 when Desktop restarted. A cold
-  backup of the 2.8.2 data is in `~/bee-backups/`. Another node manager
-  can hold the same port, so `curl /health`, `/addresses` and `/stamps`
-  before believing anything about a batch.
+- The node: since the move to this laptop in November 2026, the light
+  node that Swarm Desktop runs here (overlay `74f7e74f…`, Bee 2.8.3,
+  `localhost:1633`, Gnosis mainnet), started by opening Swarm Desktop.
+  **It owns no batch** (checked 2026-11-12), so nothing can be uploaded
+  until one is bought. The first laptop's node (`bd5da217…`), its
+  `bee-start.sh` and `bee-stop.sh`, and the keys kept on that laptop are
+  not here. Another node manager can hold the same port, so `curl
+  /health`, `/addresses` and `/stamps` before believing anything about a
+  batch.
 - Every batch, its size, duration and contents: `../STAMPS.md` (keep it
   current with each purchase and each upload worth keeping).
-- The batch: `c931c8a5…`, depth 22, TTL 26.5 days on 2026-10-14 (about
-  2026-11-09; the date moves with the storage price). Buy,
-  top up or dilute only on Peter's word. The amount per chunk is price ×
+- The batch: `b57c159c…`, depth 20, bought on the first laptop's node
+  on 2026-10-31, when swarm-keep moved onto it what is kept (the packs,
+  their cone summaries, both pages with their feeds, Pyodide). That
+  node's wallet owns it, so this node cannot stamp with it, though
+  anyone may top it up. TTL 12.4 days on 2026-11-12 (about 2026-11-24;
+  the date moves with the storage price). `c931c8a5…` expired on
+  2026-11-09. Buy, top up or dilute only on Peter's word. The amount per chunk is price ×
   17,280 blocks a day × days, the cost that amount × 2^depth PLUR (1 xBZZ
   = 10^16 PLUR), and diluting one depth halves the time left.
 - Always pass a real `BEE_BATCH` (nothing auto-buys) and a throwaway
@@ -625,14 +629,19 @@ Each line points to its record.
   item passes. Every run since July, with what each taught, is in the
   journal.
 
-## State (2026-10-15)
+## State (2026-11-12)
 
-- **Reminder for Peter, due before 2026-11-01:** the batch `c931c8a5…`
-  expires around 2026-11-09 and takes with it the packs, their cone
-  summaries, both read-only pages and the shared Pyodide. Decide what to
-  keep and on which batch (`../STAMPS.md`; Pyodide alone was decided D on
-  2026-10-12: no batch of its own for now). Raise it at the start of any
-  session from 2026-10-25 on.
+- **Reminder for Peter, due before 2026-11-24:** the batch `b57c159c…`
+  runs out about then and takes with it the packs, their cone summaries,
+  both pages and the shared Pyodide. This laptop's node owns neither that
+  batch nor any other. Decide between topping it up from here (about
+  7.8 xBZZ for three more weeks) and moving what is kept to a batch of
+  this node, which also needs the keep-lists, swarm-keep and feeds under
+  keys held here (`../STAMPS.md`, "Since the move"). Raise it at the
+  start of any session until it is decided.
+- On main since 0.35.0, not released: filing an item costs about a third
+  of what it did (CHANGELOG, Unreleased), and the two experiments of
+  `docs/plans/CODES_AND_FACTORS.md`.
 - Released 2026-10-15 on Peter's word, each verified from PyPI: swarmfs
   0.15.0, then recordstore 0.24.0, then ontodag 0.33.1 (question 47's
   upload levels; ontodag's floors `recordstore>=0.24.0` and
