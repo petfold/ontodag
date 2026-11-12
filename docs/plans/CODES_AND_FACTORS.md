@@ -1,12 +1,14 @@
 # Codes and factors: the graph, its code, and independent aspects
 
-Status: **plan, 2026-11-12. Nothing here is built except the probe**
-(`experiments/codes_probe.py`), which prints every number below. It
-continues `SEMANTIC_CODES.md`, parked since 2026-07-20 and still parked
-(§4 says why), with two things that note lacks: a code that may be
-partial, with a mark saying where it is whole (§5), and factors (§7).
-Question 51 (§9) is open. The learner's side of the same questions is in
-mdl-fca's `docs/06-roadmap.md` §10 and §11.
+Status: **plan, 2026-11-12. Built: the probe**
+(`experiments/codes_probe.py`), which prints every number in §4 and §7,
+**and step 1** (`experiments/context_export.py`, §8), on Peter's answer
+to question 51 the same day: B. The rest continues `SEMANTIC_CODES.md`,
+parked since 2026-07-20 and still parked (§4 says why), with two things
+that note lacks: a code that may be partial, with a mark saying where it
+is whole (§5), and factors (§7). The learner's side of the same questions
+is in mdl-fca's `docs/06-roadmap.md` §10 and §11; the vocabulary's own
+shape is question 52, in ontodag-core's `docs/UPPER.md` §17.
 
 ## 1. The two concerns (Peter, 2026-11-12)
 
@@ -122,40 +124,45 @@ The vocabulary:
 | nodes with several parents | 1,279 (11.0%) |
 | ancestors of a node | mean 5.3, median 5, most 19 |
 | pairs in the order (the ones of the closed code) | 61,826, 4.8 times the edges |
-| rows and columns built as Python integers | 71 ms, 18.8 MB |
+| rows and columns built as Python integers | 61 ms, 18.8 MB |
 | cones whose size differs from the stored count (I5) | 0 |
-| `is_below` for a random pair: a climb, the code | 6.3 µs, 1.0 µs |
-| `is_below` for a node and an ancestor: a climb, the code | 3.8 µs, 1.1 µs |
+| `is_below` for a random pair: a climb, the code | 6.8 µs, 1.1 µs |
+| `is_below` for a node and an ancestor: a climb, the code | 3.5 µs, 0.85 µs |
 
 The population (41,643 nodes, 102,995 edges):
 
 | | |
 |---|---|
-| a `put` of an item under three categories | 981 µs in the first thousand, 858 µs in the last |
+| a `put` of an item under three categories | 286 µs in the first thousand, 273 µs in the last |
 | an item's closed code, its stored code | 17.6 ancestors, 3.0 parents |
-| two broad terms from two aspects (smaller cone 832, answer 179): the planner today | 5.5 ms |
-| the same walk, candidates settled by the vocabulary's codes | 2.5 ms |
-| cone bit sets, the answer listed | 0.56 ms |
+| two broad terms from two aspects (smaller cone 832, answer 179): the planner today | 5.7 ms |
+| the same walk, candidates settled by the vocabulary's codes | 2.6 ms |
+| cone bit sets, the answer listed | 0.75 ms |
 | cone bit sets, the answer counted | 0.005 ms |
 | cone bit sets for the 8,255 categories | 38 MB |
-| refinements of an answer (1,446 members on average): climbing | 44.7 ms |
-| the same from the vocabulary's codes | 26.9 ms |
-| the same from cone bit sets, whatever the answer's size | 20.8 ms |
+| refinements of an answer (1,446 members on average): climbing | 50.1 ms |
+| the same from the vocabulary's codes | 24.7 ms |
+| the same from cone bit sets, whatever the answer's size | 21.1 ms |
 
 What they say:
 
 1. **Nothing here is slow.** A two-term query over 30,000 items takes
-   5.5 ms, and a climb takes 4 to 6 µs because the vocabulary is shallow.
+   5.7 ms, and a climb takes 4 to 7 µs because the vocabulary is shallow.
    The gates of `SEMANTIC_CODES.md` §8 stay shut for every store we have.
 2. **Where a code pays**, most first: counting an answer (a thousand
-   times), listing an intersection (ten times), refinements (twice, and
-   no longer tied to the answer's size, which is why browsing samples
-   2,000 members today), a membership test inside a query (twice).
-3. **Filing gains little.** Of a put's 0.88 ms, 29% is `is_below`
-   climbs, which a code would shorten. 45% is the upkeep of roles
-   (`_reduce_roles_touching`, `_check_role_reference_stays`), which asks
-   about each of the 50 declared roles on every edge; no code touches
-   that. It is a separate finding, noted here because the probe met it.
+   times), listing an intersection (seven to ten times, run to run),
+   refinements (twice, and no longer tied to the answer's size, which is
+   why browsing samples 2,000 members today), a membership test inside a
+   query (twice).
+3. **Filing had waste of its own, removed the same day.** As first
+   measured a put took 0.88 ms: 45% of it asked each of the 50 declared
+   roles, on every edge, whether it named the new node, and two of the
+   four climbs an edge made looked for something below a fresh leaf. The
+   argument index answers the first, and nothing is below a fresh leaf,
+   so a put now takes 0.25 ms (`tests/test_hops.py`,
+   `TestFilingAsksNoRole`). Of that, 39% is the `is_below` climbs a code
+   would shorten, and 5% the upkeep of roles. A code is not what filing
+   needed.
 4. **Dense bit sets grow as categories times nodes**: 38 MB at 41,643
    nodes. Past 10^5 nodes they need a compressed form (Roaring bitmaps,
    or runs).
@@ -264,7 +271,8 @@ Items with the same parents have the same row, so an index from each
 distinct parent set to its items would let a query or a count run over
 the sets. In the made-up population the sets were drawn at random and
 nearly all differ. In a real store the files of one folder may share
-theirs. Step 1 counts them.
+theirs. Step 1 counts them: the shipped vocabulary's 8,795 leaves have
+2,944 different parent sets, a third as many.
 
 ## 7. Factors
 
@@ -306,7 +314,10 @@ categories come on top of these.
   node is not the meet (`SEMANTIC_CODES.md` §10). In the shipped
   vocabulary 1,279 nodes have several parents: 694 stand under several
   top-level categories and 585 under one. 731 of them hold, at this root,
-  everything below all their parents.
+  everything below all their parents. (That only 11% of the vocabulary's
+  nodes have several parents is good news for an index and bad news for
+  the vocabulary: Peter reads it as cross-connections missing, which is
+  question 52, in ontodag-core's `docs/UPPER.md` §17.)
 - **A memo of meets** (`SEMANTIC_CODES.md` §9). To admit the meet of two
   independent categories is to pay for one cell of the product.
 
@@ -372,14 +383,21 @@ note, §5, sets these beside its theorem.
 ## 8. Steps, each behind its gate
 
 0. **Done:** the probe.
-1. **Write a store's context for other programs.** A script in
-   `experiments/`, no new command: from a pinned root, a Burmeister
-   `.cxt` file, FCA's common exchange format (ConExp and In-Close read
-   it), and the same table as a 0/1 array for mdl-fca. The objects are
-   the leaves, the attributes the categories, the crosses the closed
-   code. It also counts the distinct parent sets (§6). Gate: none. It
-   lets FCA's programs and mdl-fca's learner run on real stores (mdl-fca's
-   roadmap §11).
+1. **Done (2026-11-12): write a store's context for other programs.**
+   `experiments/context_export.py`, no new command. From a store or from
+   shipped packs it writes a Burmeister `.cxt` file, FCA's common
+   exchange format (ConExp and In-Close read it), the same table as a
+   `.npy` array for mdl-fca, and a `.json` file with the names, the
+   store's own edges among them and the knowledge id the table was made
+   from. The objects are the store's items, the attributes the categories
+   above them, a cross the order `get` answers by. For the shipped
+   vocabulary: 8,795 objects, 2,847 attributes, 39,522 crosses (265 of
+   them from the computed order of terms), 2,944 different rows. Below
+   `place` alone: 439 objects, 183 attributes, 1,601 crosses, 175
+   different rows. **The table belongs to one knowledge id.** A new
+   version of a pack, or a changed store, has another id, and the script
+   is run again; the script itself reads the store through `ontodag.open`,
+   `get` and `get_ancestors`, and need not change with it.
 2. **Rows for the vocabulary, in memory**, behind `is_below`'s last step,
    the planner's probe and `browse.refinements`. Gate: a real store where
    one of the three takes long enough to notice. Oracle: the climb, with
@@ -398,10 +416,12 @@ note, §5, sets these beside its theorem.
 Steps 2 to 5 keep `SEMANTIC_CODES.md` §8's order and add to it the marks
 of §5 and the factors of §7.
 
-## 9. Question 51: what to do first
+## 9. Question 51: what to do first (decided B by Peter, 2026-11-12)
 
-A two-term query over 30,000 made-up items takes 5.5 ms today and would
-take 0.5 ms with bit sets. No store we have is that large.
+Step 1 is built (§8). The question as it was put:
+
+A two-term query over 30,000 made-up items takes 5.7 ms today and would
+take under a millisecond with bit sets. No store we have is that large.
 
 - **A. Leave it parked.** The probe and this note are the result.
   For: nothing is slow, and there is no code to carry. Against: we learn

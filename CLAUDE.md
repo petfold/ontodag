@@ -555,6 +555,14 @@ Each line points to its record.
   refusals (DIMENSIONS.md §22). Floors are named parts of their building
   (core's `floor`, local labels), with no number head for now. Built
   on main (registry 4.5); `altitude` as a head is ontodag-core's.
+- Codes and factors (question 51, decided B by Peter, 2026-11-12,
+  `docs/plans/CODES_AND_FACTORS.md`): a store's context, FCA's table of
+  objects and attributes, is written as a file for FCA's programs and for
+  mdl-fca's learner (`experiments/context_export.py`), one table per
+  knowledge id, written again when the store or a pack changes. The
+  codes beside the graph (closed rows for the vocabulary, cone bit sets)
+  and the factors stay parked behind their gates: nothing we have is slow
+  enough to need them (`experiments/codes_probe.py` measures it).
 
 ## Bee integration status
 
@@ -724,13 +732,17 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 
 ## Open questions for Peter
 
-Question 51 (2026-11-12, `docs/plans/CODES_AND_FACTORS.md` §9): what to
-do first about codes and factors. A: leave the plan parked. B
-(recommended): write a store's context as a file, for FCA's programs and
-for mdl-fca's learner. C: build the vocabulary's codes and the cone bit
-sets now. The probe behind it is `experiments/codes_probe.py`.
+Question 52 (2026-11-12, ontodag-core's `docs/UPPER.md` §17): should the
+packs carry cross-connections between classes, and from where? The
+shipped vocabulary is close to a tree: 11% of its nodes have several
+parents, and `whale ⊑ mammal` is all it says of a whale. Peter reads that
+as a fault, since natural concepts are no tree. A: no, the connections
+come with the items people file. B (recommended): a trial on the `animal`
+branch with the biology pack, classes named by a shared quality and
+`in(...)` terms, two witnesses each, unshipped until its numbers are
+read. C: all packs now.
 
-Otherwise none open: questions 37 to 50 are decided, and question 47 is
+Otherwise none open: questions 37 to 51 are decided, and question 47 is
 released. The smaller open points are in
 BROWSER.md §17; next for the organiser: encrypted Publish (question 42,
 step 2 of question 49's order), then the choice at sharing and public

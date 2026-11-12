@@ -62,7 +62,9 @@ identity decided as one key from one wallet signature), SEMANTIC_CODES,
 CODES_AND_FACTORS (the stored graph beside FCA's context: a code that may
 be partial, with a mark where it is whole, and independent aspects as
 factors; measured by `experiments/codes_probe.py`, and parked with
-SEMANTIC_CODES), MERKLE_NOTES,
+SEMANTIC_CODES, but for its first step, `experiments/context_export.py`,
+which writes a store as a formal context for FCA's programs and mdl-fca),
+MERKLE_NOTES,
 PHILOSOPHICAL_LANGUAGES, SWARM_DESIGN_update (POT/beeson proposal),
 SEMANTIC_OS (an essay: the five sister repos read as the layers of an
 operating system for what you know, keep and attend to), WINDOWS_ROUND_3
