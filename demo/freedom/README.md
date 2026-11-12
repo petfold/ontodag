@@ -3,8 +3,9 @@
 An organiser for your own things (BROWSER.md §17). Python (ontodag and
 recordstore) runs under Pyodide.
 - **Your store** is a local `.od` file, the format `odag` reads: saved
-  back in place where the browser allows it (Chrome), downloaded where it
-  doesn't (Freedom, Brave), and published to Swarm when you choose, as
+  back in place where the browser allows it (Chrome, Freedom from 0.8.8),
+  downloaded where it doesn't (Brave, an older Freedom), and published to
+  Swarm when you choose, as
   `odag -f swarm:NAME` does, through the node that served the page and
   under a key you keep in a file.
 - **The vocabularies** (the packs, shipped beside the page as
@@ -51,7 +52,7 @@ versions before it were `bzz://edbd87134ba6975011916e93eba0a0cd4d96bb74a511f0fcb
 | `publish.js` | writing your store (BROWSER.md §16): the key (`Key`, signing as Bee checks), the `Stage` Python's `StagedBlobs` writes into, `NodeWriter` (the node's batches, plain uploads, `/stewardship`, the feed found by probing and written with `POST /soc`) and `uploadStaged` |
 | `pycall.js` | how Python waits for Swarm: JSPI, or retrying where JSPI cannot suspend Python (Pyodide on iOS; BROWSER.md §15) |
 | `localfile.js` | opening and saving a local file: in place where the browser allows it, by file input and download elsewhere |
-| `savehelp.js` | where Save can only download (Brave, Freedom, Firefox, Safari): a dialog naming the browser's ask-where-to-save setting, its address copied to paste, and in Brave the File System Access flag, offered only after a yes (BROWSER.md §14.1); `node test/test_savehelp.mjs` checks which help each browser gets |
+| `savehelp.js` | where Save can only download (Brave, Freedom before 0.8.8, Firefox, Safari): a dialog naming the browser's ask-where-to-save setting, its address copied to paste, and in Brave the File System Access flag, offered only after a yes (BROWSER.md §14.1); `node test/test_savehelp.mjs` checks which help each browser gets |
 | `swarm.js` | the Swarm layer: `FreedomSwarm`, `HttpSwarm`, `ChunkReader` (chunk trees joined, every chunk checked against its address, an IndexedDB cache), `BlobStore` for Python |
 | `vendor/noble-hashes/` | keccak-256 and the hashes secp256k1 needs (MIT), as `swarm.js` and `publish.js` import them |
 | `vendor/noble-curves/` | secp256k1 (MIT, 1.9.7), for `publish.js` |

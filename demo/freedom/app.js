@@ -1257,7 +1257,7 @@ def org_changed():
   await setUpWriting();
   showKey();
   files = new LocalFile({ input: $("localfile"), types: OD_TYPES, downloadType: "application/octet-stream",
-    pickers: params.get("pickers") === "1" || !FreedomSwarm.present(), refusedKey: "ontodag-pickers-refused" });
+    refusedKey: "ontodag-pickers-refused" });
   globalThis.ontodagPage.files = files;
   const brave = await isBrave();
   saveHelp = new SaveHelp({ dialog: $("savehelp"),

@@ -14,6 +14,16 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Changed
+
+- **In Freedom the page saves back to your file** (question 48, BROWSER.md
+  §14.1): the file pickers are on by default there now that Freedom 0.8.8
+  is released. An older Freedom refuses them once and downloads from then
+  on, as before.
+
+The pages behind `ontodag.gwei` and `ontodag.eth` get these with their
+next feed update.
+
 ## [0.35.1] — 2026-11-12
 
 Filing costs about a third of what it did. No stored form, answer or

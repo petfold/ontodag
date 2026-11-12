@@ -13,7 +13,7 @@
 
 export class LocalFile {
   // input: a hidden <input type="file">; types: the pickers' file types;
-  // pickers: false to skip them up front (in Freedom, say);
+  // pickers: false to skip them up front;
   // refusedKey: where a refusal is remembered; downloadType: what a
   // download is typed as (a type the file's extension does not stand for
   // makes Android add one: store.od saved as store.od.txt).

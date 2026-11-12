@@ -1,7 +1,8 @@
 // node demo/freedom/test/test_savehelp.mjs
 // Checks savehelp.js's choices: no help where the page saves back to files,
-// both settings in Brave, the download setting alone in Freedom and
-// elsewhere, and Brave's flag noticed once after a relaunch.
+// both settings in Brave, the download setting alone in a Freedom that
+// refuses the pickers (before 0.8.8) and elsewhere, and Brave's flag noticed
+// once after a relaunch.
 const kept = new Map();
 globalThis.localStorage = {
   getItem: (k) => (kept.has(k) ? kept.get(k) : null),
@@ -17,8 +18,8 @@ check(saveAdvice({ pickers: true, brave: true }) === null, "no help where Save w
 const brave = saveAdvice({ pickers: false, brave: true });
 check(brave.ask.address === BRAVE_DOWNLOADS && brave.flag.address === BRAVE_FLAG, "Brave: ask where to save, and the flag");
 const freedom = saveAdvice({ pickers: false, freedom: true });
-check(freedom.ask.address === FREEDOM_SETTINGS && freedom.flag === null && /#671/.test(freedom.waits),
-      "Freedom: ask where to save; saving back waits for #671");
+check(freedom.ask.address === FREEDOM_SETTINGS && freedom.flag === null && /needs Freedom 0\.8\.8/.test(freedom.waits),
+      "a Freedom that refuses the pickers: ask where to save; saving back needs 0.8.8");
 const other = saveAdvice({ pickers: false });
 check(other.ask.address === null && other.flag === null && /Firefox/.test(other.ask.path) && /Safari/.test(other.ask.path),
       "elsewhere: the download setting, in words");

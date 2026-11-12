@@ -3424,8 +3424,8 @@ apple
 Where the browser lets a page keep a file you gave it (Chrome), Save
 writes back to that file. Freedom grants that from version 0.8.8: there
 the first Save of a file you opened asks once with the save dialog,
-then writes in place (the page uses it in Freedom once 0.8.8 is
-released; add `?pickers=1` to try it before). Earlier Freedom refuses
+then writes in place (the page behind `ontodag.gwei` does so from its
+next update; until then add `?pickers=1` there). Earlier Freedom refuses
 that access and Brave has no file pickers, so there Open uses an
 ordinary file dialog and Save downloads the file; keep it where you
 like and open it next time. The

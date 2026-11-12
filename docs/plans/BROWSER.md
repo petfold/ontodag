@@ -785,10 +785,13 @@ button per case) tried them in real Freedom from its checkout (Electron
     (18:26:45).
   **Question 48 (decided B, Peter, 2026-10-15): the pickers go on by default
   in Freedom when 0.8.8 is released**, a one-line change in both pages and
-  a feed update. Until then `?pickers=1` turns them on. Turned on now, every
-  0.8.7 user (nearly all) would meet a useless second file dialog once, and
-  the remembered refusal would keep them on downloads after updating
+  a feed update. Turned on then, every
+  0.8.7 user (nearly all) would have met a useless second file dialog once, and
+  the remembered refusal would have kept them on downloads after updating
   (rejected: A, on now; C, on now with the refusal forgotten weekly).
+  0.8.8 was released on 2026-10-31, and the change is made in both pages'
+  code (2026-11-13); the pages behind the names get it with their next
+  feed update, and until then `?pickers=1` turns the pickers on there.
 - **Brave** turned File System Access off on purpose (brave-browser#11407)
   and offers only a global flag (`brave://flags/#file-system-access-api`).
   Peter ran the probe through a node (`http://localhost:1633/bzz/65964c7d…/`):

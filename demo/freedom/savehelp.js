@@ -6,7 +6,8 @@
 //
 // - Ask where to save (Brave, Freedom from v0.8.5, Firefox, Safari): every
 //   download becomes a save dialog, so a file goes straight into the folder
-//   chosen, and replacing the old copy is asked.
+//   chosen, and replacing the old copy is asked. Freedom from 0.8.8 saves
+//   back to the file and gets no help; an older one is told what does.
 // - Brave's flag for the File System Access API: Save then writes back to
 //   the file, as in Chrome.
 
@@ -32,7 +33,7 @@ export function saveAdvice({ pickers, brave = false, freedom = false }) {
       browser: "Freedom",
       ask: { path: "Settings → Downloads → “Ask where to save each file” (on a computer, Freedom 0.8.5 or later; on Android too)", address: FREEDOM_SETTINGS },
       flag: null,
-      waits: "Saving back to the same file comes with Freedom 0.8.8 (freedom-browser#671).",
+      waits: "Saving back to the same file needs Freedom 0.8.8 or later.",
     };
   }
   return {
