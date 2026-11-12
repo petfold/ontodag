@@ -386,10 +386,25 @@ Ordered so each step is independently useful and none blocks a later one:
    the User Guide's Quick Start.
 5. **Clock-dependent input**, if §9.3 says yes.
 6. **LLM elaborator** as an optional extra, behind the same contract.
+7. **A line that holds of nearly every member, offered while filing**
+   (Peter, 2026-11-13: "later C in the surface layer"; question 53,
+   ontodag-core's `docs/UPPER.md` §17). A pack is strict, so it cannot say
+   `mammal ⊑ warm-blooded-animal`: the naked mole-rat is a mammal, and an
+   edge a pack states comes back with every merge. The line is knowledge
+   all the same. It is a default, and §13 keeps defaults out of the core,
+   so it lives beside the store: a table of such lines, each with its
+   known exceptions. When a person or an agent files something under
+   `mammal`, the surface offers `warm-blooded-animal` as a second place,
+   by §5's contract: propose, validate, show, and store only what was
+   confirmed. What lands in the store is an ordinary edge of the filer's
+   own, and the owner of a mole-rat says no. Not designed yet: where the
+   table lives (with the pack, in a sibling store, or in the client), who
+   writes it, and what an agent that files in bulk is shown.
+   `ontodag.suggest` offers names while typing, not second places.
 
 Steps 1–3 are small and self-contained. Step 4 is the one with real design
 content left in it. Steps 5–6 should not be started until the contract has been
-exercised by 1–4.
+exercised by 1–4. Step 7 waits until filing suggestions are next worked on.
 
 ---
 

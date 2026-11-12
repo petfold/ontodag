@@ -3356,3 +3356,31 @@ the kinds it is true of. Measured in memory: 24 edges put 45 kinds under
 (66 strict, 81 everyday). The poultry, decided: `goose`, `turkey` and
 `guinea-fowl` move to `bird` in core v15 (`align/rulings-v15.tsv`), not
 built here and not released by itself.
+
+## 2026-11-13: question 53 decided; the mule
+
+Peter: "no exceptions now, but later C in the surface layer. mule under
+mammal". So question 53 is A: a pack leaves out a line that has an
+exception and says it of the kinds it is true of. C, the line offered
+while filing, waits in SURFACE_LAYER.md §10 as step 7.
+
+**The mammals' line, kind by kind.** 25 rows went into ontodag-core's
+trial: the 23 kinds core files straight under `mammal` that are no
+ruminants, the trial's class `ruminant`, and the mule. No source says the
+line of a kind by itself: Wikidata's subclass statements lead from no
+item to its "endotherm" (asked again for the ruminants and the mule),
+WordNet's tree has nothing under "homeotherm", and no kind's gloss speaks
+of warmth. So the rows are on the ruling sheet, 50 to 74. 24 are yes.
+`mole` is no: WordNet files the golden moles under its mole, and a study
+of 1990 found the Namib golden mole's temperature low and unsteady and
+its regulation poor (looked up, with the bats' torpor, in three web
+searches). Two readings were needed and are written beside the rows: a
+kind that cools while it rests and warms itself again is warm-blooded,
+and in doubt an edge stays out. The trial now: 163 candidates, 110 edges,
+98 stored, 61 of 113 nodes with several parents (55 before), 73 of 96
+kinds under a quality class (66), `warm-blooded-animal` 45 kinds (13).
+The everyday reading has 63 and 81.
+
+**The mule** gains `mammal` in core v15 and keeps `livestock`: one
+`parent+` row in `align/rulings-v15.tsv`, read back with the build's own
+parser and not built (`sources/` is not on this laptop).

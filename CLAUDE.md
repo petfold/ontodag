@@ -576,6 +576,15 @@ Each line points to its record.
   codes beside the graph (closed rows for the vocabulary, cone bit sets)
   and the factors stay parked behind their gates: nothing we have is slow
   enough to need them (`experiments/codes_probe.py` measures it).
+- A line that holds of nearly every member (question 53, decided A by
+  Peter, 2026-11-13, ontodag-core's UPPER.md §17): no exceptions. A pack
+  leaves out `mammal ⊑ warm-blooded-animal` (the naked mole-rat) and
+  says the line of each kind it is true of, `cat`, `whale` and the rest.
+  The line itself, offered as a second place when someone files under
+  `mammal`, belongs to the surface layer and comes later
+  (`docs/plans/SURFACE_LAYER.md` §10, step 7). In doubt an edge stays
+  out (Claude's reading of the rule: `mole`, since WordNet's mole takes
+  in the golden moles).
 
 ## Bee integration status
 
@@ -635,7 +644,7 @@ Each line points to its record.
   item passes. Every run since July, with what each taught, is in the
   journal.
 
-## State (2026-11-12)
+## State (2026-11-13)
 
 - **Reminder for Peter, due before 2026-11-24:** the batch `b57c159c…`
   runs out about then and takes with it the packs, their cone summaries,
@@ -748,9 +757,11 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
   needs the batch and the feed keys too.
 - Core v15 is begun and not built: `goose`, `turkey` and `guinea-fowl`
   move from `poultry` to `bird`, as `duck` did in v14 (Peter left it to
-  Claude on 2026-11-12; ontodag-core's `align/rulings-v15.tsv`). It waits
-  for a build, which needs ontodag-core's `sources/`, not on this laptop,
-  and for a release on Peter's word.
+  Claude on 2026-11-12), and `mule` gains `mammal` beside `livestock`
+  (Peter, 2026-11-13); the rows are in ontodag-core's
+  `align/rulings-v15.tsv`. It waits for a build, which needs
+  ontodag-core's `sources/`, not on this laptop, and for a release on
+  Peter's word.
 - ontodag issue #13 (opening a store at a chosen residency) belongs on
   `Store`.
 - Watch coincurve on Python 3.14 (loopmarket's CLAUDE.md, "Upstream to
@@ -770,33 +781,23 @@ shipped vocabulary is close to a tree: 11% of its nodes have several
 parents, and `whale ⊑ mammal` is all it says of a whale. Peter reads that
 as a fault, since natural concepts are no tree. The trial (option B) is
 done, on Peter's "do your Now list", and unshipped: 17 classes named by a
-shared quality and 138 candidate edges on the 97 animal kinds of core and
+shared quality and 163 candidate edges on the 97 animal kinds of core and
 biology. Peter decided the standard on 2026-11-12: a pack is strict (the
-rule under "Units, vocabulary and packs"). By it 86 edges hold and 74 are
-stored, and the nodes with several parents go from 4 of 97 to 55 of 113.
-41 of the 86 rest on Claude's reading and that ruling alone; they are in
-ontodag-core's `align/trial-cross-rulings.tsv`, which
-`tools/cross_trial.py` reads and Peter may change. Left for Peter:
-question 53 below; whether to ship (the classes would go in a core v15);
-and whether to go on to plants, artifacts by use, and materials. Also his to review: thirteen Wikidata
+rule under "Units, vocabulary and packs"), and on 2026-11-13 that a line
+with a rare exception is said kind by kind (question 53, under "Decisions
+in force"). By both, 110 edges hold and 98 are stored, and the nodes with
+several parents go from 4 of 97 to 61 of 113. 65 of the 110 rest on
+Claude's reading and Peter's rulings alone; they are in ontodag-core's
+`align/trial-cross-rulings.tsv`, which `tools/cross_trial.py` reads and
+Peter may change. Left for Peter: whether to ship (the classes would go
+in a core v15); and whether to go on to plants, artifacts by use, and
+materials. Also his to review: thirteen Wikidata
 ids of animals that Claude corrected in ontodag-core's
 `align/overrides.tsv` beside the eagle's, which he ruled (the eagle is
 the bird; its id had been a gold coin's).
 
-Question 53 (2026-11-12, the same §17): what to do with a line that
-holds of nearly every member? The strict rule leaves out
-`mammal ⊑ warm-blooded-animal` (the naked mole-rat),
-`fish ⊑ aquatic-animal` (the mudskippers),
-`reptile ⊑ cold-blooded-animal` and `shark ⊑ carnivore`, and Peter is no
-longer sure: those lines are true to him, and OntoDAG has no exceptions.
-A: stay strict and say each line of the kinds it is true of (24 edges put
-45 kinds back under `warm-blooded-animal`). B: allow rare exceptions. C:
-A, and the line itself offered as a suggestion when someone files under
-`mammal`. Recommended: A now, C later; not B, since a merge cannot carry
-an exception.
-
-Otherwise none open: questions 37 to 51 are decided, and question 47 is
-released. The smaller open points are in
+Otherwise none open: questions 37 to 51 and 53 are decided, and question
+47 is released. The smaller open points are in
 BROWSER.md §17; next for the organiser: encrypted Publish (question 42,
 step 2 of question 49's order), then the choice at sharing and public
 versions (step 3), and the list of hashes kept between visits (question
@@ -813,7 +814,8 @@ MLS, TreeKEM and ClaimChain (SHARING_ON_SWARM §14, 2026-10-30).
 
 Parked behind a discussion or a tripwire (in `docs/plans/`, some only in
 the journal): the
-surface layer (and ROLES §9 step 6), bundles (BINDING), an ordinal kind and
+surface layer (with ROLES §9 step 6, and question 53's lines offered
+while filing, SURFACE_LAYER §10 step 7), bundles (BINDING), an ordinal kind and
 the top ontology (EVOLUTION), computed values, a contract clause for
 self-declared truncation, MCP reads through overlays, a query log outside
 the web app, the postage-expiry experiment, and how an arbitrator gets
