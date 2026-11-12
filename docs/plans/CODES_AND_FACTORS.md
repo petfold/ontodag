@@ -272,7 +272,10 @@ distinct parent set to its items would let a query or a count run over
 the sets. In the made-up population the sets were drawn at random and
 nearly all differ. In a real store the files of one folder may share
 theirs. Step 1 counts them: the shipped vocabulary's 8,795 leaves have
-2,944 different parent sets, a third as many.
+2,944 different parent sets, a third as many, and a store of real items
+(9,651 Wikidata instances filed under the place categories by
+ontodag-core's `tools/instances.py`) has 9,876 objects in 802 different
+rows, a twelfth.
 
 ## 7. Factors
 
@@ -394,7 +397,10 @@ note, §5, sets these beside its theorem.
    vocabulary: 8,795 objects, 2,847 attributes, 39,522 crosses (265 of
    them from the computed order of terms), 2,944 different rows. Below
    `place` alone: 439 objects, 183 attributes, 1,601 crosses, 175
-   different rows. **The table belongs to one knowledge id.** A new
+   different rows. For the store of real places (§6): 9,876 objects by
+   397 attributes, of whose 366 categories mdl-fca's learner returns 291
+   to within one attribute (its roadmap §11). **The table belongs to one
+   knowledge id.** A new
    version of a pack, or a changed store, has another id, and the script
    is run again; the script itself reads the store through `ontodag.open`,
    `get` and `get_ancestors`, and need not change with it.

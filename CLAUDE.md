@@ -40,11 +40,13 @@ github.com/petfold.
   postage selection, feeds, and the shared signer `swarmfs.signer`. In the
   `swarm` extra (`swarmfs[feeds]>=0.15.0`).
 - **ontodag-fs**: an OntoDAG store as a mountable filesystem. It pins a
-  floor and a ceiling (`>=0.34.0,<0.35.0` since its 0.10.0); raise the ceiling by hand once ontodag's release job has run
-  its suite against the candidate, then release it.
-- **loopmarket**: the marketplace, and the main consumer of dimensions. It
-  pins only a floor (`>=0.34.0` since its 0.18.0), and its suite runs in
-  ontodag's release gate. Its offer ids hash canonical spellings, so stores made under
+  floor and a ceiling (`>=0.35.0,<0.36.0` since its 0.11.0); raise the
+  ceiling by hand once ontodag's release job has run its suite against
+  the candidate, then release it.
+- **loopmarket**: the marketplace, and the main consumer of dimensions.
+  Its released 0.18.0 pins only a floor (`>=0.34.0`); its main, 0.18.1 in
+  its changelog and not tagged, pins `>=0.35.0,<0.36.0`. Its suite runs
+  in ontodag's release gate. Its offer ids hash canonical spellings, so stores made under
   another registry version need the `ontodag.migrate` replay before mixing.
 - **ontodag-core**: builds the `core` pack and the ten domain packs by
   consensus over WordNet, SUMO, Wikidata and others, and regenerates
@@ -639,9 +641,15 @@ Each line points to its record.
   this node, which also needs the keep-lists, swarm-keep and feeds under
   keys held here (`../STAMPS.md`, "Since the move"). Raise it at the
   start of any session until it is decided.
-- On main since 0.35.0, not released: filing an item costs about a third
-  of what it did (CHANGELOG, Unreleased), and the two experiments of
-  `docs/plans/CODES_AND_FACTORS.md`.
+- **0.35.1 is on main and waits for its tag** (2026-11-12, on Peter's
+  "do your Now list"): filing an item costs about a third of what it did,
+  and a probed candidate is climbed from once (CHANGELOG). The version is
+  bumped, `release_smoke.py` passed 28/28 on the built wheel, the suite
+  1641 passed and 5 skipped, and loopmarket's and ontodag-fs's suites
+  pass against it. The session's permissions refused the tag push, so
+  Peter pushes it: `git tag v0.35.1 && git push origin v0.35.1`, then,
+  once `publish.yml` is green, `scripts/release_smoke.py --pypi 0.35.1`.
+  No consumer needs a release for it.
 - Released 2026-10-15 on Peter's word, each verified from PyPI: swarmfs
   0.15.0, then recordstore 0.24.0, then ontodag 0.33.1 (question 47's
   upload levels; ontodag's floors `recordstore>=0.24.0` and
@@ -745,11 +753,16 @@ Question 52 (2026-11-12, ontodag-core's `docs/UPPER.md` §17): should the
 packs carry cross-connections between classes, and from where? The
 shipped vocabulary is close to a tree: 11% of its nodes have several
 parents, and `whale ⊑ mammal` is all it says of a whale. Peter reads that
-as a fault, since natural concepts are no tree. A: no, the connections
-come with the items people file. B (recommended): a trial on the `animal`
-branch with the biology pack, classes named by a shared quality and
-`in(...)` terms, two witnesses each, unshipped until its numbers are
-read. C: all packs now.
+as a fault, since natural concepts are no tree. The trial (option B) is
+done, on Peter's "do your Now list", and unshipped: 17 classes named by a
+shared quality and 130 candidate edges on the 97 animal kinds of core and
+biology. With two witnesses, 41 edges are stored and the nodes with
+several parents go from 4 of 97 to 35 of 113. The scarce thing is the
+second witness, not the inclusion rule: 58 of the 109 edges that hold
+have only Claude's reading. Left for Peter: the standard (strict or
+everyday), whether the reading may carry an edge in this work, whether to
+ship (the classes would be a core v15), and whether to go on to plants,
+artifacts by use, and materials.
 
 Otherwise none open: questions 37 to 51 are decided, and question 47 is
 released. The smaller open points are in

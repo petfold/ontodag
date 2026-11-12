@@ -3242,3 +3242,45 @@ here is `74f7e74f…` and owns no batch; `b57c159c…`, which holds what is
 kept, belongs to the first laptop's node and runs out about 2026-11-24
 (`../STAMPS.md`, which now has a section for this laptop). Bee's source
 shows a node may top up a batch it does not own; not tried.
+
+## 2026-11-12 (later): the "Now" list
+
+Peter: "push what is not pushed and do your 'Now' list." mdl-fca and
+ontodag-core were pushed; what follows is the list.
+
+**`get`'s probe.** A candidate is climbed from once, the climb looking
+for every remaining category; a term is still an `is_below` question.
+Checked as the put was: every probe of the suite answered both ways (822,
+547 of them compared on resident graphs), and 12,000 random queries, some
+with typed terms, in the forced-probe, default and forced-walk modes. The
+gain is smaller than the claim that put it on the list: two broad terms
+over 30,000 items 6.04 to 5.73 ms, three 4.27 to 3.91, three with probing
+forced 17.0 to 15.2. The time is in the walks and climbs, which only a
+code would shorten.
+
+**0.35.1** is on main: the version, the changelog, `release_smoke.py`
+28/28 on the built wheel, the suite 1641 passed and 5 skipped (1646),
+loopmarket's 406 and ontodag-fs's 311 against it. The tag push was
+refused by the session's permission check, as an action that makes
+something public, so the tag is Peter's to push.
+
+**Question 52's trial** (ontodag-core, `docs/UPPER.md` §17,
+`tools/cross_trial.py`): 17 classes named by a shared quality and 130
+candidate edges on the 97 animal kinds of core and biology, each with
+Wikidata's subclass statements (25 say yes), the stored WordNet gloss (41
+outright, 11 hedged) and Claude's reading. With two witnesses and the
+everyday standard, 51 edges, 41 stored: nodes with several parents go
+from 4 of 97 to 35 of 113, and 70 of 96 kinds come under a quality class.
+The inclusion rule cuts 15 of the 130; the scarce thing is the second
+witness, which 58 of the 109 edges that hold do not have. Habitat turned
+out a quality of the kind (`aquatic-animal`), not an `in(...)` term.
+Found on the way: `eagle` is aligned with a gold coin's Wikidata item.
+
+**Real items.** No store on this laptop has items a person filed, so
+ontodag-core's new `tools/instances.py` made one from Wikidata: 9,651
+instances under 315 place categories, 890 of them under two or more.
+As a context it is 9,876 objects by 397 attributes in 802 different rows.
+mdl-fca's learner on it (138 s): the codelength at 45% of the empty
+model's, 74 of 366 categories exact and 291 to within one attribute,
+against 14 and 36 of 162 on the vocabulary's leaves alone. The attribute
+left out is `physical-object` in 210 of the 217 near misses.
