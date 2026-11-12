@@ -639,17 +639,17 @@ Each line points to its record.
   batch nor any other. Decide between topping it up from here (about
   7.8 xBZZ for three more weeks) and moving what is kept to a batch of
   this node, which also needs the keep-lists, swarm-keep and feeds under
-  keys held here (`../STAMPS.md`, "Since the move"). Raise it at the
-  start of any session until it is decided.
-- **0.35.1 is on main and waits for its tag** (2026-11-12, on Peter's
-  "do your Now list"): filing an item costs about a third of what it did,
-  and a probed candidate is climbed from once (CHANGELOG). The version is
-  bumped, `release_smoke.py` passed 28/28 on the built wheel, the suite
-  1641 passed and 5 skipped, and loopmarket's and ontodag-fs's suites
-  pass against it. The session's permissions refused the tag push, so
-  Peter pushes it: `git tag v0.35.1 && git push origin v0.35.1`, then,
-  once `publish.yml` is green, `scripts/release_smoke.py --pypi 0.35.1`.
-  No consumer needs a release for it.
+  keys held here (`../STAMPS.md`, "Since the move"). Asked on 2026-11-12,
+  Peter chose to do nothing for now. Raise it at the start of any session
+  until he decides or the batch runs out.
+- Released 2026-11-12 on Peter's word ("do your Now list", and "You push
+  it" when the session's permission check had refused the tag), verified
+  from PyPI: ontodag 0.35.1. Filing an item costs about a third of what it
+  did, and a probed candidate is climbed from once; no stored form, answer
+  or interface changes. Every workflow job green, the downstream gate
+  included; `release_smoke.py --pypi` 28/28. Unchanged, and needing no
+  release for it: ontodag-fs 0.11.0, loopmarket 0.18.0, recordstore,
+  swarmfs.
 - Released 2026-10-15 on Peter's word, each verified from PyPI: swarmfs
   0.15.0, then recordstore 0.24.0, then ontodag 0.33.1 (question 47's
   upload levels; ontodag's floors `recordstore>=0.24.0` and

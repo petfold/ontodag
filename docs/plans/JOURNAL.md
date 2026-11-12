@@ -3262,7 +3262,10 @@ code would shorten.
 28/28 on the built wheel, the suite 1641 passed and 5 skipped (1646),
 loopmarket's 406 and ontodag-fs's 311 against it. The tag push was
 refused by the session's permission check, as an action that makes
-something public, so the tag is Peter's to push.
+something public. Asked, Peter answered "You push it"; the tag went up,
+`publish.yml` ran green through its downstream gate (ontodag-fs,
+loopmarket) and its own check of what PyPI serves, and
+`release_smoke.py --pypi 0.35.1` passed 28/28.
 
 **Question 52's trial** (ontodag-core, `docs/UPPER.md` §17,
 `tools/cross_trial.py`): 17 classes named by a shared quality and 130
@@ -3284,3 +3287,7 @@ mdl-fca's learner on it (138 s): the codelength at 45% of the empty
 model's, 74 of 366 categories exact and 291 to within one attribute,
 against 14 and 36 of 162 on the vocabulary's leaves alone. The attribute
 left out is `physical-object` in 210 of the 217 near misses.
+
+**The batch.** Asked whether to top `b57c159c…` up for one week or three
+(2.59 or 7.78 xBZZ of this node's 26.17), Peter chose to do nothing for
+now; it had 12.27 days left at 14:52 UTC. `../STAMPS.md` has it.
