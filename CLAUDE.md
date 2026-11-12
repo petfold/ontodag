@@ -288,6 +288,10 @@ surface 0.2. Consumers compare majors.
   [--union]`).
 - A pack never takes an everyday word. A sense correction or a rename is
   an intervention (ontodag-core's UPPER.md).
+- A pack is strict: it states an edge only if no kind its child covers
+  is an exception. An edge with a counterexample stays out, however
+  typical, and whoever wants it adds it to a store of their own (Peter,
+  2026-11-12; ontodag-core's UPPER.md §17).
 
 ### Surfaces and storage
 
@@ -761,16 +765,19 @@ shipped vocabulary is close to a tree: 11% of its nodes have several
 parents, and `whale ⊑ mammal` is all it says of a whale. Peter reads that
 as a fault, since natural concepts are no tree. The trial (option B) is
 done, on Peter's "do your Now list", and unshipped: 17 classes named by a
-shared quality and 137 candidate edges on the 97 animal kinds of core and
-biology. With two witnesses, 49 edges are stored and the nodes with
-several parents go from 4 of 97 to 39 of 113. The scarce thing is the
-second witness, not the inclusion rule: 49 of the 111 edges that hold
-have only Claude's reading. Those 49 wait for Peter's yes or no in
+shared quality and 138 candidate edges on the 97 animal kinds of core and
+biology. Peter decided the standard on 2026-11-12: a pack is strict (the
+rule under "Units, vocabulary and packs"). By it 86 edges hold and 74 are
+stored, and the nodes with several parents go from 4 of 97 to 55 of 113.
+41 of the 86 rest on Claude's reading and that ruling alone; they are in
 ontodag-core's `align/trial-cross-rulings.tsv`, which
-`tools/cross_trial.py` reads. Also left for Peter: the standard (strict
-or everyday), whether the reading may carry an edge in this work, whether
-to ship (the classes would be a core v15), and whether to go on to
-plants, artifacts by use, and materials. Also his to review: thirteen Wikidata
+`tools/cross_trial.py` reads and Peter may change. Left for Peter:
+whether `mammal ⊑ warm-blooded-animal` and `fish ⊑ aquatic-animal` stay
+out for one odd kind each (the naked mole-rat, the mudskippers); three
+shipped edges that break the rule (`goose`, `turkey` and
+`guinea-fowl ⊑ poultry` in core v14); whether to ship (the classes would
+be a core v15); and whether to go on to plants, artifacts by use, and
+materials. Also his to review: thirteen Wikidata
 ids of animals that Claude corrected in ontodag-core's
 `align/overrides.tsv` beside the eagle's, which he ruled (the eagle is
 the bird; its id had been a gold coin's).

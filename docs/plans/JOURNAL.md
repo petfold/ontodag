@@ -3326,3 +3326,22 @@ what may be held against it, and a column for Peter's yes or no that
 is reported, a file saved by a spreadsheet reads the same). Seen on the
 way and not touched: core files `mule` under `livestock` alone, so it is
 not under `mammal`.
+
+**A pack is strict.** Shown the sheet, Peter ruled by one rule: "the
+pack's philosophy is to be strict and not include any cases which have
+counterexamples. The user can add them later if necessary. So do it
+according to this." Read as his ruling on all 49: no where a kind falls
+outside the class, yes where none is known. Since the strict reading now
+decides, it was made again for every candidate, and seven more went to
+no, four of them lines the sources state: `mammal ⊑ warm-blooded-animal`
+(the naked mole-rat), `fish ⊑ aquatic-animal` (the mudskippers),
+`reptile ⊑ cold-blooded-animal` (the leatherback turtle, a brooding
+python) and `shark ⊑ carnivore` (the bonnethead shark). The sheet: 41
+yes, 8 no. The trial by the rule: 86 edges of 138 candidates, 74 stored,
+55 of 113 nodes with several parents, where the everyday reading gave 112
+edges and 90 stored. `shellfish` took the dictionary's definition, since
+"of the kinds people eat" could not be read strictly, and the tool's
+default standard is strict. The rule is in CLAUDE.md's standing rules.
+Seen and not touched: core v14's `goose`, `turkey` and
+`guinea-fowl ⊑ poultry` break the rule that moved `duck` out of
+`poultry`.
