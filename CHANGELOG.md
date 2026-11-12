@@ -29,6 +29,13 @@ the version numbers appear in commit history and docs.
   suite makes (about 620,000 calls of the search for moved terms, 1.2
   million checks of self-containment, 786,000 leaves), and pinned by counts
   in `tests/test_hops.py`.
+- **A candidate `get` probes is climbed from once.** The one climb looks
+  for every category still in the query; before, each was an `is_below`
+  question of its own. A term in the query is still asked by itself. The
+  answers are the same (every probe of the suite answered both ways, and
+  12,000 random queries in all three planner modes); queries of two or
+  three broad terms run 5 to 10% faster, since most of their time is the
+  walks and climbs themselves.
 
 ## [0.35.0] — 2026-10-25
 

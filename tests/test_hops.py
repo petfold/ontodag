@@ -460,6 +460,50 @@ class TestFilingAsksNoRole(unittest.TestCase):
         self.assertEqual(counter["calls"], 0)
 
 
+class TestAProbeIsOneClimb(unittest.TestCase):
+    """A candidate `get` probes is climbed from once, however many
+    categories are left in the query: the one climb looks for them all.
+    Before, each remaining term was an `is_below` question of its own,
+    with its names read again and a climb each."""
+
+    @staticmethod
+    def store():
+        dag = OntoDAG()
+        prelude.apply(dag)
+        for name in ("thing", "red", "round", "small"):
+            dag.put(name, [])
+        for i in range(40):
+            dag.put(f"x{i}", ["thing", "red"] + ["round"] * (i % 2 == 0)
+                    + ["small"] * (i % 4 == 0))
+        return dag
+
+    def test_the_remaining_categories_are_found_together(self):
+        dag = self.store()
+        dag._PROBE_COST_ESTIMATE = 0          # probe whenever possible
+        dag._memo = None
+        asked = counting(dag, "is_below")
+        climbs = counting(dag, "_has_ancestors")
+        found = {n.name for n in dag.get(["thing", "red", "round", "small"])}
+        self.assertEqual(found, {f"x{i}" for i in range(0, 40, 4)})
+        self.assertEqual(asked["calls"], 0)
+        # Ten candidates under `small`, a climb each; and five climbs
+        # while planning, to see that no term is above another.
+        self.assertLessEqual(climbs["calls"], 10 + 5)
+
+    def test_a_term_is_still_asked_by_itself(self):
+        dag = self.store()
+        for i in range(40):                   # ten of them 5 kg or less
+            dag.put(f"x{i}", [f"mass({(i + 1) * 500}g)"])
+        dag._PROBE_COST_ESTIMATE = 0
+        dag._memo = None
+        asked = counting(dag, "is_below")
+        found = {n.name for n in dag.get(["small", "red", "mass(..5kg)"])}
+        self.assertEqual(found, {"x0", "x4", "x8"})
+        # The range holds more than `small` does, so it is probed: one
+        # question for each of the ten candidates `red` let through.
+        self.assertEqual(asked["calls"], 10)
+
+
 class TestAVirtualConeIsOneWalk(unittest.TestCase):
     """A virtual query term's cone is walked once, whatever its values'
     nesting. A walk per contained value re-walked every value nested

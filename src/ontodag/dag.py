@@ -3527,12 +3527,17 @@ class OntoDAG(DAG):
             remaining = cones[index:]
             probe_cost = len(result) * self._PROBE_COST_ESTIMATE
             if probe_cost < sum(other.size for other in remaining):
-                # One climb per candidate settles every remaining cone.
+                # One climb per candidate settles every remaining category;
+                # a remaining term is asked by itself (`_probe_cones`).
                 # (A candidate can never equal a present query term: a
                 # surviving term is an ancestor of no other term, so no term
                 # lies inside another's cone — strict ancestry is right.)
+                climbed = [other.payload for other in remaining
+                           if self._is_plain_cone(other)]
+                asked = [other for other in remaining
+                         if not self._is_plain_cone(other)]
                 result = {candidate for candidate in result
-                          if self._probe_cones(candidate, remaining)}
+                          if self._probe_cones(candidate, climbed, asked)}
                 break
             result &= walk(cone)
         return finish(result)
@@ -3651,16 +3656,27 @@ class OntoDAG(DAG):
                 return None
         return found
 
-    def _probe_cones(self, candidate, cones):
-        """Is `candidate` in every one of `cones`, decided by climbing from
-        it: present terms are strict ancestors (one combined climb, all at
-        once); a virtual containment term is met when the candidate or a
+    def _is_plain_cone(self, cone):
+        """Is a query term's cone that of a present ordinary category, no
+        term? Then a candidate is in it exactly when the category is among
+        its ancestors, which is all `is_below` would find out."""
+        return cone.kind == "node" \
+            and self._parse_parametric(cone.name) is None
+
+    def _probe_cones(self, candidate, climbed, asked):
+        """Is `candidate` in every remaining cone, decided by climbing from
+        it? The ordinary categories among them (`climbed`, their nodes) are
+        strict ancestors, and one climb looks for them all at once. A term
+        (`asked`, present or virtual) is met when the candidate or a
         combined ancestor is one of its contained values."""
-        # Each is an `is_below` question: it climbs from the candidate with
-        # computed hops only where they can lead out of a head's terms, and
-        # meets a term bound by containment, so a probe never enumerates
-        # the terms that contain the candidate's own.
-        return all(self.is_below(candidate.name, cone.name) for cone in cones)
+        if climbed and not self._has_ancestors(candidate, climbed,
+                                               computed=self._lean):
+            return False
+        # Each term is an `is_below` question: it climbs from the candidate
+        # with computed hops only where they can lead out of a head's
+        # terms, and meets a term bound by containment, so a probe never
+        # enumerates the terms that contain the candidate's own.
+        return all(self.is_below(candidate.name, cone.name) for cone in asked)
 
     def _items_only(self, found):
         """The answer minus what only carries the order: parametric values

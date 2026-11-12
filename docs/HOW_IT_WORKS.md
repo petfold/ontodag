@@ -104,7 +104,9 @@ link:
 2. **Would it loop?** If the *reverse* is reachable — `Japan` is somewhere below
    `boarding-pass` — the link would create a cycle, and the operation is rejected
    with an error *before anything is modified*. "Is X reachable from Y" is
-   answered by a simple walk that stops as soon as it finds the target.
+   answered by a simple walk that stops as soon as it finds the target. (A
+   brand-new item has nothing below it, so no link to it can close a loop,
+   and no walk is made for it.)
 3. **Does it obsolete an old link?** If some ancestor of `japan-outbound.pdf` (say
    `Japan`) has a direct link to `boarding-pass`, that link is now redundant and
    gets removed.
