@@ -724,7 +724,13 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 
 ## Open questions for Peter
 
-None open now: questions 37 to 50 are decided, and question 47 is
+Question 51 (2026-11-12, `docs/plans/CODES_AND_FACTORS.md` §9): what to
+do first about codes and factors. A: leave the plan parked. B
+(recommended): write a store's context as a file, for FCA's programs and
+for mdl-fca's learner. C: build the vocabulary's codes and the cone bit
+sets now. The probe behind it is `experiments/codes_probe.py`.
+
+Otherwise none open: questions 37 to 50 are decided, and question 47 is
 released. The smaller open points are in
 BROWSER.md §17; next for the organiser: encrypted Publish (question 42,
 step 2 of question 49's order), then the choice at sharing and public
