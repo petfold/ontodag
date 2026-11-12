@@ -9,13 +9,15 @@
 //
 // Sources:
 //   FreedomSwarm  Freedom Browser's window.swarm provider (readChunk,
-//                 readSingleOwnerChunk, readFeedEntry); the node's own HTTP
-//                 API is closed to pages there.
-//   HttpSwarm     a Bee or Ant node, or a gateway, over HTTP (GET /chunks).
+//                 readSingleOwnerChunk, readFeedEntry, and readData for a
+//                 whole blob); the node's own HTTP API is closed to pages
+//                 there.
+//   HttpSwarm     a Bee or Ant node, or a gateway, over HTTP (GET /chunks,
+//                 GET /bytes for a whole blob).
 //
-// Reading is here; writing (a node's batches, a feed signed by the person's
-// key) is publish.js, which builds on the addresses computed here. Freedom
-// writes once it publishes a chunk the page signed (freedom-browser#647).
+// Reading is here; writing (a feed signed by the person's key, paid by a
+// node's batches or by Freedom's node) is publish.js, which builds on the
+// addresses computed here.
 
 import { keccak_256 } from "./vendor/noble-hashes/sha3.js";
 
@@ -129,16 +131,23 @@ export function chunkAddress(span, payload) {
   return hex(keccak_256(concat([spanBytes(span), bmtRoot(payload)])));
 }
 
-// A blob's Swarm reference for a plain upload (no erasure coding), as Bee's
-// splitter and recordstore's Swarm addressing compute it: leaves of 4096
+// The chunks of a blob's tree for a plain upload (no erasure coding), as
+// Bee's splitter and recordstore's Swarm addressing build it: leaves of 4096
 // bytes, intermediate chunks of up to 128 references, and a group of one
-// promoted a level rather than wrapped.
-export function contentAddress(data) {
-  if (data.length === 0) return chunkAddress(0, data);
+// promoted a level rather than wrapped. Each is { address, span, payload },
+// the leaves first and the root last. A leaf's payload is a view of `data`.
+export function treeChunks(data) {
+  const chunks = [];
+  const add = (span, payload) => {
+    const address = chunkAddress(span, payload);
+    chunks.push({ address, span, payload });
+    return { address: unhex(address), span };
+  };
+  if (data.length === 0) { add(0, data); return chunks; }
   let level = [];
   for (let at = 0; at < data.length; at += CHUNK_SIZE) {
     const leaf = data.subarray(at, at + CHUNK_SIZE);
-    level.push({ address: unhex(chunkAddress(leaf.length, leaf)), span: leaf.length });
+    level.push(add(leaf.length, leaf));
   }
   while (level.length > 1) {
     const upper = [];
@@ -146,11 +155,18 @@ export function contentAddress(data) {
       const group = level.slice(i, i + 128);
       if (group.length === 1) { upper.push(group[0]); continue; }
       const span = group.reduce((n, c) => n + c.span, 0);
-      upper.push({ address: unhex(chunkAddress(span, concat(group.map((c) => c.address)))), span });
+      upper.push(add(span, concat(group.map((c) => c.address))));
     }
     level = upper;
   }
-  return hex(level[0].address);
+  return chunks;
+}
+
+// A blob's Swarm reference for a plain upload: the address of its tree's
+// root.
+export function contentAddress(data) {
+  const chunks = treeChunks(data);
+  return chunks[chunks.length - 1].address;
 }
 
 // A single-owner chunk's address: keccak256(identifier || owner).
@@ -200,6 +216,7 @@ export class FreedomSwarm {
   constructor(swarm = globalThis.swarm) {
     this.swarm = swarm;
     this.kind = "Freedom Browser (window.swarm)";
+    this.wholeBlobs = true;       // until this Freedom says it has no readData
   }
 
   static present() {
@@ -219,6 +236,26 @@ export class FreedomSwarm {
       throw e;
     }
     return { span: BigInt(r.span), payload: fromBase64(r.data) };
+  }
+
+  // A whole blob, joined by Freedom's node (swarm_readData, in Freedom
+  // since 0.8.8): one read of the budget whatever the blob's size. Not
+  // trusted here: ChunkReader checks it against the reference. null if the
+  // node cannot find it; undefined where the blob has to be read as its
+  // chunks instead: a Freedom without the call, or a blob larger than a
+  // site may read in one minute.
+  async readBytes(ref) {
+    if (!this.wholeBlobs) return undefined;
+    let r;
+    try {
+      r = await this.swarm.request({ method: "swarm_readData", params: { reference: ref } });
+    } catch (e) {
+      if (e && e.code === 4200) { this.wholeBlobs = false; return undefined; }
+      if (reasonOf(e) === "data_too_large") return undefined;
+      if (reasonOf(e) === "chunk_not_found") return null;
+      throw e;
+    }
+    return fromBase64(r.data);
   }
 
   async readSignedChunk(owner, identifier) {
@@ -365,8 +402,9 @@ export class StoredChunks {
 
 // Checked chunks and blobs, cached for the session (they never change), with
 // a cap on reads in flight and a wait-and-retry when a client says "too
-// many". A source that hands over whole blobs (a node or a gateway) is asked
-// for them; one that only reads chunks (Freedom) has its trees joined here.
+// many". A source that hands over whole blobs (a node, a gateway, Freedom
+// since 0.8.8) is asked for them; where it has none, or not this one, the
+// tree is joined here.
 export class ChunkReader {
   constructor(source, { inFlight = 16, onRateLimit = () => {}, stored = null } = {}) {
     this.source = source;
@@ -442,8 +480,8 @@ export class ChunkReader {
     return this.joined(ref);
   }
 
-  // The checked blob, or null if what the source handed over did not check
-  // out (then the caller reads the tree).
+  // The checked blob, or null if the source did not hand it over whole or
+  // what it handed over did not check out (then the caller reads the tree).
   whole(ref) {
     const hit = this.blobs.get(ref);
     if (hit) { this.stats.cached++; return hit; }
@@ -474,12 +512,21 @@ export class ChunkReader {
     await this.gate.enter();
     let blob;
     try {
-      blob = await this.source.readBytes(ref);
-    } catch (e) {
-      throw new Unreachable(ref, e.message);
+      for (let wait = 2000; ; wait = Math.min(wait * 2, 30000)) {
+        try {
+          blob = await this.source.readBytes(ref);
+          break;
+        } catch (e) {
+          if (reasonOf(e) !== "rate_limited") throw new Unreachable(ref, e.message);
+          this.stats.waits++;
+          this.onRateLimit(wait);
+          await pause(wait);
+        }
+      }
     } finally {
       this.gate.leave();
     }
+    if (blob === undefined) return null;      // not handed over whole: the tree is read
     if (blob === null) throw new Unreachable(ref);
     if (contentAddress(blob) !== ref) { this.stats.unchecked++; return null; }
     this.stats.reads++;

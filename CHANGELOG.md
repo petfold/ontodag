@@ -14,8 +14,25 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Added
+
+- **The page publishes your store through Freedom Browser** (BROWSER.md
+  §16). Freedom's nightly of 2026-11-12 takes a single-owner chunk the
+  page signed (`swarm_publishSingleOwnerChunk`, asked for as
+  freedom-browser#647), so the key file that owns a store's feed through
+  a node owns it in Freedom too. The page's `FreedomWriter` sends each
+  blob as the chunks of its plain tree and the feed update as the chunk it
+  signed; Freedom's node pays, chooses the batch and asks the person.
+  Checked against a stand-in written from Freedom's source and against
+  bee-js, with which Freedom verifies; not yet run in a real Freedom.
+
 ### Changed
 
+- **In Freedom the pages read whole blobs** (`swarm_readData`, in Freedom
+  since 0.8.8; BROWSER.md §10.1): one read of the site's budget per blob,
+  checked by recomputing its address, as from a node or a gateway. A
+  Freedom without the call, or a blob larger than a site may read in a
+  minute, is read chunk by chunk as before.
 - **In Freedom the page saves back to your file** (question 48, BROWSER.md
   §14.1): the file pickers are on by default there now that Freedom 0.8.8
   is released. An older Freedom refuses them once and downloads from then

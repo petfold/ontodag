@@ -3510,8 +3510,15 @@ $ BEE_SIGNER="$(cat ontodag-key-19e7e3.txt)" odag -f swarm:my-store get fruit
 apple
 ```
 
-From Freedom, publishing waits for Freedom to accept a chunk the page
-signed (freedom-browser#647).
+In Freedom Browser the page publishes through Freedom's own node, which
+pays from its postage and chooses the batch, so there is none to pick.
+It needs a Freedom that takes a chunk the page signed (its nightly of
+2026-11-12, or the release after 0.8.8; an older one says in the page
+that it cannot). Freedom asks you to confirm each chunk it publishes:
+tick "Always allow this site to publish to Swarm without asking" in its
+first prompt, or it asks for every one. The key file and the name are
+the same as through a node, so both ways write the same store. The page
+behind `ontodag.gwei` publishes this way from its next update.
 
 How the page is built, and what it measured, is in
 `docs/plans/BROWSER.md` §13; local files, and why they behave differently

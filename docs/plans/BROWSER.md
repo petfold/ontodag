@@ -47,6 +47,17 @@ synchronous store calls simply wait on the page's Swarm reads (§3, §5).
 loopmarket's read-only market page runs on the same layer (its
 BROWSER.md §5a).
 
+**2026-11-13: Freedom takes a chunk the page signed, and the page
+publishes through it.** Both requests of 2026-10-11 are built upstream,
+merged on 2026-11-12 and in Freedom's nightly of that day:
+`swarm_publishSingleOwnerChunk` (#647) and `swarm_openAct` (#648). The
+whole-blob read, `swarm_readData` (#722), has been in Freedom since 0.8.8.
+The page now publishes your store through Freedom's own node under your
+key (`FreedomWriter`, §16) and reads whole blobs there (§10.1). Checked
+against a stand-in that follows Freedom's source, and against bee-js, the
+library Freedom verifies with; not yet run in a real Freedom, which needs
+that nightly and a node with postage (§16).
+
 **The short version.** A shared ontology on Swarm is too large to download,
 so the browser fetches only the fragment each query touches. Measured on a
 3,221-node store, a session costs **~12 sequential round trips for the first
@@ -245,10 +256,16 @@ Who signs, in the browser (answered 2026-10-11):
   `pkg/soc/soc.go:128-134`), exactly what a wallet's `personal_sign`
   produces. So a wallet could sign a feed update too, at one approval per
   update; under §11 it doesn't have to.
-- **Freedom signs only with its own identities today** (§10): a page can
-  write our feed format through `swarm_writeSingleOwnerChunk` with our
-  identifier, but the owner is then a Freedom identity, not the user's key.
-  Publishing a chunk the page signed is request #647.
+- **Freedom publishes a chunk the page signed**
+  (`swarm_publishSingleOwnerChunk`, their #647, in the nightly of
+  2026-11-12): it checks that the signature recovers to the owner, stamps
+  the chunk with the node's batch, and signs nothing. Its older
+  `swarm_writeSingleOwnerChunk` signs with a Freedom identity, which would
+  be a different owner. It refuses an owner that is one of Freedom's own
+  wallet accounts: because a wallet's `personal_sign` of 32 bytes is a
+  single-owner chunk signature, any site that got one from the account
+  could write its feeds. The wallet as feed owner, the bullet above, is
+  therefore closed in Freedom and now counted unsafe (their #647 thread).
 - **localStorage** stays what it was: a private root, not publishable.
 
 ## 7. Open questions — answered for Freedom (2026-10-11)
@@ -258,14 +275,16 @@ Who signs, in the browser (answered 2026-10-11):
    page's requests to the node's HTTP API are blocked. It reads chunks,
    signed chunks and feed entries without permission, publishes one chunk
    at a time paid from the node's postage, and writes signed chunks as one
-   of Freedom's identities (§10). `JsBytesStore` and `JsFeedPointer`
+   of Freedom's identities or, since the nightly of 2026-11-12, as the
+   page signed them (§10). `JsBytesStore` and `JsFeedPointer`
    therefore get an adapter over these calls, in the four-call shape of
    §10.1. Other clients answer differently (§10), which is why the seam is
    that narrow.
 2. **Can it sign feeds in-browser?** Yes, but only as a Freedom identity
-   (§6). With the user's own key (§11), a Freedom page can follow feeds
-   today and continue them once #647 is accepted. Until then a Freedom page
-   is read-only for the user's own stores.
+   (§6). With the user's own key (§11), a Freedom page follows feeds and,
+   since #647 was built (the nightly of 2026-11-12), continues them: the
+   page signs the update and Freedom publishes it (§16). In Freedom 0.8.8
+   and before, a page is read-only for the user's own stores.
 
 ## 8. What a first page should demonstrate
 
@@ -300,8 +319,9 @@ The Swarm half, in order (2026-10-11):
    its own BROWSER.md.
 2. **The same page over a public gateway**, read-only, through the same
    four calls (§10.1).
-3. **Writing the user's own store** under the §11 key: Weeb-3 or an HTTP
-   node today, Freedom once #647 lands.
+3. **Writing the user's own store** under the §11 key: through an HTTP
+   node (built 2026-10-13, §16) and through Freedom (built 2026-11-13 on
+   #647, §16). Weeb-3 is not tried.
 4. Step 5, certificates, then sharing (`keyplan` as reader and author).
 
 ## 9. Known unknowns
@@ -329,24 +349,25 @@ The Swarm half, in order (2026-10-11):
 Peter asked for one solution that works with any in-browser Swarm client,
 adapting to Freedom where it does things its own way. What each client
 lets a page do, read from their source on 2026-10-11 (external projects
-move fast; check again before relying on a line):
+move fast; check again before relying on a line; Freedom's column read
+again on 2026-11-13, at e17c9d01):
 
 | | Freedom Browser | Weeb-3 | Bee or Ant over HTTP | public gateway |
 |---|---|---|---|---|
 | what the page needs | nothing: the browser injects `window.swarm` | a wasm library, a SharedWorker and a service worker, over HTTPS | a node that allows the page's origin (CORS) | nothing |
 | read a chunk | yes, no permission; Freedom checks the address | yes; a signed chunk comes back without its signature; failures come back as empty results | yes | yes |
 | write a chunk | yes, one at a time (≤4096 bytes), paid from the node's batch | yes, with a stamp the caller makes | yes, from the node's batch or with a stamp the caller makes | no |
-| write a signed chunk | yes, any identifier, but always signed by a Freedom identity (per-site key, node key or Freedom's wallet) | yes, a chunk the caller signed | yes, a chunk the caller signed (`POST /soc/{owner}/{id}?sig=`) | no |
-| ACT | the node (Ant v0.5.64) has it; pages can't use it | planned | yes, with the node's key | no |
+| write a signed chunk | yes: one the page signed (`swarm_publishSingleOwnerChunk`, since the nightly of 2026-11-12; not under one of Freedom's wallet accounts), or one Freedom signs with its own identity for the site | yes, a chunk the caller signed | yes, a chunk the caller signed (`POST /soc/{owner}/{id}?sig=`) | no |
+| ACT | the node has it; a page opens a share made to the node (`swarm_openAct`, since the nightly of 2026-11-12), asked per site and publisher | planned | yes, with the node's key | no |
 | status | released browser | experimental, one author, no releases | stable | stable |
 
 Sources:
 
 - **Freedom** (solardev-xyz/freedom-browser at fb540328):
-  - the provider is `src/main/swarm/swarm-provider-ipc.js` (spec 1.0, documented only in source; their #179);
+  - the provider is `src/main/swarm/swarm-provider-ipc.js` (spec 1.0, documented in `docs/swarm-provider-api.md` since their #179);
   - the chunk calls are in `chunk-service.js` (reads checked against the requested address, `:128-159`);
   - the node's HTTP API is blocked to pages, and `bzz://` forwards only allowlisted headers, dropping `Swarm-Act*` (`bzz-protocol.js:88-105`, their #429).
-- **Ant** (freedom-hq/ant v0.5.64, the version Freedom pins):
+- **Ant** (freedom-hq/ant v0.5.64, the version Freedom pinned then; v0.5.78 since the nightly of 2026-11-12):
   - ACT matches Bee's, always with the node's key (`crates/ant-gateway/src/act.rs:31-33`, their PR #30);
   - it accepts caller-signed chunks and caller-made stamps over HTTP;
   - there is no WebAssembly build and no browser transport, so Ant runs only as `antd` or embedded through `ant-ffi`.
@@ -380,14 +401,21 @@ Swarm's own rules. That check holds for every blob our writers now make
 the joining, and recovers from parity and root copies. A blob that does
 not check out (a tree the node coded, such as the 10 coded blobs of
 core's cone index, or bytes that are not what was asked for) is read
-chunk by chunk as before, every chunk checked. Freedom offers only chunk
-reads, so there the page still joins trees; a whole-blob read,
-`swarm_readData`, is asked of Freedom (#722, filed 2026-10-15 on Peter's
-word). Ant's README still calls its recovery a gap (freedom-hq/ant#187).
+chunk by chunk as before, every chunk checked. Freedom has had a
+whole-blob read, `swarm_readData`, since 0.8.8 (their #722, asked on
+2026-10-15 on Peter's word), and the page uses it since 2026-11-13
+(`FreedomSwarm.readBytes`): one read of the site's budget per blob,
+checked the same way. A Freedom without the call is asked once and then
+read chunk by chunk, and so is a blob larger than a site may read in a
+minute. Ant's README says since v0.5.78 that recovery is always on
+(freedom-hq/ant#187).
 Checked: `test_swarm.mjs` (a whole blob in one read and no chunk reads, a
 wrong one read chunk by chunk, live trees the node coded at levels 0–4),
 and the page through the Freedom stand-in, the public gateway and this
-laptop's node, every answer equal to the native reader's.
+laptop's node, every answer equal to the native reader's. For Freedom's
+whole blobs, `test_freedom.mjs`: one read each and no chunk reads; a
+Freedom without the call; a blob over the budget, a wrong one and a
+refused read; not yet in a real Freedom.
 
 Everything above the four calls is ours and the same in every client:
 
@@ -419,13 +447,16 @@ already this idea in TypeScript, or in a thin layer of our own, is open.
 
 - No access to the node except through `window.swarm`, with a permission
   prompt per site. The node pays for every chunk.
-- Freedom's keys never leave it: there is no ECDH call, and no call takes a
-  chunk the page signed (#647).
+- Freedom's keys never leave it, and there is no ECDH call. A chunk the
+  page signed is published since the nightly of 2026-11-12 (#647), under
+  any owner but one of Freedom's own wallet accounts.
 - Identities, permissions and stored data belong to the page's origin. A
   page under a `bzz://` hash gets a new origin with every version, so it
   should be served under a stable ENS name.
-- No ACT for pages (§12, #648), and nothing at all in private windows.
+- ACT for pages only as opening a share made to the user's node
+  (`swarm_openAct`, #648, §12), and nothing at all in private windows.
 - One chunk of at most 4096 bytes per call, and at most 10 MB per upload.
+  Each write asks the person, unless they let the site always publish.
 
 ### 10.3 What no page can do
 
@@ -454,15 +485,18 @@ SHARING_ON_SWARM.md §2). The page holds it in memory; nothing is stored.
 - No wallet approval per write.
 
 **The alternative, B, not taken:** the wallet itself in every client. It
-works in Freedom today, but costs a wallet approval per feed update, needs
+worked in Freedom then, but costs a wallet approval per feed update, needs
 loopmarket to accept `personal_sign`-form offer signatures, and still needs
-a derived key for sharing, since no wallet does ECDH.
+a derived key for sharing, since no wallet does ECDH. Since 2026-11 it is
+also counted unsafe, and Freedom is dropping wallet accounts as feed
+owners (§6).
 
 **Consequences.**
 
-- **Freedom** can read the user's stores now and write them once #647 is
-  accepted. Until then a Freedom page doesn't write under a Freedom
-  identity, because that would be a different person.
+- **Freedom** reads the user's stores and, since #647 was built (the
+  nightly of 2026-11-12), writes them under the user's key (§16). A page
+  never writes them under a Freedom identity, because that would be a
+  different person.
 - **The key lives in page memory**, so the page's code is part of the trust
   base. A `bzz://` page is immutable, but its ENS name can be pointed
   elsewhere by whoever owns it.
@@ -511,8 +545,11 @@ ROLES.md §9 retired.
 `Swarm-Act-Access-Key` header) gives a page nothing: holding the access
 key, a page decrypts the reference itself and reads the chunks. The header
 helps only clients without cryptography, such as curl. What a page can't
-do is open a share made to the user's node key; that is Freedom request
-#648, filed for the ecosystem rather than for ontodag. SHARING_ON_SWARM.md
+do is open a share made to the user's node key; that was Freedom request
+#648, filed for the ecosystem rather than for ontodag, and built as
+`swarm_openAct` (the nightly of 2026-11-12): the node opens the share
+with its own key, and Freedom asks the person per site and publisher.
+ontodag does not use it. SHARING_ON_SWARM.md
 S18 stands: grantee entries live in ontodag's store, in Bee's format, so a
 Bee-native path stays open.
 
@@ -721,7 +758,8 @@ above, named on every upload.** The discussion that led there:
   page's root then had its two copies.
 
 Next, as §8 orders them: writing under the §11 key (Weeb-3 or an HTTP
-node first, Freedom after #647). The gateway step is done (above).
+node first, Freedom after #647; the node and Freedom are both built,
+§16). The gateway step is done (above).
 
 **Pyodide in a shared folder (2026-10-12).** Pyodide's core is 3,279 of a
 page's roughly 3,400 chunks, and every page publish stamped it again. A
@@ -896,12 +934,14 @@ It does not fit an offer, or anything that is a commitment to others:
 
 Four routes, each with its own way of paying:
 
-- **Freedom's `window.swarm`** (read from its source, not yet exercised by
-  a page of ours):
+- **Freedom's `window.swarm`** (read from its source; the page writes
+  through it since 2026-11-13, §16, not yet in a real Freedom):
   - **The methods:**
     - `swarm_publishData` (up to 10 MB), `swarm_publishFiles` (up to 100
       files, 50 MB) and `swarm_publishChunk` (4 KB);
-    - `swarm_writeSingleOwnerChunk`;
+    - `swarm_writeSingleOwnerChunk`, signed by a Freedom identity, and
+      `swarm_publishSingleOwnerChunk`, signed by the page (since the
+      nightly of 2026-11-12);
     - `swarm_createFeed`, `swarm_updateFeed` and `swarm_writeFeedEntry`;
     - `swarm_sendPss` and `swarm_sendGsoc`.
   - **Permission:** each needs `swarm_requestAccess` and a prompt per call
@@ -1039,7 +1079,7 @@ in the page, devices sharing a batch, and writing with no node.
 - **Question 37: the installed way first, identity later.**
   - **The way:** a page writes as `odag` and `loop` do. A random key owns
     the feeds and signs, and the node's batches pay: Swarm Desktop over
-    HTTP now, Freedom's once #647 lands.
+    HTTP now, Freedom's once #647 lands (built 2026-11-13, §16).
   - **The rule that avoids lock-in:** the key that owns a store or a book
     stays the same. Identity, from a wallet signature (dappdata) or from
     Swarm ID, comes later as the way that key is carried and recovered on
@@ -1201,19 +1241,71 @@ own store):
 
 **Where it publishes:**
 - a page opened through a node (`http://localhost:1633/bzz/ontodag.eth/`
-  with Swarm Desktop), or one told `?node=URL`;
-- the batch is chosen in the page from the node's usable ones, longest
-  life first.
+  with Swarm Desktop), or one told `?node=URL`: the batch is chosen in the
+  page from the node's usable ones, longest life first;
+- in Freedom Browser, through Freedom's own node (below).
 
-Freedom waits for #647; until then the page says so, and Get from Swarm
-works there. A gateway has no batches to choose.
+A gateway has no batches to choose, and Get from Swarm works everywhere.
+
+**Through Freedom (2026-11-13).** Freedom's nightly of 2026-11-12 takes a
+single-owner chunk the page signed (`swarm_publishSingleOwnerChunk`, the
+request #647), so the same key file owns the same feed there
+(`FreedomWriter` in `publish.js`, the fourth call of §10.1):
+- **The blobs** go up as the chunks of their plain trees, one
+  `swarm_publishChunk` each, the root last. Freedom's answer must be the
+  address the page computed for every chunk, and a chunk two blobs share
+  goes up once. Nothing names a redundancy level, since the call takes
+  none: a blob of one chunk gets no second copy there (question 47's
+  level 1 is the node route's).
+- **The feed update** is the same signed chunk the node route posts to
+  `/soc`. Freedom checks that its signature recovers to the owner before
+  it stamps it, and refuses an owner that is one of its own wallet
+  accounts. A key file is never one.
+- **The newest update** is found two ways, by probing the updates as on a
+  node and by the node's own lookup (`swarm_readFeedEntry`), and the later
+  index counts: Freedom reports a chunk its node failed to fetch as
+  missing, so either way alone can come up short, and a short answer
+  would write over an update that exists.
+- **Freedom chooses the batch and asks the person.** The page shows no
+  batch list. Each write opens Freedom's "Confirm Publish" unless the
+  person ticks "Always allow this site to publish to Swarm without
+  asking"; the page sends one write alone first, so that one prompt
+  appears and not one per blob in flight, and a refusal there ends the
+  publish. Freedom's refusals are said in words (no postage, the node not
+  ready, a declined prompt).
+- **No retrievability check.** A page cannot ask Freedom whether the
+  network serves a chunk (`/stewardship` is the node's API): the page has
+  the node's answer that it took each chunk, pushed before answering,
+  under the address the page computed.
+- **A Freedom that cannot** (0.8.8 and before) says so in the page, where
+  Get from Swarm still works.
+
+Checked, without a real Freedom:
+- `test_freedom.mjs`, against a stand-in for the provider written from
+  Freedom's source (`test/freedom_standin.mjs`): every tree from 1 byte
+  to 600 KB arrives as exactly swarmfs's splitter's chunks; the update
+  swarmfs signs is taken, another key's is refused, and a recovery byte
+  of 0 or 1 is refused; the newest update is found when either way of
+  looking comes up short; one prompt until the first write is through;
+  a whole publish (stage, upload, feed) read back by a second reader.
+- bee-js 13.2.0, with which Freedom verifies (`unmarshalSingleOwnerChunk`,
+  as its `publishSignedSingleOwnerChunk` calls it): the update the page
+  signs is accepted at the address the page computed, for 200 random keys
+  with both recovery bytes; and bee-js addresses the 150 chunks of a
+  600 KB tree as the page does.
+
+Not checked: the page in a real Freedom (the Publish button, the prompts,
+how long a store takes; a chunk write through Ant took 7 to 8 s in
+October). That needs the nightly of 2026-11-12 or the release after
+0.8.8, and a Freedom node with postage; `freedom_check.cjs` opens the
+page there.
 
 **Not yet:**
 - a password-protected key file (question 38's later step);
 - the identity that carries the key (question 37);
-- Freedom (#647);
-- loopmarket's maker page, which needs the same key, stage and writer
-  (its BROWSER.md §5).
+- a run in a real Freedom (above);
+- whole blobs through `swarm_publishData` where its reference is the
+  page's: one call for a large blob instead of one per chunk.
 
 A first publish of a store from a file rebuilds it whole, and a fold from
 a file reads the whole published store: fine for a person's store, and

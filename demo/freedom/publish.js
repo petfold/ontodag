@@ -5,14 +5,17 @@
 // recordstore's feed format, signed by the person's key.
 //
 // For now the key is a random one in a plain file the person keeps (the
-// `bee_signer` value odag keeps in its config), and the node that served the
-// page pays from its batches (BROWSER.md §14.3, questions 37 and 38). Later
-// an identity carries that same key; nothing here changes owner then.
+// `bee_signer` value odag keeps in its config), and a node pays from its
+// batches: the one that served the page (NodeWriter), or Freedom Browser's
+// own, which takes a chunk the page signed (FreedomWriter). Later an
+// identity carries that same key; nothing here changes owner then
+// (BROWSER.md §14.3, questions 37 and 38).
 
 import { keccak_256 } from "./vendor/noble-hashes/sha3.js";
 import { secp256k1 } from "./vendor/noble-curves/secp256k1.js";
 import {
-  CHUNK_SIZE, HttpSwarm, chunkAddress, contentAddress, feedIdentifier, hex, socAddress, spanBytes, unhex,
+  CHUNK_SIZE, FreedomSwarm, HttpSwarm, chunkAddress, contentAddress, feedIdentifier, hex, socAddress,
+  spanBytes, spanValue, treeChunks, unhex,
 } from "./swarm.js";
 
 const utf8 = new TextEncoder();
@@ -256,6 +259,175 @@ export class NodeWriter {
     if (!res.ok) throw new Error(`writing the feed update: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
     const got = (await res.json()).reference;
     if (got !== update.address) throw new Error(`the node stored the feed update at ${got.slice(0, 16)}…, not ${update.address.slice(0, 16)}…`);
+  }
+}
+
+// ---------------------------------------------------------------- Freedom
+
+const reasonOf = (e) => (e && e.data && e.data.reason) || "";
+
+// What Freedom's refusal of a write means, as a sentence for the person.
+function freedomRefusal(e, doing) {
+  const reason = reasonOf(e);
+  const said = {
+    "no-usable-stamps": "Freedom's node has no postage with room for it; Freedom has opened its publish setup, where you can buy some",
+    "node-stopped": "Freedom's Swarm node is not running",
+    "node-not-ready": "Freedom's Swarm node is still starting; try again in a minute",
+    "ultra-light-mode": "Freedom's Swarm node runs without a chain connection, so it cannot publish; Freedom has opened its publish setup",
+    "freedom_identity": "this key is one of Freedom's own wallet accounts, which Freedom does not let a page publish under; use a key file of your own",
+    "vault_locked": "Freedom's vault is locked, so it cannot tell whether this key is one of its own; unlock it and publish again",
+    "not_connected": "this site is not connected to Freedom's node",
+  }[reason];
+  if (said) return new Error(`${doing}: ${said}.`);
+  if (e && e.code === 4001) return new Error(`${doing}: you declined Freedom's prompt, so nothing more was published.`);
+  if (e && e.code === 4200) return new Error(`${doing}: this Freedom is too old to publish a chunk the page signed.`);
+  return new Error(`${doing}: ${(e && e.message) || e}${reason ? ` (${reason})` : ""}`);
+}
+
+// Freedom Browser's own node, through window.swarm (BROWSER.md §16): the
+// node pays from its postage and chooses the batch, and the page's key
+// signs. A blob goes up as the chunks of its plain tree, one
+// swarm_publishChunk each, so every address is the one the page computed;
+// a feed update goes up as a single-owner chunk the page signed
+// (swarm_publishSingleOwnerChunk), which Freedom checks against the owner
+// before it stamps it. Freedom asks the person to confirm each chunk unless
+// they let the site always publish.
+export class FreedomWriter {
+  constructor(swarm = globalThis.swarm) {
+    this.swarm = swarm;
+    this.source = new FreedomSwarm(swarm);
+    this.choosesBatch = true;     // nothing for the page to choose
+    this.sent = new Map();        // chunk address -> the promise of its upload
+    this.first = null;            // the first write, alone: its prompt, once
+  }
+
+  // Why this Freedom cannot publish from this page, or null if it can try:
+  // only whether the provider has the call. Whether the node is ready and
+  // has postage is asked when publishing, since it changes.
+  static async unable(swarm = globalThis.swarm) {
+    let caps;
+    try {
+      caps = await swarm.request({ method: "swarm_getCapabilities" });
+    } catch (e) {
+      return `Freedom did not say what it can do (${(e && e.message) || e}).`;
+    }
+    if (!(caps && caps.extensions && caps.extensions.pageSignedSingleOwnerChunks)) {
+      return "This Freedom does not yet publish a chunk the page signed; update Freedom.";
+    }
+    return null;
+  }
+
+  // The site's connection to the node: asked once, a prompt the first time.
+  async connect() {
+    try {
+      await this.swarm.request({ method: "swarm_requestAccess" });
+    } catch (e) {
+      throw freedomRefusal(e, "Connecting to Freedom's node");
+    }
+  }
+
+  // One write at a time until the first has gone through, so the person
+  // meets one prompt, where they can let the site always publish, and not
+  // one for each write in flight. If that first write is refused, the ones
+  // waiting behind it fail with it, unasked.
+  async _write(method, params, doing) {
+    const go = async () => {
+      try {
+        return await this.swarm.request({ method, params });
+      } catch (e) {
+        throw freedomRefusal(e, doing);
+      }
+    };
+    if (!this.first) {
+      const first = go();
+      this.first = first;
+      first.catch(() => { if (this.first === first) this.first = null; });
+      return first;
+    }
+    await this.first;
+    return go();
+  }
+
+  _chunk(c) {
+    const held = this.sent.get(c.address);
+    if (held) return held;
+    if (!c.payload.length) throw new Error("Freedom takes no empty chunk, so an empty blob cannot be published through it.");
+    const going = (async () => {
+      // slice(): a chunk of its own, not a view that would carry the whole blob across.
+      const got = await this._write("swarm_publishChunk", { data: c.payload.slice(), span: c.span }, "Publishing a chunk");
+      const reference = String(got && got.reference).toLowerCase();
+      if (reference !== c.address) {
+        throw new Error(`Freedom addressed a chunk ${reference.slice(0, 16)}… that the page addressed ${c.address.slice(0, 16)}…`);
+      }
+    })();
+    this.sent.set(c.address, going);
+    going.catch(() => this.sent.delete(c.address));
+    return going;
+  }
+
+  // The blob's plain tree, chunk by chunk, the root last: a chunk two blobs
+  // share goes up once.
+  async uploadBlob(bytes, _batch, ref) {
+    const chunks = treeChunks(bytes);
+    if (chunks[chunks.length - 1].address !== ref) {
+      throw new Error(`a blob staged as ${ref.slice(0, 16)}… splits to ${chunks[chunks.length - 1].address.slice(0, 16)}…`);
+    }
+    for (const c of chunks) await this._chunk(c);
+  }
+
+  // Freedom gives a page no way to ask whether the network serves a chunk
+  // (a node's /stewardship): what it has is the node's answer that it took
+  // the chunk under the address the page computed.
+  async retrievable(ref) {
+    const going = this.sent.get(ref);
+    if (!going) return false;
+    try { await going; return true; } catch { return false; }
+  }
+
+  // The newest update of a sequence feed ({index, root, timestamp}), or
+  // null for an empty feed. Freedom reports a chunk its node failed to
+  // fetch as missing, so one way of looking can come up short: both are
+  // taken, probing the updates themselves and the node's own lookup, and
+  // the later index counts. The update is checked here as well: its
+  // signature must recover to the owner.
+  async feedRoot(owner, topic) {
+    owner = owner.replace(/^0x/, "").toLowerCase();
+    const at = (i) => this.source.readSignedChunk(owner, feedIdentifier(topic, i));
+    let newest = -1;
+    if (await at(0)) {
+      let lo = 0, hi = 1;
+      while (await at(hi)) { lo = hi; hi *= 2; }
+      while (hi - lo > 1) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (await at(mid)) lo = mid; else hi = mid;
+      }
+      newest = lo;
+    }
+    const looked = await this.source.latestFeedIndex(owner, topic);
+    if (looked !== null && looked > newest) newest = looked;
+    if (newest < 0) return null;
+    const identifier = feedIdentifier(topic, newest);
+    const soc = await at(newest);
+    if (!soc) throw new Error(`feed update ${newest} is named by the node's lookup but could not be read`);
+    const payload = soc.payload.slice(0, Number(soc.span));
+    if (payload.length !== 40) throw new Error(`feed update of ${payload.length} bytes, not a time and a root`);
+    if (signerOf(identifier, chunkAddress(soc.span, soc.payload), soc.signature) !== owner) {
+      throw new Error(`feed update ${newest} is not signed by ${owner}`);
+    }
+    let timestamp = 0n;
+    for (const b of payload.subarray(0, 8)) timestamp = (timestamp << 8n) | BigInt(b);
+    return { index: newest, root: hex(payload.subarray(8)), timestamp: Number(timestamp) };
+  }
+
+  async writeFeed(update, _batch) {
+    const got = await this._write("swarm_publishSingleOwnerChunk", {
+      owner: update.owner, identifier: update.identifier, signature: update.signature,
+      data: update.data.slice(8), span: Number(spanValue(update.data.subarray(0, 8))),
+    }, "Writing the feed update");
+    const reference = String(got && got.reference).toLowerCase();
+    if (reference !== update.address) {
+      throw new Error(`Freedom stored the feed update at ${reference.slice(0, 16)}…, not ${update.address.slice(0, 16)}…`);
+    }
   }
 }
 

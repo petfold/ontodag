@@ -5,9 +5,10 @@ recordstore) runs under Pyodide.
 - **Your store** is a local `.od` file, the format `odag` reads: saved
   back in place where the browser allows it (Chrome, Freedom from 0.8.8),
   downloaded where it doesn't (Brave, an older Freedom), and published to
-  Swarm when you choose, as
-  `odag -f swarm:NAME` does, through the node that served the page and
-  under a key you keep in a file.
+  Swarm when you choose, as `odag -f swarm:NAME` does, under a key you
+  keep in a file: through the node that served the page, or in Freedom
+  Browser through Freedom's own node (its nightly of 2026-11-12 or
+  later).
 - **The vocabularies** (the packs, shipped beside the page as
   `packs.json`) are shown beside it in any combination. While you type,
   they suggest names with where each sits, core's also by its WordNet
@@ -49,18 +50,18 @@ versions before it were `bzz://edbd87134ba6975011916e93eba0a0cd4d96bb74a511f0fcb
 |---|---|
 | `index.html`, `app.js` | the page: your store first (New, Open, Save; Add with suggestions, a category's page with above, below and about, Put under, Remove, Find), the vocabularies shown beside it (`ontodag.browser.Organiser`), Publish and Get from Swarm under a key file, and a published store browsed read only (by its pinned root: a category with what is above and below it, `get`, `below`) |
 | `packs.json` | made by `build.py`, not kept here: every pack's canonical text, for the vocabularies (loading text is ten times quicker than building a pack in the page) |
-| `publish.js` | writing your store (BROWSER.md §16): the key (`Key`, signing as Bee checks), the `Stage` Python's `StagedBlobs` writes into, `NodeWriter` (the node's batches, plain uploads, `/stewardship`, the feed found by probing and written with `POST /soc`) and `uploadStaged` |
+| `publish.js` | writing your store (BROWSER.md §16): the key (`Key`, signing as Bee checks), the `Stage` Python's `StagedBlobs` writes into, `NodeWriter` (the node's batches, plain uploads, `/stewardship`, the feed found by probing and written with `POST /soc`), `FreedomWriter` (Freedom's own node through `window.swarm`: a blob as the chunks of its plain tree, the feed update as the single-owner chunk the page signed) and `uploadStaged` |
 | `pycall.js` | how Python waits for Swarm: JSPI, or retrying where JSPI cannot suspend Python (Pyodide on iOS; BROWSER.md §15) |
 | `localfile.js` | opening and saving a local file: in place where the browser allows it, by file input and download elsewhere |
 | `savehelp.js` | where Save can only download (Brave, Freedom before 0.8.8, Firefox, Safari): a dialog naming the browser's ask-where-to-save setting, its address copied to paste, and in Brave the File System Access flag, offered only after a yes (BROWSER.md §14.1); `node test/test_savehelp.mjs` checks which help each browser gets |
-| `swarm.js` | the Swarm layer: `FreedomSwarm`, `HttpSwarm`, `ChunkReader` (chunk trees joined, every chunk checked against its address, an IndexedDB cache), `BlobStore` for Python |
+| `swarm.js` | the Swarm layer: `FreedomSwarm`, `HttpSwarm`, `ChunkReader` (whole blobs where the client hands them over, chunk trees joined otherwise, everything checked against its address, an IndexedDB cache), `treeChunks` (a blob's plain tree, for addresses and for writing chunk by chunk), `BlobStore` for Python |
 | `vendor/noble-hashes/` | keccak-256 and the hashes secp256k1 needs (MIT), as `swarm.js` and `publish.js` import them |
 | `vendor/noble-curves/` | secp256k1 (MIT, 1.9.7), for `publish.js` |
 | `build.py` | assembles `dist/` (the page and wheels built from this checkout and recordstore's, about 0.5 MB); `--publish --batch ID` uploads it to a Bee node. Pyodide is not in it: the pages load it from its own folder on Swarm (`app.js`, `PYODIDE`), published once with `--pyodide-only`; `--bundle-pyodide` puts a copy in instead |
 | `check.py` | runs `dist/` in Chromium against a Bee node and compares every answer with Python reading the same root: through a stand-in for Freedom's provider (default), the node over HTTP (`--url`), or a gateway (`--gateway`); then drives your own store through the page's buttons (new, put, save by download, open by file input, remove). `--bridge retry` forces reading by retrying; `--iphone` reports an iPhone's platform, so the page runs as on iOS. `--publish` (with `BEE_BATCH`) also publishes a store under a throwaway key and checks it against `odag` with the same key: read back natively, `odag` adds to it, the page folds that in, a fresh `odag` reads the union, and a new store gets it from Swarm |
 | `freedom_check.cjs` | runs the published page in real Freedom Browser from a Freedom checkout (`node freedom_check.cjs REF [--connect]`) |
 | `publish_index.py` | publishes packs' cone summaries (`ontodag.cones`) for the page to pin: a broad category in one record instead of a walk |
-| `test/` | `swarm.js` checked against swarmfs's splitter: `python3 test/make_vectors.py > v.json && node test/test_swarm.mjs v.json`; with `BEE_BATCH`, `test/make_coded.py > c.json` adds trees the node erasure-coded at every level (`node test/test_swarm.mjs v.json c.json`). `publish.js` checked against swarmfs's signer and splitter: `node test/test_publish.mjs test/feed_vector.json v.json` (the vector made by `test/make_feed_vector.py`) |
+| `test/` | `swarm.js` checked against swarmfs's splitter: `python3 test/make_vectors.py > v.json && node test/test_swarm.mjs v.json`; with `BEE_BATCH`, `test/make_coded.py > c.json` adds trees the node erasure-coded at every level (`node test/test_swarm.mjs v.json c.json`). `publish.js` checked against swarmfs's signer and splitter: `node test/test_publish.mjs test/feed_vector.json v.json` (the vector made by `test/make_feed_vector.py`). The page in Freedom, reading whole blobs and publishing, against a stand-in for its provider written from Freedom's source (`test/freedom_standin.mjs`): `node test/test_freedom.mjs v.json test/feed_vector.json` |
 
 The page needs recordstore's `RecordStore.get_many` (unreleased until the
 next recordstore release); `build.py` builds recordstore from its checkout.

@@ -22,7 +22,7 @@ What became of each part:
 | §2.8, time buckets | Answered: tokens follow computed hops as well as asserted edges |
 | §3, one Bee ACT per category | Not followed: ontodag seals content itself and uses the node's ACT for nothing (BROWSER.md §12) |
 | §4 Phase 1, `KeyGraph`/`Resolver`/`align` (0.19–0.29) | Retired in 0.30; item 4 (category manifests and feeds) was never built |
-| §4 Phase 2, a `Swarm-Act-Access-Key` header | Not filed: it helps only clients without cryptography (BROWSER.md §12); Freedom #648 was filed instead |
+| §4 Phase 2, a `Swarm-Act-Access-Key` header | Not filed: it helps only clients without cryptography (BROWSER.md §12); Freedom #648 was filed instead, and built as `swarm_openAct` (2026-11-12) |
 | §4 Phase 3 and §8, a SWIP | SHARING_ON_SWARM §10, Phase 8 |
 | §5, the crypto spike | Pinned in `tests/test_act.py`; the conventions are in `ontodag.act`'s docstrings |
 | §6, costs and limits | SHARING_ON_SWARM §4.3, §4.4 and §9 |

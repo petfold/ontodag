@@ -1,7 +1,9 @@
 """The page's Swarm layer, run under node. swarm.js against chunk trees
 made by swarmfs's splitter: addresses, trees from 0 to 600 KB, a tampered
 or missing chunk refused, one read per chunk. publish.js against swarmfs's
-signer: a feed update signed byte for byte the same. savehelp.js: which
+signer: a feed update signed byte for byte the same. Both through a
+stand-in for Freedom Browser's provider: whole blobs read in one call, and
+a store published through Freedom's own node. savehelp.js: which
 browser setting it offers where a page saves only by downloading. Without
 swarmfs, make_vectors.py's splitter on pycryptodome (the `act` extra, so
 CI) makes them, checked against swarmfs's where both are present. Skips
@@ -73,6 +75,33 @@ class TestPublishJs(unittest.TestCase):
                              capture_output=True, text=True, check=True)
         with open(os.path.join(PAGE, "test", "feed_vector.json")) as fh:
             self.assertEqual(json.loads(run.stdout), json.load(fh))
+
+
+@unittest.skipUnless(shutil.which("node"), "needs node")
+@unittest.skipUnless(importlib.util.find_spec("swarmfs") or importlib.util.find_spec("Crypto"),
+                     "needs swarmfs or pycryptodome for the splitter")
+class TestFreedomJs(unittest.TestCase):
+    """The page in Freedom Browser (demo/freedom/test/test_freedom.mjs),
+    against a stand-in for its window.swarm written from Freedom's source
+    (test/freedom_standin.mjs): what the page publishes through Freedom's
+    node is the splitter's chunks and the feed update swarmfs signs, and
+    whole blobs are read in one call each, checked."""
+
+    def test_the_page_reads_and_publishes_through_freedom(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            vectors = os.path.join(d, "vectors.json")
+            with open(vectors, "w") as fh:
+                subprocess.run([sys.executable, os.path.join(PAGE, "test", "make_vectors.py")],
+                               check=True, stdout=fh)
+            run = subprocess.run(["node", os.path.join(PAGE, "test", "test_freedom.mjs"), vectors,
+                                  os.path.join(PAGE, "test", "feed_vector.json")],
+                                 capture_output=True, text=True, timeout=300)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertNotIn("FAIL", run.stdout)
+        self.assertIn("a 600000-byte blob published through Freedom is the splitter's 150 chunks", run.stdout)
+        self.assertIn("Freedom hands over whole blobs", run.stdout)
+        self.assertIn("a feed update another key signed is refused", run.stdout)
 
 
 @unittest.skipUnless(shutil.which("node"), "needs node")

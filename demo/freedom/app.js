@@ -8,7 +8,7 @@ import { ChunkReader, BlobStore, FreedomSwarm, HttpSwarm, StoredChunks, topicOf 
 import { LocalFile, download } from "./localfile.js";
 import { SaveHelp, flagJustTurnedOn, isBrave, saveAdvice } from "./savehelp.js";
 import { PythonCalls } from "./pycall.js";
-import { Key, NodeWriter, Stage, feedUpdate, uploadStaged } from "./publish.js";
+import { FreedomWriter, Key, NodeWriter, Stage, feedUpdate, uploadStaged } from "./publish.js";
 
 // The published packs, by the roots ontodag pins for them (tests/test_packs.py
 // SWARM_GOLDEN_ROOTS): equal knowledge, equal root, so a root is the whole
@@ -860,9 +860,11 @@ async function browse(root, name) {
 }
 
 // Your store on Swarm (publish.js): a key the person keeps in a file, the
-// node that served this page and its batches, and the store's name.
+// node that pays (the one that served this page, with its batches, or
+// Freedom's own), and the store's name.
 let key = null;
-let writer = null;          // a NodeWriter, when the page came from a node
+let writer = null;          // a NodeWriter when the page came from a node, a FreedomWriter in Freedom
+let connected = () => {};   // told when Freedom has connected this site
 const stage = new Stage();
 globalThis.ontodagStage = stage;
 
@@ -875,7 +877,7 @@ const short = (ref) => `${ref.slice(0, 8)}…`;
 
 function showKey(note = "") {
   $("keystate").textContent = key ? `Key ${key.checksummed}.${note ? ` ${note}` : ""}` : "No key yet: publishing needs one.";
-  $("publish").disabled = !(key && writer && $("swarmbatch").value);
+  $("publish").disabled = !(key && writer && (writer.choosesBatch || $("swarmbatch").value));
   $("fetch").disabled = !key;
 }
 
@@ -923,8 +925,13 @@ async function feedNow(name) {
 async function swarmPublish() {
   const name = swarmName();
   if (!name || !key || !writer) return;
-  const batch = $("swarmbatch").value;
+  const batch = writer.choosesBatch ? null : $("swarmbatch").value;
   const answer = await run(`Publishing ${name}…`, async () => {
+    if (writer.connect) {
+      swarmResult("Asking Freedom to connect this site…");
+      await writer.connect();
+      connected();
+    }
     swarmResult("Reading the feed…");
     const feed = await feedNow(name);
     const answer = await call("local_publish", feed ? feed.root : "");
@@ -973,17 +980,26 @@ async function swarmFetch() {
   await showView();
 }
 
-// Writing goes through a Bee node: the one that served this page (opened as
-// http://localhost:1633/bzz/…), or one named with ?node=URL.
+// Writing goes through a node that pays: a Bee node, the one that served
+// this page (opened as http://localhost:1633/bzz/…) or one named with
+// ?node=URL; or, in Freedom Browser, Freedom's own node.
 async function setUpWriting() {
   const named = params.get("node");
   const served = /^https?:$/.test(location.protocol) && location.pathname.startsWith("/bzz/") ? location.origin : null;
   const base = named || served;
   const via = "To publish, open this page through your own node (with Swarm Desktop: http://localhost:1633/bzz/ontodag.eth/).";
+  if (!base && FreedomSwarm.present()) {
+    const unable = await FreedomWriter.unable();
+    if (unable) {
+      $("swarmnote").textContent = `${unable} ${via} Get from Swarm works here.`;
+      return;
+    }
+    writer = new FreedomWriter();
+    $("swarmnote").textContent = "Publishing goes through Freedom's own node, paid from its postage. Freedom asks you to confirm each chunk: tick \"Always allow this site to publish\" in its first prompt, or it asks for every one. Your key signs the store's feed; the page never stores it.";
+    return;
+  }
   if (!base) {
-    $("swarmnote").textContent = FreedomSwarm.present()
-      ? `Publishing from Freedom waits for it to accept a chunk the page signed (freedom-browser#647). ${via} Get from Swarm works here.`
-      : `Publishing needs your own Bee node, which pays for it. ${via} Get from Swarm works here.`;
+    $("swarmnote").textContent = `Publishing needs your own Bee node, which pays for it. ${via} Get from Swarm works here.`;
     return;
   }
   const node = new NodeWriter(base);
@@ -1018,11 +1034,11 @@ async function boot() {
 
   const source = chooseSource();
   $("source").textContent = `Reading Swarm through ${source.kind}`;
-  const connected = { yes: false };
+  let isConnected = false;
   reader = new ChunkReader(source, {
     stored: await StoredChunks.open(),
     onRateLimit: (ms) => {
-      if (source instanceof FreedomSwarm && !connected.yes) {
+      if (source instanceof FreedomSwarm && !isConnected) {
         status(`Freedom lets a site that has not connected read only so much of Swarm a minute; waiting ${ms / 1000} s. Press "Read faster (connect)" to read five times as much.`, true);
         $("connect").classList.add("primary");
       } else {
@@ -1033,13 +1049,16 @@ async function boot() {
   globalThis.ontodagBlobs = new BlobStore(reader);
   if (source instanceof FreedomSwarm) {
     $("connect").classList.remove("hidden");
+    connected = () => {
+      isConnected = true;
+      $("connect").disabled = true;
+      $("connect").classList.remove("primary");
+      $("connect").textContent = "Connected";
+    };
     $("connect").onclick = async () => {
       try {
         await source.connect();
-        connected.yes = true;
-        $("connect").disabled = true;
-        $("connect").classList.remove("primary");
-        $("connect").textContent = "Connected";
+        connected();
       }
       catch (e) { status(`Freedom did not connect: ${e.message}`, true); }
     };
