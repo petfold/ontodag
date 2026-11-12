@@ -401,6 +401,65 @@ class TestFilingDoesNotScan(unittest.TestCase):
         self.assertLess(large, 100)
 
 
+class TestFilingAsksNoRole(unittest.TestCase):
+    """Filing an ordinary item asks nothing of the roles the store
+    declares, and climbs only to see whether one parent says what another
+    already says. The terms naming a node are in the argument index, a
+    fresh leaf has nothing below it, and a plain name needs no parsing: a
+    put does the same work with two roles declared or with forty. Before,
+    each edge asked every role in turn (45% of a put with the packs' fifty
+    roles) and climbed twice more to find that nothing was below the new
+    leaf."""
+
+    @staticmethod
+    def store(roles, resident=True):
+        dag = declare(resident)
+        for i in range(roles):
+            dag.put(f"role{i}", ["geo"])
+        dag.put("thing", [])
+        for i in range(24):
+            dag.put(f"kind{i}", ["thing"])
+        return dag
+
+    def work(self, roles, method, resident=True):
+        """The calls ten puts of a new item under three kinds make."""
+        dag = self.store(roles, resident)
+        dag.put("first", ["kind0", "kind1", "kind2"])   # builds the indexes
+        counter = counting(dag, method)
+        for i in range(10):
+            dag.put(f"item{i}", [f"kind{i}", f"kind{i + 7}", f"kind{i + 14}"])
+        return counter["calls"]
+
+    def test_the_work_does_not_grow_with_the_roles(self):
+        for method in ("_dimension_of", "_has_ancestors", "_escapes"):
+            self.assertEqual(self.work(40, method), self.work(2, method),
+                             method)
+
+    def test_no_role_is_looked_at(self):
+        self.assertEqual(self.work(40, "_role_heads"), 0)
+
+    def test_a_graph_without_the_index_still_looks(self):
+        # The mechanism switched off: a partial graph's index has not met
+        # every term, so each edge still goes through the roles.
+        self.assertGreater(self.work(40, "_role_heads", resident=False), 0)
+
+    def test_a_fresh_leaf_is_climbed_to_from_nowhere(self):
+        # Three parents ask six questions: is each already implied (a
+        # climb from the item), and does each make an earlier one
+        # redundant (none, one, two climbs from the parent). Nothing can
+        # be below a fresh leaf, so no climb looks for it.
+        self.assertLessEqual(self.work(40, "_has_ancestors"), 10 * 6)
+
+    def test_a_plain_name_is_parsed_without_the_memo(self):
+        dag = self.store(2)
+        dag.put("item", ["kind0"])
+        dag._memo = None               # as after any change to the graph
+        counter = counting(dag, "_memo_put")
+        self.assertTrue(dag._has_ancestors(
+            dag.nodes["item"], (dag.nodes["thing"],), computed=dag._lean))
+        self.assertEqual(counter["calls"], 0)
+
+
 class TestAVirtualConeIsOneWalk(unittest.TestCase):
     """A virtual query term's cone is walked once, whatever its values'
     nesting. A walk per contained value re-walked every value nested

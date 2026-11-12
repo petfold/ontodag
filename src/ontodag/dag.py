@@ -1599,13 +1599,31 @@ class OntoDAG(DAG):
         another matter: no term may be left naming nothing, whatever its
         kind, `_refuse_if_named`.) A value of the base names nothing either:
         `from(48..49,2..3)` is a rectangle, read by arithmetic, so filing
-        `geo(48..49,2..3)` under a region is no move of a named place."""
+        `geo(48..49,2..3)` under a region is no move of a named place.
+
+        On a resident graph the argument index lists these terms under
+        `name`, so the roles are not asked one by one; a partial graph
+        holds terms no index has met, and a name with a space in it is no
+        single constraint, so there each role's spelling is looked up."""
         split = _dims.split_term(name)
+        heads = self._heads()
+
+        def names_a_node(role):
+            kind, base = heads[role]
+            return base != role and kind not in _dims.GRAPH_ORDERED \
+                and not (split is not None and split[0] == base)
+
+        if self._resident and _dims.constraints(name) == (name,):
+            terms = {}
+            for term in self._args_index().get(name, ()):
+                role, param = _dims.split_term(term)
+                if param == name and role in heads and names_a_node(role) \
+                        and term in self.nodes:
+                    terms[role] = self.nodes[term]
+            return [terms[role] for role in sorted(terms)]
         return [self.nodes[term] for term in
-                (f"{role}({name})"
-                 for role, base in sorted(self._role_heads().items())
-                 if self._dimension_kind(role) not in _dims.GRAPH_ORDERED
-                 and not (split is not None and split[0] == base))
+                (f"{role}({name})" for role in sorted(heads)
+                 if names_a_node(role))
                 if term in self.nodes]
 
     def _check_role_parameters(self, name):
@@ -2081,7 +2099,11 @@ class OntoDAG(DAG):
         term-shaped names with undeclared heads stay opaque atoms, so
         existing graphs are untouched (DIMENSIONS.md §7). Memoized against
         the graph's version (outside replays, and never while a guard
-        tripped): every walk and comparison parses the names it meets."""
+        tripped): every walk and comparison parses the names it meets. A
+        name that is no term at all is answered before the memo, which a
+        walk would otherwise fill with every plain name it passes."""
+        if _dims.split_term(name) is None:
+            return None
         if self._role_lenient:
             return self._parse_parametric_uncached(name)
         key = ("parse", name)
@@ -3144,7 +3166,10 @@ class OntoDAG(DAG):
         if not anchor and self._below(to_node, from_node):
             return
         # Reject cycles — through computed hops too — before anything mutates.
-        if not fresh_anchor and self._below(from_node, to_node):
+        # Nothing is below a fresh ordinary leaf, so filing one closes none
+        # and is not climbed for (`_nothing_below`).
+        if not fresh_anchor and not self._nothing_below(to_node) \
+                and self._below(from_node, to_node):
             raise ValueError(
                 f"Edge {from_node.name} -> {to_node.name} would create a cycle."
             )
@@ -3281,6 +3306,16 @@ class OntoDAG(DAG):
         present nodes? The `is_below` question (`lower` and `upper` differ
         wherever this is asked), so it shares its memo and its walk."""
         return lower is not upper and self.is_below(lower.name, upper.name)
+
+    def _nothing_below(self, node):
+        """Is `node` an ordinary leaf: nothing filed under it, and no term
+        (a term's place among its head's terms is computed, so one with no
+        asserted children can still have terms below it)? Then nothing is
+        below it in the combined order: no climb can reach it, and an edge
+        to it closes no loop. For a node whose edges are in memory, as both
+        ends of an edge being added are."""
+        return not node.neighbors \
+            and self._parse_parametric(node.name) is None
 
     # Stand-in for the typical ancestor-cone size, which is not maintained
     # per node. Used only to choose between two *exact* operators in get(),
@@ -3869,7 +3904,8 @@ class OntoDAG(DAG):
         it, never the whole ancestry of `upper` (a term's containing terms
         can be a long chain, or every member of a group)."""
         from_node, to_node = upper, lower
-        if self._below(from_node, to_node) or (
+        leaf = self._nothing_below(to_node)
+        if (not leaf and self._below(from_node, to_node)) or (
                 self._total()
                 and from_node in self.get_ancestors(from_node)):
             # The pair lies on a cycle. Only a merge of contradictory
@@ -3886,11 +3922,8 @@ class OntoDAG(DAG):
                     and self._below(from_node, parent):
                 self.remove_edge(parent, to_node)
         # Downward twin. A fresh ordinary leaf has nothing below it — the
-        # overwhelmingly common put(item, supers) case costs nothing. A
-        # parametric to_node can reach siblings through computed hops even
-        # with no asserted children, so it never takes the shortcut.
-        if not to_node.neighbors \
-                and self._parse_parametric(to_node.name) is None:
+        # overwhelmingly common put(item, supers) case costs nothing.
+        if leaf:
             return
         for descendant in self.get_descendants(to_node):  # combined order
             # Snapshot: remove_edge mutates the parent set mid-iteration.
@@ -3919,6 +3952,8 @@ class OntoDAG(DAG):
         kind's terms move the same way: a job under `transport(piano)` and
         `transport(heavy-item)` keeps one edge once pianos are heavy, as it
         would had that been known when the job was filed (§15)."""
+        if not self._heads() or self._moves_no_term(to_node):
+            return
         roles = self._role_heads()
         heads = self._multi_valued_heads() + self._graph_kind_heads()
         if not roles and not heads:
@@ -4063,7 +4098,7 @@ class OntoDAG(DAG):
         else they could reach is named by any term."""
         nested = self._graph_nested()
         flipped = {h for h in heads
-                   if self._dimension_kind(h) == _dims.KIND_REVERSED}
+                   if self._declared(h)[0] == _dims.KIND_REVERSED}
         straight = set(heads) - flipped
         if nested:
             start = [to_node.name] + [d.name for d in self.get_descendants(to_node)]
@@ -4076,7 +4111,7 @@ class OntoDAG(DAG):
             upper_terms = [self.nodes[t] for name in above
                            for t in self._args_index().get(name, ())
                            if t in self.nodes and _dims.split_term(t)[0] in flipped]
-        base_of = {role: self._dimension_of(role)[1] for role in roles}
+        role_names = set(roles)
         seen, queue = set(start), list(start)
         moved, moved_names, pairs = [], set(), []
 
@@ -4105,12 +4140,7 @@ class OntoDAG(DAG):
                      if t in self.nodes]
             if touched is not None:
                 touched.extend(self.nodes[t] for t in found)
-            for role in roles:
-                spellings = [f"{role}({name})"]
-                split = _dims.split_term(name)
-                if split is not None and split[0] == base_of[role]:
-                    spellings.append(f"{role}({split[1]})")
-                found.extend(t for t in spellings if t in self.nodes)
+            found.extend(self._role_spellings(name, roles))
             for t in found:
                 head = _dims.split_term(t)[0]
                 if head in flipped:
@@ -4122,12 +4152,61 @@ class OntoDAG(DAG):
                                     upper.name, lower.name, _dims.KIND_REVERSED):
                             pairs.append((upper, lower))
                             take(lower)
-                elif (head in straight or head in base_of) \
+                elif (head in straight or head in role_names) \
                         and t not in moved_names:
                     moved_names.add(t)
                     moved.append(self.nodes[t])
                     take(self.nodes[t])
         return moved, pairs
+
+    def _moves_no_term(self, to_node):
+        """Can an edge to `to_node` move no term at all? So it is for the
+        common filing: an ordinary leaf (`_nothing_below`) that no present
+        term names. Only terms move, and only by what they name at or below
+        `to_node` (`_moved_terms`), which here is `to_node` alone; the
+        argument index lists the terms naming it. Asked first, so that
+        filing such a leaf looks at no head and no role. Not on a partial
+        graph, whose index has not met every term, nor for a name the
+        index cannot list as one constraint, nor while a term is named
+        only inside another (`_graph_nested`): those take the long way."""
+        name = to_node.name
+        return self._resident and self._nothing_below(to_node) \
+            and _dims.split_term(name) is None \
+            and _dims.constraints(name) == (name,) \
+            and not self._args_index().get(name) \
+            and not self._graph_nested()
+
+    def _declared(self, head):
+        """(kind, base) of a declared head, read from the table of heads
+        when it lists the head: the table is made from `_dimension_of` and
+        dropped with it, and reading it costs no walk, where an edge asks
+        about every role."""
+        found = self._heads().get(head)
+        return self._dimension_of(head) if found is None else found
+
+    def _role_spellings(self, name, roles):
+        """The present terms of `roles` that name `name` in a spelling the
+        argument index does not list under it.
+
+        The index lists every present term under each of its constraints,
+        so on a resident graph `from(my_home)` is found there under
+        `my_home`, and the one spelling it misses is a role's for a value
+        of its base: `from(48..49,2..3)` for `geo(48..49,2..3)`. So a plain
+        name asks no role at all, and filing costs the same however many
+        roles are declared. Two cases still ask every role: a partial
+        graph, which holds terms no index has met, and a name with a space
+        in it, which is no single constraint."""
+        split = _dims.split_term(name)
+        indexed = self._resident and _dims.constraints(name) == (name,)
+        if indexed and split is None:
+            return []
+        found = []
+        for role in roles:
+            spellings = [] if indexed else [f"{role}({name})"]
+            if split is not None and split[0] == self._declared(role)[1]:
+                spellings.append(f"{role}({split[1]})")
+            found.extend(t for t in spellings if t in self.nodes)
+        return found
 
     def _terms_moved_by(self, from_node, to_node, roles, heads):
         """Present terms whose computed hops the edge `from ⊑ to` can move
@@ -4158,7 +4237,7 @@ class OntoDAG(DAG):
         if self._total():
             return None
         heads = self._heads()
-        if not heads:
+        if not heads or self._moves_no_term(to_node):
             return None
         # Only heads whose terms the graph orders can gain a hop from an
         # edge; a value's place is fixed by its name. (A head filed under
@@ -4273,26 +4352,19 @@ class OntoDAG(DAG):
         against every transitive head, asking whether `parent` is already
         below R(that thing) in the graph as it stands. The rest of such a
         path needs no new edge, or the cycle check would have refused it.
-        Nothing is checked unless some transitive term is at or above
-        `parent`, which is the common case's fast path. Names, not nodes,
-        so `put` and `reclassify` can ask before materializing anything:
-        a refusal leaves no new vocabulary behind. Replays (merge, sync)
-        are lenient, as with role parameters: a merge must stay total, so
-        a merged store can hold what `put` refuses."""
+        Nothing is checked for a leaf no term names, nor unless some
+        transitive term is at or above `parent`: the common cases' fast
+        paths, the first asked first because it climbs nothing. Names, not
+        nodes, so `put` and `reclassify` can ask before materializing
+        anything: a refusal leaves no new vocabulary behind. Replays
+        (merge, sync) are lenient, as with role parameters: a merge must
+        stay total, so a merged store can hold what `put` refuses."""
         if self._total():
             return
         heads = self._transitive_heads()
         child = self.nodes.get(child_name)
         if not heads or child is None:
             return        # a new name is not yet anywhere, nor named by a term
-        def transitive_term(name):
-            parsed = self._parse_parametric(name)
-            return parsed is not None and parsed[1] == _dims.KIND_TRANSITIVE
-        parent = self.nodes.get(parent_name)
-        if not transitive_term(parent_name) and (parent is None or not any(
-                transitive_term(a.name)
-                for a in self._walk_ancestors(parent, computed=self._lean))):
-            return
         split = _dims.split_term(parent_name)
         if _dims.split_term(child_name) is None and not child.neighbors \
                 and not any(self._terms_naming(child_name, head)
@@ -4305,6 +4377,14 @@ class OntoDAG(DAG):
             # a new place. (The parent may not exist yet; a parent naming
             # the child, `x ⊑ in(x)`, must reach the check below, here,
             # before put materializes it.)
+            return
+        def transitive_term(name):
+            parsed = self._parse_parametric(name)
+            return parsed is not None and parsed[1] == _dims.KIND_TRANSITIVE
+        parent = self.nodes.get(parent_name)
+        if not transitive_term(parent_name) and (parent is None or not any(
+                transitive_term(a.name)
+                for a in self._walk_ancestors(parent, computed=self._lean))):
             return
         # What the parent is inside, once per head; then each node the edge
         # puts under it is looked up there. (Asking is_below(parent, R(x))

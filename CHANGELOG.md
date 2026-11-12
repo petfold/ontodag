@@ -14,6 +14,22 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+### Changed
+
+- **Filing an ordinary item costs about a third of what it did.** A put of
+  a new item under three categories, over core and the ten domain packs,
+  took 0.88 ms and takes 0.25 ms; the suite runs half a minute faster. The
+  stored form and every answer are the same. Each edge used to ask every
+  declared role in turn whether it named the node (the packs declare
+  fifty), and climbed twice to learn that nothing was below a leaf just
+  made. The argument index now answers the first on a resident graph, and
+  nothing asks the second; a leaf that no term names goes through no role
+  upkeep at all. A walk no longer fills the memo with the plain names it
+  passes. Checked by running the old code beside the new on every call the
+  suite makes (about 620,000 calls of the search for moved terms, 1.2
+  million checks of self-containment, 786,000 leaves), and pinned by counts
+  in `tests/test_hops.py`.
+
 ## [0.35.0] — 2026-10-25
 
 Core v14, and record stores that keep no record of a derived term. In core
