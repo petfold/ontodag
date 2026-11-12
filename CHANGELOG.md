@@ -14,6 +14,12 @@ the version numbers appear in commit history and docs.
 
 ## [Unreleased]
 
+## [0.35.1] — 2026-11-12
+
+Filing costs about a third of what it did. No stored form, answer or
+interface changes, and every root stays where it was. Contract 0.7,
+registry 6.0, prelude 5, surface 0.2, core 14.
+
 ### Changed
 
 - **Filing an ordinary item costs about a third of what it did.** A put of
