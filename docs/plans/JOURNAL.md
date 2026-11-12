@@ -3201,15 +3201,19 @@ day.
 as a Burmeister `.cxt` file, a `.npy` table and a `.json` file naming the
 knowledge id it was made from. The shipped vocabulary is 8,795 objects by
 2,847 attributes with 39,522 crosses; below `place`, 439 by 183. A first
-run of mdl-fca's learner on the `place` table took 1.4 s: 39 concepts,
-the codelength at 79% of the empty model's, 14 of the 162 categories with
-more than one attribute found exactly.
+run of mdl-fca's learner on the `place` table (its
+`examples/run_context.py`) took 1.1 s: 39 concepts, the codelength at 79%
+of the empty model's, 14 of the 162 categories with more than one
+attribute found exactly. On the whole vocabulary it did not finish in ten
+minutes.
 
 **Filing.** The probe showed a put spending 45% of its time asking each
 of the packs' fifty roles, on every edge, whether it named the new node,
 and two of an edge's four climbs looking below a leaf just made. Changed
 (`CHANGELOG.md`, Unreleased): 0.88 ms to 0.25 ms for an item under three
-categories; the suite went from 237 s to 208 s. It was checked by a
+categories; the suite went from 237 s to 208 s, and loopmarket's and
+ontodag-fs's suites pass against it (406 and 311 passed). It was checked
+by a
 pytest plugin kept outside the repository that ran the old functions
 (read from git HEAD) beside the new on every call the suite makes, and
 required equal answers: 618,470 searches for moved terms, 330,986 role
@@ -3218,8 +3222,8 @@ lookups, 1,192,947 self-containment checks, 786,160 leaf shortcuts and
 the sparse writer the search for moved terms is not repeatable: the
 unchanged code, called twice in a row in `tests/test_narrower.py`,
 answered differently once, because the first call loads terms the second
-then finds. The test passes all the same; whether a first call can miss a
-term that should have been re-reduced was not followed up.
+then finds. The test passes all the same, and its check run over 1,994
+further seeds gave the eager writer's root every time.
 
 **The vocabulary is close to a tree**, and Peter reads that as a fault:
 natural concepts are no tree. 11% of its nodes have several parents;
