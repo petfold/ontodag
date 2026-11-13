@@ -3446,7 +3446,7 @@ Freedom stays on downloads after updating, as question 48 accepted.
 
 **The reviews, the same night.** Peter had asked for a full review of
 loopmarket and then, time allowing, of ontodag. loopmarket's is written
-(`../loopmarket/docs/plans/REVIEW_2026-11.md`: seven defects fixed,
+(`../loopmarket/docs/plans/REVIEW_2026-11.md`: eight defects fixed,
 questions 54 to 62). ontodag's was started with eight reviewers (the DAG
 kernel, stores and persistence, dimensions and queries, sharing and
 its cryptography, the command line and surfaces, the MCP server with
