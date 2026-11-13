@@ -3448,9 +3448,10 @@ Freedom stays on downloads after updating, as question 48 accepted.
 loopmarket and then, time allowing, of ontodag. loopmarket's is written
 (`../loopmarket/docs/plans/REVIEW_2026-11.md`: seven defects fixed,
 questions 54 to 62). ontodag's was started with eight reviewers (the DAG
-kernel, the stores, the dimensions, the command line and surfaces, the
-MCP server with the web app and the page, the packs, the user documents,
-the plans) and the usage limit stopped every one of them before it
+kernel, stores and persistence, dimensions and queries, sharing and
+its cryptography, the command line and surfaces, the MCP server with
+the web app and the page, the user documents, the reference and design
+documents) and the usage limit stopped every one of them before it
 reported. Nothing of it is in the repository, and no finding of it
 exists to act on: it is to be started again. Two things loopmarket's
 reviewers met that concern ontodag: the page takes `?pyodide=` and
