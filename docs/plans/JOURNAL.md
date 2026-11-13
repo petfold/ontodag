@@ -3443,3 +3443,17 @@ Freedom, since `swarm_publishChunk` names no redundancy level (question
 its reference is the page's only if Freedom's node uploads plain, which
 is to be measured there. A person who met the pickers' refusal in an old
 Freedom stays on downloads after updating, as question 48 accepted.
+
+**The reviews, the same night.** Peter had asked for a full review of
+loopmarket and then, time allowing, of ontodag. loopmarket's is written
+(`../loopmarket/docs/plans/REVIEW_2026-11.md`: seven defects fixed,
+questions 54 to 62). ontodag's was started with eight reviewers (the DAG
+kernel, the stores, the dimensions, the command line and surfaces, the
+MCP server with the web app and the page, the packs, the user documents,
+the plans) and the usage limit stopped every one of them before it
+reported. Nothing of it is in the repository, and no finding of it
+exists to act on: it is to be started again. Two things loopmarket's
+reviewers met that concern ontodag: the page takes `?pyodide=` and
+`?gateway=` from the link, as loopmarket's does (its question 62), and
+through a gateway a feed update is taken unchecked though `signerOf`
+ships (its BR-7).

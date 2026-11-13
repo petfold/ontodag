@@ -782,6 +782,10 @@ retract`). Unchanged: swarmfs 0.14.0. The packs whose Swarm roots
 
 ## Open questions for Peter
 
+Questions 54 to 62 are loopmarket's, from its review of 2026-11-13
+(`../loopmarket/docs/plans/REVIEW_2026-11.md` §3, all open). The next
+free number is 63.
+
 Question 52 (2026-11-12, ontodag-core's `docs/UPPER.md` §17): should the
 packs carry cross-connections between classes, and from where? The
 shipped vocabulary is close to a tree: 11% of its nodes have several
