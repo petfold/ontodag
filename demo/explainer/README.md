@@ -13,6 +13,14 @@ machine.
 30 frames a second, about 17 MB; the facts take a few seconds, the voice
 five minutes the first time, the pictures two).
 
+A built copy, with its captions, is kept on GitHub as the assets of the
+pre-release [`explainer-film`](https://github.com/petfold/ontodag/releases/tag/explainer-film),
+so that the repository's history carries no video. The tag does not begin
+with `v`, so it releases nothing to PyPI. After a rebuild worth keeping:
+
+    gh release upload explainer-film out/ontodag-explained.mp4 \
+        out/ontodag-explained.srt --clobber
+
 ## What the film may say
 
 Every command, answer and root on the screen is `odag`'s own. `facts.py`

@@ -3523,5 +3523,15 @@ tone suits it, and whether "OntoDAG" is said as Peter says it (here
 ON-toe-dag), only a listener can tell; both are one line in
 `narration.py` or `voice.py` and a rebuild.
 
-**Left for Peter.** Where the film is published, and a link from
-README.md. The batch reminder was raised again and is unanswered.
+**Saved.** Peter asked whether all of it could go to GitHub by a push.
+The source already had; the film fits (17 MB against GitHub's 100 MB a
+file) but would double the repository (15.6 MB) and add as much again at
+every re-render, and the voice's model files (326 MB, 208 MB) cannot go
+at all, so the README names them by hash. Of a release asset, a commit
+and waiting, Peter chose the asset: the film and its captions are on the
+pre-release `explainer-film` (at 19a53ee; the first GitHub release of
+this repository; downloaded back and compared, byte for byte; no workflow
+ran for the tag).
+
+**Left for Peter.** A link from README.md, and showing the film anywhere
+else. The batch reminder was raised again and is unanswered.

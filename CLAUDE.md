@@ -669,10 +669,13 @@ Each line points to its record.
 - Made 2026-11-17 at Peter's asking: the explainer film
   (`demo/explainer/`), 5 minutes 26 seconds, narrated in British English
   by Kokoro's `bf_emma` (Peter chose the engine and a woman's voice). The
-  film is on this laptop only (`demo/explainer/out/ontodag-explained.mp4`,
-  17 MB, not tracked) and nobody has listened to it yet: the voice was
-  checked by transcribing it (`listen.py`), not by ear. Where it is
-  published, and a link from README.md, are Peter's word.
+  film is not tracked (`demo/explainer/out/`, 17 MB); a copy and its
+  captions are the assets of the GitHub pre-release `explainer-film`
+  (Peter chose that over a commit, 2026-11-17; no `v`, so nothing went to
+  PyPI; replace them with `gh release upload ... --clobber`). Nobody has
+  listened to it yet: the voice was checked by transcribing it
+  (`listen.py`), not by ear. A link from README.md, and showing it
+  anywhere else, are Peter's word.
 - Released 2026-11-12 on Peter's word ("do your Now list", and "You push
   it" when the session's permission check had refused the tag), verified
   from PyPI: ontodag 0.35.1. Filing an item costs about a third of what it
