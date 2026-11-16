@@ -61,9 +61,19 @@ To hear another speaker, or another pace, change `VOICE` or `SPEED` in
 `narration.py` and build again: every picture follows the new timing.
 
     uv venv --python 3.12 ../../../.venv-voice
-    uv pip install --python ../../../.venv-voice/bin/python kokoro-onnx
+    uv pip install --python ../../../.venv-voice/bin/python \
+        kokoro-onnx==0.6.1 onnxruntime==1.31.1
     # kokoro-v1.0.onnx and voices-v1.0.bin, from kokoro-onnx's release
     # "model-files-v1.0", go in ../../../.venv-voice/models/
+
+The model files are too large for this repository (GitHub takes no file
+over 100 MB), so they are fetched from where their makers publish them.
+These are the ones the film was made with (sha256):
+
+    7d5df8ecf7d4b1878015a32686053fd0eebe2bc377234608764cc0ef3636a6c5  kokoro-v1.0.onnx  (326 MB)
+    bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  voices-v1.0.bin  (28 MB)
+    1cc86302d480b061452d348638064383ab41b6f3333ddd0e423532d14edaf535  whisper-base.en/encoder_model.onnx  (82 MB)
+    381195952316e01d2cd5f3e51611e56959e660909a1f636de151af13166d23cc  whisper-base.en/decoder_model.onnx  (208 MB)
 
 Three things about the voice are worth knowing before changing the script.
 
