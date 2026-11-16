@@ -12,6 +12,7 @@ to add a section somewhere, check it isn't another document's job.
 | [REFERENCE.md](REFERENCE.md) | **Reference.** Every command, setting, kind, endpoint, tool — compact, definition-first. Tables pinned to the code by `tests/test_reference.py`. |
 | [HOW_IT_WORKS.md](HOW_IT_WORKS.md) | **Explanation.** The ideas — canonical form, cones, merge — and why. |
 | [UNIT_TABLE.md](UNIT_TABLE.md) | **Generated reference.** Every unit spelling, built-in and per pack. |
+| [../demo/explainer/](../demo/explainer/README.md) | **A film.** Five and a half minutes, narrated: the ideas of HOW_IT_WORKS for someone who has seen nothing yet. Drawn by code; every command and answer on its screen is `odag`'s own. |
 
 ## Design records (describe what is built and agreed)
 

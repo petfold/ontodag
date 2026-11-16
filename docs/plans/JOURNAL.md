@@ -3458,3 +3458,70 @@ reviewers met that concern ontodag: the page takes `?pyodide=` and
 `?gateway=` from the link, as loopmarket's does (its question 62), and
 through a gateway a feed update is taken unchecked though `signerOf`
 ships (its BR-7).
+
+## 2026-11-17: the explainer film
+
+Peter asked for a motion-graphics explanation of OntoDAG, five to ten
+minutes, elegant and simple, from simple examples to harder ones, with a
+voice in British English. It is `demo/explainer/`: 5 minutes 26 seconds,
+1920 by 1080, eleven scenes (title; folders and tags; filing; asking; the
+one rule; the root; merging; values; proof; where a store lives; close).
+
+**Decided by Peter** (a question dialog, since the laptop had no voice
+but espeak and installs are to stay few): Kokoro, in a venv of its own
+(`../.venv-voice`: kokoro-onnx 0.6.1, onnxruntime 1.31.1, releases at
+least two weeks old), and a woman's voice (`bf_emma`).
+
+**How it is made.** Three steps, each where its needs are installed:
+`facts.py` (the family venv) runs the film's examples on the real `odag`
+and writes what came back; `voice.py` (the voice venv) speaks
+`narration.py` and writes when every line and word is heard; `render.py`
+(the system Python's cairo and gi) draws `scenes.py` with a small engine,
+`anim.py`, and ffmpeg encodes. The pictures are timed against the
+narration's lines and words, so they follow any voice at any pace. What
+the screen quotes is `odag`'s own: the root `ff615aa5…` of the trip's
+store, the same root from another order with detours, Alice's and Bob's
+roots meeting at `4ad23761…`, the refusal of a loop, the summer's
+flights, `mass(500g)` kept as `mass(1/2kg)` and a pound as
+`mass(45359237/100000000kg)`, a certificate of five records.
+`tests/test_explainer.py` runs the same checks in the suite (3.8 s; the
+README's count is 1648).
+
+**Measured.** 797 words; the voice at 0.88 of its own pace speaks 4.2
+syllables a second (4.4 at 0.94, brisk for an explanation). The facts
+take 4 s (eleven runs of `odag`; some seventy at first, 25 s), the voice
+5 minutes the first time, the pictures 2 minutes in three slices; the
+film is 17 MB (video 260 kbit/s, sound 155). Frames decoded from the film
+match the frames the source draws, at the slices' joins too (mean
+difference 1 in 255).
+
+**The voice, checked without ears.** Claude cannot hear, so `listen.py`
+transcribes every line with Whisper base.en (run by the same onnxruntime;
+its files beside Kokoro's) and compares. It found three things.
+- espeak's phonemes were wrong for "OntoDAG" (spelled out), "acyclic"
+  (with a k) and "Kyoto", and Kokoro wants its own spelling of the
+  diphthongs: `voice.py` converts, with a lexicon, and gives the bath
+  words their southern vowel.
+- A sentence of two or three words spoken alone ends in a voiced murmur:
+  "One rule." was heard as "One real, sir", "Why so strict?" as "Why so
+  strictor?". The murmur is voiced (about 135 Hz, 20 dB under the
+  peak), follows the final mark, and goes when the sentence is spoken
+  with its neighbour. Speaking a whole line in one breath removed it but
+  lost the pauses (the voice runs short sentences together as a list),
+  and a longer speaking style did not help. So the script keeps every
+  utterance at four words or more, and `voice.py` refuses a shorter one.
+- The time of a word is estimated (the model reports none): pauses are
+  matched to punctuation by the best fit over all the ways, with words
+  weighted by syllables. A first greedy matching put "a browser" a
+  second late.
+After that, 35 of 43 lines transcribe word for word, and the other eight
+differ in the recogniser's spelling (`route`, `15 August`, the name) or
+in a small word it took for its like (`is` for `as`, `one's` for `one`).
+
+**Not checked.** Nobody has listened to the film. Whether the voice's
+tone suits it, and whether "OntoDAG" is said as Peter says it (here
+ON-toe-dag), only a listener can tell; both are one line in
+`narration.py` or `voice.py` and a rebuild.
+
+**Left for Peter.** Where the film is published, and a link from
+README.md. The batch reminder was raised again and is unanswered.

@@ -106,7 +106,10 @@ Elsewhere: `tests/` (fixtures in `tests/fixtures/`), `scripts/`
 Playwright check outside the suite), `experiments/` (one-off probes, and
 `cgagviz.py`, the October 2024 prototype that came out of `mypip/`, a
 virtualenv committed by accident and untracked by question 22),
-`demo/pyodide/` (the in-browser page) and `paper/` (two manuscripts).
+`demo/pyodide/` (the in-browser page), `demo/explainer/` (the explainer
+film: its narration, a small animation engine and its scenes, built by
+`build.sh`; `tests/test_explainer.py` holds what it shows to the code)
+and `paper/` (two manuscripts).
 
 ## Tests, lint and CI
 
@@ -122,6 +125,11 @@ virtualenv committed by accident and untracked by question 22),
   their checkouts and third-party releases at least two weeks old
   (`../.venv/installed-2026-11-12.txt`). Here `python3` in this file
   means `../.venv/bin/python`; the system Python has no recordstore.
+- The explainer film is built outside the suite: its voice from
+  `../.venv-voice` (Python 3.12, kokoro-onnx 0.6.1, the Kokoro model and
+  a Whisper model that checks what was said; made 2026-11-17 on Peter's
+  word, `../.venv-voice/installed-2026-11-17.txt`), its pictures by the
+  system Python's cairo and gi with ffmpeg (`demo/explainer/README.md`).
 - `CI=1 python3 -m pytest` also checks the test count README.md states
   (passed plus skipped). Run it before any tag.
 - Gated: `tests/test_swarm_bee.py` needs `BEE_API` and `BEE_BATCH`, and
@@ -646,7 +654,7 @@ Each line points to its record.
   item passes. Every run since July, with what each taught, is in the
   journal.
 
-## State (2026-11-13)
+## State (2026-11-17)
 
 - **Reminder for Peter, due before 2026-11-24:** the batch `b57c159c…`
   runs out about then and takes with it the packs, their cone summaries,
@@ -655,8 +663,16 @@ Each line points to its record.
   7.8 xBZZ for three more weeks) and moving what is kept to a batch of
   this node, which also needs the keep-lists, swarm-keep and feeds under
   keys held here (`../STAMPS.md`, "Since the move"). Asked on 2026-11-12,
-  Peter chose to do nothing for now. Raise it at the start of any session
-  until he decides or the batch runs out.
+  Peter chose to do nothing for now; raised again on 2026-11-17, not yet
+  answered. Raise it at the start of any session until he decides or the
+  batch runs out.
+- Made 2026-11-17 at Peter's asking: the explainer film
+  (`demo/explainer/`), 5 minutes 26 seconds, narrated in British English
+  by Kokoro's `bf_emma` (Peter chose the engine and a woman's voice). The
+  film is on this laptop only (`demo/explainer/out/ontodag-explained.mp4`,
+  17 MB, not tracked) and nobody has listened to it yet: the voice was
+  checked by transcribing it (`listen.py`), not by ear. Where it is
+  published, and a link from README.md, are Peter's word.
 - Released 2026-11-12 on Peter's word ("do your Now list", and "You push
   it" when the session's permission check had refused the tag), verified
   from PyPI: ontodag 0.35.1. Filing an item costs about a third of what it
